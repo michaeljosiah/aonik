@@ -22,16 +22,24 @@ public class GenerateInvoiceInsightEndpoint : EndpointWithoutRequest<InsightResp
     public override async Task HandleAsync(CancellationToken ct)
     {
         var id = Route<Guid>("id");
-        var result = await _aiInsightsService.GenerateInvoiceInsightAsync(id, ct);
+        
+        try
+        {
+            var result = await _aiInsightsService.GenerateInvoiceInsightAsync(id, ct);
 
-        var response = new InsightResponse(
-            result.Id,
-            result.SubjectType,
-            result.SubjectId,
-            result.Title,
-            result.Summary,
-            result.CreatedUtc);
+            var response = new InsightResponse(
+                result.Id,
+                result.SubjectType,
+                result.SubjectId,
+                result.Title,
+                result.Summary,
+                result.CreatedUtc);
 
-        await Send.OkAsync(response, ct);
+            await Send.OkAsync(response, ct);
+        }
+        catch (InvalidOperationException)
+        {
+            await Send.NotFoundAsync(ct);
+        }
     }
 }

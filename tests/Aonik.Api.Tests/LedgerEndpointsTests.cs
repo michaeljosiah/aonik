@@ -1,0 +1,85 @@
+using System.Net;
+using System.Net.Http.Json;
+using Aonik.Api.Contracts.Ledger;
+using FluentAssertions;
+
+namespace Aonik.Api.Tests;
+
+public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public LedgerEndpointsTests(CustomWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task CreateLedgerAccount_ReturnsCreated()
+    {
+        // Arrange
+        var request = new CreateLedgerAccountRequest("Cash", "USD");
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/ledger/accounts", request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        
+        var account = await response.Content.ReadFromJsonAsync<LedgerAccountResponse>();
+        account.Should().NotBeNull();
+        account!.Name.Should().Be("Cash");
+        account.Currency.Should().Be("USD");
+    }
+
+    [Fact]
+    public async Task AddJournalEntry_ReturnsCreated()
+    {
+        // Arrange - Create account first
+        var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
+        var accountResponse = await _client.PostAsJsonAsync("/ledger/accounts", accountRequest);
+        var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
+
+        var entryRequest = new AddJournalEntryRequest(
+            account!.Id,
+            500.00m,
+            "USD",
+            "REF-001",
+            "Payment received");
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/ledger/journal-entries", entryRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        
+        var entry = await response.Content.ReadFromJsonAsync<JournalEntryResponse>();
+        entry.Should().NotBeNull();
+        entry!.AccountId.Should().Be(account.Id);
+        entry.Amount.Should().Be(500.00m);
+        entry.Reference.Should().Be("REF-001");
+        entry.Description.Should().Be("Payment received");
+    }
+
+    [Fact]
+    public async Task AddJournalEntry_WithMultipleEntries_ShouldCreateAll()
+    {
+        // Arrange
+        var accountRequest = new CreateLedgerAccountRequest("Operations", "USD");
+        var accountResponse = await _client.PostAsJsonAsync("/ledger/accounts", accountRequest);
+        var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
+
+        // Act
+        var entry1Response = await _client.PostAsJsonAsync("/ledger/journal-entries",
+            new AddJournalEntryRequest(account!.Id, 100.00m, "USD", "REF-001", "Entry 1"));
+        var entry2Response = await _client.PostAsJsonAsync("/ledger/journal-entries",
+            new AddJournalEntryRequest(account.Id, 200.00m, "USD", "REF-002", "Entry 2"));
+        var entry3Response = await _client.PostAsJsonAsync("/ledger/journal-entries",
+            new AddJournalEntryRequest(account.Id, -50.00m, "USD", "REF-003", "Entry 3"));
+
+        // Assert
+        entry1Response.StatusCode.Should().Be(HttpStatusCode.Created);
+        entry2Response.StatusCode.Should().Be(HttpStatusCode.Created);
+        entry3Response.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+}

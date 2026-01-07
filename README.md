@@ -79,6 +79,64 @@ Concrete implementation details will mature as the project evolves.
 
 ---
 
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
+- SQL Server LocalDB (included with Visual Studio or SQL Server Express)
+
+### Running the API
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/aonik.git
+cd aonik
+
+# Restore dependencies and build
+dotnet build
+
+# Apply database migrations
+dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+
+# Run the API
+dotnet run --project src/Aonik.Api
+```
+
+The API will start on `https://localhost:5001` with Swagger UI available at `https://localhost:5001/swagger`
+
+### Running Tests
+
+```bash
+# Run all tests
+dotnet test
+
+# Run tests with detailed output
+dotnet test --logger "console;verbosity=detailed"
+
+# Run tests for a specific project
+dotnet test tests/Aonik.Application.Tests
+```
+
+### Quick Commands
+
+```bash
+# Build the entire solution
+dotnet build Aonik.sln
+
+# Clean and rebuild
+dotnet clean && dotnet build
+
+# Run specific test by filter
+dotnet test --filter "DisplayName~CreateInvoice"
+```
+
+For detailed coding guidelines and architecture information, see:
+- `AGENTS.md` - Coding standards and build commands
+- `docs/Architecture.md` - Comprehensive architecture documentation
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome and encouraged.
