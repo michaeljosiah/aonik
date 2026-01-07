@@ -1,0 +1,6 @@
+@Aonik.Api_HostAddress = http://localhost:5049
+
+GET {{Aonik.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
