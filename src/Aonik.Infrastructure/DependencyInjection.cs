@@ -15,12 +15,23 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Database
-        var connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? "(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
+        // Database - support both SQL Server and InMemory for testing
+        var useInMemory = configuration["UseInMemoryDatabase"];
+        
+        if (useInMemory == "true")
+        {
+            var dbName = configuration["InMemoryDatabaseName"] ?? "AonikTestDb";
+            services.AddDbContext<AonikDbContext>(options =>
+                options.UseInMemoryDatabase(dbName));
+        }
+        else
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection") 
+                ?? "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
 
-        services.AddDbContext<AonikDbContext>(options =>
-            options.UseSqlServer(connectionString));
+            services.AddDbContext<AonikDbContext>(options =>
+                options.UseSqlServer(connectionString));
+        }
 
         services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
 

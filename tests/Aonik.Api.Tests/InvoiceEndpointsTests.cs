@@ -6,6 +6,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Api.Tests;
@@ -99,26 +100,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            // Use in-memory configuration to enable InMemory database for tests
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["UseInMemoryDatabase"] = "true",
+                ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid()
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
-            // Remove all DbContext-related registrations
-            var descriptors = services.Where(d =>
-                d.ServiceType == typeof(DbContextOptions) ||
-                d.ServiceType == typeof(DbContextOptions<AonikDbContext>) ||
-                d.ServiceType == typeof(AonikDbContext)).ToList();
-            
-            foreach (var descriptor in descriptors)
-            {
-                services.Remove(descriptor);
-            }
-
-            // Add DbContext using InMemory database for tests
-            services.AddDbContext<AonikDbContext>(options =>
-            {
-                options.UseInMemoryDatabase("TestDb" + Guid.NewGuid());
-            });
-
-            // Build the service provider and create the database
+            // Build the service provider and ensure database is created
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
