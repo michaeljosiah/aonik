@@ -27,7 +27,7 @@ public class InvoiceInsightWorkflow
     {
         // Step 1: Load invoice data
         var invoice = await _dbContext.Invoices
-            .Include(i => i.LineItems)
+            .Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
 
         if (invoice == null)
@@ -50,11 +50,11 @@ public class InvoiceInsightWorkflow
 
         // Step 3: Build user prompt with invoice data
         var invoiceData = $@"
-Invoice Number: {invoice.InvoiceNumber}
-Total Amount: {invoice.TotalAmount} {invoice.Currency}
+Invoice Number: N/A
+Total Amount: {invoice.Total} {invoice.Currency}
 Status: {invoice.Status}
-Due Date: {invoice.DueUtc:yyyy-MM-dd}
-Line Items Count: {invoice.LineItems.Count}
+Due Date: {invoice.DueDate:yyyy-MM-dd}
+Line Items Count: {invoice.Lines.Count}
 ";
 
         var userPrompt = userPromptTemplate.Replace("{{INVOICE_DATA}}", invoiceData);
@@ -66,11 +66,16 @@ Line Items Count: {invoice.LineItems.Count}
             cancellationToken);
 
         // Step 5: Create and save insight
-        var insight = new Insight(
-            "Invoice",
-            invoiceId,
-            $"Insight for Invoice {invoice.InvoiceNumber}",
-            completion);
+        var insight = new Insight
+        {
+            Id = Guid.NewGuid(),
+            InsightId = Guid.NewGuid(),
+            SubjectType = "Invoice",
+            SubjectId = invoiceId,
+            Title = "Insight for Invoice",
+            Summary = completion,
+            MetadataJson = "{}"
+        };
 
         _dbContext.Insights.Add(insight);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -81,6 +86,6 @@ Line Items Count: {invoice.LineItems.Count}
             insight.SubjectId,
             insight.Title,
             insight.Summary,
-            insight.CreatedUtc);
+            DateTime.UtcNow);
     }
 }

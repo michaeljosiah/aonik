@@ -4,26 +4,12 @@ namespace Aonik.Domain.Orders.Entities;
 
 public class OrderHistoryEvent : AuditableEntity, ITenantScoped
 {
-    public Guid OrderHistoryEventId { get; private set; }
-    public Guid TenantId { get; private set; }
-    public Guid OrderId { get; private set; }
-    public string EventType { get; private set; } = string.Empty;
-    public DateTime EventAt { get; private set; }
-    public string ActorType { get; private set; } = string.Empty;
-    public Guid ActorId { get; private set; }
-    public string DetailsJson { get; private set; } = string.Empty;
-
-    private OrderHistoryEvent() { }
-
-    public OrderHistoryEvent(Guid tenantId, Guid orderId, string eventType, string actorType, Guid actorId, string detailsJson = "{}")
-    {
-        OrderHistoryEventId = Id;
-        TenantId = tenantId;
-        OrderId = orderId;
-        EventType = eventType;
-        EventAt = DateTime.UtcNow;
-        ActorType = actorType;
-        ActorId = actorId;
-        DetailsJson = detailsJson;
-    }
+    public Guid OrderHistoryEventId { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid OrderId { get; set; }
+    public string EventType { get; set; } = string.Empty;
+    public DateTime EventAt { get; set; }
+    public string ActorType { get; set; } = string.Empty;
+    public Guid ActorId { get; set; }
+    public string DetailsJson { get; set; } = string.Empty;
 }

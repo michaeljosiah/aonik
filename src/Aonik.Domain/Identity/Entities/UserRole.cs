@@ -4,17 +4,8 @@ namespace Aonik.Domain.Identity.Entities;
 
 public class UserRole : AuditableEntity
 {
-    public Guid UserId { get; private set; }
-    public Guid RoleId { get; private set; }
-
-    public User User { get; private set; } = null!;
-    public Role Role { get; private set; } = null!;
-
-    private UserRole() { }
-
-    public UserRole(Guid userId, Guid roleId)
-    {
-        UserId = userId;
-        RoleId = roleId;
-    }
+    public Guid UserId { get; set; }
+    public Guid RoleId { get; set; }
+    public User User { get; set; } = null!;
+    public Role Role { get; set; } = null!;
 }

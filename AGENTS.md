@@ -118,18 +118,29 @@ src/Aonik.Api/Endpoints/Billing/CreateInvoiceEndpoint.cs
 
 ## 🏗️ Domain & Entity Patterns
 
-### Domain Entities
+### Domain Entities (Anemic Model)
+This project uses **anemic domain entities** - entities are simple data containers without business logic.
+
 - Inherit from `Entity` base class (provides `Guid Id` and equality)
-- Use **private setters** for properties: `public string Name { get; private set; }`
-- Use **private parameterless constructor** for EF Core: `private Invoice() { }`
-- Use **public constructor** with required parameters for domain creation
-- Collections: Private `List<T>`, exposed as `IReadOnlyCollection<T>`
+- **Properties**: All properties use public `{ get; set; }`
+- **Collections**: Simple `List<T>` properties with public get/set
+- **NO constructors**: Rely on object initializers
+- **NO methods**: NO business logic, NO state change methods, NO validation methods
+- **NO private fields**: All data is exposed as properties
+
+**Example:**
 ```csharp
-private readonly List<InvoiceLineItem> _lineItems = new();
-public IReadOnlyCollection<InvoiceLineItem> LineItems => _lineItems.AsReadOnly();
+public class Invoice : AuditableEntity, ITenantScoped
+{
+    public Guid InvoiceId { get; set; }
+    public Guid TenantId { get; set; }
+    public Guid CustomerAccountId { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public decimal Total { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public List<InvoiceLine> Lines { get; set; } = new();
+}
 ```
-- Use **methods for state changes**: `MarkAsPaid()`, `AddLineItem()`, not property setters
-- **Guard domain invariants** in methods with exceptions
 
 ### Value Objects
 - Use **records** for immutability: `public record Money(decimal Amount, string Currency);`
@@ -140,11 +151,32 @@ public IReadOnlyCollection<InvoiceLineItem> LineItems => _lineItems.AsReadOnly()
 ## 📦 Application Layer Patterns
 
 ### Services
+ALL business logic resides in application services, NOT in entities.
+
 - Interface + implementation: `IBillingService` / `BillingService`
 - Constructor injection: Inject `IAonikDbContext` or abstractions
 - Return **DTOs**, not domain entities
 - Use **async Task<T>** for all I/O operations
 - Private mapping methods: `private static InvoiceResponse MapToResponse(Invoice invoice)`
+- **Business logic**: State transitions, calculations, validations all in services
+- Services manipulate entity properties directly
+
+**Example:**
+```csharp
+public async Task IssueInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
+{
+    var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+    
+    if (invoice == null)
+        throw new InvalidOperationException($"Invoice {invoiceId} not found");
+    
+    if (invoice.Status != "Draft")
+        throw new InvalidOperationException("Only draft invoices can be issued");
+    
+    invoice.Status = "Issued";
+    await _dbContext.SaveChangesAsync(cancellationToken);
+}
+```
 
 ### DTOs & Models
 - Use **records** for request/response: `public record CreateInvoiceRequest(...);`
