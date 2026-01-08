@@ -30,110 +30,110 @@ namespace Aonik.Application.Abstractions.Persistence;
 public interface IAonikDbContext
 {
     // Identity
-    DbSet<Tenant> Tenants { get; }
-    DbSet<User> Users { get; }
-    DbSet<Role> Roles { get; }
-    DbSet<Permission> Permissions { get; }
-    DbSet<UserRole> UserRoles { get; }
-    DbSet<RolePermission> RolePermissions { get; }
+    DbSet<Tenant> Tenants { get; set; }
+    DbSet<User> Users { get; set; }
+    DbSet<Role> Roles { get; set; }
+    DbSet<Permission> Permissions { get; set; }
+    DbSet<UserRole> UserRoles { get; set; }
+    DbSet<RolePermission> RolePermissions { get; set; }
 
     // Party
-    DbSet<PartyEntity> Parties { get; }
-    DbSet<PartyAddress> PartyAddresses { get; }
-    DbSet<PartyContact> PartyContacts { get; }
-    DbSet<PartyConsent> PartyConsents { get; }
-    DbSet<PersonProfile> PersonProfiles { get; }
-    DbSet<BusinessProfile> BusinessProfiles { get; }
-    DbSet<ExternalAccount> ExternalAccounts { get; }
-    DbSet<PartyRoleAssignment> PartyRoleAssignments { get; }
+    DbSet<PartyEntity> Parties { get; set; }
+    DbSet<PartyAddress> PartyAddresses { get; set; }
+    DbSet<PartyContact> PartyContacts { get; set; }
+    DbSet<PartyConsent> PartyConsents { get; set; }
+    DbSet<PersonProfile> PersonProfiles { get; set; }
+    DbSet<BusinessProfile> BusinessProfiles { get; set; }
+    DbSet<ExternalAccount> ExternalAccounts { get; set; }
+    DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; }
 
     // Ledger
-    DbSet<LedgerEntity> Ledgers { get; }
-    DbSet<LedgerAccount> LedgerAccounts { get; }
-    DbSet<JournalEntry> JournalEntries { get; }
-    DbSet<JournalEntryLine> JournalEntryLines { get; }
-    DbSet<BalanceSnapshot> BalanceSnapshots { get; }
+    DbSet<LedgerEntity> Ledgers { get; set; }
+    DbSet<LedgerAccount> LedgerAccounts { get; set; }
+    DbSet<JournalEntry> JournalEntries { get; set; }
+    DbSet<JournalEntryLine> JournalEntryLines { get; set; }
+    DbSet<BalanceSnapshot> BalanceSnapshots { get; set; }
 
     // Payments
-    DbSet<PaymentIntent> PaymentIntents { get; }
-    DbSet<Payment> Payments { get; }
-    DbSet<Payout> Payouts { get; }
-    DbSet<Refund> Refunds { get; }
-    DbSet<Chargeback> Chargebacks { get; }
+    DbSet<PaymentIntent> PaymentIntents { get; set; }
+    DbSet<Payment> Payments { get; set; }
+    DbSet<Payout> Payouts { get; set; }
+    DbSet<Refund> Refunds { get; set; }
+    DbSet<Chargeback> Chargebacks { get; set; }
 
     // Billing
-    DbSet<Invoice> Invoices { get; }
-    DbSet<InvoiceLine> InvoiceLines { get; }
-    DbSet<CustomerAccount> CustomerAccounts { get; }
-    DbSet<InvoiceAllocation> InvoiceAllocations { get; }
-    DbSet<DunningPlan> DunningPlans { get; }
+    DbSet<Invoice> Invoices { get; set; }
+    DbSet<InvoiceLine> InvoiceLines { get; set; }
+    DbSet<CustomerAccount> CustomerAccounts { get; set; }
+    DbSet<InvoiceAllocation> InvoiceAllocations { get; set; }
+    DbSet<DunningPlan> DunningPlans { get; set; }
 
     // Partners
-    DbSet<Partner> Partners { get; }
-    DbSet<PartnerBranch> PartnerBranches { get; }
-    DbSet<Connector> Connectors { get; }
-    DbSet<RoutingRule> RoutingRules { get; }
-    DbSet<PayoutSchema> PayoutSchemas { get; }
-    DbSet<Transmission> Transmissions { get; }
+    DbSet<Partner> Partners { get; set; }
+    DbSet<PartnerBranch> PartnerBranches { get; set; }
+    DbSet<Connector> Connectors { get; set; }
+    DbSet<RoutingRule> RoutingRules { get; set; }
+    DbSet<PayoutSchema> PayoutSchemas { get; set; }
+    DbSet<Transmission> Transmissions { get; set; }
 
     // Pricing
-    DbSet<FeePolicy> FeePolicies { get; }
-    DbSet<FxQuote> FxQuotes { get; }
-    DbSet<LimitsPolicy> LimitsPolicies { get; }
+    DbSet<FeePolicy> FeePolicies { get; set; }
+    DbSet<FxQuote> FxQuotes { get; set; }
+    DbSet<LimitsPolicy> LimitsPolicies { get; set; }
 
     // Compliance
-    DbSet<ScreeningCheck> ScreeningChecks { get; }
-    DbSet<ComplianceCase> ComplianceCases { get; }
-    DbSet<AuditLog> AuditLogs { get; }
+    DbSet<ScreeningCheck> ScreeningChecks { get; set; }
+    DbSet<ComplianceCase> ComplianceCases { get; set; }
+    DbSet<AuditLog> AuditLogs { get; set; }
 
     // Operations
-    DbSet<WorkItem> WorkItems { get; }
-    DbSet<Job> Jobs { get; }
+    DbSet<WorkItem> WorkItems { get; set; }
+    DbSet<Job> Jobs { get; set; }
 
     // Notifications
-    DbSet<Notification> Notifications { get; }
-    DbSet<WebhookSubscription> WebhookSubscriptions { get; }
+    DbSet<Notification> Notifications { get; set; }
+    DbSet<WebhookSubscription> WebhookSubscriptions { get; set; }
 
     // AI
-    DbSet<AiProvider> AiProviders { get; }
-    DbSet<AiModel> AiModels { get; }
-    DbSet<AiRoutePolicy> AiRoutePolicies { get; }
-    DbSet<PromptSpec> PromptSpecs { get; }
-    DbSet<ToolSpec> ToolSpecs { get; }
-    DbSet<AiPolicy> AiPolicies { get; }
-    DbSet<AiRun> AiRuns { get; }
-    DbSet<AiTrace> AiTraces { get; }
-    DbSet<AiFeedback> AiFeedbacks { get; }
-    DbSet<EvalSuite> EvalSuites { get; }
-    DbSet<EvalRun> EvalRuns { get; }
-    DbSet<Insight> Insights { get; }
-    DbSet<Signal> Signals { get; }
+    DbSet<AiProvider> AiProviders { get; set; }
+    DbSet<AiModel> AiModels { get; set; }
+    DbSet<AiRoutePolicy> AiRoutePolicies { get; set; }
+    DbSet<PromptSpec> PromptSpecs { get; set; }
+    DbSet<ToolSpec> ToolSpecs { get; set; }
+    DbSet<AiPolicy> AiPolicies { get; set; }
+    DbSet<AiRun> AiRuns { get; set; }
+    DbSet<AiTrace> AiTraces { get; set; }
+    DbSet<AiFeedback> AiFeedbacks { get; set; }
+    DbSet<EvalSuite> EvalSuites { get; set; }
+    DbSet<EvalRun> EvalRuns { get; set; }
+    DbSet<Insight> Insights { get; set; }
+    DbSet<Signal> Signals { get; set; }
 
     // Agents
-    DbSet<Agent> Agents { get; }
-    DbSet<AgentRun> AgentRuns { get; }
-    DbSet<OrchestratorPolicy> OrchestratorPolicies { get; }
-    DbSet<Proposal> Proposals { get; }
+    DbSet<Agent> Agents { get; set; }
+    DbSet<AgentRun> AgentRuns { get; set; }
+    DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; }
+    DbSet<Proposal> Proposals { get; set; }
 
     // Orders
-    DbSet<Order> Orders { get; }
-    DbSet<OrderPartyRole> OrderPartyRoles { get; }
-    DbSet<OrderFundingRef> OrderFundingRefs { get; }
-    DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; }
-    DbSet<OrderHistoryEvent> OrderHistoryEvents { get; }
-    DbSet<OrderNote> OrderNotes { get; }
+    DbSet<Order> Orders { get; set; }
+    DbSet<OrderPartyRole> OrderPartyRoles { get; set; }
+    DbSet<OrderFundingRef> OrderFundingRefs { get; set; }
+    DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; }
+    DbSet<OrderHistoryEvent> OrderHistoryEvents { get; set; }
+    DbSet<OrderNote> OrderNotes { get; set; }
 
     // Personal Finance
-    DbSet<PersonalProfile> PersonalProfiles { get; }
-    DbSet<Household> Households { get; }
-    DbSet<HouseholdMember> HouseholdMembers { get; }
-    DbSet<PersonalTransaction> PersonalTransactions { get; }
-    DbSet<CategorisationRule> CategorisationRules { get; }
-    DbSet<BudgetLine> BudgetLines { get; }
-    DbSet<Bill> Bills { get; }
-    DbSet<Subscription> Subscriptions { get; }
-    DbSet<Goal> Goals { get; }
-    DbSet<Budget> Budgets { get; }
+    DbSet<PersonalProfile> PersonalProfiles { get; set; }
+    DbSet<Household> Households { get; set; }
+    DbSet<HouseholdMember> HouseholdMembers { get; set; }
+    DbSet<PersonalTransaction> PersonalTransactions { get; set; }
+    DbSet<CategorisationRule> CategorisationRules { get; set; }
+    DbSet<BudgetLine> BudgetLines { get; set; }
+    DbSet<Bill> Bills { get; set; }
+    DbSet<Subscription> Subscriptions { get; set; }
+    DbSet<Goal> Goals { get; set; }
+    DbSet<Budget> Budgets { get; set; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

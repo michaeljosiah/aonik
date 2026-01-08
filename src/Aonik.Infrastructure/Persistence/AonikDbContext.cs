@@ -37,110 +37,110 @@ public class AonikDbContext : DbContext, IAonikDbContext
     private readonly ITenantProvider? _tenantProvider;
 
     // Identity
-    public DbSet<Tenant> Tenants => Set<Tenant>();
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Role> Roles => Set<Role>();
-    public DbSet<Permission> Permissions => Set<Permission>();
-    public DbSet<UserRole> UserRoles => Set<UserRole>();
-    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public virtual DbSet<Tenant> Tenants { get; set; } = null!;
+    public virtual DbSet<User> Users { get; set; } = null!;
+    public virtual DbSet<Role> Roles { get; set; } = null!;
+    public virtual DbSet<Permission> Permissions { get; set; } = null!;
+    public virtual DbSet<UserRole> UserRoles { get; set; } = null!;
+    public virtual DbSet<RolePermission> RolePermissions { get; set; } = null!;
 
     // Party
-    public DbSet<PartyEntity> Parties => Set<PartyEntity>();
-    public DbSet<PartyAddress> PartyAddresses => Set<PartyAddress>();
-    public DbSet<PartyContact> PartyContacts => Set<PartyContact>();
-    public DbSet<PartyConsent> PartyConsents => Set<PartyConsent>();
-    public DbSet<PersonProfile> PersonProfiles => Set<PersonProfile>();
-    public DbSet<BusinessProfile> BusinessProfiles => Set<BusinessProfile>();
-    public DbSet<ExternalAccount> ExternalAccounts => Set<ExternalAccount>();
-    public DbSet<PartyRoleAssignment> PartyRoleAssignments => Set<PartyRoleAssignment>();
+    public virtual DbSet<PartyEntity> Parties { get; set; } = null!;
+    public virtual DbSet<PartyAddress> PartyAddresses { get; set; } = null!;
+    public virtual DbSet<PartyContact> PartyContacts { get; set; } = null!;
+    public virtual DbSet<PartyConsent> PartyConsents { get; set; } = null!;
+    public virtual DbSet<PersonProfile> PersonProfiles { get; set; } = null!;
+    public virtual DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
+    public virtual DbSet<ExternalAccount> ExternalAccounts { get; set; } = null!;
+    public virtual DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
 
     // Ledger
-    public DbSet<LedgerEntity> Ledgers => Set<LedgerEntity>();
-    public DbSet<LedgerAccount> LedgerAccounts => Set<LedgerAccount>();
-    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
-    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
-    public DbSet<BalanceSnapshot> BalanceSnapshots => Set<BalanceSnapshot>();
+    public virtual DbSet<LedgerEntity> Ledgers { get; set; } = null!;
+    public virtual DbSet<LedgerAccount> LedgerAccounts { get; set; } = null!;
+    public virtual DbSet<JournalEntry> JournalEntries { get; set; } = null!;
+    public virtual DbSet<JournalEntryLine> JournalEntryLines { get; set; } = null!;
+    public virtual DbSet<BalanceSnapshot> BalanceSnapshots { get; set; } = null!;
 
     // Payments
-    public DbSet<PaymentIntent> PaymentIntents => Set<PaymentIntent>();
-    public DbSet<Payment> Payments => Set<Payment>();
-    public DbSet<Payout> Payouts => Set<Payout>();
-    public DbSet<Refund> Refunds => Set<Refund>();
-    public DbSet<Chargeback> Chargebacks => Set<Chargeback>();
+    public virtual DbSet<PaymentIntent> PaymentIntents { get; set; } = null!;
+    public virtual DbSet<Payment> Payments { get; set; } = null!;
+    public virtual DbSet<Payout> Payouts { get; set; } = null!;
+    public virtual DbSet<Refund> Refunds { get; set; } = null!;
+    public virtual DbSet<Chargeback> Chargebacks { get; set; } = null!;
 
     // Billing
-    public DbSet<Invoice> Invoices => Set<Invoice>();
-    public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
-    public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
-    public DbSet<InvoiceAllocation> InvoiceAllocations => Set<InvoiceAllocation>();
-    public DbSet<DunningPlan> DunningPlans => Set<DunningPlan>();
+    public virtual DbSet<Invoice> Invoices { get; set; } = null!;
+    public virtual DbSet<InvoiceLine> InvoiceLines { get; set; } = null!;
+    public virtual DbSet<CustomerAccount> CustomerAccounts { get; set; } = null!;
+    public virtual DbSet<InvoiceAllocation> InvoiceAllocations { get; set; } = null!;
+    public virtual DbSet<DunningPlan> DunningPlans { get; set; } = null!;
 
     // Partners
-    public DbSet<Partner> Partners => Set<Partner>();
-    public DbSet<PartnerBranch> PartnerBranches => Set<PartnerBranch>();
-    public DbSet<Connector> Connectors => Set<Connector>();
-    public DbSet<RoutingRule> RoutingRules => Set<RoutingRule>();
-    public DbSet<PayoutSchema> PayoutSchemas => Set<PayoutSchema>();
-    public DbSet<Transmission> Transmissions => Set<Transmission>();
+    public virtual DbSet<Partner> Partners { get; set; } = null!;
+    public virtual DbSet<PartnerBranch> PartnerBranches { get; set; } = null!;
+    public virtual DbSet<Connector> Connectors { get; set; } = null!;
+    public virtual DbSet<RoutingRule> RoutingRules { get; set; } = null!;
+    public virtual DbSet<PayoutSchema> PayoutSchemas { get; set; } = null!;
+    public virtual DbSet<Transmission> Transmissions { get; set; } = null!;
 
     // Pricing
-    public DbSet<FeePolicy> FeePolicies => Set<FeePolicy>();
-    public DbSet<FxQuote> FxQuotes => Set<FxQuote>();
-    public DbSet<LimitsPolicy> LimitsPolicies => Set<LimitsPolicy>();
+    public virtual DbSet<FeePolicy> FeePolicies { get; set; } = null!;
+    public virtual DbSet<FxQuote> FxQuotes { get; set; } = null!;
+    public virtual DbSet<LimitsPolicy> LimitsPolicies { get; set; } = null!;
 
     // Compliance
-    public DbSet<ScreeningCheck> ScreeningChecks => Set<ScreeningCheck>();
-    public DbSet<ComplianceCase> ComplianceCases => Set<ComplianceCase>();
-    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public virtual DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
+    public virtual DbSet<ComplianceCase> ComplianceCases { get; set; } = null!;
+    public virtual DbSet<AuditLog> AuditLogs { get; set; } = null!;
 
     // Operations
-    public DbSet<WorkItem> WorkItems => Set<WorkItem>();
-    public DbSet<Job> Jobs => Set<Job>();
+    public virtual DbSet<WorkItem> WorkItems { get; set; } = null!;
+    public virtual DbSet<Job> Jobs { get; set; } = null!;
 
     // Notifications
-    public DbSet<Notification> Notifications => Set<Notification>();
-    public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
+    public virtual DbSet<Notification> Notifications { get; set; } = null!;
+    public virtual DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
 
     // AI
-    public DbSet<AiProvider> AiProviders => Set<AiProvider>();
-    public DbSet<AiModel> AiModels => Set<AiModel>();
-    public DbSet<AiRoutePolicy> AiRoutePolicies => Set<AiRoutePolicy>();
-    public DbSet<PromptSpec> PromptSpecs => Set<PromptSpec>();
-    public DbSet<ToolSpec> ToolSpecs => Set<ToolSpec>();
-    public DbSet<AiPolicy> AiPolicies => Set<AiPolicy>();
-    public DbSet<AiRun> AiRuns => Set<AiRun>();
-    public DbSet<AiTrace> AiTraces => Set<AiTrace>();
-    public DbSet<AiFeedback> AiFeedbacks => Set<AiFeedback>();
-    public DbSet<EvalSuite> EvalSuites => Set<EvalSuite>();
-    public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
-    public DbSet<Insight> Insights => Set<Insight>();
-    public DbSet<Signal> Signals => Set<Signal>();
+    public virtual DbSet<AiProvider> AiProviders { get; set; } = null!;
+    public virtual DbSet<AiModel> AiModels { get; set; } = null!;
+    public virtual DbSet<AiRoutePolicy> AiRoutePolicies { get; set; } = null!;
+    public virtual DbSet<PromptSpec> PromptSpecs { get; set; } = null!;
+    public virtual DbSet<ToolSpec> ToolSpecs { get; set; } = null!;
+    public virtual DbSet<AiPolicy> AiPolicies { get; set; } = null!;
+    public virtual DbSet<AiRun> AiRuns { get; set; } = null!;
+    public virtual DbSet<AiTrace> AiTraces { get; set; } = null!;
+    public virtual DbSet<AiFeedback> AiFeedbacks { get; set; } = null!;
+    public virtual DbSet<EvalSuite> EvalSuites { get; set; } = null!;
+    public virtual DbSet<EvalRun> EvalRuns { get; set; } = null!;
+    public virtual DbSet<Insight> Insights { get; set; } = null!;
+    public virtual DbSet<Signal> Signals { get; set; } = null!;
 
     // Agents
-    public DbSet<Agent> Agents => Set<Agent>();
-    public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
-    public DbSet<OrchestratorPolicy> OrchestratorPolicies => Set<OrchestratorPolicy>();
-    public DbSet<Proposal> Proposals => Set<Proposal>();
+    public virtual DbSet<Agent> Agents { get; set; } = null!;
+    public virtual DbSet<AgentRun> AgentRuns { get; set; } = null!;
+    public virtual DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; } = null!;
+    public virtual DbSet<Proposal> Proposals { get; set; } = null!;
 
     // Orders
-    public DbSet<Order> Orders => Set<Order>();
-    public DbSet<OrderPartyRole> OrderPartyRoles => Set<OrderPartyRole>();
-    public DbSet<OrderFundingRef> OrderFundingRefs => Set<OrderFundingRef>();
-    public DbSet<OrderFulfilmentRef> OrderFulfilmentRefs => Set<OrderFulfilmentRef>();
-    public DbSet<OrderHistoryEvent> OrderHistoryEvents => Set<OrderHistoryEvent>();
-    public DbSet<OrderNote> OrderNotes => Set<OrderNote>();
+    public virtual DbSet<Order> Orders { get; set; } = null!;
+    public virtual DbSet<OrderPartyRole> OrderPartyRoles { get; set; } = null!;
+    public virtual DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
+    public virtual DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; } = null!;
+    public virtual DbSet<OrderHistoryEvent> OrderHistoryEvents { get; set; } = null!;
+    public virtual DbSet<OrderNote> OrderNotes { get; set; } = null!;
 
     // Personal Finance
-    public DbSet<PersonalProfile> PersonalProfiles => Set<PersonalProfile>();
-    public DbSet<Household> Households => Set<Household>();
-    public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
-    public DbSet<PersonalTransaction> PersonalTransactions => Set<PersonalTransaction>();
-    public DbSet<CategorisationRule> CategorisationRules => Set<CategorisationRule>();
-    public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
-    public DbSet<Bill> Bills => Set<Bill>();
-    public DbSet<Subscription> Subscriptions => Set<Subscription>();
-    public DbSet<Goal> Goals => Set<Goal>();
-    public DbSet<Budget> Budgets => Set<Budget>();
+    public virtual DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
+    public virtual DbSet<Household> Households { get; set; } = null!;
+    public virtual DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
+    public virtual DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
+    public virtual DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
+    public virtual DbSet<BudgetLine> BudgetLines { get; set; } = null!;
+    public virtual DbSet<Bill> Bills { get; set; } = null!;
+    public virtual DbSet<Subscription> Subscriptions { get; set; } = null!;
+    public virtual DbSet<Goal> Goals { get; set; } = null!;
+    public virtual DbSet<Budget> Budgets { get; set; } = null!;
 
     public AonikDbContext(DbContextOptions<AonikDbContext> options, ITenantProvider? tenantProvider = null) 
         : base(options)
