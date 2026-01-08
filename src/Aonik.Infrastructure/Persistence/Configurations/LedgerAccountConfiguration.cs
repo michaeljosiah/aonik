@@ -14,13 +14,15 @@ public class LedgerAccountConfiguration : IEntityTypeConfiguration<LedgerAccount
             .IsRequired()
             .HasMaxLength(200);
 
-        builder.Property(x => x.Currency)
+        builder.Property(x => x.Code)
             .IsRequired()
-            .HasMaxLength(3);
+            .HasMaxLength(50);
 
-        builder.Property(x => x.CreatedUtc)
-            .IsRequired();
+        builder.Property(x => x.AccountType)
+            .IsRequired()
+            .HasMaxLength(50);
 
         builder.HasIndex(x => x.Name);
+        builder.HasIndex(x => x.Code);
     }
 }

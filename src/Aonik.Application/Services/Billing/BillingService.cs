@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Billing;
 using Aonik.Domain.Billing.Entities;
@@ -8,19 +9,23 @@ namespace Aonik.Application.Services.Billing;
 public class BillingService : IBillingService
 {
     private readonly IAonikDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
 
-    public BillingService(IAonikDbContext dbContext)
+    public BillingService(IAonikDbContext dbContext, ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
     {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var invoice = new Invoice
         {
             Id = Guid.NewGuid(),
             InvoiceId = Guid.NewGuid(),
-            TenantId = Guid.Empty, // TODO: Get from tenant context
+            TenantId = tenantId,
             CustomerAccountId = request.CustomerId,
             IssueDate = DateTime.UtcNow,
             DueDate = request.DueUtc,
@@ -42,7 +47,7 @@ public class BillingService : IBillingService
             {
                 Id = Guid.NewGuid(),
                 InvoiceLineId = Guid.NewGuid(),
-                TenantId = Guid.Empty, // TODO: Get from tenant context
+                TenantId = tenantId,
                 InvoiceId = invoice.Id,
                 Description = lineItemRequest.Description,
                 Quantity = lineItemRequest.Quantity,
@@ -74,6 +79,8 @@ public class BillingService : IBillingService
 
     public async Task AddLineToInvoiceAsync(Guid invoiceId, CreateInvoiceLineItemRequest lineRequest, CancellationToken cancellationToken = default)
     {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var invoice = await _dbContext.Invoices
             .Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
@@ -87,7 +94,7 @@ public class BillingService : IBillingService
         {
             Id = Guid.NewGuid(),
             InvoiceLineId = Guid.NewGuid(),
-            TenantId = Guid.Empty, // TODO: Get from tenant context
+            TenantId = tenantId,
             InvoiceId = invoice.Id,
             Description = lineRequest.Description,
             Quantity = lineRequest.Quantity,

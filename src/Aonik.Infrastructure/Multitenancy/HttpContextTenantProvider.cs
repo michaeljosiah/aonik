@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Infrastructure.Multitenancy;

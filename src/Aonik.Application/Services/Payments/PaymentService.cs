@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Payments;
 using Aonik.Domain.Payments;
@@ -9,14 +10,18 @@ namespace Aonik.Application.Services.Payments;
 public class PaymentService : IPaymentService
 {
     private readonly IAonikDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
 
-    public PaymentService(IAonikDbContext dbContext)
+    public PaymentService(IAonikDbContext dbContext, ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task<PaymentIntentResponse> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, CancellationToken cancellationToken = default)
     {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var paymentIntent = new PaymentIntent
         {
             Id = Guid.NewGuid(),
@@ -29,7 +34,7 @@ public class PaymentService : IPaymentService
             PayeePartyId = null,
             PaymentMethodType = "Card", // TODO: Add to request
             PaymentMethodRef = request.Reference,
-            TenantId = Guid.Empty // TODO: Get from ITenantProvider or context
+            TenantId = tenantId
         };
 
         _dbContext.PaymentIntents.Add(paymentIntent);

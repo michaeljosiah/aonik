@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Models.Payments;
 using Aonik.Application.Services.Payments;
 using Aonik.Domain.Payments;
@@ -9,6 +10,21 @@ namespace Aonik.Application.Tests.Payments;
 
 public class PaymentServiceTests
 {
+    private class TestTenantProvider : ITenantProvider
+    {
+        private readonly Guid _tenantId;
+
+        public TestTenantProvider(Guid tenantId) => _tenantId = tenantId;
+
+        public Guid GetCurrentTenantId() => _tenantId;
+
+        public bool TryGetCurrentTenantId(out Guid tenantId)
+        {
+            tenantId = _tenantId;
+            return true;
+        }
+    }
+
     private static AonikDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AonikDbContext>()
@@ -23,7 +39,8 @@ public class PaymentServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new PaymentService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new PaymentService(context, tenantProvider);
         var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001");
 
         // Act
@@ -48,7 +65,8 @@ public class PaymentServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new PaymentService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new PaymentService(context, tenantProvider);
         var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002");
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
@@ -67,7 +85,8 @@ public class PaymentServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new PaymentService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new PaymentService(context, tenantProvider);
 
         // Act
         var result = await service.GetPaymentIntentAsync(Guid.NewGuid());
@@ -81,13 +100,14 @@ public class PaymentServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new PaymentService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new PaymentService(context, tenantProvider);
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003");
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
-        // Authorize the payment first
+        // Authorize the payment first (set status directly since entities are anemic)
         var payment = await context.PaymentIntents.FirstAsync(p => p.Id == created.Id);
-        payment.Authorize();
+        payment.Status = "Authorized";
         await context.SaveChangesAsync();
 
         // Act
@@ -103,7 +123,8 @@ public class PaymentServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new PaymentService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new PaymentService(context, tenantProvider);
 
         // Act
         var act = async () => await service.CapturePaymentAsync(Guid.NewGuid());
@@ -118,7 +139,8 @@ public class PaymentServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new PaymentService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new PaymentService(context, tenantProvider);
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004");
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
@@ -135,7 +157,8 @@ public class PaymentServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new PaymentService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new PaymentService(context, tenantProvider);
 
         // Act
         var act = async () => await service.CancelPaymentAsync(Guid.NewGuid());

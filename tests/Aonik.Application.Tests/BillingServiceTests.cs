@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Models.Billing;
 using Aonik.Application.Services.Billing;
 using Aonik.Infrastructure.Persistence;
@@ -8,6 +9,21 @@ namespace Aonik.Application.Tests;
 
 public class BillingServiceTests
 {
+    private class TestTenantProvider : ITenantProvider
+    {
+        private readonly Guid _tenantId;
+
+        public TestTenantProvider(Guid tenantId) => _tenantId = tenantId;
+
+        public Guid GetCurrentTenantId() => _tenantId;
+
+        public bool TryGetCurrentTenantId(out Guid tenantId)
+        {
+            tenantId = _tenantId;
+            return true;
+        }
+    }
+
     [Fact]
     public async Task CreateInvoiceAsync_ShouldCreateInvoiceWithLineItems()
     {
@@ -17,7 +33,8 @@ public class BillingServiceTests
             .Options;
 
         using var context = new AonikDbContext(options);
-        var service = new BillingService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new BillingService(context, tenantProvider);
 
         var request = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
@@ -51,7 +68,8 @@ public class BillingServiceTests
             .Options;
 
         using var context = new AonikDbContext(options);
-        var service = new BillingService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new BillingService(context, tenantProvider);
 
         var createRequest = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
@@ -83,7 +101,8 @@ public class BillingServiceTests
             .Options;
 
         using var context = new AonikDbContext(options);
-        var service = new BillingService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new BillingService(context, tenantProvider);
 
         // Act
         var result = await service.GetInvoiceAsync(Guid.NewGuid(), CancellationToken.None);

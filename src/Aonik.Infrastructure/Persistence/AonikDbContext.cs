@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
@@ -11,7 +12,7 @@ using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
-using Aonik.Infrastructure.Multitenancy;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Primitives;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -35,6 +36,8 @@ namespace Aonik.Infrastructure.Persistence;
 public class AonikDbContext : DbContext, IAonikDbContext
 {
     private readonly ITenantProvider? _tenantProvider;
+    private readonly ICurrentUserProvider? _currentUserProvider;
+    private readonly IClock? _clock;
 
     // Identity
     public virtual DbSet<Tenant> Tenants { get; set; } = null!;
@@ -142,10 +145,16 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<Goal> Goals { get; set; } = null!;
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
 
-    public AonikDbContext(DbContextOptions<AonikDbContext> options, ITenantProvider? tenantProvider = null) 
+    public AonikDbContext(
+        DbContextOptions<AonikDbContext> options, 
+        ITenantProvider? tenantProvider = null,
+        ICurrentUserProvider? currentUserProvider = null,
+        IClock? clock = null) 
         : base(options)
     {
         _tenantProvider = tenantProvider;
+        _currentUserProvider = currentUserProvider;
+        _clock = clock;
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -157,6 +166,42 @@ public class AonikDbContext : DbContext, IAonikDbContext
         
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        UpdateAuditFields();
+        return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void UpdateAuditFields()
+    {
+        var userId = _currentUserProvider?.GetCurrentUserId();
+        var now = _clock?.UtcNow ?? DateTime.UtcNow;
+
+        foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
+        {
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    entry.Entity.CreatedAt = now;
+                    entry.Entity.CreatedBy = userId;
+                    break;
+
+                case EntityState.Modified:
+                    entry.Entity.UpdatedAt = now;
+                    entry.Entity.UpdatedBy = userId;
+                    break;
+
+                case EntityState.Deleted:
+                    // Implement soft delete
+                    entry.State = EntityState.Modified;
+                    entry.Entity.IsDeleted = true;
+                    entry.Entity.DeletedAt = now;
+                    entry.Entity.DeletedBy = userId;
+                    break;
+            }
+        }
     }
 
     private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)

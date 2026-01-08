@@ -10,41 +10,43 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
     {
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.CustomerId)
+        builder.Property(x => x.CustomerAccountId)
             .IsRequired();
-
-        builder.Property(x => x.InvoiceNumber)
-            .IsRequired()
-            .HasMaxLength(50);
 
         builder.Property(x => x.Currency)
             .IsRequired()
             .HasMaxLength(3);
 
-        builder.Property(x => x.TotalAmount)
+        builder.Property(x => x.Total)
             .IsRequired()
+            .HasPrecision(19, 4);
+
+        builder.Property(x => x.Subtotal)
+            .HasPrecision(19, 4);
+
+        builder.Property(x => x.TaxTotal)
+            .HasPrecision(19, 4);
+
+        builder.Property(x => x.DiscountTotal)
             .HasPrecision(19, 4);
 
         builder.Property(x => x.Status)
             .IsRequired()
-            .HasConversion<string>()
-            .HasMaxLength(20);
+            .HasMaxLength(50);
 
-        builder.Property(x => x.IssuedUtc)
+        builder.Property(x => x.IssueDate)
             .IsRequired();
 
-        builder.Property(x => x.DueUtc)
+        builder.Property(x => x.DueDate)
             .IsRequired();
 
-        builder.HasMany(x => x.LineItems)
+        builder.HasMany(x => x.Lines)
             .WithOne()
             .HasForeignKey(x => x.InvoiceId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(x => x.InvoiceNumber)
-            .IsUnique();
-        builder.HasIndex(x => x.CustomerId);
+        builder.HasIndex(x => x.CustomerAccountId);
         builder.HasIndex(x => x.Status);
-        builder.HasIndex(x => x.DueUtc);
+        builder.HasIndex(x => x.DueDate);
     }
 }

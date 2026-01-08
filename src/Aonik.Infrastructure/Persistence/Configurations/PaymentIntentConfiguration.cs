@@ -20,17 +20,17 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
 
         builder.Property(x => x.Status)
             .IsRequired()
-            .HasConversion<string>()
-            .HasMaxLength(20);
+            .HasMaxLength(50);
 
-        builder.Property(x => x.Reference)
-            .HasMaxLength(100);
+        builder.Property(x => x.PurposeType)
+            .IsRequired()
+            .HasMaxLength(50);
 
-        builder.Property(x => x.CreatedUtc)
-            .IsRequired();
+        builder.Property(x => x.PaymentMethodType)
+            .IsRequired()
+            .HasMaxLength(50);
 
-        builder.HasIndex(x => x.Reference);
         builder.HasIndex(x => x.Status);
-        builder.HasIndex(x => x.CreatedUtc);
+        builder.HasIndex(x => x.PayerPartyId);
     }
 }

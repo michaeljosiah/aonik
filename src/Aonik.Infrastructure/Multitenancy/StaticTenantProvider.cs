@@ -1,3 +1,5 @@
+using Aonik.Application.Abstractions.Multitenancy;
+
 namespace Aonik.Infrastructure.Multitenancy;
 
 /// <summary>

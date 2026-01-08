@@ -85,6 +85,7 @@ Concrete implementation details will mature as the project evolves.
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
 - SQL Server LocalDB (included with Visual Studio or SQL Server Express)
+- Git for version control
 
 ### Running the API
 
@@ -94,9 +95,9 @@ git clone https://github.com/yourusername/aonik.git
 cd aonik
 
 # Restore dependencies and build
-dotnet build
+dotnet build Aonik.sln
 
-# Apply database migrations
+# Apply database migrations (when available)
 dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 
 # Run the API
@@ -104,6 +105,13 @@ dotnet run --project src/Aonik.Api
 ```
 
 The API will start on `https://localhost:5001` with Swagger UI available at `https://localhost:5001/swagger`
+
+### Build Status
+
+The solution currently builds successfully with:
+- ✅ All projects compile without errors
+- ⚠️ Some tests may fail due to ongoing development
+- 📦 All NuGet packages resolved correctly
 
 ### Running Tests
 
@@ -125,15 +133,25 @@ dotnet test tests/Aonik.Application.Tests
 dotnet build Aonik.sln
 
 # Clean and rebuild
-dotnet clean && dotnet build
+dotnet clean Aonik.sln && dotnet build Aonik.sln
 
 # Run specific test by filter
 dotnet test --filter "DisplayName~CreateInvoice"
+
+# Create a new migration
+dotnet ef migrations add <MigrationName> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+
+# Remove last migration
+dotnet ef migrations remove --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 ```
 
-For detailed coding guidelines and architecture information, see:
-- `AGENTS.md` - Coding standards and build commands
-- `docs/Architecture.md` - Comprehensive architecture documentation
+### Documentation
+
+For detailed technical information, see:
+- **[AGENTS.md](AGENTS.md)** - Coding standards, build commands, and architectural patterns for AI agents
+- **[docs/Troubleshooting.md](docs/Troubleshooting.md)** - Common issues and solutions
+- **[docs/Testing.md](docs/Testing.md)** - Testing guidelines and patterns
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and recent changes
 
 ---
 

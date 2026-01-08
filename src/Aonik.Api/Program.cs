@@ -1,3 +1,4 @@
+using Aonik.Api.Middleware;
 using Aonik.Application;
 using Aonik.Infrastructure;
 using FastEndpoints;
@@ -24,6 +25,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Use Tenant Validation Middleware (before FastEndpoints)
+app.UseTenantValidation();
 
 // Use FastEndpoints
 app.UseFastEndpoints();

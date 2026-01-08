@@ -10,28 +10,30 @@ public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>
     {
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.AccountId)
+        builder.Property(x => x.LedgerId)
             .IsRequired();
 
-        builder.Property(x => x.Amount)
-            .IsRequired()
-            .HasPrecision(19, 4);
-
-        builder.Property(x => x.Currency)
-            .IsRequired()
-            .HasMaxLength(3);
-
-        builder.Property(x => x.EntryUtc)
+        builder.Property(x => x.Timestamp)
             .IsRequired();
 
-        builder.Property(x => x.Reference)
-            .HasMaxLength(100);
+        builder.Property(x => x.SourceType)
+            .IsRequired()
+            .HasMaxLength(50);
 
-        builder.Property(x => x.Description)
-            .HasMaxLength(500);
+        builder.Property(x => x.SourceId)
+            .IsRequired();
 
-        builder.HasIndex(x => x.AccountId);
-        builder.HasIndex(x => x.Reference);
-        builder.HasIndex(x => x.EntryUtc);
+        builder.Property(x => x.Status)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.HasMany(x => x.Lines)
+            .WithOne()
+            .HasForeignKey(x => x.JournalEntryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasIndex(x => x.LedgerId);
+        builder.HasIndex(x => x.SourceId);
+        builder.HasIndex(x => x.Timestamp);
     }
 }

@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Ledger;
 using Aonik.Domain.Ledger.Entities;
@@ -7,14 +8,18 @@ namespace Aonik.Application.Services.Ledger;
 public class LedgerService : ILedgerService
 {
     private readonly IAonikDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
 
-    public LedgerService(IAonikDbContext dbContext)
+    public LedgerService(IAonikDbContext dbContext, ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task<LedgerAccountResponse> CreateAccountAsync(CreateLedgerAccountRequest request, CancellationToken cancellationToken = default)
     {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var account = new LedgerAccount
         {
             Id = Guid.NewGuid(),
@@ -22,7 +27,7 @@ public class LedgerService : ILedgerService
             Code = string.Empty, // TODO: Generate account code based on business rules
             AccountType = "General", // TODO: Add AccountType to request or infer from business rules
             LedgerId = Guid.Empty, // TODO: Add LedgerId to request or get from context
-            TenantId = Guid.Empty, // TODO: Get TenantId from ITenantProvider or context
+            TenantId = tenantId,
             DimensionsJson = "{}"
         };
 
@@ -38,11 +43,13 @@ public class LedgerService : ILedgerService
 
     public async Task<JournalEntryResponse> AddJournalEntryAsync(AddJournalEntryRequest request, CancellationToken cancellationToken = default)
     {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
         var entry = new JournalEntry
         {
             Id = Guid.NewGuid(),
             LedgerId = Guid.Empty, // TODO: Add LedgerId to request or get from context
-            TenantId = Guid.Empty, // TODO: Get TenantId from ITenantProvider or context
+            TenantId = tenantId,
             Timestamp = DateTime.UtcNow,
             SourceType = "Manual", // TODO: Add SourceType to request or determine from context
             SourceId = request.AccountId,

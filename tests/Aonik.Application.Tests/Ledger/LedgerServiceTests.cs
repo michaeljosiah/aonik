@@ -1,3 +1,4 @@
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Models.Ledger;
 using Aonik.Application.Services.Ledger;
 using Aonik.Infrastructure.Persistence;
@@ -8,6 +9,21 @@ namespace Aonik.Application.Tests.Ledger;
 
 public class LedgerServiceTests
 {
+    private class TestTenantProvider : ITenantProvider
+    {
+        private readonly Guid _tenantId;
+
+        public TestTenantProvider(Guid tenantId) => _tenantId = tenantId;
+
+        public Guid GetCurrentTenantId() => _tenantId;
+
+        public bool TryGetCurrentTenantId(out Guid tenantId)
+        {
+            tenantId = _tenantId;
+            return true;
+        }
+    }
+
     private static AonikDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AonikDbContext>()
@@ -22,7 +38,8 @@ public class LedgerServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new LedgerService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new LedgerService(context, tenantProvider);
         var request = new CreateLedgerAccountRequest("Cash", "USD");
 
         // Act
@@ -45,7 +62,8 @@ public class LedgerServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new LedgerService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new LedgerService(context, tenantProvider);
         
         // Create account first
         var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
@@ -73,7 +91,7 @@ public class LedgerServiceTests
 
         var savedEntry = await context.JournalEntries.FirstOrDefaultAsync(e => e.Id == result.Id);
         savedEntry.Should().NotBeNull();
-        savedEntry!.Amount.Should().Be(500.00m);
+        savedEntry!.SourceId.Should().Be(account.Id);
     }
 
     [Fact]
@@ -81,7 +99,8 @@ public class LedgerServiceTests
     {
         // Arrange
         using var context = CreateDbContext();
-        var service = new LedgerService(context);
+        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var service = new LedgerService(context, tenantProvider);
         
         var accountRequest = new CreateLedgerAccountRequest("Operating Account", "USD");
         var account = await service.CreateAccountAsync(accountRequest);
@@ -100,7 +119,7 @@ public class LedgerServiceTests
         entry3.Amount.Should().Be(-50.00m);
 
         var entries = await context.JournalEntries
-            .Where(e => e.AccountId == account.Id)
+            .Where(e => e.SourceId == account.Id)
             .ToListAsync();
         entries.Should().HaveCount(3);
     }
