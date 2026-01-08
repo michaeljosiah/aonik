@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Pricing.Entities;
 
-public class FeePolicy : AuditableEntity
+public class FeePolicy : AuditableEntity, ITenantScoped
 {
     public Guid FeePolicyId { get; private set; }
     public Guid TenantId { get; private set; }

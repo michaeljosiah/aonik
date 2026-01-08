@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Ledger.Entities;
 
-public class BalanceSnapshot : AuditableEntity
+public class BalanceSnapshot : AuditableEntity, ITenantScoped
 {
     public Guid BalanceSnapshotId { get; private set; }
     public Guid TenantId { get; private set; }

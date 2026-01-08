@@ -11,7 +11,10 @@ using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
+using Aonik.Infrastructure.Multitenancy;
+using Aonik.SharedKernel.Primitives;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using System.Reflection;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 using PartyEntity = Aonik.Domain.Party.Entities.Party;
@@ -31,6 +34,8 @@ namespace Aonik.Infrastructure.Persistence;
 
 public class AonikDbContext : DbContext, IAonikDbContext
 {
+    private readonly ITenantProvider? _tenantProvider;
+
     // Identity
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<User> Users => Set<User>();
@@ -137,8 +142,10 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<Budget> Budgets => Set<Budget>();
 
-    public AonikDbContext(DbContextOptions<AonikDbContext> options) : base(options)
+    public AonikDbContext(DbContextOptions<AonikDbContext> options, ITenantProvider? tenantProvider = null) 
+        : base(options)
     {
+        _tenantProvider = tenantProvider;
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -147,5 +154,40 @@ public class AonikDbContext : DbContext, IAonikDbContext
         
         // Apply all configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        
+        // Apply tenant query filters
+        ApplyTenantQueryFilters(modelBuilder);
+    }
+
+    private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
+    {
+        // Only apply filters if tenant provider is available
+        if (_tenantProvider == null)
+            return;
+
+        // Try to get current tenant ID - if not available, skip filter application
+        // (e.g., during migrations, seeding, or background jobs without tenant context)
+        if (!_tenantProvider.TryGetCurrentTenantId(out var currentTenantId))
+            return;
+
+        // Get all entity types that implement ITenantScoped
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var clrType = entityType.ClrType;
+
+            // Check if entity implements ITenantScoped
+            if (typeof(ITenantScoped).IsAssignableFrom(clrType))
+            {
+                // Create filter expression: entity => entity.TenantId == currentTenantId
+                var parameter = Expression.Parameter(clrType, "e");
+                var property = Expression.Property(parameter, nameof(ITenantScoped.TenantId));
+                var tenantIdValue = Expression.Constant(currentTenantId);
+                var equals = Expression.Equal(property, tenantIdValue);
+                var lambda = Expression.Lambda(equals, parameter);
+
+                // Apply the filter
+                modelBuilder.Entity(clrType).HasQueryFilter(lambda);
+            }
+        }
     }
 }

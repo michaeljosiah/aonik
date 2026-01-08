@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Compliance.Entities;
 
-public class AuditLog : AuditableEntity
+public class AuditLog : AuditableEntity, ITenantScoped
 {
     public Guid AuditLogId { get; private set; }
     public Guid TenantId { get; private set; }

@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Compliance.Entities;
 
-public class ScreeningCheck : AuditableEntity
+public class ScreeningCheck : AuditableEntity, ITenantScoped
 {
     public Guid ScreeningCheckId { get; private set; }
     public Guid TenantId { get; private set; }

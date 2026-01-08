@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Payments.Entities;
 
-public class PaymentIntent : AuditableEntity
+public class PaymentIntent : AuditableEntity, ITenantScoped
 {
     public Guid PaymentIntentId { get; private set; }
     public Guid TenantId { get; private set; }

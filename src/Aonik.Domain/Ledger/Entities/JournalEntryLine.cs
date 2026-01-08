@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Ledger.Entities;
 
-public class JournalEntryLine : AuditableEntity
+public class JournalEntryLine : AuditableEntity, ITenantScoped
 {
     public Guid JournalEntryLineId { get; private set; }
     public Guid TenantId { get; private set; }

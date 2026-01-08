@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Party.Entities;
 
-public class Party : AuditableEntity
+public class Party : AuditableEntity, ITenantScoped
 {
     public Guid PartyId { get; private set; }
     public Guid TenantId { get; private set; }

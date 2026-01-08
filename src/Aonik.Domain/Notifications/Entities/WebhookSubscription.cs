@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Notifications.Entities;
 
-public class WebhookSubscription : AuditableEntity
+public class WebhookSubscription : AuditableEntity, ITenantScoped
 {
     public Guid WebhookSubscriptionId { get; private set; }
     public Guid TenantId { get; private set; }

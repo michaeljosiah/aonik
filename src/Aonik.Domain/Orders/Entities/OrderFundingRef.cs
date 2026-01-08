@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Orders.Entities;
 
-public class OrderFundingRef : AuditableEntity
+public class OrderFundingRef : AuditableEntity, ITenantScoped
 {
     public Guid OrderFundingRefId { get; private set; }
     public Guid TenantId { get; private set; }

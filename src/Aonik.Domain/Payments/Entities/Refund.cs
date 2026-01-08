@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Payments.Entities;
 
-public class Refund : AuditableEntity
+public class Refund : AuditableEntity, ITenantScoped
 {
     public Guid RefundId { get; private set; }
     public Guid TenantId { get; private set; }

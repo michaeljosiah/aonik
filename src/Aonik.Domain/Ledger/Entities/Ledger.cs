@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Ledger.Entities;
 
-public class Ledger : AuditableEntity
+public class Ledger : AuditableEntity, ITenantScoped
 {
     public Guid LedgerId { get; private set; }
     public Guid TenantId { get; private set; }

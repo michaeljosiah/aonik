@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.PersonalFinance.Entities;
 
-public class CategorisationRule : AuditableEntity
+public class CategorisationRule : AuditableEntity, ITenantScoped
 {
     public Guid CategorisationRuleId { get; private set; }
     public Guid TenantId { get; private set; }

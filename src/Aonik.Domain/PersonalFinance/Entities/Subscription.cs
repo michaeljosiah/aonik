@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.PersonalFinance.Entities;
 
-public class Subscription : AuditableEntity
+public class Subscription : AuditableEntity, ITenantScoped
 {
     public Guid SubscriptionId { get; private set; }
     public Guid TenantId { get; private set; }

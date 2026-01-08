@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Billing.Entities;
 
-public class InvoiceAllocation : AuditableEntity
+public class InvoiceAllocation : AuditableEntity, ITenantScoped
 {
     public Guid InvoiceAllocationId { get; private set; }
     public Guid TenantId { get; private set; }

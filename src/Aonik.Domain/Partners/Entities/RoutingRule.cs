@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Partners.Entities;
 
-public class RoutingRule : AuditableEntity
+public class RoutingRule : AuditableEntity, ITenantScoped
 {
     public Guid RoutingRuleId { get; private set; }
     public Guid TenantId { get; private set; }

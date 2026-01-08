@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Notifications.Entities;
 
-public class Notification : AuditableEntity
+public class Notification : AuditableEntity, ITenantScoped
 {
     public Guid NotificationId { get; private set; }
     public Guid TenantId { get; private set; }
