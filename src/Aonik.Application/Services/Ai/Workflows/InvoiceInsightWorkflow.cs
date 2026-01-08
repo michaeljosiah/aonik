@@ -69,12 +69,11 @@ Line Items Count: {invoice.Lines.Count}
         var insight = new Insight
         {
             Id = Guid.NewGuid(),
-            InsightId = Guid.NewGuid(),
             SubjectType = "Invoice",
             SubjectId = invoiceId,
             Title = "Insight for Invoice",
             Summary = completion,
-            MetadataJson = "{}"
+            CreatedUtc = DateTime.UtcNow
         };
 
         _dbContext.Insights.Add(insight);
