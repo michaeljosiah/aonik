@@ -2,54 +2,72 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Payments.Entities;
 
-public class PaymentIntent : Entity
+public class PaymentIntent : AuditableEntity
 {
+    public Guid PaymentIntentId { get; private set; }
+    public Guid TenantId { get; private set; }
     public decimal Amount { get; private set; }
     public string Currency { get; private set; } = string.Empty;
-    public PaymentStatus Status { get; private set; }
-    public string? Reference { get; private set; }
-    public DateTime CreatedUtc { get; private set; }
+    public Guid PayerPartyId { get; private set; }
+    public Guid? PayeePartyId { get; private set; }
+    public string PurposeType { get; private set; } = string.Empty;
+    public Guid PurposeId { get; private set; }
+    public string PaymentMethodType { get; private set; } = string.Empty;
+    public string? PaymentMethodRef { get; private set; }
+    public string Status { get; private set; } = string.Empty;
+    public string? FailureReason { get; private set; }
 
     private PaymentIntent() { }
 
-    public PaymentIntent(decimal amount, string currency, string? reference = null)
+    public PaymentIntent(Guid tenantId, decimal amount, string currency, Guid payerPartyId, string purposeType, Guid purposeId, string paymentMethodType, Guid? payeePartyId = null)
     {
+        PaymentIntentId = Id;
+        TenantId = tenantId;
         Amount = amount;
         Currency = currency;
-        Status = PaymentStatus.Pending;
-        Reference = reference;
-        CreatedUtc = DateTime.UtcNow;
+        PayerPartyId = payerPartyId;
+        PayeePartyId = payeePartyId;
+        PurposeType = purposeType;
+        PurposeId = purposeId;
+        PaymentMethodType = paymentMethodType;
+        Status = "Pending";
+    }
+
+    public void UpdatePaymentMethodRef(string paymentMethodRef)
+    {
+        PaymentMethodRef = paymentMethodRef;
     }
 
     public void Authorize()
     {
-        if (Status != PaymentStatus.Pending)
-            throw new InvalidOperationException("Only pending payments can be authorized");
+        if (Status != "Pending")
+            throw new InvalidOperationException("Only pending payment intents can be authorized");
 
-        Status = PaymentStatus.Authorized;
+        Status = "Authorized";
     }
 
     public void Capture()
     {
-        if (Status != PaymentStatus.Authorized)
-            throw new InvalidOperationException("Only authorized payments can be captured");
+        if (Status != "Authorized")
+            throw new InvalidOperationException("Only authorized payment intents can be captured");
 
-        Status = PaymentStatus.Captured;
+        Status = "Captured";
     }
 
-    public void Fail()
+    public void Fail(string failureReason)
     {
-        if (Status == PaymentStatus.Captured)
-            throw new InvalidOperationException("Captured payments cannot be marked as failed");
+        if (Status == "Captured")
+            throw new InvalidOperationException("Captured payment intents cannot be marked as failed");
 
-        Status = PaymentStatus.Failed;
+        Status = "Failed";
+        FailureReason = failureReason;
     }
 
     public void Cancel()
     {
-        if (Status == PaymentStatus.Captured)
-            throw new InvalidOperationException("Captured payments cannot be cancelled");
+        if (Status == "Captured")
+            throw new InvalidOperationException("Captured payment intents cannot be cancelled");
 
-        Status = PaymentStatus.Cancelled;
+        Status = "Cancelled";
     }
 }

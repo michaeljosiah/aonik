@@ -2,24 +2,60 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Ledger.Entities;
 
-public class JournalEntry : Entity
+public class JournalEntry : AuditableEntity
 {
-    public Guid AccountId { get; private set; }
-    public decimal Amount { get; private set; }
-    public string Currency { get; private set; } = string.Empty;
-    public DateTime EntryUtc { get; private set; }
-    public string? Reference { get; private set; }
-    public string? Description { get; private set; }
+    public Guid JournalEntryId { get; private set; }
+    public Guid TenantId { get; private set; }
+    public Guid LedgerId { get; private set; }
+    public DateTime Timestamp { get; private set; }
+    public string SourceType { get; private set; } = string.Empty;
+    public Guid SourceId { get; private set; }
+    public string Status { get; private set; } = string.Empty;
+
+    private readonly List<JournalEntryLine> _lines = new();
+    public IReadOnlyCollection<JournalEntryLine> Lines => _lines.AsReadOnly();
 
     private JournalEntry() { }
 
-    public JournalEntry(Guid accountId, decimal amount, string currency, string? reference = null, string? description = null)
+    public JournalEntry(Guid tenantId, Guid ledgerId, string sourceType, Guid sourceId)
     {
-        AccountId = accountId;
-        Amount = amount;
-        Currency = currency;
-        EntryUtc = DateTime.UtcNow;
-        Reference = reference;
-        Description = description;
+        JournalEntryId = Id;
+        TenantId = tenantId;
+        LedgerId = ledgerId;
+        Timestamp = DateTime.UtcNow;
+        SourceType = sourceType;
+        SourceId = sourceId;
+        Status = "Pending";
+    }
+
+    public void AddLine(JournalEntryLine line)
+    {
+        _lines.Add(line);
+    }
+
+    public void Post()
+    {
+        if (Status != "Pending")
+            throw new InvalidOperationException("Only pending journal entries can be posted");
+
+        if (!IsBalanced())
+            throw new InvalidOperationException("Journal entry must be balanced before posting");
+
+        Status = "Posted";
+    }
+
+    public void Reverse()
+    {
+        if (Status != "Posted")
+            throw new InvalidOperationException("Only posted journal entries can be reversed");
+
+        Status = "Reversed";
+    }
+
+    private bool IsBalanced()
+    {
+        var debits = _lines.Where(l => l.Direction == "Debit").Sum(l => l.Amount);
+        var credits = _lines.Where(l => l.Direction == "Credit").Sum(l => l.Amount);
+        return debits == credits;
     }
 }

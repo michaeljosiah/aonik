@@ -2,64 +2,82 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Domain.Billing.Entities;
 
-public class Invoice : Entity
+public class Invoice : AuditableEntity
 {
-    public Guid CustomerId { get; private set; }
-    public string InvoiceNumber { get; private set; } = string.Empty;
+    public Guid InvoiceId { get; private set; }
+    public Guid TenantId { get; private set; }
+    public Guid CustomerAccountId { get; private set; }
+    public DateTime IssueDate { get; private set; }
+    public DateTime DueDate { get; private set; }
     public string Currency { get; private set; } = string.Empty;
-    public decimal TotalAmount { get; private set; }
-    public InvoiceStatus Status { get; private set; }
-    public DateTime IssuedUtc { get; private set; }
-    public DateTime DueUtc { get; private set; }
+    public decimal Subtotal { get; private set; }
+    public decimal TaxTotal { get; private set; }
+    public decimal DiscountTotal { get; private set; }
+    public decimal Total { get; private set; }
+    public string Status { get; private set; } = string.Empty;
+    public string ProvenanceJson { get; private set; } = string.Empty;
 
-    private readonly List<InvoiceLineItem> _lineItems = new();
-    public IReadOnlyCollection<InvoiceLineItem> LineItems => _lineItems.AsReadOnly();
+    private readonly List<InvoiceLine> _lines = new();
+    public IReadOnlyCollection<InvoiceLine> Lines => _lines.AsReadOnly();
 
     private Invoice() { }
 
-    public Invoice(Guid customerId, string invoiceNumber, string currency, DateTime dueUtc)
+    public Invoice(Guid tenantId, Guid customerAccountId, DateTime dueDate, string currency)
     {
-        CustomerId = customerId;
-        InvoiceNumber = invoiceNumber;
+        InvoiceId = Id;
+        TenantId = tenantId;
+        CustomerAccountId = customerAccountId;
+        IssueDate = DateTime.UtcNow;
+        DueDate = dueDate;
         Currency = currency;
-        Status = InvoiceStatus.Draft;
-        IssuedUtc = DateTime.UtcNow;
-        DueUtc = dueUtc;
-        TotalAmount = 0;
+        Status = "Draft";
+        ProvenanceJson = "{}";
+        Subtotal = 0;
+        TaxTotal = 0;
+        DiscountTotal = 0;
+        Total = 0;
     }
 
-    public void AddLineItem(InvoiceLineItem lineItem)
+    public void AddLine(InvoiceLine line)
     {
-        _lineItems.Add(lineItem);
-        RecalculateTotal();
+        _lines.Add(line);
+        RecalculateTotals();
     }
 
-    private void RecalculateTotal()
+    private void RecalculateTotals()
     {
-        TotalAmount = _lineItems.Sum(x => x.LineTotal);
+        Subtotal = _lines.Sum(x => x.LineTotal);
+        TaxTotal = _lines.Sum(x => x.LineTotal * x.TaxRate);
+        Total = Subtotal + TaxTotal - DiscountTotal;
     }
 
-    public void MarkAsIssued()
+    public void ApplyDiscount(decimal discountTotal)
     {
-        if (Status != InvoiceStatus.Draft)
+        DiscountTotal = discountTotal;
+        RecalculateTotals();
+    }
+
+    public void Issue()
+    {
+        if (Status != "Draft")
             throw new InvalidOperationException("Only draft invoices can be issued");
 
-        Status = InvoiceStatus.Issued;
+        Status = "Issued";
     }
 
     public void MarkAsPaid()
     {
-        if (Status != InvoiceStatus.Issued)
+        if (Status != "Issued")
             throw new InvalidOperationException("Only issued invoices can be marked as paid");
 
-        Status = InvoiceStatus.Paid;
+        Status = "Paid";
     }
 
     public void Cancel()
     {
-        if (Status == InvoiceStatus.Paid)
+        if (Status == "Paid")
             throw new InvalidOperationException("Paid invoices cannot be cancelled");
 
-        Status = InvoiceStatus.Cancelled;
+        Status = "Cancelled";
     }
 }
