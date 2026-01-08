@@ -15,6 +15,17 @@ using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 using PartyEntity = Aonik.Domain.Party.Entities.Party;
+using PartyAddress = Aonik.Domain.Party.Entities.PartyAddress;
+using PartyContact = Aonik.Domain.Party.Entities.PartyContact;
+using PartyConsent = Aonik.Domain.Party.Entities.PartyConsent;
+using PersonProfile = Aonik.Domain.Party.Entities.PersonProfile;
+using BusinessProfile = Aonik.Domain.Party.Entities.BusinessProfile;
+using ExternalAccount = Aonik.Domain.Party.Entities.ExternalAccount;
+using PartyRoleAssignment = Aonik.Domain.Party.Entities.PartyRoleAssignment;
+using LedgerAccount = Aonik.Domain.Ledger.Entities.LedgerAccount;
+using JournalEntry = Aonik.Domain.Ledger.Entities.JournalEntry;
+using JournalEntryLine = Aonik.Domain.Ledger.Entities.JournalEntryLine;
+using BalanceSnapshot = Aonik.Domain.Ledger.Entities.BalanceSnapshot;
 
 namespace Aonik.Infrastructure.Persistence;
 
@@ -30,20 +41,20 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
     // Party
     public DbSet<PartyEntity> Parties => Set<PartyEntity>();
-    public DbSet<Aonik.Domain.Party.Entities.PartyAddress> PartyAddresses => Set<Aonik.Domain.Party.Entities.PartyAddress>();
-    public DbSet<Aonik.Domain.Party.Entities.PartyContact> PartyContacts => Set<Aonik.Domain.Party.Entities.PartyContact>();
-    public DbSet<Aonik.Domain.Party.Entities.PartyConsent> PartyConsents => Set<Aonik.Domain.Party.Entities.PartyConsent>();
-    public DbSet<Aonik.Domain.Party.Entities.PersonProfile> PersonProfiles => Set<Aonik.Domain.Party.Entities.PersonProfile>();
-    public DbSet<Aonik.Domain.Party.Entities.BusinessProfile> BusinessProfiles => Set<Aonik.Domain.Party.Entities.BusinessProfile>();
-    public DbSet<Aonik.Domain.Party.Entities.ExternalAccount> ExternalAccounts => Set<Aonik.Domain.Party.Entities.ExternalAccount>();
-    public DbSet<Aonik.Domain.Party.Entities.PartyRoleAssignment> PartyRoleAssignments => Set<Aonik.Domain.Party.Entities.PartyRoleAssignment>();
+    public DbSet<PartyAddress> PartyAddresses => Set<PartyAddress>();
+    public DbSet<PartyContact> PartyContacts => Set<PartyContact>();
+    public DbSet<PartyConsent> PartyConsents => Set<PartyConsent>();
+    public DbSet<PersonProfile> PersonProfiles => Set<PersonProfile>();
+    public DbSet<BusinessProfile> BusinessProfiles => Set<BusinessProfile>();
+    public DbSet<ExternalAccount> ExternalAccounts => Set<ExternalAccount>();
+    public DbSet<PartyRoleAssignment> PartyRoleAssignments => Set<PartyRoleAssignment>();
 
     // Ledger
     public DbSet<LedgerEntity> Ledgers => Set<LedgerEntity>();
-    public DbSet<Aonik.Domain.Ledger.Entities.LedgerAccount> LedgerAccounts => Set<Aonik.Domain.Ledger.Entities.LedgerAccount>();
-    public DbSet<Aonik.Domain.Ledger.Entities.JournalEntry> JournalEntries => Set<Aonik.Domain.Ledger.Entities.JournalEntry>();
-    public DbSet<Aonik.Domain.Ledger.Entities.JournalEntryLine> JournalEntryLines => Set<Aonik.Domain.Ledger.Entities.JournalEntryLine>();
-    public DbSet<Aonik.Domain.Ledger.Entities.BalanceSnapshot> BalanceSnapshots => Set<Aonik.Domain.Ledger.Entities.BalanceSnapshot>();
+    public DbSet<LedgerAccount> LedgerAccounts => Set<LedgerAccount>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+    public DbSet<BalanceSnapshot> BalanceSnapshots => Set<BalanceSnapshot>();
 
     // Payments
     public DbSet<PaymentIntent> PaymentIntents => Set<PaymentIntent>();
@@ -115,7 +126,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public DbSet<OrderNote> OrderNotes => Set<OrderNote>();
 
     // Personal Finance
-    public DbSet<Aonik.Domain.PersonalFinance.Entities.PersonalProfile> PersonalFinanceProfiles => Set<Aonik.Domain.PersonalFinance.Entities.PersonalProfile>();
+    public DbSet<PersonalProfile> PersonalProfiles => Set<PersonalProfile>();
     public DbSet<Household> Households => Set<Household>();
     public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
     public DbSet<PersonalTransaction> PersonalTransactions => Set<PersonalTransaction>();

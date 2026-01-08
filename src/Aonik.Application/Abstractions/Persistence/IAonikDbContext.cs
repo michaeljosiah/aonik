@@ -13,6 +13,17 @@ using Aonik.Domain.Pricing.Entities;
 using Microsoft.EntityFrameworkCore;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 using PartyEntity = Aonik.Domain.Party.Entities.Party;
+using PartyAddress = Aonik.Domain.Party.Entities.PartyAddress;
+using PartyContact = Aonik.Domain.Party.Entities.PartyContact;
+using PartyConsent = Aonik.Domain.Party.Entities.PartyConsent;
+using PersonProfile = Aonik.Domain.Party.Entities.PersonProfile;
+using BusinessProfile = Aonik.Domain.Party.Entities.BusinessProfile;
+using ExternalAccount = Aonik.Domain.Party.Entities.ExternalAccount;
+using PartyRoleAssignment = Aonik.Domain.Party.Entities.PartyRoleAssignment;
+using LedgerAccount = Aonik.Domain.Ledger.Entities.LedgerAccount;
+using JournalEntry = Aonik.Domain.Ledger.Entities.JournalEntry;
+using JournalEntryLine = Aonik.Domain.Ledger.Entities.JournalEntryLine;
+using BalanceSnapshot = Aonik.Domain.Ledger.Entities.BalanceSnapshot;
 
 namespace Aonik.Application.Abstractions.Persistence;
 
@@ -28,20 +39,20 @@ public interface IAonikDbContext
 
     // Party
     DbSet<PartyEntity> Parties { get; }
-    DbSet<Aonik.Domain.Party.Entities.PartyAddress> PartyAddresses { get; }
-    DbSet<Aonik.Domain.Party.Entities.PartyContact> PartyContacts { get; }
-    DbSet<Aonik.Domain.Party.Entities.PartyConsent> PartyConsents { get; }
-    DbSet<Aonik.Domain.Party.Entities.PersonProfile> PersonProfiles { get; }
-    DbSet<Aonik.Domain.Party.Entities.BusinessProfile> BusinessProfiles { get; }
-    DbSet<Aonik.Domain.Party.Entities.ExternalAccount> ExternalAccounts { get; }
-    DbSet<Aonik.Domain.Party.Entities.PartyRoleAssignment> PartyRoleAssignments { get; }
+    DbSet<PartyAddress> PartyAddresses { get; }
+    DbSet<PartyContact> PartyContacts { get; }
+    DbSet<PartyConsent> PartyConsents { get; }
+    DbSet<PersonProfile> PersonProfiles { get; }
+    DbSet<BusinessProfile> BusinessProfiles { get; }
+    DbSet<ExternalAccount> ExternalAccounts { get; }
+    DbSet<PartyRoleAssignment> PartyRoleAssignments { get; }
 
     // Ledger
     DbSet<LedgerEntity> Ledgers { get; }
-    DbSet<Aonik.Domain.Ledger.Entities.LedgerAccount> LedgerAccounts { get; }
-    DbSet<Aonik.Domain.Ledger.Entities.JournalEntry> JournalEntries { get; }
-    DbSet<Aonik.Domain.Ledger.Entities.JournalEntryLine> JournalEntryLines { get; }
-    DbSet<Aonik.Domain.Ledger.Entities.BalanceSnapshot> BalanceSnapshots { get; }
+    DbSet<LedgerAccount> LedgerAccounts { get; }
+    DbSet<JournalEntry> JournalEntries { get; }
+    DbSet<JournalEntryLine> JournalEntryLines { get; }
+    DbSet<BalanceSnapshot> BalanceSnapshots { get; }
 
     // Payments
     DbSet<PaymentIntent> PaymentIntents { get; }
@@ -113,7 +124,7 @@ public interface IAonikDbContext
     DbSet<OrderNote> OrderNotes { get; }
 
     // Personal Finance
-    DbSet<Aonik.Domain.PersonalFinance.Entities.PersonalProfile> PersonalFinanceProfiles { get; }
+    DbSet<PersonalProfile> PersonalProfiles { get; }
     DbSet<Household> Households { get; }
     DbSet<HouseholdMember> HouseholdMembers { get; }
     DbSet<PersonalTransaction> PersonalTransactions { get; }
