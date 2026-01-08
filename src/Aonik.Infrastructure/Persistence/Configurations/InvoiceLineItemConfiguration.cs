@@ -4,9 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Aonik.Infrastructure.Persistence.Configurations;
 
-public class InvoiceLineItemConfiguration : IEntityTypeConfiguration<InvoiceLineItem>
+public class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceLine>
 {
-    public void Configure(EntityTypeBuilder<InvoiceLineItem> builder)
+    public void Configure(EntityTypeBuilder<InvoiceLine> builder)
     {
         builder.HasKey(x => x.Id);
 
