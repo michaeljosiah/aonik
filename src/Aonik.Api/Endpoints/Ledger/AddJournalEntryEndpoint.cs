@@ -16,7 +16,7 @@ public class AddJournalEntryEndpoint : Endpoint<AddJournalEntryRequest, JournalE
     public override void Configure()
     {
         Post("/ledger/journal-entries");
-        AllowAnonymous();
+        Policies("Ledger.Write");
     }
 
     public override async Task HandleAsync(AddJournalEntryRequest req, CancellationToken ct)

@@ -19,7 +19,7 @@ public class UpdateTenantSettingsEndpoint : Endpoint<UpdateTenantRequest, Tenant
     public override void Configure()
     {
         Patch("/tenant/settings");
-        AllowAnonymous();
+        Policies("Settings.Write");
     }
 
     public override async Task HandleAsync(UpdateTenantRequest req, CancellationToken ct)

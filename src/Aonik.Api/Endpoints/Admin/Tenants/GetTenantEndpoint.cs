@@ -16,7 +16,7 @@ public class GetTenantEndpoint : EndpointWithoutRequest<TenantResponse>
     public override void Configure()
     {
         Get("/admin/tenants/{tenantId}");
-        AllowAnonymous();
+        Policies("PlatformAdmin");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,4 +1,5 @@
 using Aonik.Application.Abstractions.Ai;
+using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Services.Compliance;
@@ -6,11 +7,14 @@ using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
+using Aonik.Infrastructure.Authentication;
+using Aonik.Infrastructure.Authorization;
 using Aonik.Infrastructure.Identity;
 using Aonik.Infrastructure.Multitenancy;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Time;
 using Aonik.SharedKernel.Abstractions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -70,6 +74,36 @@ public static class DependencyInjection
 
         services.AddScoped<IModelProvider, StubModelProvider>();
 
+        return services;
+    }
+    
+    public static IServiceCollection AddAonikAuthenticationAndAuthorization(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        // Register authentication services
+        services.AddScoped<ITenantResolver, TenantResolver>();
+        services.AddScoped<IUserIdentityService, UserIdentityService>();
+        services.AddScoped<IPermissionService, PermissionService>();
+        
+        // Add authentication
+        services.AddAonikAuthentication(configuration);
+        
+        // Add authorization
+        services.AddAuthorization(options =>
+        {
+            // Platform admin policy
+            options.AddPolicy("PlatformAdmin", policy =>
+                policy.Requirements.Add(new PlatformAdminRequirement()));
+        });
+        
+        // Register authorization handlers (SCOPED for permission handler)
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddSingleton<IAuthorizationHandler, PlatformAdminHandler>();
+        
+        // Register dynamic policy provider
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+        
         return services;
     }
 }

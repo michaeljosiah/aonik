@@ -16,7 +16,7 @@ public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, 
     public override void Configure()
     {
         Post("/payments/intents");
-        AllowAnonymous();
+        Policies("Payment.Create");
     }
 
     public override async Task HandleAsync(CreatePaymentIntentRequest req, CancellationToken ct)

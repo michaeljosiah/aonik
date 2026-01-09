@@ -17,6 +17,9 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
             .IsRequired()
             .HasMaxLength(200);
 
+        builder.Property(x => x.Subdomain)
+            .HasMaxLength(100);
+
         builder.Property(x => x.Environment)
             .IsRequired()
             .HasMaxLength(50);
@@ -38,6 +41,12 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
 
         builder.HasIndex(x => x.Name)
             .IsUnique();
+
+        // Unique index on subdomain (if present)
+        builder.HasIndex(x => x.Subdomain)
+            .IsUnique()
+            .HasDatabaseName("IX_Tenant_Subdomain")
+            .HasFilter("[Subdomain] IS NOT NULL");
 
         builder.HasIndex(x => x.Status);
     }

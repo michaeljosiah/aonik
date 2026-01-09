@@ -16,7 +16,7 @@ public class UpdateTenantEndpoint : Endpoint<UpdateTenantRequest, TenantResponse
     public override void Configure()
     {
         Patch("/admin/tenants/{tenantId}");
-        AllowAnonymous();
+        Policies("PlatformAdmin");
     }
 
     public override async Task HandleAsync(UpdateTenantRequest req, CancellationToken ct)

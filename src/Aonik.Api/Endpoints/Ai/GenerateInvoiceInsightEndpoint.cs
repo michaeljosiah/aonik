@@ -16,7 +16,7 @@ public class GenerateInvoiceInsightEndpoint : EndpointWithoutRequest<InsightResp
     public override void Configure()
     {
         Post("/ai/invoices/{id}/insight");
-        AllowAnonymous();
+        Policies("Invoice.Read");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

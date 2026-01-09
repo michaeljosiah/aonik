@@ -16,7 +16,7 @@ public class GetInvoiceEndpoint : EndpointWithoutRequest<InvoiceResponse>
     public override void Configure()
     {
         Get("/billing/invoices/{id}");
-        AllowAnonymous();
+        Policies("Invoice.Read");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

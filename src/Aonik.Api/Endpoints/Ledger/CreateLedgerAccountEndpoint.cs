@@ -16,7 +16,7 @@ public class CreateLedgerAccountEndpoint : Endpoint<CreateLedgerAccountRequest, 
     public override void Configure()
     {
         Post("/ledger/accounts");
-        AllowAnonymous();
+        Policies("Ledger.Write");
     }
 
     public override async Task HandleAsync(CreateLedgerAccountRequest req, CancellationToken ct)

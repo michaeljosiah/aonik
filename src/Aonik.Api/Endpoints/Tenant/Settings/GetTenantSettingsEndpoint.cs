@@ -19,7 +19,7 @@ public class GetTenantSettingsEndpoint : EndpointWithoutRequest<TenantResponse>
     public override void Configure()
     {
         Get("/tenant/settings");
-        AllowAnonymous();
+        Policies("Settings.Read");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -10,14 +10,22 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 - [Technology Stack](architecture/technology-stack.md) - Technologies used
 
 ### 📖 Developer Guides
+- [Getting Started Guide](guides/getting-started.md) - Setup and first run
 - [Application Services](guides/application-services.md) - Service layer patterns
 - [Domain Entities](guides/domain-entities.md) - Anemic entity model
 - [API Endpoints](guides/api-endpoints.md) - FastEndpoints patterns
 - [Testing](guides/testing.md) - Testing strategies
 - [Database Migrations](guides/database-migrations.md) - EF Core migrations
 
+#### Authentication & Authorization
+- [Azure AD Setup](guides/authentication-azure-ad.md) - Configure Microsoft Entra ID
+- [Auth0 Setup](guides/authentication-auth0.md) - Configure Auth0
+- [Managing Roles & Permissions](guides/roles-and-permissions.md) - User access control
+- [Authentication Troubleshooting](guides/authentication-troubleshooting.md) - Common issues
+
 ### 🎯 Features
 - [Tenant Management](features/tenant-management.md) - Multi-tenancy implementation
+- [Authentication & Authorization](features/authentication-authorization.md) - Identity and access management
 - [Billing](features/billing.md) - Invoicing and billing
 - [Payments](features/payments.md) - Payment processing
 - [Ledger](features/ledger.md) - Double-entry accounting
@@ -38,6 +46,9 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 - [Schema Overview](database/schema-overview.md)
 - [Entity Relationships](database/entity-relationships.md)
 - [Tenant Isolation](database/tenant-isolation.md)
+
+### 📚 Reference
+- [Permissions Reference](reference/permissions.md) - Complete list of all permissions
 
 ### 📋 Architecture Decisions
 - [Decision Records Index](decisions/README.md)
@@ -63,6 +74,7 @@ docs/
 ├── guides/           # How-to guides for developers
 ├── features/         # Feature-specific documentation
 ├── patterns/         # Common patterns and best practices
+├── reference/        # API and permissions reference
 ├── api/              # API documentation
 ├── database/         # Database design and schema
 ├── decisions/        # Architecture Decision Records (ADRs)

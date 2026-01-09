@@ -16,7 +16,7 @@ public class CancelPaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespons
     public override void Configure()
     {
         Post("/payments/intents/{id}/cancel");
-        AllowAnonymous();
+        Policies("Payment.Cancel");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

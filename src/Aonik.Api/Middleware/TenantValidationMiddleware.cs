@@ -1,6 +1,4 @@
-using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Domain.Identity.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Api.Middleware;
@@ -14,57 +12,56 @@ public class TenantValidationMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, ITenantProvider tenantProvider, IAonikDbContext dbContext)
+    public async Task InvokeAsync(HttpContext context, IAonikDbContext dbContext)
     {
-        // Skip validation for admin endpoints (tenant management)
-        if (context.Request.Path.StartsWithSegments("/admin"))
-        {
-            await _next(context);
-            return;
-        }
-
-        // Skip validation for health checks and swagger
-        if (context.Request.Path.StartsWithSegments("/health") || 
+        // Skip health and swagger (public endpoints)
+        if (context.Request.Path.StartsWithSegments("/health") ||
             context.Request.Path.StartsWithSegments("/swagger"))
         {
             await _next(context);
             return;
         }
-
-        // Try to get tenant ID from request
-        if (!tenantProvider.TryGetCurrentTenantId(out var tenantId))
+        
+        // Skip admin endpoints (they use PlatformAdmin policy, not tenant-scoped)
+        if (context.Request.Path.StartsWithSegments("/admin"))
         {
-            // If tenant is required but not present, return 400
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            await context.Response.WriteAsJsonAsync(new { error = "Tenant ID is required. Provide X-Tenant-Id header or tenant_id claim in JWT." });
+            await _next(context);
             return;
         }
-
-        // Validate tenant exists and is active
+        
+        // Tenant should already be resolved by OnTokenValidated
+        if (context.Items["AonikTenantId"] is not Guid tenantId)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
+            return;
+        }
+        
+        // Validate tenant status (tenant existence already validated during JIT user creation)
         var tenant = await dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId);
-
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TenantId == tenantId, context.RequestAborted);
+        
         if (tenant == null)
         {
+            // Should not happen (user creation validates tenant)
             context.Response.StatusCode = StatusCodes.Status404NotFound;
-            await context.Response.WriteAsJsonAsync(new { error = $"Tenant {tenantId} not found." });
+            await context.Response.WriteAsJsonAsync(new { error = "Tenant not found" });
             return;
         }
-
-        if (tenant.Status == TenantStatus.Deactivated)
+        
+        if (tenant.Status != "Active")
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new { error = $"Tenant {tenantId} is deactivated." });
+            await context.Response.WriteAsJsonAsync(new 
+            { 
+                error = $"Tenant is {tenant.Status}",
+                tenantId = tenant.TenantId,
+                status = tenant.Status
+            });
             return;
         }
-
-        if (tenant.Status == TenantStatus.Suspended)
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new { error = $"Tenant {tenantId} is suspended." });
-            return;
-        }
-
+        
         await _next(context);
     }
 }

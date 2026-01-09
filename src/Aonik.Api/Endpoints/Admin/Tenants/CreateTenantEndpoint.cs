@@ -16,7 +16,7 @@ public class CreateTenantEndpoint : Endpoint<CreateTenantRequest, TenantResponse
     public override void Configure()
     {
         Post("/admin/tenants");
-        AllowAnonymous();
+        Policies("PlatformAdmin");
     }
 
     public override async Task HandleAsync(CreateTenantRequest req, CancellationToken ct)

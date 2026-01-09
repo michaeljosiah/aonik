@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Aonik.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Http;
 
@@ -15,19 +14,14 @@ public class HttpContextCurrentUserProvider : ICurrentUserProvider
 
     public Guid? GetCurrentUserId()
     {
-        var userIdClaim = _httpContextAccessor.HttpContext?.User
-            .FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrEmpty(userIdClaim))
-            return null;
-
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+        // Read from HttpContext.Items (populated by OnTokenValidated)
+        return _httpContextAccessor.HttpContext?.Items["AonikUserId"] as Guid?;
     }
 
     public bool TryGetCurrentUserId(out Guid userId)
     {
-        var result = GetCurrentUserId();
-        userId = result ?? Guid.Empty;
-        return result.HasValue;
+        var id = GetCurrentUserId();
+        userId = id ?? Guid.Empty;
+        return id.HasValue;
     }
 }
