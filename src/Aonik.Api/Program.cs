@@ -1,10 +1,10 @@
+using Aonik.Api.Configuration;
 using Aonik.Api.Middleware;
 using Aonik.Application;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.Persistence.Seed;
 using FastEndpoints;
-using FastEndpoints.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,8 +21,8 @@ builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
 // Add FastEndpoints
 builder.Services.AddFastEndpoints();
 
-// Add Swagger
-builder.Services.SwaggerDocument();
+// Add Swagger with OAuth2 authentication
+builder.Services.AddAonikSwagger(builder.Configuration);
 
 var app = builder.Build();
 
@@ -39,7 +39,7 @@ if (app.Environment.IsDevelopment())
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwaggerGen();
+    app.UseAonikSwagger(builder.Configuration);
 }
 
 // Map default Aspire endpoints (health, metrics)
