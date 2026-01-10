@@ -100,13 +100,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
+
         builder.ConfigureAppConfiguration((context, config) =>
         {
-            // Use in-memory configuration to enable InMemory database for tests
+            // Provide a unique database name per test run
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["UseInMemoryDatabase"] = "true",
-                ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid()
+                ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid().ToString()
             });
         });
 

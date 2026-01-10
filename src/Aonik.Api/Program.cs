@@ -13,7 +13,7 @@ builder.AddServiceDefaults();
 
 // Add Application and Infrastructure layers
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 // Add AONIK Authentication & Authorization
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);

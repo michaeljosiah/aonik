@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Aonik.Infrastructure;
 
@@ -26,7 +27,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         // Core abstractions
         services.AddSingleton<IClock, SystemClock>();
@@ -36,21 +38,39 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
 
-        // Database - support both SQL Server and InMemory for testing
-        var useInMemory = configuration["UseInMemoryDatabase"];
-        
-        if (useInMemory == "true")
+        // Database - environment-aware selection
+        var useInMemory = configuration.GetValue<bool>("UseInMemoryDatabase");
+        var inMemoryName = configuration["InMemoryDatabaseName"] ?? "AonikTestDb";
+
+        if (environment.IsEnvironment("Testing"))
         {
-            var dbName = configuration["InMemoryDatabaseName"] ?? "AonikTestDb";
             services.AddDbContext<AonikDbContext>((sp, options) =>
             {
-                options.UseInMemoryDatabase(dbName);
+                options.UseInMemoryDatabase(inMemoryName);
+            });
+        }
+        else if (environment.IsDevelopment() && useInMemory)
+        {
+            services.AddDbContext<AonikDbContext>((sp, options) =>
+            {
+                options.UseInMemoryDatabase(inMemoryName);
             });
         }
         else
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection") 
-                ?? "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                if (environment.IsDevelopment())
+                {
+                    connectionString = "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
+                }
+                else
+                {
+                    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required for SQL Server in this environment.");
+                }
+            }
 
             services.AddDbContext<AonikDbContext>((sp, options) =>
             {

@@ -351,19 +351,33 @@ public class BillingService : IBillingService
 **Configuration-Based Database Selection:**
 ```csharp
 // Infrastructure/DependencyInjection.cs
-var useInMemory = configuration["UseInMemoryDatabase"];
+var useInMemory = configuration.GetValue<bool>("UseInMemoryDatabase");
+var inMemoryName = configuration["InMemoryDatabaseName"] ?? "AonikTestDb";
 
-if (useInMemory == "true")
+if (environment.IsEnvironment("Testing"))
 {
     services.AddDbContext<AonikDbContext>(options =>
-        options.UseInMemoryDatabase(configuration["InMemoryDatabaseName"] ?? "AonikDb"));
+        options.UseInMemoryDatabase(inMemoryName));
+}
+else if (environment.IsDevelopment() && useInMemory)
+{
+    services.AddDbContext<AonikDbContext>(options =>
+        options.UseInMemoryDatabase(inMemoryName));
 }
 else
 {
+    var connectionString = configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString) && !environment.IsDevelopment())
+        throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required in this environment.");
+
     services.AddDbContext<AonikDbContext>(options =>
-        options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+        options.UseSqlServer(connectionString ?? "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;"));
 }
 ```
+
+- **Testing**: `appsettings.Testing.json` enables InMemory with a configurable name; production always requires a SQL Server connection string.
+- **Development**: keeps LocalDB as a fallback but can opt into InMemory by setting `UseInMemoryDatabase=true` and an optional `InMemoryDatabaseName`.
+- **Production**: fails fast if `ConnectionStrings:DefaultConnection` is missing.
 
 **Dependencies:** Application, Domain, SharedKernel
 

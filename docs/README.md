@@ -10,11 +10,10 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 - [Technology Stack](architecture/technology-stack.md) - Technologies used
 
 ### 📖 Developer Guides
-- [Getting Started Guide](guides/getting-started.md) - Setup and first run
 - [Application Services](guides/application-services.md) - Service layer patterns
 - [Domain Entities](guides/domain-entities.md) - Anemic entity model
 - [API Endpoints](guides/api-endpoints.md) - FastEndpoints patterns
-- [Testing](guides/testing.md) - Testing strategies
+- [Testing](Testing.md) - Testing strategies
 - [Database Migrations](guides/database-migrations.md) - EF Core migrations
 
 #### Authentication & Authorization

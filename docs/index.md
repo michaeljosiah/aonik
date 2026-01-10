@@ -8,6 +8,11 @@ Welcome to the AONIK documentation. This index provides quick access to all proj
 
 ## For Developers
 
+### Local Development
+
+- **[Local Development](deployment/local-development.md)**
+- **[Docker Setup](deployment/docker.md)**
+
 ### Core Documentation
 
 - **[AGENTS.md](../AGENTS.md)** - Comprehensive coding guidelines for AI agents and developers
@@ -16,6 +21,10 @@ Welcome to the AONIK documentation. This index provides quick access to all proj
   - Code style guidelines
   - Entity and service patterns
   - Pre-commit checklist
+
+### Getting Started
+
+- **[Getting Started Guide](guides/getting-started.md)** - Setup and first run
 
 ### Testing
 
@@ -52,6 +61,11 @@ Welcome to the AONIK documentation. This index provides quick access to all proj
 - **Run tests**: `dotnet test Aonik.sln`
 - **Run API**: `dotnet run --project src/Aonik.Api`
 - **Create migration**: `dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api`
+
+### Local Development & Docker
+
+- **Local Development**: `deployment/local-development.md`
+- **Docker Setup**: `deployment/docker.md`
 
 ### Need Help?
 
