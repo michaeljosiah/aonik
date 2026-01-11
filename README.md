@@ -151,6 +151,8 @@ For detailed technical information, see:
 - **[AGENTS.md](AGENTS.md)** - Coding standards, build commands, and architectural patterns for AI agents
 - **[docs/Troubleshooting.md](docs/Troubleshooting.md)** - Common issues and solutions
 - **[docs/Testing.md](docs/Testing.md)** - Testing guidelines and patterns
+- **[Local API usage](docs/features/authentication-authorization.md#local-api-usage)** - Sample claims and curl for local auth
+- **[Securing an endpoint](docs/features/authentication-authorization.md#securing-an-endpoint)** - FastEndpoints checklist
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and recent changes
 
 ---
@@ -192,5 +194,4 @@ AONIK aims to become a **trusted, intelligent foundation for financial systems**
 ---
 
 *This project is just getting started. The foundations you help build today will shape what AONIK becomes tomorrow.*
-
 

@@ -6,6 +6,10 @@ This guide explains how to configure Swagger UI to authenticate with your OAuth2
 
 The AONIK API now supports OAuth2 authentication in Swagger UI, allowing you to test authenticated endpoints directly from the Swagger interface. The configuration automatically adapts based on your chosen authentication provider (Azure AD or Auth0).
 
+**See also:**
+- [Local API Usage](features/authentication-authorization.md#local-api-usage)
+- [Securing an Endpoint](features/authentication-authorization.md#securing-an-endpoint)
+
 ## Configuration Steps
 
 ### 1. Register Swagger as an OAuth2 Client
