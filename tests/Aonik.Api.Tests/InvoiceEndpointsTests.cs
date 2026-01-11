@@ -1,32 +1,25 @@
 using System.Net;
 using System.Net.Http.Json;
-using Aonik.Api.Contracts.Billing;
-using Aonik.Infrastructure.Persistence;
 using FluentAssertions;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+
+using Aonik.Api.Contracts.Billing;
 
 namespace Aonik.Api.Tests;
 
 public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
-    private readonly HttpClient _client;
 
     public InvoiceEndpointsTests(CustomWebApplicationFactory factory)
     {
         _factory = factory;
-        _client = _factory.CreateClient();
     }
 
     [Fact]
     public async Task HealthEndpoint_ReturnsOk()
     {
         // Act
-        var response = await _client.GetAsync("/health");
+        var response = await _factory.CreateClient().GetAsync("/health");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -36,6 +29,9 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task CreateInvoice_ReturnsCreated()
     {
         // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithPermissions("Invoice.Create", "Invoice.Read"));
+
         var request = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
             InvoiceNumber: $"INV-{Guid.NewGuid().ToString()[..8]}",
@@ -47,7 +43,7 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
             });
 
         // Act
-        var response = await _client.PostAsJsonAsync("/billing/invoices", request);
+        var response = await client.PostAsJsonAsync("/billing/invoices", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -62,6 +58,9 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetInvoice_ReturnsInvoice_WhenExists()
     {
         // Arrange - Create an invoice first
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithPermissions("Invoice.Create", "Invoice.Read"));
+
         var createRequest = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
             InvoiceNumber: $"INV-{Guid.NewGuid().ToString()[..8]}",
@@ -72,11 +71,11 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
                 new("Test Service", 1, 100.00m)
             });
 
-        var createResponse = await _client.PostAsJsonAsync("/billing/invoices", createRequest);
+        var createResponse = await client.PostAsJsonAsync("/billing/invoices", createRequest);
         var createdInvoice = await createResponse.Content.ReadFromJsonAsync<InvoiceResponse>();
 
         // Act
-        var getResponse = await _client.GetAsync($"/billing/invoices/{createdInvoice!.Id}");
+        var getResponse = await client.GetAsync($"/billing/invoices/{createdInvoice!.Id}");
 
         // Assert
         getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -89,35 +88,11 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetInvoice_ReturnsNotFound_WhenDoesNotExist()
     {
         // Act
-        var response = await _client.GetAsync($"/billing/invoices/{Guid.NewGuid()}");
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithPermissions("Invoice.Read"));
+        var response = await client.GetAsync($"/billing/invoices/{Guid.NewGuid()}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-}
-
-public class CustomWebApplicationFactory : WebApplicationFactory<Program>
-{
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-
-        builder.ConfigureAppConfiguration((context, config) =>
-        {
-            // Provide a unique database name per test run
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid().ToString()
-            });
-        });
-
-        builder.ConfigureServices(services =>
-        {
-            // Build the service provider and ensure database is created
-            var sp = services.BuildServiceProvider();
-            using var scope = sp.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
-            db.Database.EnsureCreated();
-        });
     }
 }

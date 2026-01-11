@@ -1,27 +1,30 @@
 using System.Net;
 using System.Net.Http.Json;
-using Aonik.Api.Contracts.Ledger;
 using FluentAssertions;
+
+using Aonik.Api.Contracts.Ledger;
 
 namespace Aonik.Api.Tests;
 
 public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 {
-    private readonly HttpClient _client;
+    private readonly CustomWebApplicationFactory _factory;
 
     public LedgerEndpointsTests(CustomWebApplicationFactory factory)
     {
-        _client = factory.CreateClient();
+        _factory = factory;
     }
 
     [Fact]
     public async Task CreateLedgerAccount_ReturnsCreated()
     {
         // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
         var request = new CreateLedgerAccountRequest("Cash", "USD");
 
         // Act
-        var response = await _client.PostAsJsonAsync("/ledger/accounts", request);
+        var response = await client.PostAsJsonAsync("/ledger/accounts", request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -36,8 +39,10 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddJournalEntry_ReturnsCreated()
     {
         // Arrange - Create account first
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
         var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
-        var accountResponse = await _client.PostAsJsonAsync("/ledger/accounts", accountRequest);
+        var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);
         var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
 
         var entryRequest = new AddJournalEntryRequest(
@@ -48,7 +53,7 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
             "Payment received");
 
         // Act
-        var response = await _client.PostAsJsonAsync("/ledger/journal-entries", entryRequest);
+        var response = await client.PostAsJsonAsync("/ledger/journal-entries", entryRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -65,16 +70,18 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     public async Task AddJournalEntry_WithMultipleEntries_ShouldCreateAll()
     {
         // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
         var accountRequest = new CreateLedgerAccountRequest("Operations", "USD");
-        var accountResponse = await _client.PostAsJsonAsync("/ledger/accounts", accountRequest);
+        var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);
         var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
 
         // Act
-        var entry1Response = await _client.PostAsJsonAsync("/ledger/journal-entries",
+        var entry1Response = await client.PostAsJsonAsync("/ledger/journal-entries",
             new AddJournalEntryRequest(account!.Id, 100.00m, "USD", "REF-001", "Entry 1"));
-        var entry2Response = await _client.PostAsJsonAsync("/ledger/journal-entries",
+        var entry2Response = await client.PostAsJsonAsync("/ledger/journal-entries",
             new AddJournalEntryRequest(account.Id, 200.00m, "USD", "REF-002", "Entry 2"));
-        var entry3Response = await _client.PostAsJsonAsync("/ledger/journal-entries",
+        var entry3Response = await client.PostAsJsonAsync("/ledger/journal-entries",
             new AddJournalEntryRequest(account.Id, -50.00m, "USD", "REF-003", "Entry 3"));
 
         // Assert
