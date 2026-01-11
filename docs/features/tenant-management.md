@@ -81,7 +81,24 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
-### 4. Tenant Provider
+### 3.1 Global visibility for nullable tenant entities
+
+Some AI/agent configuration entities allow a nullable `TenantId` so they can be shared globally. These entities apply a filter that keeps **tenant-owned rows** plus **global rows**:
+
+```csharp
+// Agent, OrchestratorPolicy, AiRoutePolicy
+entity => entity.TenantId == currentTenantId || entity.TenantId == null
+```
+
+### 4. Write-time tenant safeguards
+
+`AonikDbContext.SaveChangesAsync` enforces tenant safety for writes:
+
+- **Added** tenant-scoped entities with `TenantId == Guid.Empty` are assigned the current tenant.
+- **Modified/Deleted** tenant-scoped entities must match the current tenant, otherwise an exception is thrown.
+- Any tenant-scoped write without an available tenant context throws immediately.
+
+### 5. Tenant Provider
 
 The `ITenantProvider` interface provides the current tenant context:
 

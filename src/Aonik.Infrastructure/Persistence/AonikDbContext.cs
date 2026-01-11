@@ -170,8 +170,38 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        BeforeSave();
         UpdateAuditFields();
         return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void BeforeSave()
+    {
+        var tenantEntries = ChangeTracker.Entries<ITenantScoped>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToList();
+
+        if (tenantEntries.Count == 0)
+            return;
+
+        if (_tenantProvider == null || !_tenantProvider.TryGetCurrentTenantId(out var currentTenantId))
+            throw new InvalidOperationException("Tenant context is required for tenant-scoped writes.");
+
+        foreach (var entry in tenantEntries)
+        {
+            var tenantIdProperty = entry.Property(nameof(ITenantScoped.TenantId));
+            var tenantId = (Guid)tenantIdProperty.CurrentValue!;
+
+            if (entry.State == EntityState.Added && tenantId == Guid.Empty)
+            {
+                tenantIdProperty.CurrentValue = currentTenantId;
+                continue;
+            }
+
+            if (entry.State is EntityState.Modified or EntityState.Deleted && tenantId != currentTenantId)
+                throw new InvalidOperationException(
+                    $"Tenant mismatch detected for {entry.Metadata.ClrType.Name} ({tenantId}).");
+        }
     }
 
     private void UpdateAuditFields()
@@ -234,5 +264,22 @@ public class AonikDbContext : DbContext, IAonikDbContext
                 modelBuilder.Entity(clrType).HasQueryFilter(lambda);
             }
         }
+
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent), currentTenantId);
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy), currentTenantId);
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy), currentTenantId);
+    }
+
+    private static void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType, Guid currentTenantId)
+    {
+        var parameter = Expression.Parameter(clrType, "e");
+        var property = Expression.Property(parameter, "TenantId");
+        var tenantIdValue = Expression.Constant(currentTenantId, property.Type);
+        var nullValue = Expression.Constant(null, property.Type);
+        var equalsTenant = Expression.Equal(property, tenantIdValue);
+        var equalsNull = Expression.Equal(property, nullValue);
+        var filter = Expression.Lambda(Expression.OrElse(equalsTenant, equalsNull), parameter);
+
+        modelBuilder.Entity(clrType).HasQueryFilter(filter);
     }
 }
