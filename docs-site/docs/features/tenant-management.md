@@ -370,4 +370,4 @@ public partial class AddTenantSupport : Migration
 
 - [DbContext Configuration](../database/schema-overview.md)
 - [Entity Guidelines](../guides/domain-entities.md)
-- [ADR: Tenant Isolation Strategy](../decisions/004-tenant-isolation-strategy.md) (TODO)
+- Tenant isolation ADR (planned)
