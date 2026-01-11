@@ -227,17 +227,34 @@ public static class AonikAuthenticationSetup
             return false;
         }
 
-        var environment = httpContext.RequestServices.GetRequiredService<IHostEnvironment>();
-        if (!environment.IsDevelopment())
-        {
-            return false;
-        }
-
         var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
         var bootstrapOptions = configuration.GetSection("Bootstrap").Get<BootstrapOptions>() ?? new BootstrapOptions();
         if (!bootstrapOptions.Enabled)
         {
             return false;
+        }
+
+        var environment = httpContext.RequestServices.GetRequiredService<IHostEnvironment>();
+        if (!environment.IsDevelopment())
+        {
+            var platformAdminOptions = configuration.GetSection("PlatformAdmin").Get<PlatformAdminOptions>()
+                ?? new PlatformAdminOptions();
+
+            var isPlatformAdmin = context.Principal?.Claims.Any(claim =>
+                    claim.Type == platformAdminOptions.RoleClaimType &&
+                    claim.Value == platformAdminOptions.RoleValue) == true;
+
+            if (!isPlatformAdmin && !string.IsNullOrEmpty(platformAdminOptions.ScopeClaimType))
+            {
+                isPlatformAdmin = context.Principal?.Claims.Any(claim =>
+                        claim.Type == platformAdminOptions.ScopeClaimType &&
+                        (claim.Value == "true" || claim.Value == "1")) == true;
+            }
+
+            if (!isPlatformAdmin)
+            {
+                return false;
+            }
         }
 
         var dbContext = httpContext.RequestServices.GetRequiredService<IAonikDbContext>();
