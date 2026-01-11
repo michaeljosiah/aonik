@@ -1,5 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Aonik.Application.Abstractions.Ai;
 using Aonik.Application.Abstractions.Authentication;
+using Aonik.Application.Abstractions.Messaging;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
@@ -10,18 +17,14 @@ using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
 using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authorization;
+using Aonik.Infrastructure.Communication;
+using Aonik.Infrastructure.Communication.Configuration;
 using Aonik.Infrastructure.Identity;
 using Aonik.Infrastructure.Multitenancy;
 using Aonik.Infrastructure.Observability;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Time;
 using Aonik.SharedKernel.Abstractions;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace Aonik.Infrastructure;
 
@@ -38,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
         services.AddScoped<ICorrelationContext, HttpContextCorrelationContext>();
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
+        services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
+        services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
 
         // Multitenancy
         services.AddHttpContextAccessor();
@@ -91,6 +96,8 @@ public static class DependencyInjection
         services.AddScoped<ITenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapService, BootstrapService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
+        services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
+        services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
 
         // AI
         services.AddSingleton<IPromptStore>(sp =>
@@ -114,6 +121,7 @@ public static class DependencyInjection
         services.AddScoped<IUserProvisioningService, UserProvisioningService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
+        services.AddScoped<IVerificationService, VerificationService>();
         
         // Add authentication
         services.AddAonikAuthentication(configuration);
