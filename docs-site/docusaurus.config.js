@@ -6,8 +6,8 @@ const darkCodeTheme = themes.dracula;
 module.exports = {
   title: 'Aonik Docs',
   tagline: 'Documentation for the Aonik platform',
-  url: 'https://docs.aonik.io',
-  baseUrl: '/',
+  url: 'https://michael.josiah.github.io',
+  baseUrl: '/aonik/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   organizationName: 'michaeljosiah',
