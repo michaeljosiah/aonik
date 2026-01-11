@@ -263,6 +263,47 @@ X-Tenant-Id: 550e8400-e29b-41d4-a716-446655440000
 
 ---
 
+## Local API Usage
+
+Use these defaults when calling the API locally (for example, via Postman, curl, or Swagger UI).
+
+### Required Headers
+
+- `Authorization: Bearer <jwt>`
+- `X-Tenant-Id: <tenant-guid>` (when `TenantRoutingMode` is set to `Header` in Development)
+
+### Sample JWT Claims
+
+```json
+{
+  "iss": "https://login.microsoftonline.com/{tenant-id}/v2.0",
+  "sub": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+  "email": "developer@aonik.dev",
+  "aonik_tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+  "roles": ["Invoice.Read", "Invoice.Create"]
+}
+```
+
+### Sample curl
+
+```bash
+curl -X GET "https://localhost:5001/billing/invoices" \
+  -H "Authorization: Bearer <jwt>" \
+  -H "X-Tenant-Id: 550e8400-e29b-41d4-a716-446655440000"
+```
+
+---
+
+## Securing an Endpoint
+
+Use this checklist when adding or updating FastEndpoints handlers.
+
+- [ ] Apply authorization policies in `Configure()` (for example, `Policies("Invoice.Read")` or `Policies("PlatformAdmin")`).
+- [ ] Require tenant context (do not use `AllowAnonymous()`, and ensure tenant routing is configured for the environment).
+- [ ] Add audit logging expectations for write operations by recording create/update/delete actions via `IAuditLogWriter` in the application service.
+
+---
+
 ## Configuration
 
 ### Choosing Your Identity Provider
