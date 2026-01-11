@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-03-07
+- Added `ICurrentUserContext` and `HttpContextCurrentUserContext` for unified current-user data, plus claim-to-role mapping helper.
+
+### Changed - 2025-03-07
+- Updated authentication token validation to populate current-user context and resolve roles from claims or the database.
+
 ### Added - 2025-02-14
 - Added scoped tenant context (`ITenantContext`/`TenantContext`) and tenant context middleware to centralize tenant resolution.
 

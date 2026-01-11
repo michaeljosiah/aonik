@@ -32,6 +32,7 @@ public static class DependencyInjection
     {
         // Core abstractions
         services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<ICurrentUserContext, HttpContextCurrentUserContext>();
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
 
         // Multitenancy
