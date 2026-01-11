@@ -41,7 +41,7 @@ public class UserIdentityService : IUserIdentityService
             {
                 existingUser.Email = email;
                 await _dbContext.SaveChangesAsync(ct);
-                _logger.LogInformation("Updated email for user {UserId}", existingUser.UserId);
+                _logger.LogInformation("Updated email for user {UserId}", existingUser.Id);
             }
             
             return existingUser;
@@ -68,7 +68,6 @@ public class UserIdentityService : IUserIdentityService
         var newUser = new User
         {
             Id = Guid.NewGuid(),
-            UserId = Guid.NewGuid(),
             TenantId = aonikTenantId,
             ExternalIssuer = externalIssuer,
             ExternalSubject = externalSubject,
@@ -81,7 +80,7 @@ public class UserIdentityService : IUserIdentityService
         await _dbContext.SaveChangesAsync(ct);
         
         _logger.LogInformation("Created new user {UserId} via JIT provisioning (Issuer: {Issuer}, Subject: {Subject})",
-            newUser.UserId, externalIssuer, externalSubject);
+            newUser.Id, externalIssuer, externalSubject);
         
         return newUser;
     }

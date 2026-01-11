@@ -107,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<IUserRoleService, UserRoleService>();
         
         // Add authentication
         services.AddAonikAuthentication(configuration);
@@ -117,11 +118,22 @@ public static class DependencyInjection
             // Platform admin policy
             options.AddPolicy("PlatformAdmin", policy =>
                 policy.Requirements.Add(new PlatformAdminRequirement()));
+
+            options.AddPolicy("TenantAdmin", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["TenantAdmin"],
+                    ["Users.Manage"])));
+
+            options.AddPolicy("CanOperate", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["Operations"],
+                    ["Payment.Create"])));
         });
         
         // Register authorization handlers (SCOPED for permission handler)
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddSingleton<IAuthorizationHandler, PlatformAdminHandler>();
+        services.AddScoped<IAuthorizationHandler, RoleOrPermissionAuthorizationHandler>();
         
         // Register dynamic policy provider
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
