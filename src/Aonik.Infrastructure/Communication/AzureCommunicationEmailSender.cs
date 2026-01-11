@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions.Messaging;
 using Aonik.Infrastructure.Communication.Configuration;
+using EmailMessage = Aonik.Application.Abstractions.Messaging.EmailMessage;
+
 
 namespace Aonik.Infrastructure.Communication;
 
