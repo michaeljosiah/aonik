@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-02-14
+- Added scoped tenant context (`ITenantContext`/`TenantContext`) and tenant context middleware to centralize tenant resolution.
+
+### Changed - 2025-02-14
+- Updated tenant validation and tenant provider to consume `ITenantContext` instead of raw `HttpContext.Items`.
+- Allowed `X-Tenant-Id` routing in any environment when explicitly configured via `Auth:TenantRouting=Header`.
+
 ### Fixed - 2025-01-08
 
 #### Build System

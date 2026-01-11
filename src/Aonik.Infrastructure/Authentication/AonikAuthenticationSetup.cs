@@ -166,7 +166,6 @@ public static class AonikAuthenticationSetup
         
         // 4. Stash in HttpContext.Items for downstream consumers
         context.HttpContext.Items["AonikUserId"] = user.UserId;
-        context.HttpContext.Items["AonikTenantId"] = aonikTenantId.Value;
         context.HttpContext.Items["AonikUserStatus"] = user.Status;
         
         logger.LogInformation("Authenticated user {UserId} in tenant {TenantId} (Status: {Status})",
