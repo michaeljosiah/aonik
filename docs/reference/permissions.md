@@ -253,6 +253,12 @@ Policies("Invoice.Read", "Invoice.Create");  // User needs either permission
 Policies("PlatformAdmin");  // Special platform-level access
 ```
 
+**Policy conventions (role OR permission):**
+```csharp
+Policies("TenantAdmin"); // Requires TenantAdmin role or Users.Manage permission
+Policies("CanOperate");  // Requires Operations role or Payment.Create permission
+```
+
 ### 3. Permission Checking
 
 When a request arrives:
