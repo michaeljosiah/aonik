@@ -111,6 +111,7 @@ public static class DependencyInjection
         // Register authentication services
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();
+        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
         
