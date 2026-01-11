@@ -2,158 +2,63 @@
 sidebar_position: 1
 ---
 
-# Documentation Index
+# AONIK Documentation
 
-Welcome to the AONIK documentation. This index provides quick access to all project documentation.
+Build, integrate, and operate the AONIK platform with confidence. These docs give engineers a clear picture of the architecture, core modules, and the day-to-day workflows needed to ship features and keep services healthy.
 
-## Getting Started
+## What You Will Find Here
 
-- **[README.md](https://github.com/michaeljosiah/aonik/blob/main/README.md)** - Project overview, quick start guide, and vision
+- **Platform overview**: how the platform is structured and how modules fit together
+- **Engineering workflows**: local setup, deployments, and testing expectations
+- **Reference material**: schemas, patterns, and architectural decisions
+- **Operational guidance**: troubleshooting, diagnostics, and runtime tips
 
-## For Developers
+## Quick Start
 
-### Local Development
+1. Review the project context in **[README.md](https://github.com/michaeljosiah/aonik/blob/main/README.md)**.
+2. Set up your environment with **[Getting Started](guides/getting-started.md)**.
+3. Run the platform locally using **[Local Development](deployment/local-development.md)** or **[Docker Setup](deployment/docker.md)**.
+
+## Architecture At A Glance
+
+AONIK follows Clean Architecture with an anemic domain model. Business logic lives in application services, while modules are organized vertically by domain (Billing, Payments, Ledger, AI).
+
+- **Domain**: entity definitions and primitives
+- **Application**: service layer, DTOs, workflows
+- **Infrastructure**: EF Core, external integrations, providers
+- **API**: FastEndpoints endpoints and contracts
+- **Worker**: background jobs and scheduled tasks
+
+## Documentation Map
+
+### Core Engineering Docs
+
+- **[Architecture](Architecture.md)**
+- **[Testing](Testing.md)**
+- **[Troubleshooting](Troubleshooting.md)**
+- **[Swagger Authentication](SwaggerAuthentication.md)**
+
+### Deployment & Operations
 
 - **[Local Development](deployment/local-development.md)**
 - **[Docker Setup](deployment/docker.md)**
+- **[Database Overview](database/schema-overview.md)**
+- **[Tenant Isolation](database/tenant-isolation.md)**
 
-### Core Documentation
+### Patterns & Decisions
 
-- **[AGENTS.md](https://github.com/michaeljosiah/aonik/blob/main/AGENTS.md)** - Comprehensive coding guidelines for AI agents and developers
-  - Build commands and workflows
-  - Architecture patterns (Clean Architecture with Anemic Domain Model)
-  - Code style guidelines
-  - Entity and service patterns
-  - Pre-commit checklist
+- **[Service Layer Patterns](patterns/service-layer.md)**
+- **[Architecture Decisions](decisions/README.md)**
+- **[User Onboarding Requirements](requirements/user-onboarding-specification.md)**
 
-### Getting Started
+## Reference Links
 
-- **[Getting Started Guide](guides/getting-started.md)** - Setup and first run
+- **[AGENTS.md](https://github.com/michaeljosiah/aonik/blob/main/AGENTS.md)**: coding standards and build commands
+- **[CHANGELOG.md](https://github.com/michaeljosiah/aonik/blob/main/CHANGELOG.md)**: release notes and platform history
 
-### Testing
+## Need Help?
 
-- **[Testing Guide](Testing.md)** - Complete testing documentation
-  - Testing philosophy and structure
-  - How to run tests
-  - Writing service tests with mocks
-  - Test patterns for anemic entities
-  - Common testing pitfalls
-
-### Troubleshooting
-
-- **[Troubleshooting Guide](Troubleshooting.md)** - Solutions to common issues
-  - Build errors and fixes
-  - Test failure diagnostics
-  - Runtime issues
-  - Database problems
-  - NuGet package conflicts
-  - Quick fixes checklist
-
-## Project Information
-
-- **[CHANGELOG.md](https://github.com/michaeljosiah/aonik/blob/main/CHANGELOG.md)** - Version history and recent changes
-  - Latest fixes (January 2025)
-  - Build system updates
-  - Entity Framework configuration corrections
-  - Test infrastructure improvements
-
-## Quick Links
-
-### Common Tasks
-
-- **Build the solution**: `dotnet build Aonik.sln`
-- **Run tests**: `dotnet test Aonik.sln`
-- **Run API**: `dotnet run --project src/Aonik.Api`
-- **Create migration**: `dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api`
-
-### Local Development & Docker
-
-- **Local Development**: `deployment/local-development.md`
-- **Docker Setup**: `deployment/docker.md`
-
-### Need Help?
-
-1. Check the [Troubleshooting Guide](Troubleshooting.md) for your specific issue
-2. Review the [CHANGELOG](https://github.com/michaeljosiah/aonik/blob/main/CHANGELOG.md) for recent changes
-3. Consult [AGENTS.md](https://github.com/michaeljosiah/aonik/blob/main/AGENTS.md) for coding patterns
-4. Search GitHub issues
-5. Create a new issue with details
-
-## Documentation Status
-
-| Document | Status | Last Updated |
-|----------|--------|--------------|
-| README.md | ✅ Current | Jan 8, 2025 |
-| AGENTS.md | ✅ Current | Jan 8, 2025 |
-| CHANGELOG.md | ✅ Current | Jan 8, 2025 |
-| docs/Testing.md | ✅ Current | Jan 8, 2025 |
-| docs/Troubleshooting.md | ✅ Current | Jan 8, 2025 |
-
-## Project Structure
-
-```
-aonik/
-├── src/
-│   ├── Aonik.SharedKernel/     # Common primitives (Entity, Result<T>, etc.)
-│   ├── Aonik.Domain/            # Domain entities (anemic model)
-│   ├── Aonik.Application/       # Business logic and services
-│   ├── Aonik.Infrastructure/    # EF Core, external services, AI providers
-│   ├── Aonik.Api/              # FastEndpoints HTTP API
-│   └── Aonik.Worker/           # Background jobs
-├── tests/
-│   ├── Aonik.Domain.Tests/
-│   ├── Aonik.Application.Tests/
-│   ├── Aonik.Infrastructure.Tests/
-│   └── Aonik.Api.Tests/
-├── docs/                        # Documentation (this directory)
-│   ├── index.md                # This file
-│   ├── Testing.md              # Testing guide
-│   └── Troubleshooting.md      # Common issues
-├── AGENTS.md                    # Coding guidelines
-├── CHANGELOG.md                 # Version history
-├── README.md                    # Project overview
-└── Aonik.sln                    # Solution file
-```
-
-## Architecture Overview
-
-AONIK follows **Clean Architecture** principles with these key characteristics:
-
-### Anemic Domain Model
-- Domain entities are simple data containers
-- No business logic in entities
-- All business logic in application services
-
-### Vertical Slicing
-- Code organized by business modules (Billing, Payments, Ledger, AI)
-- Each module has entities, services, and endpoints
-
-### Key Technologies
-- **.NET 10** - Latest .NET platform
-- **FastEndpoints** - High-performance HTTP endpoints
-- **Entity Framework Core 10** - ORM and data access
-- **xUnit + FluentAssertions** - Testing framework
-
-## Contributing
-
-When contributing to the documentation:
-
-1. Keep it concise and scannable
-2. Use code examples where helpful
-3. Update this index when adding new documents
-4. Follow the existing structure and tone
-5. Test all commands and examples
-6. Update the "Last Updated" date
-
-## Feedback
-
-Documentation improvements are always welcome! If you find:
-- Unclear explanations
-- Missing information
-- Outdated content
-- Broken links
-
-Please create an issue or submit a pull request.
+Start with the **[Troubleshooting Guide](Troubleshooting.md)**, then check recent changes in the **[CHANGELOG](https://github.com/michaeljosiah/aonik/blob/main/CHANGELOG.md)**. If something is missing or outdated, open an issue or submit a PR.
 
 ---
 
