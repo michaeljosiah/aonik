@@ -1,7 +1,9 @@
 using System.Text.Json;
 using FastEndpoints;
+
 using Aonik.Api.Contracts.Identity;
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
@@ -14,17 +16,20 @@ public class GetMeEndpoint : EndpointWithoutRequest<CurrentUserResponse>
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IAuditLogWriter _auditLogWriter;
+    private readonly ICorrelationContext _correlationContext;
 
     public GetMeEndpoint(
         IUserProfileService userProfileService,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        ICorrelationContext correlationContext)
     {
         _userProfileService = userProfileService;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _auditLogWriter = auditLogWriter;
+        _correlationContext = correlationContext;
     }
 
     public override void Configure()
@@ -58,9 +63,12 @@ public class GetMeEndpoint : EndpointWithoutRequest<CurrentUserResponse>
         }
 
         await _auditLogWriter.LogAsync(
-            "CurrentUserViewed",
+            AuditEventNames.CurrentUserViewed,
             "User",
             result.UserId,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { result.UserId, result.TenantId }),
             ct);
 

@@ -32,33 +32,38 @@ public class AuditLogWriter : IAuditLogWriter
         string action,
         string resourceType,
         Guid resourceId,
+        Guid tenantId,
+        Guid? actorId,
+        string? correlationId,
         string? detailsJson = null,
         CancellationToken cancellationToken = default)
     {
-        var tenantId = _tenantProvider.TryGetCurrentTenantId(out var tid) ? tid : Guid.Empty;
-        var userId = _currentUserProvider.GetCurrentUserId() ?? Guid.Empty;
+        var resolvedTenantId = tenantId == Guid.Empty && _tenantProvider.TryGetCurrentTenantId(out var tid)
+            ? tid
+            : tenantId;
+        var resolvedActorId = actorId ?? _currentUserProvider.GetCurrentUserId() ?? Guid.Empty;
         const int correlationIdMaxLength = 200;
-        var correlationId = _correlationContext.CorrelationId ?? string.Empty;
+        var resolvedCorrelationId = correlationId ?? _correlationContext.CorrelationId ?? string.Empty;
 
-        if (correlationId.Length > correlationIdMaxLength)
+        if (resolvedCorrelationId.Length > correlationIdMaxLength)
         {
-            correlationId = correlationId[..correlationIdMaxLength];
+            resolvedCorrelationId = resolvedCorrelationId[..correlationIdMaxLength];
         }
 
         var auditLog = new AuditLog
         {
             AuditLogId = Guid.NewGuid(),
-            TenantId = tenantId,
+            TenantId = resolvedTenantId,
             Timestamp = _clock.UtcNow,
             ActorType = "User",
-            ActorId = userId,
+            ActorId = resolvedActorId,
             Action = action,
             ResourceType = resourceType,
             ResourceId = resourceId,
             DetailsJson = detailsJson ?? string.Empty,
-            CorrelationId = correlationId,
+            CorrelationId = resolvedCorrelationId,
             CreatedAt = _clock.UtcNow,
-            CreatedBy = userId
+            CreatedBy = resolvedActorId
         };
 
         _dbContext.AuditLogs.Add(auditLog);

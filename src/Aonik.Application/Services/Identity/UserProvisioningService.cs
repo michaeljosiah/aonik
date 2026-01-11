@@ -1,7 +1,9 @@
 using System.Text.Json;
+
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Application.Abstractions.Authentication;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
@@ -18,19 +20,22 @@ public class UserProvisioningService : IUserProvisioningService
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ICorrelationContext _correlationContext;
 
     public UserProvisioningService(
         IAonikDbContext dbContext,
         IUserIdentityService userIdentityService,
         IAuditLogWriter auditLogWriter,
         IClock clock,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _userIdentityService = userIdentityService;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+        _correlationContext = correlationContext;
     }
 
     public async Task<UserProvisioningResult> EnsureUserAndCustomerAsync(
@@ -126,9 +131,12 @@ public class UserProvisioningService : IUserProvisioningService
             partyCreated = true;
 
             await _auditLogWriter.LogAsync(
-                "UserProvisioningPartyCreated",
+                AuditEventNames.PartyCreated,
                 "Party",
                 party.Id,
+                identity.TenantId,
+                currentUserId,
+                _correlationContext.CorrelationId,
                 JsonSerializer.Serialize(new
                 {
                     party.PartyId,
@@ -156,9 +164,12 @@ public class UserProvisioningService : IUserProvisioningService
             linkCreated = true;
 
             await _auditLogWriter.LogAsync(
-                "UserProvisioningPartyLinked",
+                AuditEventNames.PartyLinked,
                 "UserParty",
                 userParty.Id,
+                identity.TenantId,
+                currentUserId,
+                _correlationContext.CorrelationId,
                 JsonSerializer.Serialize(new
                 {
                     user.Id,

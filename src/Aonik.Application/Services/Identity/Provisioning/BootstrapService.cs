@@ -1,7 +1,10 @@
 using System.Text.Json;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
@@ -20,6 +23,7 @@ public class BootstrapService : IBootstrapService
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly BootstrapOptions _options;
+    private readonly ICorrelationContext _correlationContext;
 
     public BootstrapService(
         IAonikDbContext dbContext,
@@ -29,7 +33,8 @@ public class BootstrapService : IBootstrapService
         IClock clock,
         ICurrentUserProvider currentUserProvider,
         ICurrentUserContext currentUserContext,
-        IOptions<BootstrapOptions> options)
+        IOptions<BootstrapOptions> options,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _tenantProvisioner = tenantProvisioner;
@@ -39,6 +44,7 @@ public class BootstrapService : IBootstrapService
         _currentUserProvider = currentUserProvider;
         _currentUserContext = currentUserContext;
         _options = options.Value;
+        _correlationContext = correlationContext;
     }
 
     public async Task<BootstrapTenantResult> BootstrapAsync(
@@ -110,9 +116,12 @@ public class BootstrapService : IBootstrapService
         _tenantContext.ResolutionSource = "Bootstrap";
 
         await _auditLogWriter.LogAsync(
-            "TenantBootstrapCreated",
+            AuditEventNames.TenantBootstrapCreated,
             "Tenant",
             tenant.Id,
+            tenant.TenantId,
+            currentUserId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name, tenant.Environment }),
             cancellationToken);
 
@@ -169,10 +178,13 @@ public class BootstrapService : IBootstrapService
         _currentUserContext.TenantId ??= tenant.TenantId;
 
         await _auditLogWriter.LogAsync(
-            "BootstrapUserCreated",
+            AuditEventNames.UserProvisioned,
             "User",
             newUser.Id,
-            JsonSerializer.Serialize(new { newUser.Id, newUser.Email }),
+            tenant.TenantId,
+            newUser.Id,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { newUser.Id, Email = AuditLogMasking.MaskEmail(newUser.Email) }),
             cancellationToken);
 
         return (newUser.Id, true);
@@ -217,9 +229,12 @@ public class BootstrapService : IBootstrapService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "BootstrapTenantAdminAssigned",
+            AuditEventNames.UserRoleAssigned,
             "UserRole",
             userRole.Id,
+            tenant.TenantId,
+            _currentUserProvider.GetCurrentUserId() ?? userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { userId, tenantAdminRole.RoleId, tenantAdminRole.Name }),
             cancellationToken);
 

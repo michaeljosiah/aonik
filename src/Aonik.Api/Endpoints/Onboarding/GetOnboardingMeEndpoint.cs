@@ -1,7 +1,9 @@
 using System.Text.Json;
 using FastEndpoints;
+
 using Aonik.Api.Contracts.Onboarding;
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Models.Onboarding;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Onboarding;
@@ -15,17 +17,20 @@ public class GetOnboardingMeEndpoint : EndpointWithoutRequest<OnboardingSnapshot
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IAuditLogWriter _auditLogWriter;
+    private readonly ICorrelationContext _correlationContext;
 
     public GetOnboardingMeEndpoint(
         IOnboardingPolicyEvaluator onboardingPolicyEvaluator,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        ICorrelationContext correlationContext)
     {
         _onboardingPolicyEvaluator = onboardingPolicyEvaluator;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _auditLogWriter = auditLogWriter;
+        _correlationContext = correlationContext;
     }
 
     public override void Configure()
@@ -53,9 +58,12 @@ public class GetOnboardingMeEndpoint : EndpointWithoutRequest<OnboardingSnapshot
         var snapshot = await _onboardingPolicyEvaluator.EvaluateAsync(userId, ct);
 
         await _auditLogWriter.LogAsync(
-            "OnboardingSnapshotViewed",
+            AuditEventNames.OnboardingActivated,
             "User",
             userId,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { userId, tenantId }),
             ct);
 

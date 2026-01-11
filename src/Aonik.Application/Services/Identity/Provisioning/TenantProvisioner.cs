@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
@@ -6,7 +9,6 @@ using Aonik.Domain.Identity.Entities;
 using Aonik.Domain.Ledger.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.SharedKernel.Abstractions;
-using Microsoft.EntityFrameworkCore;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 
 namespace Aonik.Application.Services.Identity.Provisioning;
@@ -17,17 +19,20 @@ public class TenantProvisioner : ITenantProvisioner
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ICorrelationContext _correlationContext;
 
     public TenantProvisioner(
         IAonikDbContext dbContext,
         IAuditLogWriter auditLogWriter,
         IClock clock,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+        _correlationContext = correlationContext;
     }
 
     public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
@@ -90,9 +95,12 @@ public class TenantProvisioner : ITenantProvisioner
 
         // Log provisioning completion
         await _auditLogWriter.LogAsync(
-            "TenantProvisioned",
+            AuditEventNames.TenantProvisioned,
             "Tenant",
             tenant.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
             System.Text.Json.JsonSerializer.Serialize(new { tenantId, actionsPerformed }),
             cancellationToken);
 
