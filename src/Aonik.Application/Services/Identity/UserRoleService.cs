@@ -35,24 +35,24 @@ public class UserRoleService : IUserRoleService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        await EnsureUserInTenantAsync(userId, tenantId, cancellationToken);
+        var internalUserId = await GetUserInternalIdAsync(userId, tenantId, cancellationToken);
 
-        return await BuildUserRoleResponseAsync(userId, cancellationToken);
+        return await BuildUserRoleResponseAsync(userId, internalUserId, cancellationToken);
     }
 
     public async Task<UserRoleResponse> AssignRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        await EnsureUserInTenantAsync(userId, tenantId, cancellationToken);
+        var internalUserId = await GetUserInternalIdAsync(userId, tenantId, cancellationToken);
         var role = await EnsureRoleInTenantAsync(roleId, tenantId, cancellationToken);
 
         var existing = await _dbContext.UserRoles
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
+            .FirstOrDefaultAsync(ur => ur.UserId == internalUserId && ur.RoleId == roleId, cancellationToken);
 
         if (existing != null)
         {
-            return await BuildUserRoleResponseAsync(userId, cancellationToken);
+            return await BuildUserRoleResponseAsync(userId, internalUserId, cancellationToken);
         }
 
         var now = _clock.UtcNow;
@@ -60,7 +60,7 @@ public class UserRoleService : IUserRoleService
 
         var userRole = new UserRole
         {
-            UserId = userId,
+            UserId = internalUserId,
             RoleId = roleId,
             CreatedAt = now,
             CreatedBy = currentUserId
@@ -76,22 +76,22 @@ public class UserRoleService : IUserRoleService
             JsonSerializer.Serialize(new { userId, roleId, role.Name }),
             cancellationToken);
 
-        return await BuildUserRoleResponseAsync(userId, cancellationToken);
+        return await BuildUserRoleResponseAsync(userId, internalUserId, cancellationToken);
     }
 
     public async Task<UserRoleResponse> RemoveRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        await EnsureUserInTenantAsync(userId, tenantId, cancellationToken);
+        var internalUserId = await GetUserInternalIdAsync(userId, tenantId, cancellationToken);
         var role = await EnsureRoleInTenantAsync(roleId, tenantId, cancellationToken);
 
         var userRole = await _dbContext.UserRoles
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
+            .FirstOrDefaultAsync(ur => ur.UserId == internalUserId && ur.RoleId == roleId, cancellationToken);
 
         if (userRole == null)
         {
-            return await BuildUserRoleResponseAsync(userId, cancellationToken);
+            return await BuildUserRoleResponseAsync(userId, internalUserId, cancellationToken);
         }
 
         _dbContext.UserRoles.Remove(userRole);
@@ -104,18 +104,22 @@ public class UserRoleService : IUserRoleService
             JsonSerializer.Serialize(new { userId, roleId, role.Name }),
             cancellationToken);
 
-        return await BuildUserRoleResponseAsync(userId, cancellationToken);
+        return await BuildUserRoleResponseAsync(userId, internalUserId, cancellationToken);
     }
 
-    private async Task EnsureUserInTenantAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    private async Task<Guid> GetUserInternalIdAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
     {
-        var userExists = await _dbContext.Users
-            .AnyAsync(u => u.UserId == userId && u.TenantId == tenantId, cancellationToken);
+        var internalUserId = await _dbContext.Users
+            .Where(u => u.UserId == userId && u.TenantId == tenantId)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!userExists)
+        if (internalUserId == Guid.Empty)
         {
             throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
         }
+
+        return internalUserId;
     }
 
     private async Task<Role> EnsureRoleInTenantAsync(Guid roleId, Guid tenantId, CancellationToken cancellationToken)
@@ -131,10 +135,13 @@ public class UserRoleService : IUserRoleService
         return role;
     }
 
-    private async Task<UserRoleResponse> BuildUserRoleResponseAsync(Guid userId, CancellationToken cancellationToken)
+    private async Task<UserRoleResponse> BuildUserRoleResponseAsync(
+        Guid userId,
+        Guid internalUserId,
+        CancellationToken cancellationToken)
     {
         var roles = await _dbContext.UserRoles
-            .Where(ur => ur.UserId == userId)
+            .Where(ur => ur.UserId == internalUserId)
             .Include(ur => ur.Role)
             .Select(ur => new RoleSummary(ur.Role.RoleId, ur.Role.Name))
             .OrderBy(role => role.Name)
