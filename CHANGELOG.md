@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-03-09
+- Added correlation IDs to audit logs and captured them from HTTP request context.
+- Added audit log emission for JIT user auto-provisioning.
+
 ### Added - 2025-03-08
 - Added tenant admin and operations authorization policies that accept role or permission checks.
 - Added user role service plus tenant-scoped endpoints for role assignment and retrieval.

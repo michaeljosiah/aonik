@@ -1,6 +1,7 @@
 using Aonik.Application.Abstractions.Ai;
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
@@ -11,6 +12,7 @@ using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authorization;
 using Aonik.Infrastructure.Identity;
 using Aonik.Infrastructure.Multitenancy;
+using Aonik.Infrastructure.Observability;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Time;
 using Aonik.SharedKernel.Abstractions;
@@ -34,6 +36,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<ICurrentUserContext, HttpContextCurrentUserContext>();
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
+        services.AddScoped<ICorrelationContext, HttpContextCorrelationContext>();
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
 
         // Multitenancy
