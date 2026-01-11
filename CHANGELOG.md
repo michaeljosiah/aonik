@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-03-13
+- Added onboarding verification flow tests covering service start/confirm paths, rate limiting, policy gates, and API endpoints.
+
 ### Changed - 2025-03-12
 - Standardized audit event names, passed tenant/actor/correlation IDs explicitly, and masked PII fields before audit logging.
 - Added audit log verification coverage for user provisioning and verification workflows.
