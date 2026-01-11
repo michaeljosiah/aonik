@@ -133,7 +133,7 @@ public class OnboardingPolicyEvaluatorTests
 
         var evaluator = new OnboardingPolicyEvaluator(
             context,
-            Options.Create(new OnboardingPolicyOptions
+            Microsoft.Extensions.Options.Options.Create(new OnboardingPolicyOptions
             {
                 RequireEmailVerified = true,
                 RequirePhoneVerified = true,
@@ -203,7 +203,7 @@ public class OnboardingPolicyEvaluatorTests
 
         var evaluator = new OnboardingPolicyEvaluator(
             context,
-            Options.Create(new OnboardingPolicyOptions
+            Microsoft.Extensions.Options.Options.Create(new OnboardingPolicyOptions
             {
                 RequireEmailVerified = true,
                 RequirePhoneVerified = true,
