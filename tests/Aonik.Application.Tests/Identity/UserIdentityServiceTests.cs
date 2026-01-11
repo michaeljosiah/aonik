@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Infrastructure.Persistence;
+
 
 namespace Aonik.Application.Tests.Identity;
 
@@ -25,6 +27,17 @@ public class UserIdentityServiceTests
             return true;
         }
     }
+
+    private sealed class TestAuditLogWriter : IAuditLogWriter
+    {
+        public Task LogAsync(
+            string action,
+            string resourceType,
+            Guid resourceId,
+            string? detailsJson = null,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
 
     [Fact]
     public async Task ResolveOrCreateUserAsync_ShouldCreateUserOnFirstLogin()
@@ -48,7 +61,10 @@ public class UserIdentityServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = new UserIdentityService(context, NullLogger<UserIdentityService>.Instance);
+        var service = new UserIdentityService(
+            context,
+            NullLogger<UserIdentityService>.Instance,
+            new TestAuditLogWriter());
 
         // Act
         var user = await service.ResolveOrCreateUserAsync(
@@ -87,7 +103,10 @@ public class UserIdentityServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = new UserIdentityService(context, NullLogger<UserIdentityService>.Instance);
+        var service = new UserIdentityService(
+            context,
+            NullLogger<UserIdentityService>.Instance,
+            new TestAuditLogWriter());
 
         var firstUser = await service.ResolveOrCreateUserAsync(
             externalIssuer: "test-issuer",
