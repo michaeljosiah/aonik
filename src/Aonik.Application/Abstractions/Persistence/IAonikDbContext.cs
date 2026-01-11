@@ -37,6 +37,7 @@ public interface IAonikDbContext
     DbSet<UserRole> UserRoles { get; set; }
     DbSet<RolePermission> RolePermissions { get; set; }
     DbSet<UserParty> UserParties { get; set; }
+    DbSet<VerificationChallenge> VerificationChallenges { get; set; }
 
     // Party
     DbSet<PartyEntity> Parties { get; set; }

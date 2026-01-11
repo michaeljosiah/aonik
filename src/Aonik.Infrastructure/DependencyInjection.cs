@@ -10,6 +10,7 @@ using Aonik.Application.Abstractions.Messaging;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Options;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<ICorrelationContext, HttpContextCorrelationContext>();
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
+        services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
 
         // Multitenancy
