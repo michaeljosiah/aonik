@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-03-10
+- Added messaging abstractions with Azure Communication email/SMS senders and configuration bindings.
+- Added identity verification service for email/phone challenges with hashing, TTL enforcement, rate limiting, and audit logging.
+
 ### Added - 2025-03-09
 - Added verification challenge domain model and EF Core configuration with supporting enums for identity verification flows.
 - Added correlation IDs to audit logs and captured them from HTTP request context.
