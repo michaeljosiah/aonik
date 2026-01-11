@@ -123,6 +123,7 @@ public static class DependencyInjection
         services.AddScoped<IUserProvisioningService, UserProvisioningService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
+        services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddScoped<IVerificationService, VerificationService>();
         
         // Add authentication
