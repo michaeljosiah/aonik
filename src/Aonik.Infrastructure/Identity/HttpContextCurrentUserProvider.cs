@@ -1,21 +1,19 @@
 using Aonik.SharedKernel.Abstractions;
-using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Infrastructure.Identity;
 
 public class HttpContextCurrentUserProvider : ICurrentUserProvider
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserContext _currentUserContext;
 
-    public HttpContextCurrentUserProvider(IHttpContextAccessor httpContextAccessor)
+    public HttpContextCurrentUserProvider(ICurrentUserContext currentUserContext)
     {
-        _httpContextAccessor = httpContextAccessor;
+        _currentUserContext = currentUserContext;
     }
 
     public Guid? GetCurrentUserId()
     {
-        // Read from HttpContext.Items (populated by OnTokenValidated)
-        return _httpContextAccessor.HttpContext?.Items["AonikUserId"] as Guid?;
+        return _currentUserContext.UserId;
     }
 
     public bool TryGetCurrentUserId(out Guid userId)

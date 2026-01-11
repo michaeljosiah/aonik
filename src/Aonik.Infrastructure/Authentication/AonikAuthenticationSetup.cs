@@ -1,12 +1,18 @@
-using Aonik.Application.Abstractions.Authentication;
-using Aonik.Application.Services.Identity;
-using Aonik.Infrastructure.Authentication.Configuration;
+using System.IdentityModel.Tokens.Jwt;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
+
+using Aonik.Application.Abstractions.Authentication;
+using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Services.Identity;
+using Aonik.Infrastructure.Authentication.Configuration;
+using Aonik.Infrastructure.Identity;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Infrastructure.Authentication;
 
@@ -163,10 +169,34 @@ public static class AonikAuthenticationSetup
             email,
             aonikTenantId.Value,
             context.HttpContext.RequestAborted);
+
+        var roles = ClaimsRoleMapper.ExtractRoles(context.Principal);
+        if (roles.Count == 0)
+        {
+            var dbContext = context.HttpContext.RequestServices
+                .GetRequiredService<IAonikDbContext>();
+
+            roles = await dbContext.UserRoles
+                .Where(ur => ur.UserId == user.UserId)
+                .Select(ur => ur.Role.Name)
+                .Distinct()
+                .ToListAsync(context.HttpContext.RequestAborted);
+        }
+
+        var currentUserContext = context.HttpContext.RequestServices
+            .GetRequiredService<ICurrentUserContext>();
+
+        currentUserContext.UserId = user.UserId;
+        currentUserContext.TenantId = aonikTenantId.Value;
+        currentUserContext.ExternalIssuer = iss;
+        currentUserContext.ExternalSubject = sub;
+        currentUserContext.Roles = roles;
+        currentUserContext.IsAuthenticated = context.Principal?.Identity?.IsAuthenticated == true;
         
         // 4. Stash in HttpContext.Items for downstream consumers
         context.HttpContext.Items["AonikUserId"] = user.UserId;
         context.HttpContext.Items["AonikUserStatus"] = user.Status;
+        context.HttpContext.Items["AonikTenantId"] = aonikTenantId.Value;
         
         logger.LogInformation("Authenticated user {UserId} in tenant {TenantId} (Status: {Status})",
             user.UserId, aonikTenantId.Value, user.Status);
