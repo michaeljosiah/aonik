@@ -37,7 +37,13 @@ public class AuditLogWriter : IAuditLogWriter
     {
         var tenantId = _tenantProvider.TryGetCurrentTenantId(out var tid) ? tid : Guid.Empty;
         var userId = _currentUserProvider.GetCurrentUserId() ?? Guid.Empty;
+        const int correlationIdMaxLength = 200;
         var correlationId = _correlationContext.CorrelationId ?? string.Empty;
+
+        if (correlationId.Length > correlationIdMaxLength)
+        {
+            correlationId = correlationId[..correlationIdMaxLength];
+        }
 
         var auditLog = new AuditLog
         {
