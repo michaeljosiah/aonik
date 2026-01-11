@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-03-11
+- Added identity and onboarding endpoints for current-user profile, verification flows, and onboarding snapshots.
+- Added customer profile application models and user profile service with audit logging for profile updates.
+
 ### Added - 2025-03-10
 - Added messaging abstractions with Azure Communication email/SMS senders and configuration bindings.
 - Added identity verification service for email/phone challenges with hashing, TTL enforcement, rate limiting, and audit logging.
