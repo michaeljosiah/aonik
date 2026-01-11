@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Identity;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Identity;
@@ -144,6 +146,11 @@ public static class AonikAuthenticationSetup
         // 2. Resolve tenant (fail fast if cannot resolve)
         // Store JWT token in HttpContext.Items for TenantResolver
         context.HttpContext.Items["JwtSecurityToken"] = jwtToken;
+
+        if (await TryHandleBootstrapAsync(context, iss, sub))
+        {
+            return;
+        }
         
         var tenantResolver = context.HttpContext.RequestServices
             .GetRequiredService<ITenantResolver>();
@@ -207,5 +214,62 @@ public static class AonikAuthenticationSetup
             logger.LogWarning("User {UserId} attempted login with status {Status}", user.Id, user.Status);
             context.Fail($"User account is {user.Status}");
         }
+    }
+
+    private static async Task<bool> TryHandleBootstrapAsync(
+        TokenValidatedContext context,
+        string issuer,
+        string subject)
+    {
+        var httpContext = context.HttpContext;
+        if (!httpContext.Request.Path.StartsWithSegments("/bootstrap"))
+        {
+            return false;
+        }
+
+        var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var bootstrapOptions = configuration.GetSection("Bootstrap").Get<BootstrapOptions>() ?? new BootstrapOptions();
+        if (!bootstrapOptions.Enabled)
+        {
+            return false;
+        }
+
+        var environment = httpContext.RequestServices.GetRequiredService<IHostEnvironment>();
+        if (!environment.IsDevelopment())
+        {
+            var platformAdminOptions = configuration.GetSection("PlatformAdmin").Get<PlatformAdminOptions>()
+                ?? new PlatformAdminOptions();
+
+            var isPlatformAdmin = context.Principal?.Claims.Any(claim =>
+                    claim.Type == platformAdminOptions.RoleClaimType &&
+                    claim.Value == platformAdminOptions.RoleValue) == true;
+
+            if (!isPlatformAdmin && !string.IsNullOrEmpty(platformAdminOptions.ScopeClaimType))
+            {
+                isPlatformAdmin = context.Principal?.Claims.Any(claim =>
+                        claim.Type == platformAdminOptions.ScopeClaimType &&
+                        (claim.Value == "true" || claim.Value == "1")) == true;
+            }
+
+            if (!isPlatformAdmin)
+            {
+                return false;
+            }
+        }
+
+        var dbContext = httpContext.RequestServices.GetRequiredService<IAonikDbContext>();
+        var hasTenants = await dbContext.Tenants.AnyAsync(httpContext.RequestAborted);
+        if (hasTenants)
+        {
+            return false;
+        }
+
+        var roles = ClaimsRoleMapper.ExtractRoles(context.Principal);
+        var currentUserContext = httpContext.RequestServices.GetRequiredService<ICurrentUserContext>();
+        currentUserContext.ExternalIssuer = issuer;
+        currentUserContext.ExternalSubject = subject;
+        currentUserContext.Roles = roles;
+        currentUserContext.IsAuthenticated = context.Principal?.Identity?.IsAuthenticated == true;
+        return true;
     }
 }

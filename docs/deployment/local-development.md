@@ -93,6 +93,28 @@ $env:InMemoryDatabaseName = "AonikDevInMemory"
 dotnet run --project src/Aonik.Api
 ```
 
+## Bootstrap The First Tenant (Development Only)
+
+When running locally with no tenants in the database, you can use the dev-only bootstrap endpoint
+to create the initial tenant and assign the current user the **TenantAdmin** role.
+
+1. Ensure `Bootstrap:Enabled` is set to `true` (default in `src/Aonik.Api/appsettings.Development.json`).
+2. Run the API (`dotnet run --project src/Aonik.Api`).
+3. Send a POST request to `/bootstrap` with a valid access token.
+
+Example (replace `$TOKEN` with a bearer token from your IdP):
+
+```bash
+curl -X POST https://localhost:5001/bootstrap \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Notes:
+- The endpoint is available **only** in Development.
+- In non-Development environments, `Bootstrap:Enabled` must be `true` *and* the caller must have the
+  `PlatformAdmin` claim.
+- The created tenant uses the default values in the `Bootstrap` configuration section.
+
 ## Migrations
 
 AONIK uses EF Core migrations from the Infrastructure project.
