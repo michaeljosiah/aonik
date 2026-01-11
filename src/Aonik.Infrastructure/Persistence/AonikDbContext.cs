@@ -49,6 +49,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<UserRole> UserRoles { get; set; } = null!;
     public virtual DbSet<RolePermission> RolePermissions { get; set; } = null!;
     public virtual DbSet<UserParty> UserParties { get; set; } = null!;
+    public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
 
     // Party
     public virtual DbSet<PartyEntity> Parties { get; set; } = null!;
