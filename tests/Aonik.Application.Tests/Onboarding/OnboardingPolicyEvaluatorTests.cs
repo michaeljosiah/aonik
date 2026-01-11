@@ -233,4 +233,79 @@ public class OnboardingPolicyEvaluatorTests
         var profileGate = snapshot.Gates.Single(gate => gate.Gate == OnboardingGate.ProfileComplete);
         profileGate.IsSatisfied.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task EvaluateAsync_ShouldOnlyRequireEnabledGates()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AonikDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        using var context = new AonikDbContext(options, tenantProvider);
+
+        context.Tenants.Add(new Tenant
+        {
+            TenantId = tenantId,
+            Name = "Test Tenant",
+            Environment = "Testing",
+            DefaultCurrency = "USD",
+            SupportedCountriesJson = "[]",
+            Status = TenantStatus.Active
+        });
+
+        context.Users.Add(new User
+        {
+            Id = userId,
+            TenantId = tenantId,
+            Email = "pending@example.com",
+            Phone = "+15550001111",
+            Status = "Active"
+        });
+
+        context.Parties.Add(new Party
+        {
+            PartyId = partyId,
+            TenantId = tenantId,
+            PartyType = "Individual",
+            DisplayName = "Pending User",
+            Status = "Active"
+        });
+
+        context.UserParties.Add(new UserParty
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PartyId = partyId,
+            LinkType = "Individual"
+        });
+
+        await context.SaveChangesAsync();
+
+        var evaluator = new OnboardingPolicyEvaluator(
+            context,
+            Microsoft.Extensions.Options.Options.Create(new OnboardingPolicyOptions
+            {
+                RequireEmailVerified = false,
+                RequirePhoneVerified = true,
+                RequireProfileComplete = false,
+                EmailVerifiedActions = new List<string> { "VerifyEmail" },
+                PhoneVerifiedActions = new List<string> { "VerifyPhone" },
+                ProfileCompleteActions = new List<string> { "CompleteProfile" }
+            }));
+
+        // Act
+        var snapshot = await evaluator.EvaluateAsync(userId, CancellationToken.None);
+
+        // Assert
+        snapshot.NextActions.Should().BeEquivalentTo(new[] { "VerifyPhone" });
+
+        snapshot.Gates.Single(gate => gate.Gate == OnboardingGate.EmailVerified).IsRequired.Should().BeFalse();
+        snapshot.Gates.Single(gate => gate.Gate == OnboardingGate.PhoneVerified).IsRequired.Should().BeTrue();
+        snapshot.Gates.Single(gate => gate.Gate == OnboardingGate.ProfileComplete).IsRequired.Should().BeFalse();
+    }
 }

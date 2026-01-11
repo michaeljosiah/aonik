@@ -201,6 +201,32 @@ act.Should().ThrowAsync<InvalidOperationException>()
     .WithMessage("Invoice not found");
 ```
 
+### Testing Verification Challenges
+
+When seeding verification challenges for confirmation tests, generate the code hash using the configured
+`VerificationOptions.HashKey` so the service can validate the code:
+
+```csharp
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.Extensions.Options;
+
+private static string HashVerificationCode(string code, string hashKey)
+{
+    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(hashKey));
+    var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(code));
+    return Convert.ToHexString(hash);
+}
+
+// Example usage in a test
+var options = serviceProvider.GetRequiredService<IOptions<VerificationOptions>>().Value;
+var challenge = new VerificationChallenge
+{
+    CodeHash = HashVerificationCode("123456", options.HashKey),
+    // ...other properties
+};
+```
+
 ### API Integration Tests
 
 API tests use `CustomWebApplicationFactory` to configure the test environment:
