@@ -239,7 +239,7 @@ AONIK API → Validates Token → Resolves Tenant → Returns Response
 | Property | Type | Description | Example |
 |----------|------|-------------|---------|
 | `ClientId` | string | OAuth2 client ID for Swagger UI | `"swagger-dev-client"` |
-| `Scopes` | List<string> | OAuth2 scopes to request | `["openid", "profile", "api://xxx/access"]` |
+| `Scopes` | `List<string>` | OAuth2 scopes to request | `["openid", "profile", "api://xxx/access"]` |
 | `RedirectUri` | string | OAuth2 callback URL | `"/swagger/oauth2-redirect.html"` |
 
 ### AuthOptions Properties (Relevant for Swagger)

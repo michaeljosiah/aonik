@@ -50,7 +50,7 @@ Used for invoicing and billing operations.
 | Permission | Description | Endpoints Using This |
 |------------|-------------|---------------------|
 | `Invoice.Create` | Create new invoices | `POST /billing/invoices` |
-| `Invoice.Read` | View invoice details | `GET /billing/invoices/{id}`<br>`POST /ai/invoices/{id}/insight` |
+| `Invoice.Read` | View invoice details | `GET /billing/invoices/{id}`<br />`POST /ai/invoices/{id}/insight` |
 | `Invoice.Update` | Edit existing invoices | `PATCH /billing/invoices/{id}` *(when implemented)* |
 | `Invoice.Delete` | Delete invoices | `DELETE /billing/invoices/{id}` *(when implemented)* |
 | `Invoice.Issue` | Issue draft invoices to customers | `POST /billing/invoices/{id}/issue` *(when implemented)* |
@@ -98,8 +98,8 @@ Used for general ledger and accounting operations.
 
 | Permission | Description | Endpoints Using This |
 |------------|-------------|---------------------|
-| `Ledger.Read` | View ledger accounts and entries | `GET /ledger/accounts`<br>`GET /ledger/accounts/{id}`<br>`GET /ledger/journal-entries` |
-| `Ledger.Write` | Create/modify ledger accounts and journal entries | `POST /ledger/accounts`<br>`POST /ledger/journal-entries`<br>`PATCH /ledger/accounts/{id}` |
+| `Ledger.Read` | View ledger accounts and entries | `GET /ledger/accounts`<br />`GET /ledger/accounts/{id}`<br />`GET /ledger/journal-entries` |
+| `Ledger.Write` | Create/modify ledger accounts and journal entries | `POST /ledger/accounts`<br />`POST /ledger/journal-entries`<br />`PATCH /ledger/accounts/{id}` |
 | `Ledger.Reconcile` | Reconcile ledger accounts | `POST /ledger/accounts/{id}/reconcile` *(when implemented)* |
 
 **Typical Role Assignments:**

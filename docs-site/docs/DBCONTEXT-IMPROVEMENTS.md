@@ -247,7 +247,7 @@ The remaining 73+ entities need `IEntityTypeConfiguration<>` implementations to 
    - [ ] Performance test with large multi-tenant datasets
 
 3. **Low Priority**:
-   - [ ] Consider using DbSet<T>.IgnoreQueryFilters() for admin queries
+   - [ ] Consider using `DbSet<T>.IgnoreQueryFilters()` for admin queries
    - [ ] Add logging/telemetry for tenant context resolution
    - [ ] Document entity relationship diagrams by module
 
