@@ -13,4 +13,5 @@ public class AuditLog : AuditableEntity, ITenantScoped
     public string ResourceType { get; set; } = string.Empty;
     public Guid ResourceId { get; set; }
     public string DetailsJson { get; set; } = string.Empty;
+    public string CorrelationId { get; set; } = string.Empty;
 }

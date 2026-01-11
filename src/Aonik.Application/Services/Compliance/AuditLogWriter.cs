@@ -1,4 +1,5 @@
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Compliance.Entities;
 using Aonik.SharedKernel.Abstractions;
@@ -10,17 +11,20 @@ public class AuditLogWriter : IAuditLogWriter
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ICorrelationContext _correlationContext;
     private readonly IClock _clock;
 
     public AuditLogWriter(
         IAonikDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
+        ICorrelationContext correlationContext,
         IClock clock)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _correlationContext = correlationContext;
         _clock = clock;
     }
 
@@ -33,6 +37,13 @@ public class AuditLogWriter : IAuditLogWriter
     {
         var tenantId = _tenantProvider.TryGetCurrentTenantId(out var tid) ? tid : Guid.Empty;
         var userId = _currentUserProvider.GetCurrentUserId() ?? Guid.Empty;
+        const int correlationIdMaxLength = 200;
+        var correlationId = _correlationContext.CorrelationId ?? string.Empty;
+
+        if (correlationId.Length > correlationIdMaxLength)
+        {
+            correlationId = correlationId[..correlationIdMaxLength];
+        }
 
         var auditLog = new AuditLog
         {
@@ -45,6 +56,7 @@ public class AuditLogWriter : IAuditLogWriter
             ResourceType = resourceType,
             ResourceId = resourceId,
             DetailsJson = detailsJson ?? string.Empty,
+            CorrelationId = correlationId,
             CreatedAt = _clock.UtcNow,
             CreatedBy = userId
         };

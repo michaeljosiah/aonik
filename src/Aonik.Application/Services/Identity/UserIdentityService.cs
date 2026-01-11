@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Services.Compliance;
 using Aonik.Domain.Identity.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -9,13 +11,16 @@ public class UserIdentityService : IUserIdentityService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ILogger<UserIdentityService> _logger;
+    private readonly IAuditLogWriter _auditLogWriter;
     
     public UserIdentityService(
         IAonikDbContext dbContext,
-        ILogger<UserIdentityService> logger)
+        ILogger<UserIdentityService> logger,
+        IAuditLogWriter auditLogWriter)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _auditLogWriter = auditLogWriter;
     }
     
     public async Task<User> ResolveOrCreateUserAsync(
@@ -81,6 +86,20 @@ public class UserIdentityService : IUserIdentityService
         
         _logger.LogInformation("Created new user {UserId} via JIT provisioning (Issuer: {Issuer}, Subject: {Subject})",
             newUser.Id, externalIssuer, externalSubject);
+
+        await _auditLogWriter.LogAsync(
+            "UserAutoProvisioned",
+            "User",
+            newUser.Id,
+            JsonSerializer.Serialize(new
+            {
+                newUser.Id,
+                newUser.Email,
+                newUser.ExternalIssuer,
+                newUser.ExternalSubject,
+                newUser.ExternalTenantId
+            }),
+            ct);
         
         return newUser;
     }
