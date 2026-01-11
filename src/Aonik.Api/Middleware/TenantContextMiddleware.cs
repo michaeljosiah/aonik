@@ -29,6 +29,12 @@ public class TenantContextMiddleware
             return;
         }
 
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            await _next(context);
+            return;
+        }
+
         if (!tenantContext.IsResolved)
         {
             var tenantId = await tenantResolver.ResolveTenantIdAsync(context.RequestAborted);
