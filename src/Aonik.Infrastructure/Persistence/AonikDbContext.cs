@@ -38,6 +38,8 @@ public class AonikDbContext : DbContext, IAonikDbContext
     private readonly ITenantProvider? _tenantProvider;
     private readonly ICurrentUserProvider? _currentUserProvider;
     private readonly IClock? _clock;
+    private Guid? CurrentTenantId =>
+        _tenantProvider?.TryGetCurrentTenantId(out var tenantId) == true ? tenantId : null;
 
     // Identity
     public virtual DbSet<Tenant> Tenants { get; set; } = null!;
@@ -240,11 +242,6 @@ public class AonikDbContext : DbContext, IAonikDbContext
         if (_tenantProvider == null)
             return;
 
-        // Try to get current tenant ID - if not available, skip filter application
-        // (e.g., during migrations, seeding, or background jobs without tenant context)
-        if (!_tenantProvider.TryGetCurrentTenantId(out var currentTenantId))
-            return;
-
         // Get all entity types that implement ITenantScoped
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -253,32 +250,42 @@ public class AonikDbContext : DbContext, IAonikDbContext
             // Check if entity implements ITenantScoped
             if (typeof(ITenantScoped).IsAssignableFrom(clrType))
             {
-                // Create filter expression: entity => entity.TenantId == currentTenantId
+                // Create filter expression: entity => CurrentTenantId == null || entity.TenantId == CurrentTenantId
                 var parameter = Expression.Parameter(clrType, "e");
                 var property = Expression.Property(parameter, nameof(ITenantScoped.TenantId));
-                var tenantIdValue = Expression.Constant(currentTenantId);
-                var equals = Expression.Equal(property, tenantIdValue);
-                var lambda = Expression.Lambda(equals, parameter);
+                var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
+                var noTenantContext = Expression.Equal(
+                    currentTenantId,
+                    Expression.Constant(null, typeof(Guid?)));
+                var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
+                var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
+                var filter = Expression.OrElse(noTenantContext, equalsTenant);
+                var lambda = Expression.Lambda(filter, parameter);
 
                 // Apply the filter
                 modelBuilder.Entity(clrType).HasQueryFilter(lambda);
             }
         }
 
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent), currentTenantId);
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy), currentTenantId);
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy), currentTenantId);
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
     }
 
-    private static void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType, Guid currentTenantId)
+    private void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType)
     {
         var parameter = Expression.Parameter(clrType, "e");
         var property = Expression.Property(parameter, "TenantId");
-        var tenantIdValue = Expression.Constant(currentTenantId, property.Type);
-        var nullValue = Expression.Constant(null, property.Type);
-        var equalsTenant = Expression.Equal(property, tenantIdValue);
-        var equalsNull = Expression.Equal(property, nullValue);
-        var filter = Expression.Lambda(Expression.OrElse(equalsTenant, equalsNull), parameter);
+        var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
+        var noTenantContext = Expression.Equal(
+            currentTenantId,
+            Expression.Constant(null, typeof(Guid?)));
+        var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
+        var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
+        var equalsNull = Expression.Equal(property, Expression.Constant(null, property.Type));
+        var filter = Expression.Lambda(
+            Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsNull)),
+            parameter);
 
         modelBuilder.Entity(clrType).HasQueryFilter(filter);
     }
