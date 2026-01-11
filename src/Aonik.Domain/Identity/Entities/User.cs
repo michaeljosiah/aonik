@@ -4,7 +4,6 @@ namespace Aonik.Domain.Identity.Entities;
 
 public class User : AuditableEntity, ITenantScoped
 {
-    public Guid UserId { get; set; }
     public Guid TenantId { get; set; }
     
     // External identity (from IdP)

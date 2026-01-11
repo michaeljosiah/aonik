@@ -12,9 +12,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         
         builder.HasKey(u => u.Id);
         
-        builder.Property(u => u.UserId)
-            .IsRequired();
-        
         builder.Property(u => u.TenantId)
             .IsRequired();
         

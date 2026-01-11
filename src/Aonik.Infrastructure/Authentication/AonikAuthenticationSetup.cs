@@ -177,7 +177,7 @@ public static class AonikAuthenticationSetup
                 .GetRequiredService<IAonikDbContext>();
 
             roles = await dbContext.UserRoles
-                .Where(ur => ur.UserId == user.UserId)
+                .Where(ur => ur.UserId == user.Id)
                 .Select(ur => ur.Role.Name)
                 .Distinct()
                 .ToListAsync(context.HttpContext.RequestAborted);
@@ -186,7 +186,7 @@ public static class AonikAuthenticationSetup
         var currentUserContext = context.HttpContext.RequestServices
             .GetRequiredService<ICurrentUserContext>();
 
-        currentUserContext.UserId = user.UserId;
+        currentUserContext.UserId = user.Id;
         currentUserContext.TenantId = aonikTenantId.Value;
         currentUserContext.ExternalIssuer = iss;
         currentUserContext.ExternalSubject = sub;
@@ -194,17 +194,17 @@ public static class AonikAuthenticationSetup
         currentUserContext.IsAuthenticated = context.Principal?.Identity?.IsAuthenticated == true;
         
         // 4. Stash in HttpContext.Items for downstream consumers
-        context.HttpContext.Items["AonikUserId"] = user.UserId;
+        context.HttpContext.Items["AonikUserId"] = user.Id;
         context.HttpContext.Items["AonikUserStatus"] = user.Status;
         context.HttpContext.Items["AonikTenantId"] = aonikTenantId.Value;
         
         logger.LogInformation("Authenticated user {UserId} in tenant {TenantId} (Status: {Status})",
-            user.UserId, aonikTenantId.Value, user.Status);
+            user.Id, aonikTenantId.Value, user.Status);
         
         // Check if user is suspended/deactivated
         if (user.Status != "Active")
         {
-            logger.LogWarning("User {UserId} attempted login with status {Status}", user.UserId, user.Status);
+            logger.LogWarning("User {UserId} attempted login with status {Status}", user.Id, user.Status);
             context.Fail($"User account is {user.Status}");
         }
     }
