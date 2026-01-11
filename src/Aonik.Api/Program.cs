@@ -51,13 +51,16 @@ app.UseHttpsRedirection();
 // 1. Authentication (validates JWT, runs OnTokenValidated)
 app.UseAuthentication();
 
-// 2. Authorization (checks policies/permissions)
+// 2. Tenant context resolution
+app.UseTenantContext();
+
+// 3. Authorization (checks policies/permissions)
 app.UseAuthorization();
 
-// 3. Tenant validation (validates tenant status only)
+// 4. Tenant validation (validates tenant status only)
 app.UseTenantValidation();
 
-// 4. FastEndpoints
+// 5. FastEndpoints
 app.UseFastEndpoints();
 
 app.Run();

@@ -1,12 +1,13 @@
-using Aonik.Application.Abstractions.Authentication;
-using Aonik.Application.Abstractions.Persistence;
-using Aonik.Infrastructure.Authentication.Configuration;
+using System.IdentityModel.Tokens.Jwt;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.IdentityModel.Tokens.Jwt;
+
+using Aonik.Application.Abstractions.Authentication;
+using Aonik.Application.Abstractions.Persistence;
+using Aonik.Infrastructure.Authentication.Configuration;
 
 namespace Aonik.Infrastructure.Authentication;
 
@@ -14,20 +15,17 @@ public class TenantResolver : ITenantResolver
 {
     private readonly IAonikDbContext _dbContext;
     private readonly IConfiguration _configuration;
-    private readonly IHostEnvironment _environment;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<TenantResolver> _logger;
     
     public TenantResolver(
         IAonikDbContext dbContext,
         IConfiguration configuration,
-        IHostEnvironment environment,
         IHttpContextAccessor httpContextAccessor,
         ILogger<TenantResolver> logger)
     {
         _dbContext = dbContext;
         _configuration = configuration;
-        _environment = environment;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
@@ -54,7 +52,7 @@ public class TenantResolver : ITenantResolver
         {
             TenantRoutingMode.Claim => ResolveFromClaim(jwtToken),
             TenantRoutingMode.Subdomain => await ResolveFromSubdomainAsync(httpContext, ct),
-            TenantRoutingMode.Header => ResolveFromHeaderIfDevelopment(httpContext),
+            TenantRoutingMode.Header => ResolveFromHeader(httpContext),
             _ => null
         };
     }
@@ -108,20 +106,13 @@ public class TenantResolver : ITenantResolver
         return tenant.TenantId;
     }
     
-    private Guid? ResolveFromHeaderIfDevelopment(HttpContext httpContext)
+    private Guid? ResolveFromHeader(HttpContext httpContext)
     {
-        // CRITICAL: Only allow header routing in Development
-        if (!_environment.IsDevelopment())
-        {
-            _logger.LogError("X-Tenant-Id header routing attempted in non-development environment");
-            return null;
-        }
-        
         var header = httpContext.Request.Headers["X-Tenant-Id"].FirstOrDefault();
         
         if (string.IsNullOrEmpty(header))
         {
-            _logger.LogWarning("Missing X-Tenant-Id header in development mode");
+            _logger.LogWarning("Missing X-Tenant-Id header");
             return null;
         }
         

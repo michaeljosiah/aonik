@@ -36,6 +36,7 @@ public static class DependencyInjection
 
         // Multitenancy
         services.AddHttpContextAccessor();
+        services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
 
         // Database - environment-aware selection

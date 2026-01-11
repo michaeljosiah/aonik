@@ -1,35 +1,38 @@
 using Aonik.Application.Abstractions.Multitenancy;
-using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Infrastructure.Multitenancy;
 
 /// <summary>
-/// Provides tenant context from HttpContext.Items (populated by OnTokenValidated).
+/// Provides tenant context from the scoped ITenantContext.
 /// </summary>
 public class HttpContextTenantProvider : ITenantProvider
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ITenantContext _tenantContext;
 
-    public HttpContextTenantProvider(IHttpContextAccessor httpContextAccessor)
+    public HttpContextTenantProvider(ITenantContext tenantContext)
     {
-        _httpContextAccessor = httpContextAccessor;
+        _tenantContext = tenantContext;
     }
 
     public Guid GetCurrentTenantId()
     {
-        var tenantId = _httpContextAccessor.HttpContext?.Items["AonikTenantId"] as Guid?;
-        
-        if (!tenantId.HasValue)
+        if (!_tenantContext.IsResolved || _tenantContext.TenantId is null)
         {
             throw new InvalidOperationException("Tenant context not available");
         }
         
-        return tenantId.Value;
+        return _tenantContext.TenantId.Value;
     }
 
     public bool TryGetCurrentTenantId(out Guid tenantId)
     {
-        tenantId = _httpContextAccessor.HttpContext?.Items["AonikTenantId"] as Guid? ?? Guid.Empty;
-        return tenantId != Guid.Empty;
+        if (_tenantContext.IsResolved && _tenantContext.TenantId.HasValue)
+        {
+            tenantId = _tenantContext.TenantId.Value;
+            return true;
+        }
+
+        tenantId = Guid.Empty;
+        return false;
     }
 }

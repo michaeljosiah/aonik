@@ -1,5 +1,7 @@
-using Aonik.Application.Abstractions.Persistence;
 using Microsoft.EntityFrameworkCore;
+
+using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Persistence;
 
 namespace Aonik.Api.Middleware;
 
@@ -12,7 +14,10 @@ public class TenantValidationMiddleware
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, IAonikDbContext dbContext)
+    public async Task InvokeAsync(
+        HttpContext context,
+        IAonikDbContext dbContext,
+        ITenantContext tenantContext)
     {
         // Skip health and swagger (public endpoints)
         if (context.Request.Path.StartsWithSegments("/health") ||
@@ -23,19 +28,22 @@ public class TenantValidationMiddleware
         }
         
         // Skip admin endpoints (they use PlatformAdmin policy, not tenant-scoped)
-        if (context.Request.Path.StartsWithSegments("/admin"))
+        if (context.Request.Path.StartsWithSegments("/admin") ||
+            context.Request.Path.StartsWithSegments("/bootstrap"))
         {
             await _next(context);
             return;
         }
         
-        // Tenant should already be resolved by OnTokenValidated
-        if (context.Items["AonikTenantId"] is not Guid tenantId)
+        // Tenant should already be resolved by TenantContextMiddleware
+        if (!tenantContext.IsResolved || tenantContext.TenantId is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
             return;
         }
+
+        var tenantId = tenantContext.TenantId.Value;
         
         // Validate tenant status (tenant existence already validated during JIT user creation)
         var tenant = await dbContext.Tenants
