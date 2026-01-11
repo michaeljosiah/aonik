@@ -1,11 +1,14 @@
 using System.Text.Json;
+
+using Microsoft.EntityFrameworkCore;
+
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
 using Aonik.Domain.Identity.Entities;
 using Aonik.SharedKernel.Abstractions;
-using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Services.Identity;
 
@@ -16,19 +19,22 @@ public class UserRoleService : IUserRoleService
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ICorrelationContext _correlationContext;
 
     public UserRoleService(
         IAonikDbContext dbContext,
         ITenantProvider tenantProvider,
         IAuditLogWriter auditLogWriter,
         IClock clock,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+        _correlationContext = correlationContext;
     }
 
     public async Task<UserRoleResponse> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -69,9 +75,12 @@ public class UserRoleService : IUserRoleService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "UserRoleAssigned",
+            AuditEventNames.UserRoleAssigned,
             "UserRole",
             userRole.Id,
+            tenantId,
+            currentUserId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { userId, roleId, role.Name }),
             cancellationToken);
 
@@ -97,9 +106,12 @@ public class UserRoleService : IUserRoleService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "UserRoleRemoved",
+            AuditEventNames.UserRoleRemoved,
             "UserRole",
             userRole.Id,
+            tenantId,
+            _currentUserProvider.GetCurrentUserId(),
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { userId, roleId, role.Name }),
             cancellationToken);
 

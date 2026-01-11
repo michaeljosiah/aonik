@@ -1,11 +1,14 @@
 using System.Text.Json;
+
+using Microsoft.EntityFrameworkCore;
+
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Domain.Identity.Entities;
 using Aonik.SharedKernel.Abstractions;
-using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Services.Identity;
 
@@ -16,19 +19,22 @@ public class TenantService : ITenantService
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ICorrelationContext _correlationContext;
 
     public TenantService(
         IAonikDbContext dbContext,
         ITenantProvisioner provisioner,
         IAuditLogWriter auditLogWriter,
         IClock clock,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _provisioner = provisioner;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+        _correlationContext = correlationContext;
     }
 
     public async Task<TenantResponse> CreateTenantAsync(CreateTenantRequest request, CancellationToken cancellationToken = default)
@@ -60,9 +66,12 @@ public class TenantService : ITenantService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "TenantCreated",
+            AuditEventNames.TenantCreated,
             "Tenant",
             tenant.Id,
+            tenant.TenantId,
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name, tenant.Environment }),
             cancellationToken);
 
@@ -157,9 +166,12 @@ public class TenantService : ITenantService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "TenantUpdated",
+            AuditEventNames.TenantUpdated,
             "Tenant",
             tenant.Id,
+            tenant.TenantId,
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(request),
             cancellationToken);
 
@@ -184,9 +196,12 @@ public class TenantService : ITenantService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "TenantDeactivated",
+            AuditEventNames.TenantDeactivated,
             "Tenant",
             tenant.Id,
+            tenant.TenantId,
+            _currentUserProvider.GetCurrentUserId(),
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name }),
             cancellationToken);
     }
@@ -209,9 +224,12 @@ public class TenantService : ITenantService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "TenantActivated",
+            AuditEventNames.TenantActivated,
             "Tenant",
             tenant.Id,
+            tenant.TenantId,
+            _currentUserProvider.GetCurrentUserId(),
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name }),
             cancellationToken);
     }

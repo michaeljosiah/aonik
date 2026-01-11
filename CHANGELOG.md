@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2025-03-12
+- Standardized audit event names, passed tenant/actor/correlation IDs explicitly, and masked PII fields before audit logging.
+- Added audit log verification coverage for user provisioning and verification workflows.
+
 ### Added - 2025-03-11
 - Added identity and onboarding endpoints for current-user profile, verification flows, and onboarding snapshots.
 - Added customer profile application models and user profile service with audit logging for profile updates.

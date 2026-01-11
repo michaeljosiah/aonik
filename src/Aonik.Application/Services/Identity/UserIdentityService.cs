@@ -1,9 +1,12 @@
 using System.Text.Json;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Services.Compliance;
 using Aonik.Domain.Identity.Entities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace Aonik.Application.Services.Identity;
 
@@ -12,15 +15,18 @@ public class UserIdentityService : IUserIdentityService
     private readonly IAonikDbContext _dbContext;
     private readonly ILogger<UserIdentityService> _logger;
     private readonly IAuditLogWriter _auditLogWriter;
+    private readonly ICorrelationContext _correlationContext;
     
     public UserIdentityService(
         IAonikDbContext dbContext,
         ILogger<UserIdentityService> logger,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _logger = logger;
         _auditLogWriter = auditLogWriter;
+        _correlationContext = correlationContext;
     }
     
     public async Task<User> ResolveOrCreateUserAsync(
@@ -88,13 +94,16 @@ public class UserIdentityService : IUserIdentityService
             newUser.Id, externalIssuer, externalSubject);
 
         await _auditLogWriter.LogAsync(
-            "UserAutoProvisioned",
+            AuditEventNames.UserProvisioned,
             "User",
             newUser.Id,
+            aonikTenantId,
+            newUser.Id,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new
             {
                 newUser.Id,
-                newUser.Email,
+                Email = AuditLogMasking.MaskEmail(newUser.Email),
                 newUser.ExternalIssuer,
                 newUser.ExternalSubject,
                 newUser.ExternalTenantId

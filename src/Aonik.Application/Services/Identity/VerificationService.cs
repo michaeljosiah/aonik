@@ -1,11 +1,14 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Aonik.Application.Abstractions.Messaging;
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
@@ -25,6 +28,7 @@ public class VerificationService : IVerificationService
     private readonly IClock _clock;
     private readonly VerificationOptions _options;
     private readonly ILogger<VerificationService> _logger;
+    private readonly ICorrelationContext _correlationContext;
 
     public VerificationService(
         IAonikDbContext dbContext,
@@ -34,7 +38,8 @@ public class VerificationService : IVerificationService
         IAuditLogWriter auditLogWriter,
         IClock clock,
         IOptions<VerificationOptions> options,
-        ILogger<VerificationService> logger)
+        ILogger<VerificationService> logger,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -44,6 +49,7 @@ public class VerificationService : IVerificationService
         _clock = clock;
         _options = options.Value;
         _logger = logger;
+        _correlationContext = correlationContext;
     }
 
     public Task<VerificationChallengeResult> StartEmailVerificationAsync(
@@ -134,15 +140,18 @@ public class VerificationService : IVerificationService
         await SendChallengeAsync(channel, target, code, cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "VerificationStarted",
+            AuditEventNames.VerificationStarted,
             "VerificationChallenge",
             challenge.Id,
+            GetTenantId(),
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new
             {
                 challenge.Id,
                 challenge.UserId,
                 challenge.Channel,
-                challenge.Target,
+                Target = MaskTarget(channel, challenge.Target),
                 challenge.ExpiresAt
             }),
             cancellationToken);
@@ -227,15 +236,18 @@ public class VerificationService : IVerificationService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "VerificationConfirmed",
+            AuditEventNames.VerificationConfirmed,
             "VerificationChallenge",
             challenge.Id,
+            GetTenantId(),
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new
             {
                 challenge.Id,
                 challenge.UserId,
                 challenge.Channel,
-                challenge.Target
+                Target = MaskTarget(channel, challenge.Target)
             }),
             cancellationToken);
 
@@ -319,15 +331,18 @@ public class VerificationService : IVerificationService
         CancellationToken cancellationToken)
     {
         await _auditLogWriter.LogAsync(
-            "VerificationFailed",
+            AuditEventNames.VerificationFailed,
             "VerificationChallenge",
             challengeId ?? Guid.Empty,
+            GetTenantId(),
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new
             {
                 ChallengeId = challengeId,
                 UserId = userId,
                 Channel = channel,
-                Target = target,
+                Target = MaskTarget(channel, target),
                 Reason = reason
             }),
             cancellationToken);
@@ -377,4 +392,9 @@ public class VerificationService : IVerificationService
 
     private static string NormalizePhone(string phone) =>
         phone.Trim();
+
+    private static string? MaskTarget(VerificationChannel channel, string target) =>
+        channel == VerificationChannel.Email
+            ? AuditLogMasking.MaskEmail(target)
+            : AuditLogMasking.MaskPhone(target);
 }

@@ -1,5 +1,8 @@
 using System.Text.Json;
+
 using Microsoft.EntityFrameworkCore;
+
+using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
@@ -15,17 +18,20 @@ public class UserProfileService : IUserProfileService
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ICorrelationContext _correlationContext;
 
     public UserProfileService(
         IAonikDbContext dbContext,
         IAuditLogWriter auditLogWriter,
         IClock clock,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ICorrelationContext correlationContext)
     {
         _dbContext = dbContext;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+        _correlationContext = correlationContext;
     }
 
     public async Task<CurrentUserSnapshot?> GetCurrentUserAsync(
@@ -83,16 +89,19 @@ public class UserProfileService : IUserProfileService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
-            "CustomerProfileUpdated",
+            AuditEventNames.CustomerProfileUpdated,
             "Party",
             party.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new
             {
                 user.Id,
                 party.PartyId,
                 request.DisplayName,
-                request.Email,
-                request.Phone
+                Email = AuditLogMasking.MaskEmail(request.Email),
+                Phone = AuditLogMasking.MaskPhone(request.Phone)
             }),
             cancellationToken);
 
