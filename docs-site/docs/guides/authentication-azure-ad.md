@@ -293,7 +293,7 @@ Your frontend (web app, mobile app, SPA) needs its own app registration.
 
 6. Click **Add permissions**
 
-7. Click **Grant admin consent for {your-organization}** (admin only)
+7. Click **Grant admin consent for `{your-organization}`** (admin only)
 
 ### 5.3 Configure Authentication
 
