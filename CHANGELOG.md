@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added tenant admin and operations authorization policies that accept role or permission checks.
 - Added user role service plus tenant-scoped endpoints for role assignment and retrieval.
 - Documented policy conventions in the permissions reference.
+- Added a dev bootstrap flow to create the first tenant and assign the current user the TenantAdmin role.
 
 ### Added - 2025-03-07
 - Added `ICurrentUserContext` and `HttpContextCurrentUserContext` for unified current-user data, plus claim-to-role mapping helper.

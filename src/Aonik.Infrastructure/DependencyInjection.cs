@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<ICurrentUserContext, HttpContextCurrentUserContext>();
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
+        services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
 
         // Multitenancy
         services.AddHttpContextAccessor();
@@ -85,6 +86,7 @@ public static class DependencyInjection
         // Application Services
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantProvisioner, TenantProvisioner>();
+        services.AddScoped<IBootstrapService, BootstrapService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
 
         // AI
