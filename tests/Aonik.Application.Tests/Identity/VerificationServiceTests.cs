@@ -7,13 +7,17 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using MicrosoftOptions = Microsoft.Extensions.Options.Options;
+
 
 using Aonik.Application.Abstractions.Messaging;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
+using Aonik.Domain.Identity;
 using Aonik.Domain.Identity.Entities;
+
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Time;
 
@@ -116,7 +120,7 @@ public class VerificationServiceTests
         await context.SaveChangesAsync();
 
         var auditLogWriter = new TestAuditLogWriter();
-        var verificationOptions = Options.Create(new VerificationOptions
+        var verificationOptions = MicrosoftOptions.Create(new VerificationOptions
         {
             HashKey = "hash-key",
             CodeLength = 6,
@@ -192,7 +196,7 @@ public class VerificationServiceTests
         context.VerificationChallenges.Add(challenge);
         await context.SaveChangesAsync();
 
-        var verificationOptions = Options.Create(new VerificationOptions
+        var verificationOptions = MicrosoftOptions.Create(new VerificationOptions
         {
             HashKey = hashKey,
             MaxAttempts = 2
@@ -256,7 +260,7 @@ public class VerificationServiceTests
         });
         await context.SaveChangesAsync();
 
-        var verificationOptions = Options.Create(new VerificationOptions
+        var verificationOptions = MicrosoftOptions.Create(new VerificationOptions
         {
             HashKey = "hash-key",
             RateLimits = new VerificationRateLimitOptions
@@ -308,7 +312,7 @@ public class VerificationServiceTests
 
         var auditLogWriter = new TestAuditLogWriter();
         var correlationId = "corr-verification";
-        var verificationOptions = Options.Create(new VerificationOptions { HashKey = "hash-key" });
+        var verificationOptions = MicrosoftOptions.Create(new VerificationOptions { HashKey = "hash-key" });
 
         var service = new VerificationService(
             context,
