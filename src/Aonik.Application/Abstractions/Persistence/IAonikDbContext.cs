@@ -10,6 +10,7 @@ using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
+using Aonik.Domain.ReferenceData.Entities;
 using Aonik.Domain.Settings.Entities;
 using Microsoft.EntityFrameworkCore;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
@@ -42,6 +43,9 @@ public interface IAonikDbContext
 
     // Settings
     DbSet<Setting> Settings { get; set; }
+
+    // Reference Data
+    DbSet<ReferenceDataItem> ReferenceDataItems { get; set; }
  
     // Party
     DbSet<PartyEntity> Parties { get; set; }

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-01-12
+- Added reference data entities, service, and endpoint for global/tenant lookup values.
+
 ### Added - 2025-03-13
 - Added onboarding verification flow tests covering service start/confirm paths, rate limiting, policy gates, and API endpoints.
 

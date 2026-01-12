@@ -12,6 +12,7 @@ using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
+using Aonik.Domain.ReferenceData.Entities;
 using Aonik.Domain.Settings.Entities;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Primitives;
@@ -52,6 +53,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<UserParty> UserParties { get; set; } = null!;
     public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
     public virtual DbSet<Setting> Settings { get; set; } = null!;
+    public virtual DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
  
     // Party
     public virtual DbSet<PartyEntity> Parties { get; set; } = null!;
@@ -274,6 +276,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
     }
 
     private void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType)
