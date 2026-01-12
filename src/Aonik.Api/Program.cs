@@ -3,8 +3,11 @@ using Aonik.Api.Middleware;
 using Aonik.Application;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure;
+using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Persistence.Seed;
 using FastEndpoints;
+using Microsoft.EntityFrameworkCore;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +29,14 @@ builder.Services.AddAonikSwagger(builder.Configuration);
 
 var app = builder.Build();
 
+// Auto-migrate database (optional)
+if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 // Seed permissions in development
 if (app.Environment.IsDevelopment())
 {
@@ -35,6 +46,7 @@ if (app.Environment.IsDevelopment())
     var seedService = new IdentitySeedService(dbContext, logger);
     await seedService.SeedAsync();
 }
+
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

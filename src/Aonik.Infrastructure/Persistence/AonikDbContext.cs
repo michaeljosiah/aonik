@@ -12,6 +12,7 @@ using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
+using Aonik.Domain.Settings.Entities;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Primitives;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +51,8 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<RolePermission> RolePermissions { get; set; } = null!;
     public virtual DbSet<UserParty> UserParties { get; set; } = null!;
     public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
-
+    public virtual DbSet<Setting> Settings { get; set; } = null!;
+ 
     // Party
     public virtual DbSet<PartyEntity> Parties { get; set; } = null!;
     public virtual DbSet<PartyAddress> PartyAddresses { get; set; } = null!;

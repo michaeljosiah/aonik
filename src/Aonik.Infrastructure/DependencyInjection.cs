@@ -10,17 +10,22 @@ using Aonik.Application.Abstractions.Messaging;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Options;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
+using Aonik.Application.Services.Registration;
+using Aonik.Application.Services.Settings;
 using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
 using Aonik.Infrastructure.Authentication;
+using Aonik.Infrastructure.Authentication.Provisioning;
 using Aonik.Infrastructure.Authorization;
 using Aonik.Infrastructure.Communication;
 using Aonik.Infrastructure.Communication.Configuration;
 using Aonik.Infrastructure.Identity;
+using Aonik.Infrastructure.Settings;
 using Aonik.Infrastructure.Multitenancy;
 using Aonik.Infrastructure.Observability;
 using Aonik.Infrastructure.Persistence;
@@ -45,6 +50,9 @@ public static class DependencyInjection
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
+        services.AddMemoryCache();
+        services.AddDataProtection();
+
 
         // Multitenancy
         services.AddHttpContextAccessor();
@@ -98,8 +106,17 @@ public static class DependencyInjection
         services.AddScoped<ITenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapService, BootstrapService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
+        services.AddScoped<ISettingValueProtector, SettingValueProtector>();
+        services.AddScoped<ISettingProvider, SettingService>();
+        services.AddScoped<ISettingManager, SettingService>();
+        services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
+        services.AddScoped<IRegistrationService, RegistrationService>();
+        services.AddHttpClient<Auth0UserProvisioner>();
+        services.AddHttpClient<AzureAdUserProvisioner>();
+        services.AddScoped<IIdpUserProvisionerFactory, IdpUserProvisionerFactory>();
         services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
         services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
+
 
         // AI
         services.AddSingleton<IPromptStore>(sp =>

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,8 +11,10 @@ using Microsoft.IdentityModel.Tokens;
 
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Identity;
+using Aonik.Application.Settings;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Identity;
 using Aonik.SharedKernel.Abstractions;
@@ -27,19 +30,32 @@ public static class AonikAuthenticationSetup
         var authOptions = configuration.GetSection("Auth").Get<AuthOptions>() 
             ?? throw new InvalidOperationException("Auth configuration is missing");
         
-        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+        services.AddAuthentication(options =>
             {
-                ConfigureJwtBearerOptions(options, authOptions);
-                ConfigureTokenValidationEvents(options);
+                options.DefaultScheme = "Aonik";
+                options.DefaultChallengeScheme = "Aonik";
+            })
+            .AddPolicyScheme("Aonik", "Aonik", options =>
+            {
+                options.ForwardDefaultSelector = context => SelectScheme(context, authOptions);
+            })
+            .AddJwtBearer("AzureAd", options =>
+            {
+                ConfigureJwtBearerOptions(options, authOptions, "AzureAd");
+                ConfigureTokenValidationEvents(options, authOptions);
+            })
+            .AddJwtBearer("Auth0", options =>
+            {
+                ConfigureJwtBearerOptions(options, authOptions, "Auth0");
+                ConfigureTokenValidationEvents(options, authOptions);
             });
-        
+
         return services;
     }
     
-    private static void ConfigureJwtBearerOptions(JwtBearerOptions options, AuthOptions authOptions)
+    private static void ConfigureJwtBearerOptions(JwtBearerOptions options, AuthOptions authOptions, string provider)
     {
-        if (authOptions.Provider == "AzureAd")
+        if (provider == "AzureAd")
         {
             options.Authority = authOptions.AzureAd.Authority;
             options.Audience = authOptions.AzureAd.Audience;
@@ -54,7 +70,7 @@ public static class AonikAuthenticationSetup
                 RequireSignedTokens = true
             };
         }
-        else if (authOptions.Provider == "Auth0")
+        else if (provider == "Auth0")
         {
             options.Authority = authOptions.Auth0.Authority;
             options.Audience = authOptions.Auth0.Audience;
@@ -71,13 +87,13 @@ public static class AonikAuthenticationSetup
         }
         else
         {
-            throw new InvalidOperationException($"Unsupported auth provider: {authOptions.Provider}");
+            throw new InvalidOperationException($"Unsupported auth provider: {provider}");
         }
-        
+
         options.RequireHttpsMetadata = true; // Always require HTTPS for metadata
     }
     
-    private static void ConfigureTokenValidationEvents(JwtBearerOptions options)
+    private static void ConfigureTokenValidationEvents(JwtBearerOptions options, AuthOptions authOptions)
     {
         options.Events = new JwtBearerEvents
         {
@@ -85,7 +101,7 @@ public static class AonikAuthenticationSetup
             {
                 try
                 {
-                    await HandleTokenValidatedAsync(context);
+                    await HandleTokenValidatedAsync(context, authOptions);
                 }
                 catch (Exception ex)
                 {
@@ -111,7 +127,7 @@ public static class AonikAuthenticationSetup
         };
     }
     
-    private static async Task HandleTokenValidatedAsync(TokenValidatedContext context)
+    private static async Task HandleTokenValidatedAsync(TokenValidatedContext context, AuthOptions authOptions)
     {
         var logger = context.HttpContext.RequestServices
             .GetRequiredService<ILogger<JwtBearerEvents>>();
@@ -142,10 +158,21 @@ public static class AonikAuthenticationSetup
             context.Fail("Missing required claims");
             return;
         }
+
+        var activeProvider = await GetActiveProviderAsync(context, authOptions);
+        var issuerProvider = GetProviderForIssuer(iss, authOptions);
+        if (!string.Equals(activeProvider, issuerProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning("Token issuer provider {IssuerProvider} does not match active provider {ActiveProvider}",
+                issuerProvider, activeProvider);
+            context.Fail("Token issuer not allowed for active provider");
+            return;
+        }
         
         // 2. Resolve tenant (fail fast if cannot resolve)
         // Store JWT token in HttpContext.Items for TenantResolver
         context.HttpContext.Items["JwtSecurityToken"] = jwtToken;
+
 
         if (await TryHandleBootstrapAsync(context, iss, sub))
         {
@@ -216,6 +243,67 @@ public static class AonikAuthenticationSetup
         }
     }
 
+    private static async Task<string> GetActiveProviderAsync(TokenValidatedContext context, AuthOptions authOptions)
+    {
+        var settingProvider = context.HttpContext.RequestServices.GetRequiredService<ISettingProvider>();
+        var provider = await settingProvider.GetAsync(AuthSettingNames.Provider, context.HttpContext.RequestAborted);
+        return string.IsNullOrWhiteSpace(provider) ? authOptions.Provider : provider;
+    }
+
+    private static string GetProviderForIssuer(string issuer, AuthOptions authOptions)
+    {
+        if (!string.IsNullOrWhiteSpace(authOptions.AzureAd.Authority)
+            && issuer.StartsWith(authOptions.AzureAd.Authority, StringComparison.OrdinalIgnoreCase))
+        {
+            return "AzureAd";
+        }
+
+        if (!string.IsNullOrWhiteSpace(authOptions.Auth0.Authority)
+            && issuer.StartsWith(authOptions.Auth0.Authority.TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return "Auth0";
+        }
+
+        return authOptions.Provider;
+    }
+
+    private static string? SelectScheme(HttpContext context, AuthOptions authOptions)
+    {
+        var token = GetBearerToken(context);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return authOptions.Provider;
+        }
+
+        try
+        {
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+            var issuer = jwt.Issuer;
+            return GetProviderForIssuer(issuer, authOptions);
+        }
+        catch
+        {
+            return authOptions.Provider;
+        }
+    }
+
+    private static string? GetBearerToken(HttpContext context)
+    {
+        var authorization = context.Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(authorization))
+        {
+            return null;
+        }
+
+        const string bearerPrefix = "Bearer ";
+        if (authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return authorization[bearerPrefix.Length..].Trim();
+        }
+
+        return null;
+    }
+    
     private static async Task<bool> TryHandleBootstrapAsync(
         TokenValidatedContext context,
         string issuer,

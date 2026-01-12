@@ -10,6 +10,7 @@ using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
+using Aonik.Domain.Settings.Entities;
 using Microsoft.EntityFrameworkCore;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 using PartyEntity = Aonik.Domain.Party.Entities.Party;
@@ -39,6 +40,9 @@ public interface IAonikDbContext
     DbSet<UserParty> UserParties { get; set; }
     DbSet<VerificationChallenge> VerificationChallenges { get; set; }
 
+    // Settings
+    DbSet<Setting> Settings { get; set; }
+ 
     // Party
     DbSet<PartyEntity> Parties { get; set; }
     DbSet<PartyAddress> PartyAddresses { get; set; }

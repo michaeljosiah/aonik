@@ -1,0 +1,43 @@
+namespace Aonik.Api.Contracts.Settings;
+
+public record AuthProviderSettingsResponse(
+    string ActiveProvider,
+    Auth0SettingsResponse Auth0,
+    AzureAdSettingsResponse AzureAd);
+
+public record Auth0SettingsResponse(
+    string? Domain,
+    string? Audience,
+    string? ClientId,
+    bool HasClientSecret,
+    string? Connection,
+    string? ManagementAudience);
+
+public record AzureAdSettingsResponse(
+    string? Authority,
+    string? Audience,
+    string? ClientId,
+    bool HasClientSecret,
+    string? TenantId,
+    string? UserPrincipalNameDomain);
+
+public record AuthProviderSettingsUpdateRequest(
+    string ActiveProvider,
+    Auth0SettingsUpdateRequest? Auth0,
+    AzureAdSettingsUpdateRequest? AzureAd);
+
+public record Auth0SettingsUpdateRequest(
+    string? Domain,
+    string? Audience,
+    string? ClientId,
+    string? ClientSecret,
+    string? Connection,
+    string? ManagementAudience);
+
+public record AzureAdSettingsUpdateRequest(
+    string? Authority,
+    string? Audience,
+    string? ClientId,
+    string? ClientSecret,
+    string? TenantId,
+    string? UserPrincipalNameDomain);

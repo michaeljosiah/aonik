@@ -25,6 +25,7 @@ Welcome to the AONIK documentation. This index provides quick access to all proj
 ### Getting Started
 
 - **[Getting Started Guide](guides/getting-started.md)** - Setup and first run
+- **[Settings Guide](guides/settings.md)** - Settings scopes and endpoints
 
 ### Testing
 
@@ -84,6 +85,7 @@ Welcome to the AONIK documentation. This index provides quick access to all proj
 | CHANGELOG.md | ✅ Current | Jan 8, 2025 |
 | docs/Testing.md | ✅ Current | Jan 8, 2025 |
 | docs/Troubleshooting.md | ✅ Current | Jan 8, 2025 |
+| docs/guides/settings.md | ✅ Current | Jan 11, 2026 |
 
 ## Project Structure
 
@@ -153,4 +155,4 @@ Please create an issue or submit a pull request.
 
 ---
 
-*Last updated: January 8, 2025*
+*Last updated: January 11, 2026*
