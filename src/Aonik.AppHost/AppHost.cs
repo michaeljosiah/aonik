@@ -14,4 +14,10 @@ var api = builder.AddProject<Projects.Aonik_Api>("api")
 var worker = builder.AddProject<Projects.Aonik_Worker>("worker")
     .WithReference(sqlServer);
 
+// Add Admin UI (React/Vite frontend)
+var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
+    .WithReference(api)
+    .WaitFor(api)
+    .WithExternalHttpEndpoints();
+
 builder.Build().Run();
