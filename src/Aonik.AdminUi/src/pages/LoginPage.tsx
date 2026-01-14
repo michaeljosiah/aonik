@@ -1,26 +1,55 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
+import { ArrowRight, AlertCircle } from 'lucide-react';
+import { useAuth, getAuthProvider } from '@/auth';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const location = useLocation();
+  const { isAuthenticated, isLoading, login } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    // Simulate login delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // For demo purposes, just navigate to dashboard
-    navigate('/');
+  const provider = getAuthProvider();
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate, from]);
+
+  const handleLogin = async () => {
+    setError(null);
+    setIsLoggingIn(true);
+    try {
+      await login();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
+      setIsLoggingIn(false);
+    }
   };
+
+  // Show loading while checking auth state
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#F8F9FA' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '32px', height: '32px', border: '4px solid #0D7377', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+          <p style={{ fontSize: '14px', color: '#6B7280' }}>Loading...</p>
+        </div>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
@@ -92,7 +121,7 @@ export function LoginPage() {
         </div>
       </div>
 
-      {/* Right side - Login Form */}
+      {/* Right side - Login */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', backgroundColor: '#F8F9FA' }}>
         <div style={{ width: '100%', maxWidth: '420px' }}>
           {/* Mobile logo */}
@@ -114,222 +143,87 @@ export function LoginPage() {
                 </p>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit}>
-                {/* Email field */}
-                <div style={{ marginBottom: '20px' }}>
-                  <label 
-                    htmlFor="email" 
-                    style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#1A1A1A', marginBottom: '6px' }}
-                  >
-                    Email address
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                      <Mail style={{ width: '20px', height: '20px', color: '#9CA3AF' }} />
-                    </div>
-                    <input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@company.com"
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        paddingLeft: '44px',
-                        paddingRight: '16px',
-                        paddingTop: '12px',
-                        paddingBottom: '12px',
-                        borderRadius: '8px',
-                        border: '1px solid #E5E7EB',
-                        backgroundColor: 'white',
-                        color: '#1A1A1A',
-                        fontSize: '14px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                      required
-                    />
-                  </div>
+              {/* Error message */}
+              {error && (
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  padding: '12px', 
+                  marginBottom: '24px',
+                  backgroundColor: '#FEF2F2', 
+                  borderRadius: '8px',
+                  border: '1px solid #FECACA'
+                }}>
+                  <AlertCircle style={{ width: '20px', height: '20px', color: '#EF4444', flexShrink: 0 }} />
+                  <p style={{ fontSize: '14px', color: '#991B1B', margin: 0 }}>{error}</p>
                 </div>
+              )}
 
-                {/* Password field */}
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <label 
-                      htmlFor="password" 
-                      style={{ fontSize: '14px', fontWeight: '500', color: '#1A1A1A' }}
-                    >
-                      Password
-                    </label>
-                    <a 
-                      href="#" 
-                      style={{ fontSize: '14px', color: '#0D7377', textDecoration: 'none' }}
-                    >
-                      Forgot password?
-                    </a>
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                      <Lock style={{ width: '20px', height: '20px', color: '#9CA3AF' }} />
-                    </div>
-                    <input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        paddingLeft: '44px',
-                        paddingRight: '48px',
-                        paddingTop: '12px',
-                        paddingBottom: '12px',
-                        borderRadius: '8px',
-                        border: '1px solid #E5E7EB',
-                        backgroundColor: 'white',
-                        color: '#1A1A1A',
-                        fontSize: '14px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      style={{ 
-                        position: 'absolute', 
-                        top: '50%', 
-                        right: '12px', 
-                        transform: 'translateY(-50%)',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: 0,
-                        color: '#9CA3AF'
-                      }}
-                    >
-                      {showPassword ? (
-                        <EyeOff style={{ width: '20px', height: '20px' }} />
-                      ) : (
-                        <Eye style={{ width: '20px', height: '20px' }} />
-                      )}
-                    </button>
-                  </div>
-                </div>
+              {/* Provider info */}
+              <div style={{ 
+                padding: '12px 16px', 
+                marginBottom: '24px',
+                backgroundColor: '#F0FDFA', 
+                borderRadius: '8px',
+                border: '1px solid #99F6E4'
+              }}>
+                <p style={{ fontSize: '13px', color: '#0F766E', margin: 0, textAlign: 'center' }}>
+                  Signing in with {provider === 'azure-ad' ? 'Microsoft Entra ID' : 'Auth0'}
+                </p>
+              </div>
 
-                {/* Remember me */}
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                  />
-                  <label 
-                    htmlFor="remember" 
-                    style={{ marginLeft: '8px', fontSize: '14px', color: '#6B7280', cursor: 'pointer' }}
-                  >
-                    Remember me for 30 days
-                  </label>
-                </div>
-
-                {/* Submit button */}
-                <Button 
-                  type="submit" 
-                  style={{ width: '100%', padding: '12px 16px', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <svg style={{ animation: 'spin 1s linear infinite', width: '20px', height: '20px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              {/* Sign in button */}
+              <Button 
+                onClick={handleLogin}
+                style={{ 
+                  width: '100%', 
+                  padding: '14px 16px', 
+                  fontSize: '16px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px' 
+                }}
+                disabled={isLoggingIn}
+              >
+                {isLoggingIn ? (
+                  <>
+                    <svg style={{ animation: 'spin 1s linear infinite', width: '20px', height: '20px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Redirecting...
+                  </>
+                ) : (
+                  <>
+                    {provider === 'azure-ad' ? (
+                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 23 23">
+                        <path fill="currentColor" d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
                       </svg>
-                      Signing in...
-                    </>
-                  ) : (
-                    <>
-                      Sign in
-                      <ArrowRight style={{ width: '20px', height: '20px' }} />
-                    </>
-                  )}
-                </Button>
-              </form>
+                    ) : (
+                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21.98 7.448L19.62 0H4.347L2.02 7.448c-1.352 4.312.03 9.206 3.815 12.015L12.007 24l6.157-4.552c3.755-2.81 5.182-7.688 3.815-12.015l-6.16 4.58 2.343 7.45-6.157-4.597-6.158 4.58 2.358-7.433-6.188-4.55 7.63-.045L12.008 0l2.356 7.404 7.615.044z"/>
+                      </svg>
+                    )}
+                    Sign in with {provider === 'azure-ad' ? 'Microsoft' : 'Auth0'}
+                    <ArrowRight style={{ width: '20px', height: '20px' }} />
+                  </>
+                )}
+              </Button>
 
-              {/* Divider */}
-              <div style={{ position: 'relative', margin: '24px 0' }}>
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
-                  <div style={{ width: '100%', borderTop: '1px solid #E5E7EB' }}></div>
-                </div>
-                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-                  <span style={{ padding: '0 16px', backgroundColor: 'white', color: '#9CA3AF', fontSize: '14px' }}>
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-
-              {/* Social login buttons */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <button 
-                  type="button"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                    backgroundColor: 'white',
-                    color: '#1A1A1A',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  Google
-                </button>
-                <button 
-                  type="button"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    border: '1px solid #E5E7EB',
-                    backgroundColor: 'white',
-                    color: '#1A1A1A',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <svg style={{ width: '20px', height: '20px' }} fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                  </svg>
-                  GitHub
-                </button>
-              </div>
-
-              {/* Sign up link */}
-              <p style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#6B7280' }}>
-                Don't have an account?{' '}
+              {/* Alternative provider hint */}
+              <p style={{ marginTop: '24px', textAlign: 'center', fontSize: '13px', color: '#9CA3AF' }}>
+                Using a different identity provider?{' '}
                 <a 
                   href="#" 
-                  style={{ fontWeight: '500', color: '#0D7377', textDecoration: 'none' }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert(`To switch providers, set VITE_AUTH_PROVIDER to "${provider === 'azure-ad' ? 'auth0' : 'azure-ad'}" in your .env file`);
+                  }}
+                  style={{ color: '#0D7377', textDecoration: 'none' }}
                 >
-                  Request access
+                  Learn more
                 </a>
               </p>
             </CardContent>
@@ -345,7 +239,7 @@ export function LoginPage() {
         </div>
       </div>
 
-      {/* Add keyframes for spinner animation */}
+      {/* Keyframes */}
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
