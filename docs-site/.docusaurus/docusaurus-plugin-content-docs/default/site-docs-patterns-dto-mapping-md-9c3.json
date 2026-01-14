@@ -1,0 +1,24 @@
+{
+  "id": "patterns/dto-mapping",
+  "title": "DTO Mapping",
+  "description": "AONIK keeps transport models and persistence models separate.",
+  "source": "@site/docs/patterns/dto-mapping.md",
+  "sourceDirName": "patterns",
+  "slug": "/patterns/dto-mapping",
+  "permalink": "/aonik/patterns/dto-mapping",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/patterns/dto-mapping.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Tenant Isolation",
+    "permalink": "/aonik/database/tenant-isolation"
+  },
+  "next": {
+    "title": "Error Handling",
+    "permalink": "/aonik/patterns/error-handling"
+  }
+}

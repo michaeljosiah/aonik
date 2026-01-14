@@ -1,0 +1,24 @@
+{
+  "id": "deployment/local-development",
+  "title": "Local Development",
+  "description": "This guide covers local development workflows for AONIK, including how the database is configured in different environments.",
+  "source": "@site/docs/deployment/local-development.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/local-development",
+  "permalink": "/aonik/deployment/local-development",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/deployment/local-development.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Getting Started",
+    "permalink": "/aonik/guides/getting-started"
+  },
+  "next": {
+    "title": "Docker Setup",
+    "permalink": "/aonik/deployment/docker"
+  }
+}

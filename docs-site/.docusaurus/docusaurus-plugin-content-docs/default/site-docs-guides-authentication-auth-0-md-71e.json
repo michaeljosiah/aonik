@@ -1,0 +1,24 @@
+{
+  "id": "guides/authentication-auth0",
+  "title": "Auth0 Setup Guide",
+  "description": "This guide walks you through configuring Auth0 as the identity provider for AONIK. Auth0 is a flexible authentication service that supports multiple identity sources (Google, GitHub, Microsoft, etc.) with minimal setup.",
+  "source": "@site/docs/guides/authentication-auth0.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/authentication-auth0",
+  "permalink": "/aonik/guides/authentication-auth0",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/guides/authentication-auth0.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Application Services Guidelines",
+    "permalink": "/aonik/guides/application-services"
+  },
+  "next": {
+    "title": "Azure AD (Microsoft Entra ID) Setup Guide",
+    "permalink": "/aonik/guides/authentication-azure-ad"
+  }
+}

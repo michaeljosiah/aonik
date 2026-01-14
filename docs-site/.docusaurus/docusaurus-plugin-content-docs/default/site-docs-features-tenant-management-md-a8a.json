@@ -1,0 +1,24 @@
+{
+  "id": "features/tenant-management",
+  "title": "Tenant Management",
+  "description": "Overview",
+  "source": "@site/docs/features/tenant-management.md",
+  "sourceDirName": "features",
+  "slug": "/features/tenant-management",
+  "permalink": "/aonik/features/tenant-management",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/features/tenant-management.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Payments",
+    "permalink": "/aonik/features/payments"
+  },
+  "next": {
+    "title": "Entity Relationships",
+    "permalink": "/aonik/database/entity-relationships"
+  }
+}

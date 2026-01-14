@@ -1,0 +1,24 @@
+{
+  "id": "patterns/validation",
+  "title": "Validation",
+  "description": "Where validation lives",
+  "source": "@site/docs/patterns/validation.md",
+  "sourceDirName": "patterns",
+  "slug": "/patterns/validation",
+  "permalink": "/aonik/patterns/validation",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/patterns/validation.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Service Layer Patterns",
+    "permalink": "/aonik/patterns/service-layer"
+  },
+  "next": {
+    "title": "ADR-001: Custom AI Workflow Implementation vs Microsoft Agent Framework",
+    "permalink": "/aonik/decisions/custom-ai-implementation-vs-maf"
+  }
+}

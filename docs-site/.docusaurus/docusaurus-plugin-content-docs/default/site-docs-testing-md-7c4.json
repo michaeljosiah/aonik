@@ -1,0 +1,24 @@
+{
+  "id": "Testing",
+  "title": "Testing Guide",
+  "description": "This document provides guidelines and best practices for writing and running tests in the AONIK project.",
+  "source": "@site/docs/Testing.md",
+  "sourceDirName": ".",
+  "slug": "/Testing",
+  "permalink": "/aonik/Testing",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/Testing.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Architecture Decision Records (ADRs)",
+    "permalink": "/aonik/decisions/"
+  },
+  "next": {
+    "title": "Troubleshooting Guide",
+    "permalink": "/aonik/Troubleshooting"
+  }
+}

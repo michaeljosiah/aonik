@@ -1,0 +1,24 @@
+{
+  "id": "features/authentication-authorization",
+  "title": "Authentication & Authorization",
+  "description": "AONIK uses a modern authentication and authorization system that separates who you are (authentication) from what you can do (authorization).",
+  "source": "@site/docs/features/authentication-authorization.md",
+  "sourceDirName": "features",
+  "slug": "/features/authentication-authorization",
+  "permalink": "/aonik/features/authentication-authorization",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/features/authentication-authorization.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "AI Integration",
+    "permalink": "/aonik/features/ai-integration"
+  },
+  "next": {
+    "title": "Billing",
+    "permalink": "/aonik/features/billing"
+  }
+}

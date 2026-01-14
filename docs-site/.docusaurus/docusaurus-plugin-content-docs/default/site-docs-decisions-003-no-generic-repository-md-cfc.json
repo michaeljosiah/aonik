@@ -1,0 +1,25 @@
+{
+  "id": "decisions/no-generic-repository",
+  "title": "ADR 003: No Generic Repository Pattern Over EF Core",
+  "description": "Status: Accepted",
+  "source": "@site/docs/decisions/003-no-generic-repository.md",
+  "sourceDirName": "decisions",
+  "slug": "/decisions/no-generic-repository",
+  "permalink": "/aonik/decisions/no-generic-repository",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/decisions/003-no-generic-repository.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "ADR 002: Adopt Anemic Domain Model",
+    "permalink": "/aonik/decisions/anemic-domain-model"
+  },
+  "next": {
+    "title": "Architecture Decision Records (ADRs)",
+    "permalink": "/aonik/decisions/"
+  }
+}

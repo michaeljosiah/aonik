@@ -1,0 +1,24 @@
+{
+  "id": "guides/api-endpoints",
+  "title": "API Endpoints",
+  "description": "AONIK uses FastEndpoints for HTTP endpoints.",
+  "source": "@site/docs/guides/api-endpoints.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/api-endpoints",
+  "permalink": "/aonik/guides/api-endpoints",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/guides/api-endpoints.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Technology Stack",
+    "permalink": "/aonik/architecture/technology-stack"
+  },
+  "next": {
+    "title": "Application Services Guidelines",
+    "permalink": "/aonik/guides/application-services"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "architecture/technology-stack",
+  "title": "Technology Stack",
+  "description": "Runtime",
+  "source": "@site/docs/architecture/technology-stack.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/technology-stack",
+  "permalink": "/aonik/architecture/technology-stack",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/architecture/technology-stack.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Module Organization",
+    "permalink": "/aonik/architecture/module-organization"
+  },
+  "next": {
+    "title": "API Endpoints",
+    "permalink": "/aonik/guides/api-endpoints"
+  }
+}

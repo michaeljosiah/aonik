@@ -1,0 +1,24 @@
+{
+  "id": "contributing/code-style",
+  "title": "Code Style",
+  "description": "AONIK follows the conventions described in AGENTS.md.",
+  "source": "@site/docs/contributing/code-style.md",
+  "sourceDirName": "contributing",
+  "slug": "/contributing/code-style",
+  "permalink": "/aonik/contributing/code-style",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/contributing/code-style.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Individual Customer Registration (B2C) — Requirements Specification",
+    "permalink": "/aonik/requirements/user-onboarding-specification"
+  },
+  "next": {
+    "title": "Git Workflow",
+    "permalink": "/aonik/contributing/git-workflow"
+  }
+}

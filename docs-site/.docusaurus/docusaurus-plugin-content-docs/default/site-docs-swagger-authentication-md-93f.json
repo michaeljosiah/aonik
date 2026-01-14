@@ -1,0 +1,15 @@
+{
+  "id": "SwaggerAuthentication",
+  "title": "Swagger OAuth2 Authentication Configuration Guide",
+  "description": "This guide explains how to configure Swagger UI to authenticate with your OAuth2 provider (Azure AD or Auth0) in the AONIK API.",
+  "source": "@site/docs/SwaggerAuthentication.md",
+  "sourceDirName": ".",
+  "slug": "/SwaggerAuthentication",
+  "permalink": "/aonik/SwaggerAuthentication",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/SwaggerAuthentication.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {}
+}

@@ -1,0 +1,24 @@
+{
+  "id": "features/ai-integration",
+  "title": "AI Integration",
+  "description": "AONIK includes AI-related abstractions and provider implementations.",
+  "source": "@site/docs/features/ai-integration.md",
+  "sourceDirName": "features",
+  "slug": "/features/ai-integration",
+  "permalink": "/aonik/features/ai-integration",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/features/ai-integration.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Testing",
+    "permalink": "/aonik/guides/testing"
+  },
+  "next": {
+    "title": "Authentication & Authorization",
+    "permalink": "/aonik/features/authentication-authorization"
+  }
+}

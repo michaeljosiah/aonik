@@ -1,0 +1,24 @@
+{
+  "id": "patterns/error-handling",
+  "title": "Error Handling",
+  "description": "Principles",
+  "source": "@site/docs/patterns/error-handling.md",
+  "sourceDirName": "patterns",
+  "slug": "/patterns/error-handling",
+  "permalink": "/aonik/patterns/error-handling",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/patterns/error-handling.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "DTO Mapping",
+    "permalink": "/aonik/patterns/dto-mapping"
+  },
+  "next": {
+    "title": "Service Layer Patterns",
+    "permalink": "/aonik/patterns/service-layer"
+  }
+}

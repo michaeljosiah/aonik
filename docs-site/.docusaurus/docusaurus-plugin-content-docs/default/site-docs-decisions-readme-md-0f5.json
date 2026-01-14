@@ -1,0 +1,24 @@
+{
+  "id": "decisions/README",
+  "title": "Architecture Decision Records (ADRs)",
+  "description": "This directory contains Architecture Decision Records documenting significant architectural and design decisions made in the AONIK project.",
+  "source": "@site/docs/decisions/README.md",
+  "sourceDirName": "decisions",
+  "slug": "/decisions/",
+  "permalink": "/aonik/decisions/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/decisions/README.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "ADR 003: No Generic Repository Pattern Over EF Core",
+    "permalink": "/aonik/decisions/no-generic-repository"
+  },
+  "next": {
+    "title": "Testing Guide",
+    "permalink": "/aonik/Testing"
+  }
+}

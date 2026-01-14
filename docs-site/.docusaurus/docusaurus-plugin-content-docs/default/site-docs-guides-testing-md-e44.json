@@ -1,0 +1,24 @@
+{
+  "id": "guides/testing",
+  "title": "Testing",
+  "description": "This guide points to the canonical testing documentation.",
+  "source": "@site/docs/guides/testing.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/testing",
+  "permalink": "/aonik/guides/testing",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/guides/testing.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Managing Roles and Permissions",
+    "permalink": "/aonik/guides/roles-and-permissions"
+  },
+  "next": {
+    "title": "AI Integration",
+    "permalink": "/aonik/features/ai-integration"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "deployment/azure-deployment",
+  "title": "Azure Deployment",
+  "description": "This guide is a starter outline for deploying AONIK to Azure. It will evolve as the platform stabilizes.",
+  "source": "@site/docs/deployment/azure-deployment.md",
+  "sourceDirName": "deployment",
+  "slug": "/deployment/azure-deployment",
+  "permalink": "/aonik/deployment/azure-deployment",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/deployment/azure-deployment.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Troubleshooting Guide",
+    "permalink": "/aonik/Troubleshooting"
+  },
+  "next": {
+    "title": "Docker Setup",
+    "permalink": "/aonik/deployment/docker"
+  }
+}

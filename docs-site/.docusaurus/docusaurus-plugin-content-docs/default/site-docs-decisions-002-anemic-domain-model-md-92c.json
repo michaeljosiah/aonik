@@ -1,0 +1,25 @@
+{
+  "id": "decisions/anemic-domain-model",
+  "title": "ADR 002: Adopt Anemic Domain Model",
+  "description": "Status: Accepted",
+  "source": "@site/docs/decisions/002-anemic-domain-model.md",
+  "sourceDirName": "decisions",
+  "slug": "/decisions/anemic-domain-model",
+  "permalink": "/aonik/decisions/anemic-domain-model",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/decisions/002-anemic-domain-model.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "ADR-001: Custom AI Workflow Implementation vs Microsoft Agent Framework",
+    "permalink": "/aonik/decisions/custom-ai-implementation-vs-maf"
+  },
+  "next": {
+    "title": "ADR 003: No Generic Repository Pattern Over EF Core",
+    "permalink": "/aonik/decisions/no-generic-repository"
+  }
+}

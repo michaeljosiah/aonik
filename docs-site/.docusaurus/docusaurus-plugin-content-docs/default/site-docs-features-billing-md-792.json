@@ -1,0 +1,24 @@
+{
+  "id": "features/billing",
+  "title": "Billing",
+  "description": "The Billing module provides invoicing primitives and related workflows.",
+  "source": "@site/docs/features/billing.md",
+  "sourceDirName": "features",
+  "slug": "/features/billing",
+  "permalink": "/aonik/features/billing",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/features/billing.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Authentication & Authorization",
+    "permalink": "/aonik/features/authentication-authorization"
+  },
+  "next": {
+    "title": "Ledger",
+    "permalink": "/aonik/features/ledger"
+  }
+}

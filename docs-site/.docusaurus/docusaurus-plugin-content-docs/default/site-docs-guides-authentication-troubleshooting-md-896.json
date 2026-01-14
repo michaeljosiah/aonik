@@ -1,0 +1,24 @@
+{
+  "id": "guides/authentication-troubleshooting",
+  "title": "Authentication Troubleshooting Guide",
+  "description": "This guide helps you diagnose and fix common authentication and authorization issues in AONIK.",
+  "source": "@site/docs/guides/authentication-troubleshooting.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/authentication-troubleshooting",
+  "permalink": "/aonik/guides/authentication-troubleshooting",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/guides/authentication-troubleshooting.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Azure AD (Microsoft Entra ID) Setup Guide",
+    "permalink": "/aonik/guides/authentication-azure-ad"
+  },
+  "next": {
+    "title": "Database Migrations",
+    "permalink": "/aonik/guides/database-migrations"
+  }
+}

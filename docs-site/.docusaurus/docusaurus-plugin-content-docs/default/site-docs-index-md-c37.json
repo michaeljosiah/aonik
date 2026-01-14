@@ -1,0 +1,23 @@
+{
+  "id": "index",
+  "title": "AONIK Documentation",
+  "description": "Build, integrate, and operate the AONIK platform with confidence. These docs give engineers a clear picture of the architecture, core modules, and the day-to-day workflows needed to ship features and keep services healthy.",
+  "source": "@site/docs/index.md",
+  "sourceDirName": ".",
+  "slug": "/",
+  "permalink": "/aonik/",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/index.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "docs",
+  "next": {
+    "title": "Getting Started",
+    "permalink": "/aonik/guides/getting-started"
+  }
+}

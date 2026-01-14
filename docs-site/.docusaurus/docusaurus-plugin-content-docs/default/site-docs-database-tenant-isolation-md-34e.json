@@ -1,0 +1,24 @@
+{
+  "id": "database/tenant-isolation",
+  "title": "Tenant Isolation",
+  "description": "AONIK supports multi-tenancy using ITenantScoped and EF Core query filters.",
+  "source": "@site/docs/database/tenant-isolation.md",
+  "sourceDirName": "database",
+  "slug": "/database/tenant-isolation",
+  "permalink": "/aonik/database/tenant-isolation",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/database/tenant-isolation.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Schema Overview",
+    "permalink": "/aonik/database/schema-overview"
+  },
+  "next": {
+    "title": "DTO Mapping",
+    "permalink": "/aonik/patterns/dto-mapping"
+  }
+}

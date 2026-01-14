@@ -1,0 +1,24 @@
+{
+  "id": "architecture/overview",
+  "title": "Architecture Overview",
+  "description": "AONIK follows Clean Architecture with a modular, vertical-slice layout.",
+  "source": "@site/docs/architecture/overview.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/overview",
+  "permalink": "/aonik/architecture/overview",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/architecture/overview.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "AONIK Architecture",
+    "permalink": "/aonik/Architecture"
+  },
+  "next": {
+    "title": "Clean Architecture",
+    "permalink": "/aonik/architecture/clean-architecture"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "requirements/user-onboarding-specification",
+  "title": "Individual Customer Registration (B2C) — Requirements Specification",
+  "description": "Purpose",
+  "source": "@site/docs/requirements/user-onboarding-specification.md",
+  "sourceDirName": "requirements",
+  "slug": "/requirements/user-onboarding-specification",
+  "permalink": "/aonik/requirements/user-onboarding-specification",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/requirements/user-onboarding-specification.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Permissions Reference",
+    "permalink": "/aonik/reference/permissions"
+  },
+  "next": {
+    "title": "Code Style",
+    "permalink": "/aonik/contributing/code-style"
+  }
+}

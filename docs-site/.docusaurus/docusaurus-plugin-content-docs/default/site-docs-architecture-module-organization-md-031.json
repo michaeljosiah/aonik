@@ -1,0 +1,24 @@
+{
+  "id": "architecture/module-organization",
+  "title": "Module Organization",
+  "description": "AONIK is organized by business module with a vertical-slice feel.",
+  "source": "@site/docs/architecture/module-organization.md",
+  "sourceDirName": "architecture",
+  "slug": "/architecture/module-organization",
+  "permalink": "/aonik/architecture/module-organization",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/architecture/module-organization.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Data Flow",
+    "permalink": "/aonik/architecture/data-flow"
+  },
+  "next": {
+    "title": "Technology Stack",
+    "permalink": "/aonik/architecture/technology-stack"
+  }
+}

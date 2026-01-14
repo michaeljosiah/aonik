@@ -1,0 +1,24 @@
+{
+  "id": "features/ledger",
+  "title": "Ledger",
+  "description": "The Ledger module models double-entry accounting concepts.",
+  "source": "@site/docs/features/ledger.md",
+  "sourceDirName": "features",
+  "slug": "/features/ledger",
+  "permalink": "/aonik/features/ledger",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/features/ledger.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Billing",
+    "permalink": "/aonik/features/billing"
+  },
+  "next": {
+    "title": "Payments",
+    "permalink": "/aonik/features/payments"
+  }
+}

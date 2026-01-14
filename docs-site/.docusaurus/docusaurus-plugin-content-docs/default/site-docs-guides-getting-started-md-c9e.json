@@ -1,0 +1,24 @@
+{
+  "id": "guides/getting-started",
+  "title": "Getting Started",
+  "description": "This guide gets you running locally with either Aspire (recommended) or a standalone API.",
+  "source": "@site/docs/guides/getting-started.md",
+  "sourceDirName": "guides",
+  "slug": "/guides/getting-started",
+  "permalink": "/aonik/guides/getting-started",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/michaeljosiah/aonik/edit/main/docs-site/docs/guides/getting-started.md",
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "AONIK Documentation",
+    "permalink": "/aonik/"
+  },
+  "next": {
+    "title": "Local Development",
+    "permalink": "/aonik/deployment/local-development"
+  }
+}
