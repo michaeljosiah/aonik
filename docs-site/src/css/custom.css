@@ -1,125 +1,784 @@
+/* ==========================================================================
+   Aonik Docs - Professional Theme
+   Matching AdminUI Design System
+   ========================================================================== */
+
+/* ==========================================================================
+   CSS Variables - Light Mode (Default)
+   ========================================================================== */
 :root {
-  --ifm-color-primary: #2563eb;
-  --ifm-color-primary-dark: #1d4ed8;
-  --ifm-color-primary-darker: #1e40af;
-  --ifm-color-primary-darkest: #1e3a8a;
-  --ifm-color-primary-light: #3b82f6;
-  --ifm-color-primary-lighter: #60a5fa;
-  --ifm-color-primary-lightest: #93c5fd;
-  --ifm-font-family-base: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  --ifm-heading-font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  /* Brand Colors - Teal Primary (matching AdminUI) */
+  --ifm-color-primary: #0D7377;
+  --ifm-color-primary-dark: #0A5C5F;
+  --ifm-color-primary-darker: #095456;
+  --ifm-color-primary-darkest: #074547;
+  --ifm-color-primary-light: #0E8A8E;
+  --ifm-color-primary-lighter: #10A1A6;
+  --ifm-color-primary-lightest: #14C4CA;
+  
+  /* Secondary Accent - Gold (matching AdminUI) */
+  --aonik-color-secondary: #E8A838;
+  --aonik-color-secondary-dark: #D4942A;
+  --aonik-color-secondary-light: #FDF4E4;
+  
+  /* Background & Surface Colors */
+  --ifm-background-color: #F8F9FA;
+  --ifm-background-surface-color: #FFFFFF;
+  --aonik-color-surface: #FFFFFF;
+  
+  /* Border Colors */
+  --aonik-color-border: #E5E7EB;
+  --aonik-color-border-light: #F0F0F0;
+  
+  /* Text Colors (matching AdminUI hierarchy) */
+  --aonik-text-primary: #1A1A1A;
+  --aonik-text-secondary: #6B7280;
+  --aonik-text-tertiary: #9CA3AF;
+  
+  /* Status Colors */
+  --aonik-color-success: #10B981;
+  --aonik-color-success-light: #D1FAE5;
+  --aonik-color-warning: #F59E0B;
+  --aonik-color-warning-light: #FEF3C7;
+  --aonik-color-error: #EF4444;
+  --aonik-color-error-light: #FEE2E2;
+  --aonik-color-info: #3B82F6;
+  --aonik-color-info-light: #DBEAFE;
+  
+  /* Typography */
+  --ifm-font-family-base: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ifm-heading-font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
   --ifm-heading-font-weight: 600;
-  --ifm-navbar-background-color: #ffffff;
-  --ifm-navbar-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
-  --ifm-background-color: #f8fafc;
-  --ifm-code-font-size: 90%;
-  --ifm-menu-color-background-active: rgba(37, 99, 235, 0.12);
-  --ifm-menu-color-background-hover: rgba(148, 163, 184, 0.18);
-  --ifm-toc-border-color: rgba(148, 163, 184, 0.35);
+  --ifm-font-weight-semibold: 600;
+  
+  /* Spacing (matching AdminUI) */
+  --aonik-spacing-xs: 0.25rem;
+  --aonik-spacing-sm: 0.5rem;
+  --aonik-spacing-md: 1rem;
+  --aonik-spacing-lg: 1.5rem;
+  --aonik-spacing-xl: 2rem;
+  --aonik-spacing-2xl: 3rem;
+  
+  /* Border Radius (matching AdminUI) */
+  --aonik-radius-sm: 0.25rem;
+  --aonik-radius-md: 0.5rem;
+  --aonik-radius-lg: 0.75rem;
+  --aonik-radius-xl: 1rem;
+  
+  /* Shadows (matching AdminUI) */
+  --aonik-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --aonik-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --aonik-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  
+  /* Navbar */
+  --ifm-navbar-background-color: #FFFFFF;
+  --ifm-navbar-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --ifm-navbar-height: 64px;
+  --ifm-navbar-padding-horizontal: 1.5rem;
+  
+  /* Sidebar */
+  --ifm-menu-color-background-active: rgba(13, 115, 119, 0.12);
+  --ifm-menu-color-background-hover: rgba(13, 115, 119, 0.06);
+  --aonik-sidebar-bg: #FAFAFA;
+  --aonik-sidebar-border: #E5E7EB;
+  
+  /* Table of Contents */
+  --ifm-toc-border-color: var(--aonik-color-border);
+  
+  /* Code */
+  --ifm-code-font-size: 0.875rem;
+  --ifm-code-border-radius: var(--aonik-radius-md);
+  --ifm-code-padding-horizontal: 0.4rem;
+  --ifm-code-padding-vertical: 0.15rem;
+  --ifm-code-background: rgba(13, 115, 119, 0.08);
+  
+  /* Footer */
+  --ifm-footer-background-color: #0D7377;
+  --ifm-footer-color: rgba(255, 255, 255, 0.9);
+  --ifm-footer-link-color: rgba(255, 255, 255, 0.9);
+  --ifm-footer-link-hover-color: #E8A838;
+  --ifm-footer-title-color: #FFFFFF;
 }
 
+/* ==========================================================================
+   CSS Variables - Dark Mode
+   ========================================================================== */
+[data-theme='dark'] {
+  /* Brand Colors - Teal Primary (lighter for dark mode) */
+  --ifm-color-primary: #14C4CA;
+  --ifm-color-primary-dark: #10A1A6;
+  --ifm-color-primary-darker: #0E8A8E;
+  --ifm-color-primary-darkest: #0D7377;
+  --ifm-color-primary-light: #3CDCE1;
+  --ifm-color-primary-lighter: #64E4E8;
+  --ifm-color-primary-lightest: #8CECEF;
+  
+  /* Secondary Accent - Gold */
+  --aonik-color-secondary: #E8A838;
+  --aonik-color-secondary-dark: #D4942A;
+  --aonik-color-secondary-light: #3D3526;
+  
+  /* Background & Surface Colors */
+  --ifm-background-color: #0F1419;
+  --ifm-background-surface-color: #1A1F26;
+  --aonik-color-surface: #1A1F26;
+  
+  /* Border Colors */
+  --aonik-color-border: #2D3748;
+  --aonik-color-border-light: #374151;
+  
+  /* Text Colors */
+  --aonik-text-primary: #F9FAFB;
+  --aonik-text-secondary: #9CA3AF;
+  --aonik-text-tertiary: #6B7280;
+  
+  /* Sidebar */
+  --ifm-menu-color-background-active: rgba(20, 196, 202, 0.15);
+  --ifm-menu-color-background-hover: rgba(20, 196, 202, 0.08);
+  --aonik-sidebar-bg: #141A20;
+  --aonik-sidebar-border: #2D3748;
+  
+  /* Code */
+  --ifm-code-background: rgba(20, 196, 202, 0.12);
+  
+  /* Footer */
+  --ifm-footer-background-color: #0A1014;
+}
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
 html {
   scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  color: #0f172a;
+  color: var(--aonik-text-primary);
   background-color: var(--ifm-background-color);
 }
 
+/* ==========================================================================
+   Navbar Styles
+   ========================================================================== */
+.navbar {
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid var(--aonik-color-border);
+}
+
+[data-theme='dark'] .navbar {
+  background-color: rgba(15, 20, 25, 0.95);
+  border-bottom-color: var(--aonik-color-border);
+}
+
 .navbar__title {
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: 1.25rem;
+  color: var(--ifm-color-primary);
 }
 
 .navbar__items .navbar__link {
   font-weight: 500;
-  color: #1e293b;
+  font-size: 0.9375rem;
+  color: var(--aonik-text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--aonik-radius-md);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.navbar__items .navbar__link:hover {
+  background-color: var(--ifm-menu-color-background-hover);
+  color: var(--ifm-color-primary);
+}
+
+.navbar__items .navbar__link--active {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+
+/* GitHub icon in navbar */
+.navbar__link[href*="github"] svg {
+  fill: var(--aonik-text-secondary);
+  transition: fill 0.2s ease;
+}
+
+.navbar__link[href*="github"]:hover svg {
+  fill: var(--ifm-color-primary);
+}
+
+/* ==========================================================================
+   Sidebar Styles
+   ========================================================================== */
+.theme-doc-sidebar-container {
+  border-right: 1px solid var(--aonik-sidebar-border);
+  background: var(--aonik-sidebar-bg);
 }
 
 .menu {
-  padding-top: 1.25rem;
+  padding: var(--aonik-spacing-lg) var(--aonik-spacing-md);
+  font-weight: 400;
 }
 
 .menu__link {
-  border-radius: 8px;
+  border-radius: var(--aonik-radius-md);
   font-weight: 500;
+  font-size: 0.9375rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--aonik-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.menu__link:hover {
+  color: var(--ifm-color-primary);
+  background-color: var(--ifm-menu-color-background-hover);
 }
 
 .menu__link--active {
-  color: #1d4ed8;
+  color: var(--ifm-color-primary) !important;
+  background-color: var(--ifm-menu-color-background-active) !important;
+  font-weight: 600;
 }
 
+.menu__link--sublist-caret::after {
+  background-size: 1.25rem 1.25rem;
+  opacity: 0.6;
+}
+
+.menu__list-item-collapsible:hover {
+  background-color: var(--ifm-menu-color-background-hover);
+  border-radius: var(--aonik-radius-md);
+}
+
+/* Category Labels */
+.theme-doc-sidebar-item-category > .menu__list-item-collapsible > .menu__link {
+  font-weight: 600;
+  color: var(--aonik-text-primary);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding-left: 0.5rem;
+}
+
+/* ==========================================================================
+   Main Content Styles
+   ========================================================================== */
 .theme-doc-markdown {
   font-size: 1rem;
   line-height: 1.75;
+  color: var(--aonik-text-primary);
 }
 
+/* Headings */
 .theme-doc-markdown h1 {
-  font-size: 2.4rem;
-  letter-spacing: -0.02em;
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--aonik-text-primary);
+  margin-bottom: var(--aonik-spacing-lg);
+  padding-bottom: var(--aonik-spacing-md);
+  border-bottom: 2px solid var(--aonik-color-border-light);
 }
 
 .theme-doc-markdown h2 {
-  font-size: 1.7rem;
-  margin-top: 2.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: var(--aonik-spacing-2xl);
+  margin-bottom: var(--aonik-spacing-md);
+  color: var(--aonik-text-primary);
 }
 
 .theme-doc-markdown h3 {
-  font-size: 1.35rem;
-  margin-top: 2rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: var(--aonik-spacing-xl);
+  margin-bottom: var(--aonik-spacing-sm);
+  color: var(--aonik-text-primary);
 }
 
+.theme-doc-markdown h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-top: var(--aonik-spacing-lg);
+  color: var(--aonik-text-primary);
+}
+
+/* Paragraphs */
+.theme-doc-markdown p {
+  margin-bottom: var(--aonik-spacing-md);
+  color: var(--aonik-text-secondary);
+}
+
+/* Links */
 .theme-doc-markdown a {
+  color: var(--ifm-color-primary);
   text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
 }
 
 .theme-doc-markdown a:hover {
+  color: var(--ifm-color-primary-dark);
   text-decoration: underline;
 }
 
+/* Inline Code */
 .theme-doc-markdown code {
-  border-radius: 6px;
-  padding: 0.15rem 0.35rem;
+  border-radius: var(--aonik-radius-sm);
+  padding: 0.2rem 0.4rem;
+  background-color: var(--ifm-code-background);
+  color: var(--ifm-color-primary-dark);
+  font-size: 0.875em;
+  font-weight: 500;
 }
 
+[data-theme='dark'] .theme-doc-markdown code {
+  color: var(--ifm-color-primary-light);
+}
+
+/* Code Blocks */
+.prism-code {
+  border-radius: var(--aonik-radius-lg) !important;
+  box-shadow: var(--aonik-shadow-md);
+  border: 1px solid var(--aonik-color-border);
+}
+
+div[class*='codeBlockContainer'] {
+  border-radius: var(--aonik-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--aonik-shadow-sm);
+  margin: var(--aonik-spacing-lg) 0;
+}
+
+div[class*='codeBlockTitle'] {
+  background-color: var(--aonik-color-border-light);
+  border-bottom: 1px solid var(--aonik-color-border);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.75rem 1rem;
+}
+
+[data-theme='dark'] div[class*='codeBlockTitle'] {
+  background-color: #1A1F26;
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
 .theme-doc-markdown table {
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 12px;
+  border-radius: var(--aonik-radius-lg);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--aonik-shadow-sm);
+  border: 1px solid var(--aonik-color-border);
+  width: 100%;
+  margin: var(--aonik-spacing-lg) 0;
 }
 
 .theme-doc-markdown table thead th {
-  background: #e2e8f0;
+  background: linear-gradient(to bottom, #F8F9FA, #F1F5F9);
   font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--aonik-text-primary);
+  border-bottom: 2px solid var(--aonik-color-border);
+}
+
+[data-theme='dark'] .theme-doc-markdown table thead th {
+  background: linear-gradient(to bottom, #1A1F26, #141A20);
+  border-bottom-color: var(--aonik-color-border);
 }
 
 .theme-doc-markdown table td,
 .theme-doc-markdown table th {
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--aonik-color-border-light);
 }
 
-.theme-doc-sidebar-container {
-  border-right: 1px solid rgba(148, 163, 184, 0.35);
-  background: #f8fafc;
+.theme-doc-markdown table tbody tr:last-child td {
+  border-bottom: none;
 }
 
-.theme-doc-footer {
-  border-top: 1px solid rgba(148, 163, 184, 0.35);
+.theme-doc-markdown table tbody tr:hover {
+  background-color: var(--ifm-menu-color-background-hover);
 }
 
+/* ==========================================================================
+   Blockquotes & Admonitions
+   ========================================================================== */
+.theme-doc-markdown blockquote {
+  border-left: 4px solid var(--ifm-color-primary);
+  background-color: var(--ifm-menu-color-background-hover);
+  padding: var(--aonik-spacing-md) var(--aonik-spacing-lg);
+  border-radius: 0 var(--aonik-radius-md) var(--aonik-radius-md) 0;
+  margin: var(--aonik-spacing-lg) 0;
+}
+
+.theme-doc-markdown blockquote p {
+  color: var(--aonik-text-secondary);
+  margin-bottom: 0;
+}
+
+/* Admonitions (Note, Warning, Tip, etc.) */
+.theme-admonition {
+  border-radius: var(--aonik-radius-lg);
+  border-left-width: 4px;
+  box-shadow: var(--aonik-shadow-sm);
+}
+
+.theme-admonition-note {
+  --ifm-color-info: var(--ifm-color-primary);
+  background-color: rgba(13, 115, 119, 0.08);
+  border-color: var(--ifm-color-primary);
+}
+
+.theme-admonition-tip {
+  --ifm-color-success: var(--aonik-color-success);
+  background-color: var(--aonik-color-success-light);
+  border-color: var(--aonik-color-success);
+}
+
+.theme-admonition-warning {
+  background-color: var(--aonik-color-warning-light);
+  border-color: var(--aonik-color-warning);
+}
+
+.theme-admonition-danger {
+  background-color: var(--aonik-color-error-light);
+  border-color: var(--aonik-color-error);
+}
+
+/* ==========================================================================
+   Lists
+   ========================================================================== */
+.theme-doc-markdown ul,
+.theme-doc-markdown ol {
+  padding-left: var(--aonik-spacing-lg);
+  margin-bottom: var(--aonik-spacing-md);
+}
+
+.theme-doc-markdown li {
+  margin-bottom: var(--aonik-spacing-sm);
+  color: var(--aonik-text-secondary);
+}
+
+.theme-doc-markdown li::marker {
+  color: var(--ifm-color-primary);
+}
+
+/* ==========================================================================
+   Table of Contents (Right Sidebar)
+   ========================================================================== */
 .theme-doc-toc-desktop {
-  padding-top: 1rem;
+  padding-top: var(--aonik-spacing-lg);
 }
 
+.table-of-contents__link {
+  font-size: 0.875rem;
+  color: var(--aonik-text-tertiary);
+  transition: color 0.2s ease;
+}
+
+.table-of-contents__link:hover,
+.table-of-contents__link--active {
+  color: var(--ifm-color-primary);
+}
+
+.table-of-contents__link--active {
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+.footer {
+  background: linear-gradient(135deg, #0D7377 0%, #0A5C5F 100%);
+  padding: var(--aonik-spacing-2xl) var(--aonik-spacing-xl);
+}
+
+.footer__title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--aonik-spacing-md);
+}
+
+.footer__link-item {
+  font-size: 0.9375rem;
+  opacity: 0.9;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.footer__link-item:hover {
+  opacity: 1;
+  color: var(--aonik-color-secondary) !important;
+}
+
+.footer__copyright {
+  margin-top: var(--aonik-spacing-xl);
+  padding-top: var(--aonik-spacing-lg);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  opacity: 0.8;
+  font-size: 0.875rem;
+}
+
+/* ==========================================================================
+   Doc Footer (Prev/Next Navigation)
+   ========================================================================== */
+.theme-doc-footer {
+  border-top: 1px solid var(--aonik-color-border);
+  margin-top: var(--aonik-spacing-2xl);
+  padding-top: var(--aonik-spacing-lg);
+}
+
+.pagination-nav__link {
+  border: 1px solid var(--aonik-color-border);
+  border-radius: var(--aonik-radius-lg);
+  padding: var(--aonik-spacing-md) var(--aonik-spacing-lg);
+  transition: all 0.2s ease;
+  background-color: var(--aonik-color-surface);
+}
+
+.pagination-nav__link:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: var(--aonik-shadow-md);
+  transform: translateY(-2px);
+}
+
+.pagination-nav__sublabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--aonik-text-tertiary);
+}
+
+.pagination-nav__label {
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+}
+
+/* ==========================================================================
+   Search (Algolia)
+   ========================================================================== */
+.DocSearch-Button {
+  border-radius: var(--aonik-radius-md) !important;
+  border: 1px solid var(--aonik-color-border) !important;
+  background-color: var(--aonik-color-surface) !important;
+}
+
+.DocSearch-Button:hover {
+  border-color: var(--ifm-color-primary) !important;
+  box-shadow: var(--aonik-shadow-sm) !important;
+}
+
+/* ==========================================================================
+   Scrollbar Styling
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--aonik-color-border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--aonik-text-tertiary);
+}
+
+/* ==========================================================================
+   Badges (custom component class)
+   ========================================================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge--primary {
+  background-color: var(--ifm-menu-color-background-active);
+  color: var(--ifm-color-primary);
+}
+
+.badge--secondary {
+  background-color: var(--aonik-color-secondary-light);
+  color: var(--aonik-color-secondary-dark);
+}
+
+.badge--success {
+  background-color: var(--aonik-color-success-light);
+  color: var(--aonik-color-success);
+}
+
+.badge--warning {
+  background-color: var(--aonik-color-warning-light);
+  color: var(--aonik-color-warning);
+}
+
+.badge--error {
+  background-color: var(--aonik-color-error-light);
+  color: var(--aonik-color-error);
+}
+
+/* ==========================================================================
+   Cards (custom component class)
+   ========================================================================== */
+.card {
+  background-color: var(--aonik-color-surface);
+  border: 1px solid var(--aonik-color-border-light);
+  border-radius: var(--aonik-radius-lg);
+  padding: var(--aonik-spacing-lg);
+  box-shadow: var(--aonik-shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--aonik-shadow-md);
+  border-color: var(--aonik-color-border);
+}
+
+.card__header {
+  font-weight: 600;
+  font-size: 1.125rem;
+  margin-bottom: var(--aonik-spacing-sm);
+  color: var(--aonik-text-primary);
+}
+
+.card__body {
+  color: var(--aonik-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+/* ==========================================================================
+   Buttons (custom component class)
+   ========================================================================== */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: var(--aonik-radius-md);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.button--primary {
+  background-color: var(--ifm-color-primary);
+  color: white;
+}
+
+.button--primary:hover {
+  background-color: var(--ifm-color-primary-dark);
+  box-shadow: var(--aonik-shadow-md);
+}
+
+.button--secondary {
+  background-color: var(--aonik-color-secondary);
+  color: white;
+}
+
+.button--secondary:hover {
+  background-color: var(--aonik-color-secondary-dark);
+}
+
+.button--outline {
+  background-color: transparent;
+  border: 1px solid var(--aonik-color-border);
+  color: var(--aonik-text-primary);
+}
+
+.button--outline:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+/* ==========================================================================
+   Responsive Adjustments
+   ========================================================================== */
 @media (max-width: 996px) {
   .menu {
-    padding-top: 0.5rem;
+    padding: var(--aonik-spacing-md);
   }
 
   .theme-doc-markdown h1 {
-    font-size: 2rem;
+    font-size: 1.875rem;
   }
+
+  .theme-doc-markdown h2 {
+    font-size: 1.375rem;
+  }
+
+  .theme-doc-markdown h3 {
+    font-size: 1.125rem;
+  }
+  
+  .navbar__title {
+    font-size: 1.125rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .theme-doc-markdown h1 {
+    font-size: 1.5rem;
+  }
+  
+  .theme-doc-markdown table {
+    font-size: 0.875rem;
+  }
+  
+  .theme-doc-markdown table td,
+  .theme-doc-markdown table th {
+    padding: 0.625rem 0.75rem;
+  }
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+.text-primary {
+  color: var(--ifm-color-primary) !important;
+}
+
+.text-secondary {
+  color: var(--aonik-color-secondary) !important;
+}
+
+.bg-primary-light {
+  background-color: var(--ifm-menu-color-background-active) !important;
+}
+
+.bg-secondary-light {
+  background-color: var(--aonik-color-secondary-light) !important;
+}
+
+/* Gradient text effect (for special headings) */
+.gradient-text {
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--aonik-color-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
