@@ -16,6 +16,10 @@ var worker = builder.AddProject<Projects.Aonik_Worker>("worker")
 
 // Add Admin UI (React/Vite frontend)
 var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
+    .WithEndpoint("http", endpoint =>
+    {
+        endpoint.Port = 5173;
+    })
     .WithReference(api)
     .WaitFor(api)
     .WithExternalHttpEndpoints();
