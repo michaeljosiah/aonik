@@ -1,22 +1,20 @@
 using FastEndpoints;
 
 using Aonik.Application.Abstractions.Multitenancy;
-using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
-using ApiUpdateCustomerProfileRequest = Aonik.Api.Contracts.Identity.UpdateCustomerProfileRequest;
-using ApiCustomerProfileResponse = Aonik.Api.Contracts.Identity.CustomerProfileResponse;
+using ApiCustomerPhotoUploadResponse = Aonik.Api.Contracts.Identity.CustomerPhotoUploadResponse;
 
 namespace Aonik.Api.Endpoints.Identity;
 
-public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRequest, ApiCustomerProfileResponse>
+public class UploadCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPhotoUploadResponse>
 {
     private readonly IUserProfileService _userProfileService;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
 
-    public UpdateCustomerProfileEndpoint(
+    public UploadCustomerPhotoEndpoint(
         IUserProfileService userProfileService,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider)
@@ -28,11 +26,12 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
 
     public override void Configure()
     {
-        Put("/profiles/customers/me");
+        Post("/profiles/customers/me/photo");
         Policies("Users.Read");
+        AllowFileUploads();
     }
 
-    public override async Task HandleAsync(ApiUpdateCustomerProfileRequest req, CancellationToken ct)
+    public override async Task HandleAsync(CancellationToken ct)
     {
         if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
         {
@@ -48,16 +47,31 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
             return;
         }
 
+        if (Files.Count == 0)
+        {
+            HttpContext.Response.StatusCode = 422;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Profile photo is required." }, ct);
+            return;
+        }
+
+        var file = Files[0];
+        if (file.Length == 0)
+        {
+            HttpContext.Response.StatusCode = 422;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Profile photo is empty." }, ct);
+            return;
+        }
+
         try
         {
-            var updateRequest = new UpdateCustomerProfileRequest(
-                req.FirstName,
-                req.LastName,
-                req.Title,
-                req.Phone,
-                req.CountryCode);
-
-            var result = await _userProfileService.UpdateCustomerProfileAsync(userId, tenantId, updateRequest, ct);
+            await using var stream = file.OpenReadStream();
+            var result = await _userProfileService.UploadCustomerPhotoAsync(
+                userId,
+                tenantId,
+                stream,
+                file.FileName,
+                file.ContentType ?? "application/octet-stream",
+                ct);
 
             if (result == null)
             {
@@ -65,32 +79,12 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
                 return;
             }
 
-            await Send.OkAsync(MapResponse(result), ct);
+            await Send.OkAsync(new ApiCustomerPhotoUploadResponse(result.PhotoUrl), ct);
         }
         catch (ArgumentException ex)
         {
             HttpContext.Response.StatusCode = 422;
             await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
         }
-        catch (InvalidOperationException ex)
-        {
-            HttpContext.Response.StatusCode = 409;
-            await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
-        }
-    }
-
-    private static ApiCustomerProfileResponse MapResponse(CustomerProfileResponse profile)
-    {
-        return new ApiCustomerProfileResponse(
-            profile.PartyId,
-            profile.UserId,
-            profile.TenantId,
-            profile.Email,
-            profile.FirstName,
-            profile.LastName,
-            profile.Title,
-            profile.Phone,
-            profile.CountryCode,
-            profile.PhotoUrl);
     }
 }

@@ -1,22 +1,21 @@
 using FastEndpoints;
 
 using Aonik.Application.Abstractions.Multitenancy;
-using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
-using ApiUpdateCustomerProfileRequest = Aonik.Api.Contracts.Identity.UpdateCustomerProfileRequest;
 using ApiCustomerProfileResponse = Aonik.Api.Contracts.Identity.CustomerProfileResponse;
+using ApiUpdateCustomerEmailRequest = Aonik.Api.Contracts.Identity.UpdateCustomerEmailRequest;
 
 namespace Aonik.Api.Endpoints.Identity;
 
-public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRequest, ApiCustomerProfileResponse>
+public class UpdateCustomerEmailEndpoint : Endpoint<ApiUpdateCustomerEmailRequest, ApiCustomerProfileResponse>
 {
     private readonly IUserProfileService _userProfileService;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
 
-    public UpdateCustomerProfileEndpoint(
+    public UpdateCustomerEmailEndpoint(
         IUserProfileService userProfileService,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider)
@@ -28,11 +27,11 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
 
     public override void Configure()
     {
-        Put("/profiles/customers/me");
+        Put("/profiles/customers/me/email");
         Policies("Users.Read");
     }
 
-    public override async Task HandleAsync(ApiUpdateCustomerProfileRequest req, CancellationToken ct)
+    public override async Task HandleAsync(ApiUpdateCustomerEmailRequest req, CancellationToken ct)
     {
         if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
         {
@@ -50,14 +49,14 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
 
         try
         {
-            var updateRequest = new UpdateCustomerProfileRequest(
-                req.FirstName,
-                req.LastName,
-                req.Title,
-                req.Phone,
-                req.CountryCode);
-
-            var result = await _userProfileService.UpdateCustomerProfileAsync(userId, tenantId, updateRequest, ct);
+            var result = await _userProfileService.UpdateCustomerEmailAsync(
+                userId,
+                tenantId,
+                new Aonik.Application.Models.Identity.UpdateCustomerEmailRequest(
+                    req.CurrentEmail,
+                    req.NewEmail,
+                    req.Password),
+                ct);
 
             if (result == null)
             {
@@ -79,7 +78,7 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
         }
     }
 
-    private static ApiCustomerProfileResponse MapResponse(CustomerProfileResponse profile)
+    private static ApiCustomerProfileResponse MapResponse(Aonik.Application.Models.Identity.CustomerProfileResponse profile)
     {
         return new ApiCustomerProfileResponse(
             profile.PartyId,
