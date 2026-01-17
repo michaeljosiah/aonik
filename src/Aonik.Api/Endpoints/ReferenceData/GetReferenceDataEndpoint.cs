@@ -21,7 +21,7 @@ public class GetReferenceDataEndpoint : EndpointWithoutRequest<List<ReferenceDat
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var type = Route<string>("type");
+        var type = Route<string>("type") ?? string.Empty;
         var items = await _referenceDataService.GetAsync(type, cancellationToken: ct);
 
         var response = items

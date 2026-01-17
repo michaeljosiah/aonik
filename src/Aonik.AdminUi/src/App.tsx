@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar, Header } from '@/components/layout';
-import { MySpacePage, LoginPage, TenantsListPage, CreateTenantPage, TenantDetailPage } from '@/pages';
+import { MySpacePage, LoginPage, SetupWizardPage, TenantsListPage, CreateTenantPage, TenantDetailPage } from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { setAccessTokenGetter } from '@/lib/api';
+import { SetupRedirect } from '@/components/SetupRedirect';
+import { bootstrapService } from '@/services/bootstrapService';
 
 // Component to set up API authentication
 function ApiAuthSetup() {
@@ -100,11 +102,51 @@ function PlaceholderPage({ title }: { title: string }) {
 }
 
 function AuthenticatedApp() {
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkSetup = async () => {
+      try {
+        const status = await bootstrapService.status();
+        setNeedsSetup(status.tenantCount === 0);
+      } catch {
+        setNeedsSetup(false);
+      }
+    };
+
+    checkSetup();
+  }, []);
+
+  if (needsSetup === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[var(--color-text-secondary)]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsSetup) {
+    return (
+      <>
+        <ApiAuthSetup />
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/*" element={<SetupWizardPage />} />
+        </Routes>
+      </>
+    );
+  }
+
   return (
     <>
       <ApiAuthSetup />
+      <SetupRedirect />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/setup" element={<SetupWizardPage />} />
         <Route
           path="/*"
           element={

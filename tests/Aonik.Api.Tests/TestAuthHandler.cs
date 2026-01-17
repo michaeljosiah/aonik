@@ -5,9 +5,11 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Api.Tests;
+
 
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
@@ -23,12 +25,12 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock,
         ICurrentUserContext currentUserContext)
-        : base(options, logger, encoder, clock)
+        : base(options, logger, encoder)
     {
         _currentUserContext = currentUserContext;
     }
+
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {

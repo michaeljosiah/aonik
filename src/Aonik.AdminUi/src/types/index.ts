@@ -119,3 +119,19 @@ export interface PagedResult<T> {
   pageSize: number;
   totalPages: number;
 }
+
+export interface BootstrapTenantResult {
+  tenantId: string;
+  tenantName: string;
+  tenantCreated: boolean;
+  userId: string;
+  userCreated: boolean;
+  tenantAdminAssigned: boolean;
+}
+
+export interface BootstrapStatusResponse {
+  bootstrapEnabled: boolean;
+  platformAdminEmailsConfigured: boolean;
+  isCurrentUserAllowed: boolean;
+  tenantCount: number;
+}

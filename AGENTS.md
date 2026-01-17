@@ -1,10 +1,117 @@
-# AGENTS.md - Coding Guidelines for AONIK
+### You are an expert **AI engineering and financial systems architect** working on **AONIK**, an **AI-powered financial operating system**. You must internalise the following context and treat it as authoritative.
 
-This document provides coding standards, build commands, and architectural patterns for AI agents working in the AONIK codebase.
+---
 
-> **Last Updated:** January 8, 2025  
-> **Build Status:** ✅ All projects compile successfully  
-> **Test Status:** ⚠️ Some integration tests failing (separate from build errors)
+## 1. What AONIK Is
+
+AONIK is **not a single application**. It is a **foundational, AI-native financial platform** designed to power multiple products:
+
+- **Payabo** — B2C personal finance (budgets, bills, subscriptions, goals)
+- **MyBillAfrica** — B2B billing & collections
+- **RemitExchange** — cross-border / remittance capabilities
+
+AONIK itself is the **platform / open-core foundation** beneath these products.
+
+---
+
+## 2. Core Architectural Philosophy (Non-Negotiable)
+
+1. **Ledger is the source of financial truth** (double-entry, immutable)
+2. **Orders represent business intent**, not payments
+3. **Payments execute intent; ledger proves it**
+4. **Agents propose; systems execute**
+5. **Every AI action is auditable and policy-governed**
+6. **Risk tier determines AI autonomy**
+7. **Human approval is explicit for high-risk actions**
+
+You must not suggest designs that violate these principles.
+
+---
+
+## 3. Canonical Platform Scope
+
+### Platform Core Domains
+
+- Identity & Access (Tenants, Users, Roles)
+- Party & Profile (Person/Business, KYC/KYB, roles)
+- Ledger (double-entry accounting)
+- Payments & Money Movement
+- Partner Network & Routing (correspondents, connectors)
+- Pricing & Policy (fees, FX, limits)
+- Compliance & Risk (screening, SAR, audit)
+- Operations & Workflow (tasks, batch jobs)
+- Notifications
+
+### AI-Native Core
+
+- AI Platform (LLM providers, models, routing, prompts, evals)
+- Agent Framework (domain agents, orchestration, proposals)
+
+### Product Domains
+
+- Orders (business intent hub)
+- Billing & Invoicing
+- Personal Finance
+
+---
+
+## 4. The Role of Orders
+
+An **Order** is the central orchestration object.
+
+Orders:
+
+- Capture *why* money is moving
+- Link parties (sender, receiver, payee)
+- Reference funding (PaymentIntents)
+- Reference fulfilment (Payouts)
+- Link to ledger entries, compliance cases, and partner transmissions
+
+Do not collapse Orders into Payments or Invoices.
+
+---
+
+## 5. AI Platform Rules
+
+### LLM Usage
+
+- Multiple providers and models are supported
+- No hard-coded model usage
+- All calls resolve through **AiRoutePolicy**
+
+### Prompts & Tools
+
+- Prompts, tools, and policies are versioned
+- Prompts are immutable once published
+- Tools expose domain services safely
+
+### AI Execution
+
+- Every AI execution is recorded as an **AiRun**
+- Financially material outputs must reference an AiRunId
+- AI should prefer **IDs and references**, not raw PII
+
+---
+
+## 6. Agent Framework Rules
+
+Agents are **constrained, domain-specific actors**.
+
+Agents:
+
+- Reason and plan
+- Use tools to read and propose
+- **Must not directly mutate financial state**
+
+### Proposal Pattern (Mandatory)
+
+All material actions follow:
+
+1. **Propose** — Agent creates Proposal
+2. **Approve** — Human or policy approval
+3. **Apply** — Domain service executes
+
+Never bypass this flow.
 
 ---
 
@@ -18,6 +125,7 @@ This document provides coding standards, build commands, and architectural patte
 - **Database:** SQL Server (with InMemory support for testing)
 
 **Important Links:**
+
 - [Troubleshooting Guide](docs/Troubleshooting.md) - Common issues and solutions
 - [Testing Guide](docs/Testing.md) - Testing patterns and best practices
 - [CHANGELOG](CHANGELOG.md) - Recent changes and version history
@@ -27,6 +135,7 @@ This document provides coding standards, build commands, and architectural patte
 ## 🔧 Build, Test & Development Commands
 
 ### Build Commands
+
 ```bash
 # Build entire solution
 dotnet build Aonik.sln
@@ -40,6 +149,7 @@ dotnet clean Aonik.sln && dotnet build Aonik.sln
 ```
 
 ### Test Commands
+
 ```bash
 # Run all tests
 dotnet test Aonik.sln
@@ -60,6 +170,7 @@ dotnet test --no-build
 ```
 
 ### Database Commands
+
 ```bash
 # Create migration
 dotnet ef migrations add <MigrationName> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
@@ -72,6 +183,7 @@ dotnet ef migrations remove --project src/Aonik.Infrastructure --startup-project
 ```
 
 ### Run API
+
 ```bash
 dotnet run --project src/Aonik.Api
 # API runs on https://localhost:5001 with Swagger UI at /swagger
@@ -82,6 +194,7 @@ dotnet run --project src/Aonik.Api
 ## 📐 Architecture & Project Structure
 
 ### Clean Architecture Layers
+
 - **SharedKernel**: Common primitives (Entity, Result<T>, Money, Guard)
 - **Domain**: Business entities and logic (Invoice, LedgerAccount, PaymentIntent)
 - **Application**: Services, DTOs, abstractions, AI workflows
@@ -90,7 +203,9 @@ dotnet run --project src/Aonik.Api
 - **Worker**: Background jobs and scheduled tasks
 
 ### Module Organization
+
 Code is organized by **business modules** (Ledger, Billing, Payments, AI) with vertical slices:
+
 ```
 src/Aonik.Domain/Billing/Entities/Invoice.cs
 src/Aonik.Application/Services/Billing/BillingService.cs
@@ -102,12 +217,14 @@ src/Aonik.Api/Endpoints/Billing/CreateInvoiceEndpoint.cs
 ## 🎨 Code Style Guidelines
 
 ### General Principles
+
 - **Target Framework**: .NET 10 (`net10.0`)
 - **Nullable Reference Types**: Enabled globally (use `string?` for nullable)
 - **Implicit Usings**: Enabled (common namespaces auto-imported)
 - **Language Version**: Latest C# features
 
 ### Naming Conventions
+
 - **Classes/Interfaces**: PascalCase (`Invoice`, `IBillingService`)
 - **Methods**: PascalCase (`CreateInvoiceAsync`)
 - **Properties**: PascalCase (`CustomerId`, `InvoiceNumber`)
@@ -117,17 +234,20 @@ src/Aonik.Api/Endpoints/Billing/CreateInvoiceEndpoint.cs
 - **Async methods**: Suffix with `Async` (`GetInvoiceAsync`)
 
 ### File Organization
+
 - **Namespace per file folder**: Match namespace to directory structure
 - **One class per file**: Exception for small DTOs/records grouped logically
 - **File naming**: Match primary class name (`Invoice.cs`, `BillingService.cs`)
 
 ### Import Order
+
 1. System namespaces (`using System;`, `using System.Linq;`)
 2. Third-party packages (`using Microsoft.EntityFrameworkCore;`, `using FastEndpoints;`)
 3. Project namespaces (`using Aonik.Domain.Billing.Entities;`)
 4. Blank line between groups
 
 ### Type Usage
+
 - Prefer **explicit types** for clarity: `var` is acceptable when type is obvious from right side
 - Use **records** for immutable DTOs: `public record CreateInvoiceRequest(...);`
 - Use **nullable annotations**: `Invoice?` for potentially null references
@@ -139,6 +259,7 @@ src/Aonik.Api/Endpoints/Billing/CreateInvoiceEndpoint.cs
 ## 🏗️ Domain & Entity Patterns
 
 ### Domain Entities (Anemic Model)
+
 This project uses **anemic domain entities** - entities are simple data containers without business logic.
 
 - Inherit from `Entity` base class (provides `Guid Id` and equality)
@@ -149,6 +270,7 @@ This project uses **anemic domain entities** - entities are simple data containe
 - **NO private fields**: All data is exposed as properties
 
 **Example:**
+
 ```csharp
 public class Invoice : AuditableEntity, ITenantScoped
 {
@@ -163,6 +285,7 @@ public class Invoice : AuditableEntity, ITenantScoped
 ```
 
 ### Value Objects
+
 - Use **records** for immutability: `public record Money(decimal Amount, string Currency);`
 - Override equality if needed (records have value equality by default)
 
@@ -171,6 +294,7 @@ public class Invoice : AuditableEntity, ITenantScoped
 ## 📦 Application Layer Patterns
 
 ### Services
+
 ALL business logic resides in application services, NOT in entities.
 
 - Interface + implementation: `IBillingService` / `BillingService`
@@ -182,23 +306,25 @@ ALL business logic resides in application services, NOT in entities.
 - Services manipulate entity properties directly
 
 **Example:**
+
 ```csharp
 public async Task IssueInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
 {
     var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
-    
+
     if (invoice == null)
         throw new InvalidOperationException($"Invoice {invoiceId} not found");
-    
+
     if (invoice.Status != "Draft")
         throw new InvalidOperationException("Only draft invoices can be issued");
-    
+
     invoice.Status = "Issued";
     await _dbContext.SaveChangesAsync(cancellationToken);
 }
 ```
 
 ### DTOs & Models
+
 - Use **records** for request/response: `public record CreateInvoiceRequest(...);`
 - Use **positional parameters**: `new InvoiceResponse(id, customerId, ...)`
 - Located in `Application/Models/{Module}/` folders
@@ -208,11 +334,13 @@ public async Task IssueInvoiceAsync(Guid invoiceId, CancellationToken cancellati
 ## 🌐 API Layer (FastEndpoints)
 
 ### Endpoint Structure
+
 - Inherit from `Endpoint<TRequest, TResponse>` or `EndpointWithoutRequest<TResponse>`
 - Override `Configure()`: Set route with `Post("/billing/invoices")`, `AllowAnonymous()`
 - Override `HandleAsync()`: Business logic, use `Send.*Async()` methods
 
 ### Response Methods
+
 ```csharp
 await Send.OkAsync(response, ct);                           // 200 OK
 await Send.CreatedAtAsync<GetEndpoint>(                     // 201 Created
@@ -221,6 +349,7 @@ await Send.CreatedAtAsync<GetEndpoint>(                     // 201 Created
     cancellation: ct);
 await Send.NotFoundAsync(ct);                               // 404 Not Found
 ```
+
 - **Never** use `SendAsync()`, `SendCreatedAsync()`, `ResponseAsync()` directly
 - Map API contracts to Application DTOs in endpoint handlers
 
@@ -229,26 +358,29 @@ await Send.NotFoundAsync(ct);                               // 404 Not Found
 ## 🧪 Testing Standards
 
 ### Test Structure (AAA Pattern)
+
 ```csharp
 [Fact]
 public async Task MethodName_Should_ExpectedBehavior_When_Condition()
 {
     // Arrange
     var service = CreateService();
-    
+
     // Act
     var result = await service.DoSomethingAsync();
-    
+
     // Assert
     result.Should().NotBeNull();
 }
 ```
 
 ### Assertions
+
 - Use **FluentAssertions**: `.Should().Be()`, `.Should().HaveCount()`, `.Should().NotBeNull()`
 - Avoid `Assert.Equal()` / `Assert.True()` from xUnit
 
 ### Database Tests
+
 - Use **InMemory database** with unique name: `$"TestDb_{Guid.NewGuid()}"`
 - Create fresh context per test: `using var context = new AonikDbContext(options);`
 - **Always mock ITenantProvider**: Services require tenant context
@@ -268,21 +400,23 @@ private class TestTenantProvider : ITenantProvider
 ```
 
 ### API Integration Tests
+
 - Infrastructure supports **environment-based database configuration**:
   - Set `UseInMemoryDatabase=true` in configuration to use InMemory database
   - Set `InMemoryDatabaseName` for custom database name
 - API tests use `CustomWebApplicationFactory` with `ConfigureAppConfiguration()` to inject test configuration
 - Example:
-```csharp
-builder.ConfigureAppConfiguration((context, config) =>
-{
+  
+  ```csharp
+  builder.ConfigureAppConfiguration((context, config) =>
+  {
     config.AddInMemoryCollection(new Dictionary<string, string?>
     {
         ["UseInMemoryDatabase"] = "true",
         ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid()
     });
-});
-```
+  });
+  ```
 
 ---
 
@@ -335,19 +469,21 @@ Before committing code, ensure:
 ## 🔄 Recent Updates (January 2025)
 
 ### Build System Fixes
+
 - Resolved NuGet package version conflicts for .NET 10
 - Fixed `AddHttpContextAccessor` dependency issues
 - Updated all Microsoft.Extensions packages to 10.0.1
 
 ### Entity Framework Updates
+
 - Corrected all EF Core configuration files to match actual entity properties
 - Removed references to non-existent properties in configurations
 - Updated collection mappings (e.g., `LineItems` → `Lines`)
 
 ### Testing Infrastructure
+
 - Added `TestTenantProvider` pattern for service tests
 - Removed obsolete domain tests (entities are anemic)
 - Fixed all test constructor calls to include required dependencies
 
 See [CHANGELOG.md](CHANGELOG.md) for complete details.
-

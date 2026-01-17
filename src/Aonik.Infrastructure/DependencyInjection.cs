@@ -21,6 +21,7 @@ using Aonik.Application.Services.Settings;
 using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
 using Aonik.Infrastructure.Authentication;
+using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Authentication.Provisioning;
 using Aonik.Infrastructure.Authorization;
 using Aonik.Infrastructure.Communication;
@@ -49,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
         services.AddScoped<ICorrelationContext, HttpContextCorrelationContext>();
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
+        services.Configure<PlatformAdminOptions>(configuration.GetSection("PlatformAdmin"));
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));

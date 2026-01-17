@@ -7,6 +7,10 @@ var sqlServer = builder.AddSqlServer("sql")
 
 // Add API project with SQL Server reference
 var api = builder.AddProject<Projects.Aonik_Api>("api")
+     .WithEndpoint("https", endpoint =>
+     {
+         endpoint.Port = 5001;
+     })
     .WithReference(sqlServer)
     .WithExternalHttpEndpoints();
 
