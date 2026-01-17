@@ -21,21 +21,27 @@ using Aonik.Application.Services.Settings;
 using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
 using Aonik.Infrastructure.Authentication;
+using Aonik.Infrastructure.Authentication.Account;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Authentication.PasswordReset;
 using Aonik.Infrastructure.Authentication.Provisioning;
 using Aonik.Infrastructure.Authentication.TokenExchange;
+
 using Aonik.Infrastructure.Authorization;
 using Aonik.Infrastructure.Communication;
 using Aonik.Infrastructure.Communication.Configuration;
+using FluentStorage.Blobs;
+
 using Aonik.Infrastructure.Identity;
 using Aonik.Infrastructure.Settings;
 using Aonik.Infrastructure.ReferenceData;
 using Aonik.Infrastructure.Multitenancy;
 using Aonik.Infrastructure.Observability;
 using Aonik.Infrastructure.Persistence;
+using Aonik.Infrastructure.Storage;
 using Aonik.Infrastructure.Time;
 using Aonik.SharedKernel.Abstractions;
+
 
 namespace Aonik.Infrastructure;
 
@@ -56,11 +62,19 @@ public static class DependencyInjection
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
+        services.Configure<CustomerProfileStorageOptions>(configuration.GetSection("ProfileStorage"));
         services.AddMemoryCache();
         services.AddDataProtection();
 
+        services.AddSingleton<IBlobStorage>(sp =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CustomerProfileStorageOptions>>().Value;
+            return CustomerProfileBlobStorageFactory.Create(options.LocalStoragePath);
+        });
+        services.AddHostedService<ProfilePhotoStorageInitializer>();
 
         // Multitenancy
+
         services.AddHttpContextAccessor();
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
@@ -125,11 +139,15 @@ public static class DependencyInjection
         services.AddHttpClient<AzureAdAuthTokenService>();
         services.AddHttpClient<Auth0PasswordResetService>();
         services.AddHttpClient<AzureAdB2cPasswordResetService>();
+        services.AddHttpClient<Auth0AccountService>();
+        services.AddHttpClient<AzureAdAccountService>();
         services.AddScoped<IIdpUserProvisionerFactory, IdpUserProvisionerFactory>();
         services.AddScoped<IAuthTokenServiceFactory, AuthTokenServiceFactory>();
         services.AddScoped<IIdpPasswordResetServiceFactory, IdpPasswordResetServiceFactory>();
+        services.AddScoped<IIdpAccountServiceFactory, IdpAccountServiceFactory>();
         services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
         services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
+
 
 
         // AI
@@ -143,7 +161,7 @@ public static class DependencyInjection
 
         return services;
     }
-    
+
     public static IServiceCollection AddAonikAuthenticationAndAuthorization(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -156,10 +174,10 @@ public static class DependencyInjection
         services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddScoped<IVerificationService, VerificationService>();
-        
+
         // Add authentication
         services.AddAonikAuthentication(configuration);
-        
+
         // Add authorization
         services.AddAuthorization(options =>
         {
@@ -177,15 +195,15 @@ public static class DependencyInjection
                     ["Operations"],
                     ["Payment.Create"])));
         });
-        
+
         // Register authorization handlers (SCOPED for permission handler)
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         services.AddSingleton<IAuthorizationHandler, PlatformAdminHandler>();
         services.AddScoped<IAuthorizationHandler, RoleOrPermissionAuthorizationHandler>();
-        
+
         // Register dynamic policy provider
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
-        
+
         return services;
     }
 }

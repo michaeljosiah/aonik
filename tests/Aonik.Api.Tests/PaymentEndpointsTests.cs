@@ -30,7 +30,7 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-        
+
         var payment = await response.Content.ReadFromJsonAsync<PaymentIntentResponse>();
         payment.Should().NotBeNull();
         payment!.Amount.Should().Be(100.00m);
@@ -90,7 +90,7 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 
         // Manually authorize via database (in real scenario, this would be done by payment gateway)
         // For testing, we'll just try to capture and expect it to fail since it's not authorized
-        
+
         // Act
         var captureResponse = await client.PostAsync($"/payments/intents/{payment!.Id}/capture", null);
 

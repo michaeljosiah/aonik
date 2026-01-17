@@ -43,7 +43,7 @@ public class AiEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         var insight = await response.Content.ReadFromJsonAsync<InsightResponse>();
         insight.Should().NotBeNull();
         insight!.SubjectType.Should().Be("Invoice");

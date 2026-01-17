@@ -25,7 +25,7 @@ public class UpdateTenantSettingsEndpoint : Endpoint<UpdateTenantRequest, Tenant
     public override async Task HandleAsync(UpdateTenantRequest req, CancellationToken ct)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        
+
         var result = await _tenantService.UpdateTenantAsync(tenantId, req, ct);
         await Send.OkAsync(result, ct);
     }

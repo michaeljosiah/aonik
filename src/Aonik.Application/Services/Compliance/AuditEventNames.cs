@@ -3,6 +3,10 @@ namespace Aonik.Application.Services.Compliance;
 public static class AuditEventNames
 {
     public const string CustomerProfileUpdated = "CustomerProfileUpdated";
+    public const string CustomerEmailUpdated = "CustomerEmailUpdated";
+    public const string CustomerPasswordUpdated = "CustomerPasswordUpdated";
+    public const string CustomerPhotoUpdated = "CustomerPhotoUpdated";
+    public const string CustomerPhotoDeleted = "CustomerPhotoDeleted";
     public const string CurrentUserViewed = "CurrentUserViewed";
     public const string OnboardingActivated = "OnboardingActivated";
     public const string PartyCreated = "PartyCreated";
@@ -21,4 +25,5 @@ public static class AuditEventNames
 
     public const string VerificationFailed = "VerificationFailed";
     public const string VerificationStarted = "VerificationStarted";
+
 }

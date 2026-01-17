@@ -1,11 +1,21 @@
+using System.Text.RegularExpressions;
+using System.IO;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+
+using FluentStorage;
+using FluentStorage.Blobs;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
+using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
+using Aonik.Application.Settings;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Domain.Party.Entities;
 using Aonik.SharedKernel.Abstractions;
@@ -14,24 +24,39 @@ namespace Aonik.Application.Services.Identity;
 
 public class UserProfileService : IUserProfileService
 {
+    private static readonly Regex CountryCodeRegex = new("^[A-Z]{2}$", RegexOptions.Compiled);
+    private static readonly Regex PhoneRegex = new("^\\+?[1-9]\\d{7,14}$", RegexOptions.Compiled);
+
     private readonly IAonikDbContext _dbContext;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IIdpAccountServiceFactory _idpAccountServiceFactory;
+    private readonly ISettingProvider _settingProvider;
+    private readonly IBlobStorage _blobStorage;
+    private readonly CustomerProfileStorageOptions _storageOptions;
 
     public UserProfileService(
         IAonikDbContext dbContext,
         IAuditLogWriter auditLogWriter,
         IClock clock,
         ICurrentUserProvider currentUserProvider,
-        ICorrelationContext correlationContext)
+        ICorrelationContext correlationContext,
+        IIdpAccountServiceFactory idpAccountServiceFactory,
+        ISettingProvider settingProvider,
+        IBlobStorage blobStorage,
+        IOptions<CustomerProfileStorageOptions> storageOptions)
     {
         _dbContext = dbContext;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
+        _idpAccountServiceFactory = idpAccountServiceFactory;
+        _settingProvider = settingProvider;
+        _blobStorage = blobStorage;
+        _storageOptions = storageOptions.Value;
     }
 
     public async Task<CurrentUserSnapshot?> GetCurrentUserAsync(
@@ -59,14 +84,37 @@ public class UserProfileService : IUserProfileService
             user.Phone,
             user.Status,
             party?.Id,
-
             party?.DisplayName);
     }
 
-    public async Task<CustomerProfile?> UpdateCustomerProfileAsync(
+    public async Task<CustomerProfileResponse?> GetCustomerProfileAsync(
         Guid userId,
         Guid tenantId,
-        CustomerProfileUpdateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken, includeDetails: true);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
+        return MapProfile(user, party, profile);
+    }
+
+    public async Task<CustomerProfileResponse?> UpdateCustomerProfileAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateCustomerProfileRequest request,
         CancellationToken cancellationToken = default)
     {
         var user = await _dbContext.Users
@@ -85,7 +133,8 @@ public class UserProfileService : IUserProfileService
             return null;
         }
 
-        ApplyProfileUpdates(user, party, request);
+        var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
+        ApplyProfileUpdates(user, party, profile, request);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -100,14 +149,222 @@ public class UserProfileService : IUserProfileService
             {
                 user.Id,
                 PartyId = party.Id,
-                request.DisplayName,
-                Email = AuditLogMasking.MaskEmail(request.Email),
+                request.FirstName,
+                request.LastName,
+                request.Title,
+                request.CountryCode,
                 Phone = AuditLogMasking.MaskPhone(request.Phone)
             }),
-
             cancellationToken);
 
-        return MapProfile(user, party);
+        return MapProfile(user, party, profile);
+    }
+
+    public async Task<CustomerProfileResponse?> UpdateCustomerEmailAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateCustomerEmailRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken, includeDetails: true);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var normalizedCurrentEmail = NormalizeEmail(request.CurrentEmail);
+        var normalizedNewEmail = NormalizeEmail(request.NewEmail);
+
+        if (!string.Equals(user.Email ?? string.Empty, normalizedCurrentEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Current email does not match authenticated user.");
+        }
+
+        var existing = await _dbContext.Users
+            .AnyAsync(u => u.TenantId == tenantId && u.Email == normalizedNewEmail && u.Id != userId, cancellationToken);
+
+        if (existing)
+        {
+            throw new InvalidOperationException("Email already in use.");
+        }
+
+        if (!normalizedNewEmail.Contains('@', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Email must be a valid RFC 5322 address.", nameof(request.NewEmail));
+        }
+
+        var provider = await _settingProvider.GetAsync(AuthSettingNames.Provider, cancellationToken) ?? "AzureAd";
+        var accountService = _idpAccountServiceFactory.GetService(provider);
+        await accountService.ValidatePasswordAsync(user, request.Password, cancellationToken);
+        await accountService.UpdateEmailAsync(user, normalizedNewEmail, cancellationToken);
+
+        var now = _clock.UtcNow;
+        var actorId = _currentUserProvider.GetCurrentUserId();
+        user.Email = normalizedNewEmail;
+        user.UpdatedAt = now;
+        user.UpdatedBy = actorId;
+        UpsertContact(party, "Email", normalizedNewEmail, now, actorId);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerEmailUpdated,
+            "User",
+            user.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new
+            {
+                user.Id,
+                PartyId = party.Id,
+                Email = AuditLogMasking.MaskEmail(normalizedNewEmail)
+            }),
+            cancellationToken);
+
+        var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
+        return MapProfile(user, party, profile);
+    }
+
+    public async Task<UpdateCustomerPasswordResponse> UpdateCustomerPasswordAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateCustomerPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            throw new InvalidOperationException("Authenticated user not found.");
+        }
+
+        var provider = await _settingProvider.GetAsync(AuthSettingNames.Provider, cancellationToken) ?? "AzureAd";
+        var accountService = _idpAccountServiceFactory.GetService(provider);
+        await accountService.ValidatePasswordAsync(user, request.CurrentPassword, cancellationToken);
+        await accountService.UpdatePasswordAsync(user, request.NewPassword, cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerPasswordUpdated,
+            "User",
+            user.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { user.Id }),
+            cancellationToken);
+
+        return new UpdateCustomerPasswordResponse("ok");
+    }
+
+    public async Task<CustomerPhotoUploadResponse?> UploadCustomerPhotoAsync(
+        Guid userId,
+        Guid tenantId,
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken);
+        if (party == null)
+        {
+            return null;
+        }
+
+        if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Only image uploads are supported.", nameof(contentType));
+        }
+
+        var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
+        var blobPath = BuildPhotoBlobPath(tenantId, party.Id, fileName);
+
+        await _blobStorage.WriteAsync(blobPath, fileStream, append: false, cancellationToken);
+
+        var photoUrl = BuildPhotoUrl(blobPath);
+        profile.PhotoUrl = photoUrl;
+        profile.UpdatedAt = _clock.UtcNow;
+        profile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerPhotoUpdated,
+            "PersonProfile",
+            profile.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { party.Id, profile.PhotoUrl }),
+            cancellationToken);
+
+        return new CustomerPhotoUploadResponse(photoUrl);
+    }
+
+    public async Task<CustomerPhotoDeleteResponse?> DeleteCustomerPhotoAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(profile.PhotoUrl))
+        {
+            var blobPath = ExtractBlobPath(profile.PhotoUrl);
+            if (!string.IsNullOrWhiteSpace(blobPath))
+            {
+                await _blobStorage.DeleteAsync(new[] { blobPath }, cancellationToken);
+            }
+        }
+
+        profile.PhotoUrl = null;
+        profile.UpdatedAt = _clock.UtcNow;
+        profile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerPhotoDeleted,
+            "PersonProfile",
+            profile.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { party.Id }),
+            cancellationToken);
+
+        return new CustomerPhotoDeleteResponse("ok");
     }
 
     private async Task<Party?> GetPrimaryPartyAsync(
@@ -137,42 +394,123 @@ public class UserProfileService : IUserProfileService
 
         return await query
             .FirstOrDefaultAsync(party => party.Id == partyId.Value && party.TenantId == tenantId, cancellationToken);
-
     }
 
-    private void ApplyProfileUpdates(User user, Party party, CustomerProfileUpdateRequest request)
+    private async Task<PersonProfile> GetOrCreatePersonProfileAsync(Guid partyId, CancellationToken cancellationToken)
+    {
+        var profile = await _dbContext.PersonProfiles
+            .FirstOrDefaultAsync(p => p.PartyId == partyId, cancellationToken);
+
+        if (profile != null)
+        {
+            return profile;
+        }
+
+        profile = new PersonProfile
+        {
+            PartyId = partyId,
+            IdvStatus = "Pending",
+            CreatedAt = _clock.UtcNow,
+            CreatedBy = _currentUserProvider.GetCurrentUserId()
+        };
+
+        _dbContext.PersonProfiles.Add(profile);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return profile;
+    }
+
+    private void ApplyProfileUpdates(User user, Party party, PersonProfile profile, UpdateCustomerProfileRequest request)
     {
         var now = _clock.UtcNow;
         var actorId = _currentUserProvider.GetCurrentUserId();
+        var updated = false;
 
-        if (!string.IsNullOrWhiteSpace(request.DisplayName))
+        if (!string.IsNullOrWhiteSpace(request.FirstName))
         {
-            party.DisplayName = request.DisplayName.Trim();
-            party.UpdatedAt = now;
-            party.UpdatedBy = actorId;
+            profile.FirstName = request.FirstName.Trim();
+            updated = true;
+        }
+        else if (request.FirstName != null)
+        {
+            profile.FirstName = null;
+            updated = true;
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Email))
+        if (!string.IsNullOrWhiteSpace(request.LastName))
         {
-            var normalizedEmail = request.Email.Trim();
-            user.Email = normalizedEmail;
-            user.UpdatedAt = now;
-            user.UpdatedBy = actorId;
-            UpsertContact(party, "Email", normalizedEmail, now, actorId);
+            profile.LastName = request.LastName.Trim();
+            updated = true;
+        }
+        else if (request.LastName != null)
+        {
+            profile.LastName = null;
+            updated = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Title))
+        {
+            profile.Title = request.Title.Trim();
+            updated = true;
+        }
+        else if (request.Title != null)
+        {
+            profile.Title = null;
+            updated = true;
+        }
+
+        if (request.FirstName != null || request.LastName != null)
+        {
+            if (string.IsNullOrWhiteSpace(profile.FirstName) || string.IsNullOrWhiteSpace(profile.LastName))
+            {
+                throw new ArgumentException("FirstName and LastName are required when updating names.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.CountryCode))
+        {
+            var normalized = request.CountryCode.Trim().ToUpperInvariant();
+            if (!CountryCodeRegex.IsMatch(normalized))
+            {
+                throw new ArgumentException("CountryCode must be ISO-3166-1 alpha-2.", nameof(request.CountryCode));
+            }
+
+            profile.CountryCode = normalized;
+            updated = true;
+        }
+        else if (request.CountryCode != null)
+        {
+            profile.CountryCode = null;
+            updated = true;
         }
 
         if (!string.IsNullOrWhiteSpace(request.Phone))
         {
-            var normalizedPhone = request.Phone.Trim();
-            user.Phone = normalizedPhone;
+            var normalized = NormalizePhone(request.Phone);
+            if (!PhoneRegex.IsMatch(normalized))
+            {
+                throw new ArgumentException("Phone must be a valid E.164 value.", nameof(request.Phone));
+            }
+
+            user.Phone = normalized;
             user.UpdatedAt = now;
             user.UpdatedBy = actorId;
-            UpsertContact(party, "Phone", normalizedPhone, now, actorId);
+            UpsertContact(party, "Phone", normalized, now, actorId);
         }
 
-        if (request.Address != null)
+        if (updated)
         {
-            UpsertAddress(party, request.Address, now, actorId);
+            profile.UpdatedAt = now;
+            profile.UpdatedBy = actorId;
+        }
+
+        if (updated)
+        {
+            party.DisplayName = BuildDisplayName(profile.Title, profile.FirstName, profile.LastName, party.DisplayName);
+            if (!string.IsNullOrWhiteSpace(party.DisplayName))
+            {
+                party.UpdatedAt = now;
+                party.UpdatedBy = actorId;
+            }
         }
     }
 
@@ -209,63 +547,88 @@ public class UserProfileService : IUserProfileService
         contact.UpdatedBy = actorId;
     }
 
-    private static void UpsertAddress(
-        Party party,
-        CustomerAddress address,
-        DateTime now,
-        Guid? actorId)
+    private static CustomerProfileResponse MapProfile(User user, Party party, PersonProfile profile)
     {
-        var existing = party.Addresses.FirstOrDefault(a => a.Type == "Primary")
-                       ?? party.Addresses.FirstOrDefault();
-
-        if (existing == null)
-        {
-            existing = new PartyAddress
-            {
-                PartyId = party.Id,
-                Type = "Primary",
-                CreatedAt = now,
-                CreatedBy = actorId
-            };
-
-            party.Addresses.Add(existing);
-        }
-
-        existing.Line1 = address.Line1.Trim();
-        existing.Line2 = address.Line2?.Trim();
-        existing.Line3 = address.Line3?.Trim();
-        existing.City = address.City.Trim();
-        existing.State = address.State?.Trim();
-        existing.Postcode = address.Postcode.Trim();
-        existing.Country = address.Country.Trim();
-        existing.UpdatedAt = now;
-        existing.UpdatedBy = actorId;
+        return new CustomerProfileResponse(
+            party.Id,
+            user.Id,
+            party.TenantId,
+            user.Email ?? string.Empty,
+            profile.FirstName,
+            profile.LastName,
+            profile.Title,
+            user.Phone,
+            profile.CountryCode,
+            profile.PhotoUrl);
     }
 
-    private static CustomerProfile MapProfile(User user, Party party)
-    {
-        var addressEntity = party.Addresses.FirstOrDefault(a => a.Type == "Primary")
-                            ?? party.Addresses.FirstOrDefault();
+    private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
-        CustomerAddress? address = null;
-        if (addressEntity != null)
+    private static string NormalizePhone(string phone) => phone.Trim();
+
+    private static string BuildDisplayName(string? title, string? firstName, string? lastName, string? fallback)
+    {
+        var parts = new[] { title, firstName, lastName }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!.Trim())
+            .ToArray();
+
+        if (parts.Length == 0)
         {
-            address = new CustomerAddress(
-                addressEntity.Line1,
-                addressEntity.Line2,
-                addressEntity.Line3,
-                addressEntity.City,
-                addressEntity.State,
-                addressEntity.Postcode,
-                addressEntity.Country);
+            return fallback ?? string.Empty;
         }
 
-        return new CustomerProfile(
-            party.Id,
-            party.DisplayName,
-            user.Email,
-            user.Phone,
-            address);
+        return string.Join(' ', parts);
+    }
 
+    private string BuildPhotoBlobPath(Guid tenantId, Guid partyId, string fileName)
+    {
+        var sanitized = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            sanitized = "photo";
+        }
+
+        var extension = Path.GetExtension(sanitized);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = ".jpg";
+        }
+
+        var blobName = $"{Guid.NewGuid():N}{extension}";
+        return StoragePath.Combine(_storageOptions.BlobRootPath, "customers", tenantId.ToString("N"), partyId.ToString("N"), blobName);
+    }
+
+    private string BuildPhotoUrl(string blobPath)
+    {
+        if (string.IsNullOrWhiteSpace(_storageOptions.PublicBaseUrl))
+        {
+            return blobPath;
+        }
+
+        return $"{_storageOptions.PublicBaseUrl.TrimEnd('/')}/{blobPath.TrimStart('/')}";
+    }
+
+
+    private string? ExtractBlobPath(string photoUrl)
+    {
+        if (string.IsNullOrWhiteSpace(photoUrl))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(_storageOptions.PublicBaseUrl))
+        {
+            return photoUrl;
+        }
+
+        var baseUrl = _storageOptions.PublicBaseUrl.TrimEnd('/');
+        if (photoUrl.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            return StoragePath.Normalize(photoUrl.Substring(baseUrl.Length));
+        }
+
+        return StoragePath.Normalize(photoUrl);
     }
 }
+

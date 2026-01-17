@@ -22,7 +22,7 @@ public class GenerateInvoiceInsightEndpoint : EndpointWithoutRequest<InsightResp
     public override async Task HandleAsync(CancellationToken ct)
     {
         var id = Route<Guid>("id");
-        
+
         try
         {
             var result = await _aiInsightsService.GenerateInvoiceInsightAsync(id, ct);

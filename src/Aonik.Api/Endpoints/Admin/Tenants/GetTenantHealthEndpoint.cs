@@ -22,7 +22,7 @@ public class GetTenantHealthEndpoint : EndpointWithoutRequest<TenantHealthResult
     public override async Task HandleAsync(CancellationToken ct)
     {
         var tenantId = Route<Guid>("tenantId");
-        
+
         var result = await _provisioner.CheckTenantHealthAsync(tenantId, ct);
         await Send.OkAsync(result, ct);
     }

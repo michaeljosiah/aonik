@@ -41,7 +41,7 @@ public class BillingService : IBillingService
         foreach (var lineItemRequest in request.LineItems)
         {
             var lineTotal = lineItemRequest.Quantity * lineItemRequest.UnitPrice;
-            
+
             var lineItem = new InvoiceLine
             {
                 Id = Guid.NewGuid(),

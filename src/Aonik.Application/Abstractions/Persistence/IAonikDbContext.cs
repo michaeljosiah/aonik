@@ -46,7 +46,7 @@ public interface IAonikDbContext
 
     // Reference Data
     DbSet<ReferenceDataItem> ReferenceDataItems { get; set; }
- 
+
     // Party
     DbSet<PartyEntity> Parties { get; set; }
     DbSet<PartyAddress> PartyAddresses { get; set; }

@@ -20,7 +20,7 @@ public class HttpContextTenantProvider : ITenantProvider
         {
             throw new InvalidOperationException("Tenant context not available");
         }
-        
+
         return _tenantContext.TenantId.Value;
     }
 

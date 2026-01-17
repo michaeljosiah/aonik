@@ -6,12 +6,12 @@ namespace Aonik.Application.Services.Identity;
 public class PermissionService : IPermissionService
 {
     private readonly IAonikDbContext _dbContext;
-    
+
     public PermissionService(IAonikDbContext dbContext)
     {
         _dbContext = dbContext;
     }
-    
+
     public async Task<bool> HasPermissionAsync(
         Guid userId,
         string permissionKey,
@@ -22,7 +22,7 @@ public class PermissionService : IPermissionService
             .SelectMany(ur => ur.Role.RolePermissions)
             .AnyAsync(rp => rp.Permission.Key == permissionKey, ct);
     }
-    
+
     public async Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default)
     {
         return await _dbContext.UserRoles

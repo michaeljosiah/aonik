@@ -22,7 +22,7 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
     public override async Task HandleAsync(CancellationToken ct)
     {
         var id = Route<Guid>("id");
-        
+
         try
         {
             var result = await _paymentService.CapturePaymentAsync(id, ct);

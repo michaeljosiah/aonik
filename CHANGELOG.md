@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-01-17
+- Added customer profile endpoints for read/update/email/password/photo flows with profile storage support and IdP account updates.
+
 ### Added - 2026-01-12
 - Added reference data entities, service, and endpoint for global/tenant lookup values.
 

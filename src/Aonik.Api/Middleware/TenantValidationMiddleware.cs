@@ -26,7 +26,7 @@ public class TenantValidationMiddleware
             await _next(context);
             return;
         }
-        
+
         // Skip admin endpoints (they use PlatformAdmin policy, not tenant-scoped)
         if (context.Request.Path.StartsWithSegments("/admin") ||
             context.Request.Path.StartsWithSegments("/bootstrap"))
@@ -34,7 +34,7 @@ public class TenantValidationMiddleware
             await _next(context);
             return;
         }
-        
+
         // Tenant should already be resolved by TenantContextMiddleware
         if (!tenantContext.IsResolved || tenantContext.TenantId is null)
         {
@@ -44,13 +44,13 @@ public class TenantValidationMiddleware
         }
 
         var tenantId = tenantContext.TenantId.Value;
-        
+
         // Validate tenant status (tenant existence already validated during JIT user creation)
         var tenant = await dbContext.Tenants
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == tenantId, context.RequestAborted);
 
-        
+
         if (tenant == null)
         {
             // Should not happen (user creation validates tenant)
@@ -58,12 +58,12 @@ public class TenantValidationMiddleware
             await context.Response.WriteAsJsonAsync(new { error = "Tenant not found" });
             return;
         }
-        
+
         if (tenant.Status != "Active")
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new 
-            { 
+            await context.Response.WriteAsJsonAsync(new
+            {
                 error = $"Tenant is {tenant.Status}",
                 tenantId = tenant.Id,
                 status = tenant.Status
@@ -71,7 +71,7 @@ public class TenantValidationMiddleware
 
             return;
         }
-        
+
         await _next(context);
     }
 }

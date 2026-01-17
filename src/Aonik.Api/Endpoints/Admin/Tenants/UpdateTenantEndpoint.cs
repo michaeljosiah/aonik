@@ -22,7 +22,7 @@ public class UpdateTenantEndpoint : Endpoint<UpdateTenantRequest, TenantResponse
     public override async Task HandleAsync(UpdateTenantRequest req, CancellationToken ct)
     {
         var tenantId = Route<Guid>("tenantId");
-        
+
         var result = await _tenantService.UpdateTenantAsync(tenantId, req, ct);
         await Send.OkAsync(result, ct);
     }

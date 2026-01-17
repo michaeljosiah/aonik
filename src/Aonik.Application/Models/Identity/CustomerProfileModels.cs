@@ -1,23 +1,38 @@
 namespace Aonik.Application.Models.Identity;
 
-public record CustomerAddress(
-    string Line1,
-    string? Line2,
-    string? Line3,
-    string City,
-    string? State,
-    string Postcode,
-    string Country);
-
-public record CustomerProfile(
+public record CustomerProfileResponse(
     Guid PartyId,
-    string DisplayName,
-    string? Email,
+    Guid UserId,
+    Guid TenantId,
+    string Email,
+    string? FirstName,
+    string? LastName,
+    string? Title,
     string? Phone,
-    CustomerAddress? Address);
+    string? CountryCode,
+    string? PhotoUrl);
 
-public record CustomerProfileUpdateRequest(
-    string? DisplayName,
-    string? Email,
+public record UpdateCustomerProfileRequest(
+    string? FirstName,
+    string? LastName,
+    string? Title,
     string? Phone,
-    CustomerAddress? Address);
+    string? CountryCode);
+
+public record UpdateCustomerEmailRequest(
+    string CurrentEmail,
+    string NewEmail,
+    string Password);
+
+public record UpdateCustomerPasswordRequest(
+    string CurrentPassword,
+    string NewPassword);
+
+public record UpdateCustomerPasswordResponse(
+    string Status);
+
+public record CustomerPhotoUploadResponse(
+    string PhotoUrl);
+
+public record CustomerPhotoDeleteResponse(
+    string Status);

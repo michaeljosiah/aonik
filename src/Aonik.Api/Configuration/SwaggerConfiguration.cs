@@ -14,7 +14,7 @@ public static class SwaggerConfiguration
     {
         var authOptions = configuration.GetSection("Auth").Get<AuthOptions>()
             ?? throw new InvalidOperationException("Auth configuration is missing");
-        
+
         var swaggerOptions = configuration.GetSection("Swagger").Get<SwaggerOptions>()
             ?? new SwaggerOptions();
 
@@ -58,7 +58,7 @@ public static class SwaggerConfiguration
             app.UseSwaggerGen(config =>
             {
                 config.Path = "/swagger/{documentName}/swagger.json";
-                
+
                 // Configure OAuth2 settings for Swagger UI
                 config.PostProcess = (document, request) =>
                 {
@@ -76,13 +76,13 @@ public static class SwaggerConfiguration
                         var html = context.Response.Body;
                         context.Response.Body = new MemoryStream();
                         await next();
-                        
-                        if (context.Response.StatusCode == 200 && 
+
+                        if (context.Response.StatusCode == 200 &&
                             context.Response.ContentType?.Contains("text/html") == true)
                         {
                             context.Response.Body.Seek(0, SeekOrigin.Begin);
                             var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
-                            
+
                             // Inject OAuth2 configuration
                             var oauth2Config = $@"
                                 ui.initOAuth({{
@@ -92,9 +92,9 @@ public static class SwaggerConfiguration
                                     scopes: '{string.Join(" ", swaggerOptions.Scopes)}',
                                     usePkceWithAuthorizationCodeGrant: true
                                 }});";
-                            
+
                             body = body.Replace("</body>", $"<script>{oauth2Config}</script></body>");
-                            
+
                             context.Response.Body = html;
                             context.Response.ContentLength = body.Length;
                             await context.Response.WriteAsync(body);

@@ -46,10 +46,10 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
-    
+
     // Apply pending migrations
     await dbContext.Database.MigrateAsync();
-    
+
     // Seed permissions
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<IdentitySeedService>>();
     var seedService = new IdentitySeedService((IAonikDbContext)dbContext, logger);

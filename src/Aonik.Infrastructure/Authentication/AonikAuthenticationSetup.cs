@@ -30,9 +30,9 @@ public static class AonikAuthenticationSetup
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var authOptions = configuration.GetSection("Auth").Get<AuthOptions>() 
+        var authOptions = configuration.GetSection("Auth").Get<AuthOptions>()
             ?? throw new InvalidOperationException("Auth configuration is missing");
-        
+
         services.AddAuthentication(options =>
             {
                 options.DefaultScheme = "Aonik";
@@ -55,7 +55,7 @@ public static class AonikAuthenticationSetup
 
         return services;
     }
-    
+
     private static void ConfigureJwtBearerOptions(JwtBearerOptions options, AuthOptions authOptions, string provider)
     {
         if (provider == "AzureAd")
@@ -95,7 +95,7 @@ public static class AonikAuthenticationSetup
 
         options.RequireHttpsMetadata = true; // Always require HTTPS for metadata
     }
-    
+
     private static void ConfigureTokenValidationEvents(JwtBearerOptions options, AuthOptions authOptions)
     {
         options.Events = new JwtBearerEvents
@@ -114,27 +114,27 @@ public static class AonikAuthenticationSetup
                     context.Fail("Authentication failed");
                 }
             },
-            
+
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices
                     .GetRequiredService<ILogger<JwtBearerEvents>>();
-                
+
                 // Log without exposing token details
                 logger.LogWarning("Authentication failed for {Path}: {Error}",
                     context.HttpContext.Request.Path,
                     context.Exception.Message);
-                
+
                 return Task.CompletedTask;
             }
         };
     }
-    
+
     private static async Task HandleTokenValidatedAsync(TokenValidatedContext context, AuthOptions authOptions)
     {
         var logger = context.HttpContext.RequestServices
             .GetRequiredService<ILogger<JwtBearerEvents>>();
-        
+
         // 1. Extract token and claims
         // CRITICAL: Read from SecurityToken, not claims principal
         JwtSecurityToken? jwtToken = null;
@@ -157,16 +157,16 @@ public static class AonikAuthenticationSetup
 
         var iss = jwtToken?.Issuer ?? jsonToken?.Issuer;
         var claims = jwtToken?.Claims ?? jsonToken?.Claims ?? Array.Empty<Claim>();
-        
+
         // Prefer 'oid' (Entra) over 'sub' (Auth0/standard)
         var sub = claims.FirstOrDefault(c => c.Type == "oid")?.Value
                   ?? claims.FirstOrDefault(c => c.Type == "sub")?.Value;
-        
+
         var tid = claims.FirstOrDefault(c => c.Type == "tid")?.Value;
-        
+
         var email = claims.FirstOrDefault(c => c.Type == "email")?.Value
                     ?? claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
-        
+
         if (string.IsNullOrEmpty(iss) || string.IsNullOrEmpty(sub))
         {
             logger.LogWarning("Missing required claims: iss={Iss}, sub/oid={Sub}", iss, sub);
@@ -183,7 +183,7 @@ public static class AonikAuthenticationSetup
             context.Fail("Token issuer not allowed for active provider");
             return;
         }
-        
+
         // 2. Resolve tenant (fail fast if cannot resolve)
         // Store JWT token in HttpContext.Items for TenantResolver
         context.HttpContext.Items["JwtSecurityToken"] = jwtToken;
@@ -193,24 +193,24 @@ public static class AonikAuthenticationSetup
         {
             return;
         }
-        
+
         var tenantResolver = context.HttpContext.RequestServices
             .GetRequiredService<ITenantResolver>();
-        
+
         var aonikTenantId = await tenantResolver.ResolveTenantIdAsync(
             context.HttpContext.RequestAborted);
-        
+
         if (aonikTenantId == null)
         {
             logger.LogWarning("Failed to resolve tenant for issuer {Issuer}, subject {Subject}", iss, sub);
             context.Fail("Tenant could not be resolved");
             return;
         }
-        
+
         // 3. Resolve or create user (JIT provisioning)
         var userIdentityService = context.HttpContext.RequestServices
             .GetRequiredService<IUserIdentityService>();
-        
+
         var user = await userIdentityService.ResolveOrCreateUserAsync(
             iss,
             sub,
@@ -241,15 +241,15 @@ public static class AonikAuthenticationSetup
         currentUserContext.ExternalSubject = sub;
         currentUserContext.Roles = roles;
         currentUserContext.IsAuthenticated = context.Principal?.Identity?.IsAuthenticated == true;
-        
+
         // 4. Stash in HttpContext.Items for downstream consumers
         context.HttpContext.Items["AonikUserId"] = user.Id;
         context.HttpContext.Items["AonikUserStatus"] = user.Status;
         context.HttpContext.Items["AonikTenantId"] = aonikTenantId.Value;
-        
+
         logger.LogInformation("Authenticated user {UserId} in tenant {TenantId} (Status: {Status})",
             user.Id, aonikTenantId.Value, user.Status);
-        
+
         // Check if user is suspended/deactivated
         if (user.Status != "Active")
         {
@@ -318,7 +318,7 @@ public static class AonikAuthenticationSetup
 
         return null;
     }
-    
+
     private static async Task<bool> TryHandleBootstrapAsync(
         TokenValidatedContext context,
         string issuer,
@@ -353,10 +353,10 @@ public static class AonikAuthenticationSetup
             if (!isPlatformAdmin && platformAdminOptions.AdminEmails.Length > 0)
             {
                 var userEmail = ClaimsEmailResolver.GetEmail(context.Principal);
-                
+
                 if (!string.IsNullOrEmpty(userEmail))
                 {
-                    isPlatformAdmin = platformAdminOptions.AdminEmails.Any(adminEmail => 
+                    isPlatformAdmin = platformAdminOptions.AdminEmails.Any(adminEmail =>
                         string.Equals(adminEmail, userEmail, StringComparison.OrdinalIgnoreCase));
                 }
             }

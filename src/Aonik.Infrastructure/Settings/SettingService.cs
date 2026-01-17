@@ -156,7 +156,7 @@ public class SettingService : ISettingProvider, ISettingManager
 
         var normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         var definition = SettingDefinitions.Get(key);
- 
+
         var existing = await _dbContext.Settings
             .FirstOrDefaultAsync(
                 setting => setting.Key == key

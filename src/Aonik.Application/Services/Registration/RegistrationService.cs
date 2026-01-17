@@ -64,12 +64,17 @@ public class RegistrationService : IRegistrationService
 
         var provisioningResult = await _userProvisioningService.EnsureUserAndCustomerAsync(identity, cancellationToken);
 
-        var displayName = BuildDisplayName(request.Title, request.FirstName, request.LastName);
         await _userProfileService.UpdateCustomerProfileAsync(
             provisioningResult.UserId,
             request.TenantId.Value,
-            new CustomerProfileUpdateRequest(displayName, request.Email, request.Phone, null),
+            new UpdateCustomerProfileRequest(
+                request.FirstName,
+                request.LastName,
+                request.Title,
+                request.Phone,
+                request.RegistrationCountry),
             cancellationToken);
+
 
         if (!string.IsNullOrWhiteSpace(request.Email))
         {
@@ -97,16 +102,8 @@ public class RegistrationService : IRegistrationService
             onboarding);
     }
 
-    private static string BuildDisplayName(string? title, string firstName, string lastName)
-    {
-        var parts = new[] { title, firstName, lastName }
-            .Where(part => !string.IsNullOrWhiteSpace(part))
-            .Select(part => part!.Trim());
-
-        return string.Join(' ', parts);
-    }
-
     private sealed record RegistrationExternalIdentity(
+
         Guid TenantId,
         string ExternalIssuer,
         string ExternalSubject,

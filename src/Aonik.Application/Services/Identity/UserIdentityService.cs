@@ -16,7 +16,7 @@ public class UserIdentityService : IUserIdentityService
     private readonly ILogger<UserIdentityService> _logger;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly ICorrelationContext _correlationContext;
-    
+
     public UserIdentityService(
         IAonikDbContext dbContext,
         ILogger<UserIdentityService> logger,
@@ -28,7 +28,7 @@ public class UserIdentityService : IUserIdentityService
         _auditLogWriter = auditLogWriter;
         _correlationContext = correlationContext;
     }
-    
+
     public async Task<User> ResolveOrCreateUserAsync(
         string externalIssuer,
         string externalSubject,
@@ -39,12 +39,12 @@ public class UserIdentityService : IUserIdentityService
     {
         // Lookup existing user by external identity
         var existingUser = await _dbContext.Users
-            .FirstOrDefaultAsync(u => 
+            .FirstOrDefaultAsync(u =>
                 u.TenantId == aonikTenantId &&
                 u.ExternalIssuer == externalIssuer &&
                 u.ExternalSubject == externalSubject,
                 ct);
-        
+
         if (existingUser != null)
         {
             // Update email if changed
@@ -54,28 +54,28 @@ public class UserIdentityService : IUserIdentityService
                 await _dbContext.SaveChangesAsync(ct);
                 _logger.LogInformation("Updated email for user {UserId}", existingUser.Id);
             }
-            
+
             return existingUser;
         }
-        
+
         // Verify tenant exists and is active
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == aonikTenantId, ct);
 
-        
+
         if (tenant == null)
         {
             _logger.LogError("Attempted to create user in non-existent tenant {TenantId}", aonikTenantId);
             throw new InvalidOperationException($"Tenant {aonikTenantId} does not exist");
         }
-        
+
         if (tenant.Status != "Active")
         {
-            _logger.LogWarning("Attempted to create user in non-active tenant {TenantId} (Status: {Status})", 
+            _logger.LogWarning("Attempted to create user in non-active tenant {TenantId} (Status: {Status})",
                 aonikTenantId, tenant.Status);
             throw new InvalidOperationException($"Tenant {aonikTenantId} is not active (Status: {tenant.Status})");
         }
-        
+
         // Create new user (JIT provisioning)
         var newUser = new User
         {
@@ -87,10 +87,10 @@ public class UserIdentityService : IUserIdentityService
             Email = email, // Nullable - only if present
             Status = "Active"
         };
-        
+
         _dbContext.Users.Add(newUser);
         await _dbContext.SaveChangesAsync(ct);
-        
+
         _logger.LogInformation("Created new user {UserId} via JIT provisioning (Issuer: {Issuer}, Subject: {Subject})",
             newUser.Id, externalIssuer, externalSubject);
 
@@ -110,7 +110,7 @@ public class UserIdentityService : IUserIdentityService
                 newUser.ExternalTenantId
             }),
             ct);
-        
+
         return newUser;
     }
 }

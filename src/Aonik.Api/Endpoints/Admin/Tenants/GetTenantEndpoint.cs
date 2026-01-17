@@ -22,7 +22,7 @@ public class GetTenantEndpoint : EndpointWithoutRequest<TenantResponse>
     public override async Task HandleAsync(CancellationToken ct)
     {
         var tenantId = Route<Guid>("tenantId");
-        
+
         var result = await _tenantService.GetTenantAsync(tenantId, ct);
 
         if (result == null)

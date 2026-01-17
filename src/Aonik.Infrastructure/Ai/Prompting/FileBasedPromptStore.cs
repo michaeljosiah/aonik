@@ -8,7 +8,7 @@ public class FileBasedPromptStore : IPromptStore
 
     public FileBasedPromptStore(string? promptTemplatesPath = null)
     {
-        _promptTemplatesPath = promptTemplatesPath ?? 
+        _promptTemplatesPath = promptTemplatesPath ??
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ai", "Prompting", "Templates");
     }
 

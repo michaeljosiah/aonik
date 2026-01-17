@@ -88,7 +88,7 @@ public class IdentitySeedService
         {
             await _dbContext.Permissions.AddRangeAsync(newPermissions, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
-            
+
             _logger.LogInformation("Seeded {Count} new permissions", newPermissions.Count);
         }
         else

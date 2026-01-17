@@ -39,7 +39,7 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-        
+
         var entry = await response.Content.ReadFromJsonAsync<JournalEntryResponse>();
         entry.Should().NotBeNull();
         entry!.AccountId.Should().Be(account.Id);

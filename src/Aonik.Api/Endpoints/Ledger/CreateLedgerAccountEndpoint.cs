@@ -25,7 +25,7 @@ public class CreateLedgerAccountEndpoint : Endpoint<CreateLedgerAccountRequest, 
         var result = await _ledgerService.CreateAccountAsync(appRequest, ct);
 
         var response = new LedgerAccountResponse(result.Id, result.Name, result.Currency, result.CreatedUtc);
-        
+
         await Send.CreatedAtAsync<CreateLedgerAccountEndpoint>(
             routeValues: new { id = response.Id },
             responseBody: response,

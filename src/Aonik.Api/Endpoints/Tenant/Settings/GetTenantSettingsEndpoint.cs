@@ -25,7 +25,7 @@ public class GetTenantSettingsEndpoint : EndpointWithoutRequest<TenantResponse>
     public override async Task HandleAsync(CancellationToken ct)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        
+
         var result = await _tenantService.GetTenantAsync(tenantId, ct);
 
         if (result == null)

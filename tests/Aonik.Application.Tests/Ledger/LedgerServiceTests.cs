@@ -66,7 +66,7 @@ public class LedgerServiceTests
         using var context = CreateDbContext(tenantId);
         var tenantProvider = new TestTenantProvider(tenantId);
         var service = new LedgerService(context, tenantProvider);
-        
+
         // Create account first
         var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
         var account = await service.CreateAccountAsync(accountRequest);
@@ -104,7 +104,7 @@ public class LedgerServiceTests
         using var context = CreateDbContext(tenantId);
         var tenantProvider = new TestTenantProvider(tenantId);
         var service = new LedgerService(context, tenantProvider);
-        
+
         var accountRequest = new CreateLedgerAccountRequest("Operating Account", "USD");
         var account = await service.CreateAccountAsync(accountRequest);
 

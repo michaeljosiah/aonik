@@ -54,7 +54,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
     public virtual DbSet<Setting> Settings { get; set; } = null!;
     public virtual DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
- 
+
     // Party
     public virtual DbSet<PartyEntity> Parties { get; set; } = null!;
     public virtual DbSet<PartyAddress> PartyAddresses { get; set; } = null!;
@@ -154,10 +154,10 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
 
     public AonikDbContext(
-        DbContextOptions<AonikDbContext> options, 
+        DbContextOptions<AonikDbContext> options,
         ITenantProvider? tenantProvider = null,
         ICurrentUserProvider? currentUserProvider = null,
-        IClock? clock = null) 
+        IClock? clock = null)
         : base(options)
     {
         _tenantProvider = tenantProvider;
@@ -168,10 +168,10 @@ public class AonikDbContext : DbContext, IAonikDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
+
         // Apply all configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
-        
+
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);
     }

@@ -22,7 +22,7 @@ public class ProvisionTenantEndpoint : EndpointWithoutRequest<ProvisionTenantRes
     public override async Task HandleAsync(CancellationToken ct)
     {
         var tenantId = Route<Guid>("tenantId");
-        
+
         var result = await _provisioner.ProvisionTenantAsync(tenantId, ct);
         await Send.OkAsync(result, ct);
     }
