@@ -57,9 +57,11 @@ public class TenantProvisioner : ITenantProvisioner
         if (existingLedger == null)
         {
             // Create Ledger
+            var ledgerId = Guid.NewGuid();
             var ledger = new LedgerEntity
             {
-                LedgerId = Guid.NewGuid(),
+                Id = ledgerId,
+                LedgerId = ledgerId,
                 TenantId = tenantId,
                 BaseCurrency = tenant.DefaultCurrency,
                 CreatedAt = now,
@@ -72,7 +74,7 @@ public class TenantProvisioner : ITenantProvisioner
             actionsPerformed.Add($"Created ledger {ledger.LedgerId} with base currency {tenant.DefaultCurrency}");
 
             // Create Chart of Accounts
-            var accounts = CreateDefaultChartOfAccounts(tenantId, ledger.LedgerId, userId, now);
+            var accounts = CreateDefaultChartOfAccounts(tenantId, ledgerId, userId, now);
             _dbContext.LedgerAccounts.AddRange(accounts);
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -155,6 +157,7 @@ public class TenantProvisioner : ITenantProvisioner
         {
             new()
             {
+                Id = Guid.NewGuid(),
                 LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
@@ -167,6 +170,7 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
+                Id = Guid.NewGuid(),
                 LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
@@ -179,6 +183,7 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
+                Id = Guid.NewGuid(),
                 LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
@@ -191,6 +196,7 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
+                Id = Guid.NewGuid(),
                 LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
@@ -203,6 +209,7 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
+                Id = Guid.NewGuid(),
                 LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
@@ -215,6 +222,7 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
+                Id = Guid.NewGuid(),
                 LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,

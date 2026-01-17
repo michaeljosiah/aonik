@@ -2,7 +2,8 @@ using Aonik.Application.Abstractions.Persistence;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Aonik.Application.Services.Identity.Provisioning;
+using Microsoft.Extensions.Logging;
+using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authentication.Configuration;
 
 namespace Aonik.Api.Endpoints.Bootstrap;
@@ -10,17 +11,17 @@ namespace Aonik.Api.Endpoints.Bootstrap;
 public class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusResponse>
 {
     private readonly IAonikDbContext _dbContext;
-    private readonly BootstrapOptions _bootstrapOptions;
     private readonly PlatformAdminOptions _platformAdminOptions;
+    private readonly ILogger<BootstrapStatusEndpoint> _logger;
 
     public BootstrapStatusEndpoint(
         IAonikDbContext dbContext,
-        IOptions<BootstrapOptions> bootstrapOptions,
-        IOptions<PlatformAdminOptions> platformAdminOptions)
+        IOptions<PlatformAdminOptions> platformAdminOptions,
+        ILogger<BootstrapStatusEndpoint> logger)
     {
         _dbContext = dbContext;
-        _bootstrapOptions = bootstrapOptions.Value;
         _platformAdminOptions = platformAdminOptions.Value;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -37,18 +38,23 @@ public class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusRes
 
         if (User?.Identity?.IsAuthenticated == true)
         {
-            var userEmail = User.Claims
-                .FirstOrDefault(c => c.Type == "email" || c.Type == "preferred_username" || c.Type == "upn")?.Value;
+            var userEmail = ClaimsEmailResolver.GetEmail(User);
 
-            if (!string.IsNullOrWhiteSpace(userEmail))
+            if (string.IsNullOrWhiteSpace(userEmail))
             {
+                _logger.LogWarning(
+                    "Bootstrap status could not resolve user email. Claims: {Claims}",
+                    string.Join(", ", User.Claims.Select(c => $"{c.Type}={c.Value}")));
+            }
+            else
+            {
+                _logger.LogInformation("Bootstrap status resolved user email: {Email}", userEmail);
                 isCurrentUserAllowed = _platformAdminOptions.AdminEmails.Any(adminEmail =>
                     string.Equals(adminEmail, userEmail, StringComparison.OrdinalIgnoreCase));
             }
         }
 
         await Send.OkAsync(new BootstrapStatusResponse(
-            _bootstrapOptions.Enabled,
             hasAdminEmails,
             isCurrentUserAllowed,
             tenantCount),

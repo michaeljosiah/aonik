@@ -1,5 +1,4 @@
 import { api } from '@/lib/api';
-import { api } from '@/lib/api';
 import type { Tenant, CreateTenantRequest, UpdateTenantRequest, PagedResult } from '@/types';
 
 export interface ListTenantsParams {

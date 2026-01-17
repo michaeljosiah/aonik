@@ -1,7 +1,9 @@
+using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace Aonik.Infrastructure.Authorization;
 
@@ -42,8 +44,7 @@ public class PlatformAdminHandler : AuthorizationHandler<PlatformAdminRequiremen
         var hasAdminEmail = false;
         if (options.AdminEmails.Length > 0)
         {
-            var userEmail = principal.Claims
-                .FirstOrDefault(c => c.Type == "email" || c.Type == "preferred_username" || c.Type == "upn")?.Value;
+            var userEmail = ClaimsEmailResolver.GetEmail(principal);
             
             if (!string.IsNullOrEmpty(userEmail))
             {
@@ -60,7 +61,12 @@ public class PlatformAdminHandler : AuthorizationHandler<PlatformAdminRequiremen
         }
         else
         {
-            _logger.LogWarning("Platform admin access denied (missing required claims or email not in admin list)");
+            _logger.LogWarning(
+                "Platform admin access denied (role={HasRole}, scope={HasScope}, email={HasEmail}). Claims: {Claims}",
+                hasRoleClaim,
+                hasScopeClaim,
+                hasAdminEmail,
+                string.Join(", ", principal.Claims.Select(c => $"{c.Type}={c.Value}")));
         }
         
         return Task.CompletedTask;

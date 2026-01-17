@@ -10,7 +10,6 @@ import type { BootstrapTenantResult } from '@/types';
 interface SetupState {
   loading: boolean;
   platformAdminConfigured: boolean;
-  bootstrapEnabled: boolean;
   tenantCount: number | null;
   isCurrentUserAllowed: boolean;
   error: string | null;
@@ -19,7 +18,6 @@ interface SetupState {
 const initialState: SetupState = {
   loading: true,
   platformAdminConfigured: false,
-  bootstrapEnabled: false,
   tenantCount: null,
   isCurrentUserAllowed: false,
   error: null,
@@ -27,7 +25,7 @@ const initialState: SetupState = {
 
 export function SetupWizardPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading: authLoading, login, user } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, login, logout, user } = useAuth();
   const provider = getAuthProvider();
   const [state, setState] = useState<SetupState>(initialState);
   const [bootstrapResult, setBootstrapResult] = useState<BootstrapTenantResult | null>(null);
@@ -46,26 +44,26 @@ export function SetupWizardPage() {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const status = await bootstrapService.status();
-      setState({
-        loading: false,
-        platformAdminConfigured: status.platformAdminEmailsConfigured,
-        bootstrapEnabled: status.bootstrapEnabled,
-        tenantCount: status.tenantCount,
-        isCurrentUserAllowed: status.isCurrentUserAllowed,
-        error: null,
-      });
+        setState({
+          loading: false,
+          platformAdminConfigured: status.platformAdminEmailsConfigured,
+          tenantCount: status.tenantCount,
+          isCurrentUserAllowed: status.isCurrentUserAllowed,
+          error: null,
+        });
+
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'userMessage' in err
         ? String((err as { userMessage?: string }).userMessage ?? '')
         : '';
-      setState({
-        loading: false,
-        platformAdminConfigured: false,
-        bootstrapEnabled: false,
-        tenantCount: null,
-        isCurrentUserAllowed: false,
-        error: message || 'Unable to read setup configuration. Check API connectivity and admin access.',
-      });
+        setState({
+          loading: false,
+          platformAdminConfigured: false,
+          tenantCount: null,
+          isCurrentUserAllowed: false,
+          error: message || 'Unable to read setup configuration. Check API connectivity and admin access.',
+        });
+
     }
   };
 
@@ -98,6 +96,10 @@ export function SetupWizardPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+  };
+
   const handleGoToDashboard = () => {
     navigate('/');
   };
@@ -106,7 +108,6 @@ export function SetupWizardPage() {
   const canBootstrap =
     isAuthenticated &&
     !tenantExists &&
-    state.bootstrapEnabled &&
     state.platformAdminConfigured &&
     state.isCurrentUserAllowed;
 
@@ -115,10 +116,10 @@ export function SetupWizardPage() {
       <div className="max-w-5xl mx-auto px-6 py-10">
         <div className="flex flex-col gap-2 mb-8">
           <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Initial Setup</p>
-          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Welcome to Aonik</h1>
-          <p className="text-[var(--color-text-secondary)] max-w-2xl">
-            This wizard helps you create the first tenant and admin user. The initial admin must match a configured email in
-            PlatformAdmin settings.
+          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Welcome to the Future of Finance</h1>
+          <p className="text-[var(--color-text-secondary)] max-w-[42rem] leading-relaxed">
+            Step into AI-powered financial operations. This wizard will get your Aonik platform running with intelligent automation, 
+            smart insights, and seamless money movement at your fingertips.
           </p>
         </div>
 
@@ -148,24 +149,6 @@ export function SetupWizardPage() {
               />
 
               <SetupStep
-                title="Enable bootstrap"
-                status={state.bootstrapEnabled ? 'complete' : 'warning'}
-                description={
-                  state.bootstrapEnabled
-                    ? 'Bootstrap endpoint is enabled.'
-                    : 'Set Bootstrap.Enabled to true and restart the API.'
-                }
-                action={
-                  !state.bootstrapEnabled && (
-                    <Button variant="outline" size="sm" onClick={loadSetupState}>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Re-check config
-                    </Button>
-                  )
-                }
-              />
-
-              <SetupStep
                 title="Sign in with your identity provider"
                 status={isAuthenticated ? 'complete' : state.platformAdminConfigured ? 'pending' : 'locked'}
                 description={
@@ -178,7 +161,11 @@ export function SetupWizardPage() {
                       : 'Configure PlatformAdmin.AdminEmails first to avoid failed logins.'
                 }
                 action={
-                  !isAuthenticated && (
+                  isAuthenticated ? (
+                    <Button variant="outline" size="sm" onClick={handleLogout}>
+                      Sign out
+                    </Button>
+                  ) : (
                     <Button variant="secondary" size="sm" onClick={handleLogin} disabled={!state.platformAdminConfigured}>
                       Sign in
                     </Button>
@@ -224,7 +211,6 @@ export function SetupWizardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <StatusRow label="Platform admin emails" value={platformAdminStatus} />
-              <StatusRow label="Bootstrap enabled" value={state.bootstrapEnabled ? 'Yes' : 'No'} />
               <StatusRow label="Tenants" value={state.tenantCount === null ? 'Unknown' : `${state.tenantCount}`} />
 
               {bootstrapResult && (

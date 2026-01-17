@@ -86,7 +86,7 @@ Update `src/Aonik.Api/appsettings.Development.json` (or user secrets) with one o
 
 Notes:
 - `PlatformAdmin.AdminEmails` is the simplest way to declare the initial admin user in local development.
-- `Bootstrap.Enabled` must be true for the first tenant creation.
+- The platform allows bootstrap when no tenants exist.
 - In production, platform admin is typically granted via claims rather than email.
 
 ## Run With Aspire (Recommended)
@@ -112,7 +112,7 @@ Development uses `src/Aonik.Api/appsettings.Development.json` for the connection
 The first authenticated user to call the bootstrap endpoint becomes the initial tenant admin.
 
 Requirements:
-- `Bootstrap.Enabled` is true
+- No tenants exist yet
 - There are no tenants yet in the database
 - The user is authenticated
 - In non-Development environments, the user must be a PlatformAdmin

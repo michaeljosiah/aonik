@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 using Microsoft.AspNetCore.Http;
@@ -7,7 +8,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+
 
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Persistence;
@@ -134,23 +137,35 @@ public static class AonikAuthenticationSetup
         
         // 1. Extract token and claims
         // CRITICAL: Read from SecurityToken, not claims principal
-        if (context.SecurityToken is not JwtSecurityToken jwtToken)
+        JwtSecurityToken? jwtToken = null;
+        JsonWebToken? jsonToken = null;
+
+        if (context.SecurityToken is JwtSecurityToken parsedJwt)
         {
-            logger.LogError("SecurityToken is not a JwtSecurityToken");
+            jwtToken = parsedJwt;
+        }
+        else if (context.SecurityToken is JsonWebToken parsedJson)
+        {
+            jsonToken = parsedJson;
+        }
+        else
+        {
+            logger.LogError("SecurityToken is not a JWT token type: {TokenType}", context.SecurityToken?.GetType().FullName);
             context.Fail("Invalid token type");
             return;
         }
-        
-        var iss = jwtToken.Issuer;
+
+        var iss = jwtToken?.Issuer ?? jsonToken?.Issuer;
+        var claims = jwtToken?.Claims ?? jsonToken?.Claims ?? Array.Empty<Claim>();
         
         // Prefer 'oid' (Entra) over 'sub' (Auth0/standard)
-        var sub = jwtToken.Claims.FirstOrDefault(c => c.Type == "oid")?.Value
-                  ?? jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+        var sub = claims.FirstOrDefault(c => c.Type == "oid")?.Value
+                  ?? claims.FirstOrDefault(c => c.Type == "sub")?.Value;
         
-        var tid = jwtToken.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+        var tid = claims.FirstOrDefault(c => c.Type == "tid")?.Value;
         
-        var email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value
-                    ?? jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+        var email = claims.FirstOrDefault(c => c.Type == "email")?.Value
+                    ?? claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
         
         if (string.IsNullOrEmpty(iss) || string.IsNullOrEmpty(sub))
         {
@@ -315,16 +330,11 @@ public static class AonikAuthenticationSetup
             return false;
         }
 
-        var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
-        var bootstrapOptions = configuration.GetSection("Bootstrap").Get<BootstrapOptions>() ?? new BootstrapOptions();
-        if (!bootstrapOptions.Enabled)
-        {
-            return false;
-        }
-
         var environment = httpContext.RequestServices.GetRequiredService<IHostEnvironment>();
+
         if (!environment.IsDevelopment())
         {
+            var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
             var platformAdminOptions = configuration.GetSection("PlatformAdmin").Get<PlatformAdminOptions>()
                 ?? new PlatformAdminOptions();
 
@@ -342,8 +352,7 @@ public static class AonikAuthenticationSetup
             // Check for admin email match (config-based platform admins)
             if (!isPlatformAdmin && platformAdminOptions.AdminEmails.Length > 0)
             {
-                var userEmail = context.Principal?.Claims
-                    .FirstOrDefault(c => c.Type == "email" || c.Type == "preferred_username" || c.Type == "upn")?.Value;
+                var userEmail = ClaimsEmailResolver.GetEmail(context.Principal);
                 
                 if (!string.IsNullOrEmpty(userEmail))
                 {

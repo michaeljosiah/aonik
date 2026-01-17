@@ -13,21 +13,21 @@ public class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantRes
     private readonly IBootstrapService _bootstrapService;
     private readonly IWebHostEnvironment _environment;
     private readonly IAuthorizationService _authorizationService;
-    private readonly BootstrapOptions _options;
     private readonly ICurrentUserContext _currentUserContext;
+
 
     public BootstrapTenantEndpoint(
         IBootstrapService bootstrapService,
         IWebHostEnvironment environment,
         IAuthorizationService authorizationService,
-        IOptions<BootstrapOptions> options,
         ICurrentUserContext currentUserContext)
+
     {
         _bootstrapService = bootstrapService;
         _environment = environment;
         _authorizationService = authorizationService;
-        _options = options.Value;
         _currentUserContext = currentUserContext;
+
     }
 
     public override void Configure()
@@ -37,12 +37,6 @@ public class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantRes
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        if (!_options.Enabled)
-        {
-            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
-            await HttpContext.Response.WriteAsJsonAsync(new { error = "Bootstrap is disabled." }, ct);
-            return;
-        }
 
         if (!_environment.IsDevelopment())
         {

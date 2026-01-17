@@ -39,7 +39,7 @@ public class ReferenceDataService : IReferenceDataService
         tenantId ??= _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId) ? resolvedTenantId : null;
 
         var cacheKey = GetCacheKey(normalizedType, tenantId);
-        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<ReferenceDataItemSnapshot>? cached))
+        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<ReferenceDataItemSnapshot>? cached) && cached is not null)
         {
             return cached;
         }

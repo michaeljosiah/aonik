@@ -130,7 +130,6 @@ export interface BootstrapTenantResult {
 }
 
 export interface BootstrapStatusResponse {
-  bootstrapEnabled: boolean;
   platformAdminEmailsConfigured: boolean;
   isCurrentUserAllowed: boolean;
   tenantCount: number;
