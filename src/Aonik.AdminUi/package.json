@@ -2,7 +2,7 @@
   "name": "aonik-adminui",
   "private": true,
   "version": "1.0.0",
-  "description": "Aonik Admin Dashboard UI - A modern admin interface inspired by Centrali design system",
+  "description": "Aonik Admin Dashboard UI - A modern admin interface inspired by Aonik design system",
   "type": "module",
   "scripts": {
     "dev": "vite",
