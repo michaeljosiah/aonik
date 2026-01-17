@@ -236,7 +236,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
           </Avatar>
         )}
 
-        <div className="bg-[var(--color-surface)] rounded-xl shadow-lg">
+        <div className="bg-[var(--color-surface-elevated)] rounded-xl shadow-lg border border-[var(--color-border)]">
         {!isExpanded ? (
           /* Collapsed card view */
           <div className="p-4">
