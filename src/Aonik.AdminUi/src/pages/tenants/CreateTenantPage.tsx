@@ -99,16 +99,15 @@ export function CreateTenantPage() {
       navigate(`/tenants/${tenant.tenantId}`);
     } catch (err: unknown) {
       console.error('Failed to create tenant:', err);
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { message?: string } } };
-        setError(axiosError.response?.data?.message || 'Failed to create tenant. Please try again.');
-      } else {
-        setError('Failed to create tenant. Please try again.');
-      }
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to create tenant. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
 
   const toggleCountry = (code: string) => {
     setFormData(prev => ({

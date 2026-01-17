@@ -110,9 +110,12 @@ export function TenantDetailPage() {
         defaultCurrency: data.defaultCurrency,
         supportedCountries: [...data.supportedCountries],
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load tenant:', err);
-      setError('Failed to load tenant. Please try again.');
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to load tenant. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -164,12 +167,10 @@ export function TenantDetailPage() {
       setIsEditing(false);
     } catch (err: unknown) {
       console.error('Failed to update tenant:', err);
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { message?: string } } };
-        setError(axiosError.response?.data?.message || 'Failed to update tenant. Please try again.');
-      } else {
-        setError('Failed to update tenant. Please try again.');
-      }
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to update tenant. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -194,9 +195,12 @@ export function TenantDetailPage() {
     try {
       await tenantService.activate(tenantId);
       await loadTenant();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to activate tenant:', err);
-      setError('Failed to activate tenant. Please try again.');
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to activate tenant. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -208,9 +212,12 @@ export function TenantDetailPage() {
     try {
       await tenantService.deactivate(tenantId);
       await loadTenant();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to deactivate tenant:', err);
-      setError('Failed to deactivate tenant. Please try again.');
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to deactivate tenant. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -223,9 +230,12 @@ export function TenantDetailPage() {
       await tenantService.provision(tenantId);
       await loadTenant();
       await loadHealth();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to provision tenant:', err);
-      setError('Failed to provision tenant. Please try again.');
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to provision tenant. Please try again.');
     } finally {
       setActionLoading(null);
     }

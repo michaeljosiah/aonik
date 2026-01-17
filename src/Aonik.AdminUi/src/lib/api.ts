@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { apiConfig } from '@/auth';
 
 // Create axios instance with base configuration
@@ -38,14 +38,43 @@ apiClient.interceptors.request.use(
   }
 );
 
+const statusMessages: Record<number, string> = {
+  400: 'The request was invalid. Check your inputs and try again.',
+  401: 'You do not have permission to perform this action. PlatformAdmin role required.',
+  403: 'You do not have permission to perform this action. PlatformAdmin role required.',
+  404: 'We could not find what you requested.',
+  409: 'This request could not be completed because of a conflict.',
+  422: 'Some of the provided data is not valid. Please review and try again.',
+  429: 'Too many requests. Please wait a moment and try again.',
+  500: 'Something went wrong on our side. Please try again shortly.',
+  502: 'The service is unavailable right now. Please try again shortly.',
+  503: 'The service is unavailable right now. Please try again shortly.',
+  504: 'The request timed out. Please try again.',
+};
+
+const resolveErrorMessage = (error: AxiosError): string => {
+  const status = error.response?.status;
+  if (!status) {
+    return 'Unable to reach the service. Check your connection and try again.';
+  }
+
+  const data = error.response?.data as { message?: string } | undefined;
+  const message = data?.message?.trim();
+  if (message) {
+    return message;
+  }
+
+  return statusMessages[status] ?? 'Something went wrong. Please try again.';
+};
+
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
     // Handle 401 Unauthorized - token might be expired
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
       if (getAccessTokenFn) {
@@ -72,11 +101,12 @@ apiClient.interceptors.response.use(
       console.error('Resource not found:', error.response.data);
     }
 
-    if (error.response?.status >= 500) {
+    if (error.response?.status && error.response.status >= 500) {
       console.error('Server error:', error.response.data);
     }
 
-    return Promise.reject(error);
+    const message = resolveErrorMessage(error);
+    return Promise.reject({ ...error, userMessage: message });
   }
 );
 

@@ -57,9 +57,12 @@ export function TenantsListPage() {
       });
       setTenants(result.items);
       setTotalCount(result.totalCount);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load tenants:', err);
-      setError('Failed to load tenants. Please try again.');
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to load tenants. Please try again.');
     } finally {
       setLoading(false);
     }
