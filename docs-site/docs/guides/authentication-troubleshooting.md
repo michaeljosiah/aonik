@@ -354,6 +354,7 @@ WHERE Id = 'your-tenant-id';
 **Cause:**
 - User record exists but `IsActive = false`
 - Or user was deleted
+- Or JWT provisioning failed due to missing email claim
 
 **Solution:**
 
@@ -367,6 +368,50 @@ SET IsActive = 1
 WHERE ExternalSubject = 'user-subject-from-token'
   AND TenantId = 'your-tenant-id';
 ```
+
+**If user not found and this is first login:**
+1. Check JWT token for email claim at [jwt.ms](https://jwt.ms)
+2. If email claim missing, see "Email claim not in token" below
+3. Request new token after fixing Auth0 Action
+
+---
+
+### Error: Email claim not in token
+
+**Cause:** Email not included in access token by default in Auth0
+
+**Symptoms:**
+- User authentication succeeds but AONIK can't identify user
+- JWT provisioning fails with "missing email" error
+- API logs show missing email claim
+- User gets 401/403 errors on first API call
+
+**Check Token:**
+1. Get access token and paste into [jwt.ms](https://jwt.ms)
+2. Look for `email` claim in the payload
+3. If missing, follow the solution below
+
+**Solution for Auth0:**
+
+1. **Update Auth0 Action:**
+   - Go to **Actions** > **Library** > "Add AONIK Claims"
+   - Add this line to the action code:
+   ```javascript
+   if (event.user.email) {
+     api.accessToken.setCustomClaim('email', event.user.email);
+   }
+   ```
+
+2. **Deploy and Test:**
+   - Click **Deploy** on the Action
+   - Verify it's in **Actions** > **Flows** > **Login**
+   - Request a fresh token (old tokens won't have new claims)
+   - Verify `email` claim is present in new token
+
+**Why this happens:**
+- Auth0 ID tokens include email by default
+- Access tokens (used for APIs) don't include email by default
+- AONIK uses access tokens, so email must be explicitly added
 
 ---
 

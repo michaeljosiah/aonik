@@ -121,6 +121,11 @@ exports.onExecutePostLogin = async (event, api) => {
     api.idToken.setCustomClaim(`${namespace}/aonik_tenant_id`, aonikTenantId);
   }
   
+  // Add email claim to access token (important for AONIK user identification)
+  if (event.user.email) {
+    api.accessToken.setCustomClaim('email', event.user.email);
+  }
+  
   // Add platform admin flag if present
   const isPlatformAdmin = event.user.app_metadata?.platform_admin === true;
   if (isPlatformAdmin) {
@@ -136,7 +141,11 @@ exports.onExecutePostLogin = async (event, api) => {
 **Key Points:**
 - Custom claims must use a **namespaced format** (`https://aonik.io/aonik_tenant_id`)
 - We read `aonik_tenant_id` from `app_metadata` (set per user)
+- Email claim is added to access token for user identification in AONIK
 - Platform admin flag is optional (for AONIK system administrators)
+
+**Important Note About Email Claim:**
+AONIK relies on the email claim for user identification and JWT provisioning. By default, Auth0 may not include the email claim in access tokens. The action above explicitly adds the email claim to ensure it's available to AONIK APIs.
 
 ### 2.3 Deploy the Action
 
@@ -376,6 +385,7 @@ Copy the access token and paste it into [jwt.ms](https://jwt.ms) to inspect clai
 - ✅ `iss` matches your Authority (e.g., `https://your-domain.auth0.com/`)
 - ✅ `sub` is present (user ID - looks like `auth0|abc123...`)
 - ✅ `https://aonik.io/aonik_tenant_id` is present (if you configured it)
+- ✅ `email` claim is present (required for AONIK user identification)
 - ✅ `scope` or `permissions` contains granted scopes
 
 **Example Token:**
@@ -528,6 +538,21 @@ exports.onExecutePostLogin = async (event, api) => {
 2. Verify Action is in Login flow: **Actions** > **Flows** > **Login**
 3. Check user's `app_metadata` contains `aonik_tenant_id`
 4. Request a new token (old tokens won't have new claims)
+
+### Issue: Email claim not in token
+
+**Cause:** Email not included in access token by default
+
+**Symptoms:**
+- User authentication succeeds but AONIK can't identify user
+- JWT provisioning fails with "missing email" error
+- API logs show missing email claim
+
+**Solution:**
+1. Ensure your Auth0 Action includes the email claim (see Step 2.2 above)
+2. Verify the Action code has: `api.accessToken.setCustomClaim('email', event.user.email);`
+3. Redeploy the Action and request a new token
+4. Check token at jwt.ms to verify `email` claim is present
 
 ### Issue: "User gets 403 after first login"
 
