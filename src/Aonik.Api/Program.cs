@@ -18,6 +18,18 @@ builder.AddServiceDefaults();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
+// Add CORS for development
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Development", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
 // Add AONIK Authentication & Authorization
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
 
@@ -57,7 +69,14 @@ if (app.Environment.IsDevelopment())
 // Map default Aspire endpoints (health, metrics)
 app.MapDefaultEndpoints();
 
+// Use HTTPS redirection
 app.UseHttpsRedirection();
+
+// Use CORS for development
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("Development");
+}
 
 // CRITICAL: Middleware order matters!
 // 1. Authentication (validates JWT, runs OnTokenValidated)
