@@ -45,139 +45,108 @@ export function LoginPage() {
   // Show loading while checking auth state
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#F8F9FA' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '32px', height: '32px', border: '4px solid #0D7377', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-          <p style={{ fontSize: '14px', color: '#6B7280' }}>Loading...</p>
+      <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[var(--color-text-secondary)]">Loading...</p>
         </div>
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
+    <div className="flex min-h-screen w-full">
       {/* Left side - Branding */}
-      <div 
-        style={{ 
-          display: 'none',
-          width: '50%',
-          backgroundColor: '#0D7377',
-          position: 'relative',
-          overflow: 'hidden',
-          padding: '64px'
-        }}
-        className="lg:!flex lg:!flex-col lg:!justify-center"
-      >
+      <div className="hidden lg:flex lg:flex-col lg:justify-center w-1/2 bg-[var(--color-brand-primary)] relative overflow-hidden p-16">
         {/* Decorative circles */}
-        <div style={{ position: 'absolute', top: '-128px', left: '-128px', width: '384px', height: '384px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
-        <div style={{ position: 'absolute', top: '25%', right: '0', width: '256px', height: '256px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
-        <div style={{ position: 'absolute', bottom: '0', left: '25%', width: '320px', height: '320px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.05)' }} />
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/5" />
+        <div className="absolute top-1/4 right-0 w-64 h-64 rounded-full bg-white/5" />
+        <div className="absolute bottom-0 left-1/4 w-80 h-80 rounded-full bg-white/5" />
         
         {/* Accent dots */}
-        <div style={{ position: 'absolute', top: '80px', right: '80px', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#E8A838' }} />
-        <div style={{ position: 'absolute', bottom: '160px', left: '80px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#E8A838' }} />
+        <div className="absolute top-20 right-20 w-4 h-4 rounded-full bg-[var(--color-brand-secondary)]" />
+        <div className="absolute bottom-40 left-20 w-3 h-3 rounded-full bg-[var(--color-brand-secondary)]" />
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 10, color: 'white' }}>
+        <div className="relative z-10 text-white">
           {/* Logo */}
-          <div style={{ marginBottom: '48px' }}>
-            <h1 style={{ fontSize: '36px', fontWeight: 'bold', margin: 0 }}>
-              Aonik<span style={{ color: '#E8A838' }}>.</span>
+          <div className="mb-12">
+            <h1 className="text-4xl font-bold">
+              Aonik<span className="text-[var(--color-brand-secondary)]">.</span>
             </h1>
           </div>
 
           {/* Tagline */}
-          <h2 style={{ fontSize: '30px', fontWeight: '600', marginBottom: '16px', lineHeight: 1.2 }}>
+          <h2 className="text-3xl font-semibold mb-4 leading-tight">
             AI-native financial<br />infrastructure
           </h2>
-          <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.8)', marginBottom: '32px', maxWidth: '400px' }}>
+          <p className="text-lg text-white/80 mb-8 max-w-md">
             Power modern payments, billing, and financial intelligence with AI agents that assist with reconciliation, forecasting, and insights.
           </p>
 
           {/* Feature highlights */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
-              <span style={{ color: 'rgba(255,255,255,0.9)' }}>Intelligent reconciliation & anomaly detection</span>
+              <span className="text-white/90">Intelligent reconciliation & anomaly detection</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <span style={{ color: 'rgba(255,255,255,0.9)' }}>Cash flow forecasting & spend insights</span>
+              <span className="text-white/90">Cash flow forecasting & spend insights</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
-              <span style={{ color: 'rgba(255,255,255,0.9)' }}>Explainable, auditable AI you can trust</span>
+              <span className="text-white/90">Explainable, auditable AI you can trust</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right side - Login */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', backgroundColor: '#F8F9FA' }}>
-        <div style={{ width: '100%', maxWidth: '420px' }}>
+      <div className="flex-1 flex items-center justify-center p-8 bg-[var(--color-background)]">
+        <div className="w-full max-w-md">
           {/* Mobile logo */}
-          <div className="lg:hidden" style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#1A1A1A', margin: 0 }}>
-              Aonik<span style={{ color: '#E8A838' }}>.</span>
+          <div className="lg:hidden text-center mb-8">
+            <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">
+              Aonik<span className="text-[var(--color-brand-secondary)]">.</span>
             </h1>
           </div>
 
-          <Card style={{ boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', border: 'none' }}>
-            <CardContent style={{ padding: '32px' }}>
+          <Card className="shadow-lg border-none">
+            <CardContent className="p-8">
               {/* Header */}
-              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1A1A1A', marginBottom: '8px' }}>
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
                   Welcome back
                 </h2>
-                <p style={{ color: '#6B7280', margin: 0 }}>
+                <p className="text-[var(--color-text-secondary)]">
                   Sign in to continue to your workspace
                 </p>
               </div>
 
               {/* Error message */}
               {error && (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  padding: '12px', 
-                  marginBottom: '24px',
-                  backgroundColor: '#FEF2F2', 
-                  borderRadius: '8px',
-                  border: '1px solid #FECACA'
-                }}>
-                  <AlertCircle style={{ width: '20px', height: '20px', color: '#EF4444', flexShrink: 0 }} />
-                  <p style={{ fontSize: '14px', color: '#991B1B', margin: 0 }}>{error}</p>
+                <div className="flex items-center gap-2 p-3 mb-6 bg-[var(--color-error-light)] rounded-lg border border-[var(--color-error)]/20">
+                  <AlertCircle className="w-5 h-5 text-[var(--color-error)] flex-shrink-0" />
+                  <p className="text-sm text-[var(--color-error)]">{error}</p>
                 </div>
               )}
 
               {/* Provider info */}
-              <div style={{ 
-                padding: '12px 16px', 
-                marginBottom: '24px',
-                backgroundColor: '#F0FDFA', 
-                borderRadius: '8px',
-                border: '1px solid #99F6E4'
-              }}>
-                <p style={{ fontSize: '13px', color: '#0F766E', margin: 0, textAlign: 'center' }}>
+              <div className="p-3 mb-6 bg-[var(--color-brand-primary-light)] rounded-lg border border-[var(--color-brand-primary)]/20">
+                <p className="text-sm text-[var(--color-brand-primary)] text-center">
                   Signing in with {provider === 'azure-ad' ? 'Microsoft Entra ID' : 'Auth0'}
                 </p>
               </div>
@@ -185,44 +154,36 @@ export function LoginPage() {
               {/* Sign in button */}
               <Button 
                 onClick={handleLogin}
-                style={{ 
-                  width: '100%', 
-                  padding: '14px 16px', 
-                  fontSize: '16px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '8px' 
-                }}
+                className="w-full py-3 text-base"
                 disabled={isLoggingIn}
               >
                 {isLoggingIn ? (
                   <>
-                    <svg style={{ animation: 'spin 1s linear infinite', width: '20px', height: '20px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     Redirecting...
                   </>
                 ) : (
                   <>
                     {provider === 'azure-ad' ? (
-                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 23 23">
+                      <svg className="w-5 h-5" viewBox="0 0 23 23">
                         <path fill="currentColor" d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
                       </svg>
                     ) : (
-                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="currentColor">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M21.98 7.448L19.62 0H4.347L2.02 7.448c-1.352 4.312.03 9.206 3.815 12.015L12.007 24l6.157-4.552c3.755-2.81 5.182-7.688 3.815-12.015l-6.16 4.58 2.343 7.45-6.157-4.597-6.158 4.58 2.358-7.433-6.188-4.55 7.63-.045L12.008 0l2.356 7.404 7.615.044z"/>
                       </svg>
                     )}
                     Sign in with {provider === 'azure-ad' ? 'Microsoft' : 'Auth0'}
-                    <ArrowRight style={{ width: '20px', height: '20px' }} />
+                    <ArrowRight className="w-5 h-5" />
                   </>
                 )}
               </Button>
 
               {/* Alternative provider hint */}
-              <p style={{ marginTop: '24px', textAlign: 'center', fontSize: '13px', color: '#9CA3AF' }}>
+              <p className="mt-6 text-center text-sm text-[var(--color-text-tertiary)]">
                 Using a different identity provider?{' '}
                 <a 
                   href="#" 
@@ -230,7 +191,7 @@ export function LoginPage() {
                     e.preventDefault();
                     alert(`To switch providers, set VITE_AUTH_PROVIDER to "${provider === 'azure-ad' ? 'auth0' : 'azure-ad'}" in your .env file`);
                   }}
-                  style={{ color: '#0D7377', textDecoration: 'none' }}
+                  className="text-[var(--color-brand-primary)] hover:underline"
                 >
                   Learn more
                 </a>
@@ -239,22 +200,14 @@ export function LoginPage() {
           </Card>
 
           {/* Footer */}
-          <p style={{ marginTop: '32px', textAlign: 'center', fontSize: '12px', color: '#9CA3AF' }}>
+          <p className="mt-8 text-center text-xs text-[var(--color-text-tertiary)]">
             By signing in, you agree to our{' '}
-            <a href="#" style={{ textDecoration: 'underline' }}>Terms of Service</a>
+            <a href="#" className="underline hover:text-[var(--color-text-secondary)]">Terms of Service</a>
             {' '}and{' '}
-            <a href="#" style={{ textDecoration: 'underline' }}>Privacy Policy</a>
+            <a href="#" className="underline hover:text-[var(--color-text-secondary)]">Privacy Policy</a>
           </p>
         </div>
       </div>
-
-      {/* Keyframes */}
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

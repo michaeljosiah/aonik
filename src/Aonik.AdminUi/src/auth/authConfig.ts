@@ -1,7 +1,7 @@
 import { type Configuration, LogLevel } from '@azure/msal-browser';
 
 // Auth provider type - determined by environment variable
-export type AuthProvider = 'azure-ad' | 'auth0';
+export type AuthProvider = 'azure-ad' | 'auth0' | 'mock';
 
 // Validation result type
 export interface ConfigValidationResult {
@@ -20,6 +20,7 @@ export const getRawAuthProvider = (): string => {
 export const getAuthProvider = (): AuthProvider => {
   const provider = import.meta.env.VITE_AUTH_PROVIDER as string;
   if (provider === 'auth0') return 'auth0';
+  if (provider === 'mock') return 'mock';
   return 'azure-ad'; // Default to Azure AD
 };
 
@@ -31,13 +32,22 @@ export const validateAuthConfig = (): ConfigValidationResult => {
 
   // Check if provider is explicitly set
   if (!rawProvider) {
-    missingFields.push('VITE_AUTH_PROVIDER (set to "azure-ad" or "auth0")');
-  } else if (rawProvider !== 'azure-ad' && rawProvider !== 'auth0') {
+    missingFields.push('VITE_AUTH_PROVIDER (set to "azure-ad", "auth0", or "mock")');
+  } else if (rawProvider !== 'azure-ad' && rawProvider !== 'auth0' && rawProvider !== 'mock') {
     return {
       isValid: false,
       provider: null,
       missingFields: [],
-      error: `Invalid auth provider: "${rawProvider}". Must be "azure-ad" or "auth0".`,
+      error: `Invalid auth provider: "${rawProvider}". Must be "azure-ad", "auth0", or "mock".`,
+    };
+  }
+
+  // Mock provider doesn't need any configuration
+  if (provider === 'mock') {
+    return {
+      isValid: true,
+      provider,
+      missingFields: [],
     };
   }
 
@@ -70,7 +80,9 @@ export const validateAuthConfig = (): ConfigValidationResult => {
 
 // Get provider display name
 export const getProviderDisplayName = (provider: AuthProvider): string => {
-  return provider === 'azure-ad' ? 'Microsoft Entra ID' : 'Auth0';
+  if (provider === 'azure-ad') return 'Microsoft Entra ID';
+  if (provider === 'auth0') return 'Auth0';
+  return 'Mock (Development)';
 };
 
 // Azure AD (Entra ID) Configuration

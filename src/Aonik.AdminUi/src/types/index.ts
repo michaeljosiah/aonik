@@ -79,3 +79,43 @@ export interface Databox {
   lastModified: string;
   modifiedBy: string;
 }
+
+// Tenant Types
+export type TenantStatus = 'Active' | 'Provisioning' | 'Deactivated' | 'Suspended';
+export type TenantEnvironment = 'Dev' | 'Test' | 'Staging' | 'Prod';
+
+export interface Tenant {
+  id: string;
+  tenantId: string;
+  name: string;
+  environment: TenantEnvironment;
+  defaultCurrency: string;
+  supportedCountries: string[];
+  status: TenantStatus;
+  createdAt: string;
+  createdBy?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface CreateTenantRequest {
+  name: string;
+  environment: TenantEnvironment;
+  defaultCurrency: string;
+  supportedCountries: string[];
+}
+
+export interface UpdateTenantRequest {
+  name?: string;
+  environment?: TenantEnvironment;
+  defaultCurrency?: string;
+  supportedCountries?: string[];
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+}

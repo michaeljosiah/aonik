@@ -339,6 +339,19 @@ public static class AonikAuthenticationSetup
                         (claim.Value == "true" || claim.Value == "1")) == true;
             }
 
+            // Check for admin email match (config-based platform admins)
+            if (!isPlatformAdmin && platformAdminOptions.AdminEmails.Length > 0)
+            {
+                var userEmail = context.Principal?.Claims
+                    .FirstOrDefault(c => c.Type == "email" || c.Type == "preferred_username" || c.Type == "upn")?.Value;
+                
+                if (!string.IsNullOrEmpty(userEmail))
+                {
+                    isPlatformAdmin = platformAdminOptions.AdminEmails.Any(adminEmail => 
+                        string.Equals(adminEmail, userEmail, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
             if (!isPlatformAdmin)
             {
                 return false;

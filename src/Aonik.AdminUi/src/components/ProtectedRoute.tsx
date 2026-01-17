@@ -35,7 +35,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
     if (!hasRequiredRole) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
-          <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+          <div className="text-center p-8 bg-[var(--color-surface)] rounded-lg shadow-lg max-w-md">
             <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">
               Access Denied
             </h2>

@@ -38,14 +38,29 @@ public class PlatformAdminHandler : AuthorizationHandler<PlatformAdminRequiremen
                 c.Type == options.ScopeClaimType &&
                 (c.Value == "true" || c.Value == "1"));
         
-        if (hasRoleClaim || hasScopeClaim)
+        // Check for admin email match (config-based platform admins)
+        var hasAdminEmail = false;
+        if (options.AdminEmails.Length > 0)
         {
-            _logger.LogInformation("Platform admin access granted");
+            var userEmail = principal.Claims
+                .FirstOrDefault(c => c.Type == "email" || c.Type == "preferred_username" || c.Type == "upn")?.Value;
+            
+            if (!string.IsNullOrEmpty(userEmail))
+            {
+                hasAdminEmail = options.AdminEmails.Any(adminEmail => 
+                    string.Equals(adminEmail, userEmail, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        
+        if (hasRoleClaim || hasScopeClaim || hasAdminEmail)
+        {
+            _logger.LogInformation("Platform admin access granted (role={HasRole}, scope={HasScope}, email={HasEmail})", 
+                hasRoleClaim, hasScopeClaim, hasAdminEmail);
             context.Succeed(requirement);
         }
         else
         {
-            _logger.LogWarning("Platform admin access denied (missing required claims)");
+            _logger.LogWarning("Platform admin access denied (missing required claims or email not in admin list)");
         }
         
         return Task.CompletedTask;

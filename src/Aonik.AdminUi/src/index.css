@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors - Based on Aonik Design */
+  /* Colors - Based on Aonik Design (Light Theme - Default) */
   --color-brand-primary: #0D7377;
   --color-brand-primary-dark: #0A5C5F;
   --color-brand-primary-light: #E6F3F3;
@@ -12,6 +12,8 @@
   /* Neutral Colors */
   --color-background: #F8F9FA;
   --color-surface: #FFFFFF;
+  --color-surface-inset: #F8F9FA;
+  --color-surface-elevated: #FFFFFF;
   --color-border: #E5E7EB;
   --color-border-light: #F0F0F0;
   
@@ -75,6 +77,53 @@
   --sidebar-collapsed-width: 64px;
 }
 
+/* Dark Theme Overrides */
+[data-theme="dark"] {
+  /* Brand colors - slightly adjusted for dark mode */
+  --color-brand-primary: #14B8A6;
+  --color-brand-primary-dark: #0D9488;
+  --color-brand-primary-light: #134E4A;
+  --color-brand-secondary: #FBBF24;
+  --color-brand-secondary-dark: #F59E0B;
+  --color-brand-secondary-light: #422006;
+  
+  /* Neutral Colors */
+  --color-background: #0F172A;
+  --color-surface: #1E293B;
+  --color-surface-inset: #0F172A;
+  --color-surface-elevated: #334155;
+  --color-border: #334155;
+  --color-border-light: #1E293B;
+  
+  /* Text Colors */
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-tertiary: #64748B;
+  --color-text-inverse: #0F172A;
+  
+  /* Status Colors - adjusted for dark backgrounds */
+  --color-success: #34D399;
+  --color-success-light: #064E3B;
+  --color-warning: #FBBF24;
+  --color-warning-light: #451A03;
+  --color-error: #F87171;
+  --color-error-light: #450A0A;
+  --color-info: #60A5FA;
+  --color-info-light: #1E3A5F;
+  --color-pending: #FB923C;
+  --color-pending-light: #431407;
+  
+  /* Sidebar */
+  --color-sidebar-bg: #1E293B;
+  --color-sidebar-active: #14B8A6;
+  --color-sidebar-hover: #334155;
+  
+  /* Shadows - more subtle in dark mode */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+}
+
 /* Base Styles */
 * {
   box-sizing: border-box;
@@ -98,6 +147,11 @@ body {
 #root {
   min-height: 100vh;
   display: flex;
+  width: 100%;
+}
+
+#root > * {
+  flex: 1;
 }
 
 /* Scrollbar Styling */

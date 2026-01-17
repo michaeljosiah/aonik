@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useTheme } from '@/contexts';
 import {
   Search,
   LayoutDashboard,
@@ -51,8 +53,9 @@ import {
   Webhook,
   ScrollText,
 } from 'lucide-react';
-import type { NavItem, User } from '@/types';
-import { navigationItems, currentUser } from '@/data/mockData';
+import type { NavItem } from '@/types';
+import { navigationItems } from '@/data/mockData';
+import { useAuth, type AuthUser } from '@/auth/useAuth';
 
 const iconMap: Record<string, React.ElementType> = {
   Search,
@@ -169,9 +172,9 @@ function NavItemComponent({
   );
 }
 
-function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
+function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed: boolean; onLogout: () => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const { theme, setTheme } = useTheme();
   
   const initials = user.name
     .split(' ')
@@ -179,11 +182,22 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
     .join('')
     .toUpperCase();
 
+  // Determine display role from roles array
+  const displayRole = user.roles && user.roles.length > 0 
+    ? user.roles[0] 
+    : 'User';
+  
+  // Check if user has admin role
+  const isAdmin = user.roles?.some(role => 
+    role.toLowerCase().includes('admin') || 
+    role.toLowerCase().includes('administrator')
+  ) ?? false;
+
   if (collapsed) {
     return (
       <div className="flex justify-center p-3 border-t border-[var(--color-border-light)]">
         <Avatar className="w-10 h-10 cursor-pointer">
-          {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+          {user.picture && <AvatarImage src={user.picture} alt={user.name} />}
           <AvatarFallback className="bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)]">
             {initials}
           </AvatarFallback>
@@ -215,14 +229,14 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
             className="w-16 h-16 absolute -top-8 left-4 cursor-pointer border-4 border-[var(--color-sidebar-bg)] z-10"
             onClick={() => setIsExpanded(false)}
           >
-            {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+            {user.picture && <AvatarImage src={user.picture} alt={user.name} />}
             <AvatarFallback className="bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)] text-xl">
               {initials}
             </AvatarFallback>
           </Avatar>
         )}
 
-        <div className="bg-white rounded-xl shadow-lg">
+        <div className="bg-[var(--color-surface)] rounded-xl shadow-lg">
         {!isExpanded ? (
           /* Collapsed card view */
           <div className="p-4">
@@ -232,15 +246,17 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
                 className="w-12 h-12 cursor-pointer"
                 onClick={() => setIsExpanded(true)}
               >
-                {user.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+                {user.picture && <AvatarImage src={user.picture} alt={user.name} />}
                 <AvatarFallback className="bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)] text-lg">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="flex items-center gap-2">
-                <Badge variant="team" className="text-[11px] px-2 py-0.5">
-                  Admin
-                </Badge>
+                {isAdmin && (
+                  <Badge variant="team" className="text-[11px] px-2 py-0.5">
+                    Admin
+                  </Badge>
+                )}
                 <button 
                   className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
                   onClick={() => setIsExpanded(true)}
@@ -250,11 +266,18 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
               </div>
             </div>
             {/* Name and role */}
-            <div>
-              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                {user.name}
-              </p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">{user.role}</p>
+            <div className="min-w-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate cursor-default">
+                    {user.name}
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>{user.name}</p>
+                </TooltipContent>
+              </Tooltip>
+              <p className="text-xs text-[var(--color-text-tertiary)] truncate">{displayRole}</p>
             </div>
           </div>
         ) : (
@@ -262,9 +285,11 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
           <div className="p-4">
             {/* Top row: Admin badge + close button */}
             <div className="flex items-center justify-end gap-2 mb-4">
-              <Badge variant="team" className="text-[11px] px-2 py-0.5">
-                Admin
-              </Badge>
+              {isAdmin && (
+                <Badge variant="team" className="text-[11px] px-2 py-0.5">
+                  Admin
+                </Badge>
+              )}
               <button 
                 className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
                 onClick={() => setIsExpanded(false)}
@@ -274,11 +299,18 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
             </div>
 
             {/* Name and role */}
-            <div className="mb-4">
-              <p className="text-base font-semibold text-[var(--color-text-primary)]">
-                {user.name}
-              </p>
-              <p className="text-sm text-[var(--color-brand-primary)]">{user.role}</p>
+            <div className="mb-4 min-w-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-base font-semibold text-[var(--color-text-primary)] truncate cursor-default">
+                    {user.name}
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>{user.name}</p>
+                </TooltipContent>
+              </Tooltip>
+              <p className="text-sm text-[var(--color-brand-primary)] truncate">{displayRole}</p>
             </div>
 
             {/* Menu items */}
@@ -303,7 +335,7 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
                     theme === 'light' 
-                      ? "bg-white shadow-sm text-[var(--color-text-primary)]" 
+                      ? "bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)]" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                   )}
                 >
@@ -315,7 +347,7 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
                   className={cn(
                     "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
                     theme === 'dark' 
-                      ? "bg-white shadow-sm text-[var(--color-text-primary)]" 
+                      ? "bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)]" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
                   )}
                 >
@@ -339,7 +371,10 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
 
             {/* Log out */}
             <div className="pt-3 border-t border-[var(--color-border-light)]">
-              <button className="flex items-center gap-3 w-full px-2 py-2.5 rounded-lg text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors">
+              <button 
+                onClick={onLogout}
+                className="flex items-center gap-3 w-full px-2 py-2.5 rounded-lg text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+              >
                 <LogOut className="w-5 h-5 text-[var(--color-text-secondary)]" />
                 Log out
               </button>
@@ -353,48 +388,60 @@ function UserProfile({ user, collapsed }: { user: User; collapsed: boolean }) {
 }
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
   return (
-    <aside
-      className={cn(
-        'sticky top-0 flex flex-col h-screen bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border-light)] transition-all duration-300 z-40',
-        collapsed ? 'w-16' : 'w-60'
-      )}
-    >
-      {/* Logo */}
-      <div className={cn(
-        'flex items-center h-14 px-4 border-b border-[var(--color-border-light)] shrink-0',
-        collapsed && 'justify-center px-2'
-      )}>
-        {!collapsed ? (
-          <Link to="/" className="flex items-center gap-1">
-            <span className="text-xl font-bold text-[var(--color-text-primary)]">Aonik</span>
-            <span className="text-xl text-[var(--color-brand-secondary)]">.</span>
-          </Link>
-        ) : (
-          <Link to="/" className="text-xl font-bold text-[var(--color-brand-primary)]">C</Link>
+    <TooltipProvider delayDuration={300}>
+      <aside
+        className={cn(
+          'sticky top-0 flex flex-col h-screen bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border-light)] transition-all duration-300 z-40',
+          collapsed ? 'w-16' : 'w-60'
         )}
-        <button
-          onClick={onToggle}
-          className={cn(
-            'p-1.5 rounded-md hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-tertiary)] transition-colors',
-            collapsed ? 'ml-0' : 'ml-auto'
+      >
+        {/* Logo */}
+        <div className={cn(
+          'flex items-center h-14 px-4 border-b border-[var(--color-border-light)] shrink-0',
+          collapsed && 'justify-center px-2'
+        )}>
+          {!collapsed ? (
+            <Link to="/" className="flex items-center gap-1">
+              <span className="text-xl font-bold text-[var(--color-text-primary)]">Aonik</span>
+              <span className="text-xl text-[var(--color-brand-secondary)]">.</span>
+            </Link>
+          ) : (
+            <Link to="/" className="text-xl font-bold text-[var(--color-brand-primary)]">C</Link>
           )}
-        >
-          {collapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
-        </button>
-      </div>
+          <button
+            onClick={onToggle}
+            className={cn(
+              'p-1.5 rounded-md hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-tertiary)] transition-colors',
+              collapsed ? 'ml-0' : 'ml-auto'
+            )}
+          >
+            {collapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+          </button>
+        </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-        {navigationItems.map((item) => (
-          <NavItemComponent key={item.id} item={item} collapsed={collapsed} />
-        ))}
-      </nav>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {navigationItems.map((item) => (
+            <NavItemComponent key={item.id} item={item} collapsed={collapsed} />
+          ))}
+        </nav>
 
-      {/* User Profile - fixed at bottom */}
-      <div className="shrink-0 mt-auto">
-        <UserProfile user={currentUser} collapsed={collapsed} />
-      </div>
-    </aside>
+        {/* User Profile - fixed at bottom */}
+        <div className="shrink-0 mt-auto">
+          {user && <UserProfile user={user} collapsed={collapsed} onLogout={handleLogout} />}
+        </div>
+      </aside>
+    </TooltipProvider>
   );
 }

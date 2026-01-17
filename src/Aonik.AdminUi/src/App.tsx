@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar, Header } from '@/components/layout';
-import { MySpacePage, LoginPage } from '@/pages';
+import { MySpacePage, LoginPage, TenantsListPage, CreateTenantPage, TenantDetailPage } from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
+import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { setAccessTokenGetter } from '@/lib/api';
 
@@ -70,7 +71,9 @@ function AppLayout() {
             <Route path="/access/roles" element={<PlaceholderPage title="Roles" />} />
             <Route path="/access/permissions" element={<PlaceholderPage title="Permissions" />} />
             {/* Tenants */}
-            <Route path="/tenants" element={<PlaceholderPage title="Tenants" />} />
+            <Route path="/tenants" element={<TenantsListPage />} />
+            <Route path="/tenants/new" element={<CreateTenantPage />} />
+            <Route path="/tenants/:id" element={<TenantDetailPage />} />
             {/* Settings */}
             <Route path="/settings/general" element={<PlaceholderPage title="General Settings" />} />
             <Route path="/settings/api-keys" element={<PlaceholderPage title="API Keys" />} />
@@ -118,9 +121,11 @@ function AuthenticatedApp() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AuthenticatedApp />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AuthenticatedApp />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

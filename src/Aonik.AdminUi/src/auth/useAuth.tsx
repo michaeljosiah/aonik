@@ -37,6 +37,44 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
+// Mock Auth Hook for development/testing
+function useMockAuth(): AuthContextType {
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isLoading] = useState(false);
+
+  const mockUser: AuthUser = {
+    id: 'mock-user-123',
+    email: 'admin@aonik.dev',
+    name: 'Dev Admin',
+    picture: undefined,
+    roles: ['Admin', 'PlatformAdmin'],
+  };
+
+  const login = useCallback(async () => {
+    setIsAuthenticated(true);
+  }, []);
+
+  const logout = useCallback(async () => {
+    setIsAuthenticated(false);
+  }, []);
+
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    return 'mock-access-token-for-development';
+  }, []);
+
+  return {
+    isAuthenticated,
+    isLoading,
+    user: isAuthenticated ? mockUser : null,
+    accessToken: isAuthenticated ? 'mock-access-token-for-development' : null,
+    provider: 'mock',
+    authError: null,
+    login,
+    logout,
+    getAccessToken,
+  };
+}
+
 // Azure AD Auth Hook
 function useMsalAuth(): AuthContextType {
   const { instance, accounts, inProgress } = useMsal();
@@ -204,4 +242,10 @@ function Auth0AuthContextProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
-export { AuthContext, MsalAuthContextProvider, Auth0AuthContextProvider };
+// Wrapper for Mock auth that provides context
+function MockAuthContextProvider({ children }: { children: ReactNode }) {
+  const auth = useMockAuth();
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
+}
+
+export { AuthContext, MsalAuthContextProvider, Auth0AuthContextProvider, MockAuthContextProvider };

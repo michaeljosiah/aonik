@@ -10,7 +10,7 @@ import {
   getProviderDisplayName,
   getRawAuthProvider 
 } from './authConfig';
-import { MsalAuthContextProvider, Auth0AuthContextProvider } from './useAuth';
+import { MsalAuthContextProvider, Auth0AuthContextProvider, MockAuthContextProvider } from './useAuth';
 import { AuthError, AuthErrors, type AuthErrorInfo } from '@/components/AuthError';
 
 interface AuthProviderProps {
@@ -158,6 +158,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // Render the appropriate provider
+  if (provider === 'mock') {
+    return <MockAuthContextProvider>{children}</MockAuthContextProvider>;
+  }
+
   if (provider === 'auth0') {
     return <Auth0AuthProvider>{children}</Auth0AuthProvider>;
   }

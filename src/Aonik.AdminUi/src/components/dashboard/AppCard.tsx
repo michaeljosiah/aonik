@@ -96,7 +96,7 @@ export function AppCard({ app }: AppCardProps) {
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
                 {app.owners.slice(0, 3).map((owner, index) => (
-                  <Avatar key={owner.id} className={cn('w-6 h-6 border-2 border-white', index > 0 && '-ml-2')}>
+                  <Avatar key={owner.id} className={cn('w-6 h-6 border-2 border-[var(--color-surface)]', index > 0 && '-ml-2')}>
                     {owner.avatar && <AvatarImage src={owner.avatar} alt={owner.name} />}
                     <AvatarFallback className="text-[10px] bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)]">
                       {owner.name.split(' ').map(n => n[0]).join('')}
@@ -104,7 +104,7 @@ export function AppCard({ app }: AppCardProps) {
                   </Avatar>
                 ))}
                 {app.owners.length > 3 && (
-                  <div className="w-6 h-6 rounded-full bg-[var(--color-background)] border-2 border-white flex items-center justify-center text-[10px] text-[var(--color-text-secondary)] -ml-2">
+                  <div className="w-6 h-6 rounded-full bg-[var(--color-background)] border-2 border-[var(--color-surface)] flex items-center justify-center text-[10px] text-[var(--color-text-secondary)] -ml-2">
                     +{app.owners.length - 3}
                   </div>
                 )}
