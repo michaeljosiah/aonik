@@ -16,7 +16,9 @@ public static class AuditEventNames
     public const string UserProvisioned = "UserProvisioned";
     public const string UserRoleAssigned = "UserRoleAssigned";
     public const string UserRoleRemoved = "UserRoleRemoved";
+    public const string PasswordResetRequested = "PasswordResetRequested";
     public const string VerificationConfirmed = "VerificationConfirmed";
+
     public const string VerificationFailed = "VerificationFailed";
     public const string VerificationStarted = "VerificationStarted";
 }

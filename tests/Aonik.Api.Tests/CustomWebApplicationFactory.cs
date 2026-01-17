@@ -13,6 +13,7 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Infrastructure.Persistence;
 
+
 namespace Aonik.Api.Tests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
@@ -62,6 +63,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
             db.Database.EnsureCreated();
+
         });
     }
 
@@ -233,3 +235,4 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         return string.Join(";", claims.Select(claim => $"{claim.Type}={claim.Value}"));
     }
 }
+

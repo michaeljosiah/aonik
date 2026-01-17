@@ -110,6 +110,8 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
         _currentUserContext.UserId = userId;
         _currentUserContext.TenantId = tenantId;
+        _currentUserContext.ExternalIssuer = "test";
+        _currentUserContext.ExternalSubject = userId.ToString();
         _currentUserContext.Roles = roles;
         _currentUserContext.IsAuthenticated = true;
 

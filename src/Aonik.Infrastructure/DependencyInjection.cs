@@ -22,7 +22,9 @@ using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
 using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authentication.Configuration;
+using Aonik.Infrastructure.Authentication.PasswordReset;
 using Aonik.Infrastructure.Authentication.Provisioning;
+using Aonik.Infrastructure.Authentication.TokenExchange;
 using Aonik.Infrastructure.Authorization;
 using Aonik.Infrastructure.Communication;
 using Aonik.Infrastructure.Communication.Configuration;
@@ -116,9 +118,16 @@ public static class DependencyInjection
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
         services.AddScoped<IRegistrationService, RegistrationService>();
+        services.AddScoped<IIdentityService, IdentityService>();
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
+        services.AddHttpClient<Auth0AuthTokenService>();
+        services.AddHttpClient<AzureAdAuthTokenService>();
+        services.AddHttpClient<Auth0PasswordResetService>();
+        services.AddHttpClient<AzureAdB2cPasswordResetService>();
         services.AddScoped<IIdpUserProvisionerFactory, IdpUserProvisionerFactory>();
+        services.AddScoped<IAuthTokenServiceFactory, AuthTokenServiceFactory>();
+        services.AddScoped<IIdpPasswordResetServiceFactory, IdpPasswordResetServiceFactory>();
         services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
         services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
 
