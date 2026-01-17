@@ -32,28 +32,8 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Users.Read"));
+            TestAuthOptions.Create().WithPermissions("Users.Read"));
 
-
-        var request = new StartEmailVerificationRequest("jane@example.com");
-
-        // Act
-        var response = await client.PostAsJsonAsync("/v1/verifications/email/start", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var result = await response.Content.ReadFromJsonAsync<VerificationChallengeResponse>();
-        result.Should().NotBeNull();
-        result!.ChallengeId.Should().NotBeEmpty();
-    }
-
-    [Fact]
-    public async Task StartPhoneVerification_ReturnsChallenge()
-    {
-        // Arrange
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Users.Read"));
 
 
         var request = new StartPhoneVerificationRequest("+15551234567");

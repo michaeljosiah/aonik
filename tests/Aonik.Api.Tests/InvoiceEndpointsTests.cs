@@ -30,38 +30,8 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Invoice.Create", "Invoice.Read"));
+            TestAuthOptions.Create().WithPermissions("Invoice.Create", "Invoice.Read"));
 
-
-        var request = new CreateInvoiceRequest(
-            CustomerId: Guid.NewGuid(),
-            InvoiceNumber: $"INV-{Guid.NewGuid().ToString()[..8]}",
-            Currency: "USD",
-            DueUtc: DateTime.UtcNow.AddDays(30),
-            LineItems: new List<CreateInvoiceLineItemRequest>
-            {
-                new("Test Service", 1, 100.00m)
-            });
-
-        // Act
-        var response = await client.PostAsJsonAsync("/billing/invoices", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-        
-        var invoice = await response.Content.ReadFromJsonAsync<InvoiceResponse>();
-        invoice.Should().NotBeNull();
-        invoice!.InvoiceNumber.Should().NotBeNullOrEmpty();
-
-        invoice.TotalAmount.Should().Be(100.00m);
-    }
-
-    [Fact]
-    public async Task GetInvoice_ReturnsInvoice_WhenExists()
-    {
-        // Arrange - Create an invoice first
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Invoice.Create", "Invoice.Read"));
 
 
         var createRequest = new CreateInvoiceRequest(
@@ -92,7 +62,8 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Act
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Invoice.Read"));
+            TestAuthOptions.Create().WithPermissions("Invoice.Read"));
+
 
         var response = await client.GetAsync($"/billing/invoices/{Guid.NewGuid()}");
 

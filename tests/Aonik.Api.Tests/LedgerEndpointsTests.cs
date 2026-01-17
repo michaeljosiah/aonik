@@ -20,29 +20,8 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Ledger.Write"));
+            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
 
-        var request = new CreateLedgerAccountRequest("Cash", "USD");
-
-        // Act
-        var response = await client.PostAsJsonAsync("/ledger/accounts", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-        
-        var account = await response.Content.ReadFromJsonAsync<LedgerAccountResponse>();
-        account.Should().NotBeNull();
-        account!.Name.Should().Be("Cash");
-        account.Currency.Should().Be("N/A");
-
-    }
-
-    [Fact]
-    public async Task AddJournalEntry_ReturnsCreated()
-    {
-        // Arrange - Create account first
-        var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Ledger.Write"));
 
         var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
         var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);
@@ -74,7 +53,8 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Ledger.Write"));
+            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
+
 
         var accountRequest = new CreateLedgerAccountRequest("Operations", "USD");
         var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);

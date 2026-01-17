@@ -20,7 +20,8 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Payment.Create"));
+            TestAuthOptions.Create().WithPermissions("Payment.Create"));
+
 
         var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001");
 
@@ -43,7 +44,8 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange - Create payment first
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Payment.Create", "Payment.Read"));
+            TestAuthOptions.Create().WithPermissions("Payment.Create", "Payment.Read"));
+
 
         var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002");
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
@@ -65,7 +67,8 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Act
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Payment.Read"));
+            TestAuthOptions.Create().WithPermissions("Payment.Read"));
+
 
         var response = await client.GetAsync($"/payments/intents/{Guid.NewGuid()}");
 
@@ -78,7 +81,8 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange - Create and authorize payment
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Payment.Create", "Payment.Capture"));
+            TestAuthOptions.Create().WithPermissions("Payment.Create", "Payment.Capture"));
+
 
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003");
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
@@ -100,7 +104,8 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange - Create payment
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Payment.Create", "Payment.Cancel"));
+            TestAuthOptions.Create().WithPermissions("Payment.Create", "Payment.Cancel"));
+
 
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004");
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
@@ -121,7 +126,8 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Act
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithTestRolePermissions("Payment.Cancel"));
+            TestAuthOptions.Create().WithPermissions("Payment.Cancel"));
+
 
         var response = await client.PostAsync($"/payments/intents/{Guid.NewGuid()}/cancel", null);
 

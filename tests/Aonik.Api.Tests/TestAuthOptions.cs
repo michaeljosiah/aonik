@@ -22,15 +22,12 @@ public sealed class TestAuthOptions
         return this;
     }
 
+    [Obsolete("Use WithPermissions for API tests.")]
     public TestAuthOptions WithTestRolePermissions(params string[] permissions)
     {
-        if (permissions.Length > 0)
-        {
-            Claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
-        }
-
-        return this;
+        return WithPermissions(permissions);
     }
+
 
 
     public TestAuthOptions WithTenant(Guid tenantId)

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -26,7 +27,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid().ToString(),
-                ["Auth:TenantRouting"] = "Claim"
+                ["Auth:TenantRouting"] = "Claim",
+                ["UseInMemoryDatabase"] = "true"
             });
         });
 
@@ -34,12 +36,27 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             services.AddAuthentication(options =>
                 {
+                    options.DefaultScheme = TestAuthHandler.SchemeName;
                     options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
                     options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
                 })
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
                     TestAuthHandler.SchemeName,
                     _ => { });
+
+            services.PostConfigure<AuthorizationOptions>(options =>
+            {
+                options.DefaultPolicy = new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName)
+                    .RequireAuthenticatedUser()
+                    .Build();
+            });
+
+            services.PostConfigure<AuthenticationOptions>(options =>
+            {
+                options.DefaultScheme = TestAuthHandler.SchemeName;
+                options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+            });
 
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
