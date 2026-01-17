@@ -8,9 +8,18 @@ import { useAuth, getAuthProvider } from '@/auth';
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading, login, authError } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  useEffect(() => {
+    if (authError) {
+      const message = authError.message || 'Authentication failed. Please check Auth0 logs.';
+      setError(message);
+      setIsLoggingIn(false);
+      console.error('Auth error:', authError);
+    }
+  }, [authError]);
 
   const provider = getAuthProvider();
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';

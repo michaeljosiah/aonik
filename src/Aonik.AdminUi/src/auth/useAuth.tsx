@@ -20,6 +20,7 @@ export interface AuthContextType {
   user: AuthUser | null;
   accessToken: string | null;
   provider: AuthProvider;
+  authError: Error | null;
   login: () => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -108,6 +109,7 @@ function useMsalAuth(): AuthContextType {
     user,
     accessToken,
     provider: 'azure-ad',
+    authError: null,
     login,
     logout,
     getAccessToken,
@@ -123,6 +125,7 @@ function useAuth0Auth(): AuthContextType {
     loginWithRedirect,
     logout: auth0Logout,
     getAccessTokenSilently,
+    error: auth0Error,
   } = useAuth0();
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
@@ -182,6 +185,7 @@ function useAuth0Auth(): AuthContextType {
     user,
     accessToken,
     provider: 'auth0',
+    authError: auth0Error ?? null,
     login,
     logout,
     getAccessToken,
