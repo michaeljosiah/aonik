@@ -57,7 +57,7 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen w-full">
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:flex-col lg:justify-center w-1/2 bg-[var(--color-brand-primary)] relative overflow-hidden p-16">
+        <div className="hidden lg:flex lg:flex-col lg:justify-center w-1/2 bg-[var(--color-brand-primary)] relative overflow-hidden p-16 max-w-[50vw]">
         {/* Decorative circles */}
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/5" />
         <div className="absolute top-1/4 right-0 w-64 h-64 rounded-full bg-white/5" />
@@ -80,7 +80,7 @@ export function LoginPage() {
           <h2 className="text-3xl font-semibold mb-4 leading-tight">
             AI-native financial<br />infrastructure
           </h2>
-          <p className="text-lg text-white/80 mb-8 max-w-md">
+          <p className="text-lg text-white/80 mb-8 max-w-[32rem]">
             Power modern payments, billing, and financial intelligence with AI agents that assist with reconciliation, forecasting, and insights.
           </p>
 
@@ -116,7 +116,7 @@ export function LoginPage() {
 
       {/* Right side - Login */}
       <div className="flex-1 flex items-center justify-center p-8 bg-[var(--color-background)]">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-[28rem] min-w-0">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-8">
             <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">
