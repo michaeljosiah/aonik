@@ -66,7 +66,7 @@ export function AppCard({ app }: AppCardProps) {
         <AppIcon app={app} />
       </div>
       
-      <Card className="flex flex-col h-full overflow-visible hover:shadow-md transition-shadow">
+      <Card className="flex flex-col h-full overflow-visible hover:shadow-md transition-shadow bg-[var(--color-surface-elevated)] border-[var(--color-border)]">
         {/* Header with Actions (icon space reserved) */}
         <div className="p-4 pb-0 flex items-start justify-end">
           <div className="flex items-center gap-1">
