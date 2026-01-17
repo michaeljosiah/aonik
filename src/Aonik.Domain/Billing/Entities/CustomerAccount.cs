@@ -4,7 +4,6 @@ namespace Aonik.Domain.Billing.Entities;
 
 public class CustomerAccount : AuditableEntity, ITenantScoped
 {
-    public Guid CustomerAccountId { get; set; }
     public Guid TenantId { get; set; }
     public Guid MerchantPartyId { get; set; }
     public Guid CustomerPartyId { get; set; }

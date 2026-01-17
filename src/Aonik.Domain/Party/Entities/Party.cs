@@ -4,7 +4,6 @@ namespace Aonik.Domain.Party.Entities;
 
 public class Party : AuditableEntity, ITenantScoped
 {
-    public Guid PartyId { get; set; }
     public Guid TenantId { get; set; }
     public string PartyType { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;

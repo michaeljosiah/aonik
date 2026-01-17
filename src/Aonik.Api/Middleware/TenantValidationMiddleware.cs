@@ -48,7 +48,8 @@ public class TenantValidationMiddleware
         // Validate tenant status (tenant existence already validated during JIT user creation)
         var tenant = await dbContext.Tenants
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, context.RequestAborted);
+            .FirstOrDefaultAsync(t => t.Id == tenantId, context.RequestAborted);
+
         
         if (tenant == null)
         {
@@ -64,9 +65,10 @@ public class TenantValidationMiddleware
             await context.Response.WriteAsJsonAsync(new 
             { 
                 error = $"Tenant is {tenant.Status}",
-                tenantId = tenant.TenantId,
+                tenantId = tenant.Id,
                 status = tenant.Status
             });
+
             return;
         }
         

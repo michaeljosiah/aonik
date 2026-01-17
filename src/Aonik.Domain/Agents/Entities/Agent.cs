@@ -4,7 +4,6 @@ namespace Aonik.Domain.Agents.Entities;
 
 public class Agent : AuditableEntity
 {
-    public Guid AgentId { get; set; }
     public Guid? TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Domain { get; set; } = string.Empty;

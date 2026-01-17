@@ -4,7 +4,6 @@ namespace Aonik.Domain.PersonalFinance.Entities;
 
 public class PersonalTransaction : AuditableEntity, ITenantScoped
 {
-    public Guid PersonalTransactionId { get; set; }
     public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
     public string SourceType { get; set; } = string.Empty;

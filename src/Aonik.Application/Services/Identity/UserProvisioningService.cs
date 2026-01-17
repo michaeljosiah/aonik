@@ -84,8 +84,9 @@ public class UserProvisioningService : IUserProvisioningService
         if (existingLink != null)
         {
             party = await _dbContext.Parties
-                .FirstOrDefaultAsync(p => p.TenantId == identity.TenantId && p.PartyId == existingLink.PartyId,
+                .FirstOrDefaultAsync(p => p.TenantId == identity.TenantId && p.Id == existingLink.PartyId,
                     cancellationToken);
+
         }
 
         var now = _clock.UtcNow;
@@ -102,7 +103,7 @@ public class UserProvisioningService : IUserProvisioningService
 
             party = new Party
             {
-                PartyId = partyId,
+                Id = partyId,
                 TenantId = identity.TenantId,
                 PartyType = "Individual",
                 DisplayName = displayName,
@@ -111,11 +112,11 @@ public class UserProvisioningService : IUserProvisioningService
                 CreatedBy = currentUserId
             };
 
+
             if (!string.IsNullOrWhiteSpace(identity.Email))
             {
                 party.Contacts.Add(new PartyContact
                 {
-                    PartyContactId = Guid.NewGuid(),
                     PartyId = partyId,
                     Type = "Email",
                     Value = identity.Email,
@@ -123,6 +124,7 @@ public class UserProvisioningService : IUserProvisioningService
                     CreatedAt = now,
                     CreatedBy = currentUserId
                 });
+
             }
 
             _dbContext.Parties.Add(party);
@@ -139,10 +141,11 @@ public class UserProvisioningService : IUserProvisioningService
                 _correlationContext.CorrelationId,
                 JsonSerializer.Serialize(new
                 {
-                    party.PartyId,
+                    PartyId = party.Id,
                     party.DisplayName,
                     user.Id
                 }),
+
                 cancellationToken);
         }
 
@@ -152,7 +155,7 @@ public class UserProvisioningService : IUserProvisioningService
             {
                 TenantId = identity.TenantId,
                 UserId = user.Id,
-                PartyId = party.PartyId,
+                PartyId = party.Id,
                 LinkType = "Individual",
                 CreatedAt = now,
                 CreatedBy = currentUserId
@@ -173,17 +176,19 @@ public class UserProvisioningService : IUserProvisioningService
                 JsonSerializer.Serialize(new
                 {
                     user.Id,
-                    party.PartyId,
+                    PartyId = party.Id,
                     userParty.LinkType
                 }),
+
                 cancellationToken);
         }
 
         return new UserProvisioningResult(
             user.Id,
-            party.PartyId,
+            party.Id,
             userCreated,
             partyCreated,
             linkCreated);
+
     }
 }

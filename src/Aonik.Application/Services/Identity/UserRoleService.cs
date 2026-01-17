@@ -132,7 +132,8 @@ public class UserRoleService : IUserRoleService
     private async Task<Role> EnsureRoleInTenantAsync(Guid roleId, Guid tenantId, CancellationToken cancellationToken)
     {
         var role = await _dbContext.Roles
-            .FirstOrDefaultAsync(r => r.RoleId == roleId && r.TenantId == tenantId, cancellationToken);
+.FirstOrDefaultAsync(r => r.Id == roleId && r.TenantId == tenantId, cancellationToken);
+
 
         if (role == null)
         {
@@ -149,7 +150,8 @@ public class UserRoleService : IUserRoleService
         var roles = await _dbContext.UserRoles
             .Where(ur => ur.UserId == userId)
             .Include(ur => ur.Role)
-            .Select(ur => new RoleSummary(ur.Role.RoleId, ur.Role.Name))
+.Select(ur => new RoleSummary(ur.Role.Id, ur.Role.Name))
+
             .OrderBy(role => role.Name)
             .ToListAsync(cancellationToken);
 

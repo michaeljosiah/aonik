@@ -4,7 +4,6 @@ namespace Aonik.Domain.Billing.Entities;
 
 public class DunningPlan : AuditableEntity, ITenantScoped
 {
-    public Guid DunningPlanId { get; set; }
     public Guid TenantId { get; set; }
     public Guid CustomerAccountId { get; set; }
     public string PolicyJson { get; set; } = string.Empty;

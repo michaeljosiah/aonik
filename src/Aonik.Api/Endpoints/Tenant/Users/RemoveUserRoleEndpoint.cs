@@ -35,4 +35,5 @@ public class RemoveUserRoleEndpoint : EndpointWithoutRequest<UserRoleResponse>
             result.UserId,
             result.Roles.Select(role => new RoleSummaryResponse(role.RoleId, role.Name)).ToList());
     }
+
 }

@@ -22,7 +22,8 @@ public class TenantSecurityTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         var options = TestAuthOptions.Create();
         options.TenantId = null;
-        options.WithPermissions("Invoice.Read");
+        options.WithTestRolePermissions("Invoice.Read");
+
 
         var client = await _factory.CreateAuthenticatedClientAsync(options);
 
@@ -42,12 +43,14 @@ public class TenantSecurityTests : IClassFixture<CustomWebApplicationFactory>
 
         var tenantAClient = await _factory.CreateAuthenticatedClientAsync(
             TestAuthOptions.Create()
-                .WithPermissions("Invoice.Create", "Invoice.Read")
+                .WithTestRolePermissions("Invoice.Create", "Invoice.Read")
+
                 .WithTenant(tenantA));
 
         var tenantBClient = await _factory.CreateAuthenticatedClientAsync(
             TestAuthOptions.Create()
-                .WithPermissions("Invoice.Read")
+                .WithTestRolePermissions("Invoice.Read")
+
                 .WithTenant(tenantB));
 
         var createRequest = new CreateInvoiceRequest(
@@ -90,7 +93,8 @@ public class TenantSecurityTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var options = TestAuthOptions.Create()
-            .WithPermissions("Users.Read");
+            .WithTestRolePermissions("Users.Read");
+
 
         var client = await _factory.CreateAuthenticatedClientAsync(options);
 
@@ -106,8 +110,9 @@ public class TenantSecurityTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var options = TestAuthOptions.Create()
-            .WithPermissions("Users.Read")
+            .WithTestRolePermissions("Users.Read")
             .WithRoles("TenantAdmin");
+
 
         var client = await _factory.CreateAuthenticatedClientAsync(options);
 

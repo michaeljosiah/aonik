@@ -51,13 +51,14 @@ public class OnboardingPolicyEvaluatorTests
 
         context.Tenants.Add(new Tenant
         {
-            TenantId = tenantId,
+            Id = tenantId,
             Name = "Test Tenant",
             Environment = "Testing",
             DefaultCurrency = "USD",
             SupportedCountriesJson = "[]",
             Status = TenantStatus.Active
         });
+
 
         context.Users.Add(new User
         {
@@ -70,16 +71,16 @@ public class OnboardingPolicyEvaluatorTests
 
         context.Parties.Add(new Party
         {
-            PartyId = partyId,
+            Id = partyId,
             TenantId = tenantId,
             PartyType = "Individual",
             DisplayName = "Verified User",
             Status = "Active"
         });
 
+
         context.PartyAddresses.Add(new PartyAddress
         {
-            PartyAddressId = Guid.NewGuid(),
             PartyId = partyId,
             Type = "Home",
             Line1 = "123 Main St",
@@ -88,14 +89,15 @@ public class OnboardingPolicyEvaluatorTests
             Country = "US"
         });
 
+
         context.PartyContacts.Add(new PartyContact
         {
-            PartyContactId = Guid.NewGuid(),
             PartyId = partyId,
             Type = "Email",
             Value = "verified@example.com",
             IsPrimary = true
         });
+
 
         context.UserParties.Add(new UserParty
         {
@@ -165,13 +167,14 @@ public class OnboardingPolicyEvaluatorTests
 
         context.Tenants.Add(new Tenant
         {
-            TenantId = tenantId,
+            Id = tenantId,
             Name = "Test Tenant",
             Environment = "Testing",
             DefaultCurrency = "USD",
             SupportedCountriesJson = "[]",
             Status = TenantStatus.Active
         });
+
 
         context.Users.Add(new User
         {
@@ -184,12 +187,13 @@ public class OnboardingPolicyEvaluatorTests
 
         context.Parties.Add(new Party
         {
-            PartyId = partyId,
+            Id = partyId,
             TenantId = tenantId,
             PartyType = "Individual",
             DisplayName = "Pending User",
             Status = "Active"
         });
+
 
         context.UserParties.Add(new UserParty
         {
@@ -250,13 +254,14 @@ public class OnboardingPolicyEvaluatorTests
 
         context.Tenants.Add(new Tenant
         {
-            TenantId = tenantId,
+            Id = tenantId,
             Name = "Test Tenant",
             Environment = "Testing",
             DefaultCurrency = "USD",
             SupportedCountriesJson = "[]",
             Status = TenantStatus.Active
         });
+
 
         context.Users.Add(new User
         {
@@ -269,12 +274,13 @@ public class OnboardingPolicyEvaluatorTests
 
         context.Parties.Add(new Party
         {
-            PartyId = partyId,
+            Id = partyId,
             TenantId = tenantId,
             PartyType = "Individual",
             DisplayName = "Pending User",
             Status = "Active"
         });
+
 
         context.UserParties.Add(new UserParty
         {

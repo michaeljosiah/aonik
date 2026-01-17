@@ -4,7 +4,6 @@ namespace Aonik.Domain.Agents.Entities;
 
 public class AgentRun : AuditableEntity, ITenantScoped
 {
-    public Guid AgentRunId { get; set; }
     public Guid TenantId { get; set; }
     public Guid AgentId { get; set; }
     public string Goal { get; set; } = string.Empty;

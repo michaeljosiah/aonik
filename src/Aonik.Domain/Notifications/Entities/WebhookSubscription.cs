@@ -4,7 +4,6 @@ namespace Aonik.Domain.Notifications.Entities;
 
 public class WebhookSubscription : AuditableEntity, ITenantScoped
 {
-    public Guid WebhookSubscriptionId { get; set; }
     public Guid TenantId { get; set; }
     public string SubscriberName { get; set; } = string.Empty;
     public string EventTypesJson { get; set; } = string.Empty;

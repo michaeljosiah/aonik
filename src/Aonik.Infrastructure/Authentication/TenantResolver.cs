@@ -94,16 +94,17 @@ public class TenantResolver : ITenantResolver
         // Lookup tenant by subdomain
         var tenant = await _dbContext.Tenants
             .Where(t => t.Subdomain == subdomain && t.Status == "Active")
-            .Select(t => new { t.TenantId })
+            .Select(t => new { t.Id })
             .FirstOrDefaultAsync(ct);
-        
+
         if (tenant == null)
         {
             _logger.LogWarning("No active tenant found for subdomain: {Subdomain}", subdomain);
             return null;
         }
-        
-        return tenant.TenantId;
+
+        return tenant.Id;
+
     }
     
     private Guid? ResolveFromHeader(HttpContext httpContext)

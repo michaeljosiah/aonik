@@ -15,8 +15,23 @@ public sealed class TestAuthOptions
     public TestAuthOptions WithPermissions(params string[] permissions)
     {
         Permissions.AddRange(permissions);
+        if (permissions.Length > 0)
+        {
+            Claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
+        }
         return this;
     }
+
+    public TestAuthOptions WithTestRolePermissions(params string[] permissions)
+    {
+        if (permissions.Length > 0)
+        {
+            Claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
+        }
+
+        return this;
+    }
+
 
     public TestAuthOptions WithTenant(Guid tenantId)
     {

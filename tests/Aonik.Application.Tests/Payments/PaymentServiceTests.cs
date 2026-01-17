@@ -25,21 +25,22 @@ public class PaymentServiceTests
         }
     }
 
-    private static AonikDbContext CreateDbContext()
+    private static AonikDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<AonikDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new AonikDbContext(options);
+        return new AonikDbContext(options, new TestTenantProvider(tenantId));
     }
 
     [Fact]
     public async Task CreatePaymentIntentAsync_ShouldCreatePaymentIntent()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new PaymentService(context, tenantProvider);
         var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001");
 
@@ -64,8 +65,9 @@ public class PaymentServiceTests
     public async Task GetPaymentIntentAsync_ShouldReturnPaymentIntent_WhenExists()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new PaymentService(context, tenantProvider);
         var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002");
         var created = await service.CreatePaymentIntentAsync(createRequest);
@@ -84,8 +86,9 @@ public class PaymentServiceTests
     public async Task GetPaymentIntentAsync_ShouldReturnNull_WhenNotExists()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new PaymentService(context, tenantProvider);
 
         // Act
@@ -99,8 +102,9 @@ public class PaymentServiceTests
     public async Task CapturePaymentAsync_ShouldCapturePayment_WhenAuthorized()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new PaymentService(context, tenantProvider);
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003");
         var created = await service.CreatePaymentIntentAsync(createRequest);
@@ -122,8 +126,9 @@ public class PaymentServiceTests
     public async Task CapturePaymentAsync_ShouldThrow_WhenPaymentNotFound()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new PaymentService(context, tenantProvider);
 
         // Act
@@ -138,8 +143,9 @@ public class PaymentServiceTests
     public async Task CancelPaymentAsync_ShouldCancelPayment_WhenPending()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new PaymentService(context, tenantProvider);
         var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004");
         var created = await service.CreatePaymentIntentAsync(createRequest);
@@ -156,8 +162,9 @@ public class PaymentServiceTests
     public async Task CancelPaymentAsync_ShouldThrow_WhenPaymentNotFound()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new PaymentService(context, tenantProvider);
 
         // Act

@@ -58,7 +58,8 @@ public class UserProfileService : IUserProfileService
             user.Email,
             user.Phone,
             user.Status,
-            party?.PartyId,
+            party?.Id,
+
             party?.DisplayName);
     }
 
@@ -98,11 +99,12 @@ public class UserProfileService : IUserProfileService
             JsonSerializer.Serialize(new
             {
                 user.Id,
-                party.PartyId,
+                PartyId = party.Id,
                 request.DisplayName,
                 Email = AuditLogMasking.MaskEmail(request.Email),
                 Phone = AuditLogMasking.MaskPhone(request.Phone)
             }),
+
             cancellationToken);
 
         return MapProfile(user, party);
@@ -134,7 +136,8 @@ public class UserProfileService : IUserProfileService
         }
 
         return await query
-            .FirstOrDefaultAsync(party => party.PartyId == partyId.Value && party.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(party => party.Id == partyId.Value && party.TenantId == tenantId, cancellationToken);
+
     }
 
     private void ApplyProfileUpdates(User user, Party party, CustomerProfileUpdateRequest request)
@@ -188,8 +191,7 @@ public class UserProfileService : IUserProfileService
         {
             contact = new PartyContact
             {
-                PartyContactId = Guid.NewGuid(),
-                PartyId = party.PartyId,
+                PartyId = party.Id,
                 Type = type,
                 Value = value,
                 IsPrimary = true,
@@ -220,8 +222,7 @@ public class UserProfileService : IUserProfileService
         {
             existing = new PartyAddress
             {
-                PartyAddressId = Guid.NewGuid(),
-                PartyId = party.PartyId,
+                PartyId = party.Id,
                 Type = "Primary",
                 CreatedAt = now,
                 CreatedBy = actorId
@@ -260,10 +261,11 @@ public class UserProfileService : IUserProfileService
         }
 
         return new CustomerProfile(
-            party.PartyId,
+            party.Id,
             party.DisplayName,
             user.Email,
             user.Phone,
             address);
+
     }
 }

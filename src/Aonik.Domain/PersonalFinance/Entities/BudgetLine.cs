@@ -4,7 +4,6 @@ namespace Aonik.Domain.PersonalFinance.Entities;
 
 public class BudgetLine : AuditableEntity, ITenantScoped
 {
-    public Guid BudgetLineId { get; set; }
     public Guid TenantId { get; set; }
     public Guid BudgetId { get; set; }
     public string Category { get; set; } = string.Empty;

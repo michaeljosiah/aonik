@@ -4,7 +4,6 @@ namespace Aonik.Domain.Orders.Entities;
 
 public class Order : AuditableEntity, ITenantScoped
 {
-    public Guid OrderId { get; set; }
     public Guid TenantId { get; set; }
     public string OrderType { get; set; } = string.Empty;
     public decimal AmountIn { get; set; }

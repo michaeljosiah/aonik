@@ -4,7 +4,6 @@ namespace Aonik.Domain.Compliance.Entities;
 
 public class ScreeningCheck : AuditableEntity, ITenantScoped
 {
-    public Guid ScreeningCheckId { get; set; }
     public Guid TenantId { get; set; }
     public Guid PartyId { get; set; }
     public string CheckType { get; set; } = string.Empty;

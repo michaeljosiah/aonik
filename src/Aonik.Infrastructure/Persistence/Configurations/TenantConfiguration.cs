@@ -10,9 +10,6 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
     {
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.TenantId)
-            .IsRequired();
-
         builder.Property(x => x.Name)
             .IsRequired()
             .HasMaxLength(200);
@@ -35,9 +32,6 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(x => x.Status)
             .IsRequired()
             .HasMaxLength(50);
-
-        builder.HasIndex(x => x.TenantId)
-            .IsUnique();
 
         builder.HasIndex(x => x.Name)
             .IsUnique();

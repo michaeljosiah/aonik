@@ -4,7 +4,6 @@ namespace Aonik.Domain.Orders.Entities;
 
 public class OrderPartyRole : AuditableEntity, ITenantScoped
 {
-    public Guid OrderPartyRoleId { get; set; }
     public Guid TenantId { get; set; }
     public Guid OrderId { get; set; }
     public Guid PartyId { get; set; }

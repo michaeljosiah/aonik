@@ -4,7 +4,6 @@ namespace Aonik.Domain.Ai.Entities;
 
 public class AiRun : AuditableEntity, ITenantScoped
 {
-    public Guid AiRunId { get; set; }
     public Guid TenantId { get; set; }
     public Guid? UserId { get; set; }
     public string UseCase { get; set; } = string.Empty;

@@ -61,14 +61,14 @@ public class BootstrapService : IBootstrapService
         var tenantResult = await ResolveOrCreateTenantAsync(now, cancellationToken);
         var tenant = tenantResult.Tenant;
 
-        _tenantContext.TenantId = tenant.TenantId;
+        _tenantContext.TenantId = tenant.Id;
         _tenantContext.ResolutionSource = "Bootstrap";
 
         var userResult = await ResolveOrCreateUserAsync(tenant, userContext, cancellationToken);
         var tenantAdminAssigned = await EnsureTenantAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
 
         return new BootstrapTenantResult(
-            tenant.TenantId,
+            tenant.Id,
             tenant.Name,
             tenantResult.TenantCreated,
             userResult.UserId,
@@ -99,7 +99,7 @@ public class BootstrapService : IBootstrapService
 
         tenant = new Tenant
         {
-            TenantId = Guid.NewGuid(),
+            Id = Guid.NewGuid(),
             Name = tenantName,
             Environment = environmentName,
             DefaultCurrency = currency.ToUpperInvariant(),
@@ -112,20 +112,20 @@ public class BootstrapService : IBootstrapService
         _dbContext.Tenants.Add(tenant);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _tenantContext.TenantId = tenant.TenantId;
+        _tenantContext.TenantId = tenant.Id;
         _tenantContext.ResolutionSource = "Bootstrap";
 
         await _auditLogWriter.LogAsync(
             AuditEventNames.TenantBootstrapCreated,
             "Tenant",
             tenant.Id,
-            tenant.TenantId,
+            tenant.Id,
             currentUserId,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name, tenant.Environment }),
+            JsonSerializer.Serialize(new { tenant.Id, tenant.Name, tenant.Environment }),
             cancellationToken);
 
-        await _tenantProvisioner.ProvisionTenantAsync(tenant.TenantId, cancellationToken);
+        await _tenantProvisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
 
         tenant.Status = TenantStatus.Active;
         tenant.UpdatedAt = _clock.UtcNow;
@@ -134,6 +134,8 @@ public class BootstrapService : IBootstrapService
 
         return (tenant, true);
     }
+
+
 
     private async Task<(Guid UserId, bool UserCreated)> ResolveOrCreateUserAsync(
         Tenant tenant,
@@ -150,10 +152,11 @@ public class BootstrapService : IBootstrapService
 
         user ??= await _dbContext.Users
             .FirstOrDefaultAsync(u =>
-                u.TenantId == tenant.TenantId &&
+                u.TenantId == tenant.Id &&
                 u.ExternalIssuer == userContext.ExternalIssuer &&
                 u.ExternalSubject == userContext.ExternalSubject,
                 cancellationToken);
+
 
         if (user != null)
         {
@@ -163,7 +166,7 @@ public class BootstrapService : IBootstrapService
         var newUser = new User
         {
             Id = Guid.NewGuid(),
-            TenantId = tenant.TenantId,
+            TenantId = tenant.Id,
             ExternalIssuer = userContext.ExternalIssuer,
             ExternalSubject = userContext.ExternalSubject,
             ExternalTenantId = userContext.ExternalTenantId,
@@ -171,17 +174,20 @@ public class BootstrapService : IBootstrapService
             Status = "Active"
         };
 
+
         _dbContext.Users.Add(newUser);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _currentUserContext.UserId = newUser.Id;
-        _currentUserContext.TenantId ??= tenant.TenantId;
+        _currentUserContext.TenantId ??= tenant.Id;
+
 
         await _auditLogWriter.LogAsync(
             AuditEventNames.UserProvisioned,
             "User",
             newUser.Id,
-            tenant.TenantId,
+            tenant.Id,
+
             newUser.Id,
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { newUser.Id, Email = AuditLogMasking.MaskEmail(newUser.Email) }),
@@ -196,14 +202,15 @@ public class BootstrapService : IBootstrapService
         CancellationToken cancellationToken)
     {
         var tenantAdminRole = await _dbContext.Roles
-            .FirstOrDefaultAsync(r => r.TenantId == tenant.TenantId && r.Name == "TenantAdmin", cancellationToken);
+.FirstOrDefaultAsync(r => r.TenantId == tenant.Id && r.Name == "TenantAdmin", cancellationToken);
+
 
         if (tenantAdminRole == null)
         {
             tenantAdminRole = new Role
             {
-                RoleId = Guid.NewGuid(),
-                TenantId = tenant.TenantId,
+                Id = Guid.NewGuid(),
+                TenantId = tenant.Id,
                 Name = "TenantAdmin"
             };
 
@@ -212,7 +219,8 @@ public class BootstrapService : IBootstrapService
         }
 
         var existingUserRole = await _dbContext.UserRoles
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == tenantAdminRole.RoleId, cancellationToken);
+            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == tenantAdminRole.Id, cancellationToken);
+
 
         if (existingUserRole != null)
         {
@@ -222,7 +230,7 @@ public class BootstrapService : IBootstrapService
         var userRole = new UserRole
         {
             UserId = userId,
-            RoleId = tenantAdminRole.RoleId
+            RoleId = tenantAdminRole.Id
         };
 
         _dbContext.UserRoles.Add(userRole);
@@ -232,12 +240,13 @@ public class BootstrapService : IBootstrapService
             AuditEventNames.UserRoleAssigned,
             "UserRole",
             userRole.Id,
-            tenant.TenantId,
+            tenant.Id,
             _currentUserProvider.GetCurrentUserId() ?? userId,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { userId, tenantAdminRole.RoleId, tenantAdminRole.Name }),
+            JsonSerializer.Serialize(new { userId, RoleId = tenantAdminRole.Id, tenantAdminRole.Name }),
             cancellationToken);
 
         return true;
     }
 }
+

@@ -4,7 +4,6 @@ namespace Aonik.Domain.Party.Entities;
 
 public class PartyAddress : AuditableEntity
 {
-    public Guid PartyAddressId { get; set; }
     public Guid PartyId { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Line1 { get; set; } = string.Empty;

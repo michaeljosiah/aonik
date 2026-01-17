@@ -4,7 +4,6 @@ namespace Aonik.Domain.Orders.Entities;
 
 public class OrderHistoryEvent : AuditableEntity, ITenantScoped
 {
-    public Guid OrderHistoryEventId { get; set; }
     public Guid TenantId { get; set; }
     public Guid OrderId { get; set; }
     public string EventType { get; set; } = string.Empty;

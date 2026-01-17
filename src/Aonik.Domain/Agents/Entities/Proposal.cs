@@ -4,7 +4,6 @@ namespace Aonik.Domain.Agents.Entities;
 
 public class Proposal : AuditableEntity, ITenantScoped
 {
-    public Guid ProposalId { get; set; }
     public Guid TenantId { get; set; }
     public string ProposalType { get; set; } = string.Empty;
     public Guid ProposedByAgentId { get; set; }

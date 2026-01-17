@@ -1,9 +1,10 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 // Add SQL Server with a database
-var sqlServer = builder.AddSqlServer("sql")
-    .WithLifetime(ContainerLifetime.Persistent)
-    .AddDatabase("aonikdb");
+var sql = builder.AddSqlServer("sql")
+    .WithLifetime(ContainerLifetime.Persistent);
+
+var sqlServer = sql.AddDatabase("DefaultConnection");
 
 // Add API project with SQL Server reference
 var api = builder.AddProject<Projects.Aonik_Api>("api")
@@ -12,11 +13,13 @@ var api = builder.AddProject<Projects.Aonik_Api>("api")
          endpoint.Port = 5001;
      })
     .WithReference(sqlServer)
+    .WaitFor(sqlServer)
     .WithExternalHttpEndpoints();
 
 // Add Worker project with SQL Server reference
 var worker = builder.AddProject<Projects.Aonik_Worker>("worker")
-    .WithReference(sqlServer);
+    .WithReference(sqlServer)
+    .WaitFor(sqlServer);
 
 // Add Admin UI (React/Vite frontend)
 var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")

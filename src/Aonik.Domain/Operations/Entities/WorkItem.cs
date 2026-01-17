@@ -4,7 +4,6 @@ namespace Aonik.Domain.Operations.Entities;
 
 public class WorkItem : AuditableEntity, ITenantScoped
 {
-    public Guid WorkItemId { get; set; }
     public Guid TenantId { get; set; }
     public string WorkItemType { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;

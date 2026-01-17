@@ -60,7 +60,8 @@ public class UserIdentityService : IUserIdentityService
         
         // Verify tenant exists and is active
         var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.TenantId == aonikTenantId, ct);
+            .FirstOrDefaultAsync(t => t.Id == aonikTenantId, ct);
+
         
         if (tenant == null)
         {

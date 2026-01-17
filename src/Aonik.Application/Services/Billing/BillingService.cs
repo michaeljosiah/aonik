@@ -24,7 +24,6 @@ public class BillingService : IBillingService
         var invoice = new Invoice
         {
             Id = Guid.NewGuid(),
-            InvoiceId = Guid.NewGuid(),
             TenantId = tenantId,
             CustomerAccountId = request.CustomerId,
             IssueDate = DateTime.UtcNow,
@@ -46,7 +45,6 @@ public class BillingService : IBillingService
             var lineItem = new InvoiceLine
             {
                 Id = Guid.NewGuid(),
-                InvoiceLineId = Guid.NewGuid(),
                 TenantId = tenantId,
                 InvoiceId = invoice.Id,
                 Description = lineItemRequest.Description,
@@ -93,7 +91,6 @@ public class BillingService : IBillingService
         var lineItem = new InvoiceLine
         {
             Id = Guid.NewGuid(),
-            InvoiceLineId = Guid.NewGuid(),
             TenantId = tenantId,
             InvoiceId = invoice.Id,
             Description = lineRequest.Description,
@@ -225,7 +222,7 @@ public class BillingService : IBillingService
         return new InvoiceResponse(
             invoice.Id,
             invoice.CustomerAccountId,
-            "", // InvoiceNumber - not in current entity
+            invoice.Id.ToString("N"),
             invoice.Currency,
             invoice.Total,
             Enum.Parse<Domain.Billing.InvoiceStatus>(invoice.Status),

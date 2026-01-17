@@ -4,7 +4,6 @@ namespace Aonik.Domain.Pricing.Entities;
 
 public class LimitsPolicy : AuditableEntity, ITenantScoped
 {
-    public Guid LimitsPolicyId { get; set; }
     public Guid TenantId { get; set; }
     public string ScopeType { get; set; } = string.Empty;
     public Guid? ScopeId { get; set; }

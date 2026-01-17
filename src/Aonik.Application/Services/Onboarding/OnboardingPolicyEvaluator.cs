@@ -119,7 +119,8 @@ public class OnboardingPolicyEvaluator : IOnboardingPolicyEvaluator
         }
 
         var party = await _dbContext.Parties
-            .FirstOrDefaultAsync(p => p.PartyId == partyId.Value, cancellationToken);
+            .FirstOrDefaultAsync(p => p.Id == partyId.Value, cancellationToken);
+
 
         if (party == null || string.IsNullOrWhiteSpace(party.DisplayName))
         {

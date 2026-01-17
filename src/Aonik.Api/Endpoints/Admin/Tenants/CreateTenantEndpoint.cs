@@ -24,7 +24,7 @@ public class CreateTenantEndpoint : Endpoint<CreateTenantRequest, TenantResponse
         var result = await _tenantService.CreateTenantAsync(req, ct);
 
         await Send.CreatedAtAsync<GetTenantEndpoint>(
-            routeValues: new { tenantId = result.TenantId },
+            routeValues: new { tenantId = result.Id },
             responseBody: result,
             cancellation: ct);
     }

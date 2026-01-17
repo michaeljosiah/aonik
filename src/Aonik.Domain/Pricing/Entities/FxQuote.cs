@@ -4,7 +4,6 @@ namespace Aonik.Domain.Pricing.Entities;
 
 public class FxQuote : AuditableEntity, ITenantScoped
 {
-    public Guid FxQuoteId { get; set; }
     public Guid TenantId { get; set; }
     public string BaseCurrency { get; set; } = string.Empty;
     public string TargetCurrency { get; set; } = string.Empty;

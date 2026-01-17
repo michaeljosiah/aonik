@@ -4,7 +4,6 @@ namespace Aonik.Domain.Party.Entities;
 
 public class PartyConsent : AuditableEntity
 {
-    public Guid PartyConsentId { get; set; }
     public Guid PartyId { get; set; }
     public string ConsentType { get; set; } = string.Empty;
     public DateTime GrantedAt { get; set; }

@@ -7,6 +7,9 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
+using Aonik.Application.Abstractions.Multitenancy;
+
+
 using Aonik.Api.Contracts.Identity;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Identity;
@@ -29,7 +32,8 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Users.Read"));
+            TestAuthOptions.Create().WithTestRolePermissions("Users.Read"));
+
 
         var request = new StartEmailVerificationRequest("jane@example.com");
 
@@ -49,7 +53,8 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Users.Read"));
+            TestAuthOptions.Create().WithTestRolePermissions("Users.Read"));
+
 
         var request = new StartPhoneVerificationRequest("+15551234567");
 
@@ -130,9 +135,13 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         var verificationOptions = scope.ServiceProvider
             .GetRequiredService<IOptions<VerificationOptions>>()
             .Value;
+
+        tenantContext.TenantId = options.TenantId;
+
 
         var challenge = new VerificationChallenge
         {

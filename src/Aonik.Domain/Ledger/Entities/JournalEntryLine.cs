@@ -4,7 +4,6 @@ namespace Aonik.Domain.Ledger.Entities;
 
 public class JournalEntryLine : AuditableEntity, ITenantScoped
 {
-    public Guid JournalEntryLineId { get; set; }
     public Guid TenantId { get; set; }
     public Guid JournalEntryId { get; set; }
     public Guid LedgerAccountId { get; set; }

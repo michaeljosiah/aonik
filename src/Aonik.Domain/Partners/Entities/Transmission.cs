@@ -4,7 +4,6 @@ namespace Aonik.Domain.Partners.Entities;
 
 public class Transmission : AuditableEntity, ITenantScoped
 {
-    public Guid TransmissionId { get; set; }
     public Guid TenantId { get; set; }
     public Guid PayoutId { get; set; }
     public Guid ConnectorId { get; set; }

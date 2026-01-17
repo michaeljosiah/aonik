@@ -4,7 +4,6 @@ namespace Aonik.Domain.Partners.Entities;
 
 public class RoutingRule : AuditableEntity, ITenantScoped
 {
-    public Guid RoutingRuleId { get; set; }
     public Guid TenantId { get; set; }
     public string ConditionsJson { get; set; } = string.Empty;
     public Guid? TargetPartnerId { get; set; }

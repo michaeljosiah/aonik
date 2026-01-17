@@ -24,5 +24,6 @@ public class LedgerAccountConfiguration : IEntityTypeConfiguration<LedgerAccount
 
         builder.HasIndex(x => x.Name);
         builder.HasIndex(x => x.Code);
+        builder.HasIndex(x => x.LedgerId);
     }
 }

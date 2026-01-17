@@ -38,7 +38,8 @@ public class TenantProvisioner : ITenantProvisioner
     public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+.FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+
 
         if (tenant == null)
             throw new InvalidOperationException($"Tenant {tenantId} not found");
@@ -61,7 +62,6 @@ public class TenantProvisioner : ITenantProvisioner
             var ledger = new LedgerEntity
             {
                 Id = ledgerId,
-                LedgerId = ledgerId,
                 TenantId = tenantId,
                 BaseCurrency = tenant.DefaultCurrency,
                 CreatedAt = now,
@@ -71,7 +71,8 @@ public class TenantProvisioner : ITenantProvisioner
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             ledgerCreated = true;
-            actionsPerformed.Add($"Created ledger {ledger.LedgerId} with base currency {tenant.DefaultCurrency}");
+            actionsPerformed.Add($"Created ledger {ledger.Id} with base currency {tenant.DefaultCurrency}");
+
 
             // Create Chart of Accounts
             var accounts = CreateDefaultChartOfAccounts(tenantId, ledgerId, userId, now);
@@ -158,7 +159,6 @@ public class TenantProvisioner : ITenantProvisioner
             new()
             {
                 Id = Guid.NewGuid(),
-                LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
                 AccountType = "Asset",
@@ -171,7 +171,6 @@ public class TenantProvisioner : ITenantProvisioner
             new()
             {
                 Id = Guid.NewGuid(),
-                LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
                 AccountType = "Asset",
@@ -184,7 +183,6 @@ public class TenantProvisioner : ITenantProvisioner
             new()
             {
                 Id = Guid.NewGuid(),
-                LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
                 AccountType = "Liability",
@@ -197,7 +195,6 @@ public class TenantProvisioner : ITenantProvisioner
             new()
             {
                 Id = Guid.NewGuid(),
-                LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
                 AccountType = "Equity",
@@ -210,7 +207,6 @@ public class TenantProvisioner : ITenantProvisioner
             new()
             {
                 Id = Guid.NewGuid(),
-                LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
                 AccountType = "Revenue",
@@ -223,7 +219,6 @@ public class TenantProvisioner : ITenantProvisioner
             new()
             {
                 Id = Guid.NewGuid(),
-                LedgerAccountId = Guid.NewGuid(),
                 TenantId = tenantId,
                 LedgerId = ledgerId,
                 AccountType = "Expense",
@@ -254,7 +249,7 @@ public class TenantProvisioner : ITenantProvisioner
         {
             new()
             {
-                RoleId = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 Name = "TenantAdmin",
                 CreatedAt = now,
@@ -262,7 +257,7 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
-                RoleId = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 Name = "Operations",
                 CreatedAt = now,
@@ -270,7 +265,7 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
-                RoleId = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 Name = "ReadOnly",
                 CreatedAt = now,
@@ -278,13 +273,14 @@ public class TenantProvisioner : ITenantProvisioner
             },
             new()
             {
-                RoleId = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 Name = "Compliance",
                 CreatedAt = now,
                 CreatedBy = userId
             }
         };
+
 
         _dbContext.Roles.AddRange(defaultRoles);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -307,7 +303,7 @@ public class TenantProvisioner : ITenantProvisioner
 
         var defaultPolicy = new AiRoutePolicy
         {
-            AiRoutePolicyId = Guid.NewGuid(),
+            Id = Guid.NewGuid(),
             TenantId = tenantId,
             UseCase = "Default",
             RiskTier = "Low",
@@ -337,7 +333,7 @@ public class TenantProvisioner : ITenantProvisioner
         {
             var feePolicy = new FeePolicy
             {
-                FeePolicyId = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 Name = "Default Fee Policy",
                 FixedFee = 0.00m,
@@ -365,7 +361,7 @@ public class TenantProvisioner : ITenantProvisioner
         {
             var limitsPolicy = new LimitsPolicy
             {
-                LimitsPolicyId = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 ScopeType = "Tenant",
                 ScopeId = tenantId,

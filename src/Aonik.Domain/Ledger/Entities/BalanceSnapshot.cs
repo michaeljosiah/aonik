@@ -4,7 +4,6 @@ namespace Aonik.Domain.Ledger.Entities;
 
 public class BalanceSnapshot : AuditableEntity, ITenantScoped
 {
-    public Guid BalanceSnapshotId { get; set; }
     public Guid TenantId { get; set; }
     public Guid LedgerAccountId { get; set; }
     public DateTime AsOf { get; set; }

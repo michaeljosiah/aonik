@@ -52,7 +52,7 @@ public class TenantService : ITenantService
 
         var tenant = new Tenant
         {
-            TenantId = Guid.NewGuid(),
+            Id = Guid.NewGuid(),
             Name = request.Name,
             Environment = request.Environment,
             DefaultCurrency = request.DefaultCurrency.ToUpperInvariant(),
@@ -62,6 +62,7 @@ public class TenantService : ITenantService
             CreatedBy = userId
         };
 
+
         _dbContext.Tenants.Add(tenant);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -69,14 +70,15 @@ public class TenantService : ITenantService
             AuditEventNames.TenantCreated,
             "Tenant",
             tenant.Id,
-            tenant.TenantId,
+            tenant.Id,
             userId,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name, tenant.Environment }),
+            JsonSerializer.Serialize(new { tenant.Id, tenant.Name, tenant.Environment }),
             cancellationToken);
 
         // Provision defaults
-        await _provisioner.ProvisionTenantAsync(tenant.TenantId, cancellationToken);
+        await _provisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
+
 
         // Update status to Active
         tenant.Status = TenantStatus.Active;
@@ -90,12 +92,14 @@ public class TenantService : ITenantService
     public async Task<TenantResponse?> GetTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
         return tenant == null ? null : MapToResponse(tenant);
     }
 
-    public async Task<PagedResult<TenantResponse>> ListTenantsAsync(ListTenantsRequest request, CancellationToken cancellationToken = default)
+    public async Task<PagedResult<TenantResponse>> ListTenantsAsync(
+        ListTenantsRequest request,
+        CancellationToken cancellationToken = default)
     {
         var query = _dbContext.Tenants.AsQueryable();
 
@@ -118,37 +122,44 @@ public class TenantService : ITenantService
 
         var items = tenants.Select(MapToResponse).ToList();
 
-        return new PagedResult<TenantResponse>(items, totalCount, request.PageNumber, request.PageSize);
+        return new PagedResult<TenantResponse>(
+            items,
+            request.PageNumber,
+            request.PageSize,
+            totalCount);
     }
 
-    public async Task<TenantResponse> UpdateTenantAsync(Guid tenantId, UpdateTenantRequest request, CancellationToken cancellationToken = default)
+    public async Task<TenantResponse> UpdateTenantAsync(
+        Guid tenantId,
+        UpdateTenantRequest request,
+        CancellationToken cancellationToken = default)
     {
         var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
         if (tenant == null)
             throw new InvalidOperationException($"Tenant {tenantId} not found");
 
         var userId = _currentUserProvider.GetCurrentUserId();
 
-        if (!string.IsNullOrEmpty(request.Name) && request.Name != tenant.Name)
+        if (!string.IsNullOrWhiteSpace(request.Name))
         {
             var existingTenant = await _dbContext.Tenants
-                .FirstOrDefaultAsync(t => t.Name == request.Name && t.TenantId != tenantId, cancellationToken);
+                .FirstOrDefaultAsync(t => t.Name == request.Name && t.Id != tenantId, cancellationToken);
 
             if (existingTenant != null)
-                throw new InvalidOperationException($"Tenant with name '{request.Name}' already exists");
+                throw new InvalidOperationException($"Tenant name '{request.Name}' already exists");
 
-            tenant.Name = request.Name;
+            tenant.Name = request.Name.Trim();
         }
 
-        if (!string.IsNullOrEmpty(request.DefaultCurrency))
+        if (!string.IsNullOrWhiteSpace(request.DefaultCurrency))
         {
             ValidateCurrency(request.DefaultCurrency);
             tenant.DefaultCurrency = request.DefaultCurrency.ToUpperInvariant();
         }
 
-        if (request.SupportedCountries != null && request.SupportedCountries.Length > 0)
+        if (request.SupportedCountries is { Length: > 0 })
         {
             ValidateCountryCodes(request.SupportedCountries);
             tenant.SupportedCountriesJson = JsonSerializer.Serialize(request.SupportedCountries.Select(c => c.ToUpperInvariant()));
@@ -169,7 +180,7 @@ public class TenantService : ITenantService
             AuditEventNames.TenantUpdated,
             "Tenant",
             tenant.Id,
-            tenant.TenantId,
+            tenant.Id,
             userId,
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(request),
@@ -181,7 +192,7 @@ public class TenantService : ITenantService
     public async Task DeactivateTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
         if (tenant == null)
             throw new InvalidOperationException($"Tenant {tenantId} not found");
@@ -199,17 +210,17 @@ public class TenantService : ITenantService
             AuditEventNames.TenantDeactivated,
             "Tenant",
             tenant.Id,
-            tenant.TenantId,
+            tenant.Id,
             _currentUserProvider.GetCurrentUserId(),
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name }),
+            JsonSerializer.Serialize(new { tenant.Id, tenant.Name }),
             cancellationToken);
     }
 
     public async Task ActivateTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         var tenant = await _dbContext.Tenants
-            .FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
         if (tenant == null)
             throw new InvalidOperationException($"Tenant {tenantId} not found");
@@ -227,12 +238,13 @@ public class TenantService : ITenantService
             AuditEventNames.TenantActivated,
             "Tenant",
             tenant.Id,
-            tenant.TenantId,
+            tenant.Id,
             _currentUserProvider.GetCurrentUserId(),
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { tenant.TenantId, tenant.Name }),
+            JsonSerializer.Serialize(new { tenant.Id, tenant.Name }),
             cancellationToken);
     }
+
 
     private static TenantResponse MapToResponse(Tenant tenant)
     {
@@ -242,7 +254,7 @@ public class TenantService : ITenantService
 
         return new TenantResponse(
             tenant.Id,
-            tenant.TenantId,
+            tenant.Id,
             tenant.Name,
             tenant.Environment,
             tenant.DefaultCurrency,
@@ -253,6 +265,7 @@ public class TenantService : ITenantService
             tenant.UpdatedAt,
             tenant.UpdatedBy
         );
+
     }
 
     private static void ValidateCreateRequest(CreateTenantRequest request)

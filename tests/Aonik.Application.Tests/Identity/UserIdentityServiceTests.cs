@@ -79,7 +79,7 @@ public class UserIdentityServiceTests
         using var context = new AonikDbContext(options, tenantProvider);
         context.Tenants.Add(new Tenant
         {
-            TenantId = tenantId,
+            Id = tenantId,
             Name = "Test Tenant",
             Environment = "Testing",
             DefaultCurrency = "USD",
@@ -87,6 +87,7 @@ public class UserIdentityServiceTests
             Status = TenantStatus.Active
         });
         await context.SaveChangesAsync();
+
 
         var service = new UserIdentityService(
             context,
@@ -122,7 +123,7 @@ public class UserIdentityServiceTests
         using var context = new AonikDbContext(options, tenantProvider);
         context.Tenants.Add(new Tenant
         {
-            TenantId = tenantId,
+            Id = tenantId,
             Name = "Test Tenant",
             Environment = "Testing",
             DefaultCurrency = "USD",
@@ -130,6 +131,7 @@ public class UserIdentityServiceTests
             Status = TenantStatus.Active
         });
         await context.SaveChangesAsync();
+
 
         var service = new UserIdentityService(
             context,
@@ -173,7 +175,7 @@ public class UserIdentityServiceTests
         using var context = new AonikDbContext(options, tenantProvider);
         context.Tenants.Add(new Tenant
         {
-            TenantId = tenantId,
+            Id = tenantId,
             Name = "Test Tenant",
             Environment = "Testing",
             DefaultCurrency = "USD",
@@ -181,6 +183,7 @@ public class UserIdentityServiceTests
             Status = TenantStatus.Active
         });
         await context.SaveChangesAsync();
+
 
         var auditLogWriter = new TestAuditLogWriter();
         var correlationId = "corr-verify";

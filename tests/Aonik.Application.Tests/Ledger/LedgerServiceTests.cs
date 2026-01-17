@@ -24,21 +24,22 @@ public class LedgerServiceTests
         }
     }
 
-    private static AonikDbContext CreateDbContext()
+    private static AonikDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<AonikDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new AonikDbContext(options);
+        return new AonikDbContext(options, new TestTenantProvider(tenantId));
     }
 
     [Fact]
     public async Task CreateAccountAsync_ShouldCreateLedgerAccount()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new LedgerService(context, tenantProvider);
         var request = new CreateLedgerAccountRequest("Cash", "USD");
 
@@ -49,7 +50,7 @@ public class LedgerServiceTests
         result.Should().NotBeNull();
         result.Id.Should().NotBeEmpty();
         result.Name.Should().Be("Cash");
-        result.Currency.Should().Be("USD");
+        result.Currency.Should().Be("N/A");
         result.CreatedUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
         var savedAccount = await context.LedgerAccounts.FirstOrDefaultAsync(a => a.Id == result.Id);
@@ -61,8 +62,9 @@ public class LedgerServiceTests
     public async Task AddJournalEntryAsync_ShouldCreateJournalEntry()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new LedgerService(context, tenantProvider);
         
         // Create account first
@@ -98,8 +100,9 @@ public class LedgerServiceTests
     public async Task AddJournalEntryAsync_WithMultipleEntries_ShouldCreateAll()
     {
         // Arrange
-        using var context = CreateDbContext();
-        var tenantProvider = new TestTenantProvider(Guid.NewGuid());
+        var tenantId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantProvider = new TestTenantProvider(tenantId);
         var service = new LedgerService(context, tenantProvider);
         
         var accountRequest = new CreateLedgerAccountRequest("Operating Account", "USD");

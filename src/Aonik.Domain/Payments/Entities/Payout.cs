@@ -4,7 +4,6 @@ namespace Aonik.Domain.Payments.Entities;
 
 public class Payout : AuditableEntity, ITenantScoped
 {
-    public Guid PayoutId { get; set; }
     public Guid TenantId { get; set; }
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;

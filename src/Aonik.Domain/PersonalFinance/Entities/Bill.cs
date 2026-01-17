@@ -4,7 +4,6 @@ namespace Aonik.Domain.PersonalFinance.Entities;
 
 public class Bill : AuditableEntity, ITenantScoped
 {
-    public Guid BillId { get; set; }
     public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
     public string Payee { get; set; } = string.Empty;

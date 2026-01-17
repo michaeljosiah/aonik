@@ -5,8 +5,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-
 using Aonik.SharedKernel.Abstractions;
+using Aonik.Application.Abstractions.Multitenancy;
+
 
 namespace Aonik.Api.Tests;
 
@@ -20,16 +21,20 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     public const string ClaimsHeader = "X-Test-Claims";
 
     private readonly ICurrentUserContext _currentUserContext;
+    private readonly ITenantContext _tenantContext;
 
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ICurrentUserContext currentUserContext)
+        ICurrentUserContext currentUserContext,
+        ITenantContext tenantContext)
         : base(options, logger, encoder)
     {
         _currentUserContext = currentUserContext;
+        _tenantContext = tenantContext;
     }
+
 
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -46,6 +51,7 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             new("sub", userId.ToString()),
             new("iss", "test")
         };
+
 
         Guid? tenantId = null;
         if (Request.Headers.TryGetValue(TenantIdHeader, out var tenantIdValue)
@@ -74,7 +80,18 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
             claims.AddRange(ParseClaims(claimsValue));
         }
 
+        var permissionClaims = claims
+            .Where(claim => string.Equals(claim.Type, "permission", StringComparison.OrdinalIgnoreCase))
+            .Select(claim => claim.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (permissionClaims.Count > 0)
+        {
+            Context.Items["TestPermissions"] = permissionClaims;
+        }
+
         var identity = new ClaimsIdentity(claims, SchemeName);
+
         var principal = new ClaimsPrincipal(identity);
 
         var token = new JwtSecurityToken(issuer: "test", claims: claims);
@@ -95,6 +112,10 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         _currentUserContext.TenantId = tenantId;
         _currentUserContext.Roles = roles;
         _currentUserContext.IsAuthenticated = true;
+
+        _tenantContext.TenantId = tenantId;
+        _tenantContext.ResolutionSource = "TestAuth";
+
 
         var ticket = new AuthenticationTicket(principal, SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));

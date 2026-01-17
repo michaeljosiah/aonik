@@ -4,7 +4,6 @@ namespace Aonik.Domain.Party.Entities;
 
 public class ExternalAccount : AuditableEntity, ITenantScoped
 {
-    public Guid ExternalAccountId { get; set; }
     public Guid TenantId { get; set; }
     public Guid PartyId { get; set; }
     public string ExternalAccountType { get; set; } = string.Empty;

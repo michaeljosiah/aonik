@@ -98,7 +98,7 @@ public class IndividualRegistrationEndpoint : Endpoint<IndividualRegistrationReq
         var subdomain = parts[0];
         return await _dbContext.Tenants
             .Where(t => t.Subdomain == subdomain && t.Status == "Active")
-            .Select(t => (Guid?)t.TenantId)
+            .Select(t => (Guid?)t.Id)
             .FirstOrDefaultAsync(ct);
     }
 

@@ -4,7 +4,6 @@ namespace Aonik.Domain.Identity.Entities;
 
 public class Tenant : AuditableEntity
 {
-    public Guid TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Subdomain { get; set; }                          // For subdomain-based routing
     public string Environment { get; set; } = string.Empty;

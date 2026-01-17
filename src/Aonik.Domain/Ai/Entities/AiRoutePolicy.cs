@@ -4,7 +4,6 @@ namespace Aonik.Domain.Ai.Entities;
 
 public class AiRoutePolicy : AuditableEntity
 {
-    public Guid AiRoutePolicyId { get; set; }
     public Guid? TenantId { get; set; }
     public string UseCase { get; set; } = string.Empty;
     public string RiskTier { get; set; } = string.Empty;

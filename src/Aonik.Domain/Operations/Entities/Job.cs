@@ -4,7 +4,6 @@ namespace Aonik.Domain.Operations.Entities;
 
 public class Job : AuditableEntity, ITenantScoped
 {
-    public Guid JobId { get; set; }
     public Guid TenantId { get; set; }
     public string JobType { get; set; } = string.Empty;
     public string? ScheduleCron { get; set; }

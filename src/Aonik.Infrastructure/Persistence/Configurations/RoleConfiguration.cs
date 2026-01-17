@@ -12,9 +12,6 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
         
         builder.HasKey(r => r.Id);
         
-        builder.Property(r => r.RoleId)
-            .IsRequired();
-        
         builder.Property(r => r.TenantId)
             .IsRequired();
         

@@ -52,7 +52,7 @@ public class AuditLogWriter : IAuditLogWriter
 
         var auditLog = new AuditLog
         {
-            AuditLogId = Guid.NewGuid(),
+            Id = Guid.NewGuid(),
             TenantId = resolvedTenantId,
             Timestamp = _clock.UtcNow,
             ActorType = "User",

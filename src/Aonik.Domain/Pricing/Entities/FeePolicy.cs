@@ -4,7 +4,6 @@ namespace Aonik.Domain.Pricing.Entities;
 
 public class FeePolicy : AuditableEntity, ITenantScoped
 {
-    public Guid FeePolicyId { get; set; }
     public Guid TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
     public decimal FixedFee { get; set; }

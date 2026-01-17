@@ -12,9 +12,6 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
         
         builder.HasKey(p => p.Id);
         
-        builder.Property(p => p.PermissionId)
-            .IsRequired();
-        
         builder.Property(p => p.Key)
             .IsRequired()
             .HasMaxLength(200);

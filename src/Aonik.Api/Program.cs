@@ -41,21 +41,18 @@ builder.Services.AddAonikSwagger(builder.Configuration);
 
 var app = builder.Build();
 
-// Auto-migrate database (optional)
-if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
-{
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
-
-// Seed permissions in development
+// Auto-migrate and seed database in Development
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<IAonikDbContext>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+    
+    // Apply pending migrations
+    await dbContext.Database.MigrateAsync();
+    
+    // Seed permissions
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<IdentitySeedService>>();
-    var seedService = new IdentitySeedService(dbContext, logger);
+    var seedService = new IdentitySeedService((IAonikDbContext)dbContext, logger);
     await seedService.SeedAsync();
 }
 

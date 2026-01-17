@@ -4,7 +4,6 @@ namespace Aonik.Domain.Ai.Entities;
 
 public class AiModel : AuditableEntity
 {
-    public Guid AiModelId { get; set; }
     public Guid AiProviderId { get; set; }
     public string ModelName { get; set; } = string.Empty;
     public int ContextWindow { get; set; }

@@ -86,12 +86,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
 
         var tenantId = options.TenantId.Value;
-        var tenant = await dbContext.Tenants.FirstOrDefaultAsync(t => t.TenantId == tenantId);
+        var tenant = await dbContext.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId);
         if (tenant == null)
         {
             tenant = new Tenant
             {
-                TenantId = tenantId,
+                Id = tenantId,
                 Name = "Test Tenant",
                 Environment = Environments.Development,
                 DefaultCurrency = "USD",
@@ -102,6 +102,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             dbContext.Tenants.Add(tenant);
             await dbContext.SaveChangesAsync();
         }
+
 
         if (options.Permissions.Count == 0)
         {
@@ -132,10 +133,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         var roleName = $"TestRole-{Guid.NewGuid()}";
         var role = new Role
         {
-            RoleId = Guid.NewGuid(),
+            Id = Guid.NewGuid(),
             TenantId = tenantId,
             Name = roleName
         };
+
 
         dbContext.Roles.Add(role);
         await dbContext.SaveChangesAsync();
@@ -144,20 +146,22 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             dbContext.RolePermissions.Add(new RolePermission
             {
-                RoleId = role.RoleId,
-                PermissionId = permission.PermissionId,
+                RoleId = role.Id,
+                PermissionId = permission.Id,
                 Role = role,
                 Permission = permission
             });
+
         }
 
         dbContext.UserRoles.Add(new UserRole
         {
             UserId = user.Id,
-            RoleId = role.RoleId,
+            RoleId = role.Id,
             Role = role,
             User = user
         });
+
 
         await dbContext.SaveChangesAsync();
     }
@@ -178,15 +182,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             dbContext.Permissions.Add(new Permission
             {
-                PermissionId = Guid.NewGuid(),
+                Id = Guid.NewGuid(),
                 Key = key,
                 Description = $"Test permission for {key}"
             });
+
         }
 
-        foreach (var permission in existing.Where(permission => permission.PermissionId == Guid.Empty))
+        foreach (var permission in existing.Where(permission => permission.Id == Guid.Empty))
         {
-            permission.PermissionId = Guid.NewGuid();
+            permission.Id = Guid.NewGuid();
         }
 
         if (dbContext.ChangeTracker.HasChanges())
@@ -196,11 +201,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         var result = await dbContext.Permissions
             .Where(p => keys.Contains(p.Key))
+            .GroupBy(p => p.Key)
+            .Select(g => g.OrderByDescending(p => p.CreatedAt).First())
             .ToListAsync();
 
         result.Should().HaveCount(keys.Count);
 
         return result;
+
     }
 
     private static string SerializeClaims(IEnumerable<Claim> claims)

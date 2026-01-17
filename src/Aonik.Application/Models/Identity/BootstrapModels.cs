@@ -13,3 +13,4 @@ public record BootstrapTenantResult(
     Guid UserId,
     bool UserCreated,
     bool TenantAdminAssigned);
+

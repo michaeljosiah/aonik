@@ -4,7 +4,6 @@ namespace Aonik.Domain.Ledger.Entities;
 
 public class LedgerAccount : AuditableEntity, ITenantScoped
 {
-    public Guid LedgerAccountId { get; set; }
     public Guid TenantId { get; set; }
     public Guid LedgerId { get; set; }
     public string AccountType { get; set; } = string.Empty;

@@ -4,7 +4,6 @@ namespace Aonik.Domain.Partners.Entities;
 
 public class Connector : AuditableEntity, ITenantScoped
 {
-    public Guid ConnectorId { get; set; }
     public Guid TenantId { get; set; }
     public Guid PartnerId { get; set; }
     public string ConnectorType { get; set; } = string.Empty;

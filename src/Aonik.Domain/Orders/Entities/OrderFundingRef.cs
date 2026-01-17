@@ -4,7 +4,6 @@ namespace Aonik.Domain.Orders.Entities;
 
 public class OrderFundingRef : AuditableEntity, ITenantScoped
 {
-    public Guid OrderFundingRefId { get; set; }
     public Guid TenantId { get; set; }
     public Guid OrderId { get; set; }
     public Guid PaymentIntentId { get; set; }

@@ -69,7 +69,7 @@ public class GetMeEndpoint : EndpointWithoutRequest<CurrentUserResponse>
             tenantId,
             userId,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { result.UserId, result.TenantId }),
+            JsonSerializer.Serialize(new { result.UserId, TenantId = tenantId }),
             ct);
 
         await Send.OkAsync(MapResponse(result), ct);

@@ -4,7 +4,6 @@ namespace Aonik.Domain.Ai.Entities;
 
 public class ToolSpec : AuditableEntity
 {
-    public Guid ToolSpecId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Domain { get; set; } = string.Empty;
     public string ContractJson { get; set; } = string.Empty;

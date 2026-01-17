@@ -4,7 +4,6 @@ namespace Aonik.Domain.Compliance.Entities;
 
 public class AuditLog : AuditableEntity, ITenantScoped
 {
-    public Guid AuditLogId { get; set; }
     public Guid TenantId { get; set; }
     public DateTime Timestamp { get; set; }
     public string ActorType { get; set; } = string.Empty;
@@ -15,3 +14,4 @@ public class AuditLog : AuditableEntity, ITenantScoped
     public string DetailsJson { get; set; } = string.Empty;
     public string CorrelationId { get; set; } = string.Empty;
 }
+

@@ -4,7 +4,6 @@ namespace Aonik.Domain.Compliance.Entities;
 
 public class ComplianceCase : AuditableEntity, ITenantScoped
 {
-    public Guid ComplianceCaseId { get; set; }
     public Guid TenantId { get; set; }
     public string CaseType { get; set; } = string.Empty;
     public Guid? LinkedOrderId { get; set; }

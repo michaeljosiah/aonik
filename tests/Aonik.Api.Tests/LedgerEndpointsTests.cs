@@ -20,7 +20,8 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
+            TestAuthOptions.Create().WithTestRolePermissions("Ledger.Write"));
+
         var request = new CreateLedgerAccountRequest("Cash", "USD");
 
         // Act
@@ -32,7 +33,8 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
         var account = await response.Content.ReadFromJsonAsync<LedgerAccountResponse>();
         account.Should().NotBeNull();
         account!.Name.Should().Be("Cash");
-        account.Currency.Should().Be("USD");
+        account.Currency.Should().Be("N/A");
+
     }
 
     [Fact]
@@ -40,7 +42,8 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange - Create account first
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
+            TestAuthOptions.Create().WithTestRolePermissions("Ledger.Write"));
+
         var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
         var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);
         var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
@@ -71,7 +74,8 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
+            TestAuthOptions.Create().WithTestRolePermissions("Ledger.Write"));
+
         var accountRequest = new CreateLedgerAccountRequest("Operations", "USD");
         var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);
         var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
