@@ -16,7 +16,7 @@ public class GetTenantHealthEndpoint : EndpointWithoutRequest<TenantHealthResult
     public override void Configure()
     {
         Get("/admin/tenants/{tenantId}/health");
-        Policies("PlatformAdmin");
+        Policies("Tenants.Read");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

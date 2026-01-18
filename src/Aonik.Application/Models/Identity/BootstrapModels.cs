@@ -12,5 +12,5 @@ public record BootstrapTenantResult(
     bool TenantCreated,
     Guid UserId,
     bool UserCreated,
-    bool TenantAdminAssigned);
+    bool PlatformAdminAssigned);
 

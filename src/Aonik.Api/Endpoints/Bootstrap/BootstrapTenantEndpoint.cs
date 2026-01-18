@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
+using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.SharedKernel.Abstractions;
+
 
 namespace Aonik.Api.Endpoints.Bootstrap;
 
@@ -14,21 +16,22 @@ public class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantRes
     private readonly IWebHostEnvironment _environment;
     private readonly IAuthorizationService _authorizationService;
     private readonly ICurrentUserContext _currentUserContext;
-
+    private readonly PlatformAdminOptions _platformAdminOptions;
 
     public BootstrapTenantEndpoint(
         IBootstrapService bootstrapService,
         IWebHostEnvironment environment,
         IAuthorizationService authorizationService,
-        ICurrentUserContext currentUserContext)
-
+        ICurrentUserContext currentUserContext,
+        IOptions<PlatformAdminOptions> platformAdminOptions)
     {
         _bootstrapService = bootstrapService;
         _environment = environment;
         _authorizationService = authorizationService;
         _currentUserContext = currentUserContext;
-
+        _platformAdminOptions = platformAdminOptions.Value;
     }
+
 
     public override void Configure()
     {
@@ -38,7 +41,7 @@ public class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantRes
     public override async Task HandleAsync(CancellationToken ct)
     {
 
-        if (!_environment.IsDevelopment())
+        if (!_environment.IsDevelopment() && _platformAdminOptions.AdminEmails.Length > 0)
         {
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, null, "PlatformAdmin");
             if (!authorizationResult.Succeeded)
@@ -48,6 +51,7 @@ public class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantRes
                 return;
             }
         }
+
 
         if (!_currentUserContext.IsAuthenticated)
         {

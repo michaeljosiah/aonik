@@ -181,9 +181,12 @@ public static class DependencyInjection
         // Add authorization
         services.AddAuthorization(options =>
         {
-            // Platform admin policy
+            // Platform admin policy (application-level role)
             options.AddPolicy("PlatformAdmin", policy =>
-                policy.Requirements.Add(new PlatformAdminRequirement()));
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin"],
+                    Array.Empty<string>())));
+
 
             options.AddPolicy("TenantAdmin", policy =>
                 policy.Requirements.Add(new RoleOrPermissionRequirement(

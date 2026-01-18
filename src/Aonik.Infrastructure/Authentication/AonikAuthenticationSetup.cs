@@ -202,17 +202,9 @@ public static class AonikAuthenticationSetup
 
         if (tenantId == null)
         {
-            if (IsPlatformAdmin(context.Principal))
-            {
-                logger.LogInformation("Platform admin accessing without tenant context");
-                tenantId = Guid.Empty;
-            }
-            else
-            {
-                logger.LogWarning("Failed to resolve tenant for user {Sub}", sub);
-                context.Fail("Tenant could not be resolved");
-                return;
-            }
+            logger.LogWarning("Failed to resolve tenant for user {Sub}", sub);
+            context.Fail("Tenant could not be resolved");
+            return;
         }
 
         var userIdentityService = context.HttpContext.RequestServices
@@ -282,18 +274,15 @@ public static class AonikAuthenticationSetup
     private static bool IsPlatformAdmin(ClaimsPrincipal? principal)
     {
         if (principal == null)
+        {
             return false;
+        }
 
         var platformAdminOptions = new PlatformAdminOptions();
         var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == platformAdminOptions.RoleClaimType)?.Value;
         if (roleClaim == platformAdminOptions.RoleValue)
-            return true;
-
-        if (!string.IsNullOrEmpty(platformAdminOptions.ScopeClaimType))
         {
-            var scopeClaim = principal.Claims.FirstOrDefault(c => c.Type == platformAdminOptions.ScopeClaimType)?.Value;
-            if (scopeClaim == "true" || scopeClaim == "1")
-                return true;
+            return true;
         }
 
         var userEmail = ClaimsEmailResolver.GetEmail(principal);
@@ -389,13 +378,6 @@ public static class AonikAuthenticationSetup
             var isPlatformAdmin = context.Principal?.Claims.Any(claim =>
                     claim.Type == platformAdminOptions.RoleClaimType &&
                     claim.Value == platformAdminOptions.RoleValue) == true;
-
-            if (!isPlatformAdmin && !string.IsNullOrEmpty(platformAdminOptions.ScopeClaimType))
-            {
-                isPlatformAdmin = context.Principal?.Claims.Any(claim =>
-                        claim.Type == platformAdminOptions.ScopeClaimType &&
-                        (claim.Value == "true" || claim.Value == "1")) == true;
-            }
 
             if (!isPlatformAdmin && platformAdminOptions.AdminEmails.Length > 0)
             {

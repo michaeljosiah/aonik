@@ -15,7 +15,7 @@ public class ActivateTenantEndpoint : EndpointWithoutRequest
     public override void Configure()
     {
         Post("/admin/tenants/{tenantId}/activate");
-        Policies("PlatformAdmin");
+        Policies("Tenants.Write");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

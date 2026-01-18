@@ -256,7 +256,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
             // Check if entity implements ITenantScoped
             if (typeof(ITenantScoped).IsAssignableFrom(clrType))
             {
-                // Create filter expression: entity => CurrentTenantId == null || entity.TenantId == CurrentTenantId
+                // Create filter expression: entity => CurrentTenantId == null || entity.TenantId == CurrentTenantId || entity.TenantId == Guid.Empty
                 var parameter = Expression.Parameter(clrType, "e");
                 var property = Expression.Property(parameter, nameof(ITenantScoped.TenantId));
                 var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
@@ -265,8 +265,10 @@ public class AonikDbContext : DbContext, IAonikDbContext
                     Expression.Constant(null, typeof(Guid?)));
                 var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
                 var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
-                var filter = Expression.OrElse(noTenantContext, equalsTenant);
+                var equalsGlobal = Expression.Equal(property, Expression.Constant(Guid.Empty));
+                var filter = Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsGlobal));
                 var lambda = Expression.Lambda(filter, parameter);
+
 
                 // Apply the filter
                 modelBuilder.Entity(clrType).HasQueryFilter(lambda);

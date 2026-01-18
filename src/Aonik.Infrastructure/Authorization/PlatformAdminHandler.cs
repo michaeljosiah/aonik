@@ -34,13 +34,7 @@ public class PlatformAdminHandler : AuthorizationHandler<PlatformAdminRequiremen
             c.Type == options.RoleClaimType &&
             c.Value == options.RoleValue);
 
-        // Check for scope claim (e.g., "aonik_platform_admin": "true")
-        var hasScopeClaim = !string.IsNullOrEmpty(options.ScopeClaimType) &&
-            principal.Claims.Any(c =>
-                c.Type == options.ScopeClaimType &&
-                (c.Value == "true" || c.Value == "1"));
-
-        // Check for admin email match (config-based platform admins)
+        // Check for admin email match (bootstrap-only)
         var hasAdminEmail = false;
         if (options.AdminEmails.Length > 0)
         {
@@ -53,21 +47,21 @@ public class PlatformAdminHandler : AuthorizationHandler<PlatformAdminRequiremen
             }
         }
 
-        if (hasRoleClaim || hasScopeClaim || hasAdminEmail)
+        if (hasRoleClaim || hasAdminEmail)
         {
-            _logger.LogInformation("Platform admin access granted (role={HasRole}, scope={HasScope}, email={HasEmail})",
-                hasRoleClaim, hasScopeClaim, hasAdminEmail);
+            _logger.LogInformation("Platform admin access granted (role={HasRole}, email={HasEmail})",
+                hasRoleClaim, hasAdminEmail);
             context.Succeed(requirement);
         }
         else
         {
             _logger.LogWarning(
-                "Platform admin access denied (role={HasRole}, scope={HasScope}, email={HasEmail}). Claims: {Claims}",
+                "Platform admin access denied (role={HasRole}, email={HasEmail}). Claims: {Claims}",
                 hasRoleClaim,
-                hasScopeClaim,
                 hasAdminEmail,
                 string.Join(", ", principal.Claims.Select(c => $"{c.Type}={c.Value}")));
         }
+
 
         return Task.CompletedTask;
     }

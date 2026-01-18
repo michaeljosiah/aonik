@@ -29,8 +29,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             {
                 ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid().ToString(),
                 ["Auth:TenantRouting"] = "Claim",
-                ["UseInMemoryDatabase"] = "true"
+                ["UseInMemoryDatabase"] = "true",
+                ["PlatformAdmin:AdminEmails:0"] = "bootstrap-admin@example.com"
             });
+
         });
 
         builder.ConfigureServices(services =>

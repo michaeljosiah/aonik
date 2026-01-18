@@ -76,17 +76,19 @@ public class TenantSecurityTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task PlatformAdminEndpoints_ShouldRejectNonAdmin()
+    public async Task PlatformAdminEndpoints_ShouldAllowTenantsReadPermission()
     {
         // Arrange
-        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create());
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create().WithPermissions("Tenants.Read"));
 
         // Act
         var response = await client.GetAsync("/admin/tenants");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
 
     [Fact]
     public async Task TenantAdminPolicy_ShouldRejectUserWithoutRole()

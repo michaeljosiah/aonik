@@ -16,7 +16,7 @@ public class CreateTenantEndpoint : Endpoint<CreateTenantRequest, TenantResponse
     public override void Configure()
     {
         Post("/admin/tenants");
-        Policies("PlatformAdmin");
+        Policies("Tenants.Write");
     }
 
     public override async Task HandleAsync(CreateTenantRequest req, CancellationToken ct)

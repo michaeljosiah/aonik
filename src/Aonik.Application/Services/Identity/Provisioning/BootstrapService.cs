@@ -65,7 +65,7 @@ public class BootstrapService : IBootstrapService
         _tenantContext.ResolutionSource = "Bootstrap";
 
         var userResult = await ResolveOrCreateUserAsync(tenant, userContext, cancellationToken);
-        var tenantAdminAssigned = await EnsureTenantAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
+        var platformAdminAssigned = await EnsurePlatformAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
 
         return new BootstrapTenantResult(
             tenant.Id,
@@ -73,7 +73,7 @@ public class BootstrapService : IBootstrapService
             tenantResult.TenantCreated,
             userResult.UserId,
             userResult.UserCreated,
-            tenantAdminAssigned);
+            platformAdminAssigned);
     }
 
     private async Task<(Tenant Tenant, bool TenantCreated)> ResolveOrCreateTenantAsync(
@@ -196,31 +196,29 @@ public class BootstrapService : IBootstrapService
         return (newUser.Id, true);
     }
 
-    private async Task<bool> EnsureTenantAdminRoleAsync(
+    private async Task<bool> EnsurePlatformAdminRoleAsync(
         Tenant tenant,
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var tenantAdminRole = await _dbContext.Roles
-.FirstOrDefaultAsync(r => r.TenantId == tenant.Id && r.Name == "TenantAdmin", cancellationToken);
+        var platformAdminRole = await _dbContext.Roles
+            .FirstOrDefaultAsync(r => r.TenantId == Guid.Empty && r.Name == "PlatformAdmin", cancellationToken);
 
-
-        if (tenantAdminRole == null)
+        if (platformAdminRole == null)
         {
-            tenantAdminRole = new Role
+            platformAdminRole = new Role
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenant.Id,
-                Name = "TenantAdmin"
+                TenantId = Guid.Empty,
+                Name = "PlatformAdmin"
             };
 
-            _dbContext.Roles.Add(tenantAdminRole);
+            _dbContext.Roles.Add(platformAdminRole);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var existingUserRole = await _dbContext.UserRoles
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == tenantAdminRole.Id, cancellationToken);
-
+            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == platformAdminRole.Id, cancellationToken);
 
         if (existingUserRole != null)
         {
@@ -229,8 +227,9 @@ public class BootstrapService : IBootstrapService
 
         var userRole = new UserRole
         {
+            Id = Guid.NewGuid(),
             UserId = userId,
-            RoleId = tenantAdminRole.Id
+            RoleId = platformAdminRole.Id
         };
 
         _dbContext.UserRoles.Add(userRole);
@@ -243,10 +242,11 @@ public class BootstrapService : IBootstrapService
             tenant.Id,
             _currentUserProvider.GetCurrentUserId() ?? userId,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { userId, RoleId = tenantAdminRole.Id, tenantAdminRole.Name }),
+            JsonSerializer.Serialize(new { userId, RoleId = platformAdminRole.Id, platformAdminRole.Name }),
             cancellationToken);
 
         return true;
     }
+
 }
 

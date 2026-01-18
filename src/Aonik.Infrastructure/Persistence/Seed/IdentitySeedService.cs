@@ -59,6 +59,10 @@ public class IdentitySeedService
             new Permission { Key = "Ledger.Write", Description = "Create/modify ledger accounts and journal entries" },
             new Permission { Key = "Ledger.Reconcile", Description = "Reconcile ledger accounts" },
 
+            // Tenant admin permissions (platform-wide)
+            new Permission { Key = "Tenants.Read", Description = "View tenants" },
+            new Permission { Key = "Tenants.Write", Description = "Create and manage tenants" },
+
             // Settings permissions (tenant-scoped operations)
             new Permission { Key = "Settings.Read", Description = "View tenant settings" },
             new Permission { Key = "Settings.Write", Description = "Modify tenant settings" },

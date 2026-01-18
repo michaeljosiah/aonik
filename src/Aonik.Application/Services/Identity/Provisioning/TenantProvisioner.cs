@@ -89,8 +89,14 @@ public class TenantProvisioner : ITenantProvisioner
 
         // Provision Roles
         var rolesCreated = await ProvisionRolesAsync(tenantId, userId, now, actionsPerformed, cancellationToken);
+        var globalPermissionsCreated = await EnsureGlobalPlatformAdminAsync(userId, now, cancellationToken);
+        if (globalPermissionsCreated > 0)
+        {
+            actionsPerformed.Add($"Ensured PlatformAdmin role permissions ({globalPermissionsCreated})");
+        }
 
         // Provision AI Route Policy (placeholder)
+
         var policiesCreated = await ProvisionAiPoliciesAsync(tenantId, userId, now, actionsPerformed, cancellationToken);
 
         // Provision Fee and Limits Policies (placeholder)
@@ -281,7 +287,6 @@ public class TenantProvisioner : ITenantProvisioner
             }
         };
 
-
         _dbContext.Roles.AddRange(defaultRoles);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -289,7 +294,92 @@ public class TenantProvisioner : ITenantProvisioner
         return defaultRoles.Count;
     }
 
+    private async Task<int> EnsureGlobalPlatformAdminAsync(Guid? userId, DateTime now, CancellationToken cancellationToken)
+    {
+        var platformAdminRole = await _dbContext.Roles
+            .FirstOrDefaultAsync(role => role.TenantId == Guid.Empty && role.Name == "PlatformAdmin", cancellationToken);
+
+        if (platformAdminRole == null)
+        {
+            platformAdminRole = new Role
+            {
+                Id = Guid.NewGuid(),
+                TenantId = Guid.Empty,
+                Name = "PlatformAdmin",
+                CreatedAt = now,
+                CreatedBy = userId
+            };
+
+            _dbContext.Roles.Add(platformAdminRole);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        var permissionKeys = new[]
+        {
+            "Tenants.Read",
+            "Tenants.Write",
+            "Users.Read",
+            "Users.Invite",
+            "Users.Manage",
+            "Users.Deactivate",
+            "Settings.Read",
+            "Settings.Write",
+            "Roles.Read",
+            "Roles.Create",
+            "Roles.Update",
+            "Roles.Delete",
+            "Ledger.Read",
+            "Ledger.Write",
+            "Ledger.Reconcile",
+            "Payment.Read",
+            "Payment.Create",
+            "Payment.Capture",
+            "Payment.Cancel",
+            "Payment.Refund",
+            "Invoice.Read",
+            "Invoice.Create",
+            "Invoice.Update",
+            "Invoice.Delete",
+            "Invoice.Issue"
+        };
+
+        var permissions = await _dbContext.Permissions
+            .Where(p => permissionKeys.Contains(p.Key))
+            .ToListAsync(cancellationToken);
+
+        if (permissions.Count == 0)
+        {
+            return 0;
+        }
+
+        var existingPermissionIds = await _dbContext.RolePermissions
+            .Where(rp => rp.RoleId == platformAdminRole.Id)
+            .Select(rp => rp.PermissionId)
+            .ToListAsync(cancellationToken);
+
+        var newRolePermissions = permissions
+            .Where(permission => !existingPermissionIds.Contains(permission.Id))
+            .Select(permission => new RolePermission
+            {
+                Id = Guid.NewGuid(),
+                RoleId = platformAdminRole.Id,
+                PermissionId = permission.Id
+            })
+            .ToList();
+
+        if (newRolePermissions.Count == 0)
+        {
+            return 0;
+        }
+
+        _dbContext.RolePermissions.AddRange(newRolePermissions);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return newRolePermissions.Count;
+    }
+
     private async Task<int> ProvisionAiPoliciesAsync(Guid tenantId, Guid? userId, DateTime now, List<string> actionsPerformed, CancellationToken cancellationToken)
+
     {
         var existingPolicies = await _dbContext.AiRoutePolicies
             .Where(p => p.TenantId == tenantId)
