@@ -417,3 +417,7 @@ FodyWeavers.xsd
 *.msm
 *.msp
 /src/Aonik.Api/appsettings.Development.json
+MyBillAfrica/
+nul
+/src/Aonik.Api/App_Data/Profiles/profiles/.init
+
