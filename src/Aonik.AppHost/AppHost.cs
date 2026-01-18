@@ -4,7 +4,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var sql = builder.AddSqlServer("sql")
     .WithLifetime(ContainerLifetime.Persistent);
 
-var sqlServer = sql.AddDatabase("DefaultConnection");
+var sqlServer = sql.AddDatabase("AonikDb");
 
 // Add API project with SQL Server reference
 var api = builder.AddProject<Projects.Aonik_Api>("api")
