@@ -536,10 +536,10 @@ export function TenantDetailPage() {
                     </>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {tenant.supportedCountries.map(code => {
+                      {tenant.supportedCountries.map((code, idx) => {
                         const country = countries.find(c => c.code === code);
                         return (
-                          <Badge key={code} variant="secondary">
+                          <Badge key={`${code}-${idx}`} variant="secondary">
                             {country ? `${code} - ${country.name}` : code}
                           </Badge>
                         );
@@ -579,10 +579,10 @@ export function TenantDetailPage() {
                         {health.isHealthy ? 'All Systems Operational' : 'Issues Detected'}
                       </span>
                     </div>
-                    {health.checks.length > 0 && (
+                    {health.checks && health.checks.length > 0 ? (
                       <div className="space-y-2">
                         {health.checks.map((check, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-sm">
+                          <div key={`${check.name}-${idx}`} className="flex items-center justify-between text-sm">
                             <span className="text-[var(--color-text-secondary)]">{check.name}</span>
                             {check.status === 'Passed' ? (
                               <CheckCircle className="w-4 h-4 text-[var(--color-success)]" />
@@ -592,6 +592,10 @@ export function TenantDetailPage() {
                           </div>
                         ))}
                       </div>
+                    ) : (
+                      <p className="text-sm text-[var(--color-text-tertiary)]">
+                        No checks reported
+                      </p>
                     )}
                   </div>
                 ) : (

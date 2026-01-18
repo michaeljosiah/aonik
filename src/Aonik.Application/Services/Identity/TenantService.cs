@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
 
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
@@ -9,6 +10,7 @@ using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Domain.Identity.Entities;
 using Aonik.SharedKernel.Abstractions;
+
 
 namespace Aonik.Application.Services.Identity;
 
@@ -20,6 +22,7 @@ public class TenantService : ITenantService
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
+    private readonly ITenantContext _tenantContext;
 
     public TenantService(
         IAonikDbContext dbContext,
@@ -27,7 +30,8 @@ public class TenantService : ITenantService
         IAuditLogWriter auditLogWriter,
         IClock clock,
         ICurrentUserProvider currentUserProvider,
-        ICorrelationContext correlationContext)
+        ICorrelationContext correlationContext,
+        ITenantContext tenantContext)
     {
         _dbContext = dbContext;
         _provisioner = provisioner;
@@ -35,7 +39,9 @@ public class TenantService : ITenantService
         _clock = clock;
         _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
+        _tenantContext = tenantContext;
     }
+
 
     public async Task<TenantResponse> CreateTenantAsync(CreateTenantRequest request, CancellationToken cancellationToken = default)
     {
@@ -200,6 +206,9 @@ public class TenantService : ITenantService
         if (tenant.Status == TenantStatus.Deactivated)
             return;
 
+        _tenantContext.TenantId = tenant.Id;
+        _tenantContext.ResolutionSource = "AdminTenantAction";
+
         tenant.Status = TenantStatus.Deactivated;
         tenant.UpdatedAt = _clock.UtcNow;
         tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
@@ -227,6 +236,9 @@ public class TenantService : ITenantService
 
         if (tenant.Status == TenantStatus.Active)
             return;
+
+        _tenantContext.TenantId = tenant.Id;
+        _tenantContext.ResolutionSource = "AdminTenantAction";
 
         tenant.Status = TenantStatus.Active;
         tenant.UpdatedAt = _clock.UtcNow;
