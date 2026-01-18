@@ -93,7 +93,7 @@ public static class AonikAuthenticationSetup
             throw new InvalidOperationException($"Unsupported auth provider: {provider}");
         }
 
-        options.RequireHttpsMetadata = true; // Always require HTTPS for metadata
+        options.RequireHttpsMetadata = true;
     }
 
     private static void ConfigureTokenValidationEvents(JwtBearerOptions options, AuthOptions authOptions)
@@ -120,7 +120,6 @@ public static class AonikAuthenticationSetup
                 var logger = context.HttpContext.RequestServices
                     .GetRequiredService<ILogger<JwtBearerEvents>>();
 
-                // Log without exposing token details
                 logger.LogWarning("Authentication failed for {Path}: {Error}",
                     context.HttpContext.Request.Path,
                     context.Exception.Message);
@@ -135,8 +134,6 @@ public static class AonikAuthenticationSetup
         var logger = context.HttpContext.RequestServices
             .GetRequiredService<ILogger<JwtBearerEvents>>();
 
-        // 1. Extract token and claims
-        // CRITICAL: Read from SecurityToken, not claims principal
         JwtSecurityToken? jwtToken = null;
         JsonWebToken? jsonToken = null;
 
@@ -158,7 +155,6 @@ public static class AonikAuthenticationSetup
         var iss = jwtToken?.Issuer ?? jsonToken?.Issuer;
         var claims = jwtToken?.Claims ?? jsonToken?.Claims ?? Array.Empty<Claim>();
 
-        // Prefer 'oid' (Entra) over 'sub' (Auth0/standard)
         var sub = claims.FirstOrDefault(c => c.Type == "oid")?.Value
                   ?? claims.FirstOrDefault(c => c.Type == "sub")?.Value;
 
@@ -184,30 +180,41 @@ public static class AonikAuthenticationSetup
             return;
         }
 
-        // 2. Resolve tenant (fail fast if cannot resolve)
-        // Store JWT token in HttpContext.Items for TenantResolver
-        context.HttpContext.Items["JwtSecurityToken"] = jwtToken;
-
-
         if (await TryHandleBootstrapAsync(context, iss, sub))
         {
             return;
         }
 
-        var tenantResolver = context.HttpContext.RequestServices
-            .GetRequiredService<ITenantResolver>();
+        var tenantResolver = context.HttpContext.RequestServices.GetRequiredService<ITenantResolver>();
+        var dbContext = context.HttpContext.RequestServices.GetRequiredService<IAonikDbContext>();
 
-        var aonikTenantId = await tenantResolver.ResolveTenantIdAsync(
-            context.HttpContext.RequestAborted);
+        Guid? tenantId = null;
 
-        if (aonikTenantId == null)
+        tenantId = tenantResolver.ResolveTenantId();
+        if (tenantId == null)
         {
-            logger.LogWarning("Failed to resolve tenant for issuer {Issuer}, subject {Subject}", iss, sub);
-            context.Fail("Tenant could not be resolved");
-            return;
+            tenantId = tenantResolver.ResolveFromHttpContext();
+        }
+        if (tenantId == null)
+        {
+            tenantId = await ResolveFromUserAssociationAsync(dbContext, iss, sub, context.HttpContext.RequestAborted);
         }
 
-        // 3. Resolve or create user (JIT provisioning)
+        if (tenantId == null)
+        {
+            if (IsPlatformAdmin(context.Principal))
+            {
+                logger.LogInformation("Platform admin accessing without tenant context");
+                tenantId = Guid.Empty;
+            }
+            else
+            {
+                logger.LogWarning("Failed to resolve tenant for user {Sub}", sub);
+                context.Fail("Tenant could not be resolved");
+                return;
+            }
+        }
+
         var userIdentityService = context.HttpContext.RequestServices
             .GetRequiredService<IUserIdentityService>();
 
@@ -216,15 +223,12 @@ public static class AonikAuthenticationSetup
             sub,
             tid,
             email,
-            aonikTenantId.Value,
+            tenantId.Value,
             context.HttpContext.RequestAborted);
 
         var roles = ClaimsRoleMapper.ExtractRoles(context.Principal);
         if (roles.Count == 0)
         {
-            var dbContext = context.HttpContext.RequestServices
-                .GetRequiredService<IAonikDbContext>();
-
             roles = await dbContext.UserRoles
                 .Where(ur => ur.UserId == user.Id)
                 .Select(ur => ur.Role.Name)
@@ -236,26 +240,70 @@ public static class AonikAuthenticationSetup
             .GetRequiredService<ICurrentUserContext>();
 
         currentUserContext.UserId = user.Id;
-        currentUserContext.TenantId = aonikTenantId.Value;
+        currentUserContext.TenantId = tenantId.Value;
         currentUserContext.ExternalIssuer = iss;
         currentUserContext.ExternalSubject = sub;
         currentUserContext.Roles = roles;
         currentUserContext.IsAuthenticated = context.Principal?.Identity?.IsAuthenticated == true;
 
-        // 4. Stash in HttpContext.Items for downstream consumers
         context.HttpContext.Items["AonikUserId"] = user.Id;
         context.HttpContext.Items["AonikUserStatus"] = user.Status;
-        context.HttpContext.Items["AonikTenantId"] = aonikTenantId.Value;
+        context.HttpContext.Items["AonikTenantId"] = tenantId.Value;
 
         logger.LogInformation("Authenticated user {UserId} in tenant {TenantId} (Status: {Status})",
-            user.Id, aonikTenantId.Value, user.Status);
+            user.Id, tenantId.Value, user.Status);
 
-        // Check if user is suspended/deactivated
         if (user.Status != "Active")
         {
             logger.LogWarning("User {UserId} attempted login with status {Status}", user.Id, user.Status);
             context.Fail($"User account is {user.Status}");
         }
+    }
+
+    private static async Task<Guid?> ResolveFromUserAssociationAsync(
+        IAonikDbContext dbContext,
+        string issuer,
+        string subject,
+        CancellationToken ct)
+    {
+        var user = await dbContext.Users
+            .Where(u => u.ExternalIssuer == issuer && u.ExternalSubject == subject)
+            .Select(u => new { u.TenantId })
+            .FirstOrDefaultAsync(ct);
+
+        if (user != null && user.TenantId != Guid.Empty)
+        {
+            return user.TenantId;
+        }
+
+        return null;
+    }
+
+    private static bool IsPlatformAdmin(ClaimsPrincipal? principal)
+    {
+        if (principal == null)
+            return false;
+
+        var platformAdminOptions = new PlatformAdminOptions();
+        var roleClaim = principal.Claims.FirstOrDefault(c => c.Type == platformAdminOptions.RoleClaimType)?.Value;
+        if (roleClaim == platformAdminOptions.RoleValue)
+            return true;
+
+        if (!string.IsNullOrEmpty(platformAdminOptions.ScopeClaimType))
+        {
+            var scopeClaim = principal.Claims.FirstOrDefault(c => c.Type == platformAdminOptions.ScopeClaimType)?.Value;
+            if (scopeClaim == "true" || scopeClaim == "1")
+                return true;
+        }
+
+        var userEmail = ClaimsEmailResolver.GetEmail(principal);
+        if (!string.IsNullOrEmpty(userEmail) && platformAdminOptions.AdminEmails.Length > 0)
+        {
+            return platformAdminOptions.AdminEmails.Any(adminEmail =>
+                string.Equals(adminEmail, userEmail, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false;
     }
 
     private static async Task<string> GetActiveProviderAsync(TokenValidatedContext context, AuthOptions authOptions)
@@ -349,7 +397,6 @@ public static class AonikAuthenticationSetup
                         (claim.Value == "true" || claim.Value == "1")) == true;
             }
 
-            // Check for admin email match (config-based platform admins)
             if (!isPlatformAdmin && platformAdminOptions.AdminEmails.Length > 0)
             {
                 var userEmail = ClaimsEmailResolver.GetEmail(context.Principal);

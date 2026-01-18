@@ -47,7 +47,6 @@ public class UserIdentityService : IUserIdentityService
 
         if (existingUser != null)
         {
-            // Update email if changed
             if (!string.IsNullOrEmpty(email) && existingUser.Email != email)
             {
                 existingUser.Email = email;
@@ -58,7 +57,45 @@ public class UserIdentityService : IUserIdentityService
             return existingUser;
         }
 
-        // Verify tenant exists and is active
+        if (aonikTenantId == Guid.Empty)
+        {
+            var platformUser = new User
+            {
+                Id = Guid.NewGuid(),
+                TenantId = aonikTenantId,
+                ExternalIssuer = externalIssuer,
+                ExternalSubject = externalSubject,
+                ExternalTenantId = externalTenantId,
+                Email = email,
+                Status = "Active"
+            };
+
+            _dbContext.Users.Add(platformUser);
+            await _dbContext.SaveChangesAsync(ct);
+
+            _logger.LogInformation("Created new platform user {UserId} (Issuer: {Issuer}, Subject: {Subject})",
+                platformUser.Id, externalIssuer, externalSubject);
+
+            await _auditLogWriter.LogAsync(
+                AuditEventNames.UserProvisioned,
+                "User",
+                platformUser.Id,
+                aonikTenantId,
+                platformUser.Id,
+                _correlationContext.CorrelationId,
+                JsonSerializer.Serialize(new
+                {
+                    platformUser.Id,
+                    Email = AuditLogMasking.MaskEmail(platformUser.Email),
+                    platformUser.ExternalIssuer,
+                    platformUser.ExternalSubject,
+                    platformUser.ExternalTenantId
+                }),
+                ct);
+
+            return platformUser;
+        }
+
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == aonikTenantId, ct);
 

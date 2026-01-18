@@ -30,7 +30,7 @@ public class TenantResolver : ITenantResolver
         _logger = logger;
     }
 
-    public async Task<Guid?> ResolveTenantIdAsync(CancellationToken ct = default)
+    public Guid? ResolveTenantId()
     {
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext == null)
@@ -39,10 +39,10 @@ public class TenantResolver : ITenantResolver
             return null;
         }
 
-        // Get JWT token from HttpContext items (set by authentication middleware)
-        if (httpContext.Items["JwtSecurityToken"] is not JwtSecurityToken jwtToken)
+        var jwtToken = httpContext.Items["JwtSecurityToken"] as JwtSecurityToken;
+        if (jwtToken == null)
         {
-            _logger.LogWarning("JwtSecurityToken not found in HttpContext.Items");
+            _logger.LogDebug("JwtSecurityToken not found in HttpContext.Items");
             return null;
         }
 
@@ -51,8 +51,26 @@ public class TenantResolver : ITenantResolver
         return mode switch
         {
             TenantRoutingMode.Claim => ResolveFromClaim(jwtToken),
-            TenantRoutingMode.Subdomain => await ResolveFromSubdomainAsync(httpContext, ct),
+            TenantRoutingMode.Subdomain => ResolveFromSubdomainAsync(httpContext).GetAwaiter().GetResult(),
             TenantRoutingMode.Header => ResolveFromHeader(httpContext),
+            _ => null
+        };
+    }
+
+    public Guid? ResolveFromHttpContext()
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext == null)
+        {
+            return null;
+        }
+
+        var mode = _configuration.GetValue<TenantRoutingMode>("Auth:TenantRouting");
+
+        return mode switch
+        {
+            TenantRoutingMode.Header => ResolveFromHeader(httpContext),
+            TenantRoutingMode.Subdomain => ResolveFromSubdomainAsync(httpContext).GetAwaiter().GetResult(),
             _ => null
         };
     }
@@ -63,7 +81,7 @@ public class TenantResolver : ITenantResolver
 
         if (string.IsNullOrEmpty(tenantClaim))
         {
-            _logger.LogWarning("Missing aonik_tenant_id claim in JWT");
+            _logger.LogDebug("No aonik_tenant_id claim found");
             return null;
         }
 
@@ -76,35 +94,31 @@ public class TenantResolver : ITenantResolver
         return tenantId;
     }
 
-    private async Task<Guid?> ResolveFromSubdomainAsync(HttpContext httpContext, CancellationToken ct)
+    private async Task<Guid?> ResolveFromSubdomainAsync(HttpContext httpContext)
     {
-        // Extract subdomain from Host
-        // IMPORTANT: Only use this if ForwardedHeadersOptions is properly configured
         var host = httpContext.Request.Host.Host;
         var parts = host.Split('.');
 
         if (parts.Length < 3)
         {
-            _logger.LogWarning("Host does not contain subdomain: {Host}", host);
+            _logger.LogDebug("Host does not contain subdomain: {Host}", host);
             return null;
         }
 
         var subdomain = parts[0];
 
-        // Lookup tenant by subdomain
         var tenant = await _dbContext.Tenants
             .Where(t => t.Subdomain == subdomain && t.Status == "Active")
             .Select(t => new { t.Id })
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefaultAsync(httpContext.RequestAborted);
 
         if (tenant == null)
         {
-            _logger.LogWarning("No active tenant found for subdomain: {Subdomain}", subdomain);
+            _logger.LogDebug("No active tenant found for subdomain: {Subdomain}", subdomain);
             return null;
         }
 
         return tenant.Id;
-
     }
 
     private Guid? ResolveFromHeader(HttpContext httpContext)
@@ -113,7 +127,7 @@ public class TenantResolver : ITenantResolver
 
         if (string.IsNullOrEmpty(header))
         {
-            _logger.LogWarning("Missing X-Tenant-Id header");
+            _logger.LogDebug("No X-Tenant-Id header found");
             return null;
         }
 

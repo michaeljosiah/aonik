@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Multitenancy;
-using Aonik.Infrastructure.Authentication.Configuration;
 
 namespace Aonik.Api.Middleware;
 
@@ -18,12 +17,15 @@ public class TenantContextMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
-        ITenantResolver tenantResolver,
         ITenantContext tenantContext,
-        IConfiguration configuration,
         ILogger<TenantContextMiddleware> logger)
     {
-        if (IsExemptPath(context.Request.Path))
+        var path = context.Request.Path;
+
+        if (path.StartsWithSegments("/health") ||
+            path.StartsWithSegments("/swagger") ||
+            path.StartsWithSegments("/admin") ||
+            path.StartsWithSegments("/bootstrap"))
         {
             await _next(context);
             return;
@@ -37,30 +39,13 @@ public class TenantContextMiddleware
 
         if (!tenantContext.IsResolved)
         {
-            var tenantId = await tenantResolver.ResolveTenantIdAsync(context.RequestAborted);
-
-            if (tenantId == null)
-            {
-                logger.LogWarning("Tenant context missing for path {Path}", context.Request.Path);
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
-                return;
-            }
-
-            tenantContext.TenantId = tenantId.Value;
-            var mode = configuration.GetValue<TenantRoutingMode>("Auth:TenantRouting");
-            tenantContext.ResolutionSource = mode.ToString();
+            logger.LogWarning("Tenant context not resolved after authentication for path {Path}", path);
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
+            return;
         }
 
         await _next(context);
-    }
-
-    private static bool IsExemptPath(PathString path)
-    {
-        return path.StartsWithSegments("/health")
-               || path.StartsWithSegments("/swagger")
-               || path.StartsWithSegments("/admin")
-               || path.StartsWithSegments("/bootstrap");
     }
 }
 
