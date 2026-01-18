@@ -241,16 +241,12 @@ public class TenantProvisioner : ITenantProvisioner
 
     private async Task<int> ProvisionRolesAsync(Guid tenantId, Guid? userId, DateTime now, List<string> actionsPerformed, CancellationToken cancellationToken)
     {
-        var existingRoles = await _dbContext.Roles
+        var existingRoleNames = await _dbContext.Roles
             .Where(r => r.TenantId == tenantId)
+            .Select(r => r.Name)
             .ToListAsync(cancellationToken);
 
-        if (existingRoles.Any())
-        {
-            actionsPerformed.Add($"Roles already exist ({existingRoles.Count}) - skipped");
-            return 0;
-        }
-
+        var existingRoleSet = new HashSet<string>(existingRoleNames, StringComparer.OrdinalIgnoreCase);
         var defaultRoles = new List<Role>
         {
             new()
@@ -287,11 +283,21 @@ public class TenantProvisioner : ITenantProvisioner
             }
         };
 
-        _dbContext.Roles.AddRange(defaultRoles);
+        var newRoles = defaultRoles
+            .Where(role => !existingRoleSet.Contains(role.Name))
+            .ToList();
+
+        if (newRoles.Count == 0)
+        {
+            actionsPerformed.Add("Default roles already exist - skipped");
+            return 0;
+        }
+
+        _dbContext.Roles.AddRange(newRoles);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        actionsPerformed.Add($"Created {defaultRoles.Count} default roles");
-        return defaultRoles.Count;
+        actionsPerformed.Add($"Created {newRoles.Count} default roles");
+        return newRoles.Count;
     }
 
     private async Task<int> EnsureGlobalPlatformAdminAsync(Guid? userId, DateTime now, CancellationToken cancellationToken)

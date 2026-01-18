@@ -202,13 +202,26 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
             if (entry.State == EntityState.Added && tenantId == Guid.Empty)
             {
+                if (entry.Entity is Role)
+                {
+                    continue;
+                }
+
                 tenantIdProperty.CurrentValue = currentTenantId;
                 continue;
             }
 
             if (entry.State is EntityState.Modified or EntityState.Deleted && tenantId != currentTenantId)
+            {
+                if (entry.Entity is Role && tenantId == Guid.Empty)
+                {
+                    continue;
+                }
+
                 throw new InvalidOperationException(
                     $"Tenant mismatch detected for {entry.Metadata.ClrType.Name} ({tenantId}).");
+            }
+
         }
     }
 

@@ -101,7 +101,7 @@ export function SetupWizardPage() {
   };
 
   const handleGoToDashboard = () => {
-    navigate('/');
+    window.location.href = '/';
   };
 
   const tenantExists = (state.tenantCount ?? 0) > 0;

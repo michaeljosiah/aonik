@@ -84,8 +84,9 @@ public class IdentitySeedService
             .Select(p => p.Key)
             .ToListAsync(cancellationToken);
 
+        var existingKeySet = new HashSet<string>(existingKeys, StringComparer.OrdinalIgnoreCase);
         var newPermissions = permissions
-            .Where(p => !existingKeys.Contains(p.Key))
+            .Where(p => !existingKeySet.Contains(p.Key))
             .ToList();
 
         if (newPermissions.Any())

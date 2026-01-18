@@ -21,7 +21,8 @@ public class PermissionPolicyProvider : IAuthorizationPolicyProvider
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
         // Convention: Permission keys contain '.' (e.g., "Invoice.Create")
-        if (policyName.Contains('.'))
+        // Skip FastEndpoints internal policies (e.g., "epPolicy:Namespace.Endpoint")
+        if (policyName.Contains('.') && !policyName.StartsWith("epPolicy:", StringComparison.OrdinalIgnoreCase))
         {
             var policy = new AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
@@ -30,6 +31,7 @@ public class PermissionPolicyProvider : IAuthorizationPolicyProvider
 
             return Task.FromResult<AuthorizationPolicy?>(policy);
         }
+
 
         // Fall back to default provider for named policies
         return _fallbackPolicyProvider.GetPolicyAsync(policyName);
