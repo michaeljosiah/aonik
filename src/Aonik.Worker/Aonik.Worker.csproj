@@ -8,10 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
+    <PackageReference Include="Quartz" Version="3.13.2" />
+    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.13.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.ServiceDefaults\Aonik.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Aonik.Application\Aonik.Application.csproj" />
+    <ProjectReference Include="..\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
   </ItemGroup>
+
 </Project>

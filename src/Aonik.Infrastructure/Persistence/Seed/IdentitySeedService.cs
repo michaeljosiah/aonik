@@ -77,7 +77,10 @@ public class IdentitySeedService
             new Permission { Key = "Roles.Read", Description = "View roles in tenant" },
             new Permission { Key = "Roles.Create", Description = "Create roles in tenant" },
             new Permission { Key = "Roles.Update", Description = "Update roles in tenant" },
-            new Permission { Key = "Roles.Delete", Description = "Delete roles in tenant" }
+            new Permission { Key = "Roles.Delete", Description = "Delete roles in tenant" },
+
+            // Catalog permissions
+            new Permission { Key = "Catalog.Read", Description = "View catalog and biller data" }
         };
 
         var existingKeys = await _dbContext.Permissions

@@ -3,10 +3,10 @@ using Aonik.Api.Middleware;
 using Aonik.Application;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure;
-using Aonik.Infrastructure.Persistence;
-using Aonik.Infrastructure.Persistence.Seed;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
+using Aonik.Infrastructure.Persistence;
+using Aonik.Infrastructure.Persistence.Seed;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,7 +54,12 @@ if (app.Environment.IsDevelopment())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<IdentitySeedService>>();
     var seedService = new IdentitySeedService((IAonikDbContext)dbContext, logger);
     await seedService.SeedAsync();
+
+    var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
+    var catalogSeedService = new CatalogSeedService((IAonikDbContext)dbContext, catalogLogger);
+    await catalogSeedService.SeedAsync();
 }
+
 
 
 // Configure the HTTP request pipeline

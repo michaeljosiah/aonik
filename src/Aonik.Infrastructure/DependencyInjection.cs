@@ -39,6 +39,7 @@ using Aonik.Infrastructure.Multitenancy;
 using Aonik.Infrastructure.Observability;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Storage;
+using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Infrastructure.Time;
 using Aonik.SharedKernel.Abstractions;
 
@@ -158,6 +159,9 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IModelProvider, StubModelProvider>();
+
+        // Background Jobs (Quartz)
+        services.AddAonikBackgroundJobs();
 
         return services;
     }

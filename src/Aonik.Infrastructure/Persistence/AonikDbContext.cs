@@ -3,6 +3,7 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Billing.Entities;
+using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Compliance.Entities;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Domain.Notifications.Entities;
@@ -85,6 +86,11 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<CustomerAccount> CustomerAccounts { get; set; } = null!;
     public virtual DbSet<InvoiceAllocation> InvoiceAllocations { get; set; } = null!;
     public virtual DbSet<DunningPlan> DunningPlans { get; set; } = null!;
+
+    // Catalog
+    public virtual DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; } = null!;
+    public virtual DbSet<CatalogBiller> CatalogBillers { get; set; } = null!;
+    public virtual DbSet<CatalogBillerService> CatalogBillerServices { get; set; } = null!;
 
     // Partners
     public virtual DbSet<Partner> Partners { get; set; } = null!;
