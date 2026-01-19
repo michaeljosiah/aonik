@@ -1,7 +1,21 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar, Header } from '@/components/layout';
-import { MySpacePage, LoginPage, SetupWizardPage, TenantsListPage, CreateTenantPage, TenantDetailPage } from '@/pages';
+import {
+  MySpacePage,
+  LoginPage,
+  SetupWizardPage,
+  TenantsListPage,
+  CreateTenantPage,
+  TenantDetailPage,
+  CatalogLandingPage,
+  CatalogCountriesPage,
+  CatalogCategoriesPage,
+  CatalogBillersPage,
+  CatalogBillerDetailPage,
+  CatalogBillerServicesPage,
+  CatalogBillerServiceDetailPage,
+} from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -32,6 +46,7 @@ function AppLayout() {
     if (path.startsWith('/ledger')) return ['Ledger'];
     if (path.startsWith('/ai')) return ['AI & Agents'];
     if (path.startsWith('/access')) return ['Users & Access'];
+    if (path.startsWith('/catalog')) return ['Catalog'];
     if (path.startsWith('/tenants')) return ['Tenants'];
     if (path.startsWith('/settings')) return ['Settings'];
     return ['Dashboard'];
@@ -72,6 +87,14 @@ function AppLayout() {
             <Route path="/access/users" element={<PlaceholderPage title="Users" />} />
             <Route path="/access/roles" element={<PlaceholderPage title="Roles" />} />
             <Route path="/access/permissions" element={<PlaceholderPage title="Permissions" />} />
+            {/* Catalog */}
+            <Route path="/catalog" element={<CatalogLandingPage />} />
+            <Route path="/catalog/countries" element={<CatalogCountriesPage />} />
+            <Route path="/catalog/categories" element={<CatalogCategoriesPage />} />
+            <Route path="/catalog/billers" element={<CatalogBillersPage />} />
+            <Route path="/catalog/billers/:billerId" element={<CatalogBillerDetailPage />} />
+            <Route path="/catalog/billers/:billerId/services" element={<CatalogBillerServicesPage />} />
+            <Route path="/catalog/billers/:billerId/services/:serviceId" element={<CatalogBillerServiceDetailPage />} />
             {/* Tenants */}
             <Route path="/tenants" element={<TenantsListPage />} />
             <Route path="/tenants/new" element={<CreateTenantPage />} />

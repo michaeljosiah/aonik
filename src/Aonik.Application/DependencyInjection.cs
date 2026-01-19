@@ -5,6 +5,11 @@ using Aonik.Application.Services.Catalog;
 using Aonik.Application.Services.Ledger;
 using Aonik.Application.Services.Onboarding;
 using Aonik.Application.Services.Payments;
+using Aonik.Application.Services.Registration;
+using Aonik.Application.Services.Identity;
+using Aonik.Application.Services.Identity.Provisioning;
+using Aonik.Application.Services.Compliance;
+using Aonik.Application.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Application;
@@ -19,6 +24,20 @@ public static class DependencyInjection
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IAiInsightsService, AiInsightsService>();
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
+
+        services.AddScoped<IRegistrationService, RegistrationService>();
+        services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<IUserIdentityService, UserIdentityService>();
+        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
+        services.AddScoped<IUserProfileService, UserProfileService>();
+        services.AddScoped<IUserRoleService, UserRoleService>();
+        services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<ITenantService, TenantService>();
+        services.AddScoped<ITenantProvisioner, TenantProvisioner>();
+        services.AddScoped<IBootstrapService, BootstrapService>();
+        services.AddScoped<IVerificationService, VerificationService>();
+        services.AddScoped<IAuditLogWriter, AuditLogWriter>();
+        services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
 
         // AI Workflows
         services.AddScoped<InvoiceInsightWorkflow>();

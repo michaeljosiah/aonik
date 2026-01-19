@@ -134,3 +134,113 @@ export interface BootstrapStatusResponse {
   isCurrentUserAllowed: boolean;
   tenantCount: number;
 }
+
+export interface CatalogCountryItem {
+  countryCode: string;
+  name: string;
+}
+
+export interface CatalogCountryResponse {
+  countries: CatalogCountryItem[];
+}
+
+export interface CatalogBillerCategoryItem {
+  categoryId: string;
+  name: string;
+  description?: string | null;
+  iconUrl?: string | null;
+  countryCode: string;
+}
+
+export interface CatalogBillerCategoryResponse {
+  categories: CatalogBillerCategoryItem[];
+}
+
+export interface CatalogPaginationMetadata {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface CatalogBillerSummaryItem {
+  billerId: string;
+  name: string;
+  logoUrl?: string | null;
+  countryCode: string;
+  categoryId: string;
+  correspondentPartnerId?: string | null;
+  isActive: boolean;
+  isFeatured: boolean;
+}
+
+export interface CatalogBillerResponse {
+  billers: CatalogBillerSummaryItem[];
+  pagination: CatalogPaginationMetadata;
+}
+
+export interface CatalogBillerDetailResponse {
+  billerId: string;
+  name: string;
+  description?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  supportPhone?: string | null;
+  supportEmail?: string | null;
+  countryCode: string;
+  categoryId: string;
+  correspondentPartnerId?: string | null;
+  isActive: boolean;
+  serviceCount: number;
+}
+
+export interface CatalogBillerServiceItem {
+  serviceId: string;
+  name: string;
+  type: string;
+  currency: string;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  supportsPartialPayment: boolean;
+  requiresValidation: boolean;
+  isActive: boolean;
+}
+
+export interface CatalogBillerServiceResponse {
+  services: CatalogBillerServiceItem[];
+}
+
+export interface CatalogServiceFieldOption {
+  value: string;
+  label: string;
+}
+
+export interface CatalogServiceField {
+  key: string;
+  label: string;
+  fieldType: string;
+  required: boolean;
+  minLength?: number | null;
+  maxLength?: number | null;
+  mask?: string | null;
+  placeholder?: string | null;
+  options?: CatalogServiceFieldOption[] | null;
+}
+
+export interface CatalogServiceValidation {
+  validationEndpoint?: string | null;
+  validationMode?: string | null;
+}
+
+export interface CatalogBillerServiceDetailResponse {
+  serviceId: string;
+  name: string;
+  type: string;
+  currency: string;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  supportsPartialPayment: boolean;
+  requiresValidation: boolean;
+  fields: CatalogServiceField[];
+  validation?: CatalogServiceValidation | null;
+}

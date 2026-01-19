@@ -52,6 +52,7 @@ import {
   KeyRound,
   Webhook,
   ScrollText,
+  Globe,
 } from 'lucide-react';
 import type { NavItem } from '@/types';
 import { navigationItems } from '@/data/mockData';
@@ -98,6 +99,8 @@ const iconMap: Record<string, React.ElementType> = {
   KeyRound,
   Webhook,
   ScrollText,
+  // Catalog
+  Globe,
 };
 
 interface SidebarProps {

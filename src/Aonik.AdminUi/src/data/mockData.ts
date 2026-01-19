@@ -73,6 +73,17 @@ export const navigationItems: NavItem[] = [
     ],
   },
   {
+    id: 'catalog',
+    label: 'Catalog',
+    icon: 'Store',
+    children: [
+      { id: 'catalog-overview', label: 'Overview', icon: 'Store', href: '/catalog' },
+      { id: 'catalog-countries', label: 'Countries', icon: 'Globe', href: '/catalog/countries' },
+      { id: 'catalog-categories', label: 'Categories', icon: 'Grid3x3', href: '/catalog/categories' },
+      { id: 'catalog-billers', label: 'Billers', icon: 'Building2', href: '/catalog/billers' },
+    ],
+  },
+  {
     id: 'tenants',
     label: 'Tenants',
     icon: 'Building',

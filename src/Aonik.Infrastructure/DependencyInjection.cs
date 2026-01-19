@@ -18,6 +18,8 @@ using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Registration;
 using Aonik.Application.Services.Settings;
+using Aonik.Application.Services.Onboarding;
+
 using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
 using Aonik.Infrastructure.Authentication;
@@ -134,6 +136,13 @@ public static class DependencyInjection
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
         services.AddScoped<IRegistrationService, RegistrationService>();
         services.AddScoped<IIdentityService, IdentityService>();
+        services.AddScoped<IUserIdentityService, UserIdentityService>();
+        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
+        services.AddScoped<IUserProfileService, UserProfileService>();
+        services.AddScoped<IUserRoleService, UserRoleService>();
+        services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<IVerificationService, VerificationService>();
+        services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
         services.AddHttpClient<Auth0AuthTokenService>();

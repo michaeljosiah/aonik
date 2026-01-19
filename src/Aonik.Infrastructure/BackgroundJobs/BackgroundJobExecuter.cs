@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions.BackgroundJobs;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
@@ -26,12 +27,12 @@ public class BackgroundJobExecuter : IBackgroundJobExecuter
     /// </summary>
     public BackgroundJobExecuter(
         IServiceScopeFactory serviceScopeFactory,
-        AonikBackgroundJobOptions options,
+        IOptions<AonikBackgroundJobOptions> options,
         ITenantProvider tenantProvider,
         ILogger<BackgroundJobExecuter>? logger = null)
     {
         _serviceScopeFactory = serviceScopeFactory;
-        _options = options;
+        _options = options.Value;
         _tenantProvider = tenantProvider;
         _logger = logger ?? NullLogger<BackgroundJobExecuter>.Instance;
     }
