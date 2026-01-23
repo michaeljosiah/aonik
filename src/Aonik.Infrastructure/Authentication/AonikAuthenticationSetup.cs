@@ -160,8 +160,7 @@ public static class AonikAuthenticationSetup
 
         var tid = claims.FirstOrDefault(c => c.Type == "tid")?.Value;
 
-        var email = claims.FirstOrDefault(c => c.Type == "email")?.Value
-                    ?? claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+        var email = ClaimsEmailResolver.GetEmail(context.Principal);
 
         if (string.IsNullOrEmpty(iss) || string.IsNullOrEmpty(sub))
         {

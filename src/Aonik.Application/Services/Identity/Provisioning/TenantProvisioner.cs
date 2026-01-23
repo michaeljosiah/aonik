@@ -328,6 +328,8 @@ public class TenantProvisioner : ITenantProvisioner
             "Users.Invite",
             "Users.Manage",
             "Users.Deactivate",
+            "UserInfo.Read",
+            "UserInfo.Update",
             "Settings.Read",
             "Settings.Write",
             "Roles.Read",

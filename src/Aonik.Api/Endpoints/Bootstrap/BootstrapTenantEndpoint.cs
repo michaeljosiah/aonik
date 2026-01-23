@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
+using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.SharedKernel.Abstractions;
 
@@ -69,9 +70,7 @@ public class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantRes
             return;
         }
 
-        var email = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value
-                    ?? User.Claims.FirstOrDefault(c => c.Type == "email")?.Value
-                    ?? User.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value;
+        var email = ClaimsEmailResolver.GetEmail(User);
         var externalTenantId = User.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
 
         var result = await _bootstrapService.BootstrapAsync(

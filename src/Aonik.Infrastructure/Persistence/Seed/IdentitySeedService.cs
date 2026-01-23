@@ -73,6 +73,10 @@ public class IdentitySeedService
             new Permission { Key = "Users.Manage", Description = "Manage user roles and permissions" },
             new Permission { Key = "Users.Deactivate", Description = "Deactivate users" },
 
+            // UserInfo permissions (for user profile endpoints)
+            new Permission { Key = "UserInfo.Read", Description = "View user information and profile" },
+            new Permission { Key = "UserInfo.Update", Description = "Update user information and profile" },
+
             // Role management permissions (tenant-scoped)
             new Permission { Key = "Roles.Read", Description = "View roles in tenant" },
             new Permission { Key = "Roles.Create", Description = "Create roles in tenant" },
