@@ -82,6 +82,7 @@ public class ReferenceDataService : IReferenceDataService
 
         var normalizedType = request.Type.Trim();
         var normalizedCode = request.Code.Trim();
+        tenantId ??= _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId) ? resolvedTenantId : null;
 
         var item = await _dbContext.ReferenceDataItems
             .FirstOrDefaultAsync(

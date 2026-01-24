@@ -61,7 +61,12 @@ public class PricingService : IPricingService
         var destinationPrecision = _currencyMetadataProvider.GetCurrency(normalizedRequest.DestinationCurrency).DecimalPlaces;
 
         var markupRate = (policyResolution.Conditions.MarkupBps ?? 0) / 10000m;
-        var exchangeRate = fxRate.Rate * (1 + markupRate);
+        var exchangeRate = fxRate.Rate * (1 - markupRate);
+
+        if (markupRate >= 1m)
+        {
+            throw new InvalidOperationException("FX markup is invalid for the requested currency pair.");
+        }
 
         if (exchangeRate <= 0m)
         {

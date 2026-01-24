@@ -393,4 +393,81 @@ public class PricingServiceTests
         // Assert
         result.FeesTotal.Should().Be(5.00m);
     }
+
+    [Fact]
+    public async Task GetBillPaymentQuoteAsync_ShouldReduceEffectiveRate_WhenMarkupIsPositive()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var clock = new TestClock { UtcNow = DateTime.UtcNow };
+        using var context = CreateDbContext(tenantId, clock);
+
+        var conditionsJson = "{\"markupBps\":100}";
+
+        context.FeePolicies.Add(new FeePolicy
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "Default",
+            FixedFee = 0.00m,
+            PercentageFee = 0.00m,
+            ConditionsJson = conditionsJson,
+            IsActive = true
+        });
+
+        context.FxQuotes.Add(new FxQuote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            BaseCurrency = "USD",
+            TargetCurrency = "KES",
+            Rate = 2.00m,
+            ExpiresAt = clock.UtcNow.AddHours(1),
+            Provider = "Test"
+        });
+
+        context.LimitsPolicies.Add(new LimitsPolicy
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ScopeType = "Tenant",
+            ScopeId = tenantId,
+            Currency = "USD",
+            MaxAmount = 1000m,
+            Period = "Monthly",
+            IsActive = true
+        });
+
+        await context.SaveChangesAsync();
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        var policyService = new PricingPolicyService(context, tenantProvider);
+        var fxRateService = new FxRateService(context, clock);
+        var service = new PricingService(
+            tenantProvider,
+            policyService,
+            fxRateService,
+            new CurrencyMetadataProvider(),
+            new NoOpAuditLogWriter(),
+            context);
+
+        var request = new PricingQuoteRequest(
+            "USD",
+            "KES",
+            "US",
+            "KE",
+            "BILLPAY",
+            198m,
+            null,
+            null,
+            null,
+            null);
+
+        // Act
+        var result = await service.GetBillPaymentQuoteAsync(request);
+
+        // Assert
+        result.ExchangeRate.Should().Be(1.98m);
+        result.OriginAmount.Should().Be(100.00m);
+    }
 }

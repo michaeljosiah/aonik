@@ -59,7 +59,7 @@ Customer tiers are reference data items of type `CustomerTier` managed through t
 
 ## FX Rate Sources
 
-FX rates are pulled from stored `FxQuote` records for the currency pair. The quote must not be expired. Markup is applied on top of the base rate.
+FX rates are pulled from stored `FxQuote` records for the currency pair. The quote must not be expired. Markup is applied as a spread that worsens the rate (reduces the effective rate for positive markups).
 
 ## Rounding Rules
 
