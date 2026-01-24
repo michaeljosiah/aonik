@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,7 +15,6 @@ import {
   Store,
   Settings,
   ChevronRight,
-  ChevronDown,
   PanelLeftClose,
   PanelLeft,
   Settings2,
@@ -54,7 +53,7 @@ import {
   ScrollText,
   Globe,
 } from 'lucide-react';
-import type { NavItem } from '@/types';
+import type { NavItem, NavItemGroup } from '@/types';
 import { identityService } from '@/services/identityService';
 import { navigationItems } from '@/data/mockData';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
@@ -109,33 +108,159 @@ interface SidebarProps {
   onToggle?: () => void;
 }
 
+// Flyout menu component for grouped children
+function FlyoutMenu({
+  item,
+  onClose,
+  triggerRef,
+}: {
+  item: NavItem;
+  onClose: () => void;
+  triggerRef: React.RefObject<HTMLDivElement>;
+}) {
+  const location = useLocation();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  // Calculate position based on trigger element
+  useEffect(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.top - 4,
+        left: rect.right + 2, // Tighter gap (2px)
+      });
+    }
+  }, [triggerRef]);
+
+  // Get all items (either from childGroups or children)
+  const groups: NavItemGroup[] = item.childGroups || (item.children ? [{ label: '', items: item.children }] : []);
+
+  return (
+    <div
+      ref={menuRef}
+      className="flyout-menu fixed w-56 bg-[var(--color-surface)] rounded-lg shadow-lg border border-[var(--color-border)] z-[9999] overflow-hidden"
+      style={{ top: `${position.top}px`, left: `${position.left}px` }}
+      onMouseLeave={onClose}
+    >
+      {/* Groups */}
+      <div className="py-1.5 max-h-80 overflow-y-auto">
+        {groups.map((group, groupIndex) => (
+          <div key={group.label || groupIndex}>
+            {group.label && (
+              <div className="px-3 pt-1.5 pb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                  {group.label}
+                </span>
+              </div>
+            )}
+            <div className="px-1.5">
+              {group.items.map((child) => {
+                const ChildIcon = iconMap[child.icon] || LayoutDashboard;
+                const isActive = child.href === location.pathname;
+                return (
+                  <Link
+                    key={child.id}
+                    to={child.href || '#'}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2 py-1 rounded-sm text-sm transition-colors',
+                      isActive
+                        ? 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-text-primary)]'
+                    )}
+                    onClick={onClose}
+                  >
+                    <ChildIcon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{child.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+            {groupIndex < groups.length - 1 && (
+              <div className="my-1 mx-3 border-t border-[var(--color-border-light)]" />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Footer - View all link */}
+      {item.viewAllHref && (
+        <div className="px-1.5 py-1 border-t border-[var(--color-border-light)]">
+          <Link
+            to={item.viewAllHref}
+            className="flex items-center justify-center gap-1 px-2 py-1 rounded-sm text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
+            onClick={onClose}
+          >
+            <span>{item.viewAllLabel || 'View all'}</span>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavItemComponent({
   item,
   collapsed,
-  level = 0,
 }: {
   item: NavItem;
   collapsed: boolean;
-  level?: number;
 }) {
   const location = useLocation();
-  const [expanded, setExpanded] = useState(false);
+  const [showFlyout, setShowFlyout] = useState(false);
+  const [clickedOpen, setClickedOpen] = useState(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const Icon = iconMap[item.icon] || LayoutDashboard;
   const isActive = item.href === location.pathname;
-  const hasChildren = item.children && item.children.length > 0;
+  const hasChildren = (item.childGroups && item.childGroups.length > 0) || (item.children && item.children.length > 0);
 
-  const handleClick = () => {
-    if (hasChildren) {
-      setExpanded(!expanded);
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (!collapsed && hasChildren) {
+      // Small delay to prevent accidental triggers
+      hoverTimeoutRef.current = setTimeout(() => {
+        setShowFlyout(true);
+      }, 100);
     }
   };
 
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    if (!clickedOpen) {
+      setShowFlyout(false);
+    }
+  };
+
+  const handleClick = () => {
+    if (collapsed && hasChildren) {
+      // In collapsed mode, click toggles flyout
+      setClickedOpen(!clickedOpen);
+      setShowFlyout(!showFlyout);
+    }
+  };
+
+  const handleFlyoutClose = () => {
+    setShowFlyout(false);
+    setClickedOpen(false);
+  };
+
   const baseClasses = cn(
-    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer',
+    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer relative',
     'hover:bg-[var(--color-sidebar-hover)]',
     isActive && 'bg-[var(--color-sidebar-active)] text-white hover:bg-[var(--color-sidebar-active)]',
     !isActive && 'text-[var(--color-text-secondary)]',
-    level > 0 && 'ml-6 text-[13px]'
+    showFlyout && !isActive && 'bg-[var(--color-sidebar-hover)]'
   );
 
   const content = (
@@ -145,34 +270,75 @@ function NavItemComponent({
         <>
           <span className="flex-1 truncate">{item.label}</span>
           {hasChildren && (
-            <span className="text-[var(--color-text-tertiary)]">
-              {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            </span>
+            <ChevronRight className={cn(
+              'w-4 h-4 text-[var(--color-text-tertiary)] transition-transform',
+              showFlyout && 'rotate-90'
+            )} />
           )}
         </>
       )}
     </>
   );
 
+  // For collapsed sidebar with children, show tooltip on hover
+  if (collapsed && hasChildren) {
+    return (
+      <div ref={triggerRef} className="relative" onMouseLeave={handleFlyoutClose}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={baseClasses} onClick={handleClick}>
+              {content}
+            </div>
+          </TooltipTrigger>
+          {!showFlyout && (
+            <TooltipContent side="right" sideOffset={8}>
+              <p>{item.label}</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+        {showFlyout && <FlyoutMenu item={item} onClose={handleFlyoutClose} triggerRef={triggerRef} />}
+      </div>
+    );
+  }
+
+  // For collapsed sidebar without children, show tooltip
+  if (collapsed && !hasChildren) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link to={item.href || '#'} className={baseClasses}>
+            {content}
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          <p>{item.label}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  // For expanded sidebar with children, show flyout on hover
+  if (hasChildren) {
+    return (
+      <div
+        ref={triggerRef}
+        className="relative"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div className={baseClasses}>
+          {content}
+        </div>
+        {showFlyout && <FlyoutMenu item={item} onClose={handleFlyoutClose} triggerRef={triggerRef} />}
+      </div>
+    );
+  }
+
+  // For expanded sidebar without children, simple link
   return (
-    <div>
-      {item.href && !hasChildren ? (
-        <Link to={item.href} className={baseClasses}>
-          {content}
-        </Link>
-      ) : (
-        <div className={baseClasses} onClick={handleClick}>
-          {content}
-        </div>
-      )}
-      {hasChildren && expanded && !collapsed && (
-        <div className="mt-1 space-y-1">
-          {item.children?.map((child) => (
-            <NavItemComponent key={child.id} item={child} collapsed={collapsed} level={level + 1} />
-          ))}
-        </div>
-      )}
-    </div>
+    <Link to={item.href || '#'} className={baseClasses}>
+      {content}
+    </Link>
   );
 }
 
@@ -259,7 +425,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
         {/* Avatar - positioned to overlap the top of the card when expanded */}
         {isExpanded && (
           <Avatar 
-            className="w-16 h-16 absolute -top-8 left-4 cursor-pointer border-4 border-[var(--color-sidebar-bg)] z-10"
+            className="w-16 h-16 absolute -top-8 left-4 cursor-pointer border-4 border-[var(--color-background)] z-10"
             onClick={() => setIsExpanded(false)}
           >
             {user.picture && <AvatarImage src={user.picture} alt={user.name} />}
@@ -290,12 +456,12 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                     Admin
                   </Badge>
                 )}
-                <button 
-                  className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
-                  onClick={() => setIsExpanded(true)}
-                >
-                  <Settings2 className="w-5 h-5" />
-                </button>
+                 <button 
+                   className="p-1.5 rounded-sm hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
+                   onClick={() => setIsExpanded(true)}
+                 >
+                   <Settings2 className="w-5 h-5" />
+                 </button>
               </div>
             </div>
             {/* Name and role */}
@@ -323,12 +489,12 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   Admin
                 </Badge>
               )}
-              <button 
-                className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
-                onClick={() => setIsExpanded(false)}
-              >
-                <X className="w-5 h-5" />
-              </button>
+               <button 
+                 className="p-1.5 rounded-sm hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
+                 onClick={() => setIsExpanded(false)}
+               >
+                 <X className="w-5 h-5" />
+               </button>
             </div>
 
             {/* Name and role */}
@@ -351,7 +517,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
               {menuItems.map((item) => (
                 <button
                   key={item.label}
-                  className="flex items-center gap-3 w-full px-2 py-2.5 rounded-lg text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+                  className="flex items-center gap-3 w-full px-2 py-2.5 rounded-md text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
                 >
                   <item.icon className="w-5 h-5 text-[var(--color-text-secondary)]" />
                   {item.label}
@@ -362,11 +528,11 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
             {/* Theme switcher */}
             <div className="py-3 border-t border-[var(--color-border-light)]">
               <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">Theme</p>
-              <div className="flex bg-[var(--color-background)] rounded-lg p-1">
+              <div className="flex bg-[var(--color-background)] rounded-md p-1">
                 <button
                   onClick={() => setTheme('light')}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-sm text-xs font-medium transition-colors",
                     theme === 'light' 
                       ? "bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)]" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -378,7 +544,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 <button
                   onClick={() => setTheme('dark')}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-sm text-xs font-medium transition-colors",
                     theme === 'dark' 
                       ? "bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)]" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -390,7 +556,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 <button
                   onClick={() => setTheme('system')}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-sm text-xs font-medium transition-colors",
                     theme === 'system' 
                       ? "bg-[var(--color-brand-primary)] text-white" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -406,7 +572,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
             <div className="pt-3 border-t border-[var(--color-border-light)]">
               <button 
                 onClick={onLogout}
-                className="flex items-center gap-3 w-full px-2 py-2.5 rounded-lg text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+                className="flex items-center gap-3 w-full px-2 py-2.5 rounded-md text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
               >
                 <LogOut className="w-5 h-5 text-[var(--color-text-secondary)]" />
                 Log out
@@ -450,7 +616,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               <span className="text-xl text-[var(--color-brand-secondary)]">.</span>
             </Link>
           ) : (
-            <Link to="/" className="text-xl font-bold text-[var(--color-brand-primary)]">C</Link>
+            <Link to="/" className="text-xl font-bold text-[var(--color-brand-primary)]">A</Link>
           )}
           <button
             onClick={onToggle}

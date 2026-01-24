@@ -1,4 +1,9 @@
 // Navigation Types
+export interface NavItemGroup {
+  label: string;
+  items: NavItem[];
+}
+
 export interface NavItem {
   id: string;
   label: string;
@@ -6,6 +11,11 @@ export interface NavItem {
   href?: string;
   badge?: string;
   children?: NavItem[];
+  /** Grouped children for flyout menus - takes precedence over children if present */
+  childGroups?: NavItemGroup[];
+  /** Footer link for the flyout menu (e.g., "View all") */
+  viewAllHref?: string;
+  viewAllLabel?: string;
 }
 
 // User Types

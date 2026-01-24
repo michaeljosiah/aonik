@@ -36,9 +36,9 @@
   --color-pending-light: #FED7AA;
   
   /* Sidebar */
-  --color-sidebar-bg: #FAFAFA;
+  --color-sidebar-bg: #F8F9FA;
   --color-sidebar-active: #0D7377;
-  --color-sidebar-hover: #F0F0F0;
+  --color-sidebar-hover: rgba(13, 115, 119, 0.08);
   
   /* Fonts */
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -114,9 +114,9 @@
   --color-pending-light: #431407;
   
   /* Sidebar */
-  --color-sidebar-bg: #1E293B;
+  --color-sidebar-bg: #0F172A;
   --color-sidebar-active: #14B8A6;
-  --color-sidebar-hover: #334155;
+  --color-sidebar-hover: rgba(20, 184, 166, 0.12);
   
   /* Shadows - more subtle in dark mode */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -191,4 +191,20 @@ body {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Flyout Menu Animations */
+@keyframes flyout-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.flyout-menu {
+  animation: flyout-in 0.15s ease-out;
 }
