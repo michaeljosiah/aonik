@@ -83,7 +83,7 @@ Billing/
 ┌─────────────────────────────────────────────────────────────┐
 │                        API Layer                             │
 │                    (FastEndpoints)                           │
-│   /billing  /ledger  /payments  /ai  /health                │
+│   /billing  /ledger  /payments  /pricing  /ai  /health      │
 └────────────────┬────────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────────┐
@@ -93,6 +93,10 @@ Billing/
 │  │   Billing   │  │    Ledger    │  │   Payments    │     │
 │  │   Service   │  │   Service    │  │    Service    │     │
 │  └─────────────┘  └──────────────┘  └───────────────┘     │
+│  ┌─────────────┐                                          │
+│  │   Pricing   │                                          │
+│  │   Service   │                                          │
+│  └─────────────┘                                          │
 │                                                              │
 │  ┌─────────────────────────────────────────────────┐       │
 │  │         AI Insights Service                      │       │
@@ -435,6 +439,7 @@ public class CreateInvoiceEndpoint : Endpoint<CreateInvoiceRequest, InvoiceRespo
 - `GET /billing/invoices/{id}` - Get invoice
 - `POST /ledger/accounts` - Create ledger account
 - `POST /ledger/entries` - Add journal entry
+- `POST /pricing/quote` - Pricing and FX quote
 - `POST /ai/insights/invoice/{id}` - Generate AI insight
 
 **Dependencies:** Application, Infrastructure
@@ -692,6 +697,32 @@ Planned workflows:
 [AonikDbContext]
    ↑ InsightResponse
 [Client]
+```
+
+### 4. Pricing & FX Quote Flow
+
+The pricing quote flow calculates the FX rate, fees, and totals without changing financial state.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Api as PricingQuoteEndpoint
+    participant Pricing as PricingService
+    participant Policy as PricingPolicyService
+    participant Fx as FxRateService
+    participant Audit as AuditLogWriter
+
+    Client->>Api: POST /pricing/quote
+    Api->>Pricing: GetBillPaymentQuoteAsync
+    Pricing->>Policy: Resolve policy + limits
+    Policy-->>Pricing: FeePolicy + version
+    Pricing->>Fx: Get FX rate
+    Fx-->>Pricing: FxQuote + timestamp
+    Pricing->>Pricing: Calculate amounts + fees
+    Pricing->>Audit: Log PricingQuoteCreated
+    Pricing-->>Api: PricingQuoteResponse
+    Api-->>Client: 200 OK
 ```
 
 ---

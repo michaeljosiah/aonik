@@ -19,3 +19,29 @@ This describes the typical request/response path for API calls.
 - Authentication/authorization runs before endpoints.
 - Tenant validation middleware runs after authorization.
 - Audit fields are applied in `AonikDbContext.SaveChangesAsync()`.
+
+## Pricing Quote Flow
+
+The pricing quote endpoint returns an FX rate, fees, and totals without mutating financial state.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Api as PricingQuoteEndpoint
+    participant Pricing as PricingService
+    participant Policy as PricingPolicyService
+    participant Fx as FxRateService
+    participant Audit as AuditLogWriter
+
+    Client->>Api: POST /pricing/quote
+    Api->>Pricing: GetBillPaymentQuoteAsync
+    Pricing->>Policy: Resolve policy + limits
+    Policy-->>Pricing: FeePolicy + version
+    Pricing->>Fx: Get FX rate
+    Fx-->>Pricing: FxQuote + timestamp
+    Pricing->>Pricing: Calculate amounts + fees
+    Pricing->>Audit: Log PricingQuoteCreated
+    Pricing-->>Api: PricingQuoteResponse
+    Api-->>Client: 200 OK
+```

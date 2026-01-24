@@ -8,4 +8,9 @@ public interface IReferenceDataService
         string type,
         Guid? tenantId = null,
         CancellationToken cancellationToken = default);
+
+    Task<ReferenceDataItemSnapshot> UpsertAsync(
+        ReferenceDataItemUpsert request,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default);
 }

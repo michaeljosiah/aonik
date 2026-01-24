@@ -27,6 +27,10 @@ Welcome to the AONIK documentation. This index provides quick access to all proj
 - **[Getting Started Guide](guides/getting-started.md)** - Setup and first run
 - **[Settings Guide](guides/settings.md)** - Settings scopes and endpoints
 
+### Features
+
+- **[Pricing & FX Quotes](features/pricing.md)** - How fees, FX, and limits work
+
 ### Testing
 
 - **[Testing Guide](Testing.md)** - Complete testing documentation
