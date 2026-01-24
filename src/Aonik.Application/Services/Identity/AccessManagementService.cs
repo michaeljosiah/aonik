@@ -74,7 +74,7 @@ public class AccessManagementService : IAccessManagementService
                 user.Email ?? string.Empty,
                 null,
                 user.Status,
-                null,
+                user.LastLoginAt,
                 _dbContext.UserRoles.Count(ur => ur.UserId == user.Id)))
             .ToListAsync(cancellationToken);
 
@@ -114,7 +114,7 @@ public class AccessManagementService : IAccessManagementService
             null,
             user.Status,
             user.CreatedAt,
-            null,
+            user.LastLoginAt,
             roles,
             permissions);
     }
@@ -541,7 +541,7 @@ public class AccessManagementService : IAccessManagementService
                 ur.User.Email ?? string.Empty,
                 null,
                 ur.User.Status,
-                null,
+                ur.User.LastLoginAt,
                 _dbContext.UserRoles.Count(userRole => userRole.UserId == ur.User.Id)))
             .ToListAsync(cancellationToken);
 

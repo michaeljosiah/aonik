@@ -41,6 +41,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnType("nvarchar(max)")
             .HasDefaultValue("{}");
 
+        builder.Property(u => u.LastLoginAt);
+
         // CRITICAL: Unique index on external identity within tenant
         builder.HasIndex(u => new { u.TenantId, u.ExternalIssuer, u.ExternalSubject })
             .IsUnique()

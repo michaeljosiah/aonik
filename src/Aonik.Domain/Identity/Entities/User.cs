@@ -16,6 +16,7 @@ public class User : AuditableEntity, ITenantScoped
     public string? Phone { get; set; }
     public string Status { get; set; } = "Active";                  // Active, Suspended, Deactivated
     public string PreferencesJson { get; set; } = string.Empty;
+    public DateTime? LastLoginAt { get; set; }
 
     // Relationships
     public List<UserRole> UserRoles { get; set; } = new();

@@ -248,7 +248,12 @@ public static class AonikAuthenticationSetup
         {
             logger.LogWarning("User {UserId} attempted login with status {Status}", user.Id, user.Status);
             context.Fail($"User account is {user.Status}");
+            return;
         }
+
+        var clock = context.HttpContext.RequestServices.GetRequiredService<IClock>();
+        user.LastLoginAt = clock.UtcNow;
+        await dbContext.SaveChangesAsync(context.HttpContext.RequestAborted);
     }
 
     private static async Task<Guid?> ResolveFromUserAssociationAsync(
