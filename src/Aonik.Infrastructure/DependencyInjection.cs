@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Aonik.Application.Abstractions;
 using Aonik.Application.Abstractions.Ai;
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Messaging;
@@ -60,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserContext, HttpContextCurrentUserContext>();
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
         services.AddScoped<ICorrelationContext, HttpContextCorrelationContext>();
+        services.AddSingleton<IJsonSerializer, SystemTextJsonSerializer>();
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
         services.Configure<PlatformAdminOptions>(configuration.GetSection("PlatformAdmin"));
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));

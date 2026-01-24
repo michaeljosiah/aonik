@@ -5,6 +5,7 @@ namespace Aonik.Domain.Billing.Entities;
 public class Invoice : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
+    public Guid? OrderId { get; set; }
     public Guid CustomerAccountId { get; set; }
     public DateTime IssueDate { get; set; }
     public DateTime DueDate { get; set; }

@@ -13,6 +13,9 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.Property(x => x.CustomerAccountId)
             .IsRequired();
 
+        builder.Property(x => x.OrderId)
+            .IsRequired(false);
+
         builder.Property(x => x.Currency)
             .IsRequired()
             .HasMaxLength(3);
@@ -46,6 +49,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(x => x.CustomerAccountId);
+        builder.HasIndex(x => x.OrderId);
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.DueDate);
     }

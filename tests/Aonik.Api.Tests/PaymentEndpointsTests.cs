@@ -25,7 +25,7 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
                 .WithRoles("Operations"));
 
 
-        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001");
+        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", Guid.NewGuid(), null);
 
         // Act
         var response = await client.PostAsJsonAsync("/payments/intents", request);
@@ -51,7 +51,7 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
                 .WithRoles("Operations"));
 
 
-        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002");
+        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", Guid.NewGuid(), null);
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
         var createdPayment = await createResponse.Content.ReadFromJsonAsync<PaymentIntentResponse>();
 
@@ -92,7 +92,7 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
                 .WithRoles("Operations"));
 
 
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003");
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", Guid.NewGuid(), null);
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
         var payment = await createResponse.Content.ReadFromJsonAsync<PaymentIntentResponse>();
 
@@ -117,7 +117,7 @@ public class PaymentEndpointsTests : IClassFixture<CustomWebApplicationFactory>
                 .WithRoles("Operations"));
 
 
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004");
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", Guid.NewGuid(), null);
         var createResponse = await client.PostAsJsonAsync("/payments/intents", createRequest);
         var payment = await createResponse.Content.ReadFromJsonAsync<PaymentIntentResponse>();
 
