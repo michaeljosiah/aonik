@@ -342,12 +342,14 @@ public class AccessManagementService : IAccessManagementService
             throw new ArgumentException("Role name is required", nameof(request.Name));
         }
 
+        var trimmedName = request.Name.Trim();
+
         var exists = await _dbContext.Roles
-            .AnyAsync(role => role.TenantId == tenantId && role.Name == request.Name, cancellationToken);
+            .AnyAsync(role => role.TenantId == tenantId && role.Name == trimmedName, cancellationToken);
 
         if (exists)
         {
-            throw new InvalidOperationException($"Role '{request.Name}' already exists in tenant {tenantId}");
+            throw new InvalidOperationException($"Role '{trimmedName}' already exists in tenant {tenantId}");
         }
 
         var userId = _currentUserProvider.GetCurrentUserId();
@@ -357,7 +359,7 @@ public class AccessManagementService : IAccessManagementService
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
-            Name = request.Name.Trim(),
+            Name = trimmedName,
             CreatedAt = now,
             CreatedBy = userId
         };
