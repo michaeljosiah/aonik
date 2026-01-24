@@ -18,6 +18,9 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
             .IsRequired()
             .HasMaxLength(3);
 
+        builder.Property(x => x.OrderId)
+            .IsRequired();
+
         builder.Property(x => x.Status)
             .IsRequired()
             .HasMaxLength(50);
@@ -32,5 +35,7 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
 
         builder.HasIndex(x => x.Status);
         builder.HasIndex(x => x.PayerPartyId);
+        builder.HasIndex(x => x.OrderId);
+        builder.HasIndex(x => x.InvoiceId);
     }
 }

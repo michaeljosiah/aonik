@@ -32,6 +32,8 @@ public class GetPaymentIntentEndpoint : EndpointWithoutRequest<PaymentIntentResp
 
         var response = new PaymentIntentResponse(
             result.Id,
+            result.OrderId,
+            result.InvoiceId,
             result.Amount,
             result.Currency,
             result.Status.ToString(),

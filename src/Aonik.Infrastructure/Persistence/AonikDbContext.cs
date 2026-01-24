@@ -141,6 +141,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
     // Orders
     public virtual DbSet<Order> Orders { get; set; } = null!;
+    public virtual DbSet<OrderItem> OrderItems { get; set; } = null!;
     public virtual DbSet<OrderPartyRole> OrderPartyRoles { get; set; } = null!;
     public virtual DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
     public virtual DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; } = null!;
