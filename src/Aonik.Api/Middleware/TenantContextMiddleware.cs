@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-
+ 
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Multitenancy;
 
@@ -17,14 +17,16 @@ public class TenantContextMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
+        ITenantResolver tenantResolver,
         ITenantContext tenantContext,
+        IConfiguration configuration,
         ILogger<TenantContextMiddleware> logger)
     {
         var path = context.Request.Path;
 
         if (path.StartsWithSegments("/health") ||
             path.StartsWithSegments("/swagger") ||
-            path.StartsWithSegments("/admin") ||
+            path.StartsWithSegments("/host") ||
             path.StartsWithSegments("/bootstrap"))
         {
             await _next(context);
@@ -39,10 +41,20 @@ public class TenantContextMiddleware
 
         if (!tenantContext.IsResolved)
         {
-            logger.LogWarning("Tenant context not resolved after authentication for path {Path}", path);
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
-            return;
+            var resolvedTenantId = tenantResolver.ResolveTenantId() ?? tenantResolver.ResolveFromHttpContext();
+            if (resolvedTenantId != null)
+            {
+                tenantContext.TenantId = resolvedTenantId;
+                tenantContext.ResolutionSource = configuration["Auth:TenantRouting"] ?? "Resolver";
+            }
+
+            if (!tenantContext.IsResolved)
+            {
+                logger.LogWarning("Tenant context not resolved after authentication for path {Path}", path);
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
+                return;
+            }
         }
 
         await _next(context);
