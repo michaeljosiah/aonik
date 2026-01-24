@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +14,11 @@ export function AccessRolesPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const requestIdRef = useRef(0);
 
   const loadRoles = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setLoading(true);
     setError(null);
     try {
@@ -24,6 +27,10 @@ export function AccessRolesPage() {
         pageSize,
         search: searchQuery || undefined,
       });
+      if (requestIdRef.current != requestId)
+      {
+        return;
+      }
       setRoles(result.items);
       setTotalCount(result.totalCount);
     } catch (err: unknown) {
@@ -31,8 +38,16 @@ export function AccessRolesPage() {
       const message = err && typeof err === 'object' && 'userMessage' in err
         ? String((err as { userMessage?: string }).userMessage ?? '')
         : '';
+      if (requestIdRef.current != requestId)
+      {
+        return;
+      }
       setError(message || 'Failed to load roles. Please try again.');
     } finally {
+      if (requestIdRef.current != requestId)
+      {
+        return;
+      }
       setLoading(false);
     }
   }, [pageNumber, pageSize, searchQuery]);
@@ -46,7 +61,6 @@ export function AccessRolesPage() {
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
     setPageNumber(1);
-    loadRoles();
   };
 
   return (
