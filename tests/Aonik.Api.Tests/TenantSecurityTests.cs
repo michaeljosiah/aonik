@@ -45,11 +45,13 @@ public class TenantSecurityTests : IClassFixture<CustomWebApplicationFactory>
         var tenantAClient = await _factory.CreateAuthenticatedClientAsync(
             TestAuthOptions.Create()
                 .WithPermissions("Invoice.Create", "Invoice.Read")
+                .WithRoles("Operations")
                 .WithTenant(tenantA));
 
         var tenantBClient = await _factory.CreateAuthenticatedClientAsync(
             TestAuthOptions.Create()
                 .WithPermissions("Invoice.Read")
+                .WithRoles("Operations")
                 .WithTenant(tenantB));
 
 
@@ -80,7 +82,9 @@ public class TenantSecurityTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Tenants.Read"));
+            TestAuthOptions.Create()
+                .WithPermissions("Tenants.Read")
+                .WithRoles("PlatformAdmin"));
 
         // Act
         var response = await client.GetAsync("/admin/tenants");

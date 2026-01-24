@@ -1,8 +1,11 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.ReferenceData;
 using Aonik.Application.Models.Catalog;
-using Microsoft.EntityFrameworkCore;
+using Aonik.Application.Services.Identity;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Catalog;
 
@@ -11,19 +14,26 @@ public class CatalogService : ICatalogService
     private const string CountryReferenceType = "Country";
     private readonly IAonikDbContext _dbContext;
     private readonly IReferenceDataService _referenceDataService;
+    private readonly IPermissionService _permissionService;
+    private readonly ICurrentUserProvider _currentUserProvider;
 
     public CatalogService(
         IAonikDbContext dbContext,
-        IReferenceDataService referenceDataService)
+        IReferenceDataService referenceDataService,
+        IPermissionService permissionService,
+        ICurrentUserProvider currentUserProvider)
     {
         _dbContext = dbContext;
         _referenceDataService = referenceDataService;
+        _permissionService = permissionService;
+        _currentUserProvider = currentUserProvider;
     }
 
     public async Task<CatalogCountryResponse> GetCountriesAsync(
         CatalogCountryListRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(cancellationToken);
         var items = await _referenceDataService.GetAsync(CountryReferenceType, cancellationToken: cancellationToken);
         var countries = items
             .Where(item => item.IsActive)
@@ -51,6 +61,7 @@ public class CatalogService : ICatalogService
         CatalogCategoryListRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(cancellationToken);
         var query = _dbContext.CatalogBillerCategories
             .AsNoTracking()
             .Where(category => category.IsActive);
@@ -79,6 +90,7 @@ public class CatalogService : ICatalogService
         CatalogBillerListRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(cancellationToken);
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
 
@@ -129,6 +141,7 @@ public class CatalogService : ICatalogService
 
     public async Task<CatalogBillerDetailResponse?> GetBillerDetailAsync(Guid billerId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(cancellationToken);
         var biller = await _dbContext.CatalogBillers
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == billerId, cancellationToken);
@@ -159,6 +172,7 @@ public class CatalogService : ICatalogService
 
     public async Task<CatalogBillerServiceResponse> GetBillerServicesAsync(Guid billerId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(cancellationToken);
         var services = await _dbContext.CatalogBillerServices
             .AsNoTracking()
             .Where(service => service.BillerId == billerId && service.IsActive)
@@ -184,6 +198,7 @@ public class CatalogService : ICatalogService
         Guid serviceId,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(cancellationToken);
         var service = await _dbContext.CatalogBillerServices
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.BillerId == billerId && item.Id == serviceId, cancellationToken);
@@ -227,5 +242,20 @@ public class CatalogService : ICatalogService
         }
 
         return JsonSerializer.Deserialize<CatalogServiceValidation>(json);
+    }
+
+    private async Task EnsurePermissionAsync(CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            throw new InvalidOperationException("Authenticated user is required.");
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, "Catalog.Read", cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException("Permission Catalog.Read is required.");
+        }
     }
 }

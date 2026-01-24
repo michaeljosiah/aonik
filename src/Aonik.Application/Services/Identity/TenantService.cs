@@ -23,6 +23,7 @@ public class TenantService : ITenantService
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
     private readonly ITenantContext _tenantContext;
+    private readonly IPermissionService _permissionService;
 
     public TenantService(
         IAonikDbContext dbContext,
@@ -31,7 +32,8 @@ public class TenantService : ITenantService
         IClock clock,
         ICurrentUserProvider currentUserProvider,
         ICorrelationContext correlationContext,
-        ITenantContext tenantContext)
+        ITenantContext tenantContext,
+        IPermissionService permissionService)
     {
         _dbContext = dbContext;
         _provisioner = provisioner;
@@ -40,11 +42,13 @@ public class TenantService : ITenantService
         _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
         _tenantContext = tenantContext;
+        _permissionService = permissionService;
     }
 
 
     public async Task<TenantResponse> CreateTenantAsync(CreateTenantRequest request, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
         ValidateCreateRequest(request);
 
         var existingTenant = await _dbContext.Tenants
@@ -97,6 +101,7 @@ public class TenantService : ITenantService
 
     public async Task<TenantResponse?> GetTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Read", cancellationToken);
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
@@ -107,6 +112,7 @@ public class TenantService : ITenantService
         ListTenantsRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Read", cancellationToken);
         var query = _dbContext.Tenants.AsQueryable();
 
         if (!string.IsNullOrEmpty(request.Environment))
@@ -140,6 +146,7 @@ public class TenantService : ITenantService
         UpdateTenantRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
@@ -197,6 +204,7 @@ public class TenantService : ITenantService
 
     public async Task DeactivateTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
@@ -228,6 +236,7 @@ public class TenantService : ITenantService
 
     public async Task ActivateTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
@@ -322,6 +331,21 @@ public class TenantService : ITenantService
         {
             if (string.IsNullOrWhiteSpace(country) || country.Length != 2)
                 throw new ArgumentException($"Invalid country code: {country}. Must be a 2-letter ISO 3166-1 alpha-2 code", nameof(countries));
+        }
+    }
+
+    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            throw new InvalidOperationException("Authenticated user is required.");
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException($"Permission {permissionKey} is required.");
         }
     }
 }

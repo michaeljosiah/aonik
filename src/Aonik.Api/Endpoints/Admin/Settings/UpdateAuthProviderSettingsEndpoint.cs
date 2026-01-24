@@ -17,7 +17,7 @@ public class UpdateAuthProviderSettingsEndpoint : Endpoint<AuthProviderSettingsU
     public override void Configure()
     {
         Put("/admin/settings/auth-provider");
-        Policies("PlatformAdmin");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(AuthProviderSettingsUpdateRequest req, CancellationToken ct)

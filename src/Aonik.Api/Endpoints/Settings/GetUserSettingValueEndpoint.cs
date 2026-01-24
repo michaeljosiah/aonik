@@ -27,7 +27,7 @@ public class GetUserSettingValueEndpoint : Endpoint<SettingKeyRequest, SettingVa
     public override void Configure()
     {
         Get("/v1/settings/user/{key}");
-        Policies("Settings.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(SettingKeyRequest req, CancellationToken ct)

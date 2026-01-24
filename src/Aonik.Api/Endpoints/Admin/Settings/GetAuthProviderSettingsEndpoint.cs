@@ -16,7 +16,7 @@ public class GetAuthProviderSettingsEndpoint : EndpointWithoutRequest<AuthProvid
     public override void Configure()
     {
         Get("/admin/settings/auth-provider");
-        Policies("PlatformAdmin");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

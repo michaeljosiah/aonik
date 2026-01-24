@@ -27,7 +27,7 @@ public class UpdateUserSettingValueEndpoint : Endpoint<SettingValueUpdateRequest
     public override void Configure()
     {
         Put("/v1/settings/user/{key}");
-        Policies("Settings.Write");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(SettingValueUpdateRequest req, CancellationToken ct)

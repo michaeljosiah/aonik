@@ -17,7 +17,7 @@ public class GetCatalogBillersEndpoint : Endpoint<CatalogBillerListRequest, Cata
     public override void Configure()
     {
         Get("/catalog/billers");
-        Policies("Catalog.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(CatalogBillerListRequest req, CancellationToken ct)

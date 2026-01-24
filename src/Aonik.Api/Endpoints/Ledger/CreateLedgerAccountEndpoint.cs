@@ -16,7 +16,7 @@ public class CreateLedgerAccountEndpoint : Endpoint<CreateLedgerAccountRequest, 
     public override void Configure()
     {
         Post("/ledger/accounts");
-        Policies("Ledger.Write");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CreateLedgerAccountRequest req, CancellationToken ct)

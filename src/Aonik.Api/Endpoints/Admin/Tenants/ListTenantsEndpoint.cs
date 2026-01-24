@@ -16,7 +16,7 @@ public class ListTenantsEndpoint : Endpoint<ListTenantsRequest, PagedResult<Tena
     public override void Configure()
     {
         Get("/admin/tenants");
-        Policies("Tenants.Read");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(ListTenantsRequest req, CancellationToken ct)

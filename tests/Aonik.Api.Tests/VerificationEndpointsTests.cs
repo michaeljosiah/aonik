@@ -32,7 +32,9 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Users.Read"));
+            TestAuthOptions.Create()
+                .WithPermissions("Users.Read", "UserInfo.Update")
+                .WithRoles("PersonalUser"));
 
 
 
@@ -53,7 +55,9 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
     public async Task ConfirmEmailVerification_ReturnsVerified()
     {
         // Arrange
-        var authOptions = TestAuthOptions.Create().WithPermissions("Users.Read");
+        var authOptions = TestAuthOptions.Create()
+            .WithPermissions("Users.Read", "UserInfo.Update")
+            .WithRoles("PersonalUser");
         var client = await _factory.CreateAuthenticatedClientAsync(authOptions);
 
         const string code = "123456";
@@ -82,7 +86,9 @@ public class VerificationEndpointsTests : IClassFixture<CustomWebApplicationFact
     public async Task ConfirmPhoneVerification_ReturnsVerified()
     {
         // Arrange
-        var authOptions = TestAuthOptions.Create().WithPermissions("Users.Read");
+        var authOptions = TestAuthOptions.Create()
+            .WithPermissions("Users.Read", "UserInfo.Update")
+            .WithRoles("PersonalUser");
         var client = await _factory.CreateAuthenticatedClientAsync(authOptions);
 
         const string code = "654321";

@@ -28,7 +28,7 @@ public class GetCustomerProfileEndpoint : EndpointWithoutRequest<ApiCustomerProf
     public override void Configure()
     {
         Get("/profiles/customers/me");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

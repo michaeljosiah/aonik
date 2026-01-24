@@ -1,8 +1,11 @@
+using Microsoft.EntityFrameworkCore;
+
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Billing;
+using Aonik.Application.Services.Identity;
 using Aonik.Domain.Billing.Entities;
-using Microsoft.EntityFrameworkCore;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Billing;
 
@@ -10,15 +13,24 @@ public class BillingService : IBillingService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IPermissionService _permissionService;
+    private readonly ICurrentUserProvider _currentUserProvider;
 
-    public BillingService(IAonikDbContext dbContext, ITenantProvider tenantProvider)
+    public BillingService(
+        IAonikDbContext dbContext,
+        ITenantProvider tenantProvider,
+        IPermissionService permissionService,
+        ICurrentUserProvider currentUserProvider)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _permissionService = permissionService;
+        _currentUserProvider = currentUserProvider;
     }
 
     public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Create", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var invoice = new Invoice
@@ -68,6 +80,7 @@ public class BillingService : IBillingService
 
     public async Task<InvoiceResponse?> GetInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Read", cancellationToken);
         var invoice = await _dbContext.Invoices
             .Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
@@ -77,6 +90,7 @@ public class BillingService : IBillingService
 
     public async Task AddLineToInvoiceAsync(Guid invoiceId, CreateInvoiceLineItemRequest lineRequest, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Update", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var invoice = await _dbContext.Invoices
@@ -109,6 +123,7 @@ public class BillingService : IBillingService
 
     public async Task ApplyDiscountAsync(Guid invoiceId, decimal discountTotal, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Update", cancellationToken);
         var invoice = await _dbContext.Invoices
             .Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
@@ -124,6 +139,7 @@ public class BillingService : IBillingService
 
     public async Task IssueInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Issue", cancellationToken);
         var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
 
         if (invoice == null)
@@ -138,6 +154,7 @@ public class BillingService : IBillingService
 
     public async Task MarkInvoiceAsPaidAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Update", cancellationToken);
         var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
 
         if (invoice == null)
@@ -152,6 +169,7 @@ public class BillingService : IBillingService
 
     public async Task CancelInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Update", cancellationToken);
         var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
 
         if (invoice == null)
@@ -166,6 +184,7 @@ public class BillingService : IBillingService
 
     public async Task UpdateLineQuantityAsync(Guid invoiceLineId, decimal quantity, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Update", cancellationToken);
         var line = await _dbContext.InvoiceLines
             .FirstOrDefaultAsync(l => l.Id == invoiceLineId, cancellationToken);
 
@@ -189,6 +208,7 @@ public class BillingService : IBillingService
 
     public async Task UpdateLineUnitPriceAsync(Guid invoiceLineId, decimal unitPrice, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Invoice.Update", cancellationToken);
         var line = await _dbContext.InvoiceLines
             .FirstOrDefaultAsync(l => l.Id == invoiceLineId, cancellationToken);
 
@@ -234,5 +254,20 @@ public class BillingService : IBillingService
                 li.Quantity,
                 li.UnitPrice,
                 li.LineTotal)).ToList());
+    }
+
+    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            throw new InvalidOperationException("Authenticated user is required.");
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+        }
     }
 }

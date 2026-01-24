@@ -1,7 +1,9 @@
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Models.Billing;
 using Aonik.Application.Services.Billing;
+using Aonik.Application.Services.Identity;
 using Aonik.Infrastructure.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,6 +26,30 @@ public class BillingServiceTests
         }
     }
 
+    private sealed class AllowAllPermissionService : IPermissionService
+    {
+        public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
+            Task.FromResult(true);
+
+        public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
+            Task.FromResult(new List<string>());
+    }
+
+    private sealed class TestCurrentUserProvider : ICurrentUserProvider
+    {
+        private readonly Guid _userId;
+
+        public TestCurrentUserProvider(Guid userId) => _userId = userId;
+
+        public Guid? GetCurrentUserId() => _userId;
+
+        public bool TryGetCurrentUserId(out Guid userId)
+        {
+            userId = _userId;
+            return true;
+        }
+    }
+
     [Fact]
     public async Task CreateInvoiceAsync_ShouldCreateInvoiceWithLineItems()
     {
@@ -35,7 +61,11 @@ public class BillingServiceTests
 
         using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
         var tenantProvider = new TestTenantProvider(tenantId);
-        var service = new BillingService(context, tenantProvider);
+        var service = new BillingService(
+            context,
+            tenantProvider,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         var request = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
@@ -71,7 +101,11 @@ public class BillingServiceTests
 
         using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
         var tenantProvider = new TestTenantProvider(tenantId);
-        var service = new BillingService(context, tenantProvider);
+        var service = new BillingService(
+            context,
+            tenantProvider,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         var createRequest = new CreateInvoiceRequest(
             CustomerId: Guid.NewGuid(),
@@ -105,7 +139,11 @@ public class BillingServiceTests
 
         using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
         var tenantProvider = new TestTenantProvider(tenantId);
-        var service = new BillingService(context, tenantProvider);
+        var service = new BillingService(
+            context,
+            tenantProvider,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         // Act
         var result = await service.GetInvoiceAsync(Guid.NewGuid(), CancellationToken.None);

@@ -21,7 +21,7 @@ public class UpdateTenantSettingValueEndpoint : Endpoint<SettingValueUpdateReque
     public override void Configure()
     {
         Put("/tenant/settings/values/{key}");
-        Policies("Settings.Write");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(SettingValueUpdateRequest req, CancellationToken ct)

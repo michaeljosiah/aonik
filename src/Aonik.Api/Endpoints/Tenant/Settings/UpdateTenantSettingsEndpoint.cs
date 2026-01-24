@@ -19,7 +19,7 @@ public class UpdateTenantSettingsEndpoint : Endpoint<UpdateTenantRequest, Tenant
     public override void Configure()
     {
         Patch("/tenant/settings");
-        Policies("Settings.Write");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(UpdateTenantRequest req, CancellationToken ct)

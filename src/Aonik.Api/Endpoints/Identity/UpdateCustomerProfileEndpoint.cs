@@ -29,7 +29,7 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
     public override void Configure()
     {
         Put("/profiles/customers/me");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(ApiUpdateCustomerProfileRequest req, CancellationToken ct)

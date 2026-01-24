@@ -184,22 +184,78 @@ public static class DependencyInjection
         // Add authorization
         services.AddAuthorization(options =>
         {
-            // Platform admin policy (application-level role)
+            // Role-based policies (API boundary)
             options.AddPolicy("PlatformAdmin", policy =>
                 policy.Requirements.Add(new RoleOrPermissionRequirement(
                     ["PlatformAdmin"],
                     Array.Empty<string>())));
 
+            options.AddPolicy("AdminPolicy", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin", "TenantAdmin"],
+                    Array.Empty<string>())));
+
+            options.AddPolicy("UserPolicy", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PersonalUser", "Operations", "ReadOnly"],
+                    Array.Empty<string>())));
+
+            // Composite (AdminPolicy OR UserPolicy)
+            options.AddPolicy("AdminUserPolicy", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations", "ReadOnly"],
+                    Array.Empty<string>())));
+
+            // Back-compat aliases (prefer *Policy names)
+            options.AddPolicy("AdminUser", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin", "TenantAdmin", "PersonalUser", "Operations", "ReadOnly"],
+                    Array.Empty<string>())));
+
+            options.AddPolicy("Admin", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PlatformAdmin", "TenantAdmin"],
+                    Array.Empty<string>())));
 
             options.AddPolicy("TenantAdmin", policy =>
                 policy.Requirements.Add(new RoleOrPermissionRequirement(
                     ["TenantAdmin"],
-                    ["Users.Manage"])));
+                    Array.Empty<string>())));
 
-            options.AddPolicy("CanOperate", policy =>
+            options.AddPolicy("Operations", policy =>
                 policy.Requirements.Add(new RoleOrPermissionRequirement(
                     ["Operations"],
-                    ["Payment.Create"])));
+                    Array.Empty<string>())));
+
+            options.AddPolicy("TenantAdminOrOperations", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["TenantAdmin", "Operations"],
+                    Array.Empty<string>())));
+
+            options.AddPolicy("OperationsOrReadOnly", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["Operations", "ReadOnly"],
+                    Array.Empty<string>())));
+
+            options.AddPolicy("ReadOnly", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["ReadOnly"],
+                    Array.Empty<string>())));
+
+            options.AddPolicy("Compliance", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["Compliance"],
+                    Array.Empty<string>())));
+
+            options.AddPolicy("PersonalUser", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PersonalUser"],
+                    Array.Empty<string>())));
+
+            options.AddPolicy("PlatformUser", policy =>
+                policy.Requirements.Add(new RoleOrPermissionRequirement(
+                    ["PersonalUser", "Operations", "ReadOnly"],
+                    Array.Empty<string>())));
         });
 
         // Register authorization handlers (SCOPED for permission handler)

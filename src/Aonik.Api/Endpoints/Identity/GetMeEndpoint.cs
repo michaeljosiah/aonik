@@ -35,7 +35,7 @@ public class GetMeEndpoint : EndpointWithoutRequest<CurrentUserResponse>
     public override void Configure()
     {
         Get("/v1/me");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -29,6 +29,7 @@ public class VerificationService : IVerificationService
     private readonly VerificationOptions _options;
     private readonly ILogger<VerificationService> _logger;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IPermissionService _permissionService;
 
     public VerificationService(
         IAonikDbContext dbContext,
@@ -39,7 +40,8 @@ public class VerificationService : IVerificationService
         IClock clock,
         IOptions<VerificationOptions> options,
         ILogger<VerificationService> logger,
-        ICorrelationContext correlationContext)
+        ICorrelationContext correlationContext,
+        IPermissionService permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -50,6 +52,7 @@ public class VerificationService : IVerificationService
         _options = options.Value;
         _logger = logger;
         _correlationContext = correlationContext;
+        _permissionService = permissionService;
     }
 
     public Task<VerificationChallengeResult> StartEmailVerificationAsync(
@@ -57,7 +60,7 @@ public class VerificationService : IVerificationService
         string email,
         CancellationToken cancellationToken = default)
     {
-        return StartVerificationAsync(
+        return StartVerificationWithPermissionAsync(
             userId,
             VerificationChannel.Email,
             NormalizeEmail(email),
@@ -69,7 +72,7 @@ public class VerificationService : IVerificationService
         string phone,
         CancellationToken cancellationToken = default)
     {
-        return StartVerificationAsync(
+        return StartVerificationWithPermissionAsync(
             userId,
             VerificationChannel.Sms,
             NormalizePhone(phone),
@@ -82,7 +85,7 @@ public class VerificationService : IVerificationService
         string code,
         CancellationToken cancellationToken = default)
     {
-        return ConfirmVerificationAsync(
+        return ConfirmVerificationWithPermissionAsync(
             userId,
             VerificationChannel.Email,
             NormalizeEmail(email),
@@ -96,12 +99,33 @@ public class VerificationService : IVerificationService
         string code,
         CancellationToken cancellationToken = default)
     {
-        return ConfirmVerificationAsync(
+        return ConfirmVerificationWithPermissionAsync(
             userId,
             VerificationChannel.Sms,
             NormalizePhone(phone),
             code,
             cancellationToken);
+    }
+
+    private async Task<VerificationChallengeResult> StartVerificationWithPermissionAsync(
+        Guid userId,
+        VerificationChannel channel,
+        string target,
+        CancellationToken cancellationToken)
+    {
+        await EnsurePermissionAsync(userId, cancellationToken);
+        return await StartVerificationAsync(userId, channel, target, cancellationToken);
+    }
+
+    private async Task<bool> ConfirmVerificationWithPermissionAsync(
+        Guid userId,
+        VerificationChannel channel,
+        string target,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        await EnsurePermissionAsync(userId, cancellationToken);
+        return await ConfirmVerificationAsync(userId, channel, target, code, cancellationToken);
     }
 
     private async Task<VerificationChallengeResult> StartVerificationAsync(
@@ -397,4 +421,13 @@ public class VerificationService : IVerificationService
         channel == VerificationChannel.Email
             ? AuditLogMasking.MaskEmail(target)
             : AuditLogMasking.MaskPhone(target);
+
+    private async Task EnsurePermissionAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var hasPermission = await _permissionService.HasPermissionAsync(userId, "UserInfo.Update", cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException("Permission UserInfo.Update is required.");
+        }
+    }
 }

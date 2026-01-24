@@ -16,7 +16,7 @@ public class CreateInvoiceEndpoint : Endpoint<CreateInvoiceRequest, InvoiceRespo
     public override void Configure()
     {
         Post("/billing/invoices");
-        Policies("Invoice.Create");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CreateInvoiceRequest req, CancellationToken ct)

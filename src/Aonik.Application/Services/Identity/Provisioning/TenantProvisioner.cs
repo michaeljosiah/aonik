@@ -4,6 +4,7 @@ using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
+using Aonik.Application.Services.Identity;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Domain.Ledger.Entities;
@@ -20,25 +21,29 @@ public class TenantProvisioner : ITenantProvisioner
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IPermissionService _permissionService;
 
     public TenantProvisioner(
         IAonikDbContext dbContext,
         IAuditLogWriter auditLogWriter,
         IClock clock,
         ICurrentUserProvider currentUserProvider,
-        ICorrelationContext correlationContext)
+        ICorrelationContext correlationContext,
+        IPermissionService permissionService)
     {
         _dbContext = dbContext;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
+        _permissionService = permissionService;
     }
 
     public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Write", cancellationToken);
         var tenant = await _dbContext.Tenants
-.FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
 
         if (tenant == null)
@@ -89,10 +94,15 @@ public class TenantProvisioner : ITenantProvisioner
 
         // Provision Roles
         var rolesCreated = await ProvisionRolesAsync(tenantId, userId, now, actionsPerformed, cancellationToken);
+        var rolePermissionsCreated = await EnsureDefaultRolePermissionsAsync(tenantId, actionsPerformed, cancellationToken);
         var globalPermissionsCreated = await EnsureGlobalPlatformAdminAsync(userId, now, cancellationToken);
         if (globalPermissionsCreated > 0)
         {
             actionsPerformed.Add($"Ensured PlatformAdmin role permissions ({globalPermissionsCreated})");
+        }
+        if (rolePermissionsCreated > 0)
+        {
+            actionsPerformed.Add($"Ensured default role permissions ({rolePermissionsCreated})");
         }
 
         // Provision AI Route Policy (placeholder)
@@ -124,6 +134,7 @@ public class TenantProvisioner : ITenantProvisioner
 
     public async Task<TenantHealthResult> CheckTenantHealthAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Tenants.Read", cancellationToken);
         var issues = new List<string>();
 
         // Check ledger exists
@@ -156,6 +167,21 @@ public class TenantProvisioner : ITenantProvisioner
             hasChartOfAccounts,
             issues
         );
+    }
+
+    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            throw new InvalidOperationException("Authenticated user is required.");
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+        }
     }
 
     private static List<LedgerAccount> CreateDefaultChartOfAccounts(Guid tenantId, Guid ledgerId, Guid? userId, DateTime now)
@@ -277,6 +303,14 @@ public class TenantProvisioner : ITenantProvisioner
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
+                Name = "PersonalUser",
+                CreatedAt = now,
+                CreatedBy = userId
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
                 Name = "Compliance",
                 CreatedAt = now,
                 CreatedBy = userId
@@ -298,6 +332,146 @@ public class TenantProvisioner : ITenantProvisioner
 
         actionsPerformed.Add($"Created {newRoles.Count} default roles");
         return newRoles.Count;
+    }
+
+    private async Task<int> EnsureDefaultRolePermissionsAsync(
+        Guid tenantId,
+        List<string> actionsPerformed,
+        CancellationToken cancellationToken)
+    {
+        var rolePermissions = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["TenantAdmin"] =
+            [
+                "Users.Read",
+                "Users.Invite",
+                "Users.Manage",
+                "Users.Deactivate",
+                "UserInfo.Read",
+                "UserInfo.Update",
+                "Roles.Read",
+                "Roles.Create",
+                "Roles.Update",
+                "Roles.Delete",
+                "Settings.Read",
+                "Settings.Write",
+                "Ledger.Read",
+                "Ledger.Write",
+                "Ledger.Reconcile",
+                "Payment.Read",
+                "Payment.Create",
+                "Payment.Capture",
+                "Payment.Cancel",
+                "Payment.Refund",
+                "Invoice.Read",
+                "Invoice.Create",
+                "Invoice.Update",
+                "Invoice.Delete",
+                "Invoice.Issue",
+                "Catalog.Read"
+            ],
+            ["Operations"] =
+            [
+                "Ledger.Read",
+                "Ledger.Write",
+                "Ledger.Reconcile",
+                "Payment.Read",
+                "Payment.Create",
+                "Payment.Capture",
+                "Payment.Cancel",
+                "Payment.Refund",
+                "Invoice.Read",
+                "Invoice.Create",
+                "Invoice.Update",
+                "Invoice.Delete",
+                "Invoice.Issue",
+                "Catalog.Read"
+            ],
+            ["ReadOnly"] =
+            [
+                "Users.Read",
+                "UserInfo.Read",
+                "Roles.Read",
+                "Settings.Read",
+                "Ledger.Read",
+                "Payment.Read",
+                "Invoice.Read",
+                "Catalog.Read"
+            ],
+            ["Compliance"] =
+            [
+                "Users.Read",
+                "Settings.Read",
+                "Ledger.Read",
+                "Payment.Read",
+                "Invoice.Read",
+                "Catalog.Read"
+            ],
+            ["PersonalUser"] =
+            [
+                "UserInfo.Read",
+                "UserInfo.Update",
+                "Settings.Read",
+                "Settings.Write",
+                "Catalog.Read"
+            ]
+        };
+
+        var roles = await _dbContext.Roles
+            .Where(role => role.TenantId == tenantId)
+            .ToListAsync(cancellationToken);
+
+        var permissions = await _dbContext.Permissions
+            .ToListAsync(cancellationToken);
+
+        var permissionLookup = permissions.ToDictionary(permission => permission.Key, StringComparer.OrdinalIgnoreCase);
+        var roleLookup = roles.ToDictionary(role => role.Name, StringComparer.OrdinalIgnoreCase);
+        var created = 0;
+
+        foreach (var mapping in rolePermissions)
+        {
+            if (!roleLookup.TryGetValue(mapping.Key, out var role))
+            {
+                actionsPerformed.Add($"Role {mapping.Key} not found for permission assignment");
+                continue;
+            }
+
+            var permissionIds = mapping.Value
+                .Where(permissionLookup.ContainsKey)
+                .Select(permissionKey => permissionLookup[permissionKey].Id)
+                .ToList();
+
+            if (permissionIds.Count == 0)
+            {
+                continue;
+            }
+
+            var existingIds = await _dbContext.RolePermissions
+                .Where(rp => rp.RoleId == role.Id)
+                .Select(rp => rp.PermissionId)
+                .ToListAsync(cancellationToken);
+
+            var newRolePermissions = permissionIds
+                .Where(permissionId => !existingIds.Contains(permissionId))
+                .Select(permissionId => new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleId = role.Id,
+                    PermissionId = permissionId
+                })
+                .ToList();
+
+            if (newRolePermissions.Count == 0)
+            {
+                continue;
+            }
+
+            _dbContext.RolePermissions.AddRange(newRolePermissions);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            created += newRolePermissions.Count;
+        }
+
+        return created;
     }
 
     private async Task<int> EnsureGlobalPlatformAdminAsync(Guid? userId, DateTime now, CancellationToken cancellationToken)

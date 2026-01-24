@@ -29,6 +29,30 @@ public class CatalogServiceTests
         }
     }
 
+    private sealed class AllowAllPermissionService : Aonik.Application.Services.Identity.IPermissionService
+    {
+        public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
+            Task.FromResult(true);
+
+        public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
+            Task.FromResult(new List<string>());
+    }
+
+    private sealed class TestCurrentUserProvider : Aonik.SharedKernel.Abstractions.ICurrentUserProvider
+    {
+        private readonly Guid _userId;
+
+        public TestCurrentUserProvider(Guid userId) => _userId = userId;
+
+        public Guid? GetCurrentUserId() => _userId;
+
+        public bool TryGetCurrentUserId(out Guid userId)
+        {
+            userId = _userId;
+            return true;
+        }
+    }
+
     [Fact]
     public async Task GetCountriesAsync_ShouldFilterToServiceCountries_WhenRequested()
     {
@@ -77,7 +101,11 @@ public class CatalogServiceTests
             new MemoryCache(new MemoryCacheOptions()),
             new TestTenantProvider(tenantId));
 
-        var service = new CatalogService(context, referenceDataService);
+        var service = new CatalogService(
+            context,
+            referenceDataService,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         // Act
         var result = await service.GetCountriesAsync(new CatalogCountryListRequest(true), CancellationToken.None);
@@ -130,7 +158,11 @@ public class CatalogServiceTests
             new MemoryCache(new MemoryCacheOptions()),
             new TestTenantProvider(tenantId));
 
-        var service = new CatalogService(context, referenceDataService);
+        var service = new CatalogService(
+            context,
+            referenceDataService,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         // Act
         var result = await service.GetBillersAsync(
@@ -193,7 +225,11 @@ public class CatalogServiceTests
             new MemoryCache(new MemoryCacheOptions()),
             new TestTenantProvider(tenantId));
 
-        var service = new CatalogService(context, referenceDataService);
+        var service = new CatalogService(
+            context,
+            referenceDataService,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         // Act
         var result = await service.GetBillerServiceDetailAsync(billerId, serviceId, CancellationToken.None);

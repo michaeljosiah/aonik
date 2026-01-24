@@ -7,9 +7,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Messaging;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Infrastructure.Persistence;
@@ -40,6 +42,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<IEmailSender>();
+            services.RemoveAll<ISmsSender>();
+            services.AddSingleton<IEmailSender, TestEmailSender>();
+            services.AddSingleton<ISmsSender, TestSmsSender>();
+
             // Remove existing DbContext registration and replace with InMemory
             var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AonikDbContext>));
             if (descriptor != null)
@@ -93,6 +100,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             db.Database.EnsureCreated();
 
         });
+    }
+
+    private sealed class TestEmailSender : IEmailSender
+    {
+        public Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class TestSmsSender : ISmsSender
+    {
+        public Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync(TestAuthOptions options)
@@ -263,4 +280,3 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         return string.Join(";", claims.Select(claim => $"{claim.Type}={claim.Value}"));
     }
 }
-

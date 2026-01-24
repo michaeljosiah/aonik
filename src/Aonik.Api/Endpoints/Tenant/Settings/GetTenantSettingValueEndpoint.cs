@@ -21,7 +21,7 @@ public class GetTenantSettingValueEndpoint : Endpoint<SettingKeyRequest, Setting
     public override void Configure()
     {
         Get("/tenant/settings/values/{key}");
-        Policies("Settings.Read");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(SettingKeyRequest req, CancellationToken ct)

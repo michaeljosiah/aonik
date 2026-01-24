@@ -16,7 +16,7 @@ public class ProvisionTenantEndpoint : EndpointWithoutRequest<ProvisionTenantRes
     public override void Configure()
     {
         Post("/admin/tenants/{tenantId}/provision");
-        Policies("Tenants.Write");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

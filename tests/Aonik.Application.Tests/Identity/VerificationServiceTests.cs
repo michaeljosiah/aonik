@@ -99,6 +99,15 @@ public class VerificationServiceTests
         public Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
+    private sealed class AllowAllPermissionService : IPermissionService
+    {
+        public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
+            Task.FromResult(true);
+
+        public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
+            Task.FromResult(new List<string>());
+    }
+
     [Fact]
     public async Task StartEmailVerificationAsync_ShouldCreateChallenge_AndConfirmSuccessfully()
     {
@@ -142,7 +151,8 @@ public class VerificationServiceTests
             new SystemClock(),
             verificationOptions,
             NullLogger<VerificationService>.Instance,
-            new TestCorrelationContext("corr-start"));
+            new TestCorrelationContext("corr-start"),
+            new AllowAllPermissionService());
 
         // Act
         await service.StartEmailVerificationAsync(userId, "jane@example.com", CancellationToken.None);
@@ -211,7 +221,8 @@ public class VerificationServiceTests
             new SystemClock(),
             verificationOptions,
             NullLogger<VerificationService>.Instance,
-            new TestCorrelationContext(null));
+            new TestCorrelationContext(null),
+            new AllowAllPermissionService());
 
         // Act
         var firstAttempt = await service.ConfirmEmailVerificationAsync(userId, "lockout@example.com", "000000", CancellationToken.None);
@@ -280,7 +291,8 @@ public class VerificationServiceTests
             new SystemClock(),
             verificationOptions,
             NullLogger<VerificationService>.Instance,
-            new TestCorrelationContext(null));
+            new TestCorrelationContext(null),
+            new AllowAllPermissionService());
 
         // Act
         var act = async () => await service.StartPhoneVerificationAsync(userId, "+15551234567", CancellationToken.None);
@@ -323,7 +335,8 @@ public class VerificationServiceTests
             new SystemClock(),
             verificationOptions,
             NullLogger<VerificationService>.Instance,
-            new TestCorrelationContext(correlationId));
+            new TestCorrelationContext(correlationId),
+            new AllowAllPermissionService());
 
         // Act
         await service.StartEmailVerificationAsync(userId, "jane@example.com", CancellationToken.None);

@@ -36,7 +36,7 @@ public class GetOnboardingMeEndpoint : EndpointWithoutRequest<OnboardingSnapshot
     public override void Configure()
     {
         Get("/v1/onboarding/me");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

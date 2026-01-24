@@ -16,7 +16,7 @@ public class AddJournalEntryEndpoint : Endpoint<AddJournalEntryRequest, JournalE
     public override void Configure()
     {
         Post("/ledger/journal-entries");
-        Policies("Ledger.Write");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(AddJournalEntryRequest req, CancellationToken ct)

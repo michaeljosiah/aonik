@@ -1,7 +1,9 @@
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Models.Ledger;
+using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Ledger;
 using Aonik.Infrastructure.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,6 +26,30 @@ public class LedgerServiceTests
         }
     }
 
+    private sealed class AllowAllPermissionService : IPermissionService
+    {
+        public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
+            Task.FromResult(true);
+
+        public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
+            Task.FromResult(new List<string>());
+    }
+
+    private sealed class TestCurrentUserProvider : ICurrentUserProvider
+    {
+        private readonly Guid _userId;
+
+        public TestCurrentUserProvider(Guid userId) => _userId = userId;
+
+        public Guid? GetCurrentUserId() => _userId;
+
+        public bool TryGetCurrentUserId(out Guid userId)
+        {
+            userId = _userId;
+            return true;
+        }
+    }
+
     private static AonikDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<AonikDbContext>()
@@ -40,7 +66,11 @@ public class LedgerServiceTests
         var tenantId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
         var tenantProvider = new TestTenantProvider(tenantId);
-        var service = new LedgerService(context, tenantProvider);
+        var service = new LedgerService(
+            context,
+            tenantProvider,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
         var request = new CreateLedgerAccountRequest("Cash", "USD");
 
         // Act
@@ -65,7 +95,11 @@ public class LedgerServiceTests
         var tenantId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
         var tenantProvider = new TestTenantProvider(tenantId);
-        var service = new LedgerService(context, tenantProvider);
+        var service = new LedgerService(
+            context,
+            tenantProvider,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         // Create account first
         var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
@@ -103,7 +137,11 @@ public class LedgerServiceTests
         var tenantId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
         var tenantProvider = new TestTenantProvider(tenantId);
-        var service = new LedgerService(context, tenantProvider);
+        var service = new LedgerService(
+            context,
+            tenantProvider,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
 
         var accountRequest = new CreateLedgerAccountRequest("Operating Account", "USD");
         var account = await service.CreateAccountAsync(accountRequest);

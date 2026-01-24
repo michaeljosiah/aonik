@@ -26,7 +26,7 @@ public class StartPhoneVerificationEndpoint : Endpoint<StartPhoneVerificationReq
     public override void Configure()
     {
         Post("/v1/verifications/phone/start");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(StartPhoneVerificationRequest req, CancellationToken ct)

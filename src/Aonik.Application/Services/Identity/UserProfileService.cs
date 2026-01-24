@@ -36,6 +36,7 @@ public class UserProfileService : IUserProfileService
     private readonly ISettingProvider _settingProvider;
     private readonly IBlobStorage _blobStorage;
     private readonly CustomerProfileStorageOptions _storageOptions;
+    private readonly IPermissionService _permissionService;
 
     public UserProfileService(
         IAonikDbContext dbContext,
@@ -46,7 +47,8 @@ public class UserProfileService : IUserProfileService
         IIdpAccountServiceFactory idpAccountServiceFactory,
         ISettingProvider settingProvider,
         IBlobStorage blobStorage,
-        IOptions<CustomerProfileStorageOptions> storageOptions)
+        IOptions<CustomerProfileStorageOptions> storageOptions,
+        IPermissionService permissionService)
     {
         _dbContext = dbContext;
         _auditLogWriter = auditLogWriter;
@@ -57,6 +59,7 @@ public class UserProfileService : IUserProfileService
         _settingProvider = settingProvider;
         _blobStorage = blobStorage;
         _storageOptions = storageOptions.Value;
+        _permissionService = permissionService;
     }
 
     public async Task<CurrentUserSnapshot?> GetCurrentUserAsync(
@@ -64,6 +67,7 @@ public class UserProfileService : IUserProfileService
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(userId, "UserInfo.Read", cancellationToken);
         var user = await _dbContext.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(
@@ -92,6 +96,7 @@ public class UserProfileService : IUserProfileService
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(userId, "UserInfo.Read", cancellationToken);
         var user = await _dbContext.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
@@ -117,6 +122,7 @@ public class UserProfileService : IUserProfileService
         UpdateCustomerProfileRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(
                 u => u.Id == userId && u.TenantId == tenantId,
@@ -166,6 +172,7 @@ public class UserProfileService : IUserProfileService
         UpdateCustomerEmailRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
 
@@ -240,6 +247,7 @@ public class UserProfileService : IUserProfileService
         UpdateCustomerPasswordRequest request,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
         var user = await _dbContext.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
@@ -275,6 +283,7 @@ public class UserProfileService : IUserProfileService
         string contentType,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
 
@@ -324,6 +333,7 @@ public class UserProfileService : IUserProfileService
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
 
@@ -630,5 +640,13 @@ public class UserProfileService : IUserProfileService
 
         return StoragePath.Normalize(photoUrl);
     }
-}
 
+    private async Task EnsurePermissionAsync(Guid userId, string permissionKey, CancellationToken cancellationToken)
+    {
+        var hasPermission = await _permissionService.HasPermissionAsync(userId, permissionKey, cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+        }
+    }
+}

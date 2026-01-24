@@ -20,6 +20,7 @@ public class UserRoleService : IUserRoleService
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IPermissionService _permissionService;
 
     public UserRoleService(
         IAonikDbContext dbContext,
@@ -27,7 +28,8 @@ public class UserRoleService : IUserRoleService
         IAuditLogWriter auditLogWriter,
         IClock clock,
         ICurrentUserProvider currentUserProvider,
-        ICorrelationContext correlationContext)
+        ICorrelationContext correlationContext,
+        IPermissionService permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -35,10 +37,12 @@ public class UserRoleService : IUserRoleService
         _clock = clock;
         _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
+        _permissionService = permissionService;
     }
 
     public async Task<UserRoleResponse> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Users.Read", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
         await EnsureUserInTenantAsync(userId, tenantId, cancellationToken);
 
@@ -47,6 +51,7 @@ public class UserRoleService : IUserRoleService
 
     public async Task<UserRoleResponse> AssignRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         await EnsureUserInTenantAsync(userId, tenantId, cancellationToken);
@@ -89,6 +94,7 @@ public class UserRoleService : IUserRoleService
 
     public async Task<UserRoleResponse> RemoveRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Users.Manage", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         await EnsureUserInTenantAsync(userId, tenantId, cancellationToken);
@@ -156,5 +162,20 @@ public class UserRoleService : IUserRoleService
             .ToListAsync(cancellationToken);
 
         return new UserRoleResponse(userId, roles);
+    }
+
+    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            throw new InvalidOperationException("Authenticated user is required.");
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+        }
     }
 }

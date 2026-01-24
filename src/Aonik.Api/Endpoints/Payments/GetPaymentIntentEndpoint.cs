@@ -16,7 +16,7 @@ public class GetPaymentIntentEndpoint : EndpointWithoutRequest<PaymentIntentResp
     public override void Configure()
     {
         Get("/payments/intents/{id}");
-        Policies("Payment.Read");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

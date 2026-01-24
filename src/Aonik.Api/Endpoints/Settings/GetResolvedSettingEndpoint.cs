@@ -17,7 +17,7 @@ public class GetResolvedSettingEndpoint : Endpoint<SettingKeyRequest, SettingVal
     public override void Configure()
     {
         Get("/v1/settings/resolved/{key}");
-        Policies("Settings.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(SettingKeyRequest req, CancellationToken ct)

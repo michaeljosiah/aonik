@@ -16,7 +16,7 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
     public override void Configure()
     {
         Post("/payments/intents/{id}/capture");
-        Policies("Payment.Capture");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

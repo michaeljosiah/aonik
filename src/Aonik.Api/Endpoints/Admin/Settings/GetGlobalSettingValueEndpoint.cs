@@ -18,7 +18,7 @@ public class GetGlobalSettingValueEndpoint : Endpoint<SettingKeyRequest, Setting
     public override void Configure()
     {
         Get("/admin/settings/values/{key}");
-        Policies("PlatformAdmin");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(SettingKeyRequest req, CancellationToken ct)

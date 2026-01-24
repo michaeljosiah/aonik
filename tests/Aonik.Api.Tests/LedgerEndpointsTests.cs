@@ -20,7 +20,9 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
+            TestAuthOptions.Create()
+                .WithPermissions("Ledger.Write")
+                .WithRoles("Operations"));
 
 
         var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
@@ -53,7 +55,9 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Ledger.Write"));
+            TestAuthOptions.Create()
+                .WithPermissions("Ledger.Write")
+                .WithRoles("Operations"));
 
 
         var accountRequest = new CreateLedgerAccountRequest("Operations", "USD");

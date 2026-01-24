@@ -16,7 +16,7 @@ public class AssignUserRoleEndpoint : Endpoint<AssignUserRoleRequest, UserRoleRe
     public override void Configure()
     {
         Post("/tenant/users/{userId}/roles");
-        Policies("TenantAdmin");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(AssignUserRoleRequest req, CancellationToken ct)

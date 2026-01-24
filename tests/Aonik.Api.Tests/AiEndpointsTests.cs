@@ -21,7 +21,9 @@ public class AiEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange - Create an invoice first
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Invoice.Create", "Invoice.Read"));
+            TestAuthOptions.Create()
+                .WithPermissions("Invoice.Create", "Invoice.Read")
+                .WithRoles("Operations"));
 
 
         var invoiceRequest = new CreateInvoiceRequest(
@@ -57,7 +59,9 @@ public class AiEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Act
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Invoice.Read"));
+            TestAuthOptions.Create()
+                .WithPermissions("Invoice.Read")
+                .WithRoles("Operations"));
 
 
         var response = await client.PostAsync($"/ai/invoices/{Guid.NewGuid()}/insight", null);

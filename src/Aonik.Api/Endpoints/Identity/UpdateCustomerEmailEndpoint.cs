@@ -28,7 +28,7 @@ public class UpdateCustomerEmailEndpoint : Endpoint<ApiUpdateCustomerEmailReques
     public override void Configure()
     {
         Put("/profiles/customers/me/email");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(ApiUpdateCustomerEmailRequest req, CancellationToken ct)

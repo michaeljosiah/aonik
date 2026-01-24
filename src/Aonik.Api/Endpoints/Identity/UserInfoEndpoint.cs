@@ -17,7 +17,7 @@ public class UserInfoEndpoint : EndpointWithoutRequest<UserInfoResponseDto>
     public override void Configure()
     {
         Get("/identity/userinfo");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

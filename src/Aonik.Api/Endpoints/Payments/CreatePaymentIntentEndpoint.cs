@@ -16,7 +16,7 @@ public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, 
     public override void Configure()
     {
         Post("/payments/intents");
-        Policies("Payment.Create");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CreatePaymentIntentRequest req, CancellationToken ct)

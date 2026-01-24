@@ -16,7 +16,7 @@ public class GetCatalogCountriesEndpoint : EndpointWithoutRequest<CatalogCountry
     public override void Configure()
     {
         Get("/catalog/countries");
-        Policies("Catalog.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

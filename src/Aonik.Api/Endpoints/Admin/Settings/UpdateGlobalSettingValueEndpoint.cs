@@ -18,7 +18,7 @@ public class UpdateGlobalSettingValueEndpoint : Endpoint<SettingValueUpdateReque
     public override void Configure()
     {
         Put("/admin/settings/values/{key}");
-        Policies("PlatformAdmin");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(SettingValueUpdateRequest req, CancellationToken ct)

@@ -30,7 +30,9 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Arrange
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Invoice.Create", "Invoice.Read"));
+            TestAuthOptions.Create()
+                .WithPermissions("Invoice.Create", "Invoice.Read")
+                .WithRoles("Operations"));
 
 
 
@@ -62,7 +64,9 @@ public class InvoiceEndpointsTests : IClassFixture<CustomWebApplicationFactory>
     {
         // Act
         var client = await _factory.CreateAuthenticatedClientAsync(
-            TestAuthOptions.Create().WithPermissions("Invoice.Read"));
+            TestAuthOptions.Create()
+                .WithPermissions("Invoice.Read")
+                .WithRoles("Operations"));
 
 
         var response = await client.GetAsync($"/billing/invoices/{Guid.NewGuid()}");

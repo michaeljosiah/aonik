@@ -28,7 +28,7 @@ public class UpdateCustomerPasswordEndpoint : Endpoint<ApiUpdateCustomerPassword
     public override void Configure()
     {
         Put("/profiles/customers/me/password");
-        Policies("Users.Read");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(ApiUpdateCustomerPasswordRequest req, CancellationToken ct)

@@ -1,9 +1,12 @@
+using Microsoft.EntityFrameworkCore;
+
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Payments;
+using Aonik.Application.Services.Identity;
 using Aonik.Domain.Payments;
 using Aonik.Domain.Payments.Entities;
-using Microsoft.EntityFrameworkCore;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Payments;
 
@@ -11,15 +14,24 @@ public class PaymentService : IPaymentService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IPermissionService _permissionService;
+    private readonly ICurrentUserProvider _currentUserProvider;
 
-    public PaymentService(IAonikDbContext dbContext, ITenantProvider tenantProvider)
+    public PaymentService(
+        IAonikDbContext dbContext,
+        ITenantProvider tenantProvider,
+        IPermissionService permissionService,
+        ICurrentUserProvider currentUserProvider)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _permissionService = permissionService;
+        _currentUserProvider = currentUserProvider;
     }
 
     public async Task<PaymentIntentResponse> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Payment.Create", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         var paymentIntent = new PaymentIntent
@@ -45,6 +57,7 @@ public class PaymentService : IPaymentService
 
     public async Task<PaymentIntentResponse?> GetPaymentIntentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Payment.Read", cancellationToken);
         var paymentIntent = await _dbContext.PaymentIntents
             .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
 
@@ -53,6 +66,7 @@ public class PaymentService : IPaymentService
 
     public async Task<PaymentIntentResponse> CapturePaymentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Payment.Capture", cancellationToken);
         var paymentIntent = await _dbContext.PaymentIntents
             .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
 
@@ -80,6 +94,7 @@ public class PaymentService : IPaymentService
 
     public async Task<PaymentIntentResponse> CancelPaymentAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
+        await EnsurePermissionAsync("Payment.Cancel", cancellationToken);
         var paymentIntent = await _dbContext.PaymentIntents
             .FirstOrDefaultAsync(p => p.Id == paymentIntentId, cancellationToken);
 
@@ -120,5 +135,20 @@ public class PaymentService : IPaymentService
             status,
             paymentIntent.PaymentMethodRef ?? string.Empty,
             paymentIntent.CreatedAt);
+    }
+
+    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            throw new InvalidOperationException("Authenticated user is required.");
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException($"Permission {permissionKey} is required.");
+        }
     }
 }

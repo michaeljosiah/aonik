@@ -16,7 +16,7 @@ public class RemoveUserRoleEndpoint : EndpointWithoutRequest<UserRoleResponse>
     public override void Configure()
     {
         Delete("/tenant/users/{userId}/roles/{roleId}");
-        Policies("TenantAdmin");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

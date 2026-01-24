@@ -22,6 +22,15 @@ namespace Aonik.Application.Tests.Identity;
 
 public class IdentityServiceTests
 {
+
+    private sealed class AllowAllPermissionService : IPermissionService
+    {
+        public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
+            Task.FromResult(true);
+
+        public Task<List<string>> GetUserPermissionsAsync(Guid userId, CancellationToken ct = default) =>
+            Task.FromResult(new List<string>());
+    }
     private sealed class TestSettingProvider : ISettingProvider
     {
         private readonly Dictionary<string, string?> _settings;
@@ -201,7 +210,8 @@ public class IdentityServiceTests
                 new TestAuditLogWriter(),
                 new SystemClock(),
                 new TestCurrentUserProvider(currentUserContext),
-                new TestCorrelationContext()));
+                new TestCorrelationContext()),
+            new AllowAllPermissionService());
 
         var response = await service.TokenAsync(new TokenRequest("password", "client", "user", "pass", null, null, null, null));
 
@@ -236,7 +246,8 @@ public class IdentityServiceTests
                 new TestAuditLogWriter(),
                 new SystemClock(),
                 new TestCurrentUserProvider(currentUserContext),
-                new TestCorrelationContext()));
+                new TestCorrelationContext()),
+            new AllowAllPermissionService());
 
         var response = await service.SendPasswordResetAsync(
             new ForgotPasswordRequest("user@example.com", tenantId));
@@ -314,7 +325,8 @@ public class IdentityServiceTests
                 new TestAuditLogWriter(),
                 new SystemClock(),
                 new TestCurrentUserProvider(currentUserContext),
-                new TestCorrelationContext()));
+                new TestCorrelationContext()),
+            new AllowAllPermissionService());
 
         var response = await service.GetUserInfoAsync();
 

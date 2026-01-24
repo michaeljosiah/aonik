@@ -16,7 +16,7 @@ public class GetUserRolesEndpoint : EndpointWithoutRequest<UserRoleResponse>
     public override void Configure()
     {
         Get("/tenant/users/{userId}/roles");
-        Policies("Users.Read", "TenantAdmin");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

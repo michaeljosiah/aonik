@@ -23,6 +23,7 @@ public class IdentityService : IIdentityService
     private readonly ICorrelationContext _correlationContext;
     private readonly IAonikDbContext _dbContext;
     private readonly IUserProvisioningService _userProvisioningService;
+    private readonly IPermissionService _permissionService;
 
     public IdentityService(
         ISettingProvider settingProvider,
@@ -32,7 +33,8 @@ public class IdentityService : IIdentityService
         IAuditLogWriter auditLogWriter,
         ICorrelationContext correlationContext,
         IAonikDbContext dbContext,
-        IUserProvisioningService userProvisioningService)
+        IUserProvisioningService userProvisioningService,
+        IPermissionService permissionService)
     {
         _settingProvider = settingProvider;
         _authTokenServiceFactory = authTokenServiceFactory;
@@ -42,6 +44,7 @@ public class IdentityService : IIdentityService
         _correlationContext = correlationContext;
         _dbContext = dbContext;
         _userProvisioningService = userProvisioningService;
+        _permissionService = permissionService;
     }
 
     public async Task<TokenResponse> TokenAsync(TokenRequest request, CancellationToken cancellationToken = default)
@@ -60,6 +63,12 @@ public class IdentityService : IIdentityService
 
         var userId = _currentUserContext.UserId.Value;
         var tenantId = _currentUserContext.TenantId.Value;
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId, "UserInfo.Read", cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException("Permission UserInfo.Read is required.");
+        }
 
         var user = await _dbContext.Users
             .AsNoTracking()

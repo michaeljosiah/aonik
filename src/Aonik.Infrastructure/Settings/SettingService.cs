@@ -3,13 +3,14 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Models.Settings;
 using Aonik.Application.Settings;
+using Aonik.Application.Services.Identity;
 using Aonik.Domain.Settings;
 using Aonik.Domain.Settings.Entities;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.Application.Abstractions.Multitenancy;
 
 namespace Aonik.Infrastructure.Settings;
 
@@ -22,6 +23,7 @@ public class SettingService : ISettingProvider, ISettingManager
     private readonly ISettingValueProtector _protector;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IPermissionService _permissionService;
 
     public SettingService(
         IAonikDbContext dbContext,
@@ -29,7 +31,8 @@ public class SettingService : ISettingProvider, ISettingManager
         IMemoryCache cache,
         ISettingValueProtector protector,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IPermissionService permissionService)
     {
         _dbContext = dbContext;
         _configuration = configuration;
@@ -37,6 +40,7 @@ public class SettingService : ISettingProvider, ISettingManager
         _protector = protector;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _permissionService = permissionService;
     }
 
     public Task<string?> GetAsync(string key, CancellationToken cancellationToken = default)
@@ -62,6 +66,7 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        await EnsureSettingsReadPermissionAsync(scope, cancellationToken);
         var cacheKey = GetCacheKey(scope, key, tenantId, userId);
         if (_cache.TryGetValue(cacheKey, out string? cached))
         {
@@ -102,6 +107,7 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        await EnsureSettingsReadPermissionAsync(SettingScope.User, cancellationToken);
         tenantId ??= _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId) ? resolvedTenantId : null;
         userId ??= _currentUserProvider.TryGetCurrentUserId(out var resolvedUserId) ? resolvedUserId : null;
 
@@ -152,6 +158,7 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        await EnsureSettingsWritePermissionAsync(scope, cancellationToken);
         ValidateScope(scope, tenantId, userId);
 
         var normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -243,6 +250,46 @@ public class SettingService : ISettingProvider, ISettingManager
         if (scope == SettingScope.User && (!userId.HasValue || userId == Guid.Empty))
         {
             throw new InvalidOperationException("UserId is required for user-scoped settings.");
+        }
+    }
+
+    private async Task EnsureSettingsReadPermissionAsync(SettingScope scope, CancellationToken cancellationToken)
+    {
+        if (scope == SettingScope.Global)
+        {
+            return;
+        }
+
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return;
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, "Settings.Read", cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException("Permission Settings.Read is required.");
+        }
+    }
+
+    private async Task EnsureSettingsWritePermissionAsync(SettingScope scope, CancellationToken cancellationToken)
+    {
+        if (scope == SettingScope.Global)
+        {
+            return;
+        }
+
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return;
+        }
+
+        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, "Settings.Write", cancellationToken);
+        if (!hasPermission)
+        {
+            throw new InvalidOperationException("Permission Settings.Write is required.");
         }
     }
 }
