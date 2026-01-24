@@ -275,6 +275,69 @@ export interface UserRoleResponse {
   roles: RoleSummaryResponse[];
 }
 
+export interface AccessUserSummary {
+  userId: string;
+  email: string;
+  displayName?: string | null;
+  status: string;
+  lastLoginAt?: string | null;
+  roleCount: number;
+}
+
+export interface AccessUserDetail {
+  userId: string;
+  email: string;
+  displayName?: string | null;
+  status: string;
+  createdAt?: string | null;
+  lastLoginAt?: string | null;
+  roles: RoleSummaryResponse[];
+  permissions?: string[] | null;
+}
+
+export interface PermissionDefinition {
+  key: string;
+  description?: string | null;
+  category: string;
+}
+
+export interface AccessRoleSummary {
+  roleId: string;
+  name: string;
+  description?: string | null;
+  permissionCount: number;
+  userCount: number;
+}
+
+export interface AccessRoleDetail {
+  roleId: string;
+  name: string;
+  description?: string | null;
+  permissions: PermissionDefinition[];
+  users: AccessUserSummary[];
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description?: string | null;
+  permissionKeys: string[];
+}
+
+export interface UpdateRoleRequest {
+  name?: string;
+  description?: string | null;
+  permissionKeys?: string[];
+}
+
+export interface InviteUserRequest {
+  email: string;
+  roleIds?: string[] | null;
+}
+
+export interface UpdateUserRolesRequest {
+  roleIds: string[];
+}
+
 // Tenant list for login dropdown (public endpoint)
 export interface TenantListItemForLogin {
   tenantId: string;
