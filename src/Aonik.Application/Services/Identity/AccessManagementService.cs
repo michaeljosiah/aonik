@@ -504,7 +504,7 @@ public class AccessManagementService : IAccessManagementService
 
     public async Task<List<PermissionDefinition>> ListPermissionsAsync(CancellationToken cancellationToken = default)
     {
-        await EnsurePermissionAsync("Roles.Read", cancellationToken);
+        await EnsurePermissionAsync("Permissions.Read", cancellationToken);
 
         var permissions = await _dbContext.Permissions
             .AsNoTracking()
