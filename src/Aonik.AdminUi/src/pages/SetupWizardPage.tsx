@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Circle, ExternalLink, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +23,6 @@ const initialState: SetupState = {
 };
 
 export function SetupWizardPage() {
-  const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading, login, logout, user } = useAuth();
   const provider = getAuthProvider();
   const [state, setState] = useState<SetupState>(initialState);

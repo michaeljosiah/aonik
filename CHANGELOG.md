@@ -2,10 +2,35 @@
 
 All notable changes to the AONIK project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [Unreleased]
+
+### Fixed
+- **API Tests**: Fixed test database isolation issue
+  - Each `CustomWebApplicationFactory` instance now uses a consistent database name across all requests
+  - Previously, each DbContext registration created a new unique database, causing resources created in one request to be invisible in subsequent requests
+  - Fixed storage file locking issue by using unique storage paths per test factory instance
+  - 21 of 22 API integration tests now passing (up from 10)
+  - Remaining failure is due to missing Azure Communication Services configuration in test environment (expected)
+
+- **API Tests**: Fixed database context registration in test environment
+  - Added `IAonikDbContext` registration to `CustomWebApplicationFactory`
+  - Tests now properly resolve database dependencies
+
+### Changed
+- **Database Configuration**: Removed InMemory database option for Development environment
+  - `UseInMemoryDatabase` configuration setting removed from `appsettings.Development.json`
+  - Application now uses SQL Server for all non-test environments
+  - InMemory database still used for automated tests
+  - Added `dbContext.Database.MigrateAsync()` to Program.cs for automatic migrations on startup in Development
+  - Updated DependencyInjection.cs to remove InMemory configuration logic
+  - Updated CustomWebApplicationFactory to explicitly use InMemory for tests
+
+### Added
+- **Admin UI**: Role display in sidebar user profile
+  - Added `identityService.getUserInfo()` to fetch user roles from `/identity/userinfo` endpoint
+  - Added `formatRoleLabel()` helper to convert role names to Title Case
+  - Role fetching with loading state and error handling
+  - Displays user's role(s) in bottom-left sidebar profile menu
 
 ### Added - 2026-01-17
 - Added customer profile endpoints for read/update/email/password/photo flows with profile storage support and IdP account updates.

@@ -82,23 +82,13 @@ public static class DependencyInjection
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
 
-        // Database - environment-aware selection
-        var useInMemory = configuration.GetValue<bool>("UseInMemoryDatabase");
-        var inMemoryName = configuration["InMemoryDatabaseName"] ?? "AonikTestDb";
-
+        // Database configuration
+        // Testing environment uses InMemory database (configured in test projects)
+        // All other environments use SQL Server
         if (environment.IsEnvironment("Testing"))
         {
-            services.AddDbContext<AonikDbContext>((sp, options) =>
-            {
-                options.UseInMemoryDatabase(inMemoryName);
-            });
-        }
-        else if (environment.IsDevelopment() && useInMemory)
-        {
-            services.AddDbContext<AonikDbContext>((sp, options) =>
-            {
-                options.UseInMemoryDatabase(inMemoryName);
-            });
+            // InMemory database will be configured in test infrastructure (CustomWebApplicationFactory)
+            // This is a no-op branch to allow tests to override DbContext
         }
         else
         {
@@ -112,7 +102,7 @@ public static class DependencyInjection
                 }
                 else
                 {
-                    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required for SQL Server in this environment.");
+                    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required for SQL Server.");
                 }
             }
 

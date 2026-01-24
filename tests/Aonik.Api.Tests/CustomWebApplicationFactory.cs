@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Infrastructure.Persistence;
 
@@ -18,25 +19,50 @@ namespace Aonik.Api.Tests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
+    // Use a consistent database name per factory instance
+    private readonly string _databaseName = $"TestDb_{Guid.NewGuid()}";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
 
         builder.ConfigureAppConfiguration((context, config) =>
         {
-            // Provide a unique database name per test run
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["InMemoryDatabaseName"] = "TestDb_" + Guid.NewGuid().ToString(),
+                ["InMemoryDatabaseName"] = _databaseName,
                 ["Auth:TenantRouting"] = "Claim",
-                ["UseInMemoryDatabase"] = "true",
-                ["PlatformAdmin:AdminEmails:0"] = "bootstrap-admin@example.com"
+                ["PlatformAdmin:AdminEmails:0"] = "bootstrap-admin@example.com",
+                ["ProfileStorage:LocalStoragePath"] = $"App_Data/Profiles_{_databaseName}",
+                ["ProfileStorage:BlobRootPath"] = $"profiles_{_databaseName}"
             });
-
         });
 
         builder.ConfigureServices(services =>
         {
+            // Remove existing DbContext registration and replace with InMemory
+            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AonikDbContext>));
+            if (descriptor != null)
+            {
+                services.Remove(descriptor);
+            }
+
+            // Also remove IAonikDbContext if it was registered
+            var interfaceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IAonikDbContext));
+            if (interfaceDescriptor != null)
+            {
+                services.Remove(interfaceDescriptor);
+            }
+
+            // Add InMemory DbContext for tests with CONSISTENT database name
+            services.AddDbContext<AonikDbContext>(options =>
+            {
+                options.UseInMemoryDatabase(_databaseName);
+            });
+
+            // Register IAonikDbContext
+            services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
+
             services.AddAuthentication(options =>
                 {
                     options.DefaultScheme = TestAuthHandler.SchemeName;

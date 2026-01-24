@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -55,6 +55,7 @@ import {
   Globe,
 } from 'lucide-react';
 import type { NavItem } from '@/types';
+import { identityService } from '@/services/identityService';
 import { navigationItems } from '@/data/mockData';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 
@@ -175,8 +176,18 @@ function NavItemComponent({
   );
 }
 
+const formatRoleLabel = (role: string) =>
+  role
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
 function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed: boolean; onLogout: () => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [apiRoles, setApiRoles] = useState<string[]>([]);
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   const { theme, setTheme } = useTheme();
   
   const initials = user.name
@@ -185,16 +196,35 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
     .join('')
     .toUpperCase();
 
-  // Determine display role from roles array
-  const displayRole = user.roles && user.roles.length > 0 
-    ? user.roles[0] 
-    : 'User';
+  // Fetch roles from API if not available in claims
+  useEffect(() => {
+    const fetchRoles = async () => {
+      if (user.roleSource === 'api' || (!user.roles || user.roles.length === 0)) {
+        setIsLoadingRoles(true);
+        try {
+          const response = await identityService.getUserInfo();
+          setApiRoles(response.roles);
+        } catch (error) {
+          console.error('Failed to fetch user info:', error);
+          setApiRoles([]);
+        } finally {
+          setIsLoadingRoles(false);
+        }
+      }
+    };
+
+    fetchRoles();
+  }, [user.id, user.roles, user.roleSource]);
+
+  // Determine display role from roles array (prefer API roles if available)
+  const effectiveRoles = apiRoles.length > 0 ? apiRoles : (user.roles && user.roles.length > 0 ? user.roles : ['User']);
+  const roleLabel = isLoadingRoles ? 'Loading...' : effectiveRoles.map((role) => formatRoleLabel(role)).join(', ');
   
   // Check if user has admin role
-  const isAdmin = user.roles?.some(role => 
+  const isAdmin = effectiveRoles.some(role => 
     role.toLowerCase().includes('admin') || 
     role.toLowerCase().includes('administrator')
-  ) ?? false;
+  );
 
   if (collapsed) {
     return (
@@ -280,7 +310,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   <p>{user.name}</p>
                 </TooltipContent>
               </Tooltip>
-              <p className="text-xs text-[var(--color-text-tertiary)] truncate">{displayRole}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)] truncate">{roleLabel}</p>
             </div>
           </div>
         ) : (
@@ -313,7 +343,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   <p>{user.name}</p>
                 </TooltipContent>
               </Tooltip>
-              <p className="text-sm text-[var(--color-brand-primary)] truncate">{displayRole}</p>
+              <p className="text-sm text-[var(--color-brand-primary)] truncate">{roleLabel}</p>
             </div>
 
             {/* Menu items */}

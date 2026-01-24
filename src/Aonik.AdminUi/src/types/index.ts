@@ -244,3 +244,33 @@ export interface CatalogBillerServiceDetailResponse {
   fields: CatalogServiceField[];
   validation?: CatalogServiceValidation | null;
 }
+
+export interface CurrentUserResponse {
+  userId: string;
+  tenantId: string;
+  email?: string | null;
+  phone?: string | null;
+  status: string;
+  partyId?: string | null;
+  displayName?: string | null;
+}
+
+export interface UserInfoResponse {
+  userId: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  roles: string[];
+  tenantId: string;
+  partyId: string;
+}
+
+export interface RoleSummaryResponse {
+  roleId: string;
+  name: string;
+}
+
+export interface UserRoleResponse {
+  userId: string;
+  roles: RoleSummaryResponse[];
+}

@@ -11,6 +11,7 @@ export interface AuthUser {
   name: string;
   picture?: string;
   roles?: string[];
+  roleSource?: 'claims' | 'api';
 }
 
 // Unified auth context type
@@ -42,13 +43,15 @@ function useMockAuth(): AuthContextType {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [isLoading] = useState(false);
 
-  const mockUser: AuthUser = {
-    id: 'mock-user-123',
-    email: 'admin@aonik.dev',
-    name: 'Dev Admin',
-    picture: undefined,
-    roles: ['Admin', 'PlatformAdmin'],
-  };
+const mockUser: AuthUser = {
+  id: 'mock-user-123',
+  email: 'admin@aonik.dev',
+  name: 'Dev Admin',
+  picture: undefined,
+  roles: ['Admin', 'PlatformAdmin'],
+  roleSource: 'claims',
+};
+
 
   const login = useCallback(async () => {
     setIsAuthenticated(true);
@@ -88,6 +91,7 @@ function useMsalAuth(): AuthContextType {
         name: accounts[0].name || accounts[0].username,
         picture: undefined,
         roles: (accounts[0].idTokenClaims?.roles as string[]) || [],
+        roleSource: 'claims',
       }
     : null;
 
@@ -174,6 +178,7 @@ function useAuth0Auth(): AuthContextType {
         name: auth0User.name || auth0User.email || '',
         picture: auth0User.picture,
         roles: (auth0User['https://aonik.com/roles'] as string[]) || [],
+        roleSource: 'claims',
       }
     : null;
 
