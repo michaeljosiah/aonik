@@ -48,6 +48,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasForeignKey(x => x.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.HasMany(x => x.PartyRoles)
+            .WithOne()
+            .HasForeignKey(x => x.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasIndex(x => x.OrderNumber)
             .IsUnique();
 

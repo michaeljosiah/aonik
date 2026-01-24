@@ -133,6 +133,7 @@ public interface IAonikDbContext
 
     // Orders
     DbSet<Order> Orders { get; set; }
+    DbSet<OrderItem> OrderItems { get; set; }
     DbSet<OrderPartyRole> OrderPartyRoles { get; set; }
     DbSet<OrderFundingRef> OrderFundingRefs { get; set; }
     DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; }
