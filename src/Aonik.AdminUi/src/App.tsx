@@ -22,6 +22,8 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { setAccessTokenGetter } from '@/lib/api';
 import { SetupRedirect } from '@/components/SetupRedirect';
 import { bootstrapService } from '@/services/bootstrapService';
+import { tenantService } from '@/services/tenantService';
+import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
 
 // Component to set up API authentication
 function ApiAuthSetup() {
@@ -30,6 +32,45 @@ function ApiAuthSetup() {
   useEffect(() => {
     setAccessTokenGetter(getAccessToken);
   }, [getAccessToken]);
+
+  return null;
+}
+
+function TenantContextSetup() {
+  const { isLoading: authLoading } = useAuth();
+
+  useEffect(() => {
+    const ensureTenantSelected = async () => {
+      if (authLoading) return;
+
+      // If a tenant is already selected (login dropdown or earlier session), nothing to do.
+      if (getSelectedTenant()?.tenantId) return;
+
+      // If running on a tenant subdomain, try to resolve it via the public host endpoint.
+      const hostname = window.location.hostname;
+      const parts = hostname.split('.');
+      const looksTenantScoped = parts.length >= 3 && !hostname.startsWith('www.') && !hostname.includes('localhost');
+      if (!looksTenantScoped) return;
+
+      const subdomain = parts[0];
+      try {
+        const response = await tenantService.listForLogin();
+        const match = response.tenants.find(t => (t.subdomain ?? '').toLowerCase() === subdomain.toLowerCase());
+        if (match) {
+          setSelectedTenant({
+            tenantId: match.tenantId,
+            name: match.name,
+            subdomain: match.subdomain,
+            environment: match.environment,
+          });
+        }
+      } catch {
+        // If we can't resolve, leave unset and let API return a clear error.
+      }
+    };
+
+    ensureTenantSelected();
+  }, [authLoading]);
 
   return null;
 }
@@ -155,6 +196,7 @@ function AuthenticatedApp() {
     return (
       <>
         <ApiAuthSetup />
+        <TenantContextSetup />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/*" element={<SetupWizardPage />} />
@@ -166,6 +208,7 @@ function AuthenticatedApp() {
   return (
     <>
       <ApiAuthSetup />
+      <TenantContextSetup />
       <SetupRedirect />
       <Routes>
         <Route path="/login" element={<LoginPage />} />

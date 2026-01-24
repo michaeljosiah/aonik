@@ -14,7 +14,7 @@ using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 
 namespace Aonik.Application.Services.Identity.Provisioning;
 
-public class TenantProvisioner : ITenantProvisioner
+public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
 {
     private readonly IAonikDbContext _dbContext;
     private readonly IAuditLogWriter _auditLogWriter;
@@ -42,6 +42,14 @@ public class TenantProvisioner : ITenantProvisioner
     public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Tenants.Write", cancellationToken);
+        return await ProvisionTenantCoreAsync(tenantId, cancellationToken);
+    }
+
+    Task<ProvisionTenantResult> IBootstrapTenantProvisioner.ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken)
+        => ProvisionTenantCoreAsync(tenantId, cancellationToken);
+
+    private async Task<ProvisionTenantResult> ProvisionTenantCoreAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
         var tenant = await _dbContext.Tenants
             .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
 
@@ -353,6 +361,7 @@ public class TenantProvisioner : ITenantProvisioner
                 "Roles.Create",
                 "Roles.Update",
                 "Roles.Delete",
+                "Permissions.Read",
                 "Settings.Read",
                 "Settings.Write",
                 "Ledger.Read",
@@ -510,6 +519,8 @@ public class TenantProvisioner : ITenantProvisioner
             "Roles.Create",
             "Roles.Update",
             "Roles.Delete",
+            "Permissions.Read",
+            "Permissions.Write",
             "Ledger.Read",
             "Ledger.Write",
             "Ledger.Reconcile",
@@ -522,7 +533,8 @@ public class TenantProvisioner : ITenantProvisioner
             "Invoice.Create",
             "Invoice.Update",
             "Invoice.Delete",
-            "Invoice.Issue"
+            "Invoice.Issue",
+            "Catalog.Read"
         };
 
         var permissions = await _dbContext.Permissions

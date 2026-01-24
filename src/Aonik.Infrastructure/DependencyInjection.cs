@@ -117,6 +117,7 @@ public static class DependencyInjection
         // Application Services
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantProvisioner, TenantProvisioner>();
+        services.AddScoped<IBootstrapTenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapService, BootstrapService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<ISettingValueProtector, SettingValueProtector>();

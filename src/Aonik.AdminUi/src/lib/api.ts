@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { apiConfig } from '@/auth';
+import { getSelectedTenant } from '@/lib/tenantContext';
 
 // Create axios instance with base configuration
 const apiClient: AxiosInstance = axios.create({
@@ -21,6 +22,16 @@ export function setAccessTokenGetter(getter: () => Promise<string | null>) {
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    // Attach tenant context header for tenant-scoped routes.
+    // (/host/* bypasses tenant middleware; avoid sending there to reduce confusion.)
+    const url = config.url ?? '';
+    if (!url.startsWith('/host')) {
+      const selectedTenant = getSelectedTenant();
+      if (selectedTenant?.tenantId) {
+        config.headers['X-Tenant-Id'] = config.headers['X-Tenant-Id'] ?? selectedTenant.tenantId;
+      }
+    }
+
     if (getAccessTokenFn) {
       try {
         const token = await getAccessTokenFn();
@@ -52,16 +63,32 @@ const statusMessages: Record<number, string> = {
   504: 'The request timed out. Please try again.',
 };
 
+const tryGetString = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 const resolveErrorMessage = (error: AxiosError): string => {
   const status = error.response?.status;
   if (!status) {
     return 'Unable to reach the service. Check your connection and try again.';
   }
 
-  const data = error.response?.data as { message?: string } | undefined;
-  const message = data?.message?.trim();
-  if (message) {
-    return message;
+  const data = error.response?.data as unknown;
+
+  // Prefer server-provided message/error fields when available.
+  const serverMessage =
+    tryGetString((data as { message?: unknown } | null)?.message) ??
+    tryGetString((data as { error?: unknown } | null)?.error) ??
+    tryGetString(data);
+
+  if (serverMessage) {
+    if (status === 401 && serverMessage.toLowerCase().includes('tenant context missing')) {
+      return 'Tenant context is missing. This request requires a tenant context (tenant claim/header/subdomain). Try signing out/in; if it persists, contact an admin.';
+    }
+
+    return serverMessage;
   }
 
   return statusMessages[status] ?? 'Something went wrong. Please try again.';

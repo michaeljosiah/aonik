@@ -16,7 +16,7 @@ namespace Aonik.Application.Services.Identity.Provisioning;
 public class BootstrapService : IBootstrapService
 {
     private readonly IAonikDbContext _dbContext;
-    private readonly ITenantProvisioner _tenantProvisioner;
+    private readonly IBootstrapTenantProvisioner _tenantProvisioner;
     private readonly ITenantContext _tenantContext;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
@@ -27,7 +27,7 @@ public class BootstrapService : IBootstrapService
 
     public BootstrapService(
         IAonikDbContext dbContext,
-        ITenantProvisioner tenantProvisioner,
+        IBootstrapTenantProvisioner tenantProvisioner,
         ITenantContext tenantContext,
         IAuditLogWriter auditLogWriter,
         IClock clock,
@@ -249,4 +249,3 @@ public class BootstrapService : IBootstrapService
     }
 
 }
-

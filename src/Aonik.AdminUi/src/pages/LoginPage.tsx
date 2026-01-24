@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, Building2 } from 'lucide-react';
 import { useAuth, getAuthProvider } from '@/auth';
+import { tenantService } from '@/services/tenantService';
+import type { TenantListItemForLogin } from '@/types';
+import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -11,6 +14,60 @@ export function LoginPage() {
   const { isAuthenticated, isLoading, login, authError } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
+  // Tenant selection state
+  const [tenants, setTenants] = useState<TenantListItemForLogin[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [isLoadingTenants, setIsLoadingTenants] = useState(false);
+  const [showTenantSelector, setShowTenantSelector] = useState(false);
+
+  // Check if URL is tenant-scoped (has subdomain)
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    
+    // If localhost or direct IP, or only 2 parts (e.g., example.com), show tenant selector
+    // If 3+ parts (e.g., tenant.example.com), assume tenant-scoped
+    const isTenantScoped = parts.length >= 3 && 
+      !hostname.startsWith('www.') && 
+      !hostname.includes('localhost');
+    
+    setShowTenantSelector(!isTenantScoped);
+  }, []);
+
+  // Load tenants for dropdown
+  useEffect(() => {
+    if (!showTenantSelector) return;
+    
+    const loadTenants = async () => {
+      setIsLoadingTenants(true);
+      try {
+        const response = await tenantService.listForLogin();
+        setTenants(response.tenants);
+
+        const previous = getSelectedTenant();
+        if (previous?.tenantId) {
+          const exists = response.tenants.some(t => t.tenantId === previous.tenantId);
+          if (exists) {
+            setSelectedTenantId(previous.tenantId);
+            return;
+          }
+        }
+
+        // Auto-select first tenant if available
+        if (response.tenants.length > 0) {
+          setSelectedTenantId(response.tenants[0].tenantId);
+        }
+      } catch (err) {
+        console.error('Failed to load tenants:', err);
+        // Don't block login if tenant list fails
+      } finally {
+        setIsLoadingTenants(false);
+      }
+    };
+    
+    loadTenants();
+  }, [showTenantSelector]);
 
   useEffect(() => {
     if (authError) {
@@ -32,9 +89,26 @@ export function LoginPage() {
   }, [isAuthenticated, isLoading, navigate, from]);
 
   const handleLogin = async () => {
+    // Validate tenant selection if showing selector
+    if (showTenantSelector && !selectedTenantId && tenants.length > 0) {
+      setError('Please select a tenant to continue.');
+      return;
+    }
+    
     setError(null);
     setIsLoggingIn(true);
+    
     try {
+      // Store selected tenant for post-login context
+      if (selectedTenantId) {
+        const selected = tenants.find(t => t.tenantId === selectedTenantId);
+        setSelectedTenant({
+          tenantId: selectedTenantId,
+          name: selected?.name,
+          subdomain: selected?.subdomain,
+          environment: selected?.environment,
+        });
+      }
       await login();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
@@ -144,6 +218,42 @@ export function LoginPage() {
                 </div>
               )}
 
+              {/* Tenant selector - only shown when URL is not tenant-scoped */}
+              {showTenantSelector && (
+                <div className="mb-6">
+                  <label className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                    <Building2 className="w-4 h-4" />
+                    Select Organization
+                  </label>
+                  {isLoadingTenants ? (
+                    <div className="flex items-center justify-center py-3 px-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface-inset)]">
+                      <div className="w-4 h-4 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin mr-2" />
+                      <span className="text-sm text-[var(--color-text-secondary)]">Loading organizations...</span>
+                    </div>
+                  ) : tenants.length === 0 ? (
+                    <div className="py-3 px-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface-inset)] text-center">
+                      <p className="text-sm text-[var(--color-text-tertiary)]">No organizations available</p>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedTenantId}
+                      onChange={(e) => setSelectedTenantId(e.target.value)}
+                      className="w-full px-4 py-3 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                    >
+                      <option value="">Select an organization...</option>
+                      {tenants.map(tenant => (
+                        <option key={tenant.tenantId} value={tenant.tenantId}>
+                          {tenant.name} {tenant.environment !== 'Prod' ? `(${tenant.environment})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                    Choose the organization you want to sign in to.
+                  </p>
+                </div>
+              )}
+
               {/* Provider info */}
               <div className="p-3 mb-6 bg-[var(--color-brand-primary-light)] rounded-lg border border-[var(--color-brand-primary)]/20">
                 <p className="text-sm text-[var(--color-brand-primary)] text-center">
@@ -155,7 +265,7 @@ export function LoginPage() {
               <Button 
                 onClick={handleLogin}
                 className="w-full py-3 text-base"
-                disabled={isLoggingIn}
+                disabled={isLoggingIn || (showTenantSelector && isLoadingTenants)}
               >
                 {isLoggingIn ? (
                   <>

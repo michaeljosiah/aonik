@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantProvisioner, TenantProvisioner>();
+        services.AddScoped<IBootstrapTenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapService, BootstrapService>();
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();

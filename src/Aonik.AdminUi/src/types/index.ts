@@ -274,3 +274,15 @@ export interface UserRoleResponse {
   userId: string;
   roles: RoleSummaryResponse[];
 }
+
+// Tenant list for login dropdown (public endpoint)
+export interface TenantListItemForLogin {
+  tenantId: string;
+  name: string;
+  subdomain?: string | null;
+  environment: TenantEnvironment;
+}
+
+export interface TenantListForLoginResponse {
+  tenants: TenantListItemForLogin[];
+}

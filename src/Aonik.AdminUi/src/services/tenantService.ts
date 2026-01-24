@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { Tenant, CreateTenantRequest, UpdateTenantRequest, PagedResult } from '@/types';
+import type { Tenant, CreateTenantRequest, UpdateTenantRequest, PagedResult, TenantListForLoginResponse } from '@/types';
 
 export interface ListTenantsParams {
   pageNumber?: number;
@@ -20,6 +20,11 @@ export interface TenantHealthResult {
 }
 
 export const tenantService = {
+  // List tenants for login dropdown (public, no auth required)
+  listForLogin: async (): Promise<TenantListForLoginResponse> => {
+    return api.get<TenantListForLoginResponse>('/host/tenants/list-for-login');
+  },
+
   // List all tenants (admin endpoint)
   list: async (params: ListTenantsParams = {}): Promise<PagedResult<Tenant>> => {
     const queryParams = new URLSearchParams();

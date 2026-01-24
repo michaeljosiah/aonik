@@ -24,7 +24,7 @@ export const catalogService = {
     }
 
     const query = params.toString();
-    return api.get<CatalogCountryResponse>(`/catalog/countries${query ? `?${query}` : ''}`);
+    return api.get<CatalogCountryResponse>(`/host/catalog/countries${query ? `?${query}` : ''}`);
   },
 
   getCategories: async (countryCode?: string): Promise<CatalogBillerCategoryResponse> => {
@@ -34,7 +34,7 @@ export const catalogService = {
     }
 
     const query = params.toString();
-    return api.get<CatalogBillerCategoryResponse>(`/catalog/billers/categories${query ? `?${query}` : ''}`);
+    return api.get<CatalogBillerCategoryResponse>(`/host/catalog/billers/categories${query ? `?${query}` : ''}`);
   },
 
   getBillers: async (params: CatalogBillerListParams = {}): Promise<CatalogBillerResponse> => {
@@ -46,18 +46,20 @@ export const catalogService = {
     if (params.pageSize) queryParams.append('pageSize', params.pageSize.toString());
 
     const query = queryParams.toString();
-    return api.get<CatalogBillerResponse>(`/catalog/billers${query ? `?${query}` : ''}`);
+    return api.get<CatalogBillerResponse>(`/host/catalog/billers${query ? `?${query}` : ''}`);
   },
 
   getBillerDetail: async (billerId: string): Promise<CatalogBillerDetailResponse> => {
-    return api.get<CatalogBillerDetailResponse>(`/catalog/billers/${billerId}`);
+    return api.get<CatalogBillerDetailResponse>(`/host/catalog/billers/${billerId}`);
   },
 
   getBillerServices: async (billerId: string): Promise<CatalogBillerServiceResponse> => {
-    return api.get<CatalogBillerServiceResponse>(`/catalog/billers/${billerId}/services`);
+    return api.get<CatalogBillerServiceResponse>(`/host/catalog/billers/${billerId}/services`);
   },
 
   getBillerServiceDetail: async (billerId: string, serviceId: string): Promise<CatalogBillerServiceDetailResponse> => {
-    return api.get<CatalogBillerServiceDetailResponse>(`/catalog/billers/${billerId}/services/${serviceId}`);
+    return api.get<CatalogBillerServiceDetailResponse>(
+      `/host/catalog/billers/${billerId}/services/${serviceId}`
+    );
   },
 };

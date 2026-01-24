@@ -28,7 +28,7 @@ public class TenantValidationMiddleware
         }
 
         // Skip admin endpoints (they use PlatformAdmin policy, not tenant-scoped)
-        if (context.Request.Path.StartsWithSegments("/admin") ||
+        if (context.Request.Path.StartsWithSegments("/host") ||
             context.Request.Path.StartsWithSegments("/bootstrap"))
         {
             await _next(context);

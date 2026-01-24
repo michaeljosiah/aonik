@@ -39,18 +39,11 @@ public class TenantResolver : ITenantResolver
             return null;
         }
 
-        var jwtToken = httpContext.Items["JwtSecurityToken"] as JwtSecurityToken;
-        if (jwtToken == null)
-        {
-            _logger.LogDebug("JwtSecurityToken not found in HttpContext.Items");
-            return null;
-        }
-
         var mode = _configuration.GetValue<TenantRoutingMode>("Auth:TenantRouting");
 
         return mode switch
         {
-            TenantRoutingMode.Claim => ResolveFromClaim(jwtToken),
+            TenantRoutingMode.Claim => ResolveFromClaim(httpContext),
             TenantRoutingMode.Subdomain => ResolveFromSubdomainAsync(httpContext).GetAwaiter().GetResult(),
             TenantRoutingMode.Header => ResolveFromHeader(httpContext),
             _ => null
@@ -75,9 +68,17 @@ public class TenantResolver : ITenantResolver
         };
     }
 
-    private Guid? ResolveFromClaim(JwtSecurityToken jwtToken)
+    private Guid? ResolveFromClaim(HttpContext httpContext)
     {
-        var tenantClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "aonik_tenant_id")?.Value;
+        // Prefer claims from authenticated principal (works for JwtSecurityToken and JsonWebToken)
+        var tenantClaim = httpContext.User.Claims.FirstOrDefault(c => c.Type == "aonik_tenant_id")?.Value;
+
+        // Back-compat: tests and some middleware stash JwtSecurityToken in Items
+        if (string.IsNullOrEmpty(tenantClaim)
+            && httpContext.Items["JwtSecurityToken"] is JwtSecurityToken jwtToken)
+        {
+            tenantClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "aonik_tenant_id")?.Value;
+        }
 
         if (string.IsNullOrEmpty(tenantClaim))
         {
