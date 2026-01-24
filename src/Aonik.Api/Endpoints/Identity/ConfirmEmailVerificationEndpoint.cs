@@ -26,7 +26,7 @@ public class ConfirmEmailVerificationEndpoint : Endpoint<ConfirmEmailVerificatio
     public override void Configure()
     {
         Post("/v1/verifications/email/confirm");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(ConfirmEmailVerificationRequest req, CancellationToken ct)

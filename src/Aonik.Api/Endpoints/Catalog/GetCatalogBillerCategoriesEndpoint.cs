@@ -17,7 +17,7 @@ public class GetCatalogBillerCategoriesEndpoint : Endpoint<CatalogCategoryListRe
     public override void Configure()
     {
         Get("/catalog/billers/categories");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CatalogCategoryListRequest req, CancellationToken ct)

@@ -17,7 +17,7 @@ public class GetCatalogBillerDetailEndpoint : EndpointWithoutRequest<CatalogBill
     public override void Configure()
     {
         Get("/catalog/billers/{billerId}");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

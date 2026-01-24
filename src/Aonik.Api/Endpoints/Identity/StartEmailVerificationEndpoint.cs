@@ -26,7 +26,7 @@ public class StartEmailVerificationEndpoint : Endpoint<StartEmailVerificationReq
     public override void Configure()
     {
         Post("/v1/verifications/email/start");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(StartEmailVerificationRequest req, CancellationToken ct)

@@ -27,7 +27,7 @@ public class DeleteCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPho
     public override void Configure()
     {
         Delete("/profiles/customers/me/photo");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -26,7 +26,7 @@ public class ConfirmPhoneVerificationEndpoint : Endpoint<ConfirmPhoneVerificatio
     public override void Configure()
     {
         Post("/v1/verifications/phone/confirm");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
     }
 
     public override async Task HandleAsync(ConfirmPhoneVerificationRequest req, CancellationToken ct)

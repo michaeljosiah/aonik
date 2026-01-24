@@ -27,7 +27,7 @@ public class UploadCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPho
     public override void Configure()
     {
         Post("/profiles/customers/me/photo");
-        Policies("UserPolicy");
+        Policies("AdminUserPolicy");
         AllowFileUploads();
     }
 
