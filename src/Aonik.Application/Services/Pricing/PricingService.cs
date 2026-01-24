@@ -73,7 +73,7 @@ public class PricingService : IPricingService
             throw new InvalidOperationException("Effective FX rate is invalid for the requested currency pair.");
         }
 
-        var (originAmount, destinationAmount) = ResolveAmounts(
+        var (originAmount, destinationAmount, rawDestinationAmount) = ResolveAmounts(
             normalizedRequest,
             exchangeRate,
             originPrecision,
@@ -101,6 +101,7 @@ public class PricingService : IPricingService
             feesTotal,
             originAmount,
             destinationAmount,
+            rawDestinationAmount,
             fxRate.Rate,
             exchangeRate,
             normalizedRequest.OriginCurrency,
@@ -212,7 +213,7 @@ public class PricingService : IPricingService
         return party.CustomerTierCode.Trim();
     }
 
-    private static (decimal OriginAmount, decimal DestinationAmount) ResolveAmounts(
+    private static (decimal OriginAmount, decimal DestinationAmount, decimal RawDestinationAmount) ResolveAmounts(
         PricingQuoteRequest request,
         decimal exchangeRate,
         int originPrecision,
@@ -221,14 +222,17 @@ public class PricingService : IPricingService
     {
         if (request.DestinationAmount.HasValue)
         {
-            var destinationAmount = RoundCurrency(request.DestinationAmount.Value, destinationPrecision, roundingMode);
-            var originAmount = RoundCurrency(destinationAmount / exchangeRate, originPrecision, roundingMode);
-            return (originAmount, destinationAmount);
+            var rawDestination = request.DestinationAmount.Value;
+            var destinationAmount = RoundCurrency(rawDestination, destinationPrecision, roundingMode);
+            var originAmount = RoundCurrency(rawDestination / exchangeRate, originPrecision, roundingMode);
+            return (originAmount, destinationAmount, rawDestination);
         }
 
-        var originValue = RoundCurrency(request.OriginAmount!.Value, originPrecision, roundingMode);
-        var destinationValue = RoundCurrency(originValue * exchangeRate, destinationPrecision, roundingMode);
-        return (originValue, destinationValue);
+        var rawOrigin = request.OriginAmount!.Value;
+        var originValue = RoundCurrency(rawOrigin, originPrecision, roundingMode);
+        var rawDestinationFromOrigin = rawOrigin * exchangeRate;
+        var destinationValue = RoundCurrency(rawDestinationFromOrigin, destinationPrecision, roundingMode);
+        return (originValue, destinationValue, rawDestinationFromOrigin);
     }
 
     private static decimal ApplyFeeCaps(
@@ -325,6 +329,7 @@ public class PricingService : IPricingService
         decimal cappedFeesTotal,
         decimal originAmount,
         decimal destinationAmount,
+        decimal rawDestinationAmount,
         decimal baseRate,
         decimal exchangeRate,
         string originCurrency,
@@ -344,7 +349,7 @@ public class PricingService : IPricingService
             {
                 "Fixed" => fixedFee,
                 "Percentage" => percentageFee,
-                "FxMarkup" => CalculateFxMarkup(originAmount, destinationAmount, baseRate, exchangeRate, originPrecision, roundingMode),
+                "FxMarkup" => CalculateFxMarkup(originAmount, rawDestinationAmount, baseRate, exchangeRate, originPrecision, roundingMode),
                 _ => 0m
             };
 
@@ -372,7 +377,7 @@ public class PricingService : IPricingService
 
     private static decimal CalculateFxMarkup(
         decimal originAmount,
-        decimal destinationAmount,
+        decimal rawDestinationAmount,
         decimal baseRate,
         decimal exchangeRate,
         int originPrecision,
@@ -383,7 +388,7 @@ public class PricingService : IPricingService
             return 0m;
         }
 
-        var originWithoutMarkup = RoundCurrency(destinationAmount / baseRate, originPrecision, roundingMode);
+        var originWithoutMarkup = rawDestinationAmount / baseRate;
         var markupAmount = originAmount - originWithoutMarkup;
         return RoundCurrency(Math.Max(markupAmount, 0m), originPrecision, roundingMode);
     }

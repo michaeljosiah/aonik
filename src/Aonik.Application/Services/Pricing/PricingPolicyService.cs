@@ -42,7 +42,14 @@ public class PricingPolicyService : IPricingPolicyService
                 Conditions = ParseConditions(policy.ConditionsJson)
             })
             .Where(candidate => Matches(candidate.Conditions, request, customerTier))
+            .Select(candidate => new
+            {
+                candidate.Policy,
+                candidate.Conditions,
+                Specificity = CalculateSpecificity(candidate.Conditions)
+            })
             .OrderByDescending(candidate => candidate.Policy.TenantId == tenantId)
+            .ThenByDescending(candidate => candidate.Specificity)
             .ThenByDescending(candidate => candidate.Policy.UpdatedAt ?? candidate.Policy.CreatedAt)
             .ToList();
 
@@ -133,5 +140,25 @@ public class PricingPolicyService : IPricingPolicyService
         }
 
         return string.Equals(expected.Trim(), actual.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int CalculateSpecificity(FeePolicyConditions conditions)
+    {
+        var score = 0;
+
+        if (!string.IsNullOrWhiteSpace(conditions.ServiceCode))
+            score++;
+        if (!string.IsNullOrWhiteSpace(conditions.OriginCountry))
+            score++;
+        if (!string.IsNullOrWhiteSpace(conditions.DestinationCountry))
+            score++;
+        if (!string.IsNullOrWhiteSpace(conditions.OriginCurrency))
+            score++;
+        if (!string.IsNullOrWhiteSpace(conditions.DestinationCurrency))
+            score++;
+        if (!string.IsNullOrWhiteSpace(conditions.CustomerTier))
+            score++;
+
+        return score;
     }
 }
