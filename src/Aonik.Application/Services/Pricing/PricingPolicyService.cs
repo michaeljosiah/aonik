@@ -65,16 +65,28 @@ public class PricingPolicyService : IPricingPolicyService
         string currency,
         CancellationToken cancellationToken = default)
     {
-        if (!customerId.HasValue)
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var baseQuery = _dbContext.LimitsPolicies
+            .Where(policy => policy.IsActive)
+            .Where(policy => policy.Currency == currency);
+
+        if (customerId.HasValue)
         {
-            return null;
+            var customerPolicy = await baseQuery
+                .Where(policy => policy.ScopeType == "Customer")
+                .Where(policy => policy.ScopeId == customerId)
+                .OrderByDescending(policy => policy.UpdatedAt ?? policy.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (customerPolicy != null)
+            {
+                return customerPolicy;
+            }
         }
 
-        return await _dbContext.LimitsPolicies
-            .Where(policy => policy.IsActive)
-            .Where(policy => policy.ScopeType == "Customer")
-            .Where(policy => policy.ScopeId == customerId)
-            .Where(policy => policy.Currency == currency)
+        return await baseQuery
+            .Where(policy => policy.ScopeType == "Tenant")
+            .Where(policy => policy.ScopeId == tenantId)
             .OrderByDescending(policy => policy.UpdatedAt ?? policy.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }

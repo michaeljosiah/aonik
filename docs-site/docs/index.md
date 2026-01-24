@@ -38,6 +38,10 @@ AONIK follows Clean Architecture with an anemic domain model. Business logic liv
 - **[Troubleshooting](Troubleshooting.md)**
 - **[Swagger Authentication](SwaggerAuthentication.md)**
 
+### Features
+
+- **[Pricing & FX Quotes](features/pricing.md)**
+
 ### Deployment & Operations
 
 - **[Local Development](deployment/local-development.md)**
