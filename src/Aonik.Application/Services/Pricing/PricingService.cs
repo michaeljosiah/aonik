@@ -1,8 +1,10 @@
 using System.Text.Json;
 
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Pricing;
 using Aonik.Application.Services.Compliance;
+using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Services.Pricing;
 
@@ -13,19 +15,22 @@ public class PricingService : IPricingService
     private readonly IFxRateService _fxRateService;
     private readonly ICurrencyMetadataProvider _currencyMetadataProvider;
     private readonly IAuditLogWriter _auditLogWriter;
+    private readonly IAonikDbContext _dbContext;
 
     public PricingService(
         ITenantProvider tenantProvider,
         IPricingPolicyService pricingPolicyService,
         IFxRateService fxRateService,
         ICurrencyMetadataProvider currencyMetadataProvider,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        IAonikDbContext dbContext)
     {
         _tenantProvider = tenantProvider;
         _pricingPolicyService = pricingPolicyService;
         _fxRateService = fxRateService;
         _currencyMetadataProvider = currencyMetadataProvider;
         _auditLogWriter = auditLogWriter;
+        _dbContext = dbContext;
     }
 
     public async Task<PricingQuoteResponse> GetBillPaymentQuoteAsync(
@@ -35,7 +40,7 @@ public class PricingService : IPricingService
         var normalizedRequest = NormalizeRequest(request);
         ValidateRequest(normalizedRequest);
 
-        var customerTier = "Retail";
+        var customerTier = await ResolveCustomerTierAsync(normalizedRequest, cancellationToken);
         var policyResolution = await _pricingPolicyService.ResolvePolicyAsync(
             normalizedRequest,
             customerTier,
@@ -72,9 +77,8 @@ public class PricingService : IPricingService
 
         var fixedFee = RoundCurrency(policyResolution.Policy.FixedFee, originPrecision, roundingMode);
         var percentageFee = RoundCurrency(originAmount * policyResolution.Policy.PercentageFee, originPrecision, roundingMode);
-        var feesTotal = RoundCurrency(fixedFee + percentageFee, originPrecision, roundingMode);
-
-        feesTotal = ApplyFeeCaps(feesTotal, policyResolution.Conditions, originPrecision, roundingMode);
+        var uncappedFeesTotal = RoundCurrency(fixedFee + percentageFee, originPrecision, roundingMode);
+        var feesTotal = ApplyFeeCaps(uncappedFeesTotal, policyResolution.Conditions, originPrecision, roundingMode);
 
         var totalAmount = RoundCurrency(originAmount + feesTotal, originPrecision, roundingMode);
         var pricingQuoteId = Guid.NewGuid();
@@ -88,6 +92,8 @@ public class PricingService : IPricingService
             policyResolution.Conditions,
             fixedFee,
             percentageFee,
+            uncappedFeesTotal,
+            feesTotal,
             originAmount,
             destinationAmount,
             fxRate.Rate,
@@ -124,6 +130,9 @@ public class PricingService : IPricingService
             OriginCountry = NormalizeCountry(request.OriginCountry),
             DestinationCountry = NormalizeCountry(request.DestinationCountry),
             ServiceCode = NormalizeServiceCode(request.ServiceCode),
+            CustomerTier = string.IsNullOrWhiteSpace(request.CustomerTier)
+                ? null
+                : request.CustomerTier.Trim(),
             QuoteContext = string.IsNullOrWhiteSpace(request.QuoteContext)
                 ? null
                 : request.QuoteContext.Trim()
@@ -170,6 +179,32 @@ public class PricingService : IPricingService
 
         _currencyMetadataProvider.GetCurrency(request.OriginCurrency);
         _currencyMetadataProvider.GetCurrency(request.DestinationCurrency);
+    }
+
+    private async Task<string> ResolveCustomerTierAsync(
+        PricingQuoteRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(request.CustomerTier))
+        {
+            return request.CustomerTier.Trim();
+        }
+
+        if (!request.CustomerId.HasValue)
+        {
+            return "Retail";
+        }
+
+        var party = await _dbContext.Parties
+            .AsNoTracking()
+            .FirstOrDefaultAsync(entity => entity.Id == request.CustomerId.Value, cancellationToken);
+
+        if (party == null || string.IsNullOrWhiteSpace(party.CustomerTierCode))
+        {
+            return "Retail";
+        }
+
+        return party.CustomerTierCode.Trim();
     }
 
     private static (decimal OriginAmount, decimal DestinationAmount) ResolveAmounts(
@@ -249,6 +284,7 @@ public class PricingService : IPricingService
             RequestOriginAmount = request.OriginAmount,
             RequestDestinationAmount = request.DestinationAmount,
             request.CustomerId,
+            request.CustomerTier,
             request.QuoteContext,
             response.PricingPolicyId,
             response.PricingPolicyVersion,
@@ -280,6 +316,8 @@ public class PricingService : IPricingService
         FeePolicyConditions conditions,
         decimal fixedFee,
         decimal percentageFee,
+        decimal uncappedFeesTotal,
+        decimal cappedFeesTotal,
         decimal originAmount,
         decimal destinationAmount,
         decimal baseRate,
@@ -311,6 +349,17 @@ public class PricingService : IPricingService
                 amount,
                 originCurrency,
                 definition.CalculationType));
+        }
+
+        if (uncappedFeesTotal != cappedFeesTotal)
+        {
+            var adjustment = RoundCurrency(cappedFeesTotal - uncappedFeesTotal, originPrecision, roundingMode);
+            items.Add(new FeeBreakdownItem(
+                "FEE_CAP_ADJUSTMENT",
+                "Fee cap adjustment",
+                adjustment,
+                originCurrency,
+                "CapAdjustment"));
         }
 
         return items;

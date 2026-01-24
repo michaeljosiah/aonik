@@ -27,6 +27,7 @@ public class CatalogSeedService
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         await SeedCountriesAsync(cancellationToken);
+        await SeedCustomerTiersAsync(cancellationToken);
         await SeedCategoriesAsync(cancellationToken);
     }
 
@@ -195,5 +196,56 @@ public class CatalogSeedService
         await _dbContext.CatalogBillerCategories.AddRangeAsync(toAdd, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} biller categories", toAdd.Count);
+    }
+
+    private async Task SeedCustomerTiersAsync(CancellationToken cancellationToken)
+    {
+        var tiers = new List<ReferenceDataItem>
+        {
+            new()
+            {
+                Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                Type = "CustomerTier",
+                Code = "Retail",
+                DisplayName = "Retail",
+                SortOrder = 1,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("88888888-8888-8888-8888-888888888888"),
+                Type = "CustomerTier",
+                Code = "SMB",
+                DisplayName = "SMB",
+                SortOrder = 2,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                Type = "CustomerTier",
+                Code = "Enterprise",
+                DisplayName = "Enterprise",
+                SortOrder = 3,
+                IsActive = true
+            }
+        };
+
+        var existingKeys = await _dbContext.ReferenceDataItems
+            .Where(item => item.Type == "CustomerTier")
+            .Select(item => item.Code)
+            .ToListAsync(cancellationToken);
+
+        var existingSet = new HashSet<string>(existingKeys, StringComparer.OrdinalIgnoreCase);
+        var toAdd = tiers.Where(tier => !existingSet.Contains(tier.Code)).ToList();
+
+        if (toAdd.Count == 0)
+        {
+            return;
+        }
+
+        await _dbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Seeded {Count} customer tiers", toAdd.Count);
     }
 }

@@ -22,7 +22,12 @@ Every quote request requires:
 - `serviceCode`
 - exactly one of `originAmount` or `destinationAmount`
 
-`customerId` is optional. When it is missing, tenant-level limits still apply.
+Optional fields:
+
+- `customerId` (used for customer-scoped limits)
+- `customerTier` (used for tier-specific pricing policies)
+
+When `customerId` is missing, tenant-level limits still apply. When `customerTier` is missing, the engine looks up the tier from the customer party profile and falls back to `Retail`.
 
 ## Outputs You Can Expect
 
@@ -49,6 +54,8 @@ Limits policies are stored in `LimitsPolicy` and cap allowed amounts. The engine
 
 1. customer-scoped limits (if `customerId` provided)
 2. tenant-scoped limits (fallback)
+
+Customer tiers are reference data items of type `CustomerTier` managed through the catalog. Parties store the tier code on the customer profile.
 
 ## FX Rate Sources
 

@@ -65,6 +65,59 @@ public class ReferenceDataService : IReferenceDataService
         return resolved;
     }
 
+    public async Task<ReferenceDataItemSnapshot> UpsertAsync(
+        ReferenceDataItemUpsert request,
+        Guid? tenantId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Type))
+        {
+            throw new ArgumentException("Reference data type is required.", nameof(request.Type));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Code))
+        {
+            throw new ArgumentException("Reference data code is required.", nameof(request.Code));
+        }
+
+        var normalizedType = request.Type.Trim();
+        var normalizedCode = request.Code.Trim();
+
+        var item = await _dbContext.ReferenceDataItems
+            .FirstOrDefaultAsync(
+                existing => existing.Type == normalizedType
+                    && existing.Code == normalizedCode
+                    && existing.TenantId == tenantId,
+                cancellationToken);
+
+        if (item == null)
+        {
+            item = new ReferenceDataItem
+            {
+                Id = Guid.NewGuid(),
+                Type = normalizedType,
+                Code = normalizedCode,
+                DisplayName = request.DisplayName.Trim(),
+                SortOrder = request.SortOrder,
+                IsActive = request.IsActive,
+                TenantId = tenantId
+            };
+
+            _dbContext.ReferenceDataItems.Add(item);
+        }
+        else
+        {
+            item.DisplayName = request.DisplayName.Trim();
+            item.SortOrder = request.SortOrder;
+            item.IsActive = request.IsActive;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        EvictCache(normalizedType, tenantId);
+
+        return Map(item);
+    }
+
     private static string GetCacheKey(string type, Guid? tenantId)
     {
         return $"reference-data:{tenantId}:{type}";
@@ -78,5 +131,16 @@ public class ReferenceDataService : IReferenceDataService
             item.DisplayName,
             item.SortOrder,
             item.IsActive);
+    }
+
+    private void EvictCache(string type, Guid? tenantId)
+    {
+        _cache.Remove(GetCacheKey(type, tenantId));
+        _cache.Remove(GetCacheKey(type, null));
+
+        if (_tenantProvider.TryGetCurrentTenantId(out var currentTenantId))
+        {
+            _cache.Remove(GetCacheKey(type, currentTenantId));
+        }
     }
 }

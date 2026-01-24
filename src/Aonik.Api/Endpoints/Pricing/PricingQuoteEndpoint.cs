@@ -30,6 +30,7 @@ public class PricingQuoteEndpoint : Endpoint<PricingQuoteRequest, PricingQuoteRe
             req.DestinationAmount,
             req.OriginAmount,
             req.CustomerId,
+            req.CustomerTier,
             req.QuoteContext);
 
         var result = await _pricingService.GetBillPaymentQuoteAsync(request, ct);

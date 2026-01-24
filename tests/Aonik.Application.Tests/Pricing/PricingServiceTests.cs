@@ -2,6 +2,7 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Models.Pricing;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Pricing;
+using Aonik.Domain.Party.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.Infrastructure.Persistence;
 using Aonik.SharedKernel.Abstractions;
@@ -109,7 +110,8 @@ public class PricingServiceTests
             policyService,
             fxRateService,
             new CurrencyMetadataProvider(),
-            new NoOpAuditLogWriter());
+            new NoOpAuditLogWriter(),
+            context);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -117,10 +119,11 @@ public class PricingServiceTests
             "US",
             "KE",
             "BILLPAY",
-            destinationAmount: null,
-            originAmount: 10.00m,
-            customerId: null,
-            quoteContext: null);
+            null,
+            10.00m,
+            null,
+            null,
+            null);
 
         // Act
         var result = await service.GetBillPaymentQuoteAsync(request);
@@ -185,7 +188,8 @@ public class PricingServiceTests
             policyService,
             fxRateService,
             new CurrencyMetadataProvider(),
-            new NoOpAuditLogWriter());
+            new NoOpAuditLogWriter(),
+            context);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -193,10 +197,11 @@ public class PricingServiceTests
             "US",
             "KE",
             "BILLPAY",
-            destinationAmount: null,
-            originAmount: 10.00m,
-            customerId: null,
-            quoteContext: null);
+            null,
+            10.00m,
+            null,
+            null,
+            null);
 
         // Act
         var act = async () => await service.GetBillPaymentQuoteAsync(request);
@@ -204,5 +209,188 @@ public class PricingServiceTests
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Requested amount exceeds corridor limits.");
+    }
+
+    [Fact]
+    public async Task GetBillPaymentQuoteAsync_ShouldIncludeCapAdjustment_WhenFeesAreCapped()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var clock = new TestClock { UtcNow = DateTime.UtcNow };
+        using var context = CreateDbContext(tenantId, clock);
+
+        var conditionsJson = "{" +
+            "\"minFee\":1.0," +
+            "\"maxFee\":2.0," +
+            "\"feeBreakdown\":[" +
+                "{\"code\":\"SERVICE_FEE\",\"description\":\"Service fee\",\"calculationType\":\"Fixed\"}," +
+                "{\"code\":\"PERCENT_FEE\",\"description\":\"Percentage fee\",\"calculationType\":\"Percentage\"}" +
+            "]" +
+        "}";
+
+        context.FeePolicies.Add(new FeePolicy
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "Default",
+            FixedFee = 1.00m,
+            PercentageFee = 0.50m,
+            ConditionsJson = conditionsJson,
+            IsActive = true
+        });
+
+        context.FxQuotes.Add(new FxQuote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            BaseCurrency = "USD",
+            TargetCurrency = "KES",
+            Rate = 1.00m,
+            ExpiresAt = clock.UtcNow.AddHours(1),
+            Provider = "Test"
+        });
+
+        context.LimitsPolicies.Add(new LimitsPolicy
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ScopeType = "Tenant",
+            ScopeId = tenantId,
+            Currency = "USD",
+            MaxAmount = 1000m,
+            Period = "Monthly",
+            IsActive = true
+        });
+
+        await context.SaveChangesAsync();
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        var policyService = new PricingPolicyService(context, tenantProvider);
+        var fxRateService = new FxRateService(context, clock);
+        var service = new PricingService(
+            tenantProvider,
+            policyService,
+            fxRateService,
+            new CurrencyMetadataProvider(),
+            new NoOpAuditLogWriter(),
+            context);
+
+        var request = new PricingQuoteRequest(
+            "USD",
+            "KES",
+            "US",
+            "KE",
+            "BILLPAY",
+            null,
+            10.00m,
+            null,
+            null,
+            null);
+
+        // Act
+        var result = await service.GetBillPaymentQuoteAsync(request);
+
+        // Assert
+        result.FeesTotal.Should().Be(2.00m);
+        result.FeeBreakdown.Should().Contain(item => item.Code == "FEE_CAP_ADJUSTMENT" && item.Amount == -4.00m);
+    }
+
+    [Fact]
+    public async Task GetBillPaymentQuoteAsync_ShouldUseCustomerTierFromParty_WhenNotProvided()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var clock = new TestClock { UtcNow = DateTime.UtcNow };
+        using var context = CreateDbContext(tenantId, clock);
+
+        var retailConditions = "{\"customerTier\":\"Retail\"}";
+        var smbConditions = "{\"customerTier\":\"SMB\"}";
+
+        context.FeePolicies.AddRange(
+            new FeePolicy
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "Retail",
+                FixedFee = 1.00m,
+                PercentageFee = 0.00m,
+                ConditionsJson = retailConditions,
+                IsActive = true
+            },
+            new FeePolicy
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Name = "SMB",
+                FixedFee = 5.00m,
+                PercentageFee = 0.00m,
+                ConditionsJson = smbConditions,
+                IsActive = true
+            });
+
+        context.FxQuotes.Add(new FxQuote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            BaseCurrency = "USD",
+            TargetCurrency = "KES",
+            Rate = 1.00m,
+            ExpiresAt = clock.UtcNow.AddHours(1),
+            Provider = "Test"
+        });
+
+        context.LimitsPolicies.Add(new LimitsPolicy
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ScopeType = "Tenant",
+            ScopeId = tenantId,
+            Currency = "USD",
+            MaxAmount = 1000m,
+            Period = "Monthly",
+            IsActive = true
+        });
+
+        context.Parties.Add(new Party
+        {
+            Id = customerId,
+            TenantId = tenantId,
+            PartyType = "Person",
+            DisplayName = "SMB Customer",
+            Status = "Active",
+            CustomerTierCode = "SMB"
+        });
+
+        await context.SaveChangesAsync();
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        var policyService = new PricingPolicyService(context, tenantProvider);
+        var fxRateService = new FxRateService(context, clock);
+        var service = new PricingService(
+            tenantProvider,
+            policyService,
+            fxRateService,
+            new CurrencyMetadataProvider(),
+            new NoOpAuditLogWriter(),
+            context);
+
+        var request = new PricingQuoteRequest(
+            "USD",
+            "KES",
+            "US",
+            "KE",
+            "BILLPAY",
+            null,
+            10.00m,
+            customerId,
+            null,
+            null);
+
+        // Act
+        var result = await service.GetBillPaymentQuoteAsync(request);
+
+        // Assert
+        result.FeesTotal.Should().Be(5.00m);
     }
 }

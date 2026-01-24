@@ -34,6 +34,7 @@ Request fields:
 - `originCountry`, `destinationCountry`
 - `serviceCode`
 - exactly one of `originAmount` or `destinationAmount`
+- optional `customerId` and `customerTier`
 
 Response fields include `exchangeRate`, `feesTotal`, `totalAmount`, plus policy and FX metadata.
 
@@ -48,3 +49,12 @@ sequenceDiagram
     App-->>Api: PricingQuoteResponse
     Api-->>Client: 200 OK
 ```
+
+## Admin Reference Data Endpoint
+
+`PUT /admin/reference-data/{type}/{code}` creates or updates a reference data item (such as `CustomerTier`).
+
+Request fields:
+- `displayName`
+- `sortOrder`
+- `isActive`

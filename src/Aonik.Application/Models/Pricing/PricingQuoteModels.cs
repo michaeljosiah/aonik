@@ -9,6 +9,7 @@ public record PricingQuoteRequest(
     decimal? DestinationAmount,
     decimal? OriginAmount,
     Guid? CustomerId,
+    string? CustomerTier,
     string? QuoteContext);
 
 public record PricingQuoteResponse(
