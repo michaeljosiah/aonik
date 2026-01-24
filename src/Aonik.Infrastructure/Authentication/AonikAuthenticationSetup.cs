@@ -251,9 +251,9 @@ public static class AonikAuthenticationSetup
             return;
         }
 
-        var clock = context.HttpContext.RequestServices.GetRequiredService<IClock>();
-        user.LastLoginAt = clock.UtcNow;
-        await dbContext.SaveChangesAsync(context.HttpContext.RequestAborted);
+        // Intentionally not persisting last-login during token validation.
+        // Token validation runs before tenant context middleware, and DB writes here can fail
+        // for tenant-scoped entities.
     }
 
     private static async Task<Guid?> ResolveFromUserAssociationAsync(
