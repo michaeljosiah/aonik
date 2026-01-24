@@ -26,4 +26,6 @@ public static class AuditEventNames
     public const string VerificationFailed = "VerificationFailed";
     public const string VerificationStarted = "VerificationStarted";
 
+    public const string PricingQuoteCreated = "PricingQuoteCreated";
+
 }

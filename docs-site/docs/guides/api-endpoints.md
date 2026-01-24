@@ -24,3 +24,27 @@ Avoid using `SendAsync()` directly.
 ## Mapping
 
 - Map API contracts (API layer) to DTOs (Application layer) inside the endpoint.
+
+## Pricing Quote Endpoint
+
+`POST /pricing/quote` returns a pricing and FX quote for bill payment corridors. It is read-only and does not change financial state.
+
+Request fields:
+- `originCurrency`, `destinationCurrency`
+- `originCountry`, `destinationCountry`
+- `serviceCode`
+- exactly one of `originAmount` or `destinationAmount`
+
+Response fields include `exchangeRate`, `feesTotal`, `totalAmount`, plus policy and FX metadata.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Api as PricingQuoteEndpoint
+    participant App as PricingService
+
+    Client->>Api: POST /pricing/quote
+    Api->>App: GetBillPaymentQuoteAsync
+    App-->>Api: PricingQuoteResponse
+    Api-->>Client: 200 OK
+```

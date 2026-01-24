@@ -9,6 +9,7 @@ using Aonik.Application.Services.Registration;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Compliance;
+using Aonik.Application.Services.Pricing;
 using Aonik.Application.Services.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,6 +40,10 @@ public static class DependencyInjection
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
+        services.AddScoped<IPricingService, PricingService>();
+        services.AddScoped<IPricingPolicyService, PricingPolicyService>();
+        services.AddScoped<IFxRateService, FxRateService>();
+        services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
 
         // AI Workflows
         services.AddScoped<InvoiceInsightWorkflow>();
