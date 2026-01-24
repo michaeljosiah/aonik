@@ -15,6 +15,9 @@ import {
   CatalogBillerDetailPage,
   CatalogBillerServicesPage,
   CatalogBillerServiceDetailPage,
+  AccessUsersPage,
+  AccessRolesPage,
+  AccessPermissionsPage,
 } from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
@@ -125,9 +128,9 @@ function AppLayout() {
             <Route path="/ai/orchestrator" element={<PlaceholderPage title="Orchestrator" />} />
             <Route path="/ai/chat" element={<PlaceholderPage title="AI Assistant" />} />
             {/* Users & Access */}
-            <Route path="/access/users" element={<PlaceholderPage title="Users" />} />
-            <Route path="/access/roles" element={<PlaceholderPage title="Roles" />} />
-            <Route path="/access/permissions" element={<PlaceholderPage title="Permissions" />} />
+            <Route path="/access/users" element={<AccessUsersPage />} />
+            <Route path="/access/roles" element={<AccessRolesPage />} />
+            <Route path="/access/permissions" element={<AccessPermissionsPage />} />
             {/* Catalog */}
             <Route path="/catalog" element={<CatalogLandingPage />} />
             <Route path="/catalog/countries" element={<CatalogCountriesPage />} />
