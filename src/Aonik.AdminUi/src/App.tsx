@@ -104,7 +104,7 @@ function AppLayout() {
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header breadcrumb={getBreadcrumb()} />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-[var(--color-surface-inset)]">
           <Routes>
             <Route path="/" element={<MySpacePage />} />
             <Route path="/search" element={<PlaceholderPage title="Search" />} />

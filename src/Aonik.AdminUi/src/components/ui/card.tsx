@@ -5,15 +5,15 @@ const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-sm",
-      className
-    )}
-    {...props}
-  />
-));
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface)] shadow-[var(--shadow-md)]",
+        className
+      )}
+      {...props}
+    />
+  ));
 Card.displayName = "Card";
 
 const CardHeader = React.forwardRef<
