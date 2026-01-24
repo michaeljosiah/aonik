@@ -218,6 +218,7 @@ Aonik.sln
 │   │   ├── Contracts/             # API request/response contracts
 │   │   └── Program.cs
 │   │
+│   ├── Aonik.Migrator             # Migration & seed runner (CI/CD)
 │   └── Aonik.Worker               # Background jobs (future)
 │
 └── tests/
@@ -342,6 +343,11 @@ public class BillingService : IBillingService
 - **Entity Configurations**: Fluent API for table schema, indexes, constraints
 - **Migrations**: Version-controlled database schema changes
 - **Database Support**: SQL Server (production), InMemory (testing)
+
+#### Operational Tooling
+- **Aonik.Migrator**: Console app for CI/CD that runs migrations and seeds
+- **Seed Routines**: Idempotent identity + catalog seeds executed by the migrator
+- **Runtime Safety**: API only auto-migrates/seeds in Development or when explicitly enabled by configuration
 
 #### AI Providers
 - **StubModelProvider**: Returns placeholder text for development/testing

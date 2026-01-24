@@ -12,9 +12,13 @@ var api = builder.AddProject<Projects.Aonik_Api>("api")
      {
          endpoint.Port = 5001;
      })
-    .WithReference(sqlServer)
-    .WaitFor(sqlServer)
-    .WithExternalHttpEndpoints();
+     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
+     .WithEnvironment("DOTNET_ENVIRONMENT", "Development")
+     .WithEnvironment("Database__AutoMigrate", "true")
+     .WithEnvironment("Database__SeedData", "true")
+     .WithReference(sqlServer)
+     .WaitFor(sqlServer)
+     .WithExternalHttpEndpoints();
 
 // Add Worker project with SQL Server reference
 var worker = builder.AddProject<Projects.Aonik_Worker>("worker")

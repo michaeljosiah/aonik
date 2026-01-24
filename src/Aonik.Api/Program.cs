@@ -41,23 +41,43 @@ builder.Services.AddAonikSwagger(builder.Configuration);
 
 var app = builder.Build();
 
-// Auto-migrate and seed database in Development
-if (app.Environment.IsDevelopment())
+// Auto-migrate and seed database in Development or when enabled via config
+var autoMigrateEnabled = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("Database:AutoMigrate");
+var seedDataEnabled = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("Database:SeedData");
+
+if (autoMigrateEnabled || seedDataEnabled)
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
 
-    // Apply pending migrations
-    await dbContext.Database.MigrateAsync();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    // Seed permissions
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<IdentitySeedService>>();
-    var seedService = new IdentitySeedService((IAonikDbContext)dbContext, logger);
-    await seedService.SeedAsync();
+    try
+    {
+        if (autoMigrateEnabled)
+        {
+            startupLogger.LogInformation("Running database migrations...");
+            await dbContext.Database.MigrateAsync();
+            startupLogger.LogInformation("Database migrations completed successfully.");
+        }
 
-    var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
-    var catalogSeedService = new CatalogSeedService((IAonikDbContext)dbContext, catalogLogger);
-    await catalogSeedService.SeedAsync();
+        if (seedDataEnabled)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IdentitySeedService>>();
+            var seedService = new IdentitySeedService((IAonikDbContext)dbContext, logger);
+            await seedService.SeedAsync();
+
+            var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
+            var catalogSeedService = new CatalogSeedService((IAonikDbContext)dbContext, catalogLogger);
+            await catalogSeedService.SeedAsync();
+        }
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogWarning(ex, "Skipping database initialization due to connectivity issues.");
+    }
 }
 
 
