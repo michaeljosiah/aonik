@@ -123,7 +123,7 @@ function AppLayout() {
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {!isAiChat && <Header breadcrumb={getBreadcrumb()} />}
+        <Header breadcrumb={getBreadcrumb()} />
         <main className={isAiChat ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
           <Routes>
             <Route path="/" element={<MySpacePage />} />

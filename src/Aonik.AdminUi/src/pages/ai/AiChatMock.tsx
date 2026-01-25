@@ -3,6 +3,7 @@ import {
   Bell,
   Check,
   ChevronDown,
+  Menu,
   Mic,
   MoreHorizontal,
   Plus,
@@ -377,7 +378,7 @@ export function AiChatMock() {
               <DropdownMenu.Content
                 sideOffset={10}
                 align="start"
-                className="w-[280px] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg p-2"
+                className="w-[280px] rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg p-2"
               >
                 <div className="px-3 py-2 text-[11px] font-semibold text-[var(--color-text-tertiary)] tracking-wider">
                   PERSONAL ASSISTANT
@@ -439,6 +440,9 @@ export function AiChatMock() {
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]" title="Menu">
+              <Menu className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
               <Bell className="h-4 w-4" />
             </Button>
