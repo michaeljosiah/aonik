@@ -40,10 +40,12 @@ public class PaymentService : IPaymentService
             Amount = request.Amount,
             Currency = request.Currency,
             Status = PaymentStatus.Pending.ToString(),
-            PurposeType = "Invoice", // TODO: Add to request or determine from context
-            PurposeId = Guid.Empty, // TODO: Add to request
+            PurposeType = "Order",
+            PurposeId = request.OrderId,
             PayerPartyId = Guid.Empty, // TODO: Add to request or get from context
             PayeePartyId = null,
+            OrderId = request.OrderId,
+            InvoiceId = request.InvoiceId,
             PaymentMethodType = "Card", // TODO: Add to request
             PaymentMethodRef = request.Reference,
             TenantId = tenantId
@@ -130,6 +132,8 @@ public class PaymentService : IPaymentService
 
         return new PaymentIntentResponse(
             paymentIntent.Id,
+            paymentIntent.OrderId,
+            paymentIntent.InvoiceId,
             paymentIntent.Amount,
             paymentIntent.Currency,
             status,

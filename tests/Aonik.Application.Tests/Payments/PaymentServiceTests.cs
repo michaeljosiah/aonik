@@ -72,7 +72,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
-        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001");
+        var orderId = Guid.NewGuid();
+        var request = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-001", orderId, null);
 
         // Act
         var result = await service.CreatePaymentIntentAsync(request);
@@ -80,6 +81,7 @@ public class PaymentServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().NotBeEmpty();
+        result.OrderId.Should().Be(orderId);
         result.Amount.Should().Be(100.00m);
         result.Currency.Should().Be("USD");
         result.Reference.Should().Be("ORDER-001");
@@ -103,7 +105,8 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
-        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002");
+        var orderId = Guid.NewGuid();
+        var createRequest = new CreatePaymentIntentRequest(250.00m, "EUR", "ORDER-002", orderId, null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Act
@@ -112,6 +115,7 @@ public class PaymentServiceTests
         // Assert
         result.Should().NotBeNull();
         result!.Id.Should().Be(created.Id);
+        result.OrderId.Should().Be(orderId);
         result.Amount.Should().Be(250.00m);
         result.Currency.Should().Be("EUR");
     }
@@ -148,7 +152,7 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003");
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-003", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Authorize the payment first (set status directly since entities are anemic)
@@ -197,7 +201,7 @@ public class PaymentServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
-        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004");
+        var createRequest = new CreatePaymentIntentRequest(100.00m, "USD", "ORDER-004", Guid.NewGuid(), null);
         var created = await service.CreatePaymentIntentAsync(createRequest);
 
         // Act

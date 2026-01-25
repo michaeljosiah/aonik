@@ -9,6 +9,8 @@ public class PaymentIntent : AuditableEntity, ITenantScoped
     public string Currency { get; set; } = string.Empty;
     public Guid PayerPartyId { get; set; }
     public Guid? PayeePartyId { get; set; }
+    public Guid OrderId { get; set; }
+    public Guid? InvoiceId { get; set; }
     public string PurposeType { get; set; } = string.Empty;
     public Guid PurposeId { get; set; }
     public string PaymentMethodType { get; set; } = string.Empty;

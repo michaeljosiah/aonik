@@ -24,12 +24,16 @@ public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, 
         var appRequest = new Application.Models.Payments.CreatePaymentIntentRequest(
             req.Amount,
             req.Currency,
-            req.Reference);
+            req.Reference,
+            req.OrderId,
+            req.InvoiceId);
 
         var result = await _paymentService.CreatePaymentIntentAsync(appRequest, ct);
 
         var response = new PaymentIntentResponse(
             result.Id,
+            result.OrderId,
+            result.InvoiceId,
             result.Amount,
             result.Currency,
             result.Status.ToString(),

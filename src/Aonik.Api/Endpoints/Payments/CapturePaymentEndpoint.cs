@@ -29,6 +29,8 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
 
             var response = new PaymentIntentResponse(
                 result.Id,
+                result.OrderId,
+                result.InvoiceId,
                 result.Amount,
                 result.Currency,
                 result.Status.ToString(),

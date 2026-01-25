@@ -29,6 +29,8 @@ public class CancelPaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespons
 
             var response = new PaymentIntentResponse(
                 result.Id,
+                result.OrderId,
+                result.InvoiceId,
                 result.Amount,
                 result.Currency,
                 result.Status.ToString(),
