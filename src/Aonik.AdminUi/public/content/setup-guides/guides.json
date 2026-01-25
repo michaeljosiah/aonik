@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "sections": [
+    {
+      "id": "foundations",
+      "title": "Foundations",
+      "description": "Start here to align your team on the platform setup flow.",
+      "order": 1,
+      "guideIds": [
+        "getting-started",
+        "correspondent-network",
+        "email-provider"
+      ]
+    },
+    {
+      "id": "risk-controls",
+      "title": "Risk & Controls",
+      "description": "Keep your launch compliant and secure.",
+      "order": 2,
+      "guideIds": [
+        "compliance-rules",
+        "api-keys"
+      ]
+    },
+    {
+      "id": "integration-pricing",
+      "title": "Integration & Pricing",
+      "description": "Connect systems and tune money movement.",
+      "order": 3,
+      "guideIds": [
+        "webhook-integration",
+        "fx-rates"
+      ]
+    }
+  ],
+  "guides": [
+    {
+      "id": "getting-started",
+      "slug": "getting-started",
+      "title": "Getting started with Aonik",
+      "description": "A tour of the setup journey, policies, and core capabilities to launch with confidence.",
+      "category": "Foundations",
+      "order": 1,
+      "accent": "from-slate-500/20 to-slate-300/30"
+    },
+    {
+      "id": "correspondent-network",
+      "slug": "correspondent-network",
+      "title": "Setting up your correspondent network",
+      "description": "Learn how to connect and manage your payment correspondents for seamless cross-border transactions.",
+      "category": "Partners",
+      "order": 2,
+      "accent": "from-blue-500/20 to-cyan-500/20"
+    },
+    {
+      "id": "email-provider",
+      "slug": "email-provider",
+      "title": "Configuring your email provider",
+      "description": "Set up transactional email delivery for notifications, receipts, and customer communications.",
+      "category": "Notifications",
+      "order": 3,
+      "accent": "from-purple-500/20 to-pink-500/20"
+    },
+    {
+      "id": "api-keys",
+      "slug": "api-keys",
+      "title": "Generating API keys",
+      "description": "Create and manage API credentials for secure programmatic access to the platform.",
+      "category": "Security",
+      "order": 4,
+      "accent": "from-indigo-500/20 to-violet-500/20"
+    },
+    {
+      "id": "compliance-rules",
+      "slug": "compliance-rules",
+      "title": "Understanding compliance rules",
+      "description": "Configure KYC/KYB workflows, transaction limits, and automated screening policies.",
+      "category": "Compliance",
+      "order": 5,
+      "accent": "from-amber-500/20 to-orange-500/20"
+    },
+    {
+      "id": "webhook-integration",
+      "slug": "webhook-integration",
+      "title": "Integrating webhooks",
+      "description": "Receive real-time event notifications for payments, settlements, and status changes.",
+      "category": "Integration",
+      "order": 6,
+      "accent": "from-emerald-500/20 to-teal-500/20"
+    },
+    {
+      "id": "fx-rates",
+      "slug": "fx-rates",
+      "title": "Managing FX rates and spreads",
+      "description": "Configure currency exchange rates, margins, and automatic rate refresh schedules.",
+      "category": "Pricing",
+      "order": 7,
+      "accent": "from-rose-500/20 to-red-500/20"
+    }
+  ]
+}

@@ -374,7 +374,7 @@ export function BillPaymentOrderFormPage() {
     const loadCatalog = async () => {
       try {
         const [countriesResponse, categoriesResponse] = await Promise.all([
-          catalogService.getTenantCountries(true),
+          catalogService.getTenantCountries(true, 'BILLPAY'),
           catalogService.getTenantCategories(destinationCountry || undefined),
         ]);
         setCountries(countriesResponse.countries);

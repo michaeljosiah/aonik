@@ -406,6 +406,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
   }
 
   const menuItems = [
+    { icon: FileText, label: 'Guides', href: '/setup-guides' },
     { icon: Award, label: 'API Documentation' },
     { icon: UserCog, label: 'Manage profile' },
     { icon: Info, label: 'About Aonik' },
@@ -518,6 +519,11 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 <button
                   key={item.label}
                   className="flex items-center gap-3 w-full px-2 py-2.5 rounded-md text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+                  onClick={() => {
+                    if (item.href) {
+                      window.location.href = item.href;
+                    }
+                  }}
                 >
                   <item.icon className="w-5 h-5 text-[var(--color-text-secondary)]" />
                   {item.label}

@@ -7,6 +7,9 @@ import {
   MySpacePage,
   LoginPage,
   SetupWizardPage,
+  SetupJourneyPage,
+  SetupGuidePage,
+  SetupGuidesLandingPage,
   AiChatMock,
   TenantsListPage,
   CreateTenantPage,
@@ -183,7 +186,7 @@ function AppLayout() {
         />
         <main className={isAiChat ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
           <Routes>
-            <Route path="/" element={<MySpacePage />} />
+            <Route path="/" element={<DashboardHome />} />
             <Route path="/search" element={<PlaceholderPage title="Search" />} />
             {/* Billing */}
             <Route path="/billing/invoices" element={<PlaceholderPage title="Invoices" />} />
@@ -230,6 +233,9 @@ function AppLayout() {
             <Route path="/settings/api-keys" element={<PlaceholderPage title="API Keys" />} />
             <Route path="/settings/webhooks" element={<PlaceholderPage title="Webhooks" />} />
             <Route path="/settings/audit-logs" element={<PlaceholderPage title="Audit Logs" />} />
+            <Route path="/setup/journey" element={<SetupJourneyPage />} />
+            <Route path="/setup-guides" element={<SetupGuidesLandingPage />} />
+            <Route path="/setup-guides/:slug" element={<SetupGuidePage />} />
             {/* Fallback */}
             <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />
           </Routes>
@@ -237,6 +243,35 @@ function AppLayout() {
       </div>
     </div>
   );
+}
+
+function DashboardHome() {
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const skip = localStorage.getItem('aonik:onboarding:skip');
+    const complete = localStorage.getItem('aonik:onboarding:complete');
+    setShowOnboarding(!skip && !complete);
+  }, []);
+
+  if (showOnboarding === null) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (showOnboarding) {
+    return (
+      <SetupJourneyPage
+        onSkip={() => setShowOnboarding(false)}
+        onComplete={() => setShowOnboarding(false)}
+      />
+    );
+  }
+
+  return <MySpacePage />;
 }
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -284,6 +319,8 @@ function AuthenticatedApp() {
         <TenantContextSetup />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/setup-guides" element={<AppLayout />} />
+          <Route path="/setup-guides/:slug" element={<AppLayout />} />
           <Route path="/*" element={<SetupWizardPage />} />
         </Routes>
       </>

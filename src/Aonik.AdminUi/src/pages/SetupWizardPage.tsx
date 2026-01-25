@@ -233,7 +233,7 @@ export function SetupWizardPage() {
               </Button>
               <a
                 className="inline-flex items-center justify-center text-sm text-[var(--color-brand-primary)] hover:underline"
-                href="/docs/guides/getting-started"
+                href="/setup-guides"
                 target="_blank"
                 rel="noreferrer"
               >
