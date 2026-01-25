@@ -109,4 +109,5 @@ public record CatalogCategoryListRequest(
     string? CountryCode);
 
 public record CatalogCountryListRequest(
-    bool OnlyServiceCountries);
+    bool OnlyServiceCountries,
+    string? CapabilityType);

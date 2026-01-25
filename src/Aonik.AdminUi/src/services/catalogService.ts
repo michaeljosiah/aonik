@@ -19,20 +19,26 @@ export interface CatalogBillerListParams {
 }
 
 export const catalogService = {
-  getCountries: async (onlyServiceCountries = false): Promise<CatalogCountryResponse> => {
+  getCountries: async (onlyServiceCountries = false, capabilityType?: string): Promise<CatalogCountryResponse> => {
     const params = new URLSearchParams();
     if (onlyServiceCountries) {
       params.append('onlyServiceCountries', 'true');
+    }
+    if (capabilityType) {
+      params.append('capabilityType', capabilityType);
     }
 
     const query = params.toString();
     return api.get<CatalogCountryResponse>(`/host/catalog/countries${query ? `?${query}` : ''}`);
   },
 
-  getTenantCountries: async (onlyServiceCountries = false): Promise<CatalogCountryResponse> => {
+  getTenantCountries: async (onlyServiceCountries = false, capabilityType?: string): Promise<CatalogCountryResponse> => {
     const params = new URLSearchParams();
     if (onlyServiceCountries) {
       params.append('onlyServiceCountries', 'true');
+    }
+    if (capabilityType) {
+      params.append('capabilityType', capabilityType);
     }
 
     const query = params.toString();

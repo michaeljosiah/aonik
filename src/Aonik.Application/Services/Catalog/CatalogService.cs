@@ -41,12 +41,28 @@ public class CatalogService : ICatalogService
             .OrderBy(item => item.Name)
             .ToList();
 
-        if (request.OnlyServiceCountries && countries.Count > 0)
+        var capabilityType = NormalizeCapabilityType(request.CapabilityType);
+        var shouldFilterByServices = request.OnlyServiceCountries || !string.IsNullOrWhiteSpace(capabilityType);
+
+        if (shouldFilterByServices && countries.Count > 0)
         {
-            var activeCountries = await _dbContext.CatalogBillers
+            var serviceCountriesQuery = _dbContext.CatalogBillers
                 .AsNoTracking()
                 .Where(biller => biller.IsActive)
-                .Select(biller => biller.CountryCode)
+                .Join(_dbContext.CatalogBillerServices.AsNoTracking().Where(service => service.IsActive),
+                    biller => biller.Id,
+                    service => service.BillerId,
+                    (biller, service) => new { biller.CountryCode, service.ServiceCode });
+
+            if (!string.IsNullOrWhiteSpace(capabilityType))
+            {
+                var prefix = capabilityType + "%";
+                serviceCountriesQuery = serviceCountriesQuery
+                    .Where(item => item.ServiceCode != "" && EF.Functions.Like(item.ServiceCode, prefix));
+            }
+
+            var activeCountries = await serviceCountriesQuery
+                .Select(item => item.CountryCode)
                 .Distinct()
                 .ToListAsync(cancellationToken);
 
@@ -288,6 +304,13 @@ public class CatalogService : ICatalogService
         }
 
         return JsonSerializer.Deserialize<CatalogServiceValidation>(json);
+    }
+
+    private static string? NormalizeCapabilityType(string? capabilityType)
+    {
+        return string.IsNullOrWhiteSpace(capabilityType)
+            ? null
+            : capabilityType.Trim().ToUpperInvariant();
     }
 
     private async Task EnsurePermissionAsync(CancellationToken cancellationToken)

@@ -25,6 +25,16 @@ Avoid using `SendAsync()` directly.
 
 - Map API contracts (API layer) to DTOs (Application layer) inside the endpoint.
 
+## Catalog Countries Endpoint
+
+`GET /catalog/countries` returns reference data countries, optionally filtered to serviceable catalog services.
+
+Query params:
+- `onlyServiceCountries` (bool, optional)
+- `capabilityType` (string, optional) - matched as a ServiceCode prefix (ex: `BILLPAY`)
+
+When `capabilityType` is provided, the response only includes countries that have active catalog billers with active services matching the prefix.
+
 ## Pricing Quote Endpoint
 
 `POST /pricing/quote` returns a pricing and FX quote for bill payment corridors. It is read-only and does not change financial state.

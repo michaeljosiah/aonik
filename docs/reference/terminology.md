@@ -12,6 +12,16 @@ Examples:
 - Payouts
 - Collections
 
+CapabilityType prefixes (aligned to legacy MTM):
+- BANKTRANSFER
+- CASHPAYMENT
+- MOBILETOPUP
+- BILLPAY
+- FXTRADE
+- PRODUCTSALE
+- MOBILEWALLET
+- CARDPAYMENT
+
 ## CategoryCode
 
 The catalog grouping used for discovery and UI organization. Categories group billers and services within a domain.
@@ -32,6 +42,10 @@ Examples:
 - BILLPAY.ELECTRICITY.POSTPAID
 - BILLPAY.WATER.POSTPAID
 - BILLPAY.TELECOM.AIRTIME
+
+## capabilityType (API filter)
+
+`capabilityType` on `/catalog/countries` is matched as a ServiceCode prefix. Use the same prefix you define in ServiceCode (for example `BILLPAY`).
 
 ## Recommended Flow
 
