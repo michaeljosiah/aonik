@@ -108,7 +108,7 @@ public class CatalogServiceTests
             new TestCurrentUserProvider(Guid.NewGuid()));
 
         // Act
-        var result = await service.GetCountriesAsync(new CatalogCountryListRequest(true), CancellationToken.None);
+        var result = await service.GetCountriesAsync(new CatalogCountryListRequest(true, null), CancellationToken.None);
 
         // Assert
         result.Countries.Should().ContainSingle();
