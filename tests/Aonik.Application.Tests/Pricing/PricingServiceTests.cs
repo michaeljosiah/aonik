@@ -111,7 +111,8 @@ public class PricingServiceTests
             fxRateService,
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
-            context);
+            context,
+            clock);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -189,7 +190,8 @@ public class PricingServiceTests
             fxRateService,
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
-            context);
+            context,
+            clock);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -273,7 +275,8 @@ public class PricingServiceTests
             fxRateService,
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
-            context);
+            context,
+            clock);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -373,7 +376,8 @@ public class PricingServiceTests
             fxRateService,
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
-            context);
+            context,
+            clock);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -449,7 +453,8 @@ public class PricingServiceTests
             fxRateService,
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
-            context);
+            context,
+            clock);
 
         var request = new PricingQuoteRequest(
             "USD",
@@ -528,7 +533,8 @@ public class PricingServiceTests
             fxRateService,
             new CurrencyMetadataProvider(),
             new NoOpAuditLogWriter(),
-            context);
+            context,
+            clock);
 
         var request = new PricingQuoteRequest(
             "USD",

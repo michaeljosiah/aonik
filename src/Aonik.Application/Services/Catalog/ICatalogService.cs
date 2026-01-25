@@ -10,4 +10,9 @@ public interface ICatalogService
     Task<CatalogBillerDetailResponse?> GetBillerDetailAsync(Guid billerId, CancellationToken cancellationToken = default);
     Task<CatalogBillerServiceResponse> GetBillerServicesAsync(Guid billerId, CancellationToken cancellationToken = default);
     Task<CatalogBillerServiceDetailResponse?> GetBillerServiceDetailAsync(Guid billerId, Guid serviceId, CancellationToken cancellationToken = default);
+    Task<CatalogServiceFieldValidationResult?> ValidateServiceFieldsAsync(
+        Guid billerId,
+        Guid serviceId,
+        CatalogServiceFieldValidationRequest request,
+        CancellationToken cancellationToken = default);
 }

@@ -66,6 +66,21 @@ export const navigationItems: NavItem[] = [
     ],
   },
   {
+    id: 'orders',
+    label: 'Orders',
+    icon: 'ClipboardList',
+    viewAllHref: '/orders',
+    viewAllLabel: 'View all',
+    childGroups: [
+      {
+        label: 'Bill Payments',
+        items: [
+          { id: 'order-bill-payments', label: 'Create Bill Payment', icon: 'Receipt', href: '/orders/bill-payments/new' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'ledger',
     label: 'Ledger',
     icon: 'BookOpen',

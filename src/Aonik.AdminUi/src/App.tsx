@@ -21,6 +21,8 @@ import {
   AccessUsersPage,
   AccessRolesPage,
   AccessPermissionsPage,
+  BillPaymentOrderFormPage,
+  OrdersLandingPage,
 } from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
@@ -148,7 +150,9 @@ function AppLayout() {
     const path = window.location.pathname;
     if (path === '/') return ['Dashboard'];
     if (path.startsWith('/billing')) return ['Billing'];
+    if (path.startsWith('/orders/bill-payments')) return ['Orders', 'Bill Payments'];
     if (path.startsWith('/payments')) return ['Payments'];
+    if (path.startsWith('/orders')) return ['Orders'];
     if (path.startsWith('/ledger')) return ['Ledger'];
     if (path.startsWith('/ai')) return ['AI & Agents'];
     if (path.startsWith('/access')) return ['Users & Access'];
@@ -191,6 +195,11 @@ function AppLayout() {
             <Route path="/payments/refunds" element={<PlaceholderPage title="Refunds" />} />
             <Route path="/payments/chargebacks" element={<PlaceholderPage title="Chargebacks" />} />
             <Route path="/payments/payouts" element={<PlaceholderPage title="Payouts" />} />
+            {/* Orders */}
+            <Route path="/orders" element={<OrdersLandingPage />} />
+            <Route path="/orders/bill-payments/new" element={<BillPaymentOrderFormPage />} />
+            <Route path="/orders/bill-payments/:orderId" element={<BillPaymentOrderFormPage />} />
+            <Route path="/orders/activity" element={<PlaceholderPage title="Order Activity" />} />
             {/* Ledger */}
             <Route path="/ledger/accounts" element={<PlaceholderPage title="Accounts" />} />
             <Route path="/ledger/journal-entries" element={<PlaceholderPage title="Journal Entries" />} />

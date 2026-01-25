@@ -9,6 +9,7 @@ using Aonik.Domain.Operations.Entities;
 using Aonik.Domain.Orders.Entities;
 using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
+using Aonik.Domain.Party.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.Domain.ReferenceData.Entities;
@@ -57,6 +58,7 @@ public interface IAonikDbContext
     DbSet<BusinessProfile> BusinessProfiles { get; set; }
     DbSet<ExternalAccount> ExternalAccounts { get; set; }
     DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; }
+    DbSet<PartyRelationship> PartyRelationships { get; set; }
 
     // Ledger
     DbSet<LedgerEntity> Ledgers { get; set; }
@@ -96,6 +98,7 @@ public interface IAonikDbContext
     DbSet<FeePolicy> FeePolicies { get; set; }
     DbSet<FxQuote> FxQuotes { get; set; }
     DbSet<LimitsPolicy> LimitsPolicies { get; set; }
+    DbSet<PricingQuote> PricingQuotes { get; set; }
 
     // Compliance
     DbSet<ScreeningCheck> ScreeningChecks { get; set; }
@@ -133,6 +136,7 @@ public interface IAonikDbContext
 
     // Orders
     DbSet<Order> Orders { get; set; }
+    DbSet<OrderItem> OrderItems { get; set; }
     DbSet<OrderPartyRole> OrderPartyRoles { get; set; }
     DbSet<OrderFundingRef> OrderFundingRefs { get; set; }
     DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; }

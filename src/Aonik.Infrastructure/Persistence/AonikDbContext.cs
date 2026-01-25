@@ -11,6 +11,7 @@ using Aonik.Domain.Operations.Entities;
 using Aonik.Domain.Orders.Entities;
 using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.Payments.Entities;
+using Aonik.Domain.Party.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.Domain.ReferenceData.Entities;
@@ -65,6 +66,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
     public virtual DbSet<ExternalAccount> ExternalAccounts { get; set; } = null!;
     public virtual DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
+    public virtual DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
 
     // Ledger
     public virtual DbSet<LedgerEntity> Ledgers { get; set; } = null!;
@@ -104,6 +106,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<FeePolicy> FeePolicies { get; set; } = null!;
     public virtual DbSet<FxQuote> FxQuotes { get; set; } = null!;
     public virtual DbSet<LimitsPolicy> LimitsPolicies { get; set; } = null!;
+    public virtual DbSet<PricingQuote> PricingQuotes { get; set; } = null!;
 
     // Compliance
     public virtual DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
@@ -141,6 +144,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
     // Orders
     public virtual DbSet<Order> Orders { get; set; } = null!;
+    public virtual DbSet<OrderItem> OrderItems { get; set; } = null!;
     public virtual DbSet<OrderPartyRole> OrderPartyRoles { get; set; } = null!;
     public virtual DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
     public virtual DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; } = null!;

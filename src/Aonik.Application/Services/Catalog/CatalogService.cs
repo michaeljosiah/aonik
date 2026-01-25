@@ -224,6 +224,50 @@ public class CatalogService : ICatalogService
             validation);
     }
 
+    public async Task<CatalogServiceFieldValidationResult?> ValidateServiceFieldsAsync(
+        Guid billerId,
+        Guid serviceId,
+        CatalogServiceFieldValidationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync(cancellationToken);
+        var service = await _dbContext.CatalogBillerServices
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.BillerId == billerId && item.Id == serviceId, cancellationToken);
+
+        if (service == null)
+        {
+            return null;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var fields = DeserializeFields(service.FieldsJson);
+        var missingRequired = fields
+            .Where(field => field.Required)
+            .Select(field => field.Key)
+            .Where(key => string.IsNullOrWhiteSpace(key) || !request.FieldValues.ContainsKey(key))
+            .ToList();
+
+        if (missingRequired.Count > 0)
+        {
+            return new CatalogServiceFieldValidationResult(
+                false,
+                now,
+                "MISSING_REQUIRED_FIELD",
+                $"Missing required fields: {string.Join(", ", missingRequired)}",
+                null,
+                null);
+        }
+
+        return new CatalogServiceFieldValidationResult(
+            true,
+            now,
+            null,
+            null,
+            null,
+            null);
+    }
+
     private static List<CatalogServiceField> DeserializeFields(string json)
     {
         if (string.IsNullOrWhiteSpace(json))

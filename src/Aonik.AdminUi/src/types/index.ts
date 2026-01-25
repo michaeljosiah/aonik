@@ -154,6 +154,12 @@ export interface CatalogCountryResponse {
   countries: CatalogCountryItem[];
 }
 
+export interface ReferenceDataItem {
+  code: string;
+  displayName: string;
+  sortOrder: number;
+}
+
 export interface CatalogBillerCategoryItem {
   categoryId: string;
   name: string;
@@ -255,6 +261,148 @@ export interface CatalogBillerServiceDetailResponse {
   validation?: CatalogServiceValidation | null;
 }
 
+export interface CatalogServiceFieldValidationRequest {
+  fieldValues: Record<string, string>;
+}
+
+export interface CatalogServiceFieldValidationResponse {
+  isValid: boolean;
+  validatedAt: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  accountHolderName?: string | null;
+  additionalInfo?: Record<string, string> | null;
+}
+
+export interface CreateBillPaymentOrderRequest {
+  payerPartyId: string;
+  originCountry: string;
+  originCurrency: string;
+  purposeCode?: string | null;
+  notes?: string | null;
+  items?: CreateBillPaymentItemRequest[] | null;
+}
+
+export interface CreateBillPaymentItemRequest {
+  billerId: string;
+  serviceId: string;
+  serviceCode: string;
+  serviceFieldValues: Record<string, string>;
+  receiverPartyId?: string | null;
+  newReceiver?: CreateReceiverRequest | null;
+  relationshipTypeCode?: string | null;
+  originAmount?: number | null;
+  destinationAmount?: number | null;
+  destinationCurrency: string;
+  destinationCountry: string;
+  pricingQuoteId: string;
+  purposeCode?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateReceiverRequest {
+  displayName: string;
+  partyType: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  countryCode?: string | null;
+}
+
+export interface UpdateBillPaymentItemRequest {
+  serviceFieldValues?: Record<string, string> | null;
+  receiverPartyId?: string | null;
+  relationshipTypeCode?: string | null;
+  originAmount?: number | null;
+  destinationAmount?: number | null;
+  pricingQuoteId?: string | null;
+  purposeCode?: string | null;
+  notes?: string | null;
+}
+
+export interface CancelOrderRequest {
+  reason?: string | null;
+}
+
+export interface OrderItemResponse {
+  orderItemId: string;
+  itemIndex: number;
+  itemType: string;
+  status: string;
+  billerId: string;
+  billerName: string;
+  serviceId: string;
+  serviceName: string;
+  serviceFieldValues: Record<string, string>;
+  receiverPartyId: string;
+  receiverName: string;
+  relationshipTypeCode?: string | null;
+  amountIn: number;
+  currencyIn: string;
+  amountOut: number;
+  currencyOut: string;
+  feesTotal: number;
+  exchangeRate: number;
+  pricingQuoteId?: string | null;
+  quoteExpiresAt?: string | null;
+  isQuoteExpired: boolean;
+}
+
+export interface BillPaymentOrderResponse {
+  orderId: string;
+  orderType: string;
+  status: string;
+  payerPartyId: string;
+  payerName: string;
+  originCountry: string;
+  originCurrency: string;
+  totalAmountIn: number;
+  totalFeesAmount: number;
+  totalAmountOut: number;
+  destinationCurrency?: string | null;
+  purposeCode?: string | null;
+  createdAt: string;
+  submittedAt?: string | null;
+  items: OrderItemResponse[];
+}
+
+export interface PricingQuoteRequest {
+  originCurrency: string;
+  destinationCurrency: string;
+  originCountry: string;
+  destinationCountry: string;
+  serviceCode: string;
+  destinationAmount?: number | null;
+  originAmount?: number | null;
+  customerId?: string | null;
+  customerTier?: string | null;
+  quoteContext?: string | null;
+}
+
+export interface FeeBreakdownItem {
+  code: string;
+  description: string;
+  amount: number;
+  currency: string;
+  calculationType: string;
+}
+
+export interface PricingQuoteResponse {
+  pricingQuoteId: string;
+  exchangeRate: number;
+  rateMarkup: number;
+  feesTotal: number;
+  totalAmount: number;
+  originAmount: number;
+  destinationAmount: number;
+  pricingPolicyId: string;
+  pricingPolicyVersion: string;
+  fxRateId: string;
+  rateTimestamp: string;
+  feeBreakdown: FeeBreakdownItem[];
+}
+
 export interface CurrentUserResponse {
   userId: string;
   tenantId: string;
@@ -263,6 +411,23 @@ export interface CurrentUserResponse {
   status: string;
   partyId?: string | null;
   displayName?: string | null;
+}
+
+export interface CreatePartyRequest {
+  displayName: string;
+  partyType: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  countryCode?: string | null;
+}
+
+export interface PartyResponse {
+  partyId: string;
+  displayName: string;
+  partyType: string;
+  status: string;
 }
 
 export interface UserInfoResponse {

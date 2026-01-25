@@ -28,4 +28,13 @@ public static class AuditEventNames
 
     public const string PricingQuoteCreated = "PricingQuoteCreated";
 
+    public const string OrderCreated = "OrderCreated";
+    public const string OrderItemAdded = "OrderItemAdded";
+    public const string OrderItemUpdated = "OrderItemUpdated";
+    public const string OrderItemRemoved = "OrderItemRemoved";
+    public const string OrderSubmitted = "OrderSubmitted";
+    public const string OrderCancelled = "OrderCancelled";
+    public const string PartyScreened = "PartyScreened";
+    public const string ComplianceCaseCreated = "ComplianceCaseCreated";
+
 }

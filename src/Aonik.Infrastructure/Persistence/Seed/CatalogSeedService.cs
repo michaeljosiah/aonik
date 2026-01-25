@@ -29,6 +29,10 @@ public class CatalogSeedService
         await SeedCountriesAsync(cancellationToken);
         await SeedCustomerTiersAsync(cancellationToken);
         await SeedCategoriesAsync(cancellationToken);
+        await SeedRelationshipTypesAsync(cancellationToken);
+        await SeedOrderStatusesAsync(cancellationToken);
+        await SeedOrderItemStatusesAsync(cancellationToken);
+        await SeedPurposeCodesAsync(cancellationToken);
     }
 
     private async Task SeedCountriesAsync(CancellationToken cancellationToken)
@@ -247,5 +251,183 @@ public class CatalogSeedService
         await _dbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} customer tiers", toAdd.Count);
+    }
+
+    private async Task SeedRelationshipTypesAsync(CancellationToken cancellationToken)
+    {
+        var types = new List<ReferenceDataItem>
+        {
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"),
+                Type = "RelationshipType",
+                Code = "Self",
+                DisplayName = "Self",
+                SortOrder = 1,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"),
+                Type = "RelationshipType",
+                Code = "Mother",
+                DisplayName = "Mother",
+                SortOrder = 2,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"),
+                Type = "RelationshipType",
+                Code = "Father",
+                DisplayName = "Father",
+                SortOrder = 3,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000004"),
+                Type = "RelationshipType",
+                Code = "Spouse",
+                DisplayName = "Spouse",
+                SortOrder = 4,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"),
+                Type = "RelationshipType",
+                Code = "Sibling",
+                DisplayName = "Sibling",
+                SortOrder = 5,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000006"),
+                Type = "RelationshipType",
+                Code = "Child",
+                DisplayName = "Child",
+                SortOrder = 6,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"),
+                Type = "RelationshipType",
+                Code = "Friend",
+                DisplayName = "Friend",
+                SortOrder = 7,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000008"),
+                Type = "RelationshipType",
+                Code = "Business",
+                DisplayName = "Business",
+                SortOrder = 8,
+                IsActive = true
+            },
+            new()
+            {
+                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000009"),
+                Type = "RelationshipType",
+                Code = "Other",
+                DisplayName = "Other",
+                SortOrder = 9,
+                IsActive = true
+            }
+        };
+
+        await SeedReferenceDataAsync(types, "RelationshipType", cancellationToken);
+    }
+
+    private async Task SeedOrderStatusesAsync(CancellationToken cancellationToken)
+    {
+        var statuses = new List<ReferenceDataItem>
+        {
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000001", "OrderStatus", "Draft", 1),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000002", "OrderStatus", "PendingSubmission", 2),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000003", "OrderStatus", "Submitted", 3),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000004", "OrderStatus", "PendingCompliance", 4),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000005", "OrderStatus", "Approved", 5),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000006", "OrderStatus", "PendingFunding", 6),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000007", "OrderStatus", "Funded", 7),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000008", "OrderStatus", "Processing", 8),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000009", "OrderStatus", "PartiallyCompleted", 9),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000010", "OrderStatus", "Completed", 10),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000011", "OrderStatus", "Failed", 11),
+            BuildReferenceData("bbbbbbbb-0000-0000-0000-000000000012", "OrderStatus", "Cancelled", 12)
+        };
+
+        await SeedReferenceDataAsync(statuses, "OrderStatus", cancellationToken);
+    }
+
+    private async Task SeedOrderItemStatusesAsync(CancellationToken cancellationToken)
+    {
+        var statuses = new List<ReferenceDataItem>
+        {
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000001", "OrderItemStatus", "Draft", 1),
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000002", "OrderItemStatus", "Valid", 2),
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000003", "OrderItemStatus", "QuoteExpired", 3),
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000004", "OrderItemStatus", "Invalid", 4),
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000005", "OrderItemStatus", "PendingPayout", 5),
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000006", "OrderItemStatus", "PayoutSubmitted", 6),
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000007", "OrderItemStatus", "Completed", 7),
+            BuildReferenceData("cccccccc-0000-0000-0000-000000000008", "OrderItemStatus", "Failed", 8)
+        };
+
+        await SeedReferenceDataAsync(statuses, "OrderItemStatus", cancellationToken);
+    }
+
+    private async Task SeedPurposeCodesAsync(CancellationToken cancellationToken)
+    {
+        var purposes = new List<ReferenceDataItem>
+        {
+            BuildReferenceData("dddddddd-0000-0000-0000-000000000001", "PurposeCode", "Bills", 1),
+            BuildReferenceData("dddddddd-0000-0000-0000-000000000002", "PurposeCode", "Utilities", 2),
+            BuildReferenceData("dddddddd-0000-0000-0000-000000000003", "PurposeCode", "Education", 3),
+            BuildReferenceData("dddddddd-0000-0000-0000-000000000004", "PurposeCode", "Telecom", 4),
+            BuildReferenceData("dddddddd-0000-0000-0000-000000000005", "PurposeCode", "Other", 5)
+        };
+
+        await SeedReferenceDataAsync(purposes, "PurposeCode", cancellationToken);
+    }
+
+    private async Task SeedReferenceDataAsync(
+        List<ReferenceDataItem> items,
+        string type,
+        CancellationToken cancellationToken)
+    {
+        var existingKeys = await _dbContext.ReferenceDataItems
+            .Where(item => item.Type == type)
+            .Select(item => item.Code)
+            .ToListAsync(cancellationToken);
+
+        var existingSet = new HashSet<string>(existingKeys, StringComparer.OrdinalIgnoreCase);
+        var toAdd = items.Where(item => !existingSet.Contains(item.Code)).ToList();
+
+        if (toAdd.Count == 0)
+        {
+            return;
+        }
+
+        await _dbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Seeded {Count} {Type} reference data items", toAdd.Count, type);
+    }
+
+    private static ReferenceDataItem BuildReferenceData(string id, string type, string code, int sortOrder)
+    {
+        return new ReferenceDataItem
+        {
+            Id = Guid.Parse(id),
+            Type = type,
+            Code = code,
+            DisplayName = code,
+            SortOrder = sortOrder,
+            IsActive = true
+        };
     }
 }

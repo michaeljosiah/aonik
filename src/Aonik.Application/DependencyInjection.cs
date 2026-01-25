@@ -11,6 +11,8 @@ using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Pricing;
 using Aonik.Application.Services.Settings;
+using Aonik.Application.Services.Orders;
+using Aonik.Application.Services.Parties;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Application;
@@ -45,6 +47,9 @@ public static class DependencyInjection
         services.AddScoped<IPricingPolicyService, PricingPolicyService>();
         services.AddScoped<IFxRateService, FxRateService>();
         services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
+        services.AddScoped<IComplianceService, ComplianceService>();
+        services.AddScoped<IPartyService, PartyService>();
+        services.AddScoped<IOrderService, OrderService>();
 
         // AI Workflows
         services.AddScoped<InvoiceInsightWorkflow>();

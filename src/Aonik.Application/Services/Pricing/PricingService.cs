@@ -5,6 +5,8 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Pricing;
 using Aonik.Application.Services.Compliance;
 using Microsoft.EntityFrameworkCore;
+using Aonik.SharedKernel.Abstractions;
+using Aonik.Domain.Pricing.Entities;
 
 namespace Aonik.Application.Services.Pricing;
 
@@ -16,6 +18,7 @@ public class PricingService : IPricingService
     private readonly ICurrencyMetadataProvider _currencyMetadataProvider;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IAonikDbContext _dbContext;
+    private readonly IClock _clock;
 
     public PricingService(
         ITenantProvider tenantProvider,
@@ -23,7 +26,8 @@ public class PricingService : IPricingService
         IFxRateService fxRateService,
         ICurrencyMetadataProvider currencyMetadataProvider,
         IAuditLogWriter auditLogWriter,
-        IAonikDbContext dbContext)
+        IAonikDbContext dbContext,
+        IClock clock)
     {
         _tenantProvider = tenantProvider;
         _pricingPolicyService = pricingPolicyService;
@@ -31,6 +35,7 @@ public class PricingService : IPricingService
         _currencyMetadataProvider = currencyMetadataProvider;
         _auditLogWriter = auditLogWriter;
         _dbContext = dbContext;
+        _clock = clock;
     }
 
     public async Task<PricingQuoteResponse> GetBillPaymentQuoteAsync(
@@ -122,9 +127,59 @@ public class PricingService : IPricingService
             fxRate.RateTimestamp,
             feeBreakdown);
 
+        await PersistQuoteAsync(normalizedRequest, response, fxRate.Provider, cancellationToken);
         await WriteAuditAsync(normalizedRequest, response, cancellationToken);
 
         return response;
+    }
+
+    private async Task PersistQuoteAsync(
+        PricingQuoteRequest request,
+        PricingQuoteResponse response,
+        string? fxRateProvider,
+        CancellationToken cancellationToken)
+    {
+        var fxQuote = await _dbContext.FxQuotes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(entity => entity.Id == response.FxRateId, cancellationToken);
+
+        var now = _clock.UtcNow;
+        var expiresAt = fxQuote?.ExpiresAt ?? now.AddMinutes(5);
+        if (expiresAt <= now)
+        {
+            expiresAt = now.AddMinutes(5);
+        }
+
+        var quote = new PricingQuote
+        {
+            Id = response.PricingQuoteId,
+            TenantId = _tenantProvider.GetCurrentTenantId(),
+            QuoteType = "BillPayment",
+            OriginCurrency = request.OriginCurrency,
+            DestinationCurrency = request.DestinationCurrency,
+            OriginCountry = request.OriginCountry,
+            DestinationCountry = request.DestinationCountry,
+            ServiceCode = request.ServiceCode,
+            OriginAmount = response.OriginAmount,
+            DestinationAmount = response.DestinationAmount,
+            ExchangeRate = response.ExchangeRate,
+            RateMarkup = response.RateMarkup,
+            FeesTotal = response.FeesTotal,
+            TotalAmount = response.TotalAmount,
+            FxRateId = response.FxRateId,
+            RateTimestamp = response.RateTimestamp.UtcDateTime,
+            FxRateProvider = fxRateProvider,
+            PricingPolicyId = response.PricingPolicyId,
+            PricingPolicyVersion = response.PricingPolicyVersion,
+            ExpiresAt = expiresAt,
+            FeeBreakdownJson = JsonSerializer.Serialize(response.FeeBreakdown),
+            CustomerId = request.CustomerId,
+            CustomerTier = request.CustomerTier,
+            QuoteContext = request.QuoteContext
+        };
+
+        _dbContext.PricingQuotes.Add(quote);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private PricingQuoteRequest NormalizeRequest(PricingQuoteRequest request)

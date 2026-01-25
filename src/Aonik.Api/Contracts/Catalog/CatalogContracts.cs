@@ -96,6 +96,17 @@ public record CatalogServiceValidationResponse(
     string? ValidationEndpoint,
     string? ValidationMode);
 
+public record CatalogServiceFieldValidationRequest(
+    Dictionary<string, string> FieldValues);
+
+public record CatalogServiceFieldValidationResponse(
+    bool IsValid,
+    DateTimeOffset ValidatedAt,
+    string? ErrorCode,
+    string? ErrorMessage,
+    string? AccountHolderName,
+    Dictionary<string, string>? AdditionalInfo);
+
 public record CatalogBillerListRequest(
     string? CountryCode,
     Guid? CategoryId,
