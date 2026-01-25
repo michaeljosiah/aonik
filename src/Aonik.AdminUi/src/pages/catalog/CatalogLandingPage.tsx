@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Globe2, Layers, Building2, Wrench, ArrowUpRight } from 'lucide-react';
 
 const catalogTiles = [
@@ -35,34 +36,36 @@ export function CatalogLandingPage() {
   const tiles = useMemo(() => catalogTiles, []);
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Catalog Overview</h1>
+    <div className="h-full overflow-auto p-6">
+      <Breadcrumb items={[{ label: 'Catalog', icon: <Layers className="w-3.5 h-3.5" /> }]} className="mb-4" />
+
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Catalog</h1>
           <p className="text-[var(--color-text-secondary)]">
             Review catalog coverage, categories, billers, and service definitions used by MyBillAfrica.
           </p>
         </div>
+      </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {tiles.map((tile) => (
-            <Link key={tile.title} to={tile.href} className="group">
-              <Card className="h-full transition-all duration-200 group-hover:shadow-md group-hover:-translate-y-0.5">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
-                      <tile.icon className="w-5 h-5 text-[var(--color-brand-primary)]" />
-                    </div>
-                    <ArrowUpRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {tiles.map((tile) => (
+          <Link key={tile.title} to={tile.href} className="group">
+            <Card className="h-full transition-all duration-200 group-hover:shadow-md group-hover:-translate-y-0.5">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
+                    <tile.icon className="w-5 h-5 text-[var(--color-brand-primary)]" />
                   </div>
-                  <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">{tile.title}</h3>
-                  <p className="text-sm text-[var(--color-text-secondary)] mb-4">{tile.description}</p>
-                  <Badge variant="secondary">Open</Badge>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                  <ArrowUpRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+                </div>
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">{tile.title}</h3>
+                <p className="text-sm text-[var(--color-text-secondary)] mb-4">{tile.description}</p>
+                <Badge variant="secondary">Open</Badge>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
     </div>
   );

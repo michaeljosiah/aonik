@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts';
 import { useState, useRef, useEffect } from 'react';
 import { getSelectedTenant } from '@/lib/tenantContext';
+import { NotificationsPanel } from '@/components/layout/NotificationsPanel';
 
 interface HeaderProps {
   title?: string;
@@ -12,6 +13,7 @@ interface HeaderProps {
 export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [tenantLabel, setTenantLabel] = useState<string | null>(null);
   const [tenantEnv, setTenantEnv] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
   const CurrentIcon = resolvedTheme === 'dark' ? Moon : Sun;
 
   return (
+    <>
     <header className="flex items-center justify-between h-14 px-6 bg-[var(--color-surface)] border-b border-[var(--color-border-light)]">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm min-w-0">
@@ -122,7 +125,13 @@ export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
           )}
         </div>
 
-        <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-[var(--color-text-secondary)]"
+          onClick={() => setShowNotifications(true)}
+          aria-label="Open notifications"
+        >
           <Bell className="w-4 h-4" />
         </Button>
         <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
@@ -133,5 +142,7 @@ export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
         </Button>
       </div>
     </header>
+    <NotificationsPanel open={showNotifications} onClose={() => setShowNotifications(false)} />
+    </>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   ArrowLeft,
   RefreshCw,
@@ -13,6 +14,7 @@ import {
   Globe2,
   Layers,
   Link2,
+  Wrench,
 } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
 import type {
@@ -95,124 +97,131 @@ export function CatalogBillerDetailPage() {
     );
   }
 
+  const breadcrumbItems = [
+    { label: 'Catalog', href: '/catalog' },
+    { label: 'Billers', href: '/catalog/billers', icon: <Building2 className="w-3.5 h-3.5" /> },
+    { label: biller.name, icon: <Building2 className="w-3.5 h-3.5" /> },
+  ];
+
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/catalog/billers')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Billers
+    <div className="h-full overflow-auto p-6">
+      <Breadcrumb items={breadcrumbItems} className="mb-4" />
+
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
+            <Building2 className="w-6 h-6 text-[var(--color-brand-primary)]" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{biller.name}</h1>
+              {!biller.isActive && (
+                <Badge variant="outline" className="text-[var(--color-text-tertiary)]">
+                  Inactive
+                </Badge>
+              )}
+            </div>
+            <p className="text-[var(--color-text-secondary)]">
+              {category?.name ?? 'Uncategorized'} • {country?.name ?? biller.countryCode}
+            </p>
+            <p className="text-xs text-[var(--color-text-tertiary)] font-mono mt-1">{biller.billerId}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={loadData} className="rounded-sm">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button
+            className="rounded-sm"
+            onClick={() => navigate(`/catalog/billers/${biller.billerId}/services`)}
+          >
+            <Wrench className="w-4 h-4 mr-2" />
+            View Services
           </Button>
         </div>
+      </div>
 
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
-              <Building2 className="w-8 h-8 text-[var(--color-brand-primary)]" />
-            </div>
+      {error && (
+        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
+          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+            <AlertCircle className="w-5 h-5" />
+            <span className="flex-1">{error}</span>
+            <Button variant="outline" size="sm" onClick={loadData}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{biller.name}</h1>
-                {!biller.isActive && (
-                  <Badge variant="outline" className="text-[var(--color-text-tertiary)]">
-                    Inactive
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                {category?.name ?? 'Uncategorized'} • {country?.name ?? biller.countryCode}
-              </p>
-              <p className="text-xs text-[var(--color-text-tertiary)] font-mono mt-1">{biller.billerId}</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">Description</p>
+              <p className="text-[var(--color-text-primary)]">{biller.description || 'No description provided.'}</p>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={loadData}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
-            <Button onClick={() => navigate(`/catalog/billers/${biller.billerId}/services`)}>
-              View Services
-            </Button>
-          </div>
-        </div>
 
-        {error && (
-          <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-              <AlertCircle className="w-5 h-5" />
-              <span className="flex-1">{error}</span>
-              <Button variant="outline" size="sm" onClick={loadData}>
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Overview</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-[var(--color-text-secondary)]">Description</p>
-                <p className="text-[var(--color-text-primary)]">
-                  {biller.description || 'No description provided.'}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <Globe2 className="w-4 h-4" />
+                  Country
+                </div>
+                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  {country?.name ?? biller.countryCode}
                 </p>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Globe2 className="w-4 h-4" />
-                    Country
-                  </div>
-                  <p className="text-lg font-semibold text-[var(--color-text-primary)]">{country?.name ?? biller.countryCode}</p>
+              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <Layers className="w-4 h-4" />
+                  Category
                 </div>
-                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Layers className="w-4 h-4" />
-                    Category
-                  </div>
-                  <p className="text-lg font-semibold text-[var(--color-text-primary)]">{category?.name ?? 'Uncategorized'}</p>
-                </div>
-                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Link2 className="w-4 h-4" />
-                    Correspondent
-                  </div>
-                  <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                    {biller.correspondentPartnerId ?? 'Not assigned'}
-                  </p>
-                </div>
-                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                    <Building2 className="w-4 h-4" />
-                    Services
-                  </div>
-                  <p className="text-lg font-semibold text-[var(--color-text-primary)]">{biller.serviceCount}</p>
-                </div>
+                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  {category?.name ?? 'Uncategorized'}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <Link2 className="w-4 h-4" />
+                  Correspondent
+                </div>
+                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  {biller.correspondentPartnerId ?? 'Not assigned'}
+                </p>
+              </div>
+              <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <Building2 className="w-4 h-4" />
+                  Services
+                </div>
+                <p className="text-lg font-semibold text-[var(--color-text-primary)]">{biller.serviceCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Support</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                <Phone className="w-4 h-4" />
-                Phone
-              </div>
-              <p className="text-[var(--color-text-primary)]">{biller.supportPhone || 'Not available'}</p>
-              <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                <Mail className="w-4 h-4" />
-                Email
-              </div>
-              <p className="text-[var(--color-text-primary)]">{biller.supportEmail || 'Not available'}</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Support</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <Phone className="w-4 h-4" />
+              Phone
+            </div>
+            <p className="text-[var(--color-text-primary)]">{biller.supportPhone || 'Not available'}</p>
+            <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <Mail className="w-4 h-4" />
+              Email
+            </div>
+            <p className="text-[var(--color-text-primary)]">{biller.supportEmail || 'Not available'}</p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
