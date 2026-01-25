@@ -8,9 +8,10 @@ import { NotificationsPanel } from '@/components/layout/NotificationsPanel';
 interface HeaderProps {
   title?: string;
   breadcrumb?: string[];
+  leftSlot?: React.ReactNode;
 }
 
-export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
+export function Header({ breadcrumb = ['My Space'], leftSlot }: HeaderProps) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -49,23 +50,29 @@ export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
   return (
     <>
     <header className="flex items-center justify-between h-14 px-6 bg-[var(--color-surface)] border-b border-[var(--color-border-light)]">
-      {/* Breadcrumb */}
+      {/* Breadcrumb / Left Slot */}
       <nav className="flex items-center gap-2 text-sm min-w-0">
-        <Home className="w-4 h-4 text-[var(--color-text-secondary)]" />
-        {breadcrumb.map((item, index) => (
-          <span key={item} className="flex items-center gap-2">
-            {index > 0 && <span className="text-[var(--color-text-tertiary)]">/</span>}
-            <span
-              className={
-                index === breadcrumb.length - 1
-                  ? 'text-[var(--color-text-primary)] font-medium'
-                  : 'text-[var(--color-text-secondary)]'
-              }
-            >
-              {item}
-            </span>
-          </span>
-        ))}
+        {leftSlot ? (
+          leftSlot
+        ) : (
+          <>
+            <Home className="w-4 h-4 text-[var(--color-text-secondary)]" />
+            {breadcrumb.map((item, index) => (
+              <span key={item} className="flex items-center gap-2">
+                {index > 0 && <span className="text-[var(--color-text-tertiary)]">/</span>}
+                <span
+                  className={
+                    index === breadcrumb.length - 1
+                      ? 'text-[var(--color-text-primary)] font-medium'
+                      : 'text-[var(--color-text-secondary)]'
+                  }
+                >
+                  {item}
+                </span>
+              </span>
+            ))}
+          </>
+        )}
 
         {tenantLabel && (
           <span className="ml-3 flex items-center gap-2 px-2 py-1 rounded-md bg-[var(--color-surface-elevated)] border border-[var(--color-border-light)]">

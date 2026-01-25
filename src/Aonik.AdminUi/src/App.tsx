@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Sidebar, Header } from '@/components/layout';
+import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
+import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
   MySpacePage,
   LoginPage,
@@ -85,6 +87,46 @@ function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const previousSidebarCollapsed = useRef<boolean | null>(null);
 
+  const agents = useRef<AiAgentSelectorItem[]>([
+    {
+      id: 'a-personal',
+      title: 'Agent name',
+      description: 'Short description',
+      group: 'personal',
+      icon: 'fox',
+    },
+    {
+      id: 'a-centrali',
+      title: 'Centrali Ai',
+      description: 'Short description',
+      group: 'agents',
+      icon: 'centrali',
+    },
+    {
+      id: 'a-2',
+      title: 'Agent name',
+      description: 'Short description',
+      group: 'agents',
+      icon: 'fox',
+    },
+    {
+      id: 'a-3',
+      title: 'Agent name',
+      description: 'Short description',
+      group: 'agents',
+      icon: 'fox',
+    },
+    {
+      id: 'a-4',
+      title: 'Agent name',
+      description: 'Short description',
+      group: 'agents',
+      icon: 'fox',
+    },
+  ]);
+
+  const [selectedAgentId, setSelectedAgentId] = useState('a-centrali');
+
   // Auto-collapse main nav on AI chat page.
   useEffect(() => {
     if (isAiChat) {
@@ -123,7 +165,18 @@ function AppLayout() {
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header breadcrumb={getBreadcrumb()} />
+        <Header
+          breadcrumb={getBreadcrumb()}
+          leftSlot={
+            isAiChat ? (
+              <AiAgentSelector
+                agents={agents.current}
+                selectedAgentId={selectedAgentId}
+                onSelectAgent={setSelectedAgentId}
+              />
+            ) : undefined
+          }
+        />
         <main className={isAiChat ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
           <Routes>
             <Route path="/" element={<MySpacePage />} />
@@ -146,7 +199,7 @@ function AppLayout() {
             <Route path="/ai/agents" element={<PlaceholderPage title="Agents" />} />
             <Route path="/ai/models" element={<PlaceholderPage title="AI Models" />} />
             <Route path="/ai/orchestrator" element={<PlaceholderPage title="Orchestrator" />} />
-            <Route path="/ai/chat" element={<AiChatPage />} />
+            <Route path="/ai/chat" element={<AiChatMock agentId={selectedAgentId} />} />
             {/* Users & Access */}
             <Route path="/access/users" element={<AccessUsersPage />} />
             <Route path="/access/roles" element={<AccessRolesPage />} />
@@ -173,14 +226,6 @@ function AppLayout() {
           </Routes>
         </main>
       </div>
-    </div>
-  );
-}
-
-function AiChatPage() {
-  return (
-    <div className="h-full">
-      <AiChatMock />
     </div>
   );
 }

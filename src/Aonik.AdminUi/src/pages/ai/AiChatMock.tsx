@@ -1,20 +1,6 @@
 import { useMemo, useState } from 'react';
-import {
-  Bell,
-  Check,
-  ChevronDown,
-  Menu,
-  Mic,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Send,
-  Trash2,
-} from 'lucide-react';
+import { ChevronDown, Mic, MoreHorizontal, Plus, Search, Send, Trash2 } from 'lucide-react';
 
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   Conversation,
@@ -43,61 +29,20 @@ type ChatMessage = {
   content: string;
 };
 
-type AgentItem = {
-  id: string;
-  title: string;
-  description: string;
-  group: 'personal' | 'agents';
-  icon: 'centrali' | 'fox';
+type AiChatMockProps = {
+  agentId?: string;
 };
 
-export function AiChatMock() {
+export function AiChatMock({ agentId }: AiChatMockProps) {
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
 
-  const agents = useMemo<AgentItem[]>(
-    () => [
-      {
-        id: 'a-personal',
-        title: 'Agent name',
-        description: 'Short description',
-        group: 'personal',
-        icon: 'fox',
-      },
-      {
-        id: 'a-centrali',
-        title: 'Centrali Ai',
-        description: 'Short description',
-        group: 'agents',
-        icon: 'centrali',
-      },
-      {
-        id: 'a-2',
-        title: 'Agent name',
-        description: 'Short description',
-        group: 'agents',
-        icon: 'fox',
-      },
-      {
-        id: 'a-3',
-        title: 'Agent name',
-        description: 'Short description',
-        group: 'agents',
-        icon: 'fox',
-      },
-      {
-        id: 'a-4',
-        title: 'Agent name',
-        description: 'Short description',
-        group: 'agents',
-        icon: 'fox',
-      },
-    ],
-    []
-  );
-
-  const [selectedAgentId, setSelectedAgentId] = useState('a-centrali');
-  const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? agents[0];
+  const agentLabel = useMemo(() => {
+    if (!agentId) return 'Centrali Ai';
+    if (agentId === 'a-personal') return 'Agent name';
+    if (agentId === 'a-centrali') return 'Centrali Ai';
+    return 'Agent name';
+  }, [agentId]);
 
   const projects = useMemo<ProjectItem[]>(
     () => [
@@ -359,99 +304,6 @@ export function AiChatMock() {
 
       {/* Main chat area */}
       <section className="flex-1 min-w-0 flex flex-col bg-[var(--color-surface-inset)]">
-        <div className="h-14 px-6 flex items-center justify-between border-b border-[var(--color-border-light)] bg-[var(--color-surface)]">
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-lg px-2 py-1 -ml-2 hover:bg-[var(--color-background)]"
-              >
-                <div className="h-7 w-7 rounded-full bg-[var(--color-surface)] border border-[var(--color-border)] grid place-items-center">
-                  <span className="text-xs font-semibold text-[var(--color-text-primary)]">C</span>
-                </div>
-                <span className="text-sm font-medium text-[var(--color-text-primary)]">{selectedAgent.title}</span>
-                <ChevronDown className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-              </button>
-            </DropdownMenu.Trigger>
-
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                sideOffset={10}
-                align="start"
-                className="w-[280px] rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg p-2"
-              >
-                <div className="px-3 py-2 text-[11px] font-semibold text-[var(--color-text-tertiary)] tracking-wider">
-                  PERSONAL ASSISTANT
-                </div>
-                {agents
-                  .filter((a) => a.group === 'personal')
-                  .map((a) => (
-                    <DropdownMenu.Item
-                      key={a.id}
-                      onSelect={() => setSelectedAgentId(a.id)}
-                      className="outline-none"
-                    >
-                      <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--color-background)]">
-                        <div className="h-8 w-8 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] grid place-items-center">
-                          <span className="text-sm">{a.icon === 'fox' ? '🦊' : 'C'}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">{a.title}</div>
-                          <div className="text-xs text-[var(--color-text-tertiary)] truncate">{a.description}</div>
-                        </div>
-                        {a.id === selectedAgentId && <Check className="ml-auto h-4 w-4 text-[var(--color-brand-primary)]" />}
-                      </div>
-                    </DropdownMenu.Item>
-                  ))}
-
-                <div className="px-3 pt-3 pb-2 text-[11px] font-semibold text-[var(--color-text-tertiary)] tracking-wider">
-                  AGENTS
-                </div>
-                {agents
-                  .filter((a) => a.group === 'agents')
-                  .map((a) => (
-                    <DropdownMenu.Item
-                      key={a.id}
-                      onSelect={() => setSelectedAgentId(a.id)}
-                      className="outline-none"
-                    >
-                      <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--color-background)]">
-                        <div className="h-8 w-8 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] grid place-items-center">
-                          <span className="text-sm">{a.icon === 'fox' ? '🦊' : 'C'}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">{a.title}</div>
-                          <div className="text-xs text-[var(--color-text-tertiary)] truncate">{a.description}</div>
-                        </div>
-                        {a.id === selectedAgentId && <Check className="ml-auto h-4 w-4 text-[var(--color-brand-primary)]" />}
-                      </div>
-                    </DropdownMenu.Item>
-                  ))}
-
-                <div className="p-3">
-                  <button
-                    type="button"
-                    className="w-full h-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)]"
-                  >
-                    Manage agents
-                  </button>
-                </div>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]" title="Menu">
-              <Menu className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
-              <Bell className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
         <div className="flex-1 min-h-0">
           <Conversation className="h-full">
             <ConversationContent className="h-full">
@@ -488,7 +340,7 @@ export function AiChatMock() {
               <ChatComposer mode="footer" />
               <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
                 <span>Mock UI - endpoints not wired.</span>
-                <span>Agent: {selectedAgent.title}</span>
+                <span>Agent: {agentLabel}</span>
               </div>
             </div>
           </div>
