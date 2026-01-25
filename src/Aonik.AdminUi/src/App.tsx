@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Sidebar, Header } from '@/components/layout';
 import {
   MySpacePage,
   LoginPage,
   SetupWizardPage,
+  AiChatMock,
   TenantsListPage,
   CreateTenantPage,
   TenantDetailPage,
@@ -79,7 +80,26 @@ function TenantContextSetup() {
 }
 
 function AppLayout() {
+  const location = useLocation();
+  const isAiChat = location.pathname.startsWith('/ai/chat');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const previousSidebarCollapsed = useRef<boolean | null>(null);
+
+  // Auto-collapse main nav on AI chat page.
+  useEffect(() => {
+    if (isAiChat) {
+      if (previousSidebarCollapsed.current === null) {
+        previousSidebarCollapsed.current = sidebarCollapsed;
+      }
+      setSidebarCollapsed(true);
+      return;
+    }
+
+    if (previousSidebarCollapsed.current !== null) {
+      setSidebarCollapsed(previousSidebarCollapsed.current);
+      previousSidebarCollapsed.current = null;
+    }
+  }, [isAiChat, sidebarCollapsed]);
 
   // Determine breadcrumb based on current route (simplified)
   const getBreadcrumb = () => {
@@ -103,8 +123,8 @@ function AppLayout() {
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header breadcrumb={getBreadcrumb()} />
-        <main className="flex-1 overflow-auto bg-[var(--color-surface-inset)]">
+        {!isAiChat && <Header breadcrumb={getBreadcrumb()} />}
+        <main className={isAiChat ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
           <Routes>
             <Route path="/" element={<MySpacePage />} />
             <Route path="/search" element={<PlaceholderPage title="Search" />} />
@@ -126,7 +146,7 @@ function AppLayout() {
             <Route path="/ai/agents" element={<PlaceholderPage title="Agents" />} />
             <Route path="/ai/models" element={<PlaceholderPage title="AI Models" />} />
             <Route path="/ai/orchestrator" element={<PlaceholderPage title="Orchestrator" />} />
-            <Route path="/ai/chat" element={<PlaceholderPage title="AI Assistant" />} />
+            <Route path="/ai/chat" element={<AiChatPage />} />
             {/* Users & Access */}
             <Route path="/access/users" element={<AccessUsersPage />} />
             <Route path="/access/roles" element={<AccessRolesPage />} />
@@ -153,6 +173,14 @@ function AppLayout() {
           </Routes>
         </main>
       </div>
+    </div>
+  );
+}
+
+function AiChatPage() {
+  return (
+    <div className="h-full">
+      <AiChatMock />
     </div>
   );
 }

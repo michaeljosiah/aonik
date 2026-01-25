@@ -12,3 +12,5 @@ export {
   CatalogBillerServicesPage,
   CatalogBillerServiceDetailPage,
 } from './catalog';
+
+export { AiChatMock } from './ai/AiChatMock';
