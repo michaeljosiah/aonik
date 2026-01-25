@@ -17,6 +17,8 @@ public static class AuditEventNames
     public const string TenantDeactivated = "TenantDeactivated";
     public const string TenantProvisioned = "TenantProvisioned";
     public const string TenantUpdated = "TenantUpdated";
+    public const string TenantFeaturesUpdated = "TenantFeaturesUpdated";
+    public const string TenantDemoSeeded = "TenantDemoSeeded";
     public const string UserProvisioned = "UserProvisioned";
     public const string UserRoleAssigned = "UserRoleAssigned";
     public const string UserRoleRemoved = "UserRoleRemoved";

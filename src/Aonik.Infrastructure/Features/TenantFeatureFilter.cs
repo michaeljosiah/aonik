@@ -1,5 +1,6 @@
 using Aonik.Application.Abstractions.Multitenancy;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FeatureManagement;
 
 namespace Aonik.Infrastructure.Features;
@@ -7,16 +8,19 @@ namespace Aonik.Infrastructure.Features;
 [FilterAlias("Tenant")]
 public class TenantFeatureFilter : IFeatureFilter
 {
-    private readonly ITenantProvider _tenantProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public TenantFeatureFilter(ITenantProvider tenantProvider)
+    public TenantFeatureFilter(IServiceScopeFactory scopeFactory)
     {
-        _tenantProvider = tenantProvider;
+        _scopeFactory = scopeFactory;
     }
 
     public Task<bool> EvaluateAsync(FeatureFilterEvaluationContext context)
     {
-        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
+        using var scope = _scopeFactory.CreateScope();
+        var tenantProvider = scope.ServiceProvider.GetRequiredService<ITenantProvider>();
+
+        if (!tenantProvider.TryGetCurrentTenantId(out var tenantId))
         {
             return Task.FromResult(false);
         }

@@ -50,7 +50,7 @@ export const tenantService = {
 
   // Update a tenant
   update: async (tenantId: string, request: UpdateTenantRequest): Promise<Tenant> => {
-    return api.put<Tenant>(`/admin/tenants/${tenantId}`, request);
+    return api.patch<Tenant>(`/admin/tenants/${tenantId}`, request);
   },
 
   // Activate a tenant

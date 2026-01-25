@@ -527,3 +527,30 @@ export interface TenantListItemForLogin {
 export interface TenantListForLoginResponse {
   tenants: TenantListItemForLogin[];
 }
+
+export interface TenantFeatureItemResponse {
+  featureName: string;
+  isEnabled: boolean;
+  updatedAt?: string | null;
+}
+
+export interface TenantFeatureListResponse {
+  tenantId: string;
+  features: TenantFeatureItemResponse[];
+}
+
+export interface TenantFeatureToggleRequest {
+  featureName: string;
+  isEnabled: boolean;
+  reason?: string | null;
+}
+
+export interface TenantFeatureUpdateRequest {
+  features: TenantFeatureToggleRequest[];
+}
+
+export interface DemoSeedResponse {
+  tenantId: string;
+  seededAt: string;
+  operations: string[];
+}

@@ -45,6 +45,7 @@ using Aonik.Infrastructure.Storage;
 using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Infrastructure.Time;
 using Aonik.Infrastructure.Features;
+using Aonik.Infrastructure.Seeding;
 using Aonik.SharedKernel.Abstractions;
 using Microsoft.FeatureManagement;
 
@@ -77,6 +78,7 @@ public static class DependencyInjection
             .AddFeatureFilter<TenantFeatureFilter>();
 
         services.AddScoped<IFeatureManager, DatabaseFeatureManager>();
+        services.AddScoped<Aonik.Application.Services.Seeding.IDemoSeedService, DemoSeedService>();
 
         services.AddSingleton<IBlobStorage>(sp =>
         {

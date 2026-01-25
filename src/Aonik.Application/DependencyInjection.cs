@@ -2,6 +2,7 @@ using Aonik.Application.Services.Ai;
 using Aonik.Application.Services.Ai.Workflows;
 using Aonik.Application.Services.Billing;
 using Aonik.Application.Services.Catalog;
+using Aonik.Application.Services.Features;
 using Aonik.Application.Services.Ledger;
 using Aonik.Application.Services.Onboarding;
 using Aonik.Application.Services.Orders;
@@ -38,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<ITenantService, TenantService>();
+        services.AddScoped<ITenantFeatureService, TenantFeatureService>();
         services.AddScoped<ITenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapTenantProvisioner, TenantProvisioner>();
         services.AddScoped<IBootstrapService, BootstrapService>();

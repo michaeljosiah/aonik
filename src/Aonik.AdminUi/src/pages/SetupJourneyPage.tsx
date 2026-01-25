@@ -2,12 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Handle, Position, ReactFlow, Background, type Node, type Edge, type ReactFlowInstance } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { CheckCircle2, Circle, PauseCircle, PlayCircle, ArrowRight, ArrowUpRight, ExternalLink } from 'lucide-react';
+import { CheckCircle2, Circle, PauseCircle, PlayCircle, ArrowRight, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { SetupGuideDefinition, SetupGuideManifest } from '@/services/setupGuideService';
 import { getSetupGuideManifest } from '@/services/setupGuideService';
+import { catalogService } from '@/services/catalogService';
+import { demoSeedService } from '@/services/demoSeedService';
+import { identityService } from '@/services/identityService';
+import { tenantService } from '@/services/tenantService';
+import { tenantFeatureService } from '@/services/tenantFeatureService';
+import type { CatalogCountryItem, Tenant } from '@/types';
 
 type StepStatus = 'todo' | 'in-progress' | 'blocked' | 'complete' | 'skipped';
 
@@ -180,6 +186,87 @@ const setupNodes = baseSteps.map((step, index) => ({
   },
 })) as Node<SetupNodeData>[];
 
+const currencyOptions = ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR', 'AED', 'SAR', 'CAD', 'AUD'];
+
+const defaultTimeZones = [
+  'UTC',
+  'Africa/Lagos',
+  'Africa/Nairobi',
+  'Africa/Accra',
+  'Africa/Johannesburg',
+  'Europe/London',
+  'Europe/Paris',
+  'America/New_York',
+  'America/Chicago',
+  'America/Los_Angeles',
+  'Asia/Dubai',
+  'Asia/Riyadh',
+];
+
+const featureGroups = [
+  {
+    id: 'bill-payments',
+    label: 'Bill Payment',
+    description: 'Invoice creation, catalog access, and bill payment orders.',
+    flags: [
+      { key: 'BillPayments.Invoicing.Create', label: 'Create invoices' },
+      { key: 'BillPayments.Invoicing.Issue', label: 'Issue invoices' },
+      { key: 'BillPayments.Invoicing.Payment', label: 'Collect invoice payments' },
+      { key: 'BillPayments.BillerCatalog.Browse', label: 'Browse biller catalog' },
+      { key: 'BillPayments.BillerCatalog.Services', label: 'Access biller services' },
+      { key: 'BillPayments.BillPaymentOrders.Create', label: 'Create bill payment orders' },
+      { key: 'BillPayments.BillPaymentOrders.Submit', label: 'Submit bill payment orders' },
+      { key: 'BillPayments.BillPaymentOrders.History', label: 'View bill payment history' },
+    ],
+  },
+  {
+    id: 'money-transfer',
+    label: 'Money Transfer',
+    description: 'Payment intents, payouts, FX, partners, and limits.',
+    flags: [
+      { key: 'MoneyTransfer.PaymentIntents.Create', label: 'Create payment intents' },
+      { key: 'MoneyTransfer.PaymentIntents.Capture', label: 'Capture payment intents' },
+      { key: 'MoneyTransfer.Payouts.Create', label: 'Create payouts' },
+      { key: 'MoneyTransfer.Payouts.Tracking', label: 'Track payouts' },
+      { key: 'MoneyTransfer.FX.RateQuotes', label: 'FX rate quotes' },
+      { key: 'MoneyTransfer.FX.CurrencyConversion', label: 'FX currency conversion' },
+      { key: 'MoneyTransfer.Partners.Management', label: 'Manage partners' },
+      { key: 'MoneyTransfer.Partners.Routing', label: 'Route payments' },
+      { key: 'MoneyTransfer.Limits.TransactionLimits', label: 'Transaction limits' },
+    ],
+  },
+  {
+    id: 'personal-finance',
+    label: 'Personal Finance',
+    description: 'Budgets, goals, subscriptions, and household tools.',
+    flags: [
+      { key: 'PersonalFinance.Budgets.Create', label: 'Create budgets' },
+      { key: 'PersonalFinance.Budgets.Tracking', label: 'Track budgets' },
+      { key: 'PersonalFinance.Goals.Create', label: 'Create goals' },
+      { key: 'PersonalFinance.Goals.Tracking', label: 'Track goals' },
+      { key: 'PersonalFinance.Subscriptions.Detection', label: 'Detect subscriptions' },
+      { key: 'PersonalFinance.Subscriptions.Tracking', label: 'Track subscriptions' },
+      { key: 'PersonalFinance.Bills.Reminders', label: 'Bill reminders' },
+      { key: 'PersonalFinance.Bills.AutoPay', label: 'Bill autopay' },
+    ],
+  },
+  {
+    id: 'ai',
+    label: 'AI',
+    description: 'AI platform, tools, and insight workflows.',
+    flags: [
+      { key: 'AI.Platform.MultiProvider', label: 'Multi-provider routing' },
+      { key: 'AI.Platform.ModelSelection', label: 'Model selection' },
+      { key: 'AI.Platform.RunTracking', label: 'Run tracking' },
+      { key: 'AI.Prompts.Versioning', label: 'Prompt versioning' },
+      { key: 'AI.Tools.DomainTools', label: 'Domain tools' },
+      { key: 'AI.Insights.General', label: 'AI insights' },
+      { key: 'AI.Agents.DomainAgents', label: 'Domain agents' },
+      { key: 'AI.Proposals.ApprovalWorkflow', label: 'Proposal approvals' },
+    ],
+  },
+];
+
 function getStoredList(key: string) {
   const raw = localStorage.getItem(key);
   if (!raw) return [] as string[];
@@ -228,33 +315,25 @@ function SetupNode({ data }: { data: SetupNodeData }) {
           <p className="text-sm text-[var(--color-text-secondary)]">{data.description}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="secondary"
             onClick={(event) => {
               event.stopPropagation();
               data.onStart();
             }}
-            className="text-xs font-semibold text-[var(--color-brand-primary)] hover:underline"
           >
             Start
-          </button>
-          <span className="text-[10px] text-[var(--color-text-tertiary)]">|</span>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              data.onComplete();
-            }}
-            className="text-xs font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-          >
-            Mark complete
-          </button>
+          </Button>
         </div>
       </div>
       <Handle type="source" position={Position.Right} className="!bg-[var(--color-border)]" />
     </div>
   );
 }
+
+const setupNodeTypes = { setupNode: SetupNode } as const;
+const setupEdgeTypes = {} as const;
 
 export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) {
   const [completedSteps, setCompletedSteps] = useState<string[]>(() => getStoredList(onboardingDoneKey));
@@ -269,6 +348,30 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
   const flowContainerRef = useRef<HTMLDivElement | null>(null);
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance | null>(null);
   const navigate = useNavigate();
+  const [tenantProfile, setTenantProfile] = useState({
+    name: '',
+    legalName: '',
+    defaultCurrency: 'USD',
+    primaryCountry: '',
+    timeZone: 'UTC',
+    adminEmail: '',
+  });
+  const [tenantProfileErrors, setTenantProfileErrors] = useState<Record<string, string>>({});
+  const [tenantProfileLoading, setTenantProfileLoading] = useState(false);
+  const [tenantProfileError, setTenantProfileError] = useState<string | null>(null);
+  const [tenantProfileSaving, setTenantProfileSaving] = useState(false);
+  const [tenantCountries, setTenantCountries] = useState<CatalogCountryItem[]>([]);
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
+  const [currentTenantId, setCurrentTenantId] = useState<string>('');
+  const [featureSelections, setFeatureSelections] = useState<Record<string, boolean>>({});
+  const [featureSaving, setFeatureSaving] = useState(false);
+  const [featureError, setFeatureError] = useState<string | null>(null);
+  const [demoSeedEnabled, setDemoSeedEnabled] = useState(false);
+  const [demoSeedSaving, setDemoSeedSaving] = useState(false);
+  const [demoSeedError, setDemoSeedError] = useState<string | null>(null);
+  const [activeFeatureGroupId, setActiveFeatureGroupId] = useState(featureGroups[0]?.id ?? '');
+  const nodeTypes = useMemo(() => setupNodeTypes, []);
+  const edgeTypes = useMemo(() => setupEdgeTypes, []);
 
   const stepsWithStatus = useMemo(() => {
     return baseSteps.map((step, index, allSteps) => {
@@ -414,6 +517,160 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
   });
 
   const selectedStep = stepsWithStatus.find((step) => step.id === selectedStepId) ?? stepsWithStatus[0];
+  const isTenantProfileWizard = selectedStep?.id === 'tenant-profile';
+  const tenantWizardSteps = ['Tenant details', 'Enable features', 'Demo data'];
+
+  const resolveTimeZones = () => {
+    if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
+      try {
+        return Intl.supportedValuesOf('timeZone');
+      } catch {
+        return defaultTimeZones;
+      }
+    }
+    return defaultTimeZones;
+  };
+
+  const getTenantStorageKey = (key: string, tenantId: string) => `aonik:onboarding:${key}:${tenantId}`;
+
+  const loadTenantWizardData = async () => {
+    setTenantProfileLoading(true);
+    setTenantProfileError(null);
+    try {
+      const [currentUser, countries] = await Promise.all([
+        identityService.getCurrentUser(),
+        catalogService.getTenantCountries(),
+      ]);
+      setCurrentTenantId(currentUser.tenantId);
+      setTenantCountries(countries.countries ?? []);
+
+      const tenant = await tenantService.get(currentUser.tenantId);
+      setCurrentTenant(tenant);
+
+      const extrasKey = getTenantStorageKey('tenantProfile', currentUser.tenantId);
+      const rawExtras = localStorage.getItem(extrasKey);
+      const extras = rawExtras ? (JSON.parse(rawExtras) as { legalName?: string; timeZone?: string }) : {};
+
+      setTenantProfile({
+        name: tenant.name ?? '',
+        legalName: extras.legalName ?? tenant.name ?? '',
+        defaultCurrency: tenant.defaultCurrency ?? 'USD',
+        primaryCountry: tenant.supportedCountries?.[0] ?? '',
+        timeZone: extras.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
+        adminEmail: currentUser.email ?? '',
+      });
+
+      try {
+        const featureResponse = await tenantFeatureService.get(currentUser.tenantId);
+        if (featureResponse.features.length > 0) {
+          const mapped: Record<string, boolean> = {};
+          featureResponse.features.forEach((feature) => {
+            mapped[feature.featureName] = feature.isEnabled;
+          });
+          setFeatureSelections(mapped);
+        } else {
+          const defaults: Record<string, boolean> = {};
+          featureGroups.forEach((group) => {
+            group.flags.forEach((flag) => {
+              defaults[flag.key] = true;
+            });
+          });
+          setFeatureSelections(defaults);
+        }
+      } catch {
+        const defaults: Record<string, boolean> = {};
+        featureGroups.forEach((group) => {
+          group.flags.forEach((flag) => {
+            defaults[flag.key] = true;
+          });
+        });
+        setFeatureSelections(defaults);
+      }
+    } catch (err) {
+      setTenantProfileError('Unable to load tenant details. Refresh and try again.');
+    } finally {
+      setTenantProfileLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (wizardOpen && isTenantProfileWizard) {
+      loadTenantWizardData();
+    }
+  }, [wizardOpen, isTenantProfileWizard]);
+
+  const validateTenantProfile = () => {
+    const nextErrors: Record<string, string> = {};
+    if (!tenantProfile.name.trim()) nextErrors.name = 'Tenant display name is required.';
+    if (!tenantProfile.legalName.trim()) nextErrors.legalName = 'Legal name is required.';
+    if (!tenantProfile.defaultCurrency.trim()) nextErrors.defaultCurrency = 'Base currency is required.';
+    if (!tenantProfile.primaryCountry.trim()) nextErrors.primaryCountry = 'Primary country is required.';
+    if (!tenantProfile.timeZone.trim()) nextErrors.timeZone = 'Time zone is required.';
+    setTenantProfileErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const persistTenantProfileExtras = (tenantId: string) => {
+    const extrasKey = getTenantStorageKey('tenantProfile', tenantId);
+    localStorage.setItem(extrasKey, JSON.stringify({
+      legalName: tenantProfile.legalName,
+      timeZone: tenantProfile.timeZone,
+    }));
+  };
+
+  const handleTenantProfileContinue = async () => {
+    if (!validateTenantProfile() || !currentTenantId) return;
+    setTenantProfileSaving(true);
+    try {
+      await tenantService.update(currentTenantId, {
+        name: tenantProfile.name,
+        defaultCurrency: tenantProfile.defaultCurrency,
+        supportedCountries: tenantProfile.primaryCountry ? [tenantProfile.primaryCountry] : [],
+      });
+      persistTenantProfileExtras(currentTenantId);
+      setWizardStepIndex(1);
+    } catch (err) {
+      setTenantProfileError('Unable to save tenant profile. Review fields and try again.');
+    } finally {
+      setTenantProfileSaving(false);
+    }
+  };
+
+  const handleFeatureToggle = (key: string) => {
+    setFeatureSelections((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleToggleGroup = (groupId: string) => {
+    const group = featureGroups.find((item) => item.id === groupId);
+    if (!group) return;
+    const isAllSelected = group.flags.every((flag) => featureSelections[flag.key]);
+    const updated: Record<string, boolean> = {};
+    group.flags.forEach((flag) => {
+      updated[flag.key] = !isAllSelected;
+    });
+    setFeatureSelections((prev) => ({ ...prev, ...updated }));
+  };
+
+  const handleFeatureContinue = async () => {
+    if (!currentTenantId) return;
+    setFeatureSaving(true);
+    setFeatureError(null);
+    try {
+      const features = Object.entries(featureSelections).map(([featureName, isEnabled]) => ({
+        featureName,
+        isEnabled,
+      }));
+      await tenantFeatureService.update(currentTenantId, { features });
+      setWizardStepIndex(2);
+    } catch (err) {
+      setFeatureError('Unable to save feature selections. Try again.');
+    } finally {
+      setFeatureSaving(false);
+    }
+  };
 
   const persistList = (key: string, values: string[]) => {
     localStorage.setItem(key, JSON.stringify(values));
@@ -426,11 +683,21 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
     persistList(onboardingDoneKey, updated);
   };
 
-  const markSkipped = () => {
-    if (!selectedStep || selectedStep.required) return;
-    const updated = Array.from(new Set([...skippedSteps, selectedStep.id]));
-    setSkippedSteps(updated);
-    persistList(onboardingSkippedKey, updated);
+  const handleFinishTenantWizard = async () => {
+    if (!currentTenantId) return;
+    setDemoSeedSaving(true);
+    setDemoSeedError(null);
+    try {
+      if (demoSeedEnabled) {
+        await demoSeedService.seed(currentTenantId);
+      }
+      markComplete();
+      setWizardOpen(false);
+    } catch (err) {
+      setDemoSeedError('Unable to seed demo data. Try again.');
+    } finally {
+      setDemoSeedSaving(false);
+    }
   };
 
   const resetOnboarding = () => {
@@ -500,9 +767,6 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                             <Button size="sm" variant="secondary" onClick={() => openWizardForStep(step.id)}>
                               Start
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => openWizardForStep(step.id)}>
-                              Mark complete
-                            </Button>
                           </div>
                         </div>
                       </div>
@@ -515,7 +779,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                     <ReactFlow
                       nodes={nodes}
                       edges={edges}
-                      nodeTypes={{ setupNode: SetupNode }}
+                      nodeTypes={nodeTypes}
+                      edgeTypes={edgeTypes}
                       fitView
                       fitViewOptions={{ padding: 0.2 }}
                       minZoom={0.6}
@@ -579,21 +844,10 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                     </ul>
                   </div>
                   <div className="flex flex-col gap-2">
-                    {selectedStep.href && (
-                      <Button variant="secondary" size="sm" onClick={() => (window.location.href = selectedStep.href!)}>
-                        Go to step
-                        <ArrowUpRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button size="sm" onClick={markComplete} disabled={selectedStep.status === 'complete'}>
-                      Mark complete
+                    <Button size="sm" variant="secondary" onClick={() => openWizardForStep(selectedStep.id)}>
+                      Start
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                    {!selectedStep.required && selectedStep.status !== 'skipped' && (
-                      <Button variant="ghost" size="sm" onClick={markSkipped}>
-                        Skip this step
-                      </Button>
-                    )}
                   </div>
                 </div>
               )}
@@ -672,7 +926,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       </div>
       {wizardOpen && selectedStep && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
+          <div className="w-full min-w-[320px] max-w-[720px] rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
             <div
               className="h-32 rounded-t-2xl bg-cover bg-center"
               style={{
@@ -693,7 +947,216 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
               </button>
             </div>
             <div className="px-6 py-6">
-              {wizardStepIndex === 0 ? (
+              {isTenantProfileWizard ? (
+                <div className="space-y-6">
+                  <div className="flex flex-wrap gap-2">
+                    {tenantWizardSteps.map((label, index) => (
+                      <span
+                        key={label}
+                        className={cn(
+                          'rounded-full px-3 py-1 text-xs font-semibold',
+                          wizardStepIndex === index
+                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]'
+                        )}
+                      >
+                        {index + 1}. {label}
+                      </span>
+                    ))}
+                  </div>
+
+                  {tenantProfileLoading ? (
+                    <div className="text-sm text-[var(--color-text-secondary)]">Loading tenant data...</div>
+                  ) : tenantProfileError ? (
+                    <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-4 text-sm text-[var(--color-error)]">
+                      {tenantProfileError}
+                    </div>
+                  ) : wizardStepIndex === 0 ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        Confirm your tenant profile so the platform can tailor policies, pricing, and compliance defaults.
+                      </p>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Tenant display name</label>
+                          <input
+                            type="text"
+                            value={tenantProfile.name}
+                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, name: event.target.value }))}
+                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                          />
+                          {tenantProfileErrors.name && (
+                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.name}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Legal name</label>
+                          <input
+                            type="text"
+                            value={tenantProfile.legalName}
+                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, legalName: event.target.value }))}
+                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                          />
+                          {tenantProfileErrors.legalName && (
+                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.legalName}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Base currency</label>
+                          <select
+                            value={tenantProfile.defaultCurrency}
+                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, defaultCurrency: event.target.value }))}
+                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                          >
+                            {currencyOptions.map((currency) => (
+                              <option key={currency} value={currency}>
+                                {currency}
+                              </option>
+                            ))}
+                          </select>
+                          {tenantProfileErrors.defaultCurrency && (
+                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.defaultCurrency}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Primary country</label>
+                          <select
+                            value={tenantProfile.primaryCountry}
+                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, primaryCountry: event.target.value }))}
+                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                          >
+                            <option value="">Select a country</option>
+                            {tenantCountries.map((country) => (
+                              <option key={country.countryCode} value={country.countryCode}>
+                                {country.name}
+                              </option>
+                            ))}
+                          </select>
+                          {tenantProfileErrors.primaryCountry && (
+                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.primaryCountry}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Time zone</label>
+                          <select
+                            value={tenantProfile.timeZone}
+                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, timeZone: event.target.value }))}
+                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                          >
+                            {resolveTimeZones().map((zone) => (
+                              <option key={zone} value={zone}>
+                                {zone}
+                              </option>
+                            ))}
+                          </select>
+                          {tenantProfileErrors.timeZone && (
+                            <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.timeZone}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Admin contact</label>
+                          <input
+                            type="email"
+                            value={tenantProfile.adminEmail}
+                            readOnly
+                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-inset)] px-4 py-3 text-sm text-[var(--color-text-tertiary)]"
+                          />
+                        </div>
+                      </div>
+                      {currentTenant && (
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          Tenant environment: {currentTenant.environment}.
+                        </p>
+                      )}
+                    </div>
+                  ) : wizardStepIndex === 1 ? (
+                    <div className="space-y-5">
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        Decide which modules are available for this tenant. You can adjust these later.
+                      </p>
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          {featureGroups.map((group) => (
+                            <button
+                              key={group.id}
+                              type="button"
+                              onClick={() => setActiveFeatureGroupId(group.id)}
+                              className={cn(
+                                'rounded-full border px-4 py-1.5 text-xs font-semibold',
+                                activeFeatureGroupId === group.id
+                                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-white'
+                                  : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'
+                              )}
+                            >
+                              {group.label}
+                            </button>
+                          ))}
+                        </div>
+                        {(() => {
+                          const activeGroup = featureGroups.find((group) => group.id === activeFeatureGroupId) ?? featureGroups[0];
+                          const groupSelected = activeGroup.flags.every((flag) => featureSelections[flag.key]);
+                          return (
+                            <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">{activeGroup.label}</p>
+                                  <p className="text-xs text-[var(--color-text-secondary)]">{activeGroup.description}</p>
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => handleToggleGroup(activeGroup.id)}>
+                                  {groupSelected ? 'Disable all' : 'Enable all'}
+                                </Button>
+                              </div>
+                              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {activeGroup.flags.map((flag) => (
+                                  <label key={flag.key} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(featureSelections[flag.key])}
+                                      onChange={() => handleFeatureToggle(flag.key)}
+                                      className="h-4 w-4 rounded border-[var(--color-border)]"
+                                    />
+                                    <span>{flag.label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        {featureError && (
+                          <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-xs text-[var(--color-error)]">
+                            {featureError}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        Seed a guided demo dataset to explore workflows like orders, payments, and ledger activity.
+                      </p>
+                      <div className="flex items-start gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4">
+                        <input
+                          type="checkbox"
+                          checked={demoSeedEnabled}
+                          onChange={(event) => setDemoSeedEnabled(event.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-[var(--color-border)]"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-[var(--color-text-primary)]">Seed demo data</p>
+                          <p className="text-xs text-[var(--color-text-secondary)]">
+                            Demo data is isolated to this tenant and can be cleared later.
+                          </p>
+                        </div>
+                      </div>
+                      {demoSeedError && (
+                        <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-xs text-[var(--color-error)]">
+                          {demoSeedError}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : wizardStepIndex === 0 ? (
                 <div className="space-y-5">
                   <p className="text-sm text-[var(--color-text-secondary)]">
                     {selectedStep.description}
@@ -734,7 +1197,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 type="button"
                 onClick={() => setWizardStepIndex((prev) => Math.max(prev - 1, 0))}
                 className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-                disabled={wizardStepIndex === 0}
+                disabled={wizardStepIndex === 0 || tenantProfileLoading}
               >
                 Back
               </button>
@@ -742,7 +1205,21 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                 <Button variant="ghost" size="sm" onClick={() => setWizardOpen(false)}>
                   Cancel
                 </Button>
-                {wizardStepIndex === 0 ? (
+                {isTenantProfileWizard ? (
+                  wizardStepIndex === 0 ? (
+                    <Button size="sm" onClick={handleTenantProfileContinue} disabled={tenantProfileSaving}>
+                      {tenantProfileSaving ? 'Saving...' : 'Continue'}
+                    </Button>
+                  ) : wizardStepIndex === 1 ? (
+                    <Button size="sm" onClick={handleFeatureContinue} disabled={featureSaving}>
+                      {featureSaving ? 'Saving...' : 'Continue'}
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={handleFinishTenantWizard} disabled={demoSeedSaving}>
+                      {demoSeedSaving ? 'Finishing...' : 'Finish setup'}
+                    </Button>
+                  )
+                ) : wizardStepIndex === 0 ? (
                   <Button size="sm" onClick={() => setWizardStepIndex(1)}>
                     Continue
                   </Button>
