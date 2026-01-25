@@ -70,7 +70,7 @@ export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
             <span className="text-xs text-[var(--color-text-tertiary)]">Tenant</span>
             <span className="text-xs font-medium text-[var(--color-text-primary)] truncate max-w-[14rem]">{tenantLabel}</span>
             {tenantEnv && tenantEnv !== 'Prod' && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
                 {tenantEnv}
               </span>
             )}
@@ -93,7 +93,7 @@ export function Header({ breadcrumb = ['My Space'] }: HeaderProps) {
           </Button>
           
           {showThemeMenu && (
-            <div className="absolute right-0 top-full mt-1 w-36 py-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg z-50">
+            <div className="absolute right-0 top-full mt-1 w-36 py-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-md shadow-lg z-50">
               {themeOptions.map((option) => {
                 const Icon = option.icon;
                 const isActive = theme === option.value;

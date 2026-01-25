@@ -107,7 +107,7 @@ export function CatalogBillerDetailPage() {
 
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-[var(--color-brand-primary-light)] flex items-center justify-center">
+            <div className="w-16 h-16 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
               <Building2 className="w-8 h-8 text-[var(--color-brand-primary)]" />
             </div>
             <div>
@@ -161,21 +161,21 @@ export function CatalogBillerDetailPage() {
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="p-4 rounded-lg bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
                   <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <Globe2 className="w-4 h-4" />
                     Country
                   </div>
                   <p className="text-lg font-semibold text-[var(--color-text-primary)]">{country?.name ?? biller.countryCode}</p>
                 </div>
-                <div className="p-4 rounded-lg bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
                   <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <Layers className="w-4 h-4" />
                     Category
                   </div>
                   <p className="text-lg font-semibold text-[var(--color-text-primary)]">{category?.name ?? 'Uncategorized'}</p>
                 </div>
-                <div className="p-4 rounded-lg bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
                   <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <Link2 className="w-4 h-4" />
                     Correspondent
@@ -184,7 +184,7 @@ export function CatalogBillerDetailPage() {
                     {biller.correspondentPartnerId ?? 'Not assigned'}
                   </p>
                 </div>
-                <div className="p-4 rounded-lg bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
+                <div className="p-4 rounded-md bg-[var(--color-surface-inset)] border border-[var(--color-border-light)]">
                   <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <Building2 className="w-4 h-4" />
                     Services

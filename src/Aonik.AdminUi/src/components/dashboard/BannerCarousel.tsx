@@ -38,7 +38,7 @@ export function BannerCarousel({ images = placeholderImages }: BannerCarouselPro
   );
 
   return (
-    <div className="relative h-full rounded-xl overflow-hidden bg-gradient-to-br from-[#5A8F7B] to-[#3D6B59]">
+    <div className="relative h-full rounded-md overflow-hidden bg-gradient-to-br from-[#5A8F7B] to-[#3D6B59]">
       <div ref={emblaRef} className="overflow-hidden h-full">
         <div className="flex h-full">
           {images.map((image, index) => (

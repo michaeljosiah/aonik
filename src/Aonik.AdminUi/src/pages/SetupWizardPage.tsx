@@ -212,7 +212,7 @@ export function SetupWizardPage() {
               <StatusRow label="Tenants" value={state.tenantCount === null ? 'Unknown' : `${state.tenantCount}`} />
 
               {bootstrapResult && (
-                <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-sm text-[var(--color-text-secondary)]">
+                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-sm text-[var(--color-text-secondary)]">
                   <p className="font-semibold text-[var(--color-text-primary)] mb-2">Bootstrap complete</p>
                   <p>Tenant: {bootstrapResult.tenantName}</p>
                   <p>Tenant ID: {bootstrapResult.tenantId}</p>
@@ -221,7 +221,7 @@ export function SetupWizardPage() {
               )}
 
               {state.error && (
-                <div className="flex gap-2 rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+                <div className="flex gap-2 rounded-md border border-[var(--color-error)]/20 bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
                   <AlertCircle className="w-4 h-4 mt-0.5" />
                   <span>{state.error}</span>
                 </div>
@@ -286,7 +286,7 @@ function SetupStep({
   const Icon = config.icon;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-[var(--color-border-light)] p-4">
+    <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border-light)] p-4">
       <div className="flex items-start gap-3">
         <div className={`flex h-9 w-9 items-center justify-center rounded-full ${config.bg}`}>
           <Icon className={`h-4 w-4 ${config.text}`} />

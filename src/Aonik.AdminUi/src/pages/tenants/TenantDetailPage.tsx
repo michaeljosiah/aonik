@@ -307,7 +307,7 @@ export function TenantDetailPage() {
         {/* Tenant Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-[var(--color-brand-primary-light)] flex items-center justify-center">
+            <div className="w-16 h-16 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
               <Building2 className="w-8 h-8 text-[var(--color-brand-primary)]" />
             </div>
             <div>
@@ -434,7 +434,7 @@ export function TenantDetailPage() {
                         type="text"
                         value={formData.name || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        className={`w-full px-4 py-2 border rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
+                        className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
                           errors.name ? 'border-red-300' : 'border-[var(--color-border)]'
                         }`}
                       />
@@ -456,7 +456,7 @@ export function TenantDetailPage() {
                     <select
                       value={formData.environment || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value as TenantEnvironment }))}
-                      className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                      className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
                     >
                       {environments.map(env => (
                         <option key={env.value} value={env.value}>{env.label}</option>
@@ -487,7 +487,7 @@ export function TenantDetailPage() {
                     <select
                       value={formData.defaultCurrency || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value }))}
-                      className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                      className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
                     >
                       {currencies.map(currency => (
                         <option key={currency.code} value={currency.code}>
@@ -510,7 +510,7 @@ export function TenantDetailPage() {
                   </label>
                   {isEditing ? (
                     <>
-                      <div className={`border rounded-lg p-3 bg-[var(--color-surface-inset)] ${
+                      <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
                         errors.supportedCountries ? 'border-red-300' : 'border-[var(--color-border)]'
                       }`}>
                         <div className="flex flex-wrap gap-2">
@@ -519,7 +519,7 @@ export function TenantDetailPage() {
                               key={country.code}
                               type="button"
                               onClick={() => toggleCountry(country.code)}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.supportedCountries?.includes(country.code)
                                   ? 'bg-[var(--color-brand-primary)] text-white'
                                   : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
@@ -569,7 +569,7 @@ export function TenantDetailPage() {
               <CardContent>
                 {health ? (
                   <div className="space-y-3">
-                    <div className={`flex items-center gap-2 p-3 rounded-lg ${health.isHealthy ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-error-light)]'}`}>
+                    <div className={`flex items-center gap-2 p-3 rounded-md ${health.isHealthy ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-error-light)]'}`}>
                       {health.isHealthy ? (
                         <CheckCircle className="w-5 h-5 text-[var(--color-success)]" />
                       ) : (

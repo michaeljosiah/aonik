@@ -166,7 +166,7 @@ export function CreateTenantPage() {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g., Acme Corporation"
-                  className={`w-full px-4 py-2 border rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
+                  className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
                     errors.name ? 'border-red-300' : 'border-[var(--color-border)]'
                   }`}
                 />
@@ -183,7 +183,7 @@ export function CreateTenantPage() {
                 <select
                   value={formData.environment}
                   onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value as TenantEnvironment }))}
-                  className={`w-full px-4 py-2 border rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
+                  className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
                     errors.environment ? 'border-red-300' : 'border-[var(--color-border)]'
                   }`}
                 >
@@ -215,7 +215,7 @@ export function CreateTenantPage() {
                 <select
                   value={formData.defaultCurrency}
                   onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value }))}
-                  className={`w-full px-4 py-2 border rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
+                  className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
                     errors.defaultCurrency ? 'border-red-300' : 'border-[var(--color-border)]'
                   }`}
                 >
@@ -235,7 +235,7 @@ export function CreateTenantPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                   Supported Countries *
                 </label>
-                <div className={`border rounded-lg p-3 bg-[var(--color-surface-inset)] ${
+                <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
                   errors.supportedCountries ? 'border-red-300' : 'border-[var(--color-border)]'
                 }`}>
                   <div className="flex flex-wrap gap-2">
@@ -244,7 +244,7 @@ export function CreateTenantPage() {
                         key={country.code}
                         type="button"
                         onClick={() => toggleCountry(country.code)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                           formData.supportedCountries.includes(country.code)
                             ? 'bg-[var(--color-brand-primary)] text-white'
                             : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'

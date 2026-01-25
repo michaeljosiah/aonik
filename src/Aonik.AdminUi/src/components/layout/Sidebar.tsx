@@ -116,7 +116,7 @@ function FlyoutMenu({
 }: {
   item: NavItem;
   onClose: () => void;
-  triggerRef: React.RefObject<HTMLDivElement>;
+  triggerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -139,7 +139,7 @@ function FlyoutMenu({
   return (
     <div
       ref={menuRef}
-      className="flyout-menu fixed w-56 bg-[var(--color-surface)] rounded-lg shadow-lg border border-[var(--color-border)] z-[9999] overflow-hidden"
+      className="flyout-menu fixed w-56 bg-[var(--color-surface)] rounded-md shadow-lg border border-[var(--color-border)] z-[9999] overflow-hidden"
       style={{ top: `${position.top}px`, left: `${position.left}px` }}
       onMouseLeave={onClose}
     >
@@ -163,7 +163,7 @@ function FlyoutMenu({
                     key={child.id}
                     to={child.href || '#'}
                     className={cn(
-                      'flex items-center gap-2.5 px-2 py-1 rounded-sm text-sm transition-colors',
+                      'flex items-center gap-2.5 px-2 py-1 rounded-md text-sm transition-colors',
                       isActive
                         ? 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]'
                         : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-text-primary)]'
@@ -188,7 +188,7 @@ function FlyoutMenu({
         <div className="px-1.5 py-1 border-t border-[var(--color-border-light)]">
           <Link
             to={item.viewAllHref}
-            className="flex items-center justify-center gap-1 px-2 py-1 rounded-sm text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
+            className="flex items-center justify-center gap-1 px-2 py-1 rounded-md text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
             onClick={onClose}
           >
             <span>{item.viewAllLabel || 'View all'}</span>
@@ -256,7 +256,7 @@ function NavItemComponent({
   };
 
   const baseClasses = cn(
-    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer relative',
+    'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer relative',
     'hover:bg-[var(--color-sidebar-hover)]',
     isActive && 'bg-[var(--color-sidebar-active)] text-white hover:bg-[var(--color-sidebar-active)]',
     !isActive && 'text-[var(--color-text-secondary)]',
@@ -435,7 +435,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
           </Avatar>
         )}
 
-        <div className="bg-[var(--color-surface-elevated)] rounded-xl shadow-lg border border-[var(--color-border)]">
+        <div className="bg-[var(--color-surface-elevated)] rounded-md shadow-lg border border-[var(--color-border)]">
         {!isExpanded ? (
           /* Collapsed card view */
           <div className="p-4">
@@ -457,7 +457,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   </Badge>
                 )}
                  <button 
-                   className="p-1.5 rounded-sm hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
+                   className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
                    onClick={() => setIsExpanded(true)}
                  >
                    <Settings2 className="w-5 h-5" />
@@ -490,7 +490,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 </Badge>
               )}
                <button 
-                 className="p-1.5 rounded-sm hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
+                 className="p-1.5 rounded-md hover:bg-[var(--color-background)] text-[var(--color-text-tertiary)]"
                  onClick={() => setIsExpanded(false)}
                >
                  <X className="w-5 h-5" />
@@ -532,7 +532,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 <button
                   onClick={() => setTheme('light')}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-sm text-xs font-medium transition-colors",
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
                     theme === 'light' 
                       ? "bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)]" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -544,7 +544,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 <button
                   onClick={() => setTheme('dark')}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-sm text-xs font-medium transition-colors",
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
                     theme === 'dark' 
                       ? "bg-[var(--color-surface)] shadow-sm text-[var(--color-text-primary)]" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -556,7 +556,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                 <button
                   onClick={() => setTheme('system')}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-sm text-xs font-medium transition-colors",
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-colors",
                     theme === 'system' 
                       ? "bg-[var(--color-brand-primary)] text-white" 
                       : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"

@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, Edit, Eye, User, UserMinus, UserPlus, Users } from 'lucide-react';
+import { AlertCircle, Edit, Eye, User, UserMinus, UserPlus, Users, UsersRound } from 'lucide-react';
 import { userService } from '@/services/userService';
 import type { AccessUserSummary, PagedResult } from '@/types';
 import {
@@ -251,8 +251,8 @@ export function AccessUsersPage() {
   };
 
   const breadcrumbItems = [
-    { label: 'Users & Access', href: '/access' },
-    { label: 'Users' },
+    { label: 'Users & Access', href: '/access', icon: <UsersRound className="w-3.5 h-3.5" /> },
+    { label: 'Users', icon: <User className="w-3.5 h-3.5" /> },
   ];
 
   return (
@@ -268,7 +268,7 @@ export function AccessUsersPage() {
               Manage tenant users, invitations, and access status.
             </p>
           </div>
-          <Button disabled title="Invite flow coming soon">
+          <Button disabled title="Invite flow coming soon" className="rounded-sm">
             <UserPlus className="w-4 h-4 mr-2" />
             Invite User
           </Button>

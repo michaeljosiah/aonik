@@ -40,7 +40,7 @@ function AppIcon({ app }: { app: AppCardType }) {
   if (app.icon === 'insights' || app.icon === 'semanticx') {
     return (
       <div
-        className="w-14 h-14 rounded-xl flex items-center justify-center"
+        className="w-14 h-14 rounded-md flex items-center justify-center"
         style={{ backgroundColor: app.iconBgColor || '#0D7377' }}
       >
         <svg viewBox="0 0 24 24" className="w-8 h-8 text-white" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -52,7 +52,7 @@ function AppIcon({ app }: { app: AppCardType }) {
   }
   
   return (
-    <div className="w-14 h-14 rounded-xl bg-[var(--color-background)] flex items-center justify-center border border-dashed border-[var(--color-border)]">
+    <div className="w-14 h-14 rounded-md bg-[var(--color-background)] flex items-center justify-center border border-dashed border-[var(--color-border)]">
       <Grid2x2Plus className="w-6 h-6 text-[var(--color-text-tertiary)]" />
     </div>
   );

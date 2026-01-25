@@ -50,7 +50,7 @@ export function CatalogLandingPage() {
               <Card className="h-full transition-all duration-200 group-hover:shadow-md group-hover:-translate-y-0.5">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-primary-light)] flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
                       <tile.icon className="w-5 h-5 text-[var(--color-brand-primary)]" />
                     </div>
                     <ArrowUpRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />

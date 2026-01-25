@@ -13,7 +13,7 @@ export function SectionHeader({ icon, title, description, actions }: SectionHead
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-3">
         {icon && (
-          <div className="p-2 rounded-lg bg-[var(--color-brand-primary)]">
+          <div className="p-2 rounded-md bg-[var(--color-brand-primary)]">
             {icon}
           </div>
         )}

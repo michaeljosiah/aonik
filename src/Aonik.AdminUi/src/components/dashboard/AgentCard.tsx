@@ -40,7 +40,7 @@ function AgentAvatar() {
 function PluginIcon({ color }: { color: string }) {
   return (
     <div
-      className="w-8 h-8 rounded-lg flex items-center justify-center"
+      className="w-8 h-8 rounded-md flex items-center justify-center"
       style={{ backgroundColor: color }}
     >
       <svg viewBox="0 0 16 16" className="w-4 h-4 text-white" fill="currentColor">

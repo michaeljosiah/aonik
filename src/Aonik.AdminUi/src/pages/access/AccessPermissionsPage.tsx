@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Key, RefreshCw, Search } from 'lucide-react';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { AlertCircle, ChevronDown, Key, RefreshCw, Search, UsersRound } from 'lucide-react';
 import { permissionService } from '@/services/permissionService';
 import type { PermissionDefinition } from '@/types';
 
@@ -80,96 +81,104 @@ export function AccessPermissionsPage() {
     return Array.from(new Set(normalizedPermissions.map((permission) => permission.displayCategory))).sort();
   }, [normalizedPermissions]);
 
-  return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Permissions</h1>
-            <p className="text-[var(--color-text-secondary)]">
-              Review the global permission catalog available to tenant roles.
-            </p>
-          </div>
-          <Button variant="outline" onClick={loadPermissions}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
+  const breadcrumbItems = [
+    { label: 'Users & Access', href: '/access', icon: <UsersRound className="w-3.5 h-3.5" /> },
+    { label: 'Permissions', icon: <Key className="w-3.5 h-3.5" /> },
+  ];
 
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4 items-end">
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-                  Search
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search permissions..."
-                    className="w-full pl-10 pr-4 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
-                  />
-                </div>
+  return (
+    <div className="h-full overflow-auto p-6">
+      <Breadcrumb items={breadcrumbItems} className="mb-4" />
+
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Permissions</h1>
+          <p className="text-[var(--color-text-secondary)]">
+            Review the global permission catalog available to tenant roles.
+          </p>
+        </div>
+        <Button variant="outline" onClick={loadPermissions} className="rounded-sm">
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      {error && (
+        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
+          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={loadPermissions} className="ml-auto">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="relative w-96 max-w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search for permissions"
+                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
+                />
               </div>
-              <div className="w-52">
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
-                  Category
-                </label>
+
+              <div className="relative inline-flex items-center">
                 <select
                   value={categoryFilter}
                   onChange={(event) => setCategoryFilter(event.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                  className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
+                  aria-label="Filter by category"
                 >
-                  <option value="">All Categories</option>
+                  <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
+                    Filter by category
+                  </option>
                   {categories.map((category) => (
-                    <option key={category} value={category}>
+                    <option
+                      key={category}
+                      value={category}
+                      className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
+                    >
                       {category}
                     </option>
                   ))}
                 </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {error && (
-          <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
-            <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-              <Button variant="outline" size="sm" onClick={loadPermissions} className="ml-auto">
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardContent className="p-0">
+          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-border-light)]">
-                    <th className="text-left px-6 py-4 text-sm font-semibold text-[var(--color-text-secondary)]">Permission</th>
-                    <th className="text-left px-6 py-4 text-sm font-semibold text-[var(--color-text-secondary)]">Description</th>
-                    <th className="text-left px-6 py-4 text-sm font-semibold text-[var(--color-text-secondary)]">Category</th>
+                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Permission</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Description</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">Category</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={3} className="px-6 py-12 text-center">
+                      <td colSpan={3} className="px-4 py-12 text-center">
                         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
                         <p className="text-sm text-[var(--color-text-secondary)]">Loading permissions...</p>
                       </td>
                     </tr>
                   ) : filteredPermissions.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-6 py-12 text-center">
-                        <Key className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
+                      <td colSpan={3} className="px-4 py-12 text-center">
+                        <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                          <Key className="w-12 h-12" />
+                        </div>
                         <p className="text-[var(--color-text-primary)] font-medium mb-1">No permissions found</p>
                         <p className="text-sm text-[var(--color-text-secondary)]">
                           {searchQuery || categoryFilter ? 'Try adjusting your filters.' : 'No permissions available yet.'}
@@ -181,18 +190,21 @@ export function AccessPermissionsPage() {
                       const badgeStyle = categoryBadgeStyles[permission.displayCategory] ?? 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]';
 
                       return (
-                        <tr key={permission.key} className="border-b border-[var(--color-border-light)]">
-                          <td className="px-6 py-4">
+                        <tr
+                          key={permission.key}
+                          className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)] transition-colors"
+                        >
+                          <td className="px-4 py-3">
                             <span className="font-mono text-sm text-[var(--color-text-primary)]">
                               {permission.key}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             <p className="text-sm text-[var(--color-text-secondary)]">
                               {permission.description || 'No description provided.'}
                             </p>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             <Badge className={`${badgeStyle} font-medium`}>
                               {permission.displayCategory}
                             </Badge>
@@ -204,9 +216,10 @@ export function AccessPermissionsPage() {
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

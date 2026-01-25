@@ -119,7 +119,7 @@ export function CatalogBillerServiceDetailPage() {
                 service.fields.map((field) => (
                   <div
                     key={field.key}
-                    className="border border-[var(--color-border-light)] rounded-xl p-4 bg-[var(--color-surface)]"
+                    className="border border-[var(--color-border-light)] rounded-md p-4 bg-[var(--color-surface)]"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{field.label}</h3>

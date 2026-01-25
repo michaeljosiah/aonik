@@ -37,10 +37,10 @@ export function QuickLinks({ links }: QuickLinksProps) {
             <a
               key={link.id}
               href={link.href}
-              className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-[var(--color-background)] transition-colors"
+              className="flex items-center gap-3 p-2 -mx-2 rounded-md hover:bg-[var(--color-background)] transition-colors"
             >
               <div
-                className={`p-2 rounded-lg ${
+                className={`p-2 rounded-md ${
                   isSpecial
                     ? 'bg-[var(--color-brand-secondary-light)]'
                     : 'bg-[var(--color-background)]'
