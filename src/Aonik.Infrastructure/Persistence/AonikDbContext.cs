@@ -5,6 +5,7 @@ using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Billing.Entities;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Compliance.Entities;
+using Aonik.Domain.Features.Entities;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Domain.Notifications.Entities;
 using Aonik.Domain.Operations.Entities;
@@ -112,6 +113,9 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
     public virtual DbSet<ComplianceCase> ComplianceCases { get; set; } = null!;
     public virtual DbSet<AuditLog> AuditLogs { get; set; } = null!;
+
+    // Features
+    public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
 
     // Operations
     public virtual DbSet<WorkItem> WorkItems { get; set; } = null!;

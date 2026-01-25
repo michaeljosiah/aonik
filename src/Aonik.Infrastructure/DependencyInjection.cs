@@ -44,7 +44,9 @@ using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Storage;
 using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Infrastructure.Time;
+using Aonik.Infrastructure.Features;
 using Aonik.SharedKernel.Abstractions;
+using Microsoft.FeatureManagement;
 
 
 namespace Aonik.Infrastructure;
@@ -70,6 +72,11 @@ public static class DependencyInjection
         services.Configure<CustomerProfileStorageOptions>(configuration.GetSection("ProfileStorage"));
         services.AddMemoryCache();
         services.AddDataProtection();
+
+        services.AddFeatureManagement()
+            .AddFeatureFilter<TenantFeatureFilter>();
+
+        services.AddScoped<IFeatureManager, DatabaseFeatureManager>();
 
         services.AddSingleton<IBlobStorage>(sp =>
         {

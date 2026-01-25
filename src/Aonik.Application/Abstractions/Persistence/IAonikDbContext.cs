@@ -3,6 +3,7 @@ using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Billing.Entities;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Compliance.Entities;
+using Aonik.Domain.Features.Entities;
 using Aonik.Domain.Identity.Entities;
 using Aonik.Domain.Notifications.Entities;
 using Aonik.Domain.Operations.Entities;
@@ -104,6 +105,9 @@ public interface IAonikDbContext
     DbSet<ScreeningCheck> ScreeningChecks { get; set; }
     DbSet<ComplianceCase> ComplianceCases { get; set; }
     DbSet<AuditLog> AuditLogs { get; set; }
+
+    // Features
+    DbSet<TenantFeature> TenantFeatures { get; set; }
 
     // Operations
     DbSet<WorkItem> WorkItems { get; set; }
