@@ -12,7 +12,6 @@ using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Pricing;
 using Aonik.Application.Services.Settings;
-using Aonik.Application.Services.Orders;
 using Aonik.Application.Services.Parties;
 using Microsoft.Extensions.DependencyInjection;
 

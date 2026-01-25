@@ -121,8 +121,6 @@ public class NullBackgroundJobManager : IBackgroundJobManager
         var jobType = typeof(IBackgroundJob<>).MakeGenericType(argsType);
         var asyncJobType = typeof(IAsyncBackgroundJob<>).MakeGenericType(argsType);
 
-        object? jobInstance = null;
-
         // Try to resolve from DI if possible
         var serviceProvider = _jobExecuter.GetType().Assembly.GetType("Aonik.Application.Abstractions.BackgroundJobs.JobExecutionContext")
             ?.GetProperty("ServiceProvider")?.GetValue(null);
