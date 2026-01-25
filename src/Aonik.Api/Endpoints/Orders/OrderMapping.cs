@@ -90,6 +90,7 @@ internal static class OrderMapping
             response.BillerId,
             response.BillerName,
             response.ServiceId,
+            response.ServiceCode,
             response.ServiceName,
             response.ServiceFieldValues,
             response.ReceiverPartyId,

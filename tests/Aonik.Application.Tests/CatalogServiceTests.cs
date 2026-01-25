@@ -208,6 +208,7 @@ public class CatalogServiceTests
             Id = serviceId,
             TenantId = tenantId,
             BillerId = billerId,
+            ServiceCode = "ELECTRICITY_PREPAID",
             Name = "Prepaid",
             Type = "prepaid",
             Currency = "GHS",

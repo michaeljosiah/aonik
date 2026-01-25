@@ -47,6 +47,7 @@ public record CatalogBillerDetailResponse(
 
 public record CatalogBillerServiceItem(
     Guid ServiceId,
+    string ServiceCode,
     string Name,
     string Type,
     string Currency,
@@ -61,6 +62,7 @@ public record CatalogBillerServiceResponse(
 
 public record CatalogBillerServiceDetailResponse(
     Guid ServiceId,
+    string ServiceCode,
     string Name,
     string Type,
     string Currency,

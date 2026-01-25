@@ -212,6 +212,7 @@ export interface CatalogBillerDetailResponse {
 
 export interface CatalogBillerServiceItem {
   serviceId: string;
+  serviceCode: string;
   name: string;
   type: string;
   currency: string;
@@ -250,6 +251,7 @@ export interface CatalogServiceValidation {
 
 export interface CatalogBillerServiceDetailResponse {
   serviceId: string;
+  serviceCode: string;
   name: string;
   type: string;
   currency: string;
@@ -333,6 +335,7 @@ export interface OrderItemResponse {
   billerId: string;
   billerName: string;
   serviceId: string;
+  serviceCode: string;
   serviceName: string;
   serviceFieldValues: Record<string, string>;
   receiverPartyId: string;

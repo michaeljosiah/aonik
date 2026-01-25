@@ -420,6 +420,22 @@ public class OrderService : IOrderService
             throw new InvalidOperationException($"Service {request.ServiceId} not found.");
         }
 
+        var requestedServiceCode = request.ServiceCode?.Trim() ?? string.Empty;
+        var resolvedServiceCode = string.IsNullOrWhiteSpace(service.ServiceCode)
+            ? requestedServiceCode
+            : service.ServiceCode.Trim();
+
+        if (string.IsNullOrWhiteSpace(resolvedServiceCode))
+        {
+            throw new InvalidOperationException("Service code is required for the catalog service.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(service.ServiceCode)
+            && !string.Equals(resolvedServiceCode, requestedServiceCode, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Service code does not match the catalog service.");
+        }
+
         var pricingQuote = await LoadPricingQuoteAsync(request.PricingQuoteId, cancellationToken);
         var receiver = await ResolveReceiverAsync(order, request, cancellationToken);
 
@@ -427,7 +443,7 @@ public class OrderService : IOrderService
             request.BillerId,
             biller.Name,
             request.ServiceId,
-            request.ServiceCode,
+            resolvedServiceCode,
             service.Name,
             request.ServiceFieldValues,
             order.PayerPartyId ?? Guid.Empty,
@@ -662,6 +678,7 @@ public class OrderService : IOrderService
             details.BillerId,
             details.BillerName,
             details.ServiceId,
+            details.ServiceCode,
             details.ServiceName,
             details.ServiceFieldValues,
             details.ReceiverPartyId,

@@ -41,6 +41,7 @@ public class GetCatalogBillerServiceDetailEndpoint : EndpointWithoutRequest<Cata
 
         var response = new CatalogBillerServiceDetailResponse(
             result.ServiceId,
+            result.ServiceCode,
             result.Name,
             result.Type,
             result.Currency,

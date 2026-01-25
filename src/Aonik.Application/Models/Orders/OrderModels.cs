@@ -69,6 +69,7 @@ public record OrderItemResponse(
     Guid BillerId,
     string BillerName,
     Guid ServiceId,
+    string ServiceCode,
     string ServiceName,
     Dictionary<string, string> ServiceFieldValues,
     Guid ReceiverPartyId,

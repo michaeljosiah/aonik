@@ -180,6 +180,7 @@ public class CatalogService : ICatalogService
             .ThenBy(service => service.Name)
             .Select(service => new CatalogBillerServiceItem(
                 service.Id,
+                service.ServiceCode,
                 service.Name,
                 service.Type,
                 service.Currency,
@@ -213,6 +214,7 @@ public class CatalogService : ICatalogService
 
         return new CatalogBillerServiceDetailResponse(
             service.Id,
+            service.ServiceCode,
             service.Name,
             service.Type,
             service.Currency,

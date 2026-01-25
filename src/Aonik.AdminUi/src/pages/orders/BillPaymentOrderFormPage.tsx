@@ -436,7 +436,7 @@ export function BillPaymentOrderFormPage() {
         const response = await catalogService.getTenantBillerServiceDetail(selectedBillerId, selectedServiceId);
         setServiceDetail(response);
         setDestinationCurrency(response.currency);
-        setServiceCode(response.name);
+        setServiceCode(response.serviceCode);
         setServiceFieldValues({});
         setValidationResult(null);
       } catch (err) {
@@ -564,7 +564,7 @@ export function BillPaymentOrderFormPage() {
     return {
       billerId: selectedBillerId,
       serviceId: selectedServiceId,
-      serviceCode: serviceCode || selectedService?.name || '',
+      serviceCode: serviceCode || selectedService?.serviceCode || '',
       serviceFieldValues,
       receiverPartyId: receiverMode === 'same'
         ? payerPartyId
@@ -696,7 +696,7 @@ export function BillPaymentOrderFormPage() {
     setSelectedServiceId(item.serviceId);
     setDestinationCurrency(item.currencyOut);
     setDestinationCountry(biller?.countryCode ?? destinationCountry);
-    setServiceCode(item.serviceName);
+    setServiceCode(item.serviceCode);
     setServiceFieldValues(item.serviceFieldValues ?? {});
     setReceiverMode(item.receiverPartyId === payerPartyId ? 'same' : 'existing');
     setReceiverPartyId(item.receiverPartyId);
@@ -718,7 +718,7 @@ export function BillPaymentOrderFormPage() {
         destinationCurrency: item.currencyOut,
         originCountry: order.originCountry,
         destinationCountry: biller?.countryCode ?? destinationCountry,
-        serviceCode: item.serviceName,
+        serviceCode: item.serviceCode,
         destinationAmount: item.amountOut,
         originAmount: item.amountIn,
         customerId: order.payerPartyId,
@@ -892,7 +892,7 @@ export function BillPaymentOrderFormPage() {
                   <input
                     type="text"
                     value={serviceCode}
-                    onChange={(event) => setServiceCode(event.target.value)}
+                    readOnly
                     className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
                   />
                 </label>

@@ -15,6 +15,10 @@ public class CatalogBillerServiceConfiguration : IEntityTypeConfiguration<Catalo
         builder.Property(x => x.BillerId)
             .IsRequired();
 
+        builder.Property(x => x.ServiceCode)
+            .IsRequired()
+            .HasMaxLength(100);
+
         builder.Property(x => x.Name)
             .IsRequired()
             .HasMaxLength(200);
@@ -47,5 +51,6 @@ public class CatalogBillerServiceConfiguration : IEntityTypeConfiguration<Catalo
 
         builder.HasIndex(x => new { x.TenantId, x.BillerId, x.SortOrder });
         builder.HasIndex(x => new { x.TenantId, x.BillerId, x.Name });
+        builder.HasIndex(x => new { x.TenantId, x.ServiceCode });
     }
 }

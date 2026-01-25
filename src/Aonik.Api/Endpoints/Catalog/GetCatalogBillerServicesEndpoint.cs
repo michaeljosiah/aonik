@@ -35,6 +35,7 @@ public class GetCatalogBillerServicesEndpoint : EndpointWithoutRequest<CatalogBi
         var response = new CatalogBillerServiceResponse(
             result.Services.Select(service => new CatalogBillerServiceItemResponse(
                 service.ServiceId,
+                service.ServiceCode,
                 service.Name,
                 service.Type,
                 service.Currency,
