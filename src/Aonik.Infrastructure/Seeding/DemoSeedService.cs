@@ -90,10 +90,10 @@ public class DemoSeedService : IDemoSeedService
         operations.Add("CatalogSeed");
 
         await EnsureTenantAdminRoleAsync(tenantId, operations, cancellationToken);
-        await SeedCatalogAsync(tenantId, operations, cancellationToken);
-        await SeedPartiesAsync(tenantId, operations, cancellationToken);
-        await SeedPricingAsync(tenantId, operations, cancellationToken);
-        await UpsertMarkerAsync(tenantId, operations, cancellationToken);
+        var catalogIds = await SeedCatalogAsync(tenantId, operations, cancellationToken);
+        var partyIds = await SeedPartiesAsync(tenantId, operations, cancellationToken);
+        var pricingIds = await SeedPricingAsync(tenantId, operations, cancellationToken);
+        await UpsertMarkerAsync(tenantId, catalogIds, partyIds, pricingIds, operations, cancellationToken);
 
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
@@ -155,13 +155,19 @@ public class DemoSeedService : IDemoSeedService
         }
     }
 
-    private async Task SeedCatalogAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    private async Task<(Guid UtilitiesCategoryId, Guid EcgBillerId, Guid WaterBillerId, Guid EcgServiceId, Guid WaterServiceId)> SeedCatalogAsync(
+        Guid tenantId,
+        List<string> operations,
+        CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
 
         var category = await _dbContext.CatalogBillerCategories
-            .FirstOrDefaultAsync(item => item.Id == UtilitiesCategoryId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                         && item.CountryCode == "GH"
+                                         && item.Name == "Utilities",
+                cancellationToken);
 
         if (category == null)
         {
@@ -180,13 +186,22 @@ public class DemoSeedService : IDemoSeedService
             _dbContext.CatalogBillerCategories.Add(category);
             operations.Add("Catalog category seeded");
         }
+        else
+        {
+            category.Description = "Electricity and water billers";
+            category.SortOrder = 1;
+            category.IsActive = true;
+            category.UpdatedAt = now;
+            category.UpdatedBy = userId;
+        }
 
-        await UpsertBillerAsync(tenantId, category.Id, EcgBillerId, "ECG Power", "Ghana's electricity provider.", now, userId, operations, cancellationToken);
-        await UpsertBillerAsync(tenantId, category.Id, GhanaWaterBillerId, "Ghana Water", "National water utility.", now, userId, operations, cancellationToken);
+        var categoryId = category.Id;
+        var ecgBillerId = await UpsertBillerAsync(tenantId, categoryId, EcgBillerId, "ECG Power", "Ghana's electricity provider.", now, userId, operations, cancellationToken);
+        var waterBillerId = await UpsertBillerAsync(tenantId, categoryId, GhanaWaterBillerId, "Ghana Water", "National water utility.", now, userId, operations, cancellationToken);
 
-        await UpsertServiceAsync(
+        var ecgServiceId = await UpsertServiceAsync(
             tenantId,
-            EcgBillerId,
+            ecgBillerId,
             EcgPrepaidServiceId,
             "BILLPAY.ELECTRICITY.PREPAID",
             "ECG Prepaid Electricity",
@@ -207,9 +222,9 @@ public class DemoSeedService : IDemoSeedService
             operations,
             cancellationToken);
 
-        await UpsertServiceAsync(
+        var waterServiceId = await UpsertServiceAsync(
             tenantId,
-            GhanaWaterBillerId,
+            waterBillerId,
             GhanaWaterServiceId,
             "BILLPAY.WATER.POSTPAID",
             "Ghana Water Postpaid",
@@ -228,9 +243,10 @@ public class DemoSeedService : IDemoSeedService
             cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        return (categoryId, ecgBillerId, waterBillerId, ecgServiceId, waterServiceId);
     }
 
-    private async Task UpsertBillerAsync(
+    private async Task<Guid> UpsertBillerAsync(
         Guid tenantId,
         Guid categoryId,
         Guid billerId,
@@ -242,7 +258,10 @@ public class DemoSeedService : IDemoSeedService
         CancellationToken cancellationToken)
     {
         var biller = await _dbContext.CatalogBillers
-            .FirstOrDefaultAsync(item => item.Id == billerId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                         && item.CountryCode == "GH"
+                                         && item.Name == name,
+                cancellationToken);
 
         if (biller == null)
         {
@@ -275,9 +294,11 @@ public class DemoSeedService : IDemoSeedService
             biller.UpdatedAt = now;
             biller.UpdatedBy = userId;
         }
+
+        return biller.Id;
     }
 
-    private async Task UpsertServiceAsync(
+    private async Task<Guid> UpsertServiceAsync(
         Guid tenantId,
         Guid billerId,
         Guid serviceId,
@@ -295,7 +316,9 @@ public class DemoSeedService : IDemoSeedService
         CancellationToken cancellationToken)
     {
         var service = await _dbContext.CatalogBillerServices
-            .FirstOrDefaultAsync(item => item.Id == serviceId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                         && item.ServiceCode == serviceCode,
+                cancellationToken);
 
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
@@ -342,6 +365,8 @@ public class DemoSeedService : IDemoSeedService
             service.UpdatedAt = now;
             service.UpdatedBy = userId;
         }
+
+        return service.Id;
     }
 
     private static string BuildServiceFieldsJson(IEnumerable<CatalogServiceField> fields)
@@ -349,14 +374,22 @@ public class DemoSeedService : IDemoSeedService
         return JsonSerializer.Serialize(fields);
     }
 
-    private async Task SeedPartiesAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    private async Task<(Guid PayerPartyId, Guid ReceiverPartyId, Guid RelationshipId)> SeedPartiesAsync(
+        Guid tenantId,
+        List<string> operations,
+        CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
 
+        var payerEmail = "kwame.mensah@demo.aonik";
+        var receiverEmail = "ama.boateng@demo.aonik";
+
         var payerParty = await _dbContext.Parties
             .Include(party => party.Contacts)
-            .FirstOrDefaultAsync(party => party.Id == DemoPayerPartyId, cancellationToken);
+            .FirstOrDefaultAsync(party => party.TenantId == tenantId
+                                          && party.Contacts.Any(contact => contact.Type == "Email" && contact.Value == payerEmail),
+                cancellationToken);
 
         if (payerParty == null)
         {
@@ -375,12 +408,14 @@ public class DemoSeedService : IDemoSeedService
             operations.Add("Seeded payer party");
         }
 
-        await UpsertPartyContactsAsync(payerParty, now);
-        await UpsertPersonProfileAsync(DemoPayerPartyId, "Kwame", "Mensah", "NG", now, userId, cancellationToken);
+        await UpsertPartyContactsAsync(payerParty, now, payerEmail, "+234800000000");
+        await UpsertPersonProfileAsync(payerParty.Id, "Kwame", "Mensah", "NG", now, userId, cancellationToken);
 
         var receiverParty = await _dbContext.Parties
             .Include(party => party.Contacts)
-            .FirstOrDefaultAsync(party => party.Id == DemoReceiverPartyId, cancellationToken);
+            .FirstOrDefaultAsync(party => party.TenantId == tenantId
+                                          && party.Contacts.Any(contact => contact.Type == "Email" && contact.Value == receiverEmail),
+                cancellationToken);
 
         if (receiverParty == null)
         {
@@ -398,11 +433,15 @@ public class DemoSeedService : IDemoSeedService
             operations.Add("Seeded receiver party");
         }
 
-        await UpsertPartyContactsAsync(receiverParty, now, "ama.boateng@demo.aonik", "+233200000000");
-        await UpsertPersonProfileAsync(DemoReceiverPartyId, "Ama", "Boateng", "GH", now, userId, cancellationToken);
+        await UpsertPartyContactsAsync(receiverParty, now, receiverEmail, "+233200000000");
+        await UpsertPersonProfileAsync(receiverParty.Id, "Ama", "Boateng", "GH", now, userId, cancellationToken);
 
         var relationship = await _dbContext.PartyRelationships
-            .FirstOrDefaultAsync(item => item.Id == DemoRelationshipId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                         && item.FromPartyId == payerParty.Id
+                                         && item.ToPartyId == receiverParty.Id
+                                         && item.RelationshipTypeCode == "Friend",
+                cancellationToken);
 
         if (relationship == null)
         {
@@ -410,8 +449,8 @@ public class DemoSeedService : IDemoSeedService
             {
                 Id = DemoRelationshipId,
                 TenantId = tenantId,
-                FromPartyId = DemoPayerPartyId,
-                ToPartyId = DemoReceiverPartyId,
+                FromPartyId = payerParty.Id,
+                ToPartyId = receiverParty.Id,
                 RelationshipTypeCode = "Friend",
                 IsActive = true,
                 Notes = "Demo relationship",
@@ -421,7 +460,10 @@ public class DemoSeedService : IDemoSeedService
             operations.Add("Seeded party relationship");
         }
 
+        var relationshipId = relationship?.Id ?? DemoRelationshipId;
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+        return (payerParty.Id, receiverParty.Id, relationshipId);
     }
 
     private async Task UpsertPartyContactsAsync(Party party, DateTime now, string email = "kwame.mensah@demo.aonik", string phone = "+234800000000")
@@ -482,13 +524,20 @@ public class DemoSeedService : IDemoSeedService
         }
     }
 
-    private async Task SeedPricingAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    private async Task<(Guid FxQuoteId, Guid FeePolicyId, Guid LimitsPolicyId)> SeedPricingAsync(
+        Guid tenantId,
+        List<string> operations,
+        CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
 
         var fxQuote = await _dbContext.FxQuotes
-            .FirstOrDefaultAsync(item => item.Id == DemoFxQuoteId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                         && item.BaseCurrency == "NGN"
+                                         && item.TargetCurrency == "GHS"
+                                         && item.Provider == "DemoRate",
+                cancellationToken);
         var fxExpiresAt = now.AddHours(24);
 
         if (fxQuote == null)
@@ -537,7 +586,9 @@ public class DemoSeedService : IDemoSeedService
             });
 
         var feePolicy = await _dbContext.FeePolicies
-            .FirstOrDefaultAsync(item => item.Id == DemoFeePolicyId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                         && item.Name == "BillPay-NG-GH-Default",
+                cancellationToken);
 
         if (feePolicy == null)
         {
@@ -568,7 +619,12 @@ public class DemoSeedService : IDemoSeedService
         }
 
         var limitsPolicy = await _dbContext.LimitsPolicies
-            .FirstOrDefaultAsync(item => item.Id == DemoLimitsPolicyId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                         && item.ScopeType == "Tenant"
+                                         && item.ScopeId == tenantId
+                                         && item.Currency == "NGN"
+                                         && item.Period == "Daily",
+                cancellationToken);
 
         if (limitsPolicy == null)
         {
@@ -601,26 +657,33 @@ public class DemoSeedService : IDemoSeedService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+        return (fxQuote.Id, feePolicy.Id, limitsPolicy.Id);
     }
 
-    private async Task UpsertMarkerAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
+    private async Task UpsertMarkerAsync(
+        Guid tenantId,
+        (Guid UtilitiesCategoryId, Guid EcgBillerId, Guid WaterBillerId, Guid EcgServiceId, Guid WaterServiceId) catalogIds,
+        (Guid PayerPartyId, Guid ReceiverPartyId, Guid RelationshipId) partyIds,
+        (Guid FxQuoteId, Guid FeePolicyId, Guid LimitsPolicyId) pricingIds,
+        List<string> operations,
+        CancellationToken cancellationToken)
     {
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
         var payload = new
         {
             TenantId = tenantId,
-            UtilitiesCategoryId,
-            EcgBillerId,
-            GhanaWaterBillerId,
-            EcgPrepaidServiceId,
-            GhanaWaterServiceId,
-            DemoPayerPartyId,
-            DemoReceiverPartyId,
-            DemoRelationshipId,
-            DemoFxQuoteId,
-            DemoFeePolicyId,
-            DemoLimitsPolicyId
+            catalogIds.UtilitiesCategoryId,
+            catalogIds.EcgBillerId,
+            catalogIds.WaterBillerId,
+            catalogIds.EcgServiceId,
+            catalogIds.WaterServiceId,
+            partyIds.PayerPartyId,
+            partyIds.ReceiverPartyId,
+            partyIds.RelationshipId,
+            pricingIds.FxQuoteId,
+            pricingIds.FeePolicyId,
+            pricingIds.LimitsPolicyId
         };
         var value = JsonSerializer.Serialize(payload);
 

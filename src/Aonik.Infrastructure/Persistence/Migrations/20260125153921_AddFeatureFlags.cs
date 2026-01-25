@@ -11,24 +11,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<Guid>(
-                name: "InvoiceId",
-                table: "PaymentIntents",
-                type: "uniqueidentifier",
-                nullable: true);
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "OrderId",
-                table: "PaymentIntents",
-                type: "uniqueidentifier",
-                nullable: false,
-                defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
-
-            migrationBuilder.AddColumn<Guid>(
-                name: "OrderId",
-                table: "Invoices",
-                type: "uniqueidentifier",
-                nullable: true);
 
             migrationBuilder.CreateTable(
                 name: "TenantFeatures",
@@ -54,20 +36,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     table.PrimaryKey("PK_TenantFeatures", x => x.Id);
                 });
 
-            migrationBuilder.CreateIndex(
-                name: "IX_PaymentIntents_InvoiceId",
-                table: "PaymentIntents",
-                column: "InvoiceId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PaymentIntents_OrderId",
-                table: "PaymentIntents",
-                column: "OrderId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Invoices_OrderId",
-                table: "Invoices",
-                column: "OrderId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TenantFeatures_FeatureName",
@@ -89,29 +57,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
             migrationBuilder.DropTable(
                 name: "TenantFeatures");
 
-            migrationBuilder.DropIndex(
-                name: "IX_PaymentIntents_InvoiceId",
-                table: "PaymentIntents");
-
-            migrationBuilder.DropIndex(
-                name: "IX_PaymentIntents_OrderId",
-                table: "PaymentIntents");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Invoices_OrderId",
-                table: "Invoices");
-
-            migrationBuilder.DropColumn(
-                name: "InvoiceId",
-                table: "PaymentIntents");
-
-            migrationBuilder.DropColumn(
-                name: "OrderId",
-                table: "PaymentIntents");
-
-            migrationBuilder.DropColumn(
-                name: "OrderId",
-                table: "Invoices");
         }
     }
 }

@@ -64,6 +64,8 @@ public class BootstrapService : IBootstrapService
         _tenantContext.TenantId = tenant.Id;
         _tenantContext.ResolutionSource = "Bootstrap";
 
+        await _tenantProvisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
+
         var userResult = await ResolveOrCreateUserAsync(tenant, userContext, cancellationToken);
         var platformAdminAssigned = await EnsurePlatformAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
 

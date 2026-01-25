@@ -214,19 +214,10 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                 column: "IdempotencyKey");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Orders_OrderType",
-                table: "Orders",
-                column: "OrderType");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Orders_PayerPartyId",
                 table: "Orders",
                 column: "PayerPartyId");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Orders_Status",
-                table: "Orders",
-                column: "Status");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OrderItems_OrderId",
@@ -305,17 +296,11 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                 name: "IX_Orders_IdempotencyKey",
                 table: "Orders");
 
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_OrderType",
-                table: "Orders");
 
             migrationBuilder.DropIndex(
                 name: "IX_Orders_PayerPartyId",
                 table: "Orders");
 
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_Status",
-                table: "Orders");
 
             migrationBuilder.DropColumn(
                 name: "DestinationCountry",
