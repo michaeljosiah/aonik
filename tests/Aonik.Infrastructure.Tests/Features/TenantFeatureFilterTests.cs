@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FeatureManagement;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Infrastructure.Features;
@@ -46,7 +47,8 @@ public class TenantFeatureFilterTests
     public async Task EvaluateAsync_ShouldReturnFalse_WhenTenantNotResolved()
     {
         // Arrange
-        var filter = new TenantFeatureFilter(new TestTenantProvider(null));
+        using var serviceProvider = BuildServiceProvider(tenantId: null);
+        var filter = new TenantFeatureFilter(serviceProvider.GetRequiredService<IServiceScopeFactory>());
         var context = new FeatureFilterEvaluationContext
         {
             Parameters = BuildParameters(new Dictionary<string, string?>
@@ -67,7 +69,8 @@ public class TenantFeatureFilterTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var filter = new TenantFeatureFilter(new TestTenantProvider(tenantId));
+        using var serviceProvider = BuildServiceProvider(tenantId);
+        var filter = new TenantFeatureFilter(serviceProvider.GetRequiredService<IServiceScopeFactory>());
         var context = new FeatureFilterEvaluationContext
         {
             Parameters = BuildParameters(new Dictionary<string, string?>
@@ -88,7 +91,8 @@ public class TenantFeatureFilterTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var filter = new TenantFeatureFilter(new TestTenantProvider(tenantId));
+        using var serviceProvider = BuildServiceProvider(tenantId);
+        var filter = new TenantFeatureFilter(serviceProvider.GetRequiredService<IServiceScopeFactory>());
         var context = new FeatureFilterEvaluationContext
         {
             Parameters = BuildParameters(new Dictionary<string, string?>
@@ -109,7 +113,8 @@ public class TenantFeatureFilterTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var filter = new TenantFeatureFilter(new TestTenantProvider(tenantId));
+        using var serviceProvider = BuildServiceProvider(tenantId);
+        var filter = new TenantFeatureFilter(serviceProvider.GetRequiredService<IServiceScopeFactory>());
         var context = new FeatureFilterEvaluationContext
         {
             Parameters = BuildParameters(new Dictionary<string, string?>
@@ -130,5 +135,12 @@ public class TenantFeatureFilterTests
         return new ConfigurationBuilder()
             .AddInMemoryCollection(values)
             .Build();
+    }
+
+    private static ServiceProvider BuildServiceProvider(Guid? tenantId)
+    {
+        return new ServiceCollection()
+            .AddScoped<ITenantProvider>(_ => new TestTenantProvider(tenantId))
+            .BuildServiceProvider();
     }
 }
