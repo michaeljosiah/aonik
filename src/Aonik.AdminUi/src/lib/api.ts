@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { apiConfig } from '@/auth';
-import { getSelectedTenant } from '@/lib/tenantContext';
+import { clearSelectedTenant, getSelectedTenant } from '@/lib/tenantContext';
 
 // Create axios instance with base configuration
 const apiClient: AxiosInstance = axios.create({
@@ -100,23 +100,52 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
-    // Handle 401 Unauthorized - token might be expired
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      originalRequest._retry = true;
+    const redirectToLogin = (reason?: 'session-expired' | 'tenant-missing') => {
+      try {
+        const currentUrl = window.location.pathname + window.location.search + window.location.hash;
+        const params = new URLSearchParams();
+        if (reason) params.set('reason', reason);
+        params.set('returnTo', currentUrl);
+        window.location.href = `/login?${params.toString()}`;
+      } catch {
+        window.location.href = '/login';
+      }
+    };
 
-      if (getAccessTokenFn) {
-        try {
-          const token = await getAccessTokenFn();
-          if (token) {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return apiClient(originalRequest);
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401) {
+      const message = resolveErrorMessage(error);
+      const isTenantMissing = message.toLowerCase().includes('tenant context is missing')
+        || message.toLowerCase().includes('tenant context missing');
+
+      // If tenant context is missing, we can't fix this with a token retry.
+      // Clear the stored tenant selection so the login flow can re-prompt.
+      if (isTenantMissing) {
+        clearSelectedTenant();
+        redirectToLogin('tenant-missing');
+        return Promise.reject({ ...error, userMessage: message });
+      }
+
+      // Token might be missing/expired. Retry once with a fresh token.
+      if (originalRequest && !originalRequest._retry) {
+        originalRequest._retry = true;
+
+        if (getAccessTokenFn) {
+          try {
+            const token = await getAccessTokenFn();
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return apiClient(originalRequest);
+            }
+          } catch (refreshError) {
+            console.error('Error getting access token:', refreshError);
           }
-        } catch (refreshError) {
-          console.error('Error refreshing token:', refreshError);
-          // Redirect to login if token refresh fails
-          window.location.href = '/login';
         }
       }
+
+      // If we still don't have a valid token/session, force re-auth.
+      redirectToLogin('session-expired');
+      return Promise.reject({ ...error, userMessage: message });
     }
 
     // Handle other errors

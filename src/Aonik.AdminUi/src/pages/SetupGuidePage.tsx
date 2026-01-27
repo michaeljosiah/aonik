@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, ExternalLink, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -67,68 +67,70 @@ export function SetupGuidePage() {
     return `${assetBasePath}${value}`;
   }, [assetBasePath]);
 
-  const markdownComponents = useMemo(() => ({
-    h1: ({ children }) => (
+  const markdownComponents: Components = useMemo(() => ({
+    h1: (props) => (
       <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] mt-8 first:mt-0">
-        {children}
+        {props.children}
       </h1>
     ),
-    h2: ({ children }) => (
+    h2: (props) => (
       <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mt-6">
-        {children}
+        {props.children}
       </h2>
     ),
-    h3: ({ children }) => (
+    h3: (props) => (
       <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mt-5">
-        {children}
+        {props.children}
       </h3>
     ),
-    p: ({ children }) => (
+    p: (props) => (
       <p className="text-sm leading-relaxed text-[var(--color-text-secondary)] mt-3">
-        {children}
+        {props.children}
       </p>
     ),
-    ul: ({ children }) => (
+    ul: (props) => (
       <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)] list-disc pl-5">
-        {children}
+        {props.children}
       </ul>
     ),
-    ol: ({ children }) => (
+    ol: (props) => (
       <ol className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)] list-decimal pl-5">
-        {children}
+        {props.children}
       </ol>
     ),
-    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-    a: ({ href, children }) => (
+    li: (props) => <li className="leading-relaxed">{props.children}</li>,
+    a: (props) => (
       <a
-        href={resolveAssetUrl(href)}
+        {...props}
+        href={resolveAssetUrl(props.href)}
         className="text-[var(--color-brand-primary)] underline underline-offset-4"
-        target={href?.startsWith('http') ? '_blank' : undefined}
-        rel={href?.startsWith('http') ? 'noreferrer' : undefined}
+        target={props.href?.startsWith('http') ? '_blank' : undefined}
+        rel={props.href?.startsWith('http') ? 'noreferrer' : undefined}
       >
-        {children}
+        {props.children}
       </a>
     ),
-    img: ({ src, alt }) => (
+    img: (props) => (
       <img
-        src={resolveAssetUrl(src)}
-        alt={alt ?? ''}
+        {...props}
+        src={resolveAssetUrl(props.src)}
+        alt={props.alt ?? ''}
         className="mt-4 rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface)]"
       />
     ),
-    blockquote: ({ children }) => (
+    blockquote: (props) => (
       <blockquote className="mt-4 border-l-4 border-[var(--color-border)] pl-4 text-sm text-[var(--color-text-secondary)]">
-        {children}
+        {props.children}
       </blockquote>
     ),
-    code: ({ children }) => (
+    code: (props) => (
       <code className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 text-xs text-[var(--color-text-primary)]">
-        {children}
+        {props.children}
       </code>
     ),
-    pre: ({ children }) => (
+    pre: (props) => (
       <pre className="mt-4 overflow-x-auto rounded-xl border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-xs text-[var(--color-text-primary)]">
-        {children}
+        {props.children}
       </pre>
     ),
   }), [resolveAssetUrl]);

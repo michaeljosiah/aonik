@@ -13,6 +13,7 @@ export function LoginPage() {
   const location = useLocation();
   const { isAuthenticated, isLoading, login, authError } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   // Tenant selection state
@@ -79,7 +80,28 @@ export function LoginPage() {
   }, [authError]);
 
   const provider = getAuthProvider();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  const query = new URLSearchParams(location.search);
+  const returnTo = query.get('returnTo');
+  const reason = query.get('reason');
+
+  const from =
+    (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('/login') ? returnTo : null) ??
+    (location.state as { from?: { pathname: string } })?.from?.pathname ??
+    '/';
+
+  useEffect(() => {
+    if (!reason) return;
+
+    if (reason === 'session-expired') {
+      setNotice('Your session expired. Please sign in again.');
+      return;
+    }
+
+    if (reason === 'tenant-missing') {
+      setNotice('Select an organization to continue.');
+      return;
+    }
+  }, [reason]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -215,6 +237,14 @@ export function LoginPage() {
                 <div className="flex items-center gap-2 p-3 mb-6 bg-[var(--color-error-light)] rounded-md border border-[var(--color-error)]/20">
                   <AlertCircle className="w-5 h-5 text-[var(--color-error)] flex-shrink-0" />
                   <p className="text-sm text-[var(--color-error)]">{error}</p>
+                </div>
+              )}
+
+              {/* Notice message */}
+              {notice && !error && (
+                <div className="flex items-center gap-2 p-3 mb-6 bg-[var(--color-brand-primary-light)] rounded-md border border-[var(--color-brand-primary)]/20">
+                  <AlertCircle className="w-5 h-5 text-[var(--color-brand-primary)] flex-shrink-0" />
+                  <p className="text-sm text-[var(--color-brand-primary)]">{notice}</p>
                 </div>
               )}
 
