@@ -8,8 +8,16 @@ This document is derived from the EF Core model snapshot, with simple explanatio
 ## Notes
 
 - Multi-tenancy: most tables are tenant-scoped via `TenantId` and filtered at query time.
+- Global rows: some tables intentionally use `TenantId = NULL` for shared configuration (e.g., reference data like currencies/countries).
 - Auditing/soft delete: many tables include `CreatedAt/By`, `UpdatedAt/By`, and soft-delete fields.
 - Orders describe why; payments/payouts describe how; the ledger proves what happened.
+
+## Common Flows
+
+- Order funding: `Orders` → `PaymentIntents` → `Payments` → `JournalEntries`/`JournalEntryLines`.
+- Order fulfilment: `Orders` → `Payouts` → `Transmissions` (partner calls/retries) → `JournalEntries`/`JournalEntryLines`.
+- Billing: `Invoices` → `PaymentIntents`/`Payments` → `InvoiceAllocations` → `JournalEntries`/`JournalEntryLines`.
+- AI governance: `AiRuns`/`AgentRuns` produce `Proposals`; approvals apply changes via domain services (not by agents directly).
 
 ## Identity
 

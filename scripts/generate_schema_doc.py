@@ -1,5 +1,6 @@
 import pathlib
 import re
+import json
 from collections import defaultdict
 
 
@@ -669,6 +670,7 @@ def main() -> int:
         / "AonikDbContextModelSnapshot.cs"
     )
     schema_md = repo_root / "docs" / "database" / "schema.md"
+    schema_snapshot_json = repo_root / "docs" / "database" / "schema.snapshot.json"
 
     if not model_snapshot_cs.exists():
         raise SystemExit(f"Missing input: {model_snapshot_cs}")
@@ -741,8 +743,17 @@ def main() -> int:
     out.append("## Notes")
     out.append("")
     out.append("- Multi-tenancy: most tables are tenant-scoped via `TenantId` and filtered at query time.")
+    out.append("- Global rows: some tables intentionally use `TenantId = NULL` for shared configuration (e.g., reference data like currencies/countries).")
     out.append("- Auditing/soft delete: many tables include `CreatedAt/By`, `UpdatedAt/By`, and soft-delete fields.")
     out.append("- Orders describe why; payments/payouts describe how; the ledger proves what happened.")
+    out.append("")
+
+    out.append("## Common Flows")
+    out.append("")
+    out.append("- Order funding: `Orders` → `PaymentIntents` → `Payments` → `JournalEntries`/`JournalEntryLines`.")
+    out.append("- Order fulfilment: `Orders` → `Payouts` → `Transmissions` (partner calls/retries) → `JournalEntries`/`JournalEntryLines`.")
+    out.append("- Billing: `Invoices` → `PaymentIntents`/`Payments` → `InvoiceAllocations` → `JournalEntries`/`JournalEntryLines`.")
+    out.append("- AI governance: `AiRuns`/`AgentRuns` produce `Proposals`; approvals apply changes via domain services (not by agents directly).")
     out.append("")
 
     for module_name, _ in MODULE_ORDER:
@@ -775,6 +786,13 @@ def main() -> int:
 
     schema_md.parent.mkdir(parents=True, exist_ok=True)
     schema_md.write_text("\n".join(out), encoding="utf-8")
+
+    # Keep a simple, machine-readable snapshot alongside the markdown.
+    snapshot = sorted(entities, key=lambda x: (x["table"] or "", x["entity"] or ""))
+    schema_snapshot_json.write_text(
+        json.dumps(snapshot, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
     return 0
 
 

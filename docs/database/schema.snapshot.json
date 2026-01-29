@@ -1,69 +1,5 @@
 [
   {
-    "entity": "Aonik.Domain.Agents.Entities.Agent",
-    "table": "Agents",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "Domain"
-      },
-      {
-        "name": "InputSchemaJson"
-      },
-      {
-        "name": "InstructionPromptSpecId"
-      },
-      {
-        "name": "IsActive"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "OutputSchemaJson"
-      },
-      {
-        "name": "PermissionsProfileJson"
-      },
-      {
-        "name": "RiskTier"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "ToolsetIdsJson"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
     "entity": "Aonik.Domain.Agents.Entities.AgentRun",
     "table": "AgentRuns",
     "columns": [
@@ -122,8 +58,8 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Agents.Entities.OrchestratorPolicy",
-    "table": "OrchestratorPolicies",
+    "entity": "Aonik.Domain.Agents.Entities.Agent",
+    "table": "Agents",
     "columns": [
       {
         "name": "Id"
@@ -141,10 +77,13 @@
         "name": "DeletedBy"
       },
       {
-        "name": "FallbackAgentsJson"
+        "name": "Domain"
       },
       {
-        "name": "IntentType"
+        "name": "InputSchemaJson"
+      },
+      {
+        "name": "InstructionPromptSpecId"
       },
       {
         "name": "IsActive"
@@ -153,65 +92,13 @@
         "name": "IsDeleted"
       },
       {
-        "name": "PreferredAgentsJson"
+        "name": "Name"
       },
       {
-        "name": "RowVersion"
+        "name": "OutputSchemaJson"
       },
       {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Agents.Entities.Proposal",
-    "table": "Proposals",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "AiRunId"
-      },
-      {
-        "name": "ApprovedAt"
-      },
-      {
-        "name": "ApprovedByUserId"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "ImpactSummary"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PayloadJson"
-      },
-      {
-        "name": "ProposalType"
-      },
-      {
-        "name": "ProposedByAgentId"
+        "name": "PermissionsProfileJson"
       },
       {
         "name": "RiskTier"
@@ -220,10 +107,10 @@
         "name": "RowVersion"
       },
       {
-        "name": "Status"
+        "name": "TenantId"
       },
       {
-        "name": "TenantId"
+        "name": "ToolsetIdsJson"
       },
       {
         "name": "UpdatedAt"
@@ -610,303 +497,47 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Ai.Entities.EvalRun",
-    "table": "EvalRuns",
+    "entity": "Aonik.Infrastructure.BackgroundJobs.Entities.BackgroundJobRecord",
+    "table": "AonikBackgroundJobRecords",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "AiModelId"
+        "name": "ArgumentsJson"
+      },
+      {
+        "name": "CompletedAt"
+      },
+      {
+        "name": "CorrelationId"
       },
       {
         "name": "CreatedAt"
       },
       {
-        "name": "CreatedBy"
+        "name": "ErrorDetailsJson"
       },
       {
-        "name": "DeletedAt"
+        "name": "ErrorMessage"
       },
       {
-        "name": "DeletedBy"
+        "name": "JobName"
       },
       {
-        "name": "EvalSuiteId"
+        "name": "LastAttemptAt"
       },
       {
-        "name": "IsDeleted"
+        "name": "MaxRetryCount"
       },
       {
-        "name": "PassFail"
+        "name": "NextAttemptAt"
       },
       {
-        "name": "PromptSpecId"
+        "name": "Priority"
       },
       {
-        "name": "RanAt"
-      },
-      {
-        "name": "ResultsJson"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Ai.Entities.EvalSuite",
-    "table": "EvalSuites",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "Domain"
-      },
-      {
-        "name": "IsActive"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "MetricsJson"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "ScenariosJson"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Ai.Entities.Insight",
-    "table": "Insights",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedUtc"
-      },
-      {
-        "name": "SubjectId"
-      },
-      {
-        "name": "SubjectType"
-      },
-      {
-        "name": "Summary"
-      },
-      {
-        "name": "Title"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"CreatedUtc\");",
-      "b.HasIndex(\"SubjectType\", \"SubjectId\");"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Ai.Entities.PromptSpec",
-    "table": "PromptSpecs",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "DeveloperTemplate"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "IsPublished"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "OutputSchemaJson"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "SafetyPolicyRef"
-      },
-      {
-        "name": "SystemTemplate"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "VariablesSchemaJson"
-      },
-      {
-        "name": "Version"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Ai.Entities.Signal",
-    "table": "Signals",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedUtc"
-      },
-      {
-        "name": "Message"
-      },
-      {
-        "name": "Severity"
-      },
-      {
-        "name": "Type"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"CreatedUtc\");",
-      "b.HasIndex(\"Severity\");",
-      "b.HasIndex(\"Type\");"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Ai.Entities.ToolSpec",
-    "table": "ToolSpecs",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "AuthScope"
-      },
-      {
-        "name": "ContractJson"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "Domain"
-      },
-      {
-        "name": "IsActive"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "RateLimitsJson"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Billing.Entities.CustomerAccount",
-    "table": "CustomerAccounts",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "CustomerPartyId"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "MerchantPartyId"
-      },
-      {
-        "name": "PreferencesJson"
-      },
-      {
-        "name": "RowVersion"
+        "name": "RetryCount"
       },
       {
         "name": "Status"
@@ -915,20 +546,34 @@
         "name": "TenantId"
       },
       {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
+        "name": "TryCount"
       }
     ],
-    "indexesRaw": []
+    "indexesRaw": [
+      "b.HasIndex(\"NextAttemptAt\")",
+      "b.HasIndex(\"Priority\")",
+      "b.HasIndex(\"Status\")",
+      "b.HasIndex(\"TenantId\")"
+    ]
   },
   {
-    "entity": "Aonik.Domain.Billing.Entities.DunningPlan",
-    "table": "DunningPlans",
+    "entity": "Aonik.Domain.Compliance.Entities.AuditLog",
+    "table": "AuditLogs",
     "columns": [
       {
         "name": "Id"
+      },
+      {
+        "name": "Action"
+      },
+      {
+        "name": "ActorId"
+      },
+      {
+        "name": "ActorType"
+      },
+      {
+        "name": "CorrelationId"
       },
       {
         "name": "CreatedAt"
@@ -937,28 +582,31 @@
         "name": "CreatedBy"
       },
       {
-        "name": "CustomerAccountId"
-      },
-      {
         "name": "DeletedAt"
       },
       {
         "name": "DeletedBy"
       },
       {
-        "name": "IsActive"
+        "name": "DetailsJson"
       },
       {
         "name": "IsDeleted"
       },
       {
-        "name": "PolicyJson"
+        "name": "ResourceId"
+      },
+      {
+        "name": "ResourceType"
       },
       {
         "name": "RowVersion"
       },
       {
         "name": "TenantId"
+      },
+      {
+        "name": "Timestamp"
       },
       {
         "name": "UpdatedAt"
@@ -970,11 +618,17 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Billing.Entities.Invoice",
-    "table": "Invoices",
+    "entity": "Aonik.Domain.Ledger.Entities.BalanceSnapshot",
+    "table": "BalanceSnapshots",
     "columns": [
       {
         "name": "Id"
+      },
+      {
+        "name": "AsOf"
+      },
+      {
+        "name": "Balance"
       },
       {
         "name": "CreatedAt"
@@ -986,97 +640,16 @@
         "name": "Currency"
       },
       {
-        "name": "CustomerAccountId"
-      },
-      {
         "name": "DeletedAt"
       },
       {
         "name": "DeletedBy"
       },
       {
-        "name": "DiscountTotal"
-      },
-      {
-        "name": "DueDate"
-      },
-      {
         "name": "IsDeleted"
       },
       {
-        "name": "IssueDate"
-      },
-      {
-        "name": "OrderId"
-      },
-      {
-        "name": "ProvenanceJson"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "Subtotal"
-      },
-      {
-        "name": "TaxTotal"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "Total"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"CustomerAccountId\");",
-      "b.HasIndex(\"DueDate\");",
-      "b.HasIndex(\"OrderId\");",
-      "b.HasIndex(\"Status\");"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Billing.Entities.InvoiceAllocation",
-    "table": "InvoiceAllocations",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "AllocatedAt"
-      },
-      {
-        "name": "Amount"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "InvoiceId"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PaymentId"
+        "name": "LedgerAccountId"
       },
       {
         "name": "RowVersion"
@@ -1094,11 +667,14 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Billing.Entities.InvoiceLine",
-    "table": "InvoiceLines",
+    "entity": "Aonik.Domain.PersonalFinance.Entities.Bill",
+    "table": "Bills",
     "columns": [
       {
         "name": "Id"
+      },
+      {
+        "name": "Autopay"
       },
       {
         "name": "CreatedAt"
@@ -1107,40 +683,95 @@
         "name": "CreatedBy"
       },
       {
+        "name": "Currency"
+      },
+      {
         "name": "DeletedAt"
       },
       {
         "name": "DeletedBy"
       },
       {
-        "name": "Description"
+        "name": "ExpectedAmount"
       },
       {
-        "name": "InvoiceId"
+        "name": "Frequency"
       },
       {
         "name": "IsDeleted"
       },
       {
-        "name": "LineTotal"
+        "name": "LinkedInvoiceId"
       },
       {
-        "name": "MetadataJson"
+        "name": "LinkedOrderId"
       },
       {
-        "name": "Quantity"
+        "name": "NextDueDate"
+      },
+      {
+        "name": "Payee"
       },
       {
         "name": "RowVersion"
       },
       {
-        "name": "TaxRate"
+        "name": "Status"
       },
       {
         "name": "TenantId"
       },
       {
-        "name": "UnitPrice"
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.PersonalFinance.Entities.BudgetLine",
+    "table": "BudgetLines",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "BudgetId"
+      },
+      {
+        "name": "Category"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "Currency"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "LimitAmount"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
       },
       {
         "name": "UpdatedAt"
@@ -1150,27 +781,18 @@
       }
     ],
     "indexesRaw": [
-      "b.HasIndex(\"InvoiceId\");"
+      "b.HasIndex(\"BudgetId\");"
     ]
   },
   {
-    "entity": "Aonik.Domain.Catalog.Entities.CatalogBiller",
-    "table": "CatalogBillers",
+    "entity": "Aonik.Domain.PersonalFinance.Entities.Budget",
+    "table": "Budgets",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "BannerUrl"
-      },
-      {
-        "name": "CategoryId"
-      },
-      {
-        "name": "CorrespondentPartnerId"
-      },
-      {
-        "name": "CountryCode"
+        "name": "BudgetCreatedBy"
       },
       {
         "name": "CreatedAt"
@@ -1185,34 +807,19 @@
         "name": "DeletedBy"
       },
       {
-        "name": "Description"
-      },
-      {
-        "name": "IsActive"
-      },
-      {
         "name": "IsDeleted"
       },
       {
-        "name": "IsFeatured"
+        "name": "PeriodStart"
       },
       {
-        "name": "LogoUrl"
-      },
-      {
-        "name": "Name"
+        "name": "PeriodType"
       },
       {
         "name": "RowVersion"
       },
       {
-        "name": "SortOrder"
-      },
-      {
-        "name": "SupportEmail"
-      },
-      {
-        "name": "SupportPhone"
+        "name": "Status"
       },
       {
         "name": "TenantId"
@@ -1222,12 +829,62 @@
       },
       {
         "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Party.Entities.BusinessProfile",
+    "table": "BusinessProfiles",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IncorporationCountry"
+      },
+      {
+        "name": "Industry"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "KybStatus"
+      },
+      {
+        "name": "PartyId"
+      },
+      {
+        "name": "RegistrationNumber"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
       }
     ],
     "indexesRaw": [
-      "b.HasIndex(\"TenantId\", \"CorrespondentPartnerId\");",
-      "b.HasIndex(\"TenantId\", \"CountryCode\", \"Name\");",
-      "b.HasIndex(\"TenantId\", \"CountryCode\", \"CategoryId\", \"SortOrder\");"
+      "b.HasIndex(\"PartyId\");"
     ]
   },
   {
@@ -1369,23 +1026,23 @@
     ]
   },
   {
-    "entity": "Aonik.Domain.Compliance.Entities.AuditLog",
-    "table": "AuditLogs",
+    "entity": "Aonik.Domain.Catalog.Entities.CatalogBiller",
+    "table": "CatalogBillers",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "Action"
+        "name": "BannerUrl"
       },
       {
-        "name": "ActorId"
+        "name": "CategoryId"
       },
       {
-        "name": "ActorType"
+        "name": "CorrespondentPartnerId"
       },
       {
-        "name": "CorrelationId"
+        "name": "CountryCode"
       },
       {
         "name": "CreatedAt"
@@ -1400,16 +1057,84 @@
         "name": "DeletedBy"
       },
       {
-        "name": "DetailsJson"
+        "name": "Description"
+      },
+      {
+        "name": "IsActive"
       },
       {
         "name": "IsDeleted"
       },
       {
-        "name": "ResourceId"
+        "name": "IsFeatured"
       },
       {
-        "name": "ResourceType"
+        "name": "LogoUrl"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "SortOrder"
+      },
+      {
+        "name": "SupportEmail"
+      },
+      {
+        "name": "SupportPhone"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"TenantId\", \"CorrespondentPartnerId\");",
+      "b.HasIndex(\"TenantId\", \"CountryCode\", \"Name\");",
+      "b.HasIndex(\"TenantId\", \"CountryCode\", \"CategoryId\", \"SortOrder\");"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.PersonalFinance.Entities.CategorisationRule",
+    "table": "CategorisationRules",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "Category"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Pattern"
+      },
+      {
+        "name": "Priority"
       },
       {
         "name": "RowVersion"
@@ -1418,7 +1143,59 @@
         "name": "TenantId"
       },
       {
-        "name": "Timestamp"
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Payments.Entities.Chargeback",
+    "table": "Chargebacks",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "Amount"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "Currency"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PaymentId"
+      },
+      {
+        "name": "ProviderReference"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "TenantId"
       },
       {
         "name": "UpdatedAt"
@@ -1488,14 +1265,17 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Compliance.Entities.ScreeningCheck",
-    "table": "ScreeningChecks",
+    "entity": "Aonik.Domain.Partners.Entities.Connector",
+    "table": "Connectors",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "CheckType"
+        "name": "ConfigJson"
+      },
+      {
+        "name": "ConnectorType"
       },
       {
         "name": "CreatedAt"
@@ -1504,13 +1284,7 @@
         "name": "CreatedBy"
       },
       {
-        "name": "DecidedAt"
-      },
-      {
-        "name": "DecidedBy"
-      },
-      {
-        "name": "Decision"
+        "name": "CredentialsRef"
       },
       {
         "name": "DeletedAt"
@@ -1522,16 +1296,13 @@
         "name": "IsDeleted"
       },
       {
-        "name": "PartyId"
-      },
-      {
-        "name": "ResultJson"
-      },
-      {
-        "name": "ResultStatus"
+        "name": "PartnerId"
       },
       {
         "name": "RowVersion"
+      },
+      {
+        "name": "Status"
       },
       {
         "name": "TenantId"
@@ -1546,8 +1317,8 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Features.Entities.TenantFeature",
-    "table": "TenantFeatures",
+    "entity": "Aonik.Domain.Billing.Entities.CustomerAccount",
+    "table": "CustomerAccounts",
     "columns": [
       {
         "name": "Id"
@@ -1559,98 +1330,7 @@
         "name": "CreatedBy"
       },
       {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "ExpiresAt"
-      },
-      {
-        "name": "FeatureName"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "IsEnabled"
-      },
-      {
-        "name": "Reason"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"FeatureName\");",
-      "b.HasIndex(\"TenantId\", \"FeatureName\")"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Identity.Entities.Permission",
-    "table": "Permissions",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "Description"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Key"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"Key\")"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Identity.Entities.Role",
-    "table": "Roles",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
+        "name": "CustomerPartyId"
       },
       {
         "name": "DeletedAt"
@@ -1662,163 +1342,7 @@
         "name": "IsDeleted"
       },
       {
-        "name": "Name"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"TenantId\", \"Name\")"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Identity.Entities.RolePermission",
-    "table": "RolePermissions",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PermissionId"
-      },
-      {
-        "name": "RoleId"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"PermissionId\");",
-      "b.HasIndex(\"RoleId\", \"PermissionId\")"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Identity.Entities.Tenant",
-    "table": "Tenants",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DefaultCurrency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "Environment"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "Subdomain"
-      },
-      {
-        "name": "SupportedCountriesJson"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"Name\")",
-      "b.HasIndex(\"Status\");",
-      "b.HasIndex(\"Subdomain\")"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Identity.Entities.User",
-    "table": "Users",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "Email"
-      },
-      {
-        "name": "ExternalIssuer"
-      },
-      {
-        "name": "ExternalSubject"
-      },
-      {
-        "name": "ExternalTenantId"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "LastLoginAt"
-      },
-      {
-        "name": "Phone"
+        "name": "MerchantPartyId"
       },
       {
         "name": "PreferencesJson"
@@ -1839,13 +1363,109 @@
         "name": "UpdatedBy"
       }
     ],
-    "indexesRaw": [
-      "b.HasIndex(\"TenantId\", \"ExternalIssuer\", \"ExternalSubject\")"
-    ]
+    "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Identity.Entities.UserParty",
-    "table": "UserParties",
+    "entity": "Aonik.Domain.Billing.Entities.DunningPlan",
+    "table": "DunningPlans",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "CustomerAccountId"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PolicyJson"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Ai.Entities.EvalRun",
+    "table": "EvalRuns",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "AiModelId"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "EvalSuiteId"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PassFail"
+      },
+      {
+        "name": "PromptSpecId"
+      },
+      {
+        "name": "RanAt"
+      },
+      {
+        "name": "ResultsJson"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Ai.Entities.EvalSuite",
+    "table": "EvalSuites",
     "columns": [
       {
         "name": "Id"
@@ -1863,13 +1483,71 @@
         "name": "DeletedBy"
       },
       {
+        "name": "Domain"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
         "name": "IsDeleted"
       },
       {
-        "name": "LinkType"
+        "name": "MetricsJson"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "ScenariosJson"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Party.Entities.ExternalAccount",
+    "table": "ExternalAccounts",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "ExternalAccountType"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "MaskedIdentifier"
+      },
+      {
+        "name": "MetadataJson"
       },
       {
         "name": "PartyId"
+      },
+      {
+        "name": "ProviderRef"
       },
       {
         "name": "RowVersion"
@@ -1884,20 +1562,20 @@
         "name": "UpdatedBy"
       },
       {
-        "name": "UserId"
+        "name": "VerificationStatus"
       }
     ],
-    "indexesRaw": [
-      "b.HasIndex(\"TenantId\", \"UserId\")",
-      "b.HasIndex(\"TenantId\", \"UserId\", \"PartyId\", \"LinkType\")"
-    ]
+    "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Identity.Entities.UserRole",
-    "table": "UserRoles",
+    "entity": "Aonik.Domain.Pricing.Entities.FeePolicy",
+    "table": "FeePolicies",
     "columns": [
       {
         "name": "Id"
+      },
+      {
+        "name": "ConditionsJson"
       },
       {
         "name": "CreatedAt"
@@ -1912,44 +1590,44 @@
         "name": "DeletedBy"
       },
       {
+        "name": "FixedFee"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
         "name": "IsDeleted"
       },
       {
-        "name": "RoleId"
+        "name": "Name"
+      },
+      {
+        "name": "PercentageFee"
       },
       {
         "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
       },
       {
         "name": "UpdatedAt"
       },
       {
         "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
       }
     ],
-    "indexesRaw": [
-      "b.HasIndex(\"RoleId\");",
-      "b.HasIndex(\"UserId\", \"RoleId\")"
-    ]
+    "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Identity.Entities.VerificationChallenge",
-    "table": "VerificationChallenges",
+    "entity": "Aonik.Domain.Pricing.Entities.FxQuote",
+    "table": "FxQuotes",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "AttemptCount"
-      },
-      {
-        "name": "Channel"
-      },
-      {
-        "name": "CodeHash"
+        "name": "BaseCurrency"
       },
       {
         "name": "CreatedAt"
@@ -1970,13 +1648,19 @@
         "name": "IsDeleted"
       },
       {
+        "name": "MetadataJson"
+      },
+      {
+        "name": "Provider"
+      },
+      {
+        "name": "Rate"
+      },
+      {
         "name": "RowVersion"
       },
       {
-        "name": "Status"
-      },
-      {
-        "name": "Target"
+        "name": "TargetCurrency"
       },
       {
         "name": "TenantId"
@@ -1986,28 +1670,16 @@
       },
       {
         "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
       }
     ],
-    "indexesRaw": [
-      "b.HasIndex(\"TenantId\", \"Channel\", \"Target\")",
-      "b.HasIndex(\"TenantId\", \"UserId\", \"Channel\")"
-    ]
+    "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Ledger.Entities.BalanceSnapshot",
-    "table": "BalanceSnapshots",
+    "entity": "Aonik.Domain.PersonalFinance.Entities.Goal",
+    "table": "Goals",
     "columns": [
       {
         "name": "Id"
-      },
-      {
-        "name": "AsOf"
-      },
-      {
-        "name": "Balance"
       },
       {
         "name": "CreatedAt"
@@ -2028,10 +1700,377 @@
         "name": "IsDeleted"
       },
       {
-        "name": "LedgerAccountId"
+        "name": "Name"
+      },
+      {
+        "name": "ProgressAmount"
       },
       {
         "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "TargetAmount"
+      },
+      {
+        "name": "TargetDate"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.PersonalFinance.Entities.HouseholdMember",
+    "table": "HouseholdMembers",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "HouseholdId"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PermissionsJson"
+      },
+      {
+        "name": "Role"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"HouseholdId\");"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.PersonalFinance.Entities.Household",
+    "table": "Households",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Ai.Entities.Insight",
+    "table": "Insights",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedUtc"
+      },
+      {
+        "name": "SubjectId"
+      },
+      {
+        "name": "SubjectType"
+      },
+      {
+        "name": "Summary"
+      },
+      {
+        "name": "Title"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"CreatedUtc\");",
+      "b.HasIndex(\"SubjectType\", \"SubjectId\");"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Billing.Entities.InvoiceAllocation",
+    "table": "InvoiceAllocations",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "AllocatedAt"
+      },
+      {
+        "name": "Amount"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "InvoiceId"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PaymentId"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Billing.Entities.InvoiceLine",
+    "table": "InvoiceLines",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "Description"
+      },
+      {
+        "name": "InvoiceId"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "LineTotal"
+      },
+      {
+        "name": "MetadataJson"
+      },
+      {
+        "name": "Quantity"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TaxRate"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UnitPrice"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"InvoiceId\");"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Billing.Entities.Invoice",
+    "table": "Invoices",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "Currency"
+      },
+      {
+        "name": "CustomerAccountId"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "DiscountTotal"
+      },
+      {
+        "name": "DueDate"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "IssueDate"
+      },
+      {
+        "name": "OrderId"
+      },
+      {
+        "name": "ProvenanceJson"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "Subtotal"
+      },
+      {
+        "name": "TaxTotal"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "Total"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"CustomerAccountId\");",
+      "b.HasIndex(\"DueDate\");",
+      "b.HasIndex(\"OrderId\");",
+      "b.HasIndex(\"Status\");"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Operations.Entities.Job",
+    "table": "Jobs",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "JobType"
+      },
+      {
+        "name": "LastResultJson"
+      },
+      {
+        "name": "LastRunAt"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "ScheduleCron"
+      },
+      {
+        "name": "Status"
       },
       {
         "name": "TenantId"
@@ -2162,46 +2201,6 @@
     ]
   },
   {
-    "entity": "Aonik.Domain.Ledger.Entities.Ledger",
-    "table": "Ledgers",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "BaseCurrency"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
     "entity": "Aonik.Domain.Ledger.Entities.LedgerAccount",
     "table": "LedgerAccounts",
     "columns": [
@@ -2256,6 +2255,101 @@
       "b.HasIndex(\"LedgerId\");",
       "b.HasIndex(\"Name\");"
     ]
+  },
+  {
+    "entity": "Aonik.Domain.Ledger.Entities.Ledger",
+    "table": "Ledgers",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "BaseCurrency"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Pricing.Entities.LimitsPolicy",
+    "table": "LimitsPolicies",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "Currency"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "MaxAmount"
+      },
+      {
+        "name": "Period"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "ScopeId"
+      },
+      {
+        "name": "ScopeType"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
   },
   {
     "entity": "Aonik.Domain.Notifications.Entities.Notification",
@@ -2313,8 +2407,8 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Notifications.Entities.WebhookSubscription",
-    "table": "WebhookSubscriptions",
+    "entity": "Aonik.Domain.Agents.Entities.OrchestratorPolicy",
+    "table": "OrchestratorPolicies",
     "columns": [
       {
         "name": "Id"
@@ -2332,10 +2426,10 @@
         "name": "DeletedBy"
       },
       {
-        "name": "EndpointUrl"
+        "name": "FallbackAgentsJson"
       },
       {
-        "name": "EventTypesJson"
+        "name": "IntentType"
       },
       {
         "name": "IsActive"
@@ -2344,13 +2438,10 @@
         "name": "IsDeleted"
       },
       {
+        "name": "PreferredAgentsJson"
+      },
+      {
         "name": "RowVersion"
-      },
-      {
-        "name": "SecretRef"
-      },
-      {
-        "name": "SubscriberName"
       },
       {
         "name": "TenantId"
@@ -2363,203 +2454,6 @@
       }
     ],
     "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Operations.Entities.Job",
-    "table": "Jobs",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "JobType"
-      },
-      {
-        "name": "LastResultJson"
-      },
-      {
-        "name": "LastRunAt"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "ScheduleCron"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Operations.Entities.WorkItem",
-    "table": "WorkItems",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "AssignedToUserId"
-      },
-      {
-        "name": "ContextId"
-      },
-      {
-        "name": "ContextType"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "HistoryJson"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Priority"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "SlaDueAt"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "WorkItemType"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Orders.Entities.Order",
-    "table": "Orders",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "AmountIn"
-      },
-      {
-        "name": "AmountOut"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "CurrencyIn"
-      },
-      {
-        "name": "CurrencyOut"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "DestinationCountry"
-      },
-      {
-        "name": "FeesJson"
-      },
-      {
-        "name": "FxQuoteId"
-      },
-      {
-        "name": "IdempotencyKey"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "OrderType"
-      },
-      {
-        "name": "OriginCountry"
-      },
-      {
-        "name": "PayerPartyId"
-      },
-      {
-        "name": "ProvenanceJson"
-      },
-      {
-        "name": "PurposeCode"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"IdempotencyKey\");",
-      "b.HasIndex(\"OrderType\");",
-      "b.HasIndex(\"PayerPartyId\");",
-      "b.HasIndex(\"Status\");"
-    ]
   },
   {
     "entity": "Aonik.Domain.Orders.Entities.OrderFulfilmentRef",
@@ -2880,17 +2774,17 @@
     ]
   },
   {
-    "entity": "Aonik.Domain.Partners.Entities.Connector",
-    "table": "Connectors",
+    "entity": "Aonik.Domain.Orders.Entities.Order",
+    "table": "Orders",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "ConfigJson"
+        "name": "AmountIn"
       },
       {
-        "name": "ConnectorType"
+        "name": "AmountOut"
       },
       {
         "name": "CreatedAt"
@@ -2899,7 +2793,10 @@
         "name": "CreatedBy"
       },
       {
-        "name": "CredentialsRef"
+        "name": "CurrencyIn"
+      },
+      {
+        "name": "CurrencyOut"
       },
       {
         "name": "DeletedAt"
@@ -2908,10 +2805,34 @@
         "name": "DeletedBy"
       },
       {
+        "name": "DestinationCountry"
+      },
+      {
+        "name": "FeesJson"
+      },
+      {
+        "name": "FxQuoteId"
+      },
+      {
+        "name": "IdempotencyKey"
+      },
+      {
         "name": "IsDeleted"
       },
       {
-        "name": "PartnerId"
+        "name": "OrderType"
+      },
+      {
+        "name": "OriginCountry"
+      },
+      {
+        "name": "PayerPartyId"
+      },
+      {
+        "name": "ProvenanceJson"
+      },
+      {
+        "name": "PurposeCode"
       },
       {
         "name": "RowVersion"
@@ -2929,17 +2850,19 @@
         "name": "UpdatedBy"
       }
     ],
-    "indexesRaw": []
+    "indexesRaw": [
+      "b.HasIndex(\"IdempotencyKey\");",
+      "b.HasIndex(\"OrderType\");",
+      "b.HasIndex(\"PayerPartyId\");",
+      "b.HasIndex(\"Status\");"
+    ]
   },
   {
-    "entity": "Aonik.Domain.Partners.Entities.Partner",
-    "table": "Partners",
+    "entity": "Aonik.Domain.Party.Entities.Party",
+    "table": "Parties",
     "columns": [
       {
         "name": "Id"
-      },
-      {
-        "name": "CapabilitiesJson"
       },
       {
         "name": "CreatedAt"
@@ -2948,19 +2871,22 @@
         "name": "CreatedBy"
       },
       {
+        "name": "CustomerTierCode"
+      },
+      {
         "name": "DeletedAt"
       },
       {
         "name": "DeletedBy"
       },
       {
+        "name": "DisplayName"
+      },
+      {
         "name": "IsDeleted"
       },
       {
-        "name": "Name"
-      },
-      {
-        "name": "OperatingHoursJson"
+        "name": "PartyType"
       },
       {
         "name": "RowVersion"
@@ -3035,11 +2961,14 @@
     ]
   },
   {
-    "entity": "Aonik.Domain.Partners.Entities.PayoutSchema",
-    "table": "PayoutSchemas",
+    "entity": "Aonik.Domain.Partners.Entities.Partner",
+    "table": "Partners",
     "columns": [
       {
         "name": "Id"
+      },
+      {
+        "name": "CapabilitiesJson"
       },
       {
         "name": "CreatedAt"
@@ -3052,9 +2981,6 @@
       },
       {
         "name": "DeletedBy"
-      },
-      {
-        "name": "IsActive"
       },
       {
         "name": "IsDeleted"
@@ -3063,266 +2989,7 @@
         "name": "Name"
       },
       {
-        "name": "RowVersion"
-      },
-      {
-        "name": "SchemaJson"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Partners.Entities.RoutingRule",
-    "table": "RoutingRules",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "ConditionsJson"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsActive"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Priority"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TargetConnectorId"
-      },
-      {
-        "name": "TargetPartnerId"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Partners.Entities.Transmission",
-    "table": "Transmissions",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "ConnectorId"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IdempotencyKey"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "LastError"
-      },
-      {
-        "name": "PayoutId"
-      },
-      {
-        "name": "RetryCount"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Party.Entities.BusinessProfile",
-    "table": "BusinessProfiles",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IncorporationCountry"
-      },
-      {
-        "name": "Industry"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "KybStatus"
-      },
-      {
-        "name": "PartyId"
-      },
-      {
-        "name": "RegistrationNumber"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"PartyId\");"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Party.Entities.ExternalAccount",
-    "table": "ExternalAccounts",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "ExternalAccountType"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "MaskedIdentifier"
-      },
-      {
-        "name": "MetadataJson"
-      },
-      {
-        "name": "PartyId"
-      },
-      {
-        "name": "ProviderRef"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "VerificationStatus"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Party.Entities.Party",
-    "table": "Parties",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "CustomerTierCode"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "DisplayName"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PartyType"
+        "name": "OperatingHoursJson"
       },
       {
         "name": "RowVersion"
@@ -3608,179 +3275,6 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Party.Entities.PersonProfile",
-    "table": "PersonProfiles",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CountryCode"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "Dob"
-      },
-      {
-        "name": "FirstName"
-      },
-      {
-        "name": "IdvStatus"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "LastName"
-      },
-      {
-        "name": "Nationality"
-      },
-      {
-        "name": "Occupation"
-      },
-      {
-        "name": "PartyId"
-      },
-      {
-        "name": "PhotoUrl"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Title"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": [
-      "b.HasIndex(\"PartyId\");"
-    ]
-  },
-  {
-    "entity": "Aonik.Domain.Payments.Entities.Chargeback",
-    "table": "Chargebacks",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "Amount"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "Currency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PaymentId"
-      },
-      {
-        "name": "ProviderReference"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Payments.Entities.Payment",
-    "table": "Payments",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CapturedAt"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "OutcomeJson"
-      },
-      {
-        "name": "OutcomeStatus"
-      },
-      {
-        "name": "PaymentIntentId"
-      },
-      {
-        "name": "Provider"
-      },
-      {
-        "name": "ProviderReference"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
     "entity": "Aonik.Domain.Payments.Entities.PaymentIntent",
     "table": "PaymentIntents",
     "columns": [
@@ -3859,6 +3353,107 @@
     ]
   },
   {
+    "entity": "Aonik.Domain.Payments.Entities.Payment",
+    "table": "Payments",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CapturedAt"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "OutcomeJson"
+      },
+      {
+        "name": "OutcomeStatus"
+      },
+      {
+        "name": "PaymentIntentId"
+      },
+      {
+        "name": "Provider"
+      },
+      {
+        "name": "ProviderReference"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Partners.Entities.PayoutSchema",
+    "table": "PayoutSchemas",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "SchemaJson"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
     "entity": "Aonik.Domain.Payments.Entities.Payout",
     "table": "Payouts",
     "columns": [
@@ -3911,133 +3506,11 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.Payments.Entities.Refund",
-    "table": "Refunds",
+    "entity": "Aonik.Domain.Identity.Entities.Permission",
+    "table": "Permissions",
     "columns": [
       {
         "name": "Id"
-      },
-      {
-        "name": "Amount"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "Currency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PaymentId"
-      },
-      {
-        "name": "Reason"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.Bill",
-    "table": "Bills",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "Autopay"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "Currency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "ExpectedAmount"
-      },
-      {
-        "name": "Frequency"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "LinkedInvoiceId"
-      },
-      {
-        "name": "LinkedOrderId"
-      },
-      {
-        "name": "NextDueDate"
-      },
-      {
-        "name": "Payee"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.Budget",
-    "table": "Budgets",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "BudgetCreatedBy"
       },
       {
         "name": "CreatedAt"
@@ -4052,74 +3525,16 @@
         "name": "DeletedBy"
       },
       {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PeriodStart"
-      },
-      {
-        "name": "PeriodType"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.BudgetLine",
-    "table": "BudgetLines",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "BudgetId"
-      },
-      {
-        "name": "Category"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "Currency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
+        "name": "Description"
       },
       {
         "name": "IsDeleted"
       },
       {
-        "name": "LimitAmount"
+        "name": "Key"
       },
       {
         "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
       },
       {
         "name": "UpdatedAt"
@@ -4129,18 +3544,18 @@
       }
     ],
     "indexesRaw": [
-      "b.HasIndex(\"BudgetId\");"
+      "b.HasIndex(\"Key\")"
     ]
   },
   {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.CategorisationRule",
-    "table": "CategorisationRules",
+    "entity": "Aonik.Domain.Party.Entities.PersonProfile",
+    "table": "PersonProfiles",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "Category"
+        "name": "CountryCode"
       },
       {
         "name": "CreatedAt"
@@ -4155,179 +3570,47 @@
         "name": "DeletedBy"
       },
       {
-        "name": "IsActive"
+        "name": "Dob"
+      },
+      {
+        "name": "FirstName"
+      },
+      {
+        "name": "IdvStatus"
       },
       {
         "name": "IsDeleted"
       },
       {
-        "name": "Pattern"
+        "name": "LastName"
       },
       {
-        "name": "Priority"
+        "name": "Nationality"
+      },
+      {
+        "name": "Occupation"
+      },
+      {
+        "name": "PartyId"
+      },
+      {
+        "name": "PhotoUrl"
       },
       {
         "name": "RowVersion"
       },
       {
-        "name": "TenantId"
+        "name": "Title"
       },
       {
         "name": "UpdatedAt"
       },
       {
         "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.Goal",
-    "table": "Goals",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "Currency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "ProgressAmount"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TargetAmount"
-      },
-      {
-        "name": "TargetDate"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.Household",
-    "table": "Households",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.HouseholdMember",
-    "table": "HouseholdMembers",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "HouseholdId"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "PermissionsJson"
-      },
-      {
-        "name": "Role"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
       }
     ],
     "indexesRaw": [
-      "b.HasIndex(\"HouseholdId\");"
+      "b.HasIndex(\"PartyId\");"
     ]
   },
   {
@@ -4450,226 +3733,6 @@
     "indexesRaw": []
   },
   {
-    "entity": "Aonik.Domain.PersonalFinance.Entities.Subscription",
-    "table": "Subscriptions",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "Currency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "DetectedBy"
-      },
-      {
-        "name": "ExpectedAmount"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Merchant"
-      },
-      {
-        "name": "RenewalDate"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "Status"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      },
-      {
-        "name": "UserId"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Pricing.Entities.FeePolicy",
-    "table": "FeePolicies",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "ConditionsJson"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "FixedFee"
-      },
-      {
-        "name": "IsActive"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "Name"
-      },
-      {
-        "name": "PercentageFee"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Pricing.Entities.FxQuote",
-    "table": "FxQuotes",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "BaseCurrency"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "ExpiresAt"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "MetadataJson"
-      },
-      {
-        "name": "Provider"
-      },
-      {
-        "name": "Rate"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "TargetCurrency"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
-    "entity": "Aonik.Domain.Pricing.Entities.LimitsPolicy",
-    "table": "LimitsPolicies",
-    "columns": [
-      {
-        "name": "Id"
-      },
-      {
-        "name": "CreatedAt"
-      },
-      {
-        "name": "CreatedBy"
-      },
-      {
-        "name": "Currency"
-      },
-      {
-        "name": "DeletedAt"
-      },
-      {
-        "name": "DeletedBy"
-      },
-      {
-        "name": "IsActive"
-      },
-      {
-        "name": "IsDeleted"
-      },
-      {
-        "name": "MaxAmount"
-      },
-      {
-        "name": "Period"
-      },
-      {
-        "name": "RowVersion"
-      },
-      {
-        "name": "ScopeId"
-      },
-      {
-        "name": "ScopeType"
-      },
-      {
-        "name": "TenantId"
-      },
-      {
-        "name": "UpdatedAt"
-      },
-      {
-        "name": "UpdatedBy"
-      }
-    ],
-    "indexesRaw": []
-  },
-  {
     "entity": "Aonik.Domain.Pricing.Entities.PricingQuote",
     "table": "PricingQuotes",
     "columns": [
@@ -4778,6 +3841,128 @@
     ]
   },
   {
+    "entity": "Aonik.Domain.Ai.Entities.PromptSpec",
+    "table": "PromptSpecs",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "DeveloperTemplate"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "IsPublished"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "OutputSchemaJson"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "SafetyPolicyRef"
+      },
+      {
+        "name": "SystemTemplate"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "VariablesSchemaJson"
+      },
+      {
+        "name": "Version"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Agents.Entities.Proposal",
+    "table": "Proposals",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "AiRunId"
+      },
+      {
+        "name": "ApprovedAt"
+      },
+      {
+        "name": "ApprovedByUserId"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "ImpactSummary"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PayloadJson"
+      },
+      {
+        "name": "ProposalType"
+      },
+      {
+        "name": "ProposedByAgentId"
+      },
+      {
+        "name": "RiskTier"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
     "entity": "Aonik.Domain.ReferenceData.Entities.ReferenceDataItem",
     "table": "ReferenceData",
     "columns": [
@@ -4834,6 +4019,253 @@
     ]
   },
   {
+    "entity": "Aonik.Domain.Payments.Entities.Refund",
+    "table": "Refunds",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "Amount"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "Currency"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PaymentId"
+      },
+      {
+        "name": "Reason"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Identity.Entities.RolePermission",
+    "table": "RolePermissions",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PermissionId"
+      },
+      {
+        "name": "RoleId"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"PermissionId\");",
+      "b.HasIndex(\"RoleId\", \"PermissionId\")"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Identity.Entities.Role",
+    "table": "Roles",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"TenantId\", \"Name\")"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Partners.Entities.RoutingRule",
+    "table": "RoutingRules",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "ConditionsJson"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Priority"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TargetConnectorId"
+      },
+      {
+        "name": "TargetPartnerId"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Compliance.Entities.ScreeningCheck",
+    "table": "ScreeningChecks",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CheckType"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DecidedAt"
+      },
+      {
+        "name": "DecidedBy"
+      },
+      {
+        "name": "Decision"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "PartyId"
+      },
+      {
+        "name": "ResultJson"
+      },
+      {
+        "name": "ResultStatus"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
     "entity": "Aonik.Domain.Settings.Entities.Setting",
     "table": "Settings",
     "columns": [
@@ -4885,47 +4317,70 @@
     ]
   },
   {
-    "entity": "Aonik.Infrastructure.BackgroundJobs.Entities.BackgroundJobRecord",
-    "table": "AonikBackgroundJobRecords",
+    "entity": "Aonik.Domain.Ai.Entities.Signal",
+    "table": "Signals",
     "columns": [
       {
         "name": "Id"
       },
       {
-        "name": "ArgumentsJson"
+        "name": "CreatedUtc"
       },
       {
-        "name": "CompletedAt"
+        "name": "Message"
       },
       {
-        "name": "CorrelationId"
+        "name": "Severity"
+      },
+      {
+        "name": "Type"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"CreatedUtc\");",
+      "b.HasIndex(\"Severity\");",
+      "b.HasIndex(\"Type\");"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.PersonalFinance.Entities.Subscription",
+    "table": "Subscriptions",
+    "columns": [
+      {
+        "name": "Id"
       },
       {
         "name": "CreatedAt"
       },
       {
-        "name": "ErrorDetailsJson"
+        "name": "CreatedBy"
       },
       {
-        "name": "ErrorMessage"
+        "name": "Currency"
       },
       {
-        "name": "JobName"
+        "name": "DeletedAt"
       },
       {
-        "name": "LastAttemptAt"
+        "name": "DeletedBy"
       },
       {
-        "name": "MaxRetryCount"
+        "name": "DetectedBy"
       },
       {
-        "name": "NextAttemptAt"
+        "name": "ExpectedAmount"
       },
       {
-        "name": "Priority"
+        "name": "IsDeleted"
       },
       {
-        "name": "RetryCount"
+        "name": "Merchant"
+      },
+      {
+        "name": "RenewalDate"
+      },
+      {
+        "name": "RowVersion"
       },
       {
         "name": "Status"
@@ -4934,14 +4389,559 @@
         "name": "TenantId"
       },
       {
-        "name": "TryCount"
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Features.Entities.TenantFeature",
+    "table": "TenantFeatures",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "ExpiresAt"
+      },
+      {
+        "name": "FeatureName"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "IsEnabled"
+      },
+      {
+        "name": "Reason"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
       }
     ],
     "indexesRaw": [
-      "b.HasIndex(\"NextAttemptAt\")",
-      "b.HasIndex(\"Priority\")",
-      "b.HasIndex(\"Status\")",
-      "b.HasIndex(\"TenantId\")"
+      "b.HasIndex(\"FeatureName\");",
+      "b.HasIndex(\"TenantId\", \"FeatureName\")"
     ]
+  },
+  {
+    "entity": "Aonik.Domain.Identity.Entities.Tenant",
+    "table": "Tenants",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DefaultCurrency"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "Environment"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "Subdomain"
+      },
+      {
+        "name": "SupportedCountriesJson"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"Name\")",
+      "b.HasIndex(\"Status\");",
+      "b.HasIndex(\"Subdomain\")"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Ai.Entities.ToolSpec",
+    "table": "ToolSpecs",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "AuthScope"
+      },
+      {
+        "name": "ContractJson"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "Domain"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Name"
+      },
+      {
+        "name": "RateLimitsJson"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Partners.Entities.Transmission",
+    "table": "Transmissions",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "ConnectorId"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IdempotencyKey"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "LastError"
+      },
+      {
+        "name": "PayoutId"
+      },
+      {
+        "name": "RetryCount"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Identity.Entities.UserParty",
+    "table": "UserParties",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "LinkType"
+      },
+      {
+        "name": "PartyId"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"TenantId\", \"UserId\")",
+      "b.HasIndex(\"TenantId\", \"UserId\", \"PartyId\", \"LinkType\")"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Identity.Entities.UserRole",
+    "table": "UserRoles",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "RoleId"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"RoleId\");",
+      "b.HasIndex(\"UserId\", \"RoleId\")"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Identity.Entities.User",
+    "table": "Users",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "Email"
+      },
+      {
+        "name": "ExternalIssuer"
+      },
+      {
+        "name": "ExternalSubject"
+      },
+      {
+        "name": "ExternalTenantId"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "LastLoginAt"
+      },
+      {
+        "name": "Phone"
+      },
+      {
+        "name": "PreferencesJson"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"TenantId\", \"ExternalIssuer\", \"ExternalSubject\")"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Identity.Entities.VerificationChallenge",
+    "table": "VerificationChallenges",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "AttemptCount"
+      },
+      {
+        "name": "Channel"
+      },
+      {
+        "name": "CodeHash"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "ExpiresAt"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "Target"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "UserId"
+      }
+    ],
+    "indexesRaw": [
+      "b.HasIndex(\"TenantId\", \"Channel\", \"Target\")",
+      "b.HasIndex(\"TenantId\", \"UserId\", \"Channel\")"
+    ]
+  },
+  {
+    "entity": "Aonik.Domain.Notifications.Entities.WebhookSubscription",
+    "table": "WebhookSubscriptions",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "EndpointUrl"
+      },
+      {
+        "name": "EventTypesJson"
+      },
+      {
+        "name": "IsActive"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "SecretRef"
+      },
+      {
+        "name": "SubscriberName"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      }
+    ],
+    "indexesRaw": []
+  },
+  {
+    "entity": "Aonik.Domain.Operations.Entities.WorkItem",
+    "table": "WorkItems",
+    "columns": [
+      {
+        "name": "Id"
+      },
+      {
+        "name": "AssignedToUserId"
+      },
+      {
+        "name": "ContextId"
+      },
+      {
+        "name": "ContextType"
+      },
+      {
+        "name": "CreatedAt"
+      },
+      {
+        "name": "CreatedBy"
+      },
+      {
+        "name": "DeletedAt"
+      },
+      {
+        "name": "DeletedBy"
+      },
+      {
+        "name": "HistoryJson"
+      },
+      {
+        "name": "IsDeleted"
+      },
+      {
+        "name": "Priority"
+      },
+      {
+        "name": "RowVersion"
+      },
+      {
+        "name": "SlaDueAt"
+      },
+      {
+        "name": "Status"
+      },
+      {
+        "name": "TenantId"
+      },
+      {
+        "name": "UpdatedAt"
+      },
+      {
+        "name": "UpdatedBy"
+      },
+      {
+        "name": "WorkItemType"
+      }
+    ],
+    "indexesRaw": []
   }
 ]
