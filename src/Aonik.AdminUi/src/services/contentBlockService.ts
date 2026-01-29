@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+import { api } from '@/lib/api';
 
 export interface ContentBlockMedia {
   id: string;
@@ -66,14 +66,6 @@ export interface AddContentBlockMediaRequest {
   linkUrl?: string;
 }
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const token = localStorage.getItem('access_token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-  };
-}
-
 export async function getContentBlocks(
   area?: string,
   contentKey?: string,
@@ -86,109 +78,41 @@ export async function getContentBlocks(
   params.append('locale', locale);
   if (isEnabled !== undefined) params.append('isEnabled', String(isEnabled));
 
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks?${params}`, {
-    headers: await getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch content blocks');
-  }
-
-  return response.json();
+  return api.get<ContentBlock[]>(`/api/cms/content-blocks?${params}`);
 }
 
 export async function getContentBlock(id: string): Promise<ContentBlock> {
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks/${id}`, {
-    headers: await getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch content block');
-  }
-
-  return response.json();
+  return api.get<ContentBlock>(`/api/cms/content-blocks/${id}`);
 }
 
 export async function createContentBlock(request: CreateContentBlockRequest): Promise<ContentBlock> {
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks`, {
-    method: 'POST',
-    headers: await getAuthHeaders(),
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to create content block');
-  }
-
-  return response.json();
+  return api.post<ContentBlock>('/api/cms/content-blocks', request);
 }
 
 export async function updateContentBlock(id: string, request: UpdateContentBlockRequest): Promise<ContentBlock> {
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks/${id}`, {
-    method: 'PUT',
-    headers: await getAuthHeaders(),
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to update content block');
-  }
-
-  return response.json();
+  return api.put<ContentBlock>(`/api/cms/content-blocks/${id}`, request);
 }
 
 export async function deleteContentBlock(id: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks/${id}`, {
-    method: 'DELETE',
-    headers: await getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to delete content block');
-  }
+  await api.delete<void>(`/api/cms/content-blocks/${id}`);
 }
 
 export async function addContentBlockMedia(
   contentBlockId: string,
   request: AddContentBlockMediaRequest
 ): Promise<ContentBlockMedia> {
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks/${contentBlockId}/media`, {
-    method: 'POST',
-    headers: await getAuthHeaders(),
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to add media');
-  }
-
-  return response.json();
+  return api.post<ContentBlockMedia>(`/api/cms/content-blocks/${contentBlockId}/media`, request);
 }
 
 export async function removeContentBlockMedia(contentBlockId: string, mediaId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks/${contentBlockId}/media/${mediaId}`, {
-    method: 'DELETE',
-    headers: await getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to remove media');
-  }
+  await api.delete<void>(`/api/cms/content-blocks/${contentBlockId}/media/${mediaId}`);
 }
 
 export async function reorderContentBlockMedia(
   contentBlockId: string,
   mediaIds: string[]
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/cms/content-blocks/${contentBlockId}/media/reorder`, {
-    method: 'PUT',
-    headers: await getAuthHeaders(),
-    body: JSON.stringify({ mediaIds }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to reorder media');
-  }
+  await api.put<void>(`/api/cms/content-blocks/${contentBlockId}/media/reorder`, { mediaIds });
 }
 
 export async function getActiveContentBlocks(
@@ -199,13 +123,5 @@ export async function getActiveContentBlocks(
   params.append('area', area);
   params.append('locale', locale);
 
-  const response = await fetch(`${API_BASE_URL}/api/cms/content/active?${params}`, {
-    headers: await getAuthHeaders(),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch active content blocks');
-  }
-
-  return response.json();
+  return api.get<ContentBlock[]>(`/api/cms/content/active?${params}`);
 }
