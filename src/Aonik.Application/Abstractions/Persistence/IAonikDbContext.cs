@@ -36,6 +36,8 @@ public interface IAonikDbContext
 {
     // Identity
     DbSet<Tenant> Tenants { get; set; }
+    DbSet<TenantCountry> TenantCountries { get; set; }
+    DbSet<TenantCurrency> TenantCurrencies { get; set; }
     DbSet<User> Users { get; set; }
     DbSet<Role> Roles { get; set; }
     DbSet<Permission> Permissions { get; set; }
@@ -49,6 +51,8 @@ public interface IAonikDbContext
 
     // Reference Data
     DbSet<ReferenceDataItem> ReferenceDataItems { get; set; }
+    DbSet<Country> Countries { get; set; }
+    DbSet<Currency> Currencies { get; set; }
 
     // Party
     DbSet<PartyEntity> Parties { get; set; }

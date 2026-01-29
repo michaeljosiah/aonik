@@ -39,5 +39,9 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence\Seed\Data\*.json" />
+  </ItemGroup>
+
 
 </Project>

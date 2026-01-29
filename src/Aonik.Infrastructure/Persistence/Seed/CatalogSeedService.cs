@@ -1,8 +1,12 @@
-using Aonik.Application.Abstractions.Persistence;
-using Aonik.Domain.ReferenceData.Entities;
-using Aonik.Domain.Catalog.Entities;
+using System.Reflection;
+using System.Text.Json;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+
+using Aonik.Application.Abstractions.Persistence;
+using Aonik.Domain.Catalog.Entities;
+using Aonik.Domain.ReferenceData.Entities;
 
 namespace Aonik.Infrastructure.Persistence.Seed;
 
@@ -27,6 +31,7 @@ public class CatalogSeedService
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         await SeedCountriesAsync(cancellationToken);
+        await SeedCurrenciesAsync(cancellationToken);
         await SeedCustomerTiersAsync(cancellationToken);
         await SeedCategoriesAsync(cancellationToken);
         await SeedRelationshipTypesAsync(cancellationToken);
@@ -37,80 +42,184 @@ public class CatalogSeedService
 
     private async Task SeedCountriesAsync(CancellationToken cancellationToken)
     {
-        var countries = new List<ReferenceDataItem>
-        {
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                Type = "Country",
-                Code = "GH",
-                DisplayName = "Ghana",
-                SortOrder = 1,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                Type = "Country",
-                Code = "KE",
-                DisplayName = "Kenya",
-                SortOrder = 2,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-                Type = "Country",
-                Code = "NG",
-                DisplayName = "Nigeria",
-                SortOrder = 3,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-                Type = "Country",
-                Code = "UG",
-                DisplayName = "Uganda",
-                SortOrder = 4,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
-                Type = "Country",
-                Code = "TZ",
-                DisplayName = "Tanzania",
-                SortOrder = 5,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"),
-                Type = "Country",
-                Code = "ZA",
-                DisplayName = "South Africa",
-                SortOrder = 6,
-                IsActive = true
-            }
-        };
+        var records = ReadEmbeddedJson<List<CountrySeedRecord>>("Aonik.Infrastructure.Persistence.Seed.Data.countries.derived.world-countries-json.json");
 
-        var existingKeys = await _dbContext.ReferenceDataItems
-            .Where(item => item.Type == "Country")
-            .Select(item => item.Code)
+        var existing = await _dbContext.Countries
+            .Where(x => x.TenantId == null)
             .ToListAsync(cancellationToken);
 
-        var existingSet = new HashSet<string>(existingKeys, StringComparer.OrdinalIgnoreCase);
-        var toAdd = countries.Where(country => !existingSet.Contains(country.Code)).ToList();
+        var existingByCode = existing
+            .GroupBy(x => x.IsoAlpha2, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToDictionary(x => x.IsoAlpha2, x => x, StringComparer.OrdinalIgnoreCase);
 
-        if (toAdd.Count == 0)
+        var toAdd = new List<Country>();
+        var updated = 0;
+
+        for (var i = 0; i < records.Count; i++)
         {
-            return;
+            var record = records[i];
+            var code = record.IsoAlpha2.Trim().ToUpperInvariant();
+            var name = record.Name.Trim();
+            var alpha3 = record.IsoAlpha3.Trim().ToUpperInvariant();
+
+            if (existingByCode.TryGetValue(code, out var existingItem))
+            {
+                var changed = false;
+
+                if (!string.Equals(existingItem.Name, name, StringComparison.Ordinal))
+                {
+                    existingItem.Name = name;
+                    changed = true;
+                }
+
+                if (!string.Equals(existingItem.IsoAlpha3, alpha3, StringComparison.Ordinal))
+                {
+                    existingItem.IsoAlpha3 = alpha3;
+                    changed = true;
+                }
+
+                if (existingItem.IsoNumeric != record.IsoNumeric)
+                {
+                    existingItem.IsoNumeric = record.IsoNumeric;
+                    changed = true;
+                }
+
+                var sortOrder = i + 1;
+                if (existingItem.SortOrder != sortOrder)
+                {
+                    existingItem.SortOrder = sortOrder;
+                    changed = true;
+                }
+
+                if (!existingItem.IsActive)
+                {
+                    existingItem.IsActive = true;
+                    changed = true;
+                }
+
+                if (changed)
+                    updated++;
+
+                continue;
+            }
+
+            toAdd.Add(new Country
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                IsoAlpha2 = code,
+                IsoAlpha3 = alpha3,
+                IsoNumeric = record.IsoNumeric,
+                Name = name,
+                SortOrder = i + 1,
+                IsActive = true
+            });
         }
 
-        await _dbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
+        if (toAdd.Count == 0 && updated == 0)
+            return;
+
+        if (toAdd.Count > 0)
+            await _dbContext.Countries.AddRangeAsync(toAdd, cancellationToken);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Seeded {Count} countries", toAdd.Count);
+        _logger.LogInformation("Seeded {Count} countries (added {Added}, updated {Updated})", toAdd.Count + updated, toAdd.Count, updated);
+    }
+
+    private async Task SeedCurrenciesAsync(CancellationToken cancellationToken)
+    {
+        var records = ReadEmbeddedJson<List<CurrencySeedRecord>>("Aonik.Infrastructure.Persistence.Seed.Data.currencies.iso4217.canonical.json");
+
+        var existing = await _dbContext.Currencies
+            .Where(x => x.TenantId == null)
+            .ToListAsync(cancellationToken);
+
+        var existingByCode = existing
+            .GroupBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToDictionary(x => x.Code, x => x, StringComparer.OrdinalIgnoreCase);
+
+        var toAdd = new List<Currency>();
+        var updated = 0;
+
+        for (var i = 0; i < records.Count; i++)
+        {
+            var record = records[i];
+            var code = record.Code.Trim().ToUpperInvariant();
+            var name = record.Name.Trim();
+
+            var isActive = record.WithdrawalDate is null;
+            var sortOrder = i + 1;
+
+            if (existingByCode.TryGetValue(code, out var existingItem))
+            {
+                var changed = false;
+
+                if (!string.Equals(existingItem.Name, name, StringComparison.Ordinal))
+                {
+                    existingItem.Name = name;
+                    changed = true;
+                }
+
+                if (!string.Equals(existingItem.NumericCode, record.NumericCode, StringComparison.Ordinal))
+                {
+                    existingItem.NumericCode = record.NumericCode;
+                    changed = true;
+                }
+
+                if (existingItem.MinorUnit != record.MinorUnit)
+                {
+                    existingItem.MinorUnit = record.MinorUnit;
+                    changed = true;
+                }
+
+                if (existingItem.WithdrawalDate != record.WithdrawalDate)
+                {
+                    existingItem.WithdrawalDate = record.WithdrawalDate;
+                    changed = true;
+                }
+
+                if (existingItem.SortOrder != sortOrder)
+                {
+                    existingItem.SortOrder = sortOrder;
+                    changed = true;
+                }
+
+                if (existingItem.IsActive != isActive)
+                {
+                    existingItem.IsActive = isActive;
+                    changed = true;
+                }
+
+                if (changed)
+                    updated++;
+
+                continue;
+            }
+
+            toAdd.Add(new Currency
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                Code = code,
+                Name = name,
+                NumericCode = record.NumericCode,
+                MinorUnit = record.MinorUnit,
+                WithdrawalDate = record.WithdrawalDate,
+                SortOrder = sortOrder,
+                IsActive = isActive
+            });
+        }
+
+        if (toAdd.Count == 0 && updated == 0)
+            return;
+
+        if (toAdd.Count > 0)
+            await _dbContext.Currencies.AddRangeAsync(toAdd, cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        _logger.LogInformation("Seeded {Count} currencies (added {Added}, updated {Updated})", toAdd.Count + updated, toAdd.Count, updated);
     }
 
     private async Task SeedCategoriesAsync(CancellationToken cancellationToken)
@@ -417,6 +526,24 @@ public class CatalogSeedService
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} {Type} reference data items", toAdd.Count, type);
     }
+
+    private static T ReadEmbeddedJson<T>(string resourceName)
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        using var stream = assembly.GetManifestResourceStream(resourceName);
+        if (stream == null)
+        {
+            throw new InvalidOperationException($"Embedded resource '{resourceName}' not found.");
+        }
+
+        using var reader = new StreamReader(stream);
+        var json = reader.ReadToEnd();
+        return JsonSerializer.Deserialize<T>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+               ?? throw new InvalidOperationException($"Failed to deserialize embedded resource '{resourceName}'.");
+    }
+
+    private sealed record CountrySeedRecord(string IsoAlpha2, string IsoAlpha3, int? IsoNumeric, string Name);
+    private sealed record CurrencySeedRecord(string Code, string Name, string? NumericCode, int? MinorUnit, DateOnly? WithdrawalDate);
 
     private static ReferenceDataItem BuildReferenceData(string id, string type, string code, int sortOrder)
     {

@@ -48,6 +48,8 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
     // Identity
     public virtual DbSet<Tenant> Tenants { get; set; } = null!;
+    public virtual DbSet<TenantCountry> TenantCountries { get; set; } = null!;
+    public virtual DbSet<TenantCurrency> TenantCurrencies { get; set; } = null!;
     public virtual DbSet<User> Users { get; set; } = null!;
     public virtual DbSet<Role> Roles { get; set; } = null!;
     public virtual DbSet<Permission> Permissions { get; set; } = null!;
@@ -57,6 +59,8 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
     public virtual DbSet<Setting> Settings { get; set; } = null!;
     public virtual DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
+    public virtual DbSet<Country> Countries { get; set; } = null!;
+    public virtual DbSet<Currency> Currencies { get; set; } = null!;
 
     // Party
     public virtual DbSet<PartyEntity> Parties { get; set; } = null!;
@@ -306,6 +310,8 @@ public class AonikDbContext : DbContext, IAonikDbContext
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
     }
 
     private void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType)

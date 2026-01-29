@@ -3,12 +3,10 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Models.Catalog;
 using Aonik.Application.Services.Catalog;
 using Aonik.Domain.Catalog.Entities;
-using Aonik.Domain.ReferenceData.Entities;
 using Aonik.Infrastructure.Persistence;
-using Aonik.Infrastructure.ReferenceData;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Aonik.Domain.ReferenceData.Entities;
 
 namespace Aonik.Application.Tests;
 
@@ -63,22 +61,24 @@ public class CatalogServiceTests
             .Options;
 
         using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
-        context.ReferenceDataItems.AddRange(
-            new ReferenceDataItem
+        context.Countries.AddRange(
+            new Country
             {
                 Id = Guid.NewGuid(),
-                Type = "Country",
-                Code = "GH",
-                DisplayName = "Ghana",
+                IsoAlpha2 = "GH",
+                IsoAlpha3 = "GHA",
+                IsoNumeric = 288,
+                Name = "Ghana",
                 SortOrder = 1,
                 IsActive = true
             },
-            new ReferenceDataItem
+            new Country
             {
                 Id = Guid.NewGuid(),
-                Type = "Country",
-                Code = "KE",
-                DisplayName = "Kenya",
+                IsoAlpha2 = "KE",
+                IsoAlpha3 = "KEN",
+                IsoNumeric = 404,
+                Name = "Kenya",
                 SortOrder = 2,
                 IsActive = true
             });
@@ -94,16 +94,23 @@ public class CatalogServiceTests
             SortOrder = 1
         });
 
-        await context.SaveChangesAsync();
+        context.CatalogBillerServices.Add(new CatalogBillerService
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            BillerId = context.CatalogBillers.Local.Single().Id,
+            ServiceCode = "billpay.ecg",
+            Name = "ECG Bill Pay",
+            Type = "billpay",
+            Currency = "GHS",
+            IsActive = true,
+            SortOrder = 1
+        });
 
-        var referenceDataService = new ReferenceDataService(
-            context,
-            new MemoryCache(new MemoryCacheOptions()),
-            new TestTenantProvider(tenantId));
+        await context.SaveChangesAsync();
 
         var service = new CatalogService(
             context,
-            referenceDataService,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
 
@@ -113,6 +120,50 @@ public class CatalogServiceTests
         // Assert
         result.Countries.Should().ContainSingle();
         result.Countries[0].CountryCode.Should().Be("GH");
+    }
+
+    [Fact]
+    public async Task GetCurrenciesAsync_ShouldReturnActiveCurrencies_WhenIncludeInactiveFalse()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AonikDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        context.Currencies.AddRange(
+            new Currency
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                Code = "USD",
+                Name = "US Dollar",
+                SortOrder = 1,
+                IsActive = true
+            },
+            new Currency
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                Code = "ZWL",
+                Name = "Zimbabwean Dollar",
+                SortOrder = 2,
+                IsActive = false
+            });
+        await context.SaveChangesAsync();
+
+        var service = new CatalogService(
+            context,
+            new AllowAllPermissionService(),
+            new TestCurrentUserProvider(Guid.NewGuid()));
+
+        // Act
+        var result = await service.GetCurrenciesAsync(new CatalogCurrencyListRequest(false), CancellationToken.None);
+
+        // Assert
+        result.Currencies.Should().ContainSingle();
+        result.Currencies[0].Code.Should().Be("USD");
     }
 
     [Fact]
@@ -153,14 +204,8 @@ public class CatalogServiceTests
 
         await context.SaveChangesAsync();
 
-        var referenceDataService = new ReferenceDataService(
-            context,
-            new MemoryCache(new MemoryCacheOptions()),
-            new TestTenantProvider(tenantId));
-
         var service = new CatalogService(
             context,
-            referenceDataService,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
 
@@ -220,14 +265,8 @@ public class CatalogServiceTests
 
         await context.SaveChangesAsync();
 
-        var referenceDataService = new ReferenceDataService(
-            context,
-            new MemoryCache(new MemoryCacheOptions()),
-            new TestTenantProvider(tenantId));
-
         var service = new CatalogService(
             context,
-            referenceDataService,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
 

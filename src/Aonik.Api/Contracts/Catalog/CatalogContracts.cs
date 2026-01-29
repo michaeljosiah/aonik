@@ -7,6 +7,13 @@ public record CatalogCountryItemResponse(
 public record CatalogCountryResponse(
     List<CatalogCountryItemResponse> Countries);
 
+public record CatalogCurrencyItemResponse(
+    string Code,
+    string Name);
+
+public record CatalogCurrencyResponse(
+    List<CatalogCurrencyItemResponse> Currencies);
+
 public record CatalogBillerCategoryItemResponse(
     Guid CategoryId,
     string Name,

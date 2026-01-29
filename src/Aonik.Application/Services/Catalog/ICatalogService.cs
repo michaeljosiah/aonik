@@ -5,6 +5,7 @@ namespace Aonik.Application.Services.Catalog;
 public interface ICatalogService
 {
     Task<CatalogCountryResponse> GetCountriesAsync(CatalogCountryListRequest request, CancellationToken cancellationToken = default);
+    Task<CatalogCurrencyResponse> GetCurrenciesAsync(CatalogCurrencyListRequest request, CancellationToken cancellationToken = default);
     Task<CatalogBillerCategoryResponse> GetCategoriesAsync(CatalogCategoryListRequest request, CancellationToken cancellationToken = default);
     Task<CatalogBillerResponse> GetBillersAsync(CatalogBillerListRequest request, CancellationToken cancellationToken = default);
     Task<CatalogBillerDetailResponse?> GetBillerDetailAsync(Guid billerId, CancellationToken cancellationToken = default);

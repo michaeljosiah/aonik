@@ -11,20 +11,16 @@ namespace Aonik.Application.Services.Catalog;
 
 public class CatalogService : ICatalogService
 {
-    private const string CountryReferenceType = "Country";
     private readonly IAonikDbContext _dbContext;
-    private readonly IReferenceDataService _referenceDataService;
     private readonly IPermissionService _permissionService;
     private readonly ICurrentUserProvider _currentUserProvider;
 
     public CatalogService(
         IAonikDbContext dbContext,
-        IReferenceDataService referenceDataService,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider)
     {
         _dbContext = dbContext;
-        _referenceDataService = referenceDataService;
         _permissionService = permissionService;
         _currentUserProvider = currentUserProvider;
     }
@@ -34,12 +30,12 @@ public class CatalogService : ICatalogService
         CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync(cancellationToken);
-        var items = await _referenceDataService.GetAsync(CountryReferenceType, cancellationToken: cancellationToken);
-        var countries = items
-            .Where(item => item.IsActive)
-            .Select(item => new CatalogCountryItem(item.Code, item.DisplayName))
-            .OrderBy(item => item.Name)
-            .ToList();
+        var countries = await _dbContext.Countries
+            .AsNoTracking()
+            .Where(country => country.IsActive)
+            .OrderBy(country => country.Name)
+            .Select(country => new CatalogCountryItem(country.IsoAlpha2, country.Name))
+            .ToListAsync(cancellationToken);
 
         var capabilityType = NormalizeCapabilityType(request.CapabilityType);
         var shouldFilterByServices = request.OnlyServiceCountries || !string.IsNullOrWhiteSpace(capabilityType);
@@ -71,6 +67,30 @@ public class CatalogService : ICatalogService
         }
 
         return new CatalogCountryResponse(countries);
+    }
+
+    public async Task<CatalogCurrencyResponse> GetCurrenciesAsync(
+        CatalogCurrencyListRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync(cancellationToken);
+
+        var query = _dbContext.Currencies
+            .AsNoTracking()
+            .Where(currency => currency.TenantId == null);
+
+        if (!request.IncludeInactive)
+        {
+            query = query.Where(currency => currency.IsActive);
+        }
+
+        var currencies = await query
+            .OrderBy(currency => currency.SortOrder)
+            .ThenBy(currency => currency.Name)
+            .Select(currency => new CatalogCurrencyItem(currency.Code, currency.Name))
+            .ToListAsync(cancellationToken);
+
+        return new CatalogCurrencyResponse(currencies);
     }
 
     public async Task<CatalogBillerCategoryResponse> GetCategoriesAsync(

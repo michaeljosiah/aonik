@@ -20,6 +20,7 @@ using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Registration;
 using Aonik.Application.Services.Settings;
 using Aonik.Application.Services.Onboarding;
+using Aonik.Application.Services.Pricing;
 
 using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
@@ -73,6 +74,8 @@ public static class DependencyInjection
         services.Configure<CustomerProfileStorageOptions>(configuration.GetSection("ProfileStorage"));
         services.AddMemoryCache();
         services.AddDataProtection();
+
+        services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
 
         services.AddFeatureManagement()
             .AddFeatureFilter<TenantFeatureFilter>();

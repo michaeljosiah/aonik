@@ -21,9 +21,9 @@ public class GetCatalogCountriesEndpoint : EndpointWithoutRequest<CatalogCountry
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var request = new Application.Models.Catalog.CatalogCountryListRequest(
-            Query<bool>("onlyServiceCountries", false),
-            Query<string?>("capabilityType", false));
+        var onlyServiceCountries = Query<bool>("onlyServiceCountries", isRequired: false);
+        var capabilityType = Query<string?>("capabilityType", isRequired: false);
+        var request = new Application.Models.Catalog.CatalogCountryListRequest(onlyServiceCountries, capabilityType);
         var result = await _catalogService.GetCountriesAsync(request, ct);
 
         var response = new CatalogCountryResponse(

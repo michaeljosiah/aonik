@@ -7,6 +7,13 @@ public record CatalogCountryItem(
 public record CatalogCountryResponse(
     List<CatalogCountryItem> Countries);
 
+public record CatalogCurrencyItem(
+    string Code,
+    string Name);
+
+public record CatalogCurrencyResponse(
+    List<CatalogCurrencyItem> Currencies);
+
 public record CatalogBillerCategoryItem(
     Guid CategoryId,
     string Name,
@@ -111,3 +118,6 @@ public record CatalogCategoryListRequest(
 public record CatalogCountryListRequest(
     bool OnlyServiceCountries,
     string? CapabilityType);
+
+public record CatalogCurrencyListRequest(
+    bool IncludeInactive = false);
