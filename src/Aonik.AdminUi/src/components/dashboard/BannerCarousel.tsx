@@ -15,6 +15,7 @@ const placeholderImages = [
 export function BannerCarousel({ images = placeholderImages }: BannerCarouselProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const autoplayDelayMs = 6000;
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
@@ -29,6 +30,17 @@ export function BannerCarousel({ images = placeholderImages }: BannerCarouselPro
       emblaApi.off('select', onSelect);
     };
   }, [emblaApi, onSelect]);
+
+  useEffect(() => {
+    if (!emblaApi || images.length <= 1) return;
+    const intervalId = window.setInterval(() => {
+      emblaApi.scrollNext();
+    }, autoplayDelayMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [emblaApi, images.length, autoplayDelayMs]);
 
   const scrollTo = useCallback(
     (index: number) => {

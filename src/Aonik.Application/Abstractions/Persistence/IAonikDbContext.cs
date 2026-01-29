@@ -1,6 +1,7 @@
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Billing.Entities;
+using Aonik.Domain.Cms.Entities;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Compliance.Entities;
 using Aonik.Domain.Features.Entities;
@@ -85,6 +86,10 @@ public interface IAonikDbContext
     DbSet<CustomerAccount> CustomerAccounts { get; set; }
     DbSet<InvoiceAllocation> InvoiceAllocations { get; set; }
     DbSet<DunningPlan> DunningPlans { get; set; }
+
+    // CMS
+    DbSet<ContentBlock> ContentBlocks { get; set; }
+    DbSet<ContentBlockMedia> ContentBlockMedia { get; set; }
 
     // Catalog
     DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; }

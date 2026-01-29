@@ -4,6 +4,7 @@ using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Billing.Entities;
 using Aonik.Domain.Catalog.Entities;
+using Aonik.Domain.Cms.Entities;
 using Aonik.Domain.Compliance.Entities;
 using Aonik.Domain.Features.Entities;
 using Aonik.Domain.Identity.Entities;
@@ -93,6 +94,10 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<CustomerAccount> CustomerAccounts { get; set; } = null!;
     public virtual DbSet<InvoiceAllocation> InvoiceAllocations { get; set; } = null!;
     public virtual DbSet<DunningPlan> DunningPlans { get; set; } = null!;
+
+    // CMS
+    public virtual DbSet<ContentBlock> ContentBlocks { get; set; } = null!;
+    public virtual DbSet<ContentBlockMedia> ContentBlockMedia { get; set; } = null!;
 
     // Catalog
     public virtual DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; } = null!;

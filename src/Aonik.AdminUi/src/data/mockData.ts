@@ -199,6 +199,22 @@ export const navigationItems: NavItem[] = [
       },
     ],
   },
+  {
+    id: 'cms',
+    label: 'Content',
+    icon: 'Layers',
+    viewAllHref: '/cms',
+    viewAllLabel: 'View all',
+    childGroups: [
+      {
+        label: 'Content Blocks',
+        items: [
+          { id: 'content-blocks', label: 'Content Blocks', icon: 'Layers', href: '/cms/content-blocks' },
+          { id: 'media-library', label: 'Media Library', icon: 'Image', href: '/cms/media' },
+        ],
+      },
+    ],
+  },
 ];
 
 export const activityFeed: ActivityItem[] = [

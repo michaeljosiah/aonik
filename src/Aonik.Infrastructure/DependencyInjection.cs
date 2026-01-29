@@ -14,6 +14,7 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.ReferenceData;
 using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Options;
+using Aonik.Application.Services.Cms;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
@@ -147,6 +148,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IVerificationService, VerificationService>();
+        services.AddScoped<IContentBlockService, ContentBlockService>();
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();

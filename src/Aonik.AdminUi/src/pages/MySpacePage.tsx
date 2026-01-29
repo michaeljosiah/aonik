@@ -19,14 +19,38 @@ import {
   myAgents,
   myDataboxes,
 } from '@/data/mockData';
+import { getActiveContentBlocks, type ContentBlock } from '@/services/contentBlockService';
 
 export function MySpacePage() {
   const [showResumeSetup, setShowResumeSetup] = useState(false);
+  const [bannerContent, setBannerContent] = useState<ContentBlock | null>(null);
+  const [bannerImages, setBannerImages] = useState<Array<{ src: string; alt: string }>>([]);
 
   useEffect(() => {
     const skipped = localStorage.getItem('aonik:onboarding:skip');
     const complete = localStorage.getItem('aonik:onboarding:complete');
     setShowResumeSetup(Boolean(skipped) && !complete);
+  }, []);
+
+  useEffect(() => {
+    async function loadBanner() {
+      try {
+        const blocks = await getActiveContentBlocks('MySpaceBanner', 'en');
+        if (blocks.length > 0) {
+          const block = blocks[0];
+          setBannerContent(block);
+          const images = block.media.map(m => ({
+            src: m.url,
+            alt: m.alt || block.title,
+          }));
+          setBannerImages(images);
+        }
+      } catch (error) {
+        console.error('Failed to load banner content:', error);
+      }
+    }
+
+    loadBanner();
   }, []);
 
   return (
@@ -71,17 +95,17 @@ export function MySpacePage() {
         {/* Top Section: Activity Feed, Banner, Quick Links */}
         <div className="grid grid-cols-12 gap-5 mb-6">
           {/* Activity Feed */}
-          <div className="col-span-12 lg:col-span-3">
+          <div className="col-span-12 lg:col-span-3 h-full">
             <ActivityFeed items={activityFeed} />
           </div>
 
           {/* Banner Carousel */}
-          <div className="col-span-12 lg:col-span-6 h-[280px]">
-            <BannerCarousel />
+          <div className="col-span-12 lg:col-span-6 h-full">
+            <BannerCarousel images={bannerImages.length > 0 ? bannerImages : undefined} />
           </div>
 
           {/* Quick Links */}
-          <div className="col-span-12 lg:col-span-3">
+          <div className="col-span-12 lg:col-span-3 h-full">
             <QuickLinks links={quickLinks} />
           </div>
         </div>

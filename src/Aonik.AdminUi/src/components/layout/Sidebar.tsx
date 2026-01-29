@@ -52,6 +52,8 @@ import {
   Webhook,
   ScrollText,
   Globe,
+  Layers,
+  Image,
 } from 'lucide-react';
 import type { NavItem, NavItemGroup } from '@/types';
 import { identityService } from '@/services/identityService';
@@ -101,6 +103,9 @@ const iconMap: Record<string, React.ElementType> = {
   ScrollText,
   // Catalog
   Globe,
+  // CMS
+  Layers,
+  Image,
 };
 
 interface SidebarProps {
