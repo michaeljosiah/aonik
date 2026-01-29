@@ -18,3 +18,7 @@ export {
 export { BillPaymentOrderFormPage, OrdersLandingPage } from './orders';
 
 export { AiChatMock } from './ai/AiChatMock';
+export { ContentBlocksListPage } from './ContentBlocksListPage';
+export { ContentBlockEditPage } from './ContentBlockEditPage';
+export { MediaLibraryPage } from './MediaLibraryPage';
+
