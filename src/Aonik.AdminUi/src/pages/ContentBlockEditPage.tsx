@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DataTable, ColumnDef } from '@/components/ui/data-table';
+import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DataTableRowActions } from '@/components/ui/data-table';
 import { ArrowLeft, Save, Plus, Trash2, Layers, Image, GripVertical } from 'lucide-react';
 import {
