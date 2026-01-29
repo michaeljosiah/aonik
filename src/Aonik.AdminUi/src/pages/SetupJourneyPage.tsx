@@ -13,7 +13,7 @@ import { demoSeedService } from '@/services/demoSeedService';
 import { identityService } from '@/services/identityService';
 import { tenantService } from '@/services/tenantService';
 import { tenantFeatureService } from '@/services/tenantFeatureService';
-import type { CatalogCountryItem, Tenant } from '@/types';
+import type { CatalogCountryItem, CatalogCurrencyItem, Tenant } from '@/types';
 
 type StepStatus = 'todo' | 'in-progress' | 'blocked' | 'complete' | 'skipped';
 
@@ -186,7 +186,7 @@ const setupNodes = baseSteps.map((step, index) => ({
   },
 })) as Node<SetupNodeData>[];
 
-const currencyOptions = ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR', 'AED', 'SAR', 'CAD', 'AUD'];
+const fallbackCurrencies = [{ code: 'USD', name: 'US Dollar' }] as const;
 
 const defaultTimeZones = [
   'UTC',
@@ -361,6 +361,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
   const [tenantProfileError, setTenantProfileError] = useState<string | null>(null);
   const [tenantProfileSaving, setTenantProfileSaving] = useState(false);
   const [tenantCountries, setTenantCountries] = useState<CatalogCountryItem[]>([]);
+  const [tenantCurrencies, setTenantCurrencies] = useState<CatalogCurrencyItem[]>([]);
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [currentTenantId, setCurrentTenantId] = useState<string>('');
   const [featureSelections, setFeatureSelections] = useState<Record<string, boolean>>({});
@@ -537,12 +538,14 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
     setTenantProfileLoading(true);
     setTenantProfileError(null);
     try {
-      const [currentUser, countries] = await Promise.all([
+      const [currentUser, countries, currencies] = await Promise.all([
         identityService.getCurrentUser(),
         catalogService.getTenantCountries(),
+        catalogService.getTenantCurrencies(),
       ]);
       setCurrentTenantId(currentUser.tenantId);
       setTenantCountries(countries.countries ?? []);
+      setTenantCurrencies(currencies.currencies ?? []);
 
       const tenant = await tenantService.get(currentUser.tenantId);
       setCurrentTenant(tenant);
@@ -626,6 +629,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
         name: tenantProfile.name,
         defaultCurrency: tenantProfile.defaultCurrency,
         supportedCountries: tenantProfile.primaryCountry ? [tenantProfile.primaryCountry] : [],
+        supportedCurrencies: tenantProfile.defaultCurrency ? [tenantProfile.defaultCurrency] : [],
       });
       persistTenantProfileExtras(currentTenantId);
       setWizardStepIndex(1);
@@ -1008,9 +1012,9 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                             onChange={(event) => setTenantProfile((prev) => ({ ...prev, defaultCurrency: event.target.value }))}
                             className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
                           >
-                            {currencyOptions.map((currency) => (
-                              <option key={currency} value={currency}>
-                                {currency}
+                            {(tenantCurrencies.length > 0 ? tenantCurrencies : fallbackCurrencies).map((currency) => (
+                              <option key={currency.code} value={currency.code}>
+                                {currency.code} - {currency.name}
                               </option>
                             ))}
                           </select>

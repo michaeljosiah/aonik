@@ -23,6 +23,7 @@ import {
   User,
 } from 'lucide-react';
 import { tenantService } from '@/services/tenantService';
+import { catalogService } from '@/services/catalogService';
 import type { TenantHealthResult } from '@/services/tenantService';
 import type { Tenant, UpdateTenantRequest, TenantStatus, TenantEnvironment } from '@/types';
 
@@ -47,18 +48,7 @@ const environments: { value: TenantEnvironment; label: string }[] = [
   { value: 'Prod', label: 'Production' },
 ];
 
-const currencies = [
-  { code: 'USD', name: 'US Dollar' },
-  { code: 'EUR', name: 'Euro' },
-  { code: 'GBP', name: 'British Pound' },
-  { code: 'JPY', name: 'Japanese Yen' },
-  { code: 'CAD', name: 'Canadian Dollar' },
-  { code: 'AUD', name: 'Australian Dollar' },
-  { code: 'CHF', name: 'Swiss Franc' },
-  { code: 'CNY', name: 'Chinese Yuan' },
-  { code: 'SEK', name: 'Swedish Krona' },
-  { code: 'NZD', name: 'New Zealand Dollar' },
-];
+const currencies = [] as { code: string; name: string }[];
 
 const countries = [
   { code: 'US', name: 'United States' },
@@ -95,6 +85,24 @@ export function TenantDetailPage() {
   
   const [formData, setFormData] = useState<UpdateTenantRequest>({});
   const [errors, setErrors] = useState<Partial<Record<keyof UpdateTenantRequest, string>>>({});
+  const [currencyOptions, setCurrencyOptions] = useState<{ code: string; name: string }[]>(currencies);
+
+  useEffect(() => {
+    let active = true;
+    const loadCurrencies = async () => {
+      try {
+        const response = await catalogService.getCurrencies();
+        if (!active) return;
+        setCurrencyOptions(response.currencies ?? []);
+      } catch {
+        // keep defaults
+      }
+    };
+    loadCurrencies();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const loadTenant = useCallback(async () => {
     if (!tenantId) return;
@@ -109,6 +117,7 @@ export function TenantDetailPage() {
         environment: data.environment,
         defaultCurrency: data.defaultCurrency,
         supportedCountries: [...data.supportedCountries],
+        supportedCurrencies: [...(data.supportedCurrencies ?? [data.defaultCurrency])],
       });
     } catch (err: unknown) {
       console.error('Failed to load tenant:', err);
@@ -486,10 +495,10 @@ export function TenantDetailPage() {
                   {isEditing ? (
                     <select
                       value={formData.defaultCurrency || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value }))}
+                      onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value, supportedCurrencies: [e.target.value] }))}
                       className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
                     >
-                      {currencies.map(currency => (
+                      {currencyOptions.map(currency => (
                         <option key={currency.code} value={currency.code}>
                           {currency.code} - {currency.name}
                         </option>

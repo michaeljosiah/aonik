@@ -105,10 +105,14 @@ export function LoginPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
+    // If we were explicitly redirected here due to an expired session or missing tenant context,
+    // do not auto-bounce back to the protected route; that causes an auth redirect loop.
+    if (reason === 'session-expired' || reason === 'tenant-missing') return;
+
     if (isAuthenticated && !isLoading) {
       navigate(from, { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate, from]);
+  }, [isAuthenticated, isLoading, navigate, from, reason]);
 
   const handleLogin = async () => {
     // Validate tenant selection if showing selector
@@ -130,6 +134,13 @@ export function LoginPage() {
           subdomain: selected?.subdomain,
           environment: selected?.environment,
         });
+      }
+
+      // If the user is already authenticated and we're only here to re-select tenant context,
+      // avoid forcing an IdP roundtrip.
+      if (isAuthenticated && reason === 'tenant-missing') {
+        navigate(from, { replace: true });
+        return;
       }
       await login();
     } catch (err) {

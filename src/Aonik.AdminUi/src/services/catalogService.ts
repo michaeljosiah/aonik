@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import type {
   CatalogCountryResponse,
+  CatalogCurrencyResponse,
   CatalogBillerCategoryResponse,
   CatalogBillerResponse,
   CatalogBillerDetailResponse,
@@ -32,6 +33,16 @@ export const catalogService = {
     return api.get<CatalogCountryResponse>(`/host/catalog/countries${query ? `?${query}` : ''}`);
   },
 
+  getCurrencies: async (includeInactive = false): Promise<CatalogCurrencyResponse> => {
+    const params = new URLSearchParams();
+    if (includeInactive) {
+      params.append('includeInactive', 'true');
+    }
+
+    const query = params.toString();
+    return api.get<CatalogCurrencyResponse>(`/host/catalog/currencies${query ? `?${query}` : ''}`);
+  },
+
   getTenantCountries: async (onlyServiceCountries = false, capabilityType?: string): Promise<CatalogCountryResponse> => {
     const params = new URLSearchParams();
     if (onlyServiceCountries) {
@@ -43,6 +54,16 @@ export const catalogService = {
 
     const query = params.toString();
     return api.get<CatalogCountryResponse>(`/catalog/countries${query ? `?${query}` : ''}`);
+  },
+
+  getTenantCurrencies: async (includeInactive = false): Promise<CatalogCurrencyResponse> => {
+    const params = new URLSearchParams();
+    if (includeInactive) {
+      params.append('includeInactive', 'true');
+    }
+
+    const query = params.toString();
+    return api.get<CatalogCurrencyResponse>(`/catalog/currencies${query ? `?${query}` : ''}`);
   },
 
   getCategories: async (countryCode?: string): Promise<CatalogBillerCategoryResponse> => {

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, AlertCircle, X } from 'lucide-react';
 import { tenantService } from '@/services/tenantService';
+import { catalogService } from '@/services/catalogService';
 import type { CreateTenantRequest, TenantEnvironment } from '@/types';
 
 const environments: { value: TenantEnvironment; label: string }[] = [
@@ -13,18 +14,7 @@ const environments: { value: TenantEnvironment; label: string }[] = [
   { value: 'Prod', label: 'Production' },
 ];
 
-const currencies = [
-  { code: 'USD', name: 'US Dollar' },
-  { code: 'EUR', name: 'Euro' },
-  { code: 'GBP', name: 'British Pound' },
-  { code: 'JPY', name: 'Japanese Yen' },
-  { code: 'CAD', name: 'Canadian Dollar' },
-  { code: 'AUD', name: 'Australian Dollar' },
-  { code: 'CHF', name: 'Swiss Franc' },
-  { code: 'CNY', name: 'Chinese Yuan' },
-  { code: 'SEK', name: 'Swedish Krona' },
-  { code: 'NZD', name: 'New Zealand Dollar' },
-];
+const currencies = [] as { code: string; name: string }[];
 
 const countries = [
   { code: 'US', name: 'United States' },
@@ -51,15 +41,34 @@ export function CreateTenantPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currencyOptions, setCurrencyOptions] = useState<{ code: string; name: string }[]>(currencies);
 
   const [formData, setFormData] = useState<CreateTenantRequest>({
     name: '',
     environment: 'Dev',
     defaultCurrency: 'USD',
     supportedCountries: ['US'],
+    supportedCurrencies: ['USD'],
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof CreateTenantRequest, string>>>({});
+
+  useEffect(() => {
+    let active = true;
+    const loadCurrencies = async () => {
+      try {
+        const response = await catalogService.getCurrencies();
+        if (!active) return;
+        setCurrencyOptions(response.currencies ?? []);
+      } catch {
+        // keep defaults
+      }
+    };
+    loadCurrencies();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof CreateTenantRequest, string>> = {};
@@ -214,12 +223,12 @@ export function CreateTenantPage() {
                 </label>
                 <select
                   value={formData.defaultCurrency}
-                  onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value, supportedCurrencies: [e.target.value] }))}
                   className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
                     errors.defaultCurrency ? 'border-red-300' : 'border-[var(--color-border)]'
                   }`}
                 >
-                  {currencies.map(currency => (
+                  {currencyOptions.map(currency => (
                     <option key={currency.code} value={currency.code}>
                       {currency.code} - {currency.name}
                     </option>

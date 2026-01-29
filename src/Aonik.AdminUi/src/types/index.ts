@@ -101,6 +101,7 @@ export interface Tenant {
   environment: TenantEnvironment;
   defaultCurrency: string;
   supportedCountries: string[];
+  supportedCurrencies: string[];
   status: TenantStatus;
   createdAt: string;
   createdBy?: string;
@@ -113,6 +114,7 @@ export interface CreateTenantRequest {
   environment: TenantEnvironment;
   defaultCurrency: string;
   supportedCountries: string[];
+  supportedCurrencies?: string[];
 }
 
 export interface UpdateTenantRequest {
@@ -120,6 +122,7 @@ export interface UpdateTenantRequest {
   environment?: TenantEnvironment;
   defaultCurrency?: string;
   supportedCountries?: string[];
+  supportedCurrencies?: string[];
 }
 
 export interface PagedResult<T> {
@@ -152,6 +155,15 @@ export interface CatalogCountryItem {
 
 export interface CatalogCountryResponse {
   countries: CatalogCountryItem[];
+}
+
+export interface CatalogCurrencyItem {
+  code: string;
+  name: string;
+}
+
+export interface CatalogCurrencyResponse {
+  currencies: CatalogCurrencyItem[];
 }
 
 export interface ReferenceDataItem {
