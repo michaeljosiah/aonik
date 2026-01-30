@@ -8,16 +8,16 @@ import { RefreshCw, AlertCircle, Globe2, ToggleLeft, ToggleRight } from 'lucide-
 import { catalogService } from '@/services/catalogService';
 import type { CatalogCountryItem } from '@/types';
 
-const getFlagEmoji = (countryCode: string) => {
+// FlatIcon circular country flags mapping
+// Using FlatIcon's circular flag collection from the 'circle-flags' pack
+const getFlagUrl = (countryCode: string) => {
   if (countryCode.length !== 2) {
-    return '🌍';
+    return 'https://cdn-icons-png.flaticon.com/512/330/330557.png'; // Globe icon as fallback
   }
-
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map((char) => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
+  
+  // FlatIcon circular flags - Using circle-flags CDN which provides SVG circular flags
+  // This is a more reliable source with all country codes supported
+  return `https://hatscripts.github.io/circle-flags/flags/${countryCode.toLowerCase()}.svg`;
 };
 
 export function CatalogCountriesPage() {
@@ -26,7 +26,7 @@ export function CatalogCountriesPage() {
   const [error, setError] = useState<string | null>(null);
   const [onlyServiceCountries, setOnlyServiceCountries] = useState(false);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
@@ -155,6 +155,9 @@ export function CatalogCountriesPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
+                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)] w-16">
+                          Flag
+                        </th>
                         <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
                           Country
                         </th>
@@ -167,12 +170,16 @@ export function CatalogCountriesPage() {
                       {pagedCountries.map((country) => (
                         <tr key={country.countryCode} className="border-b border-[var(--color-border-light)]">
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-2xl">{getFlagEmoji(country.countryCode)}</span>
-                              <div>
-                                <p className="font-medium text-[var(--color-text-primary)]">{country.name}</p>
-                                <p className="text-xs text-[var(--color-text-tertiary)]">Catalog availability reference</p>
-                              </div>
+                            <img 
+                              src={getFlagUrl(country.countryCode)} 
+                              alt={`${country.name} flag`}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-medium text-[var(--color-text-primary)]">{country.name}</p>
+                              <p className="text-xs text-[var(--color-text-tertiary)]">Catalog availability reference</p>
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -196,7 +203,11 @@ export function CatalogCountriesPage() {
                         <Badge variant="secondary" className="font-mono">
                           {country.countryCode}
                         </Badge>
-                        <span className="text-2xl">{getFlagEmoji(country.countryCode)}</span>
+                        <img 
+                          src={getFlagUrl(country.countryCode)} 
+                          alt={`${country.name} flag`}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
                       </div>
                       <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{country.name}</h3>
                       <p className="text-sm text-[var(--color-text-secondary)]">Catalog availability reference</p>
