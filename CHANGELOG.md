@@ -26,6 +26,9 @@ All notable changes to the AONIK project will be documented in this file.
   - Updated CustomWebApplicationFactory to explicitly use InMemory for tests
 
 ### Added
+- **Autonumbering**: Added autonumbering profiles, reservations, and service models with tests for sequencing and reset behavior.
+- **Autonumbering**: Added documentation covering performance considerations and reservation table usage guidance.
+- **Admin UI**: Added an autonumbering settings page with configuration overview and test preview.
 - **Admin UI**: Role display in sidebar user profile
   - Added `identityService.getUserInfo()` to fetch user roles from `/identity/userinfo` endpoint
   - Added `formatRoleLabel()` helper to convert role names to Title Case

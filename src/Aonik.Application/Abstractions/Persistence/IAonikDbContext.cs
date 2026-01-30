@@ -1,5 +1,6 @@
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
+using Aonik.Domain.Autonumbering.Entities;
 using Aonik.Domain.Billing.Entities;
 using Aonik.Domain.Cms.Entities;
 using Aonik.Domain.Catalog.Entities;
@@ -46,6 +47,10 @@ public interface IAonikDbContext
     DbSet<RolePermission> RolePermissions { get; set; }
     DbSet<UserParty> UserParties { get; set; }
     DbSet<VerificationChallenge> VerificationChallenges { get; set; }
+
+    // Autonumbering
+    DbSet<AutonumberProfile> AutonumberProfiles { get; set; }
+    DbSet<AutonumberReservation> AutonumberReservations { get; set; }
 
     // Settings
     DbSet<Setting> Settings { get; set; }
