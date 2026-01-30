@@ -3,9 +3,22 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { RefreshCw, AlertCircle, Globe2, ToggleLeft, ToggleRight, Search } from 'lucide-react';
+import { DataTableHeader, DataTablePagination, type ViewMode } from '@/components/ui/data-table';
+import { RefreshCw, AlertCircle, Globe2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
 import type { CatalogCountryItem } from '@/types';
+
+const getFlagEmoji = (countryCode: string) => {
+  if (countryCode.length !== 2) {
+    return '🌍';
+  }
+
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map((char) => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+};
 
 export function CatalogCountriesPage() {
   const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
@@ -13,6 +26,9 @@ export function CatalogCountriesPage() {
   const [error, setError] = useState<string | null>(null);
   const [onlyServiceCountries, setOnlyServiceCountries] = useState(false);
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
 
   const loadCountries = useCallback(async () => {
     setLoading(true);
@@ -35,6 +51,10 @@ export function CatalogCountriesPage() {
     loadCountries();
   }, [loadCountries]);
 
+  useEffect(() => {
+    setPageNumber(1);
+  }, [search, onlyServiceCountries]);
+
   const filteredCountries = useMemo(() => {
     if (!search.trim()) {
       return countries;
@@ -45,6 +65,16 @@ export function CatalogCountriesPage() {
       country.name.toLowerCase().includes(lowered) || country.countryCode.toLowerCase().includes(lowered)
     );
   }, [countries, search]);
+
+  const pagedCountries = useMemo(() => {
+    const start = (pageNumber - 1) * pageSize;
+    return filteredCountries.slice(start, start + pageSize);
+  }, [filteredCountries, pageNumber, pageSize]);
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setPageNumber(1);
+  };
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -77,36 +107,33 @@ export function CatalogCountriesPage() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="relative w-96 max-w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search for countries"
-                  className="w-full pl-10 pr-4 py-2 text-sm rounded-sm border border-[var(--color-border)] bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)]"
-                />
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => setOnlyServiceCountries((prev) => !prev)}
-              >
-                {onlyServiceCountries ? (
-                  <ToggleRight className="w-4 h-4 mr-2 text-[var(--color-brand-primary)]" />
-                ) : (
-                  <ToggleLeft className="w-4 h-4 mr-2 text-[var(--color-text-tertiary)]" />
-                )}
-                Only service countries
-              </Button>
-            </div>
-
-            <Badge variant="secondary">{filteredCountries.length} countries</Badge>
-          </div>
+          <DataTableHeader
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search for countries"
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            showViewToggle
+            className="px-0 border-b-0"
+            actions={(
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-sm"
+                  onClick={() => setOnlyServiceCountries((prev) => !prev)}
+                >
+                  {onlyServiceCountries ? (
+                    <ToggleRight className="w-4 h-4 mr-2 text-[var(--color-brand-primary)]" />
+                  ) : (
+                    <ToggleLeft className="w-4 h-4 mr-2 text-[var(--color-text-tertiary)]" />
+                  )}
+                  Only service countries
+                </Button>
+                <Badge variant="secondary">{filteredCountries.length} countries</Badge>
+              </>
+            )}
+          />
 
           <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
             {loading ? (
@@ -123,23 +150,72 @@ export function CatalogCountriesPage() {
                 <p className="text-sm text-[var(--color-text-secondary)]">Try adjusting your filters.</p>
               </div>
             ) : (
-              <div className="grid gap-3 p-6 md:grid-cols-2 xl:grid-cols-3">
-                {filteredCountries.map((country) => (
-                  <div
-                    key={country.countryCode}
-                    className="border border-[var(--color-border-light)] rounded-md p-4 bg-[var(--color-surface)] shadow-sm"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="secondary" className="font-mono">
-                        {country.countryCode}
-                      </Badge>
+              viewMode === 'list' ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
+                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                          Country
+                        </th>
+                        <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                          Code
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagedCountries.map((country) => (
+                        <tr key={country.countryCode} className="border-b border-[var(--color-border-light)]">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-2xl">{getFlagEmoji(country.countryCode)}</span>
+                              <div>
+                                <p className="font-medium text-[var(--color-text-primary)]">{country.name}</p>
+                                <p className="text-xs text-[var(--color-text-tertiary)]">Catalog availability reference</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant="secondary" className="font-mono">
+                              {country.countryCode}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="grid gap-3 p-6 md:grid-cols-2 xl:grid-cols-3">
+                  {pagedCountries.map((country) => (
+                    <div
+                      key={country.countryCode}
+                      className="border border-[var(--color-border-light)] rounded-md p-4 bg-[var(--color-surface)] shadow-sm"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <Badge variant="secondary" className="font-mono">
+                          {country.countryCode}
+                        </Badge>
+                        <span className="text-2xl">{getFlagEmoji(country.countryCode)}</span>
+                      </div>
+                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{country.name}</h3>
+                      <p className="text-sm text-[var(--color-text-secondary)]">Catalog availability reference</p>
                     </div>
-                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{country.name}</h3>
-                    <p className="text-sm text-[var(--color-text-secondary)]">Catalog availability reference</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )
             )}
+          </div>
+
+          <div className="pt-4">
+            <DataTablePagination
+              pageNumber={pageNumber}
+              pageSize={pageSize}
+              totalCount={filteredCountries.length}
+              onPageChange={setPageNumber}
+              onPageSizeChange={handlePageSizeChange}
+              className="px-0 border-t-0"
+            />
           </div>
         </CardContent>
       </Card>
