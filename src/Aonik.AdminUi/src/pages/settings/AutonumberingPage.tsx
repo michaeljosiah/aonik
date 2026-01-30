@@ -1,5 +1,6 @@
-import { Hash } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Hash, RefreshCw, AlertCircle, Plus, X, Beaker, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
@@ -7,54 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-type AutonumberProfile = {
-  id: string;
-  name: string;
-  entityType: string;
-  strategy: string;
-  resetPolicy: string;
-  paddingLength: number;
-  range: string;
-  lastIssued: string;
-  status: 'Active' | 'Paused';
-};
-
-const profiles: AutonumberProfile[] = [
-  {
-    id: 'inv-default',
-    name: 'Invoice Default',
-    entityType: 'Invoice',
-    strategy: 'Sequential',
-    resetPolicy: 'Monthly',
-    paddingLength: 4,
-    range: '1 - 9,999',
-    lastIssued: 'INV-2026-0421',
-    status: 'Active',
-  },
-  {
-    id: 'order-standard',
-    name: 'Order Standard',
-    entityType: 'Order',
-    strategy: 'Sequential',
-    resetPolicy: 'Yearly',
-    paddingLength: 6,
-    range: '1 - 999,999',
-    lastIssued: 'ORD-2026-000932',
-    status: 'Active',
-  },
-  {
-    id: 'credit-note',
-    name: 'Credit Note',
-    entityType: 'CreditNote',
-    strategy: 'Sequential',
-    resetPolicy: 'None',
-    paddingLength: 5,
-    range: '100 - 99,999',
-    lastIssued: 'CRN-01042',
-    status: 'Paused',
-  },
-];
+import { autonumberingService } from '@/services/autonumberingService';
+import type { AutonumberProfile, AutonumberStrategy, AutonumberResetPolicy, GenerateAutonumberResponse } from '@/types';
 
 const tokenizedDate = (template: string, date: Date) => {
   const year = date.getFullYear().toString();
@@ -69,14 +24,30 @@ const tokenizedDate = (template: string, date: Date) => {
     .replace(/\{DD\}/gi, day);
 };
 
-export function AutonumberingPage() {
+// Test Reference Dialog Component
+function TestReferenceDialog({
+  isOpen,
+  onClose,
+  onTest,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onTest: (entityType: string, prefix: string, suffix: string, paddingLength: number, sequenceValue: number) => Promise<string>;
+}) {
   const [entityType, setEntityType] = useState('Invoice');
   const [prefix, setPrefix] = useState('INV-{YYYY}-');
   const [suffix, setSuffix] = useState('');
   const [paddingLength, setPaddingLength] = useState('4');
   const [sequenceValue, setSequenceValue] = useState('421');
-  const [resetPolicy, setResetPolicy] = useState('Monthly');
-  const [strategy, setStrategy] = useState('Sequential');
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setTestResult(null);
+    setError(null);
+  }, [isOpen]);
 
   const preview = useMemo(() => {
     const padding = Number.parseInt(paddingLength, 10);
@@ -88,74 +59,55 @@ export function AutonumberingPage() {
     return `${tokenizedDate(prefix, date)}${padded}${tokenizedDate(suffix, date)}`;
   }, [paddingLength, prefix, sequenceValue, suffix]);
 
-  return (
-    <div className="h-full overflow-auto p-6 space-y-6">
-      <Breadcrumb
-        items={[
-          { label: 'Settings', href: '/settings', icon: <Hash className="w-3.5 h-3.5" /> },
-          { label: 'Autonumbering' },
-        ]}
-      />
+  const handleTest = async () => {
+    setIsTesting(true);
+    setError(null);
+    setTestResult(null);
+    try {
+      const result = await onTest(
+        entityType,
+        prefix,
+        suffix,
+        Number.parseInt(paddingLength, 10),
+        Number.parseInt(sequenceValue, 10)
+      );
+      setTestResult(result);
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to test reference generation.');
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Autonumbering</h1>
-        <p className="text-[var(--color-text-secondary)]">
-          Configure and validate reference sequences for invoices, orders, and other financial documents.
-        </p>
-      </div>
+  if (!isOpen) return null;
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configurations</CardTitle>
-          <CardDescription>Active tenant-scoped numbering profiles and last issued references.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[var(--color-text-tertiary)] border-b border-[var(--color-border)]">
-                  <th className="py-2 pr-4 font-medium">Name</th>
-                  <th className="py-2 pr-4 font-medium">Entity</th>
-                  <th className="py-2 pr-4 font-medium">Strategy</th>
-                  <th className="py-2 pr-4 font-medium">Reset</th>
-                  <th className="py-2 pr-4 font-medium">Range</th>
-                  <th className="py-2 pr-4 font-medium">Last Issued</th>
-                  <th className="py-2 pr-4 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {profiles.map((profile) => (
-                  <tr
-                    key={profile.id}
-                    className="border-b border-[var(--color-border-light)] text-[var(--color-text-primary)]"
-                  >
-                    <td className="py-3 pr-4 font-medium">{profile.name}</td>
-                    <td className="py-3 pr-4">{profile.entityType}</td>
-                    <td className="py-3 pr-4">{profile.strategy}</td>
-                    <td className="py-3 pr-4">{profile.resetPolicy}</td>
-                    <td className="py-3 pr-4">{profile.range}</td>
-                    <td className="py-3 pr-4">{profile.lastIssued}</td>
-                    <td className="py-3 pr-4">
-                      <Badge variant={profile.status === 'Active' ? 'secondary' : 'outline'}>
-                        {profile.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Test a Reference</CardTitle>
-          <CardDescription>
-            Validate tokens, padding, and reset rules without issuing a live reference.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-[min(92vw,40rem)] rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4 py-3">
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Test a Reference</h3>
+          <button
+            type="button"
+            className="rounded-sm p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            onClick={onClose}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
+          {error && (
+            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+              {error}
+            </div>
+          )}
+          {testResult && (
+            <div className="rounded-sm border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs text-[var(--color-success)]">
+              <strong>Generated:</strong> {testResult}
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="entity-type">Entity Type</Label>
@@ -167,25 +119,25 @@ export function AutonumberingPage() {
                   <SelectItem value="Invoice">Invoice</SelectItem>
                   <SelectItem value="Order">Order</SelectItem>
                   <SelectItem value="CreditNote">Credit Note</SelectItem>
+                  <SelectItem value="Payment">Payment</SelectItem>
+                  <SelectItem value="Payout">Payout</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="strategy">Strategy</Label>
-              <Select value={strategy} onValueChange={setStrategy}>
+              <Select value="Sequential" disabled>
                 <SelectTrigger id="strategy">
                   <SelectValue placeholder="Select strategy" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Sequential">Sequential</SelectItem>
-                  <SelectItem value="Random">Random</SelectItem>
-                  <SelectItem value="Hybrid">Hybrid</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="reset-policy">Reset Policy</Label>
-              <Select value={resetPolicy} onValueChange={setResetPolicy}>
+              <Select value="Monthly" disabled>
                 <SelectTrigger id="reset-policy">
                   <SelectValue placeholder="Select reset policy" />
                 </SelectTrigger>
@@ -233,13 +185,488 @@ export function AutonumberingPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-4">
-            <Button variant="default">Run Test</Button>
+            <Button variant="default" onClick={handleTest} disabled={isTesting}>
+              {isTesting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Beaker className="w-4 h-4 mr-2" />
+                  Run Test
+                </>
+              )}
+            </Button>
             <span className="text-xs text-[var(--color-text-tertiary)]">
-              Preview uses the current date with tokens {`{YYYY}`}, {`{MM}`}, {`{DD}`}.
+              Preview uses the current date with tokens {'{YYYY}'}, {'{MM}'}, {'{DD}'}.
             </span>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Edit Profile Dialog Component
+function EditProfileDialog({
+  profile,
+  isOpen,
+  onClose,
+  onSave,
+}: {
+  profile: AutonumberProfile | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (profile: AutonumberProfile) => Promise<void>;
+}) {
+  const [form, setForm] = useState<Partial<AutonumberProfile>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !profile) return;
+    setForm({ ...profile });
+    setError(null);
+  }, [isOpen, profile]);
+
+  if (!isOpen || !profile) return null;
+
+  const updateField = <K extends keyof AutonumberProfile>(key: K, value: AutonumberProfile[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updatedProfile = { ...profile, ...form } as AutonumberProfile;
+      await onSave(updatedProfile);
+      onClose();
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to save profile.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-[min(92vw,32rem)] rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4 py-3">
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+            Edit Configuration: {profile.entityType}
+          </h3>
+          <button
+            type="button"
+            className="rounded-sm p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            onClick={onClose}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
+          {error && (
+            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+              {error}
+            </div>
+          )}
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-prefix">Prefix Template</Label>
+              <Input
+                id="edit-prefix"
+                value={form.prefixTemplate || ''}
+                onChange={(e) => updateField('prefixTemplate', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-suffix">Suffix Template</Label>
+              <Input
+                id="edit-suffix"
+                value={form.suffixTemplate || ''}
+                onChange={(e) => updateField('suffixTemplate', e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-padding">Padding Length</Label>
+                <Input
+                  id="edit-padding"
+                  type="number"
+                  min="0"
+                  value={form.paddingLength || 0}
+                  onChange={(e) => updateField('paddingLength', Number.parseInt(e.target.value, 10) || 0)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-strategy">Strategy</Label>
+                <Select
+                  value={form.strategy || 'Sequential'}
+                  onValueChange={(value) => updateField('strategy', value as AutonumberStrategy)}
+                >
+                  <SelectTrigger id="edit-strategy">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sequential">Sequential</SelectItem>
+                    <SelectItem value="Random">Random</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-reset">Reset Policy</Label>
+                <Select
+                  value={form.resetPolicy || 'None'}
+                  onValueChange={(value) => updateField('resetPolicy', value as AutonumberResetPolicy)}
+                >
+                  <SelectTrigger id="edit-reset">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="None">None</SelectItem>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select
+                  value={form.isActive ? 'Active' : 'Paused'}
+                  onValueChange={(value) => updateField('isActive', value === 'Active')}
+                >
+                  <SelectTrigger id="edit-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Paused">Paused</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-min">Min Value</Label>
+                <Input
+                  id="edit-min"
+                  type="number"
+                  min="0"
+                  value={form.minValue || 1}
+                  onChange={(e) => updateField('minValue', Number.parseInt(e.target.value, 10) || 1)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-max">Max Value</Label>
+                <Input
+                  id="edit-max"
+                  type="number"
+                  min="0"
+                  value={form.maxValue || 999999}
+                  onChange={(e) => updateField('maxValue', Number.parseInt(e.target.value, 10) || 999999)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-light)]">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+export function AutonumberingPage() {
+  const [profiles, setProfiles] = useState<AutonumberProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<AutonumberProfile | null>(null);
+
+  const loadProfiles = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await autonumberingService.list();
+      setProfiles(result);
+    } catch (err: unknown) {
+      console.error('Failed to load autonumbering profiles:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to load autonumbering configurations. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
+
+  const handleTest = async (
+    entityType: string,
+    prefix: string,
+    suffix: string,
+    paddingLength: number,
+    sequenceValue: number
+  ): Promise<string> => {
+    // First ensure the profile exists with the test settings
+    await autonumberingService.upsert({
+      entityType,
+      prefixTemplate: prefix,
+      suffixTemplate: suffix,
+      strategy: 'Sequential',
+      resetPolicy: 'None',
+      paddingLength,
+      minValue: 1,
+      maxValue: 999999,
+      isActive: true,
+    });
+
+    // Then generate a reference
+    const result: GenerateAutonumberResponse = await autonumberingService.generate({ entityType });
+    return result.reference;
+  };
+
+  const handleEdit = (profile: AutonumberProfile) => {
+    setEditingProfile(profile);
+    setEditDialogOpen(true);
+  };
+
+  const handleSave = async (profile: AutonumberProfile) => {
+    await autonumberingService.upsert({
+      entityType: profile.entityType,
+      prefixTemplate: profile.prefixTemplate,
+      suffixTemplate: profile.suffixTemplate,
+      strategy: profile.strategy,
+      resetPolicy: profile.resetPolicy,
+      paddingLength: profile.paddingLength,
+      minValue: profile.minValue,
+      maxValue: profile.maxValue,
+      isActive: profile.isActive,
+    });
+    await loadProfiles();
+  };
+
+  const formatRange = (profile: AutonumberProfile) => {
+    return `${profile.minValue.toLocaleString()} - ${profile.maxValue.toLocaleString()}`;
+  };
+
+  const formatLastIssued = (profile: AutonumberProfile) => {
+    if (!profile.lastIssuedValue || profile.lastIssuedValue < profile.minValue) {
+      return 'Never';
+    }
+    const prefix = tokenizedDate(profile.prefixTemplate, new Date());
+    const suffix = tokenizedDate(profile.suffixTemplate, new Date());
+    const padded = profile.paddingLength > 0
+      ? profile.lastIssuedValue.toString().padStart(profile.paddingLength, '0')
+      : profile.lastIssuedValue.toString();
+    return `${prefix}${padded}${suffix}`;
+  };
+
+  return (
+    <div className="h-full overflow-auto p-6">
+      <Breadcrumb
+        items={[
+          { label: 'Settings', href: '/settings', icon: <Hash className="w-3.5 h-3.5" /> },
+          { label: 'Autonumbering' },
+        ]}
+        className="mb-4"
+      />
+
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Autonumbering</h1>
+          <p className="text-[var(--color-text-secondary)]">
+            Configure and validate reference sequences for invoices, orders, and other financial documents.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => setTestDialogOpen(true)} className="rounded-sm">
+            <Beaker className="w-4 h-4 mr-2" />
+            Test Reference
+          </Button>
+          <Button className="rounded-sm">
+            <Plus className="w-4 h-4 mr-2" />
+            New Configuration
+          </Button>
+        </div>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
+          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={loadProfiles} className="ml-auto">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Configurations Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Configurations</CardTitle>
+          <CardDescription>Active tenant-scoped numbering profiles and last issued references.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                      Entity Type
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                      Strategy
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                      Reset
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                      Range
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                      Last Issued
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                      Status
+                    </th>
+                    <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-12 text-center">
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-[var(--color-text-tertiary)]" />
+                        <p className="text-sm text-[var(--color-text-secondary)]">Loading configurations...</p>
+                      </td>
+                    </tr>
+                  ) : profiles.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-12 text-center">
+                        <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]">
+                          <Hash className="w-12 h-12" />
+                        </div>
+                        <p className="text-[var(--color-text-primary)] font-medium mb-1">No configurations found</p>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                          Get started by creating your first autonumbering configuration
+                        </p>
+                        <Button className="rounded-sm">
+                          <Plus className="w-4 h-4 mr-2" />
+                          New Configuration
+                        </Button>
+                      </td>
+                    </tr>
+                  ) : (
+                    profiles.map((profile) => (
+                      <tr
+                        key={profile.id}
+                        className="border-b border-[var(--color-border-light)] hover:bg-[var(--color-surface-inset)] transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-md bg-[var(--color-brand-primary-light)] flex items-center justify-center">
+                              <Hash className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-[var(--color-text-primary)]">{profile.entityType}</p>
+                              <p className="text-xs text-[var(--color-text-tertiary)] font-mono">
+                                {profile.prefixTemplate || 'No prefix'}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-[var(--color-text-primary)]">{profile.strategy}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-[var(--color-text-primary)]">{profile.resetPolicy}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-[var(--color-text-primary)]">{formatRange(profile)}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-[var(--color-text-secondary)] font-mono">
+                            {formatLastIssued(profile)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={profile.isActive ? 'secondary' : 'outline'}>
+                            {profile.isActive ? 'Active' : 'Paused'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-sm"
+                            onClick={() => handleEdit(profile)}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Test Reference Dialog */}
+      <TestReferenceDialog
+        isOpen={testDialogOpen}
+        onClose={() => setTestDialogOpen(false)}
+        onTest={handleTest}
+      />
+
+      {/* Edit Profile Dialog */}
+      <EditProfileDialog
+        profile={editingProfile}
+        isOpen={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setEditingProfile(null);
+        }}
+        onSave={handleSave}
+      />
     </div>
   );
 }

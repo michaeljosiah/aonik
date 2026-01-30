@@ -17,4 +17,8 @@ public interface IAutonumberingService
     Task<AutonumberGenerateResult> GenerateAsync(
         AutonumberGenerateRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<AutonumberGenerateResult> PreviewAsync(
+        AutonumberGenerateRequest request,
+        CancellationToken cancellationToken = default);
 }

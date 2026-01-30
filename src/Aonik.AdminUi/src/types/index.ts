@@ -581,3 +581,46 @@ export interface DemoSeedResponse {
   seededAt: string;
   operations: string[];
 }
+
+// Autonumbering Types
+export type AutonumberStrategy = 'Sequential' | 'Random' | 'Hybrid';
+export type AutonumberResetPolicy = 'None' | 'Monthly' | 'Yearly';
+
+export interface AutonumberProfile {
+  id: string;
+  tenantId: string;
+  entityType: string;
+  prefixTemplate: string;
+  suffixTemplate: string;
+  strategy: AutonumberStrategy;
+  resetPolicy: AutonumberResetPolicy;
+  paddingLength: number;
+  minValue: number;
+  maxValue: number;
+  lastIssuedValue: number;
+  lastIssuedAt?: string | null;
+  isActive: boolean;
+}
+
+export interface UpsertAutonumberProfileRequest {
+  entityType: string;
+  prefixTemplate?: string | null;
+  suffixTemplate?: string | null;
+  strategy: AutonumberStrategy;
+  resetPolicy: AutonumberResetPolicy;
+  paddingLength: number;
+  minValue: number;
+  maxValue: number;
+  isActive: boolean;
+}
+
+export interface GenerateAutonumberRequest {
+  entityType: string;
+  tenantId?: string | null;
+}
+
+export interface GenerateAutonumberResponse {
+  profileId: string;
+  sequenceValue: number;
+  reference: string;
+}

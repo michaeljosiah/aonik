@@ -65,12 +65,12 @@ public class AutonumberingService : IAutonumberingService
             throw new InvalidOperationException("MinValue cannot exceed MaxValue.");
         }
 
-        tenantId ??= ResolveTenantId();
+        var resolvedTenantId = tenantId ?? ResolveTenantId();
 
         var profile = await _dbContext.AutonumberProfiles
             .FirstOrDefaultAsync(
                 candidate => candidate.EntityType == normalizedEntityType
-                    && candidate.TenantId == tenantId,
+                    && candidate.TenantId == resolvedTenantId,
                 cancellationToken);
 
         if (profile == null)
@@ -78,7 +78,7 @@ public class AutonumberingService : IAutonumberingService
             profile = new AutonumberProfile
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenantId,
+                TenantId = resolvedTenantId,
                 EntityType = normalizedEntityType,
                 LastIssuedValue = request.MinValue - 1,
                 LastIssuedAt = null
@@ -157,6 +157,60 @@ public class AutonumberingService : IAutonumberingService
         var reference = $"{prefix}{padded}{suffix}";
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new AutonumberGenerateResult(profile.Id, nextValue, reference);
+    }
+
+    public async Task<AutonumberGenerateResult> PreviewAsync(
+        AutonumberGenerateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedEntityType = NormalizeEntityType(request.EntityType);
+        var tenantId = request.TenantId ?? ResolveTenantId();
+
+        var profile = await _dbContext.AutonumberProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                candidate => candidate.EntityType == normalizedEntityType
+                    && candidate.TenantId == tenantId,
+                cancellationToken);
+
+        if (profile == null)
+        {
+            throw new InvalidOperationException($"Autonumber profile not found for '{normalizedEntityType}'.");
+        }
+
+        if (!profile.IsActive)
+        {
+            throw new InvalidOperationException($"Autonumber profile '{normalizedEntityType}' is inactive.");
+        }
+
+        if (profile.Strategy != AutonumberStrategy.Sequential)
+        {
+            throw new InvalidOperationException("Only sequential autonumbering is supported at this time.");
+        }
+
+        var now = _clock.UtcNow;
+        var lastIssuedValue = profile.LastIssuedValue;
+
+        if (ShouldReset(profile, now))
+        {
+            lastIssuedValue = profile.MinValue - 1;
+        }
+
+        var nextValue = lastIssuedValue + 1;
+        if (nextValue > profile.MaxValue)
+        {
+            throw new InvalidOperationException($"Autonumber range exhausted for '{normalizedEntityType}'.");
+        }
+
+        var prefix = ApplyTokens(profile.PrefixTemplate, now);
+        var suffix = ApplyTokens(profile.SuffixTemplate, now);
+        var padded = profile.PaddingLength > 0
+            ? nextValue.ToString($"D{profile.PaddingLength}")
+            : nextValue.ToString();
+
+        var reference = $"{prefix}{padded}{suffix}";
 
         return new AutonumberGenerateResult(profile.Id, nextValue, reference);
     }
