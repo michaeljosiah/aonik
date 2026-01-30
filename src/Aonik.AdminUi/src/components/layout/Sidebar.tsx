@@ -55,9 +55,9 @@ import {
   Layers,
   Image,
 } from 'lucide-react';
-import type { NavItem, NavItemGroup } from '@/types';
+import type { NavItem, NavItemGroup, NavigationSection } from '@/types';
 import { identityService } from '@/services/identityService';
-import { navigationItems } from '@/data/mockData';
+import { navigationSections } from '@/data/mockData';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 
 const iconMap: Record<string, React.ElementType> = {
@@ -599,6 +599,8 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
 
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const { user, logout } = useAuth();
+  const [navRoles, setNavRoles] = useState<string[]>([]);
+  const [isLoadingNavRoles, setIsLoadingNavRoles] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -607,6 +609,50 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       console.error('Logout failed:', error);
     }
   };
+
+  useEffect(() => {
+    const hydrateRoles = async () => {
+      if (!user) {
+        setNavRoles([]);
+        return;
+      }
+
+      if (user.roleSource !== 'api' && user.roles && user.roles.length > 0) {
+        setNavRoles(user.roles);
+        return;
+      }
+
+      setIsLoadingNavRoles(true);
+      try {
+        const response = await identityService.getUserInfo();
+        setNavRoles(response.roles);
+      } catch (error) {
+        console.error('Failed to fetch user roles for navigation:', error);
+        setNavRoles([]);
+      } finally {
+        setIsLoadingNavRoles(false);
+      }
+    };
+
+    hydrateRoles();
+  }, [user]);
+
+  const isPortalAdmin = navRoles.some((role) => {
+    const normalized = role.toLowerCase();
+    const isAdmin = normalized.includes('admin') || normalized.includes('administrator');
+    const isHostScope = normalized.includes('platform') || normalized.includes('portal') || normalized.includes('host');
+    return isAdmin && isHostScope;
+  });
+
+  const visibleSections = navigationSections.filter((section) => {
+    if (section.audience === 'host') {
+      return isPortalAdmin;
+    }
+    if (section.audience === 'tenant') {
+      return !isPortalAdmin && !isLoadingNavRoles;
+    }
+    return true;
+  });
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -641,9 +687,20 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {navigationItems.map((item) => (
-            <NavItemComponent key={item.id} item={item} collapsed={collapsed} />
+        <nav className="flex-1 overflow-y-auto p-3 space-y-3">
+          {visibleSections.map((section: NavigationSection) => (
+            <div key={section.id} className="space-y-1">
+              {section.label && (
+                <div className="px-3 pt-2 pb-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                    {section.label}
+                  </span>
+                </div>
+              )}
+              {section.items.map((item) => (
+                <NavItemComponent key={item.id} item={item} collapsed={collapsed} />
+              ))}
+            </div>
           ))}
         </nav>
 

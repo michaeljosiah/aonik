@@ -1,4 +1,4 @@
-import type { NavItem, User, ActivityItem, QuickLink, AppCard, AgentCard, Databox } from '@/types';
+import type { NavigationSection, User, ActivityItem, QuickLink, AppCard, AgentCard, Databox } from '@/types';
 
 export const currentUser: User = {
   id: '1',
@@ -7,210 +7,222 @@ export const currentUser: User = {
   avatar: undefined,
 };
 
-export const navigationItems: NavItem[] = [
+export const navigationSections: NavigationSection[] = [
   {
-    id: 'search',
-    label: 'Search',
-    icon: 'Search',
-    href: '/search',
-  },
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: 'LayoutDashboard',
-    href: '/',
-  },
-  {
-    id: 'billing',
-    label: 'Billing',
-    icon: 'FileText',
-    viewAllHref: '/billing',
-    viewAllLabel: 'View all',
-    childGroups: [
+    id: 'core',
+    items: [
       {
-        label: 'Documents',
-        items: [
-          { id: 'invoices', label: 'Invoices', icon: 'Receipt', href: '/billing/invoices' },
-          { id: 'customers', label: 'Customers', icon: 'Building2', href: '/billing/customers' },
+        id: 'search',
+        label: 'Search',
+        icon: 'Search',
+        href: '/search',
+      },
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: 'LayoutDashboard',
+        href: '/',
+      },
+      {
+        id: 'billing',
+        label: 'Billing',
+        icon: 'FileText',
+        viewAllHref: '/billing',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Documents',
+            items: [
+              { id: 'invoices', label: 'Invoices', icon: 'Receipt', href: '/billing/invoices' },
+              { id: 'customers', label: 'Customers', icon: 'Building2', href: '/billing/customers' },
+            ],
+          },
+          {
+            label: 'Management',
+            items: [
+              { id: 'dunning', label: 'Dunning Plans', icon: 'AlertTriangle', href: '/billing/dunning' },
+            ],
+          },
         ],
       },
       {
-        label: 'Management',
-        items: [
-          { id: 'dunning', label: 'Dunning Plans', icon: 'AlertTriangle', href: '/billing/dunning' },
+        id: 'payments',
+        label: 'Payments',
+        icon: 'CreditCard',
+        viewAllHref: '/payments',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Activity',
+            items: [
+              { id: 'transactions', label: 'Transactions', icon: 'ArrowRightLeft', href: '/payments/transactions' },
+              { id: 'payouts', label: 'Payouts', icon: 'Banknote', href: '/payments/payouts' },
+            ],
+          },
+          {
+            label: 'Disputes',
+            items: [
+              { id: 'refunds', label: 'Refunds', icon: 'RotateCcw', href: '/payments/refunds' },
+              { id: 'chargebacks', label: 'Chargebacks', icon: 'ShieldAlert', href: '/payments/chargebacks' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'orders',
+        label: 'Orders',
+        icon: 'ClipboardList',
+        viewAllHref: '/orders',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Bill Payments',
+            items: [
+              { id: 'order-bill-payments', label: 'Create Bill Payment', icon: 'Receipt', href: '/orders/bill-payments/new' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'ledger',
+        label: 'Ledger',
+        icon: 'BookOpen',
+        viewAllHref: '/ledger',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Core',
+            items: [
+              { id: 'accounts', label: 'Accounts', icon: 'Landmark', href: '/ledger/accounts' },
+              { id: 'journal-entries', label: 'Journal Entries', icon: 'ClipboardList', href: '/ledger/journal-entries' },
+            ],
+          },
+          {
+            label: 'Operations',
+            items: [
+              { id: 'reconciliation', label: 'Reconciliation', icon: 'GitCompare', href: '/ledger/reconciliation' },
+            ],
+          },
         ],
       },
     ],
   },
   {
-    id: 'payments',
-    label: 'Payments',
-    icon: 'CreditCard',
-    viewAllHref: '/payments',
-    viewAllLabel: 'View all',
-    childGroups: [
+    id: 'host',
+    label: 'Host',
+    audience: 'host',
+    items: [
       {
-        label: 'Activity',
-        items: [
-          { id: 'transactions', label: 'Transactions', icon: 'ArrowRightLeft', href: '/payments/transactions' },
-          { id: 'payouts', label: 'Payouts', icon: 'Banknote', href: '/payments/payouts' },
+        id: 'ai-agents',
+        label: 'AI & Agents',
+        icon: 'Sparkles',
+        viewAllHref: '/ai',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'AI Platform',
+            items: [
+              { id: 'ai-models', label: 'AI Models', icon: 'Brain', href: '/ai/models' },
+              { id: 'ai-chat', label: 'AI Assistant', icon: 'MessageSquare', href: '/ai/chat' },
+            ],
+          },
+          {
+            label: 'Agent Framework',
+            items: [
+              { id: 'agents', label: 'Agents', icon: 'Bot', href: '/ai/agents' },
+              { id: 'orchestrator', label: 'Orchestrator', icon: 'Workflow', href: '/ai/orchestrator' },
+            ],
+          },
         ],
       },
       {
-        label: 'Disputes',
-        items: [
-          { id: 'refunds', label: 'Refunds', icon: 'RotateCcw', href: '/payments/refunds' },
-          { id: 'chargebacks', label: 'Chargebacks', icon: 'ShieldAlert', href: '/payments/chargebacks' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'orders',
-    label: 'Orders',
-    icon: 'ClipboardList',
-    viewAllHref: '/orders',
-    viewAllLabel: 'View all',
-    childGroups: [
-      {
-        label: 'Bill Payments',
-        items: [
-          { id: 'order-bill-payments', label: 'Create Bill Payment', icon: 'Receipt', href: '/orders/bill-payments/new' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'ledger',
-    label: 'Ledger',
-    icon: 'BookOpen',
-    viewAllHref: '/ledger',
-    viewAllLabel: 'View all',
-    childGroups: [
-      {
-        label: 'Core',
-        items: [
-          { id: 'accounts', label: 'Accounts', icon: 'Landmark', href: '/ledger/accounts' },
-          { id: 'journal-entries', label: 'Journal Entries', icon: 'ClipboardList', href: '/ledger/journal-entries' },
+        id: 'users-access',
+        label: 'Users & Access',
+        icon: 'Users',
+        viewAllHref: '/access',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Identity',
+            items: [
+              { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users' },
+            ],
+          },
+          {
+            label: 'Authorization',
+            items: [
+              { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles' },
+              { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions' },
+            ],
+          },
         ],
       },
       {
-        label: 'Operations',
-        items: [
-          { id: 'reconciliation', label: 'Reconciliation', icon: 'GitCompare', href: '/ledger/reconciliation' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'ai-agents',
-    label: 'AI & Agents',
-    icon: 'Sparkles',
-    viewAllHref: '/ai',
-    viewAllLabel: 'View all',
-    childGroups: [
-      {
-        label: 'AI Platform',
-        items: [
-          { id: 'ai-models', label: 'AI Models', icon: 'Brain', href: '/ai/models' },
-          { id: 'ai-chat', label: 'AI Assistant', icon: 'MessageSquare', href: '/ai/chat' },
-        ],
-      },
-      {
-        label: 'Agent Framework',
-        items: [
-          { id: 'agents', label: 'Agents', icon: 'Bot', href: '/ai/agents' },
-          { id: 'orchestrator', label: 'Orchestrator', icon: 'Workflow', href: '/ai/orchestrator' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'users-access',
-    label: 'Users & Access',
-    icon: 'Users',
-    viewAllHref: '/access',
-    viewAllLabel: 'View all',
-    childGroups: [
-      {
-        label: 'Identity',
-        items: [
-          { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users' },
+        id: 'catalog',
+        label: 'Catalog',
+        icon: 'Store',
+        viewAllHref: '/catalog',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Browse',
+            items: [
+              { id: 'catalog-overview', label: 'Overview', icon: 'Store', href: '/catalog' },
+              { id: 'catalog-countries', label: 'Countries', icon: 'Globe', href: '/catalog/countries' },
+            ],
+          },
+          {
+            label: 'Entities',
+            items: [
+              { id: 'catalog-categories', label: 'Categories', icon: 'Grid3x3', href: '/catalog/categories' },
+              { id: 'catalog-billers', label: 'Billers', icon: 'Building2', href: '/catalog/billers' },
+            ],
+          },
         ],
       },
       {
-        label: 'Authorization',
-        items: [
-          { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles' },
-          { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'catalog',
-    label: 'Catalog',
-    icon: 'Store',
-    viewAllHref: '/catalog',
-    viewAllLabel: 'View all',
-    childGroups: [
-      {
-        label: 'Browse',
-        items: [
-          { id: 'catalog-overview', label: 'Overview', icon: 'Store', href: '/catalog' },
-          { id: 'catalog-countries', label: 'Countries', icon: 'Globe', href: '/catalog/countries' },
-        ],
+        id: 'tenants',
+        label: 'Tenants',
+        icon: 'Building',
+        href: '/tenants',
       },
       {
-        label: 'Entities',
-        items: [
-          { id: 'catalog-categories', label: 'Categories', icon: 'Grid3x3', href: '/catalog/categories' },
-          { id: 'catalog-billers', label: 'Billers', icon: 'Building2', href: '/catalog/billers' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'tenants',
-    label: 'Tenants',
-    icon: 'Building',
-    href: '/tenants',
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: 'Settings',
-    viewAllHref: '/settings',
-    viewAllLabel: 'View all',
-    childGroups: [
-      {
-        label: 'Configuration',
-        items: [
-          { id: 'general-settings', label: 'General', icon: 'Cog', href: '/settings/general' },
-          { id: 'webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
+        id: 'settings',
+        label: 'Settings',
+        icon: 'Settings',
+        viewAllHref: '/settings',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Configuration',
+            items: [
+              { id: 'general-settings', label: 'General', icon: 'Cog', href: '/settings/general' },
+              { id: 'webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
+            ],
+          },
+          {
+            label: 'Security & Audit',
+            items: [
+              { id: 'api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
+              { id: 'audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
+            ],
+          },
         ],
       },
       {
-        label: 'Security & Audit',
-        items: [
-          { id: 'api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
-          { id: 'audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'cms',
-    label: 'Content',
-    icon: 'Layers',
-    viewAllHref: '/cms',
-    viewAllLabel: 'View all',
-    childGroups: [
-      {
-        label: 'Content Blocks',
-        items: [
-          { id: 'content-blocks', label: 'Content Blocks', icon: 'Layers', href: '/cms/content-blocks' },
-          { id: 'media-library', label: 'Media Library', icon: 'Image', href: '/cms/media' },
+        id: 'cms',
+        label: 'Content',
+        icon: 'Layers',
+        viewAllHref: '/cms',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Content Blocks',
+            items: [
+              { id: 'content-blocks', label: 'Content Blocks', icon: 'Layers', href: '/cms/content-blocks' },
+              { id: 'media-library', label: 'Media Library', icon: 'Image', href: '/cms/media' },
+            ],
+          },
         ],
       },
     ],

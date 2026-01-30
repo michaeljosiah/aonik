@@ -4,6 +4,13 @@ export interface NavItemGroup {
   items: NavItem[];
 }
 
+export interface NavigationSection {
+  id: string;
+  label?: string;
+  items: NavItem[];
+  audience?: 'host' | 'tenant' | 'all';
+}
+
 export interface NavItem {
   id: string;
   label: string;
