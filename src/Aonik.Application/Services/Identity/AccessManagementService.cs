@@ -69,17 +69,45 @@ public class AccessManagementService : IAccessManagementService
             .OrderBy(user => user.Email ?? string.Empty)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(user => new AccessUserSummary(
+            .Select(user => new
+            {
                 user.Id,
-                user.Email ?? string.Empty,
-                null,
+                Email = user.Email ?? string.Empty,
                 user.Status,
                 user.LastLoginAt,
-                _dbContext.UserRoles.Count(ur => ur.UserId == user.Id)))
+                RoleCount = _dbContext.UserRoles.Count(ur => ur.UserId == user.Id),
+                PartyInfo = _dbContext.UserParties
+                    .Where(link => link.TenantId == tenantId && link.UserId == user.Id)
+                    .Join(_dbContext.Parties,
+                        link => link.PartyId,
+                        party => party.Id,
+                        (link, party) => new
+                        {
+                            PartyId = (Guid?)party.Id,
+                            party.DisplayName,
+                            party.PartyType,
+                            link.LinkType,
+                            link.CreatedAt
+                        })
+                    .OrderBy(link => link.CreatedAt)
+                    .FirstOrDefault()
+            })
             .ToListAsync(cancellationToken);
 
+        var summaries = items.Select(item => new AccessUserSummary(
+            item.Id,
+            item.Email,
+            null,
+            item.Status,
+            item.LastLoginAt,
+            item.RoleCount,
+            item.PartyInfo?.PartyId,
+            item.PartyInfo?.DisplayName,
+            item.PartyInfo?.PartyType,
+            item.PartyInfo?.LinkType)).ToList();
+
         return new PagedResult<AccessUserSummary>(
-            items,
+            summaries,
             request.PageNumber,
             request.PageSize,
             totalCount);
@@ -108,6 +136,23 @@ public class AccessManagementService : IAccessManagementService
 
         var permissions = await _permissionService.GetUserPermissionsAsync(userId, cancellationToken);
 
+        var partyInfo = await _dbContext.UserParties
+            .AsNoTracking()
+            .Where(link => link.TenantId == tenantId && link.UserId == userId)
+            .Join(_dbContext.Parties,
+                link => link.PartyId,
+                party => party.Id,
+                (link, party) => new
+                {
+                    PartyId = (Guid?)party.Id,
+                    party.DisplayName,
+                    party.PartyType,
+                    link.LinkType,
+                    link.CreatedAt
+                })
+            .OrderBy(link => link.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return new AccessUserDetail(
             user.Id,
             user.Email ?? string.Empty,
@@ -116,7 +161,11 @@ public class AccessManagementService : IAccessManagementService
             user.CreatedAt,
             user.LastLoginAt,
             roles,
-            permissions);
+            permissions,
+            partyInfo?.PartyId,
+            partyInfo?.DisplayName,
+            partyInfo?.PartyType,
+            partyInfo?.LinkType);
     }
 
     public async Task InviteUserAsync(InviteUserRequest request, CancellationToken cancellationToken = default)
@@ -536,21 +585,49 @@ public class AccessManagementService : IAccessManagementService
             .Where(ur => ur.RoleId == role.Id)
             .Include(ur => ur.User)
             .OrderBy(ur => ur.User.Email)
-            .Select(ur => new AccessUserSummary(
+            .Select(ur => new
+            {
                 ur.User.Id,
-                ur.User.Email ?? string.Empty,
-                null,
+                Email = ur.User.Email ?? string.Empty,
                 ur.User.Status,
                 ur.User.LastLoginAt,
-                _dbContext.UserRoles.Count(userRole => userRole.UserId == ur.User.Id)))
+                RoleCount = _dbContext.UserRoles.Count(userRole => userRole.UserId == ur.User.Id),
+                PartyInfo = _dbContext.UserParties
+                    .Where(link => link.UserId == ur.User.Id && link.TenantId == role.TenantId)
+                    .Join(_dbContext.Parties,
+                        link => link.PartyId,
+                        party => party.Id,
+                        (link, party) => new
+                        {
+                            PartyId = (Guid?)party.Id,
+                            party.DisplayName,
+                            party.PartyType,
+                            link.LinkType,
+                            link.CreatedAt
+                        })
+                    .OrderBy(link => link.CreatedAt)
+                    .FirstOrDefault()
+            })
             .ToListAsync(cancellationToken);
+
+        var userSummaries = users.Select(user => new AccessUserSummary(
+            user.Id,
+            user.Email,
+            null,
+            user.Status,
+            user.LastLoginAt,
+            user.RoleCount,
+            user.PartyInfo?.PartyId,
+            user.PartyInfo?.DisplayName,
+            user.PartyInfo?.PartyType,
+            user.PartyInfo?.LinkType)).ToList();
 
         return new AccessRoleDetail(
             role.Id,
             role.Name,
             null,
             permissions,
-            users);
+            userSummaries);
     }
 
     private static string GetPermissionCategory(string permissionKey)

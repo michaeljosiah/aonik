@@ -43,7 +43,11 @@ public record AccessUserSummary(
     string? DisplayName,
     string Status,
     DateTime? LastLoginAt,
-    int RoleCount
+    int RoleCount,
+    Guid? PartyId,
+    string? PartyDisplayName,
+    string? PartyType,
+    string? PartyLinkType
 );
 
 public record AccessUserDetail(
@@ -54,7 +58,11 @@ public record AccessUserDetail(
     DateTime CreatedAt,
     DateTime? LastLoginAt,
     List<RoleSummary> Roles,
-    List<string> Permissions
+    List<string> Permissions,
+    Guid? PartyId,
+    string? PartyDisplayName,
+    string? PartyType,
+    string? PartyLinkType
 );
 
 public record PermissionDefinition(

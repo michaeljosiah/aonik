@@ -479,6 +479,10 @@ export interface AccessUserSummary {
   status: string;
   lastLoginAt?: string | null;
   roleCount: number;
+  partyId?: string | null;
+  partyDisplayName?: string | null;
+  partyType?: string | null;
+  partyLinkType?: string | null;
 }
 
 export interface AccessUserDetail {
@@ -490,6 +494,10 @@ export interface AccessUserDetail {
   lastLoginAt?: string | null;
   roles: RoleSummaryResponse[];
   permissions?: string[] | null;
+  partyId?: string | null;
+  partyDisplayName?: string | null;
+  partyType?: string | null;
+  partyLinkType?: string | null;
 }
 
 export interface PermissionDefinition {
