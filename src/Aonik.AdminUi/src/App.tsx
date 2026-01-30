@@ -25,6 +25,7 @@ import {
   AccessUsersPage,
   AccessRolesPage,
   AccessPermissionsPage,
+  UserDetailPage,
   BillPaymentOrderFormPage,
   OrdersLandingPage,
   ContentBlocksListPage,
@@ -220,6 +221,7 @@ function AppLayout() {
             <Route path="/ai/chat" element={<AiChatMock agentId={selectedAgentId} />} />
             {/* Users & Access */}
             <Route path="/access/users" element={<AccessUsersPage />} />
+            <Route path="/access/users/:userId" element={<UserDetailPage />} />
             <Route path="/access/roles" element={<AccessRolesPage />} />
             <Route path="/access/permissions" element={<AccessPermissionsPage />} />
             {/* Catalog */}

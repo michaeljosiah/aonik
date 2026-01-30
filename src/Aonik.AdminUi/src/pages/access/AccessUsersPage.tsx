@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,7 @@ const statusFilterOptions: FilterOption[] = [
 ];
 
 export function AccessUsersPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<AccessUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,12 +123,12 @@ export function AccessUsersPage() {
     {
       label: 'View Details',
       icon: <Eye className="w-4 h-4" />,
-      onClick: () => console.log('View user:', user.userId),
+      onClick: () => navigate(`/access/users/${user.userId}`),
     },
     {
       label: 'Edit User',
       icon: <Edit className="w-4 h-4" />,
-      onClick: () => console.log('Edit user:', user.userId),
+      onClick: () => navigate(`/access/users/${user.userId}`),
     },
     {
       label: 'Deactivate',

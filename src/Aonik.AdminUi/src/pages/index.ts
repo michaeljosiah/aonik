@@ -5,7 +5,7 @@ export { SetupJourneyPage } from './SetupJourneyPage';
 export { SetupGuidePage } from './SetupGuidePage';
 export { SetupGuidesLandingPage } from './SetupGuidesLandingPage';
 export { TenantsListPage, CreateTenantPage, TenantDetailPage } from './tenants';
-export { AccessUsersPage, AccessRolesPage, AccessPermissionsPage } from './access';
+export { AccessUsersPage, AccessRolesPage, AccessPermissionsPage, UserDetailPage } from './access';
 export {
   CatalogLandingPage,
   CatalogCountriesPage,
