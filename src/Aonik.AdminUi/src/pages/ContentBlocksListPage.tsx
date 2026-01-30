@@ -123,7 +123,7 @@ export function ContentBlocksListPage() {
         {
           label: 'Delete',
           onClick: () => handleDelete(row.id),
-          destructive: true,
+          variant: 'danger',
         },
       ]}
     />

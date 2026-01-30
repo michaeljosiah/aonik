@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { Sidebar, Header } from '@/components/layout';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
@@ -367,7 +368,10 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AuthenticatedApp />
+          <div className="flex-1 min-w-0">
+            <AuthenticatedApp />
+            <Toaster richColors position="top-right" />
+          </div>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

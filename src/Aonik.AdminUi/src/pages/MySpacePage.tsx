@@ -19,11 +19,10 @@ import {
   myAgents,
   myDataboxes,
 } from '@/data/mockData';
-import { getActiveContentBlocks, type ContentBlock } from '@/services/contentBlockService';
+import { getActiveContentBlocks } from '@/services/contentBlockService';
 
 export function MySpacePage() {
   const [showResumeSetup, setShowResumeSetup] = useState(false);
-  const [bannerContent, setBannerContent] = useState<ContentBlock | null>(null);
   const [bannerImages, setBannerImages] = useState<Array<{ src: string; alt: string }>>([]);
   const defaultBannerImages = [
     { src: '/images/banners/myspace-default-01.png', alt: 'Aonik platform overview' },
@@ -43,7 +42,6 @@ export function MySpacePage() {
         const blocks = await getActiveContentBlocks('MySpaceBanner', 'en');
         if (blocks.length > 0) {
           const block = blocks[0];
-          setBannerContent(block);
           const images = block.media.map(m => ({
             src: m.url,
             alt: m.alt || block.title,

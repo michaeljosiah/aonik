@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Hash, RefreshCw, AlertCircle, Plus, X, Beaker, Pencil } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Hash, RefreshCw, AlertCircle, Plus, X, Beaker, Pencil, Info } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
@@ -8,8 +9,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { autonumberingService } from '@/services/autonumberingService';
-import type { AutonumberProfile, AutonumberStrategy, AutonumberResetPolicy, GenerateAutonumberResponse } from '@/types';
+import type {
+  AutonumberProfile,
+  AutonumberResetPolicy,
+  AutonumberStrategy,
+  GenerateAutonumberResponse,
+  UpsertAutonumberProfileRequest,
+} from '@/types';
 
 const tokenizedDate = (template: string, date: Date) => {
   const year = date.getFullYear().toString();
@@ -24,6 +32,55 @@ const tokenizedDate = (template: string, date: Date) => {
     .replace(/\{DD\}/gi, day);
 };
 
+function FieldInfo({ title, description, example }: { title: string; description: string; example?: string }) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+          aria-label={`Info: ${title}`}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-[var(--color-text-primary)]">{title}</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">{description}</p>
+          {example && (
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              Example: <span className="font-mono text-[var(--color-text-primary)]">{example}</span>
+            </p>
+          )}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function FieldRow({
+  label,
+  htmlFor,
+  info,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  info: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">{children}</div>
+        <div className="shrink-0">{info}</div>
+      </div>
+    </div>
+  );
+}
+
 // Test Reference Dialog Component
 function TestReferenceDialog({
   isOpen,
@@ -32,7 +89,7 @@ function TestReferenceDialog({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onTest: (entityType: string, prefix: string, suffix: string, paddingLength: number, sequenceValue: number) => Promise<string>;
+  onTest: (entityType: string, prefix: string, suffix: string, paddingLength: number) => Promise<string>;
 }) {
   const [entityType, setEntityType] = useState('Invoice');
   const [prefix, setPrefix] = useState('INV-{YYYY}-');
@@ -40,12 +97,10 @@ function TestReferenceDialog({
   const [paddingLength, setPaddingLength] = useState('4');
   const [sequenceValue, setSequenceValue] = useState('421');
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    setTestResult(null);
     setError(null);
   }, [isOpen]);
 
@@ -62,16 +117,14 @@ function TestReferenceDialog({
   const handleTest = async () => {
     setIsTesting(true);
     setError(null);
-    setTestResult(null);
     try {
       const result = await onTest(
         entityType,
         prefix,
         suffix,
-        Number.parseInt(paddingLength, 10),
-        Number.parseInt(sequenceValue, 10)
+        Number.parseInt(paddingLength, 10)
       );
-      setTestResult(result);
+      toast.success(`Generated reference ${result}`);
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'userMessage' in err
         ? String((err as { userMessage?: string }).userMessage ?? '')
@@ -103,14 +156,18 @@ function TestReferenceDialog({
               {error}
             </div>
           )}
-          {testResult && (
-            <div className="rounded-sm border border-[var(--color-success)] bg-[var(--color-success-light)] px-3 py-2 text-xs text-[var(--color-success)]">
-              <strong>Generated:</strong> {testResult}
-            </div>
-          )}
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="entity-type">Entity Type</Label>
+            <FieldRow
+              label="Entity Type"
+              htmlFor="entity-type"
+              info={
+                <FieldInfo
+                  title="Entity Type"
+                  description="Select the document or object this reference applies to."
+                  example="Invoice"
+                />
+              }
+            >
               <Select value={entityType} onValueChange={setEntityType}>
                 <SelectTrigger id="entity-type">
                   <SelectValue placeholder="Select entity type" />
@@ -123,9 +180,18 @@ function TestReferenceDialog({
                   <SelectItem value="Payout">Payout</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="strategy">Strategy</Label>
+            </FieldRow>
+            <FieldRow
+              label="Strategy"
+              htmlFor="strategy"
+              info={
+                <FieldInfo
+                  title="Strategy"
+                  description="Defines how sequence values are produced."
+                  example="Sequential"
+                />
+              }
+            >
               <Select value="Sequential" disabled>
                 <SelectTrigger id="strategy">
                   <SelectValue placeholder="Select strategy" />
@@ -134,9 +200,18 @@ function TestReferenceDialog({
                   <SelectItem value="Sequential">Sequential</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="reset-policy">Reset Policy</Label>
+            </FieldRow>
+            <FieldRow
+              label="Reset Policy"
+              htmlFor="reset-policy"
+              info={
+                <FieldInfo
+                  title="Reset Policy"
+                  description="Controls when the sequence resets."
+                  example="Monthly"
+                />
+              }
+            >
               <Select value="Monthly" disabled>
                 <SelectTrigger id="reset-policy">
                   <SelectValue placeholder="Select reset policy" />
@@ -147,17 +222,46 @@ function TestReferenceDialog({
                   <SelectItem value="Yearly">Yearly</SelectItem>
                 </SelectContent>
               </Select>
+            </FieldRow>
+            <div className="md:col-span-2">
+              <FieldRow
+                label="Prefix Template"
+                htmlFor="prefix"
+                info={
+                  <FieldInfo
+                    title="Prefix Template"
+                    description="Static prefix and date tokens appended before the sequence."
+                    example="INV-{YYYY}-"
+                  />
+                }
+              >
+                <Input id="prefix" value={prefix} onChange={(event) => setPrefix(event.target.value)} />
+              </FieldRow>
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="prefix">Prefix Template</Label>
-              <Input id="prefix" value={prefix} onChange={(event) => setPrefix(event.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="suffix">Suffix Template</Label>
+            <FieldRow
+              label="Suffix Template"
+              htmlFor="suffix"
+              info={
+                <FieldInfo
+                  title="Suffix Template"
+                  description="Static suffix and date tokens appended after the sequence."
+                  example="-NG"
+                />
+              }
+            >
               <Input id="suffix" value={suffix} onChange={(event) => setSuffix(event.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="padding-length">Padding Length</Label>
+            </FieldRow>
+            <FieldRow
+              label="Padding Length"
+              htmlFor="padding-length"
+              info={
+                <FieldInfo
+                  title="Padding Length"
+                  description="Number of digits to left-pad the sequence value."
+                  example="4"
+                />
+              }
+            >
               <Input
                 id="padding-length"
                 type="number"
@@ -165,9 +269,18 @@ function TestReferenceDialog({
                 value={paddingLength}
                 onChange={(event) => setPaddingLength(event.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sequence-value">Sequence Value</Label>
+            </FieldRow>
+            <FieldRow
+              label="Sequence Value"
+              htmlFor="sequence-value"
+              info={
+                <FieldInfo
+                  title="Sequence Value"
+                  description="Sequence number used to preview the generated reference."
+                  example="421"
+                />
+              }
+            >
               <Input
                 id="sequence-value"
                 type="number"
@@ -175,13 +288,21 @@ function TestReferenceDialog({
                 value={sequenceValue}
                 onChange={(event) => setSequenceValue(event.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Preview</Label>
+            </FieldRow>
+            <FieldRow
+              label="Preview"
+              info={
+                <FieldInfo
+                  title="Preview"
+                  description="Preview of how the reference will look with current inputs."
+                  example={preview}
+                />
+              }
+            >
               <div className="h-9 flex items-center rounded-md border border-dashed border-[var(--color-border)] px-3 text-sm text-[var(--color-text-primary)]">
                 {preview}
               </div>
-            </div>
+            </FieldRow>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-4">
@@ -243,6 +364,7 @@ function EditProfileDialog({
     try {
       const updatedProfile = { ...profile, ...form } as AutonumberProfile;
       await onSave(updatedProfile);
+      toast.success(`Updated ${updatedProfile.entityType} configuration.`);
       onClose();
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'userMessage' in err
@@ -276,25 +398,52 @@ function EditProfileDialog({
             </div>
           )}
           <div className="grid gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-prefix">Prefix Template</Label>
+            <FieldRow
+              label="Prefix Template"
+              htmlFor="edit-prefix"
+              info={
+                <FieldInfo
+                  title="Prefix Template"
+                  description="Static prefix and date tokens appended before the sequence."
+                  example="INV-{YYYY}-"
+                />
+              }
+            >
               <Input
                 id="edit-prefix"
                 value={form.prefixTemplate || ''}
                 onChange={(e) => updateField('prefixTemplate', e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-suffix">Suffix Template</Label>
+            </FieldRow>
+            <FieldRow
+              label="Suffix Template"
+              htmlFor="edit-suffix"
+              info={
+                <FieldInfo
+                  title="Suffix Template"
+                  description="Static suffix and date tokens appended after the sequence."
+                  example="-NG"
+                />
+              }
+            >
               <Input
                 id="edit-suffix"
                 value={form.suffixTemplate || ''}
                 onChange={(e) => updateField('suffixTemplate', e.target.value)}
               />
-            </div>
+            </FieldRow>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-padding">Padding Length</Label>
+              <FieldRow
+                label="Padding Length"
+                htmlFor="edit-padding"
+                info={
+                  <FieldInfo
+                    title="Padding Length"
+                    description="Number of digits to left-pad the sequence value."
+                    example="4"
+                  />
+                }
+              >
                 <Input
                   id="edit-padding"
                   type="number"
@@ -302,9 +451,18 @@ function EditProfileDialog({
                   value={form.paddingLength || 0}
                   onChange={(e) => updateField('paddingLength', Number.parseInt(e.target.value, 10) || 0)}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-strategy">Strategy</Label>
+              </FieldRow>
+              <FieldRow
+                label="Strategy"
+                htmlFor="edit-strategy"
+                info={
+                  <FieldInfo
+                    title="Strategy"
+                    description="Defines how sequence values are produced."
+                    example="Sequential"
+                  />
+                }
+              >
                 <Select
                   value={form.strategy || 'Sequential'}
                   onValueChange={(value) => updateField('strategy', value as AutonumberStrategy)}
@@ -318,11 +476,20 @@ function EditProfileDialog({
                     <SelectItem value="Hybrid">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </FieldRow>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-reset">Reset Policy</Label>
+              <FieldRow
+                label="Reset Policy"
+                htmlFor="edit-reset"
+                info={
+                  <FieldInfo
+                    title="Reset Policy"
+                    description="Controls when the sequence resets."
+                    example="Monthly"
+                  />
+                }
+              >
                 <Select
                   value={form.resetPolicy || 'None'}
                   onValueChange={(value) => updateField('resetPolicy', value as AutonumberResetPolicy)}
@@ -336,9 +503,18 @@ function EditProfileDialog({
                     <SelectItem value="Yearly">Yearly</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-status">Status</Label>
+              </FieldRow>
+              <FieldRow
+                label="Status"
+                htmlFor="edit-status"
+                info={
+                  <FieldInfo
+                    title="Status"
+                    description="Enable or pause the autonumbering profile."
+                    example="Active"
+                  />
+                }
+              >
                 <Select
                   value={form.isActive ? 'Active' : 'Paused'}
                   onValueChange={(value) => updateField('isActive', value === 'Active')}
@@ -351,11 +527,20 @@ function EditProfileDialog({
                     <SelectItem value="Paused">Paused</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </FieldRow>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-min">Min Value</Label>
+              <FieldRow
+                label="Min Value"
+                htmlFor="edit-min"
+                info={
+                  <FieldInfo
+                    title="Min Value"
+                    description="Lowest sequence value allowed for this profile."
+                    example="1"
+                  />
+                }
+              >
                 <Input
                   id="edit-min"
                   type="number"
@@ -363,9 +548,18 @@ function EditProfileDialog({
                   value={form.minValue || 1}
                   onChange={(e) => updateField('minValue', Number.parseInt(e.target.value, 10) || 1)}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-max">Max Value</Label>
+              </FieldRow>
+              <FieldRow
+                label="Max Value"
+                htmlFor="edit-max"
+                info={
+                  <FieldInfo
+                    title="Max Value"
+                    description="Highest sequence value allowed before exhaustion."
+                    example="999999"
+                  />
+                }
+              >
                 <Input
                   id="edit-max"
                   type="number"
@@ -373,7 +567,7 @@ function EditProfileDialog({
                   value={form.maxValue || 999999}
                   onChange={(e) => updateField('maxValue', Number.parseInt(e.target.value, 10) || 999999)}
                 />
-              </div>
+              </FieldRow>
             </div>
           </div>
 
@@ -399,6 +593,310 @@ function EditProfileDialog({
   );
 }
 
+function CreateProfileDialog({
+  isOpen,
+  onClose,
+  onCreate,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (request: UpsertAutonumberProfileRequest) => Promise<void>;
+}) {
+  const [form, setForm] = useState<UpsertAutonumberProfileRequest>({
+    entityType: 'Invoice',
+    prefixTemplate: '',
+    suffixTemplate: '',
+    strategy: 'Sequential',
+    resetPolicy: 'None',
+    paddingLength: 4,
+    minValue: 1,
+    maxValue: 999999,
+    isActive: true,
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm({
+      entityType: 'Invoice',
+      prefixTemplate: '',
+      suffixTemplate: '',
+      strategy: 'Sequential',
+      resetPolicy: 'None',
+      paddingLength: 4,
+      minValue: 1,
+      maxValue: 999999,
+      isActive: true,
+    });
+    setError(null);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const updateField = <K extends keyof UpsertAutonumberProfileRequest>(
+    key: K,
+    value: UpsertAutonumberProfileRequest[K]
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleCreate = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await onCreate(form);
+      toast.success(`Created ${form.entityType} configuration.`);
+      onClose();
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setError(message || 'Failed to create configuration.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-[min(92vw,34rem)] rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] shadow-lg">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4 py-3">
+          <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">New Configuration</h3>
+          <button
+            type="button"
+            className="rounded-sm p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+            onClick={onClose}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-4 py-4 max-h-[70vh] overflow-auto">
+          {error && (
+            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+              {error}
+            </div>
+          )}
+          <div className="grid gap-4">
+            <FieldRow
+              label="Entity Type"
+              htmlFor="create-entity"
+              info={
+                <FieldInfo
+                  title="Entity Type"
+                  description="Select the document or object this reference applies to."
+                  example="Invoice"
+                />
+              }
+            >
+              <Select value={form.entityType} onValueChange={(value) => updateField('entityType', value)}>
+                <SelectTrigger id="create-entity">
+                  <SelectValue placeholder="Select entity type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Invoice">Invoice</SelectItem>
+                  <SelectItem value="Order">Order</SelectItem>
+                  <SelectItem value="CreditNote">Credit Note</SelectItem>
+                  <SelectItem value="Payment">Payment</SelectItem>
+                  <SelectItem value="Payout">Payout</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldRow>
+            <FieldRow
+              label="Prefix Template"
+              htmlFor="create-prefix"
+              info={
+                <FieldInfo
+                  title="Prefix Template"
+                  description="Static prefix and date tokens appended before the sequence."
+                  example="INV-{YYYY}-"
+                />
+              }
+            >
+              <Input
+                id="create-prefix"
+                value={form.prefixTemplate || ''}
+                onChange={(e) => updateField('prefixTemplate', e.target.value)}
+              />
+            </FieldRow>
+            <FieldRow
+              label="Suffix Template"
+              htmlFor="create-suffix"
+              info={
+                <FieldInfo
+                  title="Suffix Template"
+                  description="Static suffix and date tokens appended after the sequence."
+                  example="-NG"
+                />
+              }
+            >
+              <Input
+                id="create-suffix"
+                value={form.suffixTemplate || ''}
+                onChange={(e) => updateField('suffixTemplate', e.target.value)}
+              />
+            </FieldRow>
+            <div className="grid grid-cols-2 gap-4">
+              <FieldRow
+                label="Padding Length"
+                htmlFor="create-padding"
+                info={
+                  <FieldInfo
+                    title="Padding Length"
+                    description="Number of digits to left-pad the sequence value."
+                    example="4"
+                  />
+                }
+              >
+                <Input
+                  id="create-padding"
+                  type="number"
+                  min="0"
+                  value={form.paddingLength}
+                  onChange={(e) => updateField('paddingLength', Number.parseInt(e.target.value, 10) || 0)}
+                />
+              </FieldRow>
+              <FieldRow
+                label="Strategy"
+                htmlFor="create-strategy"
+                info={
+                  <FieldInfo
+                    title="Strategy"
+                    description="Defines how sequence values are produced."
+                    example="Sequential"
+                  />
+                }
+              >
+                <Select
+                  value={form.strategy}
+                  onValueChange={(value) => updateField('strategy', value as AutonumberStrategy)}
+                >
+                  <SelectTrigger id="create-strategy">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sequential">Sequential</SelectItem>
+                    <SelectItem value="Random">Random</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldRow>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FieldRow
+                label="Reset Policy"
+                htmlFor="create-reset"
+                info={
+                  <FieldInfo
+                    title="Reset Policy"
+                    description="Controls when the sequence resets."
+                    example="Monthly"
+                  />
+                }
+              >
+                <Select
+                  value={form.resetPolicy}
+                  onValueChange={(value) => updateField('resetPolicy', value as AutonumberResetPolicy)}
+                >
+                  <SelectTrigger id="create-reset">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="None">None</SelectItem>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldRow>
+              <FieldRow
+                label="Status"
+                htmlFor="create-status"
+                info={
+                  <FieldInfo
+                    title="Status"
+                    description="Enable or pause the autonumbering profile."
+                    example="Active"
+                  />
+                }
+              >
+                <Select
+                  value={form.isActive ? 'Active' : 'Paused'}
+                  onValueChange={(value) => updateField('isActive', value === 'Active')}
+                >
+                  <SelectTrigger id="create-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Paused">Paused</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FieldRow>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FieldRow
+                label="Min Value"
+                htmlFor="create-min"
+                info={
+                  <FieldInfo
+                    title="Min Value"
+                    description="Lowest sequence value allowed for this profile."
+                    example="1"
+                  />
+                }
+              >
+                <Input
+                  id="create-min"
+                  type="number"
+                  min="0"
+                  value={form.minValue}
+                  onChange={(e) => updateField('minValue', Number.parseInt(e.target.value, 10) || 0)}
+                />
+              </FieldRow>
+              <FieldRow
+                label="Max Value"
+                htmlFor="create-max"
+                info={
+                  <FieldInfo
+                    title="Max Value"
+                    description="Highest sequence value allowed before exhaustion."
+                    example="999999"
+                  />
+                }
+              >
+                <Input
+                  id="create-max"
+                  type="number"
+                  min="0"
+                  value={form.maxValue}
+                  onChange={(e) => updateField('maxValue', Number.parseInt(e.target.value, 10) || 0)}
+                />
+              </FieldRow>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border-light)]">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Configuration'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function AutonumberingPage() {
   const [profiles, setProfiles] = useState<AutonumberProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -406,6 +904,7 @@ export function AutonumberingPage() {
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<AutonumberProfile | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const loadProfiles = useCallback(async () => {
     setLoading(true);
@@ -432,8 +931,7 @@ export function AutonumberingPage() {
     entityType: string,
     prefix: string,
     suffix: string,
-    paddingLength: number,
-    sequenceValue: number
+    paddingLength: number
   ): Promise<string> => {
     // First ensure the profile exists with the test settings
     await autonumberingService.upsert({
@@ -470,6 +968,11 @@ export function AutonumberingPage() {
       maxValue: profile.maxValue,
       isActive: profile.isActive,
     });
+    await loadProfiles();
+  };
+
+  const handleCreate = async (request: UpsertAutonumberProfileRequest) => {
+    await autonumberingService.upsert(request);
     await loadProfiles();
   };
 
@@ -512,7 +1015,7 @@ export function AutonumberingPage() {
             <Beaker className="w-4 h-4 mr-2" />
             Test Reference
           </Button>
-          <Button className="rounded-sm">
+          <Button className="rounded-sm" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Configuration
           </Button>
@@ -585,7 +1088,7 @@ export function AutonumberingPage() {
                         <p className="text-sm text-[var(--color-text-secondary)] mb-4">
                           Get started by creating your first autonumbering configuration
                         </p>
-                        <Button className="rounded-sm">
+                        <Button className="rounded-sm" onClick={() => setCreateDialogOpen(true)}>
                           <Plus className="w-4 h-4 mr-2" />
                           New Configuration
                         </Button>
@@ -666,6 +1169,12 @@ export function AutonumberingPage() {
           setEditingProfile(null);
         }}
         onSave={handleSave}
+      />
+
+      <CreateProfileDialog
+        isOpen={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onCreate={handleCreate}
       />
     </div>
   );

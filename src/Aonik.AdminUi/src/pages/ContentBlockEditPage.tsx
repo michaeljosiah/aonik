@@ -10,14 +10,13 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DataTableRowActions } from '@/components/ui/data-table';
-import { ArrowLeft, Save, Plus, Trash2, Layers, Image, GripVertical } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Layers, Image } from 'lucide-react';
 import {
   getContentBlock,
   createContentBlock,
   updateContentBlock,
   addContentBlockMedia,
   removeContentBlockMedia,
-  reorderContentBlockMedia,
   type ContentBlock,
   type ContentBlockMedia,
 } from '@/services/contentBlockService';
@@ -204,7 +203,7 @@ export function ContentBlockEditPage() {
         {
           label: 'Remove',
           onClick: () => handleRemoveMedia(row.id),
-          destructive: true,
+          variant: 'danger',
         },
       ]}
     />

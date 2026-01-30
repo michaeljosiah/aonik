@@ -4,6 +4,7 @@ using Aonik.Application;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure;
 using FastEndpoints;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Persistence.Seed;
@@ -35,6 +36,12 @@ builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
 
 // Add FastEndpoints
 builder.Services.AddFastEndpoints();
+
+// Use string enums in JSON
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 // Add Swagger with OAuth2 authentication
 builder.Services.AddAonikSwagger(builder.Configuration);
