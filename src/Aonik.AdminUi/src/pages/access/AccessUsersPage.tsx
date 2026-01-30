@@ -163,6 +163,24 @@ export function AccessUsersPage() {
       ),
     },
     {
+      id: 'party',
+      header: 'Party',
+      accessorFn: (row) => row.partyDisplayName || row.partyType || '',
+      sortable: true,
+      cell: (user) => (
+        <div className="space-y-1">
+          <p className="text-sm text-[var(--color-text-primary)]">
+            {user.partyDisplayName ?? 'Not linked'}
+          </p>
+          {user.partyType && (
+            <Badge variant="outline" className="text-xs">
+              {user.partyType}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
       id: 'status',
       header: 'Status',
       accessorKey: 'status',
@@ -237,6 +255,19 @@ export function AccessUsersPage() {
           <Badge variant="team" className="text-xs">
             {user.roleCount} role{user.roleCount === 1 ? '' : 's'}
           </Badge>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Party</p>
+            <p className="text-sm text-[var(--color-text-primary)]">
+              {user.partyDisplayName ?? 'Not linked'}
+            </p>
+          </div>
+          {user.partyType && (
+            <Badge variant="outline" className="text-xs">
+              {user.partyType}
+            </Badge>
+          )}
         </div>
         <p className="text-xs text-[var(--color-text-secondary)]">
           Last login: {formatDate(user.lastLoginAt)}
