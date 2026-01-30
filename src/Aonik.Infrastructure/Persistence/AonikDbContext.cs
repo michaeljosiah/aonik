@@ -115,6 +115,9 @@ public class AonikDbContext : DbContext, IAonikDbContext
     // Pricing
     public virtual DbSet<FeePolicy> FeePolicies { get; set; } = null!;
     public virtual DbSet<FxQuote> FxQuotes { get; set; } = null!;
+    public virtual DbSet<FxRateSource> FxRateSources { get; set; } = null!;
+    public virtual DbSet<FxRefreshSchedule> FxRefreshSchedules { get; set; } = null!;
+    public virtual DbSet<FxSpreadPolicy> FxSpreadPolicies { get; set; } = null!;
     public virtual DbSet<LimitsPolicy> LimitsPolicies { get; set; } = null!;
     public virtual DbSet<PricingQuote> PricingQuotes { get; set; } = null!;
 
