@@ -425,6 +425,46 @@ export interface PricingQuoteResponse {
   feeBreakdown: FeeBreakdownItem[];
 }
 
+export interface FxQuoteListResponse {
+  id: string;
+  baseCurrency: string;
+  targetCurrency: string;
+  rate: number;
+  expiresAt: string;
+  provider?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface FxQuoteDetailResponse {
+  id: string;
+  tenantId: string;
+  baseCurrency: string;
+  targetCurrency: string;
+  rate: number;
+  expiresAt: string;
+  provider?: string | null;
+  metadataJson: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface CreateFxQuoteRequest {
+  baseCurrency: string;
+  targetCurrency: string;
+  rate: number;
+  expiresAt: string;
+  provider?: string | null;
+  metadataJson?: string | null;
+}
+
+export interface UpdateFxQuoteRequest {
+  rate: number;
+  expiresAt: string;
+  provider?: string | null;
+  metadataJson?: string | null;
+}
+
 export interface CurrentUserResponse {
   userId: string;
   tenantId: string;

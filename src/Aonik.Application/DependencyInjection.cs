@@ -49,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IPricingService, PricingService>();
         services.AddScoped<IPricingPolicyService, PricingPolicyService>();
         services.AddScoped<IFxRateService, FxRateService>();
+        services.AddScoped<IFxQuoteService, FxQuoteService>();
         services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
         services.AddScoped<IComplianceService, ComplianceService>();
         services.AddScoped<IPartyService, PartyService>();
