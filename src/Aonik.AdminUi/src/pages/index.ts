@@ -22,3 +22,4 @@ export { ContentBlocksListPage } from './ContentBlocksListPage';
 export { ContentBlockEditPage } from './ContentBlockEditPage';
 export { MediaLibraryPage } from './MediaLibraryPage';
 export { AutonumberingPage } from './settings';
+export { FxRatesPage } from './FxRatesPage';

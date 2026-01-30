@@ -30,6 +30,7 @@ import {
   ContentBlockEditPage,
   MediaLibraryPage,
   AutonumberingPage,
+  FxRatesPage,
 } from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
@@ -238,6 +239,7 @@ function AppLayout() {
             <Route path="/settings/webhooks" element={<PlaceholderPage title="Webhooks" />} />
             <Route path="/settings/audit-logs" element={<PlaceholderPage title="Audit Logs" />} />
             <Route path="/settings/autonumbering" element={<AutonumberingPage />} />
+            <Route path="/settings/fx-rates" element={<FxRatesPage />} />
             
             {/* CMS */}
             <Route path="/cms/content-blocks" element={<ContentBlocksListPage />} />

@@ -112,6 +112,9 @@ public interface IAonikDbContext
     // Pricing
     DbSet<FeePolicy> FeePolicies { get; set; }
     DbSet<FxQuote> FxQuotes { get; set; }
+    DbSet<FxRateSource> FxRateSources { get; set; }
+    DbSet<FxRefreshSchedule> FxRefreshSchedules { get; set; }
+    DbSet<FxSpreadPolicy> FxSpreadPolicies { get; set; }
     DbSet<LimitsPolicy> LimitsPolicies { get; set; }
     DbSet<PricingQuote> PricingQuotes { get; set; }
 

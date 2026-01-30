@@ -198,6 +198,7 @@ export const navigationSections: NavigationSection[] = [
             items: [
               { id: 'general-settings', label: 'General', icon: 'Cog', href: '/settings/general' },
               { id: 'autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
+              { id: 'fx-rates', label: 'FX Rates', icon: 'ArrowRightLeft', href: '/settings/fx-rates' },
               { id: 'webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
             ],
           },

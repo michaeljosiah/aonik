@@ -34,6 +34,10 @@ All notable changes to the AONIK project will be documented in this file.
   - Added `formatRoleLabel()` helper to convert role names to Title Case
   - Role fetching with loading state and error handling
   - Displays user's role(s) in bottom-left sidebar profile menu
+- **Admin UI**: FX Rate management page and navigation entry
+  - Added a dedicated FX Rates settings page with rate sources, spread policies, and refresh cadence overview
+  - Linked the page in Settings navigation for quick access
+- **Pricing**: Added FX management tables for rate sources, spread policies, and refresh schedules.
 
 ### Added - 2026-01-17
 - Added customer profile endpoints for read/update/email/password/photo flows with profile storage support and IdP account updates.
