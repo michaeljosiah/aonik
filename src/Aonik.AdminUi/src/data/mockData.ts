@@ -197,6 +197,7 @@ export const navigationSections: NavigationSection[] = [
             label: 'Configuration',
             items: [
               { id: 'general-settings', label: 'General', icon: 'Cog', href: '/settings/general' },
+              { id: 'autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
               { id: 'webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
             ],
           },

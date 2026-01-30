@@ -2,6 +2,7 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
+using Aonik.Domain.Autonumbering.Entities;
 using Aonik.Domain.Billing.Entities;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Cms.Entities;
@@ -58,6 +59,11 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<RolePermission> RolePermissions { get; set; } = null!;
     public virtual DbSet<UserParty> UserParties { get; set; } = null!;
     public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
+
+    // Autonumbering
+    public virtual DbSet<AutonumberProfile> AutonumberProfiles { get; set; } = null!;
+    public virtual DbSet<AutonumberReservation> AutonumberReservations { get; set; } = null!;
+
     public virtual DbSet<Setting> Settings { get; set; } = null!;
     public virtual DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
     public virtual DbSet<Country> Countries { get; set; } = null!;
