@@ -246,7 +246,12 @@ public class ContentBlockService : IContentBlockService
         string locale,
         CancellationToken cancellationToken = default)
     {
-        var tenantId = _tenantProvider.GetCurrentTenantId();
+        // For anonymous/public endpoints, tenant context may not be available
+        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
+        {
+            return new List<ContentBlockResponse>();
+        }
+
         var now = DateTimeOffset.UtcNow;
 
         var contentBlocks = await _dbContext.ContentBlocks

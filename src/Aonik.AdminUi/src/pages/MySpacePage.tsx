@@ -25,6 +25,11 @@ export function MySpacePage() {
   const [showResumeSetup, setShowResumeSetup] = useState(false);
   const [bannerContent, setBannerContent] = useState<ContentBlock | null>(null);
   const [bannerImages, setBannerImages] = useState<Array<{ src: string; alt: string }>>([]);
+  const defaultBannerImages = [
+    { src: '/images/banners/myspace-default-01.png', alt: 'Aonik platform overview' },
+    { src: '/images/banners/myspace-default-02.png', alt: 'Billing and payments workflows' },
+    { src: '/images/banners/myspace-default-03.png', alt: 'AI-powered finance operations' },
+  ];
 
   useEffect(() => {
     const skipped = localStorage.getItem('aonik:onboarding:skip');
@@ -44,9 +49,12 @@ export function MySpacePage() {
             alt: m.alt || block.title,
           }));
           setBannerImages(images);
+        } else {
+          setBannerImages(defaultBannerImages);
         }
       } catch (error) {
         console.error('Failed to load banner content:', error);
+        setBannerImages(defaultBannerImages);
       }
     }
 

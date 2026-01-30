@@ -78,41 +78,41 @@ export async function getContentBlocks(
   params.append('locale', locale);
   if (isEnabled !== undefined) params.append('isEnabled', String(isEnabled));
 
-  return api.get<ContentBlock[]>(`/api/cms/content-blocks?${params}`);
+  return api.get<ContentBlock[]>(`/cms/content-blocks?${params}`);
 }
 
 export async function getContentBlock(id: string): Promise<ContentBlock> {
-  return api.get<ContentBlock>(`/api/cms/content-blocks/${id}`);
+  return api.get<ContentBlock>(`/cms/content-blocks/${id}`);
 }
 
 export async function createContentBlock(request: CreateContentBlockRequest): Promise<ContentBlock> {
-  return api.post<ContentBlock>('/api/cms/content-blocks', request);
+  return api.post<ContentBlock>('/cms/content-blocks', request);
 }
 
 export async function updateContentBlock(id: string, request: UpdateContentBlockRequest): Promise<ContentBlock> {
-  return api.put<ContentBlock>(`/api/cms/content-blocks/${id}`, request);
+  return api.put<ContentBlock>(`/cms/content-blocks/${id}`, request);
 }
 
 export async function deleteContentBlock(id: string): Promise<void> {
-  await api.delete<void>(`/api/cms/content-blocks/${id}`);
+  await api.delete<void>(`/cms/content-blocks/${id}`);
 }
 
 export async function addContentBlockMedia(
   contentBlockId: string,
   request: AddContentBlockMediaRequest
 ): Promise<ContentBlockMedia> {
-  return api.post<ContentBlockMedia>(`/api/cms/content-blocks/${contentBlockId}/media`, request);
+  return api.post<ContentBlockMedia>(`/cms/content-blocks/${contentBlockId}/media`, request);
 }
 
 export async function removeContentBlockMedia(contentBlockId: string, mediaId: string): Promise<void> {
-  await api.delete<void>(`/api/cms/content-blocks/${contentBlockId}/media/${mediaId}`);
+  await api.delete<void>(`/cms/content-blocks/${contentBlockId}/media/${mediaId}`);
 }
 
 export async function reorderContentBlockMedia(
   contentBlockId: string,
   mediaIds: string[]
 ): Promise<void> {
-  await api.put<void>(`/api/cms/content-blocks/${contentBlockId}/media/reorder`, { mediaIds });
+  await api.put<void>(`/cms/content-blocks/${contentBlockId}/media/reorder`, { mediaIds });
 }
 
 export async function getActiveContentBlocks(
@@ -123,5 +123,5 @@ export async function getActiveContentBlocks(
   params.append('area', area);
   params.append('locale', locale);
 
-  return api.get<ContentBlock[]>(`/api/cms/content/active?${params}`);
+  return api.get<ContentBlock[]>(`/cms/content/active?${params}`);
 }
