@@ -21,4 +21,4 @@ export { AiChatMock } from './ai/AiChatMock';
 export { ContentBlocksListPage } from './ContentBlocksListPage';
 export { ContentBlockEditPage } from './ContentBlockEditPage';
 export { MediaLibraryPage } from './MediaLibraryPage';
-
+export { FxRatesPage } from './FxRatesPage';
