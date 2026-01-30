@@ -507,9 +507,9 @@ export function UserDetailPage() {
           <div className="flex-1 min-w-0">
             <Card>
               <CardContent className="p-0">
-                {/* Tabs Header */}
-                <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4">
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  {/* Tabs Header */}
+                  <div className="flex items-center justify-between border-b border-[var(--color-border-light)] px-4">
                     <TabsList className="bg-transparent p-0 h-auto gap-0">
                       <TabsTrigger
                         value="overview"
@@ -530,15 +530,14 @@ export function UserDetailPage() {
                         Statements
                       </TabsTrigger>
                     </TabsList>
-                  </Tabs>
-                  <Button size="sm">
-                    Actions <ChevronDown className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
+                    <Button size="sm">
+                      Actions <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
 
-                {/* Tab Content */}
-                <div className="p-6">
-                  <TabsContent value="overview" className="mt-0">
+                  {/* Tab Content */}
+                  <div className="p-6">
+                    <TabsContent value="overview" className="mt-0">
                     {/* Payment Records */}
                     <div className="mb-8">
                       <div className="flex items-center justify-between mb-4">
@@ -706,14 +705,15 @@ export function UserDetailPage() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="statements" className="mt-0">
-                    <div className="text-center py-12">
-                      <Download className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-                      <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-2">Statements</h3>
-                      <p className="text-[var(--color-text-secondary)]">Account statements will appear here.</p>
-                    </div>
-                  </TabsContent>
-                </div>
+                    <TabsContent value="statements" className="mt-0">
+                      <div className="text-center py-12">
+                        <Download className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
+                        <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-2">Statements</h3>
+                        <p className="text-[var(--color-text-secondary)]">Account statements will appear here.</p>
+                      </div>
+                    </TabsContent>
+                  </div>
+                </Tabs>
               </CardContent>
             </Card>
           </div>
