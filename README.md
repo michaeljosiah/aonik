@@ -1,3 +1,8 @@
+<!-- Hero Banner -->
+<p align="center">
+  <img src="docs/images/hero-banner.png" alt="AONIK - AI-Native Financial Infrastructure Platform" width="100%">
+</p>
+
 # AONIK
 
 **AONIK** is an **AI-native financial infrastructure platform** designed to power modern payments, remittances, billing, and financial intelligence. Built from the ground up with AI in mind, AONIK provides core financial primitives alongside intelligent agents that assist with reconciliation, forecasting, anomaly detection, and insights.
