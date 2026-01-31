@@ -144,7 +144,7 @@ export const auth0Config = {
   authorizationParams: {
     redirect_uri: import.meta.env.VITE_AUTH0_REDIRECT_URI || window.location.origin,
     audience: import.meta.env.VITE_AUTH0_AUDIENCE || '',
-    scope: 'openid profile email',
+    scope: 'openid profile email offline_access',
   },
   cacheLocation: 'localstorage' as const,
   useRefreshTokens: true,
