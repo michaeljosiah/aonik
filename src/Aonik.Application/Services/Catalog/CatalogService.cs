@@ -4,25 +4,23 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.ReferenceData;
 using Aonik.Application.Models.Catalog;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Catalog;
 
-public class CatalogService : ICatalogService
+public class CatalogService : AdminServiceBase, ICatalogService
 {
     private readonly IAonikDbContext _dbContext;
-    private readonly IPermissionService _permissionService;
-    private readonly ICurrentUserProvider _currentUserProvider;
 
     public CatalogService(
         IAonikDbContext dbContext,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
-        _permissionService = permissionService;
-        _currentUserProvider = currentUserProvider;
     }
 
     public async Task<CatalogCountryResponse> GetCountriesAsync(
@@ -397,18 +395,8 @@ public class CatalogService : ICatalogService
             : countryCode.Trim().ToUpperInvariant();
     }
 
-    private async Task EnsurePermissionAsync(CancellationToken cancellationToken)
+    private Task EnsurePermissionAsync(CancellationToken cancellationToken)
     {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, "Catalog.Read", cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException("Permission Catalog.Read is required.");
-        }
+        return base.EnsurePermissionAsync("Catalog.Read", cancellationToken);
     }
 }

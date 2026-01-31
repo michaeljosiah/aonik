@@ -87,8 +87,11 @@ public class IdentitySeedService
             new Permission { Key = "Permissions.Read", Description = "View all available permissions" },
             new Permission { Key = "Permissions.Write", Description = "Create and manage permissions" },
 
-            // Catalog permissions
-            new Permission { Key = "Catalog.Read", Description = "View catalog and biller data" }
+             // Catalog permissions
+            new Permission { Key = "Catalog.Read", Description = "View catalog and biller data" },
+
+            // Customers permissions
+            new Permission { Key = "Customers.Read", Description = "View customers" }
         };
 
         var existingKeys = await _dbContext.Permissions

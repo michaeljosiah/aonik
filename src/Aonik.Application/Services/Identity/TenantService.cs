@@ -6,6 +6,7 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Pricing;
@@ -16,16 +17,14 @@ using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Identity;
 
-public class TenantService : ITenantService
+public class TenantService : AdminServiceBase, ITenantService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvisioner _provisioner;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
-    private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
     private readonly ITenantContext _tenantContext;
-    private readonly IPermissionService _permissionService;
     private readonly ICurrencyMetadataProvider _currencyMetadataProvider;
 
     public TenantService(
@@ -38,15 +37,14 @@ public class TenantService : ITenantService
         ITenantContext tenantContext,
         IPermissionService permissionService,
         ICurrencyMetadataProvider currencyMetadataProvider)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _provisioner = provisioner;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
-        _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
         _tenantContext = tenantContext;
-        _permissionService = permissionService;
         _currencyMetadataProvider = currencyMetadataProvider;
     }
 
@@ -69,7 +67,7 @@ public class TenantService : ITenantService
         if (existingTenant != null)
             throw new InvalidOperationException($"Tenant with name '{request.Name}' already exists");
 
-        var userId = _currentUserProvider.GetCurrentUserId();
+        var userId = CurrentUserProvider.GetCurrentUserId();
         var now = _clock.UtcNow;
 
         var tenant = new Tenant
@@ -175,7 +173,7 @@ public class TenantService : ITenantService
         _tenantContext.TenantId = tenant.Id;
         _tenantContext.ResolutionSource = "AdminTenantAction";
 
-        var userId = _currentUserProvider.GetCurrentUserId();
+        var userId = CurrentUserProvider.GetCurrentUserId();
 
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
@@ -292,7 +290,7 @@ public class TenantService : ITenantService
 
         tenant.Status = TenantStatus.Deactivated;
         tenant.UpdatedAt = _clock.UtcNow;
-        tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        tenant.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -301,7 +299,7 @@ public class TenantService : ITenantService
             "Tenant",
             tenant.Id,
             tenant.Id,
-            _currentUserProvider.GetCurrentUserId(),
+            CurrentUserProvider.GetCurrentUserId(),
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { tenant.Id, tenant.Name }),
             cancellationToken);
@@ -324,7 +322,7 @@ public class TenantService : ITenantService
 
         tenant.Status = TenantStatus.Active;
         tenant.UpdatedAt = _clock.UtcNow;
-        tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        tenant.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -333,7 +331,7 @@ public class TenantService : ITenantService
             "Tenant",
             tenant.Id,
             tenant.Id,
-            _currentUserProvider.GetCurrentUserId(),
+            CurrentUserProvider.GetCurrentUserId(),
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { tenant.Id, tenant.Name }),
             cancellationToken);
@@ -540,7 +538,7 @@ public class TenantService : ITenantService
             _dbContext.TenantCountries.RemoveRange(existing);
 
         var now = _clock.UtcNow;
-        var userId = _currentUserProvider.GetCurrentUserId();
+        var userId = CurrentUserProvider.GetCurrentUserId();
         var items = countryIds.Select(countryId => new TenantCountry
         {
             TenantId = tenantId,
@@ -571,7 +569,7 @@ public class TenantService : ITenantService
             _dbContext.TenantCurrencies.RemoveRange(existing);
 
         var now = _clock.UtcNow;
-        var userId = _currentUserProvider.GetCurrentUserId();
+        var userId = CurrentUserProvider.GetCurrentUserId();
         var items = currencyIds.Select(currencyId => new TenantCurrency
         {
             TenantId = tenantId,
@@ -615,18 +613,4 @@ public class TenantService : ITenantService
         return codes.ToArray();
     }
 
-    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
-        }
-    }
 }

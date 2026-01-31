@@ -4,6 +4,7 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Features;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Features.Entities;
@@ -11,14 +12,12 @@ using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Features;
 
-public class TenantFeatureService : ITenantFeatureService
+public class TenantFeatureService : AdminServiceBase, ITenantFeatureService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly IClock _clock;
-    private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
     private readonly IAuditLogWriter _auditLogWriter;
-    private readonly IPermissionService _permissionService;
     private readonly ITenantContext _tenantContext;
 
     public TenantFeatureService(
@@ -29,13 +28,12 @@ public class TenantFeatureService : ITenantFeatureService
         IAuditLogWriter auditLogWriter,
         IPermissionService permissionService,
         ITenantContext tenantContext)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _clock = clock;
-        _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
         _auditLogWriter = auditLogWriter;
-        _permissionService = permissionService;
         _tenantContext = tenantContext;
     }
 
@@ -74,7 +72,7 @@ public class TenantFeatureService : ITenantFeatureService
         }
 
         var now = _clock.UtcNow;
-        var userId = _currentUserProvider.GetCurrentUserId();
+        var userId = CurrentUserProvider.GetCurrentUserId();
         var featureNames = toggles
             .Select(toggle => toggle.FeatureName)
             .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -153,18 +151,4 @@ public class TenantFeatureService : ITenantFeatureService
         }
     }
 
-    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
-        }
-    }
 }

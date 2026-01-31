@@ -7,18 +7,17 @@ using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Models.Identity;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
 using Aonik.Domain.Identity.Entities;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Identity;
 
-public class AccessManagementService : IAccessManagementService
+public class AccessManagementService : AdminServiceBase, IAccessManagementService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
-    private readonly ICurrentUserProvider _currentUserProvider;
-    private readonly IPermissionService _permissionService;
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly ICorrelationContext _correlationContext;
@@ -33,11 +32,10 @@ public class AccessManagementService : IAccessManagementService
         IAuditLogWriter auditLogWriter,
         ICorrelationContext correlationContext,
         IProfilePhotoStore profilePhotoStore)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
-        _currentUserProvider = currentUserProvider;
-        _permissionService = permissionService;
         _clock = clock;
         _auditLogWriter = auditLogWriter;
         _correlationContext = correlationContext;
@@ -150,7 +148,7 @@ public class AccessManagementService : IAccessManagementService
             .Select(ur => new RoleSummary(ur.Role.Id, ur.Role.Name))
             .ToListAsync(cancellationToken);
 
-        var permissions = await _permissionService.GetUserPermissionsAsync(userId, cancellationToken);
+        var permissions = await PermissionService.GetUserPermissionsAsync(userId, cancellationToken);
 
         // Load party info with extended details
         var partyLink = await _dbContext.UserParties
@@ -316,7 +314,7 @@ public class AccessManagementService : IAccessManagementService
                 UserId = userId,
                 RoleId = roleId,
                 CreatedAt = _clock.UtcNow,
-                CreatedBy = _currentUserProvider.GetCurrentUserId()
+                CreatedBy = CurrentUserProvider.GetCurrentUserId()
             })
             .ToList();
 
@@ -344,7 +342,7 @@ public class AccessManagementService : IAccessManagementService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var currentUserId = _currentUserProvider.GetCurrentUserId();
+        var currentUserId = CurrentUserProvider.GetCurrentUserId();
 
         foreach (var role in rolesToAdd)
         {
@@ -450,7 +448,7 @@ public class AccessManagementService : IAccessManagementService
                 }
 
                 personProfile.UpdatedAt = _clock.UtcNow;
-                personProfile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+                personProfile.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
 
                 // Update party display name if first/last name changed
                 if (request.FirstName != null || request.LastName != null)
@@ -459,7 +457,7 @@ public class AccessManagementService : IAccessManagementService
                     var lastName = request.LastName ?? personProfile.LastName ?? string.Empty;
                     party.DisplayName = $"{firstName} {lastName}".Trim();
                     party.UpdatedAt = _clock.UtcNow;
-                    party.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+                    party.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
                 }
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
@@ -470,7 +468,7 @@ public class AccessManagementService : IAccessManagementService
                     "PersonProfile",
                     personProfile.Id,
                     tenantId,
-                    _currentUserProvider.GetCurrentUserId(),
+                    CurrentUserProvider.GetCurrentUserId(),
                     _correlationContext.CorrelationId,
                     System.Text.Json.JsonSerializer.Serialize(new { userId, partyId = party.Id, request }),
                     cancellationToken);
@@ -532,7 +530,7 @@ public class AccessManagementService : IAccessManagementService
                 PartyId = party.Id,
                 IdvStatus = "Pending",
                 CreatedAt = _clock.UtcNow,
-                CreatedBy = _currentUserProvider.GetCurrentUserId()
+                CreatedBy = CurrentUserProvider.GetCurrentUserId()
             };
             _dbContext.PersonProfiles.Add(personProfile);
             await _dbContext.SaveChangesAsync(cancellationToken);
@@ -551,7 +549,7 @@ public class AccessManagementService : IAccessManagementService
         personProfile.PhotoUrlSmall = uploadResult.SmallThumbnailUrl;
         personProfile.PhotoUrlTiny = uploadResult.TinyThumbnailUrl;
         personProfile.UpdatedAt = _clock.UtcNow;
-        personProfile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        personProfile.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -561,7 +559,7 @@ public class AccessManagementService : IAccessManagementService
             "PersonProfile",
             personProfile.Id,
             tenantId,
-            _currentUserProvider.GetCurrentUserId(),
+            CurrentUserProvider.GetCurrentUserId(),
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new 
             { 
@@ -633,7 +631,7 @@ public class AccessManagementService : IAccessManagementService
 
         personProfile.PhotoUrl = null;
         personProfile.UpdatedAt = _clock.UtcNow;
-        personProfile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        personProfile.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -643,7 +641,7 @@ public class AccessManagementService : IAccessManagementService
             "PersonProfile",
             personProfile.Id,
             tenantId,
-            _currentUserProvider.GetCurrentUserId(),
+            CurrentUserProvider.GetCurrentUserId(),
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { userId, partyId = party.Id }),
             cancellationToken);
@@ -671,7 +669,7 @@ public class AccessManagementService : IAccessManagementService
 
         user.Status = "Active";
         user.UpdatedAt = _clock.UtcNow;
-        user.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        user.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -695,7 +693,7 @@ public class AccessManagementService : IAccessManagementService
 
         user.Status = "Deactivated";
         user.UpdatedAt = _clock.UtcNow;
-        user.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        user.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -776,7 +774,7 @@ public class AccessManagementService : IAccessManagementService
             throw new InvalidOperationException($"Role '{trimmedName}' already exists in tenant {tenantId}");
         }
 
-        var userId = _currentUserProvider.GetCurrentUserId();
+        var userId = CurrentUserProvider.GetCurrentUserId();
         var now = _clock.UtcNow;
 
         var role = new Role
@@ -830,7 +828,7 @@ public class AccessManagementService : IAccessManagementService
         }
 
         role.UpdatedAt = _clock.UtcNow;
-        role.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        role.UpdatedBy = CurrentUserProvider.GetCurrentUserId();
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return await BuildRoleDetailAsync(role, cancellationToken);
@@ -909,7 +907,7 @@ public class AccessManagementService : IAccessManagementService
                 RoleId = roleId,
                 PermissionId = permissionId,
                 CreatedAt = _clock.UtcNow,
-                CreatedBy = _currentUserProvider.GetCurrentUserId()
+                CreatedBy = CurrentUserProvider.GetCurrentUserId()
             })
             .ToList();
 
@@ -1028,18 +1026,4 @@ public class AccessManagementService : IAccessManagementService
         return parts.Length > 0 ? parts[0] : "General";
     }
 
-    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
-        }
-    }
 }

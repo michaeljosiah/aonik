@@ -4,7 +4,7 @@ import { Toaster } from 'sonner';
 import { Sidebar, Header } from '@/components/layout';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
-import {
+  import {
   MySpacePage,
   LoginPage,
   SetupWizardPage,
@@ -33,13 +33,14 @@ import {
   ContentBlockEditPage,
   MediaLibraryPage,
   AutonumberingPage,
-  FxRatesPage,
-} from '@/pages';
+    FxRatesPage,
+    CustomersListPage,
+    CustomerDetailPage,
+  } from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { setAccessTokenGetter } from '@/lib/api';
-import { SetupRedirect } from '@/components/SetupRedirect';
 import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
 import { identityService } from '@/services/identityService';
@@ -200,7 +201,8 @@ function AppLayout() {
             {/* Billing */}
             <Route path="/billing/invoices" element={<PlaceholderPage title="Invoices" />} />
             <Route path="/billing/invoices/new" element={<PlaceholderPage title="Create Invoice" />} />
-            <Route path="/billing/customers" element={<PlaceholderPage title="Customers" />} />
+            <Route path="/billing/customers" element={<CustomersListPage />} />
+            <Route path="/billing/customers/:partyId" element={<CustomerDetailPage />} />
             <Route path="/billing/dunning" element={<PlaceholderPage title="Dunning Plans" />} />
             {/* Payments */}
             <Route path="/payments/transactions" element={<PlaceholderPage title="Transactions" />} />

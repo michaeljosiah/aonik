@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Ai.Entities;
@@ -14,14 +15,12 @@ using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 
 namespace Aonik.Application.Services.Identity.Provisioning;
 
-public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
+public class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootstrapTenantProvisioner
 {
     private readonly IAonikDbContext _dbContext;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
-    private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
-    private readonly IPermissionService _permissionService;
 
     public TenantProvisioner(
         IAonikDbContext dbContext,
@@ -30,13 +29,12 @@ public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
         ICurrentUserProvider currentUserProvider,
         ICorrelationContext correlationContext,
         IPermissionService permissionService)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
-        _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
-        _permissionService = permissionService;
     }
 
     public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
@@ -58,7 +56,7 @@ public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
             throw new InvalidOperationException($"Tenant {tenantId} not found");
 
         var actionsPerformed = new List<string>();
-        var userId = _currentUserProvider.GetCurrentUserId();
+        var userId = CurrentUserProvider.GetCurrentUserId();
         var now = _clock.UtcNow;
 
         // Check if already provisioned
@@ -175,21 +173,6 @@ public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
             hasChartOfAccounts,
             issues
         );
-    }
-
-    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
-        }
     }
 
     private static List<LedgerAccount> CreateDefaultChartOfAccounts(Guid tenantId, Guid ledgerId, Guid? userId, DateTime now)
@@ -378,6 +361,8 @@ public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
                 "Invoice.Delete",
                 "Invoice.Issue",
                 "Catalog.Read"
+                ,
+                "Customers.Read"
             ],
             ["Operations"] =
             [
@@ -395,6 +380,8 @@ public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
                 "Invoice.Delete",
                 "Invoice.Issue",
                 "Catalog.Read"
+                ,
+                "Customers.Read"
             ],
             ["ReadOnly"] =
             [
@@ -406,6 +393,8 @@ public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
                 "Payment.Read",
                 "Invoice.Read",
                 "Catalog.Read"
+                ,
+                "Customers.Read"
             ],
             ["Compliance"] =
             [
@@ -415,6 +404,8 @@ public class TenantProvisioner : ITenantProvisioner, IBootstrapTenantProvisioner
                 "Payment.Read",
                 "Invoice.Read",
                 "Catalog.Read"
+                ,
+                "Customers.Read"
             ],
             ["PersonalUser"] =
             [

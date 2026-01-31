@@ -195,7 +195,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTenantId, setCurrentTenantId] = useState<string>('');
-  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
+  const [, setCurrentTenant] = useState<Tenant | null>(null);
   const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
   const [currencies, setCurrencies] = useState<CatalogCurrencyItem[]>([]);
   const [userName, setUserName] = useState<string>('');
@@ -474,17 +474,6 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
     } catch {
       setError('Unable to refresh currencies for the selected country.');
     }
-  };
-
-  // Toggle feature
-  const toggleFeature = (featureKey: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      enabledFeatures: {
-        ...prev.enabledFeatures,
-        [featureKey]: !prev.enabledFeatures[featureKey],
-      },
-    }));
   };
 
   // Toggle all features in a group

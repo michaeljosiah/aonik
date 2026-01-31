@@ -6,21 +6,20 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
 using Aonik.Domain.Identity.Entities;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Identity;
 
-public class UserRoleService : IUserRoleService
+public class UserRoleService : AdminServiceBase, IUserRoleService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
-    private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICorrelationContext _correlationContext;
-    private readonly IPermissionService _permissionService;
 
     public UserRoleService(
         IAonikDbContext dbContext,
@@ -30,14 +29,13 @@ public class UserRoleService : IUserRoleService
         ICurrentUserProvider currentUserProvider,
         ICorrelationContext correlationContext,
         IPermissionService permissionService)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
-        _currentUserProvider = currentUserProvider;
         _correlationContext = correlationContext;
-        _permissionService = permissionService;
     }
 
     public async Task<UserRoleResponse> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -66,7 +64,7 @@ public class UserRoleService : IUserRoleService
         }
 
         var now = _clock.UtcNow;
-        var currentUserId = _currentUserProvider.GetCurrentUserId();
+        var currentUserId = CurrentUserProvider.GetCurrentUserId();
 
         var userRole = new UserRole
         {
@@ -116,7 +114,7 @@ public class UserRoleService : IUserRoleService
             "UserRole",
             userRole.Id,
             tenantId,
-            _currentUserProvider.GetCurrentUserId(),
+            CurrentUserProvider.GetCurrentUserId(),
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { userId, roleId, role.Name }),
             cancellationToken);
@@ -164,18 +162,4 @@ public class UserRoleService : IUserRoleService
         return new UserRoleResponse(userId, roles);
     }
 
-    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
-        }
-    }
 }

@@ -1,29 +1,27 @@
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Ledger;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Ledger.Entities;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Ledger;
 
-public class LedgerService : ILedgerService
+public class LedgerService : AdminServiceBase, ILedgerService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
-    private readonly IPermissionService _permissionService;
-    private readonly ICurrentUserProvider _currentUserProvider;
 
     public LedgerService(
         IAonikDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
-        _permissionService = permissionService;
-        _currentUserProvider = currentUserProvider;
     }
 
     public async Task<LedgerAccountResponse> CreateAccountAsync(CreateLedgerAccountRequest request, CancellationToken cancellationToken = default)
@@ -82,18 +80,4 @@ public class LedgerService : ILedgerService
             request.Description);
     }
 
-    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
-        }
-    }
 }

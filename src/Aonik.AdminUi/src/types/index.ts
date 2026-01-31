@@ -529,6 +529,87 @@ export interface PartyResponse {
   status: string;
 }
 
+export interface CustomerSummary {
+  partyId: string;
+  displayName: string;
+  partyType: string;
+  status: string;
+  customerTierCode?: string | null;
+  primaryEmail?: string | null;
+  primaryPhone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  photoUrlTiny?: string | null;
+  idvStatus?: string | null;
+  registrationNumber?: string | null;
+  industry?: string | null;
+  kybStatus?: string | null;
+  countryCode?: string | null;
+  createdAt: string;
+}
+
+export interface CustomerListItem {
+  partyId: string;
+  displayName: string;
+  partyType: string;
+  status: string;
+  primaryEmail?: string | null;
+  primaryPhone?: string | null;
+  photoUrlTiny?: string | null;
+  verificationStatus?: string | null;
+  createdAt: string;
+}
+
+export interface PartyConsentDetail {
+  consentId: string;
+  consentType: string;
+  grantedAt: string;
+  revokedAt?: string | null;
+}
+
+export interface ExternalAccountDetail {
+  externalAccountId: string;
+  externalAccountType: string;
+  maskedIdentifier: string;
+  providerRef?: string | null;
+  verificationStatus: string;
+  metadataJson: string;
+}
+
+export interface PartyRoleAssignmentDetail {
+  roleAssignmentId: string;
+  role: string;
+  contextType: string;
+  contextId: string;
+}
+
+export interface PartyRelationshipDetail {
+  relationshipId: string;
+  fromPartyId: string;
+  toPartyId: string;
+  relationshipTypeCode: string;
+  isActive: boolean;
+  notes?: string | null;
+}
+
+export interface CustomerDetail {
+  partyId: string;
+  displayName: string;
+  partyType: string;
+  status: string;
+  customerTierCode?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+  personProfile?: PersonProfileDetail | null;
+  businessProfile?: BusinessProfileDetail | null;
+  contacts: PartyContactDetail[];
+  addresses: PartyAddressDetail[];
+  consents: PartyConsentDetail[];
+  externalAccounts: ExternalAccountDetail[];
+  roleAssignments: PartyRoleAssignmentDetail[];
+  relationships: PartyRelationshipDetail[];
+}
+
 export interface UserInfoResponse {
   userId: string;
   email: string;

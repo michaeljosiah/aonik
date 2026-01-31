@@ -3,29 +3,27 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Billing;
+using Aonik.Application.Services;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Billing.Entities;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Billing;
 
-public class BillingService : IBillingService
+public class BillingService : AdminServiceBase, IBillingService
 {
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
-    private readonly IPermissionService _permissionService;
-    private readonly ICurrentUserProvider _currentUserProvider;
 
     public BillingService(
         IAonikDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider)
+        : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
-        _permissionService = permissionService;
-        _currentUserProvider = currentUserProvider;
     }
 
     public async Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
@@ -256,18 +254,4 @@ public class BillingService : IBillingService
                 li.LineTotal)).ToList());
     }
 
-    private async Task EnsurePermissionAsync(string permissionKey, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserProvider.GetCurrentUserId();
-        if (!userId.HasValue)
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        var hasPermission = await _permissionService.HasPermissionAsync(userId.Value, permissionKey, cancellationToken);
-        if (!hasPermission)
-        {
-            throw new InvalidOperationException($"Permission {permissionKey} is required.");
-        }
-    }
 }

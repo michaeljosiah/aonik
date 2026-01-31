@@ -17,6 +17,7 @@ export {
   CatalogBillerServiceDetailPage,
 } from './catalog';
 export { BillPaymentOrderFormPage, OrdersLandingPage } from './orders';
+export { CustomersListPage, CustomerDetailPage } from './billing';
 
 export { AiChatMock } from './ai/AiChatMock';
 export { ContentBlocksListPage } from './ContentBlocksListPage';
