@@ -156,7 +156,7 @@ DROP TABLE IF EXISTS [AutonumberProfiles];
 -- =============================================================================
 DROP TABLE IF EXISTS [CountryCurrencies];
 DROP TABLE IF EXISTS [Settings];
-DROP TABLE IF EXISTS [ReferenceDataItems];
+DROP TABLE IF EXISTS [ReferenceData];
 DROP TABLE IF EXISTS [Currencies];
 DROP TABLE IF EXISTS [Countries];
 
@@ -181,6 +181,7 @@ DROP TABLE IF EXISTS [TenantFeatures];
 -- =============================================================================
 -- OPERATIONS DOMAIN
 -- =============================================================================
+DROP TABLE IF EXISTS [AonikBackgroundJobRecords];
 DROP TABLE IF EXISTS [WorkItems];
 DROP TABLE IF EXISTS [Jobs];
 
