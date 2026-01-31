@@ -9,7 +9,7 @@ public class Currency : AuditableEntity
     public string Name { get; set; } = string.Empty;
     public string? NumericCode { get; set; }
     public int? MinorUnit { get; set; }
-    public DateOnly? WithdrawalDate { get; set; }
+    public string? WithdrawalDate { get; set; }
     public bool IsActive { get; set; } = true;
     public int SortOrder { get; set; }
 }

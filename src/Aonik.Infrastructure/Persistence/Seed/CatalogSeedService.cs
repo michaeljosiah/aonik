@@ -150,7 +150,7 @@ public class CatalogSeedService
             var code = record.Code.Trim().ToUpperInvariant();
             var name = record.Name.Trim();
 
-            var isActive = record.WithdrawalDate is null;
+            var isActive = string.IsNullOrEmpty(record.WithdrawalDate);
             var sortOrder = i + 1;
 
             if (existingByCode.TryGetValue(code, out var existingItem))
@@ -646,7 +646,7 @@ public class CatalogSeedService
     }
 
     private sealed record CountrySeedRecord(string IsoAlpha2, string IsoAlpha3, int? IsoNumeric, string Name);
-    private sealed record CurrencySeedRecord(string Code, string Name, string? NumericCode, int? MinorUnit, DateOnly? WithdrawalDate);
+    private sealed record CurrencySeedRecord(string Code, string Name, string? NumericCode, int? MinorUnit, string? WithdrawalDate);
 
     private static ReferenceDataItem BuildReferenceData(string id, string type, string code, int sortOrder)
     {
