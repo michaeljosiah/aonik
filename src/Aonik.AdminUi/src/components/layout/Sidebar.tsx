@@ -361,6 +361,9 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
   const [isExpanded, setIsExpanded] = useState(false);
   const [apiRoles, setApiRoles] = useState<string[]>([]);
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { theme, setTheme } = useTheme();
   
   const initials = user.name
@@ -369,7 +372,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
     .join('')
     .toUpperCase();
 
-  // Fetch roles from API if not available in claims
+  // Fetch roles and profile photo from API if not available in claims
   useEffect(() => {
     const fetchRoles = async () => {
       if (user.roleSource === 'api' || (!user.roles || user.roles.length === 0)) {
@@ -377,6 +380,17 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
         try {
           const response = await identityService.getUserInfo();
           setApiRoles(response.roles);
+          // Use small thumbnail for sidebar (128x128), fallback to tiny (64x64) or original
+          const photoUrl = response.photoUrlSmall || response.photoUrlTiny || response.photoUrl;
+          if (photoUrl) {
+            // Convert relative path to absolute URL
+            const fullPhotoUrl = photoUrl.startsWith('http') 
+              ? photoUrl 
+              : `${import.meta.env.VITE_API_URL || 'https://localhost:5001'}${photoUrl}`;
+            setProfilePhotoUrl(fullPhotoUrl);
+            setImageLoading(true);
+            setImageError(false);
+          }
         } catch (error) {
           console.error('Failed to fetch user info:', error);
           setApiRoles([]);
@@ -399,11 +413,41 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
     role.toLowerCase().includes('administrator')
   );
 
+  // Handler for successful image load
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  // Handler for image error
+  const handleImageError = () => {
+    setImageLoading(false);
+    setImageError(true);
+  };
+
+  // Get the photo URL to display (uploaded photo takes priority over Auth0 picture)
+  const displayPhotoUrl = !imageError ? (profilePhotoUrl || user.picture) : null;
+
   if (collapsed) {
     return (
       <div className="flex justify-center p-3 border-t border-[var(--color-border-light)]">
-        <Avatar className="w-10 h-10 cursor-pointer">
-          {user.picture && <AvatarImage src={user.picture} alt={user.name} />}
+        <Avatar className="w-10 h-10 cursor-pointer relative">
+          {displayPhotoUrl && (
+            <>
+              <AvatarImage 
+                src={displayPhotoUrl} 
+                alt={user.name}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                className={imageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
+              />
+              {imageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
+                  <div className="w-5 h-5 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+                </div>
+              )}
+            </>
+          )}
           <AvatarFallback className="bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)]">
             {initials}
           </AvatarFallback>
@@ -423,41 +467,55 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
   return (
     <div className={cn(
       "border-t border-[var(--color-border-light)] p-3",
-      isExpanded && "pt-10"
+      !isExpanded && "pt-9",
+      isExpanded && "pt-9"
     )}>
       {/* Card container with relative positioning for avatar overlap */}
       <div className={cn(
         "relative",
         isExpanded && "w-80 z-50"
       )}>
-        {/* Avatar - positioned to overlap the top of the card when expanded */}
-        {isExpanded && (
-          <Avatar 
-            className="w-16 h-16 absolute -top-8 left-4 cursor-pointer border-4 border-[var(--color-background)] z-10"
-            onClick={() => setIsExpanded(false)}
-          >
-            {user.picture && <AvatarImage src={user.picture} alt={user.name} />}
-            <AvatarFallback className="bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)] text-xl">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-        )}
+        {/* Avatar - positioned to overlap the top of the card (40% above, 60% below) */}
+        <Avatar 
+          className={cn(
+            "absolute left-4 cursor-pointer border-4 border-[var(--color-background)] z-10",
+            isExpanded ? "w-20 h-20 -top-8" : "w-20 h-20 -top-8"
+          )}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {displayPhotoUrl && (
+            <>
+              <AvatarImage 
+                src={displayPhotoUrl} 
+                alt={user.name}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                className={imageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
+              />
+              {imageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
+                  <div className={cn(
+                    "border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin",
+                    "w-8 h-8"
+                  )} />
+                </div>
+              )}
+            </>
+          )}
+          <AvatarFallback className={cn(
+            "bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)]",
+            "text-2xl"
+          )}>
+            {initials}
+          </AvatarFallback>
+        </Avatar>
 
         <div className="bg-[var(--color-surface-elevated)] rounded-md shadow-lg border border-[var(--color-border)]">
         {!isExpanded ? (
           /* Collapsed card view */
-          <div className="p-4">
-            {/* Top row: Avatar and Admin badge + settings */}
-            <div className="flex items-start justify-between mb-3">
-              <Avatar 
-                className="w-12 h-12 cursor-pointer"
-                onClick={() => setIsExpanded(true)}
-              >
-                {user.picture && <AvatarImage src={user.picture} alt={user.name} />}
-                <AvatarFallback className="bg-[var(--color-brand-secondary-light)] text-[var(--color-brand-secondary)] text-lg">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+          <div className="p-4 pt-3">
+            {/* Top row: Admin badge + settings (avatar moved outside) */}
+            <div className="flex items-start justify-end mb-6">
               <div className="flex items-center gap-2">
                 {isAdmin && (
                   <Badge variant="team" className="text-[11px] px-2 py-0.5">
@@ -476,7 +534,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
             <div className="min-w-0">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate cursor-default">
+                  <p className="text-base font-semibold text-[var(--color-text-primary)] truncate cursor-default">
                     {user.name}
                   </p>
                 </TooltipTrigger>
@@ -484,14 +542,14 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   <p>{user.name}</p>
                 </TooltipContent>
               </Tooltip>
-              <p className="text-xs text-[var(--color-text-tertiary)] truncate">{roleLabel}</p>
+              <p className="text-sm text-[var(--color-text-tertiary)] truncate mt-0.5">{roleLabel}</p>
             </div>
           </div>
         ) : (
           /* Expanded card view */
-          <div className="p-4">
+          <div className="p-4 pt-3">
             {/* Top row: Admin badge + close button */}
-            <div className="flex items-center justify-end gap-2 mb-4">
+            <div className="flex items-center justify-end gap-2 mb-6">
               {isAdmin && (
                 <Badge variant="team" className="text-[11px] px-2 py-0.5">
                   Admin
@@ -517,7 +575,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
                   <p>{user.name}</p>
                 </TooltipContent>
               </Tooltip>
-              <p className="text-sm text-[var(--color-brand-primary)] truncate">{roleLabel}</p>
+              <p className="text-sm text-[var(--color-text-tertiary)] truncate mt-0.5">{roleLabel}</p>
             </div>
 
             {/* Menu items */}

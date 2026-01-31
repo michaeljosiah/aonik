@@ -79,11 +79,12 @@ public class IdentityService : IIdentityService
             throw new InvalidOperationException("Authenticated user not found.");
         }
 
-        var partyId = await _dbContext.UserParties
+        var userPartyLink = await _dbContext.UserParties
             .Where(link => link.UserId == userId && link.TenantId == tenantId)
             .OrderByDescending(link => link.CreatedAt)
-            .Select(link => (Guid?)link.PartyId)
             .FirstOrDefaultAsync(cancellationToken);
+
+        var partyId = userPartyLink?.PartyId;
 
         if (!partyId.HasValue)
         {
@@ -99,6 +100,11 @@ public class IdentityService : IIdentityService
         }
 
         var names = await GetPrimaryNameAsync(partyId.Value, cancellationToken);
+        
+        var personProfile = await _dbContext.PersonProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(pp => pp.PartyId == partyId.Value, cancellationToken);
+        
         var response = new UserInfoResponse(
             userId,
             user.Email ?? string.Empty,
@@ -106,7 +112,10 @@ public class IdentityService : IIdentityService
             names?.LastName,
             _currentUserContext.Roles,
             tenantId,
-            partyId.Value);
+            partyId.Value,
+            personProfile?.PhotoUrl,
+            personProfile?.PhotoUrlSmall,
+            personProfile?.PhotoUrlTiny);
 
         await _auditLogWriter.LogAsync(
             AuditEventNames.CurrentUserViewed,

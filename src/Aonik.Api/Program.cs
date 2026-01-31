@@ -107,6 +107,29 @@ if (app.Environment.IsDevelopment())
     app.UseCors("Development");
 }
 
+// Serve static files for local blob storage (profile photos, etc.)
+var blobStorageProvider = builder.Configuration["BlobStorage:Provider"];
+if (string.Equals(blobStorageProvider, "Local", StringComparison.OrdinalIgnoreCase))
+{
+    var localBasePath = builder.Configuration["BlobStorage:LocalBasePath"] ?? "App_Data";
+    var profilePhotosPath = builder.Configuration["BlobStorage:ProfilePhotos:Path"] ?? "profiles";
+    var physicalPath = Path.Combine(Directory.GetCurrentDirectory(), localBasePath, profilePhotosPath);
+    
+    // Create directory if it doesn't exist
+    Directory.CreateDirectory(physicalPath);
+    
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(physicalPath),
+        RequestPath = "/storage/profiles",
+        OnPrepareResponse = ctx =>
+        {
+            // Cache images for 1 hour
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=3600";
+        }
+    });
+}
+
 // CRITICAL: Middleware order matters!
 // 1. Authentication (validates JWT, runs OnTokenValidated)
 app.UseAuthentication();

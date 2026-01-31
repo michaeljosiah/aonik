@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { AlertCircle, Edit, Eye, User, UserMinus, UserPlus, Users, UsersRound } from 'lucide-react';
 import { userService } from '@/services/userService';
@@ -68,6 +69,8 @@ export function AccessUsersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const requestIdRef = useRef(0);
+  const [imageLoadStates, setImageLoadStates] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   const loadUsers = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
@@ -110,6 +113,23 @@ export function AccessUsersPage() {
     setPageNumber(1);
   }, [searchQuery, statusFilter]);
 
+  // Reset image states when users change
+  useEffect(() => {
+    setImageLoadStates({});
+    setImageErrors(new Set());
+  }, [users]);
+
+  // Handle image load
+  const handleImageLoad = useCallback((userId: string) => {
+    setImageLoadStates(prev => ({ ...prev, [userId]: 'loaded' }));
+  }, []);
+
+  // Handle image error
+  const handleImageError = useCallback((userId: string) => {
+    setImageLoadStates(prev => ({ ...prev, [userId]: 'error' }));
+    setImageErrors(prev => new Set([...prev, userId]));
+  }, []);
+
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -117,6 +137,30 @@ export function AccessUsersPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  // Helper to get photo URL with fallback
+  const getPhotoUrl = (user: AccessUserSummary, size: 'tiny' | 'small' = 'tiny') => {
+    const photoUrl = size === 'tiny' 
+      ? (user.photoUrlTiny || user.photoUrlSmall || user.photoUrl)
+      : (user.photoUrlSmall || user.photoUrlTiny || user.photoUrl);
+    
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith('http')) return photoUrl;
+    
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://localhost:5001';
+    return `${apiBaseUrl}${photoUrl}`;
+  };
+
+  // Get user initials for fallback avatar
+  const getUserInitials = (user: AccessUserSummary) => {
+    const name = user.displayName || user.email;
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const getRowActions = (user: AccessUserSummary): DataTableAction[] => [
@@ -139,13 +183,36 @@ export function AccessUsersPage() {
     },
   ];
 
-  // Render user icon based on status
+  // Render user avatar based on photo or initials
   const renderUserIcon = (user: AccessUserSummary) => {
     const style = statusStyles[user.status] ?? { iconColor: 'text-[var(--color-text-tertiary)]' };
+    const photoUrl = getPhotoUrl(user, 'tiny');
+    const initials = getUserInitials(user);
+    const hasError = imageErrors.has(user.userId);
+    const isLoading = imageLoadStates[user.userId] === 'loading';
+    
     return (
-      <div className={`w-6 h-6 flex items-center justify-center ${style.iconColor}`}>
-        <User className="w-5 h-5" />
-      </div>
+      <Avatar className="w-6 h-6">
+        {photoUrl && !hasError ? (
+          <>
+            <AvatarImage 
+              src={photoUrl} 
+              alt={user.displayName || user.email}
+              onLoad={() => handleImageLoad(user.userId)}
+              onError={() => handleImageError(user.userId)}
+              className={isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
+            />
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
+                <div className="w-3 h-3 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+              </div>
+            )}
+          </>
+        ) : null}
+        <AvatarFallback className={`text-xs ${style.iconColor} bg-[var(--color-surface-inset)]`}>
+          {initials}
+        </AvatarFallback>
+      </Avatar>
     );
   };
 
@@ -231,14 +298,36 @@ export function AccessUsersPage() {
       bg: 'bg-[var(--color-surface-inset)]',
       iconColor: 'text-[var(--color-text-tertiary)]',
     };
+    const photoUrl = getPhotoUrl(user, 'small');
+    const initials = getUserInitials(user);
+    const hasError = imageErrors.has(user.userId);
+    const isLoading = imageLoadStates[user.userId] === 'loading';
 
     return (
       <div className="space-y-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full bg-[var(--color-surface-inset)] flex items-center justify-center ${style.iconColor}`}>
-              <User className="w-4 h-4" />
-            </div>
+            <Avatar className="w-8 h-8 relative">
+              {photoUrl && !hasError ? (
+                <>
+                  <AvatarImage 
+                    src={photoUrl} 
+                    alt={user.displayName || user.email}
+                    onLoad={() => handleImageLoad(user.userId)}
+                    onError={() => handleImageError(user.userId)}
+                    className={isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
+                  />
+                  {isLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
+                      <div className="w-4 h-4 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+                    </div>
+                  )}
+                </>
+              ) : null}
+              <AvatarFallback className={`text-sm ${style.iconColor} bg-[var(--color-surface-inset)]`}>
+                {initials}
+              </AvatarFallback>
+            </Avatar>
             <div>
               <p className="font-medium text-[var(--color-text-primary)]">
                 {user.displayName || user.email}

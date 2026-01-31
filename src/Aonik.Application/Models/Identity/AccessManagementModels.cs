@@ -47,7 +47,10 @@ public record AccessUserSummary(
     Guid? PartyId,
     string? PartyDisplayName,
     string? PartyType,
-    string? PartyLinkType
+    string? PartyLinkType,
+    string? PhotoUrl,
+    string? PhotoUrlSmall,
+    string? PhotoUrlTiny
 );
 
 public record AccessUserDetail(

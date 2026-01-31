@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
 using Aonik.Domain.Identity.Entities;
@@ -21,6 +22,7 @@ public class AccessManagementService : IAccessManagementService
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IProfilePhotoStore _profilePhotoStore;
 
     public AccessManagementService(
         IAonikDbContext dbContext,
@@ -29,7 +31,8 @@ public class AccessManagementService : IAccessManagementService
         IPermissionService permissionService,
         IClock clock,
         IAuditLogWriter auditLogWriter,
-        ICorrelationContext correlationContext)
+        ICorrelationContext correlationContext,
+        IProfilePhotoStore profilePhotoStore)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -38,6 +41,7 @@ public class AccessManagementService : IAccessManagementService
         _clock = clock;
         _auditLogWriter = auditLogWriter;
         _correlationContext = correlationContext;
+        _profilePhotoStore = profilePhotoStore;
     }
 
     public async Task<PagedResult<AccessUserSummary>> ListUsersAsync(
@@ -87,7 +91,16 @@ public class AccessManagementService : IAccessManagementService
                             party.DisplayName,
                             party.PartyType,
                             link.LinkType,
-                            link.CreatedAt
+                            link.CreatedAt,
+                            PersonProfile = _dbContext.PersonProfiles
+                                .Where(pp => pp.PartyId == party.Id)
+                                .Select(pp => new
+                                {
+                                    pp.PhotoUrl,
+                                    pp.PhotoUrlSmall,
+                                    pp.PhotoUrlTiny
+                                })
+                                .FirstOrDefault()
                         })
                     .OrderBy(link => link.CreatedAt)
                     .FirstOrDefault()
@@ -104,7 +117,10 @@ public class AccessManagementService : IAccessManagementService
             item.PartyInfo?.PartyId,
             item.PartyInfo?.DisplayName,
             item.PartyInfo?.PartyType,
-            item.PartyInfo?.LinkType)).ToList();
+            item.PartyInfo?.LinkType,
+            item.PartyInfo?.PersonProfile?.PhotoUrl,
+            item.PartyInfo?.PersonProfile?.PhotoUrlSmall,
+            item.PartyInfo?.PersonProfile?.PhotoUrlTiny)).ToList();
 
         return new PagedResult<AccessUserSummary>(
             summaries,
@@ -165,8 +181,8 @@ public class AccessManagementService : IAccessManagementService
                 partyType = party.PartyType;
                 linkType = partyLink.LinkType;
 
-                // Load PersonProfile if party type is Person
-                if (party.PartyType == "Person")
+                // Load PersonProfile if party type is Individual or Person
+                if (party.PartyType == "Individual" || party.PartyType == "Person")
                 {
                     var personProfileEntity = await _dbContext.PersonProfiles
                         .AsNoTracking()
@@ -394,8 +410,8 @@ public class AccessManagementService : IAccessManagementService
             throw new InvalidOperationException($"Party {partyLink.PartyId} not found");
         }
 
-        // Only update PersonProfile for Person parties
-        if (party.PartyType == "Person")
+        // Only update PersonProfile for Individual parties (person profiles)
+        if (party.PartyType == "Individual" || party.PartyType == "Person")
         {
             var personProfile = await _dbContext.PersonProfiles
                 .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
@@ -460,6 +476,179 @@ public class AccessManagementService : IAccessManagementService
                     cancellationToken);
             }
         }
+    }
+
+    public async Task<CustomerPhotoUploadResponse?> UploadUserPhotoAsync(
+        Guid userId,
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Users.Manage", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        // Get the user's party link
+        var partyLink = await _dbContext.UserParties
+            .Where(link => link.TenantId == tenantId && link.UserId == userId)
+            .OrderBy(link => link.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (partyLink == null)
+        {
+            return null;
+        }
+
+        var party = await _dbContext.Parties
+            .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
+
+        if (party == null)
+        {
+            return null;
+        }
+
+        // Only support photo uploads for Individual parties (person profiles)
+        if (party.PartyType != "Individual" && party.PartyType != "Person")
+        {
+            throw new InvalidOperationException("Photo upload is only supported for person profiles");
+        }
+
+        var personProfile = await _dbContext.PersonProfiles
+            .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
+
+        if (personProfile == null)
+        {
+            // Create person profile if it doesn't exist
+            personProfile = new Domain.Party.Entities.PersonProfile
+            {
+                PartyId = party.Id,
+                IdvStatus = "Pending",
+                CreatedAt = _clock.UtcNow,
+                CreatedBy = _currentUserProvider.GetCurrentUserId()
+            };
+            _dbContext.PersonProfiles.Add(personProfile);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        // Upload photo to storage
+        var uploadResult = await _profilePhotoStore.UploadCustomerPhotoAsync(
+            tenantId,
+            party.Id,
+            contentType,
+            fileStream,
+            cancellationToken);
+
+        personProfile.PhotoUrl = uploadResult.OriginalUrl;
+        personProfile.PhotoUrlMedium = uploadResult.MediumThumbnailUrl;
+        personProfile.PhotoUrlSmall = uploadResult.SmallThumbnailUrl;
+        personProfile.PhotoUrlTiny = uploadResult.TinyThumbnailUrl;
+        personProfile.UpdatedAt = _clock.UtcNow;
+        personProfile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Audit log
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerPhotoUpdated,
+            "PersonProfile",
+            personProfile.Id,
+            tenantId,
+            _currentUserProvider.GetCurrentUserId(),
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new 
+            { 
+                userId, 
+                partyId = party.Id, 
+                photoUrl = uploadResult.OriginalUrl, 
+                mediumThumbUrl = uploadResult.MediumThumbnailUrl,
+                smallThumbUrl = uploadResult.SmallThumbnailUrl,
+                tinyThumbUrl = uploadResult.TinyThumbnailUrl
+            }),
+            cancellationToken);
+
+        return new CustomerPhotoUploadResponse(uploadResult.OriginalUrl);
+    }
+
+    public async Task<CustomerPhotoDeleteResponse?> DeleteUserPhotoAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Users.Manage", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        // Get the user's party link
+        var partyLink = await _dbContext.UserParties
+            .Where(link => link.TenantId == tenantId && link.UserId == userId)
+            .OrderBy(link => link.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (partyLink == null)
+        {
+            return null;
+        }
+
+        var party = await _dbContext.Parties
+            .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
+
+        if (party == null)
+        {
+            return null;
+        }
+
+        // Only support photo deletion for Individual parties (person profiles)
+        if (party.PartyType != "Individual" && party.PartyType != "Person")
+        {
+            throw new InvalidOperationException("Photo deletion is only supported for person profiles");
+        }
+
+        var personProfile = await _dbContext.PersonProfiles
+            .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
+
+        if (personProfile == null)
+        {
+            return null;
+        }
+
+        // Delete from storage if exists
+        if (!string.IsNullOrWhiteSpace(personProfile.PhotoUrl))
+        {
+            await _profilePhotoStore.DeleteCustomerPhotoAsync(personProfile.PhotoUrl, cancellationToken);
+        }
+
+        personProfile.PhotoUrl = null;
+        personProfile.UpdatedAt = _clock.UtcNow;
+        personProfile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Audit log
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerPhotoDeleted,
+            "PersonProfile",
+            personProfile.Id,
+            tenantId,
+            _currentUserProvider.GetCurrentUserId(),
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { userId, partyId = party.Id }),
+            cancellationToken);
+
+        return new CustomerPhotoDeleteResponse("ok");
     }
 
     public async Task ActivateUserAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -789,7 +978,16 @@ public class AccessManagementService : IAccessManagementService
                             party.DisplayName,
                             party.PartyType,
                             link.LinkType,
-                            link.CreatedAt
+                            link.CreatedAt,
+                            PersonProfile = _dbContext.PersonProfiles
+                                .Where(pp => pp.PartyId == party.Id)
+                                .Select(pp => new
+                                {
+                                    pp.PhotoUrl,
+                                    pp.PhotoUrlSmall,
+                                    pp.PhotoUrlTiny
+                                })
+                                .FirstOrDefault()
                         })
                     .OrderBy(link => link.CreatedAt)
                     .FirstOrDefault()
@@ -806,7 +1004,10 @@ public class AccessManagementService : IAccessManagementService
             user.PartyInfo?.PartyId,
             user.PartyInfo?.DisplayName,
             user.PartyInfo?.PartyType,
-            user.PartyInfo?.LinkType)).ToList();
+            user.PartyInfo?.LinkType,
+            user.PartyInfo?.PersonProfile?.PhotoUrl,
+            user.PartyInfo?.PersonProfile?.PhotoUrlSmall,
+            user.PartyInfo?.PersonProfile?.PhotoUrlTiny)).ToList();
 
         return new AccessRoleDetail(
             role.Id,

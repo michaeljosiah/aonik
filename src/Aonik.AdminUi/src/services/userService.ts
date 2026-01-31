@@ -38,6 +38,20 @@ export const userService = {
   updateProfile: async (userId: string, request: UpdateUserProfileRequest): Promise<void> => {
     return api.put(`/admin/users/${userId}/profile`, request);
   },
+  uploadPhoto: async (userId: string, file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await api.post<{ photoUrl: string }>(`/admin/users/${userId}/photo`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.photoUrl;
+  },
+  deletePhoto: async (userId: string): Promise<void> => {
+    return api.delete(`/admin/users/${userId}/photo`);
+  },
   deactivate: async (userId: string): Promise<void> => {
     return api.post(`/admin/users/${userId}/deactivate`);
   },

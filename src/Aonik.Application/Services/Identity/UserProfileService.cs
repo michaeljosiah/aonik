@@ -293,14 +293,17 @@ public class UserProfileService : IUserProfileService
 
         var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
 
-        var photoUrl = await _profilePhotoStore.UploadCustomerPhotoAsync(
+        var uploadResult = await _profilePhotoStore.UploadCustomerPhotoAsync(
             tenantId,
             party.Id,
             contentType,
             fileStream,
             cancellationToken);
 
-        profile.PhotoUrl = photoUrl;
+        profile.PhotoUrl = uploadResult.OriginalUrl;
+        profile.PhotoUrlMedium = uploadResult.MediumThumbnailUrl;
+        profile.PhotoUrlSmall = uploadResult.SmallThumbnailUrl;
+        profile.PhotoUrlTiny = uploadResult.TinyThumbnailUrl;
         profile.UpdatedAt = _clock.UtcNow;
         profile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
 
@@ -313,10 +316,17 @@ public class UserProfileService : IUserProfileService
             tenantId,
             userId,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { party.Id, profile.PhotoUrl }),
+            JsonSerializer.Serialize(new 
+            { 
+                party.Id, 
+                photoUrl = profile.PhotoUrl, 
+                mediumThumbUrl = uploadResult.MediumThumbnailUrl,
+                smallThumbUrl = uploadResult.SmallThumbnailUrl,
+                tinyThumbUrl = uploadResult.TinyThumbnailUrl
+            }),
             cancellationToken);
 
-        return new CustomerPhotoUploadResponse(photoUrl);
+        return new CustomerPhotoUploadResponse(uploadResult.OriginalUrl);
     }
 
     public async Task<CustomerPhotoDeleteResponse?> DeleteCustomerPhotoAsync(

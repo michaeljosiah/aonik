@@ -9,6 +9,8 @@ public interface IAccessManagementService
     Task InviteUserAsync(InviteUserRequest request, CancellationToken cancellationToken = default);
     Task UpdateUserRolesAsync(Guid userId, UpdateUserRolesRequest request, CancellationToken cancellationToken = default);
     Task UpdateUserProfileAsync(Guid userId, UpdateUserProfileRequest request, CancellationToken cancellationToken = default);
+    Task<CustomerPhotoUploadResponse?> UploadUserPhotoAsync(Guid userId, Stream fileStream, string fileName, string contentType, CancellationToken cancellationToken = default);
+    Task<CustomerPhotoDeleteResponse?> DeleteUserPhotoAsync(Guid userId, CancellationToken cancellationToken = default);
     Task ActivateUserAsync(Guid userId, CancellationToken cancellationToken = default);
     Task DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default);
 

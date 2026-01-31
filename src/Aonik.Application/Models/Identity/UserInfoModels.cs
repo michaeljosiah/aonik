@@ -7,7 +7,10 @@ public record UserInfoResponse(
     string? LastName,
     IReadOnlyCollection<string> Roles,
     Guid TenantId,
-    Guid PartyId);
+    Guid PartyId,
+    string? PhotoUrl,
+    string? PhotoUrlSmall,
+    string? PhotoUrlTiny);
 
 public record ForgotPasswordRequest(
     string Email,

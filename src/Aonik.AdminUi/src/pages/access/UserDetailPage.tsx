@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ import {
   Mail,
   Phone,
   MapPin,
+  Camera,
+  Trash2,
 } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { EditUserProfileDialog } from '@/components/dialogs/EditUserProfileDialog';
@@ -53,6 +55,11 @@ export function UserDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [detailsExpanded, setDetailsExpanded] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const loadUser = useCallback(async () => {
     if (!userId) return;
@@ -95,6 +102,74 @@ export function UserDetailPage() {
     }
   };
 
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !userId) return;
+
+    // Validate file size (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setPhotoError('Image must be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+    if (!allowedTypes.includes(file.type)) {
+      setPhotoError('Please select a valid image file (JPG, PNG, GIF, WebP, or BMP)');
+      return;
+    }
+
+    setPhotoError(null);
+    setUploadingPhoto(true);
+    setImageError(false);
+    setImageLoading(true);
+
+    try {
+      await userService.uploadPhoto(userId, file);
+      await loadUser(); // Reload to show new photo
+    } catch (err: unknown) {
+      console.error('Failed to upload photo:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setPhotoError(message || 'Failed to upload photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!userId || !user?.personProfile?.photoUrl) return;
+
+    if (!confirm('Are you sure you want to delete this profile photo?')) {
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setPhotoError(null);
+
+    try {
+      await userService.deletePhoto(userId);
+      await loadUser(); // Reload to remove photo
+    } catch (err: unknown) {
+      console.error('Failed to delete photo:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setPhotoError(message || 'Failed to delete photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return 'Not provided';
     return new Date(dateString).toLocaleDateString('en-US', { 
@@ -111,6 +186,38 @@ export function UserDetailPage() {
       return title ? `${title} ${name}` : name;
     }
     return user?.displayName || user?.email || 'Unknown User';
+  };
+
+  const getPhotoUrl = (size: 'original' | 'medium' | 'small' | 'tiny' = 'small') => {
+    if (!user?.personProfile) return null;
+    
+    // Select the appropriate thumbnail size
+    let photoUrl: string | null | undefined;
+    switch (size) {
+      case 'original':
+        photoUrl = user.personProfile.photoUrl;
+        break;
+      case 'medium':
+        photoUrl = user.personProfile.photoUrlMedium || user.personProfile.photoUrl;
+        break;
+      case 'small':
+        photoUrl = user.personProfile.photoUrlSmall || user.personProfile.photoUrl;
+        break;
+      case 'tiny':
+        photoUrl = user.personProfile.photoUrlTiny || user.personProfile.photoUrl;
+        break;
+    }
+    
+    if (!photoUrl) return null;
+    
+    // Check if it's already a full URL (e.g., from CDN with PublicBaseUrl)
+    if (photoUrl.startsWith('http')) {
+      return photoUrl;
+    }
+    
+    // For local storage, the URL is relative to the API (e.g., /storage/profiles/customers/...)
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://localhost:5001';
+    return `${apiBaseUrl}${photoUrl}`;
   };
 
   const breadcrumbItems = [
@@ -190,19 +297,85 @@ export function UserDetailPage() {
               <CardContent className="p-6">
                 {/* Avatar & Name */}
                 <div className="text-center mb-6">
-                  <div className="relative inline-block mb-3">
-                    <Avatar className="h-20 w-20 mx-auto">
-                      {user.personProfile?.photoUrl && (
-                        <AvatarImage src={user.personProfile.photoUrl} alt={getFullName()} />
+                  <div className="relative inline-block mb-3 group">
+                    <Avatar className="h-20 w-20 mx-auto relative">
+                      {getPhotoUrl('small') && !imageError && (
+                        <>
+                          <AvatarImage 
+                            src={getPhotoUrl('small')!} 
+                            alt={getFullName()}
+                            onLoad={() => {
+                              setImageLoading(false);
+                              setImageError(false);
+                            }}
+                            onError={() => {
+                              setImageLoading(false);
+                              setImageError(true);
+                            }}
+                            className={imageLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-200'}
+                          />
+                          {imageLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-[var(--color-surface-inset)]">
+                              <div className="w-8 h-8 border-2 border-[var(--color-border-light)] border-t-[var(--color-brand-primary)] rounded-full animate-spin" />
+                            </div>
+                          )}
+                        </>
                       )}
                       <AvatarFallback className="text-xl">
                         {getInitials(getFullName(), user.email)}
                       </AvatarFallback>
                     </Avatar>
+                    
+                    {/* Photo Upload Overlay */}
+                    <div 
+                      className="absolute inset-0 bg-black bg-opacity-60 rounded-full flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={handleAvatarClick}
+                        disabled={uploadingPhoto}
+                        className="p-2 bg-white rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+                        title="Change photo"
+                      >
+                        {uploadingPhoto ? (
+                          <RefreshCw className="w-4 h-4 text-gray-700 animate-spin" />
+                        ) : (
+                          <Camera className="w-4 h-4 text-gray-700" />
+                        )}
+                      </button>
+                      {user.personProfile?.photoUrl && (
+                        <button
+                          onClick={handleDeletePhoto}
+                          disabled={uploadingPhoto}
+                          className="p-2 bg-white rounded-full hover:bg-red-100 transition-colors disabled:opacity-50"
+                          title="Delete photo"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                    
                     {user.status === 'Active' && (
                       <span className="absolute bottom-0 right-0 w-4 h-4 bg-[var(--color-success)] border-2 border-white rounded-full" />
                     )}
                   </div>
+                  
+                  {/* Photo Error Message */}
+                  {photoError && (
+                    <div className="mt-2 text-xs text-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 rounded">
+                      {photoError}
+                    </div>
+                  )}
+                  
                   <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
                     {getFullName()}
                   </h2>

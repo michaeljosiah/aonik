@@ -10,6 +10,9 @@ public class PersonProfile : AuditableEntity
     public string? LastName { get; set; }
     public string? CountryCode { get; set; }
     public string? PhotoUrl { get; set; }
+    public string? PhotoUrlMedium { get; set; }
+    public string? PhotoUrlSmall { get; set; }
+    public string? PhotoUrlTiny { get; set; }
     public DateTime? Dob { get; set; }
     public string? Nationality { get; set; }
     public string? Occupation { get; set; }

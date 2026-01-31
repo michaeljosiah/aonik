@@ -30,6 +30,9 @@ public class UserInfoEndpoint : EndpointWithoutRequest<UserInfoResponseDto>
             result.LastName,
             result.Roles,
             result.TenantId,
-            result.PartyId), ct);
+            result.PartyId,
+            result.PhotoUrl,
+            result.PhotoUrlSmall,
+            result.PhotoUrlTiny), ct);
     }
 }

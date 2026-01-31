@@ -500,6 +500,9 @@ export interface UserInfoResponse {
   roles: string[];
   tenantId: string;
   partyId: string;
+  photoUrl?: string | null;
+  photoUrlSmall?: string | null;
+  photoUrlTiny?: string | null;
 }
 
 export interface RoleSummaryResponse {
@@ -523,6 +526,9 @@ export interface AccessUserSummary {
   partyDisplayName?: string | null;
   partyType?: string | null;
   partyLinkType?: string | null;
+  photoUrl?: string | null;
+  photoUrlSmall?: string | null;
+  photoUrlTiny?: string | null;
 }
 
 export interface PersonProfileDetail {
@@ -531,6 +537,9 @@ export interface PersonProfileDetail {
   lastName?: string | null;
   countryCode?: string | null;
   photoUrl?: string | null;
+  photoUrlMedium?: string | null;
+  photoUrlSmall?: string | null;
+  photoUrlTiny?: string | null;
   dob?: string | null;
   nationality?: string | null;
   occupation?: string | null;

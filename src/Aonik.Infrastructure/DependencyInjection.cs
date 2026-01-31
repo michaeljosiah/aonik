@@ -94,6 +94,9 @@ public static class DependencyInjection
             return BlobStorageFactory.Create(options, options.ProfilePhotos);
         });
 
+        // Image Processing Service
+        services.AddScoped<IImageProcessingService, ImageProcessingService>();
+
         // Profile Photo Store abstraction
         services.AddScoped<IProfilePhotoStore, ProfilePhotoStore>();
         
