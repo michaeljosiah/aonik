@@ -22,42 +22,56 @@ public class TenantContextMiddleware
         IConfiguration configuration,
         ILogger<TenantContextMiddleware> logger)
     {
-        var path = context.Request.Path;
-
-        if (path.StartsWithSegments("/health") ||
-            path.StartsWithSegments("/swagger") ||
-            path.StartsWithSegments("/host") ||
-            path.StartsWithSegments("/bootstrap"))
+        try
         {
-            await _next(context);
-            return;
-        }
+            var path = context.Request.Path;
 
-        if (context.User.Identity?.IsAuthenticated != true)
-        {
-            await _next(context);
-            return;
-        }
-
-        if (!tenantContext.IsResolved)
-        {
-            var resolvedTenantId = tenantResolver.ResolveTenantId() ?? tenantResolver.ResolveFromHttpContext();
-            if (resolvedTenantId != null)
+            if (path.StartsWithSegments("/health") ||
+                path.StartsWithSegments("/swagger") ||
+                path.StartsWithSegments("/host") ||
+                path.StartsWithSegments("/bootstrap"))
             {
-                tenantContext.TenantId = resolvedTenantId;
-                tenantContext.ResolutionSource = configuration["Auth:TenantRouting"] ?? "Resolver";
+                await _next(context);
+                return;
+            }
+
+            if (context.User.Identity?.IsAuthenticated != true)
+            {
+                await _next(context);
+                return;
             }
 
             if (!tenantContext.IsResolved)
             {
-                logger.LogWarning("Tenant context not resolved after authentication for path {Path}", path);
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" });
-                return;
-            }
-        }
+                var resolvedTenantId = tenantResolver.ResolveTenantId() ?? tenantResolver.ResolveFromHttpContext();
+                if (resolvedTenantId != null)
+                {
+                    tenantContext.TenantId = resolvedTenantId;
+                    tenantContext.ResolutionSource = configuration["Auth:TenantRouting"] ?? "Resolver";
+                }
 
-        await _next(context);
+                if (!tenantContext.IsResolved)
+                {
+                    logger.LogWarning("Tenant context not resolved after authentication for path {Path}", path);
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    try
+                    {
+                        await context.Response.WriteAsJsonAsync(new { error = "Tenant context missing" }, context.RequestAborted);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
+                    return;
+                }
+            }
+
+            await _next(context);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected; ignore.
+        }
     }
 }
 

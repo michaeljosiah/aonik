@@ -221,6 +221,42 @@ public class TenantService : ITenantService
             tenant.Environment = request.Environment;
         }
 
+        // Company Setup fields
+        if (request.LogoUrl != null)
+            tenant.LogoUrl = request.LogoUrl;
+        if (request.Industry != null)
+            tenant.Industry = request.Industry;
+        if (request.CompanySize != null)
+            tenant.CompanySize = request.CompanySize;
+        if (request.Website != null)
+            tenant.Website = request.Website;
+
+        // Contact fields
+        if (request.ContactEmail != null)
+            tenant.ContactEmail = request.ContactEmail;
+        if (request.ContactMobile != null)
+            tenant.ContactMobile = request.ContactMobile;
+
+        // Address fields
+        if (request.AddressLine1 != null)
+            tenant.AddressLine1 = request.AddressLine1;
+        if (request.AddressLine2 != null)
+            tenant.AddressLine2 = request.AddressLine2;
+        if (request.City != null)
+            tenant.City = request.City;
+        if (request.StateProvince != null)
+            tenant.StateProvince = request.StateProvince;
+        if (request.PostalCode != null)
+            tenant.PostalCode = request.PostalCode;
+        if (request.Country != null)
+            tenant.Country = request.Country;
+
+        // Setup tracking
+        if (request.IsSetupComplete.HasValue)
+            tenant.IsSetupComplete = request.IsSetupComplete.Value;
+        if (request.SetupStep.HasValue)
+            tenant.SetupStep = request.SetupStep.Value;
+
         tenant.UpdatedAt = _clock.UtcNow;
         tenant.UpdatedBy = userId;
 
@@ -351,7 +387,25 @@ public class TenantService : ITenantService
             tenant.CreatedAt,
             tenant.CreatedBy,
             tenant.UpdatedAt,
-            tenant.UpdatedBy);
+            tenant.UpdatedBy,
+            // Company Setup fields
+            tenant.LogoUrl,
+            tenant.Industry,
+            tenant.CompanySize,
+            tenant.Website,
+            // Contact fields
+            tenant.ContactEmail,
+            tenant.ContactMobile,
+            // Address fields
+            tenant.AddressLine1,
+            tenant.AddressLine2,
+            tenant.City,
+            tenant.StateProvince,
+            tenant.PostalCode,
+            tenant.Country,
+            // Setup tracking
+            tenant.IsSetupComplete,
+            tenant.SetupStep);
     }
 
     private static string NormalizeCurrencyCode(string currency)

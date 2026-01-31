@@ -26,15 +26,27 @@ public class ListTenantsForLoginEndpoint : EndpointWithoutRequest<TenantListForL
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var result = await _tenantService.ListTenantsForLoginAsync(ct);
+        try
+        {
+            var result = await _tenantService.ListTenantsForLoginAsync(ct);
 
-        var response = new TenantListForLoginResponse(
-            result.Tenants.Select(t => new TenantListItemForLoginResponse(
-                t.TenantId,
-                t.Name,
-                t.Subdomain,
-                t.Environment)).ToList());
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
 
-        await Send.OkAsync(response, ct);
+            var response = new TenantListForLoginResponse(
+                result.Tenants.Select(t => new TenantListItemForLoginResponse(
+                    t.TenantId,
+                    t.Name,
+                    t.Subdomain,
+                    t.Environment)).ToList());
+
+            await Send.OkAsync(response, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // Request was canceled; no response required.
+        }
     }
 }

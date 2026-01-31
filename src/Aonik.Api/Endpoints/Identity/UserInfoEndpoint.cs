@@ -22,17 +22,24 @@ public class UserInfoEndpoint : EndpointWithoutRequest<UserInfoResponseDto>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var result = await _identityService.GetUserInfoAsync(ct);
-        await Send.OkAsync(new UserInfoResponseDto(
-            result.UserId,
-            result.Email,
-            result.FirstName,
-            result.LastName,
-            result.Roles,
-            result.TenantId,
-            result.PartyId,
-            result.PhotoUrl,
-            result.PhotoUrlSmall,
-            result.PhotoUrlTiny), ct);
+        try
+        {
+            var result = await _identityService.GetUserInfoAsync(ct);
+            await Send.OkAsync(new UserInfoResponseDto(
+                result.UserId,
+                result.Email,
+                result.FirstName,
+                result.LastName,
+                result.Roles,
+                result.TenantId,
+                result.PartyId,
+                result.PhotoUrl,
+                result.PhotoUrlSmall,
+                result.PhotoUrlTiny), ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected/canceled request.
+        }
     }
 }
