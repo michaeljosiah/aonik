@@ -2,16 +2,13 @@ using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-using FluentStorage;
-using FluentStorage.Blobs;
-
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.Settings;
+using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Settings;
@@ -33,8 +30,7 @@ public class UserProfileService : IUserProfileService
     private readonly ICorrelationContext _correlationContext;
     private readonly IIdpAccountServiceFactory _idpAccountServiceFactory;
     private readonly ISettingProvider _settingProvider;
-    private readonly IBlobStorage _blobStorage;
-    private readonly CustomerProfileStorageOptions _storageOptions;
+    private readonly IProfilePhotoStore _profilePhotoStore;
     private readonly IPermissionService _permissionService;
 
     public UserProfileService(
@@ -45,8 +41,7 @@ public class UserProfileService : IUserProfileService
         ICorrelationContext correlationContext,
         IIdpAccountServiceFactory idpAccountServiceFactory,
         ISettingProvider settingProvider,
-        IBlobStorage blobStorage,
-        IOptions<CustomerProfileStorageOptions> storageOptions,
+        IProfilePhotoStore profilePhotoStore,
         IPermissionService permissionService)
     {
         _dbContext = dbContext;
@@ -56,8 +51,7 @@ public class UserProfileService : IUserProfileService
         _correlationContext = correlationContext;
         _idpAccountServiceFactory = idpAccountServiceFactory;
         _settingProvider = settingProvider;
-        _blobStorage = blobStorage;
-        _storageOptions = storageOptions.Value;
+        _profilePhotoStore = profilePhotoStore;
         _permissionService = permissionService;
     }
 
@@ -297,17 +291,15 @@ public class UserProfileService : IUserProfileService
             return null;
         }
 
-        if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException("Only image uploads are supported.", nameof(contentType));
-        }
-
         var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
-        var blobPath = BuildPhotoBlobPath(tenantId, party.Id, fileName);
 
-        await _blobStorage.WriteAsync(blobPath, fileStream, append: false, cancellationToken);
+        var photoUrl = await _profilePhotoStore.UploadCustomerPhotoAsync(
+            tenantId,
+            party.Id,
+            contentType,
+            fileStream,
+            cancellationToken);
 
-        var photoUrl = BuildPhotoUrl(blobPath);
         profile.PhotoUrl = photoUrl;
         profile.UpdatedAt = _clock.UtcNow;
         profile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
@@ -350,11 +342,7 @@ public class UserProfileService : IUserProfileService
         var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
         if (!string.IsNullOrWhiteSpace(profile.PhotoUrl))
         {
-            var blobPath = ExtractBlobPath(profile.PhotoUrl);
-            if (!string.IsNullOrWhiteSpace(blobPath))
-            {
-                await _blobStorage.DeleteAsync(new[] { blobPath }, cancellationToken);
-            }
+            await _profilePhotoStore.DeleteCustomerPhotoAsync(profile.PhotoUrl, cancellationToken);
         }
 
         profile.PhotoUrl = null;
@@ -588,56 +576,6 @@ public class UserProfileService : IUserProfileService
         }
 
         return string.Join(' ', parts);
-    }
-
-    private string BuildPhotoBlobPath(Guid tenantId, Guid partyId, string fileName)
-    {
-        var sanitized = string.Join("_", fileName.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
-        if (string.IsNullOrWhiteSpace(sanitized))
-        {
-            sanitized = "photo";
-        }
-
-        var extension = Path.GetExtension(sanitized);
-        if (string.IsNullOrWhiteSpace(extension))
-        {
-            extension = ".jpg";
-        }
-
-        var blobName = $"{Guid.NewGuid():N}{extension}";
-        return StoragePath.Combine(_storageOptions.BlobRootPath, "customers", tenantId.ToString("N"), partyId.ToString("N"), blobName);
-    }
-
-    private string BuildPhotoUrl(string blobPath)
-    {
-        if (string.IsNullOrWhiteSpace(_storageOptions.PublicBaseUrl))
-        {
-            return blobPath;
-        }
-
-        return $"{_storageOptions.PublicBaseUrl.TrimEnd('/')}/{blobPath.TrimStart('/')}";
-    }
-
-
-    private string? ExtractBlobPath(string photoUrl)
-    {
-        if (string.IsNullOrWhiteSpace(photoUrl))
-        {
-            return null;
-        }
-
-        if (string.IsNullOrWhiteSpace(_storageOptions.PublicBaseUrl))
-        {
-            return photoUrl;
-        }
-
-        var baseUrl = _storageOptions.PublicBaseUrl.TrimEnd('/');
-        if (photoUrl.StartsWith(baseUrl, StringComparison.OrdinalIgnoreCase))
-        {
-            return StoragePath.Normalize(photoUrl.Substring(baseUrl.Length));
-        }
-
-        return StoragePath.Normalize(photoUrl);
     }
 
     private async Task EnsurePermissionAsync(Guid userId, string permissionKey, CancellationToken cancellationToken)

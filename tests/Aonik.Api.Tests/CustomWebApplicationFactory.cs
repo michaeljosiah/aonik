@@ -35,13 +35,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["InMemoryDatabaseName"] = _databaseName,
                 ["Auth:TenantRouting"] = "Claim",
                 ["PlatformAdmin:AdminEmails:0"] = "bootstrap-admin@example.com",
-                ["ProfileStorage:LocalStoragePath"] = $"App_Data/Profiles_{_databaseName}",
-                ["ProfileStorage:BlobRootPath"] = $"profiles_{_databaseName}"
+                ["BlobStorage:Provider"] = "Local",
+                ["BlobStorage:LocalBasePath"] = $"App_Data/Test_{_databaseName}",
+                ["BlobStorage:ProfilePhotos:Path"] = $"profiles_{_databaseName}",
+                ["BlobStorage:ProfilePhotos:ContainerName"] = $"profiles_{_databaseName}",
+                ["BlobStorage:ProfilePhotos:PublicBaseUrl"] = ""
             });
         });
 
         builder.ConfigureServices(services =>
         {
+            // Remove ProfilePhotoStorageInitializer to avoid file locking issues in parallel tests
+            services.RemoveAll<IHostedService>();
+            
             services.RemoveAll<IEmailSender>();
             services.RemoveAll<ISmsSender>();
             services.AddSingleton<IEmailSender, TestEmailSender>();

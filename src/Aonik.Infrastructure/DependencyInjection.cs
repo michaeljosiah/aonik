@@ -14,6 +14,7 @@ using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.ReferenceData;
 using Aonik.Application.Abstractions.Settings;
+using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Options;
 using Aonik.Application.Services.Cms;
 using Aonik.Application.Services.Compliance;
@@ -74,7 +75,7 @@ public static class DependencyInjection
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
-        services.Configure<CustomerProfileStorageOptions>(configuration.GetSection("ProfileStorage"));
+        services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
         services.AddMemoryCache();
         services.AddDataProtection();
 
@@ -86,11 +87,16 @@ public static class DependencyInjection
         services.AddScoped<IFeatureManager, DatabaseFeatureManager>();
         services.AddScoped<Aonik.Application.Services.Seeding.IDemoSeedService, DemoSeedService>();
 
+        // Blob Storage: Create IBlobStorage for profile photos
         services.AddSingleton<IBlobStorage>(sp =>
         {
-            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CustomerProfileStorageOptions>>().Value;
-            return CustomerProfileBlobStorageFactory.Create(options.LocalStoragePath);
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BlobStorageOptions>>().Value;
+            return BlobStorageFactory.Create(options, options.ProfilePhotos);
         });
+
+        // Profile Photo Store abstraction
+        services.AddScoped<IProfilePhotoStore, ProfilePhotoStore>();
+        
         services.AddHostedService<ProfilePhotoStorageInitializer>();
 
         // Multitenancy

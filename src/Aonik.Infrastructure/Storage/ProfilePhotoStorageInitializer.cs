@@ -5,18 +5,18 @@ using FluentStorage.Blobs;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-using Aonik.Application.Services.Identity;
+using Aonik.Application.Options;
 
 namespace Aonik.Infrastructure.Storage;
 
 public class ProfilePhotoStorageInitializer : IHostedService
 {
     private readonly IBlobStorage _blobStorage;
-    private readonly CustomerProfileStorageOptions _options;
+    private readonly BlobStorageOptions _options;
 
     public ProfilePhotoStorageInitializer(
         IBlobStorage blobStorage,
-        IOptions<CustomerProfileStorageOptions> options)
+        IOptions<BlobStorageOptions> options)
     {
         _blobStorage = blobStorage;
         _options = options.Value;
@@ -24,7 +24,7 @@ public class ProfilePhotoStorageInitializer : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        var initPath = StoragePath.Combine(_options.BlobRootPath, ".init");
+        var initPath = StoragePath.Combine(_options.ProfilePhotos.Path, ".init");
         await _blobStorage.WriteAsync(initPath, new MemoryStream(new byte[] { 0 }), false, cancellationToken);
     }
 
