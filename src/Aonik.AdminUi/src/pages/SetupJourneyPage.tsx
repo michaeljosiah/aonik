@@ -332,6 +332,7 @@ function SetupNode({ data }: { data: SetupNodeData }) {
   );
 }
 
+// Define nodeTypes and edgeTypes outside component to ensure stable references
 const setupNodeTypes = { setupNode: SetupNode } as const;
 const setupEdgeTypes = {} as const;
 
@@ -371,8 +372,6 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
   const [demoSeedSaving, setDemoSeedSaving] = useState(false);
   const [demoSeedError, setDemoSeedError] = useState<string | null>(null);
   const [activeFeatureGroupId, setActiveFeatureGroupId] = useState(featureGroups[0]?.id ?? '');
-  const nodeTypes = useMemo(() => setupNodeTypes, []);
-  const edgeTypes = useMemo(() => setupEdgeTypes, []);
 
   const stepsWithStatus = useMemo(() => {
     return baseSteps.map((step, index, allSteps) => {
@@ -749,32 +748,36 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
               {isMobile ? (
                 <div className="space-y-4">
                   {stepsWithStatus.map((step) => (
-                    <button
+                    <div
                       key={step.id}
-                      type="button"
+                      className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] overflow-hidden cursor-pointer"
                       onClick={() => setSelectedStepId(step.id)}
-                      className="w-full text-left"
                     >
-                      <div className="rounded-2xl border border-[var(--color-border-light)] bg-[var(--color-surface)] overflow-hidden">
-                        <div
-                          className="h-20 bg-cover bg-center"
-                          style={{ backgroundImage: `url(${step.bannerUrl})` }}
-                        />
-                        <div className="px-4 py-4 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <StatusPill status={step.status} />
-                            <span className="text-xs text-[var(--color-text-tertiary)]">{step.category}</span>
-                          </div>
-                          <p className="text-base font-semibold text-[var(--color-text-primary)]">{step.title}</p>
-                          <p className="text-sm text-[var(--color-text-secondary)]">{step.description}</p>
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => openWizardForStep(step.id)}>
-                              Start
-                            </Button>
-                          </div>
+                      <div
+                        className="h-20 bg-cover bg-center"
+                        style={{ backgroundImage: `url(${step.bannerUrl})` }}
+                      />
+                      <div className="px-4 py-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <StatusPill status={step.status} />
+                          <span className="text-xs text-[var(--color-text-tertiary)]">{step.category}</span>
+                        </div>
+                        <p className="text-base font-semibold text-[var(--color-text-primary)]">{step.title}</p>
+                        <p className="text-sm text-[var(--color-text-secondary)]">{step.description}</p>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openWizardForStep(step.id);
+                            }}
+                          >
+                            Start
+                          </Button>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -783,8 +786,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                     <ReactFlow
                       nodes={nodes}
                       edges={edges}
-                      nodeTypes={nodeTypes}
-                      edgeTypes={edgeTypes}
+                      nodeTypes={setupNodeTypes}
+                      edgeTypes={setupEdgeTypes}
                       fitView
                       fitViewOptions={{ padding: 0.2 }}
                       minZoom={0.6}
