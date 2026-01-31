@@ -525,6 +525,44 @@ export interface AccessUserSummary {
   partyLinkType?: string | null;
 }
 
+export interface PersonProfileDetail {
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  countryCode?: string | null;
+  photoUrl?: string | null;
+  dob?: string | null;
+  nationality?: string | null;
+  occupation?: string | null;
+  idvStatus: string;
+}
+
+export interface BusinessProfileDetail {
+  registrationNumber?: string | null;
+  incorporationCountry?: string | null;
+  industry?: string | null;
+  kybStatus: string;
+}
+
+export interface PartyContactDetail {
+  contactId: string;
+  type: string;
+  value: string;
+  isPrimary: boolean;
+}
+
+export interface PartyAddressDetail {
+  addressId: string;
+  type: string;
+  line1: string;
+  line2?: string | null;
+  line3?: string | null;
+  city: string;
+  state?: string | null;
+  postcode: string;
+  country: string;
+}
+
 export interface AccessUserDetail {
   userId: string;
   email: string;
@@ -538,6 +576,19 @@ export interface AccessUserDetail {
   partyDisplayName?: string | null;
   partyType?: string | null;
   partyLinkType?: string | null;
+  personProfile?: PersonProfileDetail | null;
+  businessProfile?: BusinessProfileDetail | null;
+  contacts?: PartyContactDetail[];
+  addresses?: PartyAddressDetail[];
+}
+
+export interface UpdateUserProfileRequest {
+  firstName?: string | null;
+  lastName?: string | null;
+  title?: string | null;
+  countryCode?: string | null;
+  nationality?: string | null;
+  occupation?: string | null;
 }
 
 export interface PermissionDefinition {

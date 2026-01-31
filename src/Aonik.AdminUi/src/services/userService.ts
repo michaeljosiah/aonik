@@ -5,6 +5,7 @@ import type {
   InviteUserRequest,
   PagedResult,
   UpdateUserRolesRequest,
+  UpdateUserProfileRequest,
 } from '@/types';
 
 export interface ListUsersParams {
@@ -33,6 +34,9 @@ export const userService = {
   },
   updateRoles: async (userId: string, request: UpdateUserRolesRequest): Promise<void> => {
     return api.put(`/admin/users/${userId}/roles`, request);
+  },
+  updateProfile: async (userId: string, request: UpdateUserProfileRequest): Promise<void> => {
+    return api.put(`/admin/users/${userId}/profile`, request);
   },
   deactivate: async (userId: string): Promise<void> => {
     return api.post(`/admin/users/${userId}/deactivate`);

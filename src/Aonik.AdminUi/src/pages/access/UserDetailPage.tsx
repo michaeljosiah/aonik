@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
@@ -13,97 +13,17 @@ import {
   TrendingDown,
   ChevronDown,
   ChevronRight,
-  Plus,
   Pencil,
-  Trash2,
-  CreditCard,
   Download,
-  CheckCircle,
   Clock,
   Shield,
-  Link2,
+  Mail,
+  Phone,
+  MapPin,
 } from 'lucide-react';
 import { userService } from '@/services/userService';
-import type { AccessUserDetail } from '@/types';
-
-// Mock data for payment records
-const mockPaymentRecords = [
-  { id: '1', invoiceNo: '6172-4215', status: 'Successful', amount: 1200.00, date: '14 Dec 2020, 8:43 pm' },
-  { id: '2', invoiceNo: '7753-7528', status: 'Successful', amount: 79.00, date: '01 Dec 2020, 10:12 am' },
-  { id: '3', invoiceNo: '1283-9334', status: 'Successful', amount: 5500.00, date: '12 Nov 2020, 2:01 pm' },
-  { id: '4', invoiceNo: '5455-7997', status: 'Pending', amount: 880.00, date: '21 Oct 2020, 5:54 pm' },
-  { id: '5', invoiceNo: '1097-3346', status: 'Successful', amount: 7650.00, date: '19 Oct 2020, 7:32 am' },
-];
-
-// Mock data for payment methods
-const mockPaymentMethods = [
-  {
-    id: '1',
-    type: 'Mastercard',
-    isPrimary: true,
-    expiresAt: 'Dec 2024',
-    details: {
-      name: 'Emma Smith',
-      number: '**** 6963',
-      expires: '12/2024',
-      cardType: 'Mastercard credit card',
-      issuer: 'VICBANK',
-      cardId: 'id_4325df90sdf8',
-      billingAddress: 'AU',
-      phone: 'No phone provided',
-      email: 'smith@kpmg.com',
-      origin: 'Australia',
-      cvcCheck: 'Passed',
-    },
-  },
-  {
-    id: '2',
-    type: 'Visa',
-    isPrimary: false,
-    expiresAt: 'Feb 2022',
-    details: null,
-  },
-  {
-    id: '3',
-    type: 'American Express',
-    isPrimary: false,
-    expiresAt: 'Expired',
-    isExpired: true,
-    details: null,
-  },
-];
-
-// Mock data for invoices
-const mockInvoices = [
-  { id: '1', orderId: '102445788', amount: 38.00, status: 'Approved', date: 'Nov 01, 2020' },
-  { id: '2', orderId: '423445721', amount: -2.60, status: 'Pending', date: 'Oct 24, 2020' },
-  { id: '3', orderId: '312445984', amount: 76.00, status: 'Approved', date: 'Oct 08, 2020' },
-  { id: '4', orderId: '312445984', amount: 5.00, status: 'Pending', date: 'Sep 15, 2020' },
-  { id: '5', orderId: '523445943', amount: -1.30, status: 'In progress', date: 'May 30, 2020' },
-];
-
-// Mock connected accounts
-const mockConnectedAccounts = [
-  { id: '1', name: 'Google', description: 'Plan properly your workflow', icon: 'G', color: 'bg-white', enabled: true },
-  { id: '2', name: 'Github', description: 'Keep eye on your Repositories', icon: 'GH', color: 'bg-gray-900', enabled: true },
-  { id: '3', name: 'Slack', description: 'Integrate Projects Discussions', icon: 'S', color: 'bg-purple-500', enabled: false },
-];
-
-const statusStyles: Record<string, { text: string; bg: string }> = {
-  Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Invited: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  Pending: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  Deactivated: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
-  Suspended: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
-};
-
-const paymentStatusStyles: Record<string, { text: string; bg: string }> = {
-  Successful: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Approved: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  Pending: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  'In progress': { text: 'text-[var(--color-info)]', bg: 'bg-[var(--color-info-light)]' },
-  Failed: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
-};
+import { EditUserProfileDialog } from '@/components/dialogs/EditUserProfileDialog';
+import type { AccessUserDetail, UpdateUserProfileRequest } from '@/types';
 
 // Detail Item Component
 function DetailItem({ label, value }: { label: string; value: string }) {
@@ -115,155 +35,13 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-// Payment Method Card Component
-function PaymentMethodCard({ method, isExpanded, onToggle }: { 
-  method: typeof mockPaymentMethods[0]; 
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  const getCardIcon = (type: string) => {
-    if (type === 'Mastercard') return (
-      <div className="w-8 h-5 bg-gradient-to-r from-red-500 to-yellow-500 rounded flex items-center justify-center">
-        <span className="text-[8px] text-white font-bold">MC</span>
-      </div>
-    );
-    if (type === 'Visa') return (
-      <div className="w-8 h-5 bg-blue-600 rounded flex items-center justify-center">
-        <span className="text-[8px] text-white font-bold">VISA</span>
-      </div>
-    );
-    return (
-      <div className="w-8 h-5 bg-blue-400 rounded flex items-center justify-center">
-        <span className="text-[8px] text-white font-bold">AMEX</span>
-      </div>
-    );
-  };
-
-  return (
-    <div className="border border-[var(--color-border-light)] rounded-lg overflow-hidden">
-      <div 
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-[var(--color-surface-inset)]"
-        onClick={onToggle}
-      >
-        <div className="flex items-center gap-3">
-          <button className="text-[var(--color-text-tertiary)]">
-            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-          {getCardIcon(method.type)}
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-[var(--color-text-primary)]">{method.type}</span>
-              {method.isPrimary && (
-                <Badge className="bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] text-xs">
-                  Primary
-                </Badge>
-              )}
-              {method.isExpired && (
-                <Badge className="bg-[var(--color-error-light)] text-[var(--color-error)] text-xs">
-                  Expired
-                </Badge>
-              )}
-            </div>
-            <span className="text-xs text-[var(--color-text-tertiary)]">Expires {method.expiresAt}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <Pencil className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <CreditCard className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {isExpanded && method.details && (
-        <div className="px-4 pb-4 border-t border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 pt-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Name</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Number</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.number}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Expires</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.expires}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Type</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.cardType}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Issuer</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.issuer}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">ID</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.cardId}</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Billing address</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.billingAddress}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Phone</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.phone}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Email</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.email}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">Origin</span>
-                <span className="text-sm text-[var(--color-text-primary)]">{method.details.origin}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-[var(--color-text-tertiary)]">CVC check</span>
-                <span className="text-sm text-[var(--color-success)] flex items-center gap-1">
-                  {method.details.cvcCheck} <CheckCircle className="w-3 h-3" />
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Connected Account Toggle
-function ConnectedAccountToggle({ account }: { account: typeof mockConnectedAccounts[0] }) {
-  const [enabled, setEnabled] = useState(account.enabled);
-
-  return (
-    <div className="flex items-center justify-between py-3">
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded flex items-center justify-center ${account.color} text-white text-xs font-bold`}>
-          {account.icon}
-        </div>
-        <div>
-          <p className="text-sm font-medium text-[var(--color-text-primary)]">{account.name}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">{account.description}</p>
-        </div>
-      </div>
-      <button 
-        onClick={() => setEnabled(!enabled)}
-        className={`w-10 h-6 rounded-full transition-colors ${enabled ? 'bg-[var(--color-brand-primary)]' : 'bg-[var(--color-border)]'}`}
-      >
-        <div className={`w-4 h-4 bg-white rounded-full transition-transform mx-1 ${enabled ? 'translate-x-4' : 'translate-x-0'}`} />
-      </button>
-    </div>
-  );
-}
+const statusStyles: Record<string, { text: string; bg: string }> = {
+  Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
+  Invited: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
+  Pending: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
+  Deactivated: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
+  Suspended: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
+};
 
 export function UserDetailPage() {
   const navigate = useNavigate();
@@ -273,8 +51,8 @@ export function UserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [expandedPaymentMethod, setExpandedPaymentMethod] = useState<string | null>('1');
   const [detailsExpanded, setDetailsExpanded] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const loadUser = useCallback(async () => {
     if (!userId) return;
@@ -304,6 +82,35 @@ export function UserDetailPage() {
       return name.split(' ').map(n => n[0]).join('').toUpperCase();
     }
     return email?.charAt(0).toUpperCase() || 'U';
+  };
+
+  const handleSaveProfile = async (data: UpdateUserProfileRequest) => {
+    if (!userId) return;
+    try {
+      await userService.updateProfile(userId, data);
+      await loadUser(); // Reload user data to show updated values
+    } catch (err) {
+      // Error is handled by the dialog component
+      throw err;
+    }
+  };
+
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return 'Not provided';
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const getFullName = () => {
+    if (user?.personProfile) {
+      const { firstName, lastName, title } = user.personProfile;
+      const name = [firstName, lastName].filter(Boolean).join(' ');
+      return title ? `${title} ${name}` : name;
+    }
+    return user?.displayName || user?.email || 'Unknown User';
   };
 
   const breadcrumbItems = [
@@ -385,8 +192,11 @@ export function UserDetailPage() {
                 <div className="text-center mb-6">
                   <div className="relative inline-block mb-3">
                     <Avatar className="h-20 w-20 mx-auto">
+                      {user.personProfile?.photoUrl && (
+                        <AvatarImage src={user.personProfile.photoUrl} alt={getFullName()} />
+                      )}
                       <AvatarFallback className="text-xl">
-                        {getInitials(user.displayName, user.email)}
+                        {getInitials(getFullName(), user.email)}
                       </AvatarFallback>
                     </Avatar>
                     {user.status === 'Active' && (
@@ -394,10 +204,10 @@ export function UserDetailPage() {
                     )}
                   </div>
                   <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                    {user.displayName || user.email}
+                    {getFullName()}
                   </h2>
                   <p className="text-sm text-[var(--color-text-tertiary)]">
-                    {user.partyType || 'User'}
+                    {user.personProfile?.occupation || user.partyType || 'User'}
                   </p>
                 </div>
 
@@ -434,11 +244,11 @@ export function UserDetailPage() {
 
                 {/* Details Section */}
                 <div>
-                  <div 
-                    className="flex items-center justify-between cursor-pointer mb-2"
-                    onClick={() => setDetailsExpanded(!detailsExpanded)}
-                  >
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer" 
+                      onClick={() => setDetailsExpanded(!detailsExpanded)}
+                    >
                       <span className="text-sm font-medium text-[var(--color-text-primary)]">Details</span>
                       {detailsExpanded ? (
                         <ChevronDown className="w-4 h-4 text-[var(--color-text-tertiary)]" />
@@ -446,9 +256,17 @@ export function UserDetailPage() {
                         <ChevronRight className="w-4 h-4 text-[var(--color-text-tertiary)]" />
                       )}
                     </div>
-                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                      Edit
-                    </Button>
+                    {user.personProfile && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-7 text-xs"
+                        onClick={() => setEditDialogOpen(true)}
+                      >
+                        <Pencil className="w-3 h-3 mr-1" />
+                        Edit
+                      </Button>
+                    )}
                   </div>
 
                   {detailsExpanded && (
@@ -457,48 +275,91 @@ export function UserDetailPage() {
                         <Badge className={`${statusStyle.bg} ${statusStyle.text} text-xs`}>
                           {user.status === 'Active' ? 'Premium user' : user.status}
                         </Badge>
+                        {user.personProfile?.idvStatus && (
+                          <Badge className="ml-2 bg-[var(--color-info-light)] text-[var(--color-info)] text-xs">
+                            IDV: {user.personProfile.idvStatus}
+                          </Badge>
+                        )}
                       </div>
 
-                      <DetailItem label="Account ID" value={`ID-${user.userId.substring(0, 8)}`} />
-                      <DetailItem label="Billing Email" value={user.email} />
-                      <DetailItem 
-                        label="Billing Address" 
-                        value={user.partyDisplayName || 'Not provided'} 
-                      />
-                      <DetailItem label="Language" value="English" />
-                      <DetailItem label="Last Login" value={user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'} />
                       <DetailItem label="User ID" value={user.userId.substring(0, 12)} />
+                      <DetailItem label="Party ID" value={user.partyId?.substring(0, 12) || 'N/A'} />
+                      <DetailItem label="Email" value={user.email} />
+                      {user.personProfile && (
+                        <>
+                          {user.personProfile.dob && (
+                            <DetailItem label="Date of Birth" value={formatDate(user.personProfile.dob)} />
+                          )}
+                          {user.personProfile.nationality && (
+                            <DetailItem label="Nationality" value={user.personProfile.nationality} />
+                          )}
+                          {user.personProfile.occupation && (
+                            <DetailItem label="Occupation" value={user.personProfile.occupation} />
+                          )}
+                          {user.personProfile.countryCode && (
+                            <DetailItem label="Country" value={user.personProfile.countryCode} />
+                          )}
+                        </>
+                      )}
+                      <DetailItem label="Last Login" value={formatDate(user.lastLoginAt)} />
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Connected Accounts */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Connected Accounts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-[var(--color-brand-primary-light)] rounded-lg p-3 mb-4 flex items-start gap-3">
-                  <Link2 className="w-5 h-5 text-[var(--color-brand-primary)] mt-0.5" />
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    By connecting an account, you hereby agree to our{' '}
-                    <a href="#" className="text-[var(--color-brand-primary)] hover:underline">privacy policy</a>
-                    {' '}and{' '}
-                    <a href="#" className="text-[var(--color-brand-primary)] hover:underline">terms of</a>
-                  </p>
-                </div>
+                {/* Contact Information */}
+                {user.contacts && user.contacts.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-[var(--color-border-light)]">
+                    <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-3">Contact Information</h3>
+                    <div className="space-y-2">
+                      {user.contacts.map(contact => (
+                        <div key={contact.contactId} className="flex items-start gap-2 text-sm">
+                          {contact.type === 'Email' ? (
+                            <Mail className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
+                          ) : (
+                            <Phone className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[var(--color-text-secondary)] truncate">{contact.value}</span>
+                              {contact.isPrimary && (
+                                <Badge className="bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] text-xs">
+                                  Primary
+                                </Badge>
+                              )}
+                            </div>
+                            <span className="text-xs text-[var(--color-text-tertiary)]">{contact.type}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                <div className="space-y-1">
-                  {mockConnectedAccounts.map(account => (
-                    <ConnectedAccountToggle key={account.id} account={account} />
-                  ))}
-                </div>
-
-                <Button variant="default" size="sm" className="w-full mt-4">
-                  Save Changes
-                </Button>
+                {/* Addresses */}
+                {user.addresses && user.addresses.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-[var(--color-border-light)]">
+                    <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-3">Addresses</h3>
+                    <div className="space-y-3">
+                      {user.addresses.map(address => (
+                        <div key={address.addressId} className="flex items-start gap-2 text-sm">
+                          <MapPin className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-[var(--color-text-primary)] mb-1">{address.type}</div>
+                            <div className="text-[var(--color-text-secondary)] text-xs space-y-0.5">
+                              {address.line1 && <div>{address.line1}</div>}
+                              {address.line2 && <div>{address.line2}</div>}
+                              {address.line3 && <div>{address.line3}</div>}
+                              <div>
+                                {[address.city, address.state, address.postcode].filter(Boolean).join(', ')}
+                              </div>
+                              {address.country && <div>{address.country}</div>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -538,163 +399,142 @@ export function UserDetailPage() {
                   {/* Tab Content */}
                   <div className="p-6">
                     <TabsContent value="overview" className="mt-0">
-                    {/* Payment Records */}
+                    {/* User Profile Summary */}
                     <div className="mb-8">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-semibold text-[var(--color-text-primary)]">Payment Records</h3>
-                        <Button variant="outline" size="sm">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add payment
-                        </Button>
-                      </div>
-
-                      <div className="border border-[var(--color-border-light)] rounded-lg overflow-hidden">
-                        <table className="w-full">
-                          <thead className="bg-[var(--color-surface-inset)]">
-                            <tr>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Invoice No.</th>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Status</th>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Amount</th>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Date</th>
-                              <th className="text-right text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--color-border-light)]">
-                            {mockPaymentRecords.map(record => {
-                              const style = paymentStatusStyles[record.status] ?? paymentStatusStyles.Pending;
-                              return (
-                                <tr key={record.id} className="hover:bg-[var(--color-surface-inset)]">
-                                  <td className="px-4 py-3 text-sm text-[var(--color-text-primary)]">{record.invoiceNo}</td>
-                                  <td className="px-4 py-3">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${style.text}`}>
-                                      {record.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-[var(--color-text-primary)]">${record.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                                  <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">{record.date}</td>
-                                  <td className="px-4 py-3 text-right">
-                                    <Button variant="ghost" size="sm" className="h-8">
-                                      Actions <ChevronDown className="w-3 h-3 ml-1" />
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination */}
-                      <div className="flex items-center justify-end gap-2 mt-4">
-                        <Button variant="ghost" size="sm" disabled>&lt;</Button>
-                        <Button variant="default" size="sm" className="w-8 h-8 p-0">1</Button>
-                        <Button variant="ghost" size="sm" className="w-8 h-8 p-0">2</Button>
-                        <Button variant="ghost" size="sm">&gt;</Button>
-                      </div>
-                    </div>
-
-                    {/* Payment Methods */}
-                    <div className="mb-8">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-semibold text-[var(--color-text-primary)]">Payment Methods</h3>
-                        <Button variant="outline" size="sm">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add new method
-                        </Button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {mockPaymentMethods.map(method => (
-                          <PaymentMethodCard
-                            key={method.id}
-                            method={method}
-                            isExpanded={expandedPaymentMethod === method.id}
-                            onToggle={() => setExpandedPaymentMethod(
-                              expandedPaymentMethod === method.id ? null : method.id
+                      <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-4">Profile Summary</h3>
+                      <div className="grid grid-cols-2 gap-6">
+                        {/* Personal Information */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Personal Information</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {user.personProfile ? (
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-[var(--color-text-tertiary)]">Full Name</span>
+                                  <span className="text-[var(--color-text-primary)] font-medium">{getFullName()}</span>
+                                </div>
+                                {user.personProfile.dob && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Date of Birth</span>
+                                    <span className="text-[var(--color-text-primary)]">{formatDate(user.personProfile.dob)}</span>
+                                  </div>
+                                )}
+                                {user.personProfile.nationality && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Nationality</span>
+                                    <span className="text-[var(--color-text-primary)]">{user.personProfile.nationality}</span>
+                                  </div>
+                                )}
+                                {user.personProfile.occupation && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Occupation</span>
+                                    <span className="text-[var(--color-text-primary)]">{user.personProfile.occupation}</span>
+                                  </div>
+                                )}
+                                {user.personProfile.idvStatus && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Verification</span>
+                                    <Badge className="bg-[var(--color-info-light)] text-[var(--color-info)] text-xs">
+                                      {user.personProfile.idvStatus}
+                                    </Badge>
+                                  </div>
+                                )}
+                              </div>
+                            ) : user.businessProfile ? (
+                              <div className="space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                  <span className="text-[var(--color-text-tertiary)]">Business Name</span>
+                                  <span className="text-[var(--color-text-primary)] font-medium">{user.displayName}</span>
+                                </div>
+                                {user.businessProfile.registrationNumber && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Registration No.</span>
+                                    <span className="text-[var(--color-text-primary)]">{user.businessProfile.registrationNumber}</span>
+                                  </div>
+                                )}
+                                {user.businessProfile.incorporationCountry && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Country</span>
+                                    <span className="text-[var(--color-text-primary)]">{user.businessProfile.incorporationCountry}</span>
+                                  </div>
+                                )}
+                                {user.businessProfile.industry && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Industry</span>
+                                    <span className="text-[var(--color-text-primary)]">{user.businessProfile.industry}</span>
+                                  </div>
+                                )}
+                                {user.businessProfile.kybStatus && (
+                                  <div className="flex justify-between">
+                                    <span className="text-[var(--color-text-tertiary)]">Verification</span>
+                                    <Badge className="bg-[var(--color-info-light)] text-[var(--color-info)] text-xs">
+                                      {user.businessProfile.kybStatus}
+                                    </Badge>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center py-6 text-[var(--color-text-tertiary)] text-sm">
+                                No profile information available
+                              </div>
                             )}
-                          />
-                        ))}
+                          </CardContent>
+                        </Card>
+
+                        {/* Account Information */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-sm">Account Information</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-[var(--color-text-tertiary)]">Status</span>
+                                <Badge className={`${statusStyle.bg} ${statusStyle.text} text-xs`}>
+                                  {user.status}
+                                </Badge>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--color-text-tertiary)]">Party Type</span>
+                                <span className="text-[var(--color-text-primary)]">{user.partyType || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--color-text-tertiary)]">Email</span>
+                                <span className="text-[var(--color-text-primary)]">{user.email}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--color-text-tertiary)]">Last Login</span>
+                                <span className="text-[var(--color-text-primary)]">{formatDate(user.lastLoginAt)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--color-text-tertiary)]">Roles</span>
+                                <span className="text-[var(--color-text-primary)]">{user.roles?.length || 0}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[var(--color-text-tertiary)]">Permissions</span>
+                                <span className="text-[var(--color-text-primary)]">{user.permissions?.length || 0}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
                       </div>
                     </div>
 
-                    {/* Credit Balance */}
-                    <div className="mb-8">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-semibold text-[var(--color-text-primary)]">Credit Balance</h3>
-                        <Button variant="outline" size="sm">
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Adjust Balance
-                        </Button>
-                      </div>
-
-                      <div>
-                        <p className="text-2xl font-bold text-[var(--color-text-primary)]">
-                          $32,487.57 <span className="text-sm font-normal text-[var(--color-text-tertiary)]">USD</span>
-                        </p>
-                        <p className="text-sm text-[var(--color-text-tertiary)] mt-1">
-                          Balance will increase the amount due on the customer's next invoice.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Invoices */}
-                    <div>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-base font-semibold text-[var(--color-text-primary)]">Invoices</h3>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="text-[var(--color-brand-primary)]">This Year</Button>
-                          <Button variant="ghost" size="sm">2020</Button>
-                          <Button variant="ghost" size="sm">2019</Button>
-                          <Button variant="ghost" size="sm">2018</Button>
+                    {/* Roles & Permissions */}
+                    {(user.roles && user.roles.length > 0) && (
+                      <div className="mb-8">
+                        <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-4">Roles</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {user.roles.map((role) => (
+                            <Badge key={role.roleId} className="bg-[var(--color-surface-inset)] text-[var(--color-text-primary)]">
+                              {role.name}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
-
-                      <div className="border border-[var(--color-border-light)] rounded-lg overflow-hidden">
-                        <table className="w-full">
-                          <thead className="bg-[var(--color-surface-inset)]">
-                            <tr>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Order ID</th>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Amount</th>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Status</th>
-                              <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Date</th>
-                              <th className="text-right text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-4 py-3">Invoice</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--color-border-light)]">
-                            {mockInvoices.map(invoice => {
-                              const style = paymentStatusStyles[invoice.status] ?? paymentStatusStyles.Pending;
-                              return (
-                                <tr key={invoice.id} className="hover:bg-[var(--color-surface-inset)]">
-                                  <td className="px-4 py-3 text-sm text-[var(--color-text-primary)]">{invoice.orderId}</td>
-                                  <td className={`px-4 py-3 text-sm font-medium ${invoice.amount < 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}`}>
-                                    ${invoice.amount < 0 ? '' : ''}{invoice.amount.toFixed(2)}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${style.text}`}>
-                                      {invoice.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)]">{invoice.date}</td>
-                                  <td className="px-4 py-3 text-right">
-                                    <Button variant="ghost" size="sm" className="text-[var(--color-text-secondary)]">
-                                      Download
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Pagination */}
-                      <div className="flex items-center justify-end gap-2 mt-4">
-                        <Button variant="ghost" size="sm" disabled>&lt;</Button>
-                        <Button variant="default" size="sm" className="w-8 h-8 p-0">1</Button>
-                        <Button variant="ghost" size="sm" className="w-8 h-8 p-0">2</Button>
-                        <Button variant="ghost" size="sm">&gt;</Button>
-                      </div>
-                    </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="events" className="mt-0">
@@ -719,6 +559,14 @@ export function UserDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Profile Dialog */}
+      <EditUserProfileDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        profile={user?.personProfile}
+        onSave={handleSaveProfile}
+      />
     </div>
   );
 }
