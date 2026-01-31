@@ -33,10 +33,13 @@ export const catalogService = {
     return api.get<CatalogCountryResponse>(`/host/catalog/countries${query ? `?${query}` : ''}`);
   },
 
-  getCurrencies: async (includeInactive = false): Promise<CatalogCurrencyResponse> => {
+  getCurrencies: async (includeInactive = false, countryCode?: string): Promise<CatalogCurrencyResponse> => {
     const params = new URLSearchParams();
     if (includeInactive) {
       params.append('includeInactive', 'true');
+    }
+    if (countryCode) {
+      params.append('countryCode', countryCode);
     }
 
     const query = params.toString();
@@ -56,10 +59,13 @@ export const catalogService = {
     return api.get<CatalogCountryResponse>(`/catalog/countries${query ? `?${query}` : ''}`);
   },
 
-  getTenantCurrencies: async (includeInactive = false): Promise<CatalogCurrencyResponse> => {
+  getTenantCurrencies: async (includeInactive = false, countryCode?: string): Promise<CatalogCurrencyResponse> => {
     const params = new URLSearchParams();
     if (includeInactive) {
       params.append('includeInactive', 'true');
+    }
+    if (countryCode) {
+      params.append('countryCode', countryCode);
     }
 
     const query = params.toString();

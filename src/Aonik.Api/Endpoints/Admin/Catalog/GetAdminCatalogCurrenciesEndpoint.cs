@@ -23,13 +23,15 @@ public class GetAdminCatalogCurrenciesEndpoint : EndpointWithoutRequest<CatalogC
     public override async Task HandleAsync(CancellationToken ct)
     {
         var includeInactive = Query<bool>("includeInactive", isRequired: false);
-        var request = new Application.Models.Catalog.CatalogCurrencyListRequest(includeInactive);
+        var countryCode = Query<string?>("countryCode", isRequired: false);
+        var request = new Application.Models.Catalog.CatalogCurrencyListRequest(includeInactive, countryCode);
         var result = await _catalogService.GetCurrenciesAsync(request, ct);
 
         var response = new CatalogCurrencyResponse(
             result.Currencies.Select(currency => new CatalogCurrencyItemResponse(
                 currency.Code,
-                currency.Name)).ToList());
+                currency.Name)).ToList(),
+            result.DefaultCurrencyCode);
 
         await Send.OkAsync(response, ct);
     }

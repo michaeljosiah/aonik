@@ -68,6 +68,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
     public virtual DbSet<Country> Countries { get; set; } = null!;
     public virtual DbSet<Currency> Currencies { get; set; } = null!;
+    public virtual DbSet<CountryCurrency> CountryCurrencies { get; set; } = null!;
 
     // Party
     public virtual DbSet<PartyEntity> Parties { get; set; } = null!;

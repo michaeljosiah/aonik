@@ -12,7 +12,8 @@ public record CatalogCurrencyItemResponse(
     string Name);
 
 public record CatalogCurrencyResponse(
-    List<CatalogCurrencyItemResponse> Currencies);
+    List<CatalogCurrencyItemResponse> Currencies,
+    string? DefaultCurrencyCode = null);
 
 public record CatalogBillerCategoryItemResponse(
     Guid CategoryId,

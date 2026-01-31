@@ -12,7 +12,8 @@ public record CatalogCurrencyItem(
     string Name);
 
 public record CatalogCurrencyResponse(
-    List<CatalogCurrencyItem> Currencies);
+    List<CatalogCurrencyItem> Currencies,
+    string? DefaultCurrencyCode = null);
 
 public record CatalogBillerCategoryItem(
     Guid CategoryId,
@@ -120,4 +121,5 @@ public record CatalogCountryListRequest(
     string? CapabilityType);
 
 public record CatalogCurrencyListRequest(
-    bool IncludeInactive = false);
+    bool IncludeInactive = false,
+    string? CountryCode = null);

@@ -227,19 +227,21 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
       setLoading(true);
       setError(null);
       try {
-        const [currentUser, countriesResponse, currenciesResponse] = await Promise.all([
+        const [currentUser, countriesResponse] = await Promise.all([
           identityService.getCurrentUser(),
           catalogService.getTenantCountries(),
-          catalogService.getTenantCurrencies(),
         ]);
 
         setCurrentTenantId(currentUser.tenantId);
         setUserName(currentUser.displayName ?? currentUser.email ?? 'User');
         setCountries(countriesResponse.countries ?? []);
-        setCurrencies(currenciesResponse.currencies ?? []);
 
         const tenant = await tenantService.get(currentUser.tenantId);
         setCurrentTenant(tenant);
+
+        const baseCountry = tenant.supportedCountries?.[0] ?? '';
+        const currenciesResponse = await catalogService.getTenantCurrencies(false, baseCountry || undefined);
+        setCurrencies(currenciesResponse.currencies ?? []);
 
         // Set initial step from tenant's setup progress
         if (tenant.setupStep > 0 && tenant.setupStep <= 5) {
@@ -276,8 +278,8 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
           companyName: tenant.name ?? '',
           logoUrl: tenant.logoUrl ?? null,
           industry: tenant.industry ?? '',
-          baseCountry: tenant.supportedCountries?.[0] ?? '',
-          baseCurrency: tenant.defaultCurrency ?? '',
+          baseCountry,
+          baseCurrency: tenant.defaultCurrency ?? currenciesResponse.defaultCurrencyCode ?? '',
           companySize: tenant.companySize ?? '',
           website: tenant.website ?? '',
           enabledFeatures: existingFeatures,
@@ -459,6 +461,21 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
     }
   };
 
+  const handleBaseCountryChange = async (value: string) => {
+    updateFormData('baseCountry', value);
+
+    try {
+      const currenciesResponse = await catalogService.getTenantCurrencies(false, value || undefined);
+      setCurrencies(currenciesResponse.currencies ?? []);
+
+      if (currenciesResponse.defaultCurrencyCode) {
+        updateFormData('baseCurrency', currenciesResponse.defaultCurrencyCode);
+      }
+    } catch {
+      setError('Unable to refresh currencies for the selected country.');
+    }
+  };
+
   // Toggle feature
   const toggleFeature = (featureKey: string) => {
     setFormData((prev) => ({
@@ -611,7 +628,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
                   <Label htmlFor="baseCountry" className="text-sm font-medium">
                     Base Country <span className="text-[var(--color-error)]">*</span>
                   </Label>
-                  <Select value={formData.baseCountry} onValueChange={(value) => updateFormData('baseCountry', value)}>
+                  <Select value={formData.baseCountry} onValueChange={handleBaseCountryChange}>
                     <SelectTrigger className={cn(fieldErrors.baseCountry && 'border-[var(--color-error)]')}>
                       <SelectValue placeholder="Select your base country" />
                     </SelectTrigger>

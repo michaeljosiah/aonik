@@ -75,6 +75,38 @@ public class CatalogService : ICatalogService
     {
         await EnsurePermissionAsync(cancellationToken);
 
+        var normalizedCountryCode = NormalizeCountryCode(request.CountryCode);
+        string? defaultCurrencyCode = null;
+        HashSet<string>? countryCurrencyCodes = null;
+
+        if (!string.IsNullOrWhiteSpace(normalizedCountryCode))
+        {
+            var countryId = await _dbContext.Countries
+                .AsNoTracking()
+                .Where(country => country.IsoAlpha2 == normalizedCountryCode)
+                .Select(country => (Guid?)country.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (countryId.HasValue)
+            {
+                var countryCurrencies = await _dbContext.CountryCurrencies
+                    .AsNoTracking()
+                    .Where(mapping => mapping.CountryId == countryId.Value)
+                    .Select(mapping => new { mapping.CurrencyCode, mapping.IsDefault })
+                    .ToListAsync(cancellationToken);
+
+                if (countryCurrencies.Count > 0)
+                {
+                    countryCurrencyCodes = new HashSet<string>(
+                        countryCurrencies.Select(mapping => mapping.CurrencyCode),
+                        StringComparer.OrdinalIgnoreCase);
+
+                    defaultCurrencyCode = countryCurrencies
+                        .FirstOrDefault(mapping => mapping.IsDefault)?.CurrencyCode;
+                }
+            }
+        }
+
         var query = _dbContext.Currencies
             .AsNoTracking()
             .Where(currency => currency.TenantId == null);
@@ -90,7 +122,32 @@ public class CatalogService : ICatalogService
             .Select(currency => new CatalogCurrencyItem(currency.Code, currency.Name))
             .ToListAsync(cancellationToken);
 
-        return new CatalogCurrencyResponse(currencies);
+        if (countryCurrencyCodes is { Count: > 0 })
+        {
+            var availableCodes = new HashSet<string>(
+                currencies.Select(currency => currency.Code),
+                StringComparer.OrdinalIgnoreCase);
+
+            if (!string.IsNullOrWhiteSpace(defaultCurrencyCode) && !availableCodes.Contains(defaultCurrencyCode))
+            {
+                defaultCurrencyCode = null;
+            }
+
+            currencies = currencies
+                .Select((currency, index) => new { currency, index })
+                .OrderBy(item =>
+                    string.Equals(item.currency.Code, defaultCurrencyCode, StringComparison.OrdinalIgnoreCase) ? 0 :
+                    countryCurrencyCodes.Contains(item.currency.Code) ? 1 : 2)
+                .ThenBy(item => item.index)
+                .Select(item => item.currency)
+                .ToList();
+        }
+        else
+        {
+            defaultCurrencyCode = null;
+        }
+
+        return new CatalogCurrencyResponse(currencies, defaultCurrencyCode);
     }
 
     public async Task<CatalogBillerCategoryResponse> GetCategoriesAsync(
@@ -331,6 +388,13 @@ public class CatalogService : ICatalogService
         return string.IsNullOrWhiteSpace(capabilityType)
             ? null
             : capabilityType.Trim().ToUpperInvariant();
+    }
+
+    private static string? NormalizeCountryCode(string? countryCode)
+    {
+        return string.IsNullOrWhiteSpace(countryCode)
+            ? null
+            : countryCode.Trim().ToUpperInvariant();
     }
 
     private async Task EnsurePermissionAsync(CancellationToken cancellationToken)

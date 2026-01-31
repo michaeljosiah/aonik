@@ -11,4 +11,5 @@ public class Country : AuditableEntity
     public string Name { get; set; } = string.Empty;
     public int SortOrder { get; set; }
     public bool IsActive { get; set; } = true;
+    public List<CountryCurrency> Currencies { get; set; } = new();
 }

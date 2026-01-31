@@ -207,6 +207,7 @@ export interface CatalogCurrencyItem {
 
 export interface CatalogCurrencyResponse {
   currencies: CatalogCurrencyItem[];
+  defaultCurrencyCode?: string | null;
 }
 
 export interface ReferenceDataItem {

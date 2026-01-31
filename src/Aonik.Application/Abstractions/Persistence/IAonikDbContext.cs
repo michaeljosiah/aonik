@@ -59,6 +59,7 @@ public interface IAonikDbContext
     DbSet<ReferenceDataItem> ReferenceDataItems { get; set; }
     DbSet<Country> Countries { get; set; }
     DbSet<Currency> Currencies { get; set; }
+    DbSet<CountryCurrency> CountryCurrencies { get; set; }
 
     // Party
     DbSet<PartyEntity> Parties { get; set; }

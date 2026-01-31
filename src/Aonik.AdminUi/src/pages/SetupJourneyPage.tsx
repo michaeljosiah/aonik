@@ -537,17 +537,19 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
     setTenantProfileLoading(true);
     setTenantProfileError(null);
     try {
-      const [currentUser, countries, currencies] = await Promise.all([
+      const [currentUser, countries] = await Promise.all([
         identityService.getCurrentUser(),
         catalogService.getTenantCountries(),
-        catalogService.getTenantCurrencies(),
       ]);
       setCurrentTenantId(currentUser.tenantId);
       setTenantCountries(countries.countries ?? []);
-      setTenantCurrencies(currencies.currencies ?? []);
 
       const tenant = await tenantService.get(currentUser.tenantId);
       setCurrentTenant(tenant);
+
+      const primaryCountry = tenant.supportedCountries?.[0] ?? '';
+      const currencies = await catalogService.getTenantCurrencies(false, primaryCountry || undefined);
+      setTenantCurrencies(currencies.currencies ?? []);
 
       const extrasKey = getTenantStorageKey('tenantProfile', currentUser.tenantId);
       const rawExtras = localStorage.getItem(extrasKey);
@@ -556,8 +558,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       setTenantProfile({
         name: tenant.name ?? '',
         legalName: extras.legalName ?? tenant.name ?? '',
-        defaultCurrency: tenant.defaultCurrency ?? 'USD',
-        primaryCountry: tenant.supportedCountries?.[0] ?? '',
+        defaultCurrency: tenant.defaultCurrency ?? currencies.defaultCurrencyCode ?? 'USD',
+        primaryCountry,
         timeZone: extras.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
         adminEmail: currentUser.email ?? '',
       });
@@ -592,6 +594,21 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       setTenantProfileError('Unable to load tenant details. Refresh and try again.');
     } finally {
       setTenantProfileLoading(false);
+    }
+  };
+
+  const handlePrimaryCountryChange = async (value: string) => {
+    setTenantProfile((prev) => ({ ...prev, primaryCountry: value }));
+
+    try {
+      const currencies = await catalogService.getTenantCurrencies(false, value || undefined);
+      setTenantCurrencies(currencies.currencies ?? []);
+
+      if (currencies.defaultCurrencyCode) {
+        setTenantProfile((prev) => ({ ...prev, defaultCurrency: currencies.defaultCurrencyCode ?? prev.defaultCurrency }));
+      }
+    } catch {
+      setTenantProfileError('Unable to refresh currencies for the selected country.');
     }
   };
 
@@ -1029,7 +1046,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                           <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Primary country</label>
                           <select
                             value={tenantProfile.primaryCountry}
-                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, primaryCountry: event.target.value }))}
+                            onChange={(event) => handlePrimaryCountryChange(event.target.value)}
                             className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
                           >
                             <option value="">Select a country</option>
