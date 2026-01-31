@@ -388,8 +388,8 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
               ? photoUrl 
               : `${import.meta.env.VITE_API_URL || 'https://localhost:5001'}${photoUrl}`;
             setProfilePhotoUrl(fullPhotoUrl);
-            setImageLoading(true);
             setImageError(false);
+            // Don't set imageLoading here - let the image onLoad/onError handlers manage it
           }
         } catch (error) {
           console.error('Failed to fetch user info:', error);
@@ -402,6 +402,23 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
 
     fetchRoles();
   }, [user.id, user.roles, user.roleSource]);
+
+  // Manage image loading state with timeout fallback
+  useEffect(() => {
+    if (profilePhotoUrl && !imageError) {
+      setImageLoading(true);
+      
+      // Fallback timeout to prevent infinite loading (5 seconds)
+      const timeout = setTimeout(() => {
+        setImageLoading(false);
+        console.warn('Image loading timeout - falling back to initials');
+      }, 5000);
+      
+      return () => clearTimeout(timeout);
+    } else {
+      setImageLoading(false);
+    }
+  }, [profilePhotoUrl, imageError]);
 
   // Determine display role from roles array (prefer API roles if available)
   const effectiveRoles = apiRoles.length > 0 ? apiRoles : (user.roles && user.roles.length > 0 ? user.roles : ['User']);

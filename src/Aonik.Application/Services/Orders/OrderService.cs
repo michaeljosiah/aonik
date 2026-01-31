@@ -6,6 +6,7 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Orders;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Parties;
+using Aonik.Domain.Orders;
 using Aonik.Domain.Orders.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.SharedKernel.Abstractions;
@@ -99,7 +100,7 @@ public class OrderService : IOrderService
         {
             OrderId = order.Id,
             PartyId = request.PayerPartyId,
-            Role = "Payer",
+            Role = OrderPartyRoles.Payer,
             DetailsJson = "{}"
         });
 
@@ -274,7 +275,7 @@ public class OrderService : IOrderService
         order.Items.Remove(item);
 
         var receiverRoles = order.PartyRoles
-            .Where(role => role.Role == "Receiver")
+            .Where(role => role.Role == OrderPartyRoles.Receiver)
             .Where(role => DetailsHasOrderItem(role.DetailsJson, orderItemId))
             .ToList();
 
@@ -474,7 +475,7 @@ public class OrderService : IOrderService
         {
             OrderId = order.Id,
             PartyId = receiver.PartyId,
-            Role = "Receiver",
+            Role = OrderPartyRoles.Receiver,
             DetailsJson = JsonSerializer.Serialize(new
             {
                 orderItemId = orderItem.Id,
@@ -698,7 +699,7 @@ public class OrderService : IOrderService
     private void UpdateReceiverRole(Order order, Guid orderItemId, Guid receiverPartyId)
     {
         var role = order.PartyRoles
-            .FirstOrDefault(r => r.Role == "Receiver" && DetailsHasOrderItem(r.DetailsJson, orderItemId));
+            .FirstOrDefault(r => r.Role == OrderPartyRoles.Receiver && DetailsHasOrderItem(r.DetailsJson, orderItemId));
 
         if (role == null)
         {
@@ -706,7 +707,7 @@ public class OrderService : IOrderService
             {
                 OrderId = order.Id,
                 PartyId = receiverPartyId,
-                Role = "Receiver",
+                Role = OrderPartyRoles.Receiver,
                 DetailsJson = JsonSerializer.Serialize(new { orderItemId }, JsonOptions)
             });
             return;
