@@ -9,6 +9,7 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
 using Aonik.Domain.Identity.Entities;
+using Aonik.Domain.Party.Entities;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Identity.Provisioning;
@@ -183,16 +184,78 @@ public class BootstrapService : IBootstrapService
         _currentUserContext.UserId = newUser.Id;
         _currentUserContext.TenantId ??= tenant.Id;
 
+        var now = _clock.UtcNow;
+        var currentUserId = _currentUserProvider.GetCurrentUserId() ?? newUser.Id;
+        var displayName = !string.IsNullOrWhiteSpace(newUser.Email)
+            ? newUser.Email
+            : newUser.ExternalSubject;
+
+        var party = new Party
+        {
+            TenantId = tenant.Id,
+            PartyType = "Individual",
+            DisplayName = displayName,
+            Status = "Active",
+            CreatedAt = now,
+            CreatedBy = currentUserId
+        };
+
+        if (!string.IsNullOrWhiteSpace(newUser.Email))
+        {
+            party.Contacts.Add(new PartyContact
+            {
+                PartyId = party.Id,
+                Type = "Email",
+                Value = newUser.Email,
+                IsPrimary = true,
+                CreatedAt = now,
+                CreatedBy = currentUserId
+            });
+        }
+
+        _dbContext.Parties.Add(party);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var userParty = new UserParty
+        {
+            TenantId = tenant.Id,
+            UserId = newUser.Id,
+            PartyId = party.Id,
+            LinkType = "Individual",
+            CreatedAt = now,
+            CreatedBy = currentUserId
+        };
+
+        var personProfile = new PersonProfile
+        {
+            PartyId = party.Id,
+            IdvStatus = "Pending",
+            CreatedAt = now,
+            CreatedBy = currentUserId
+        };
+
+        _dbContext.UserParties.Add(userParty);
+        _dbContext.PersonProfiles.Add(personProfile);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var emailContactId = party.Contacts.FirstOrDefault()?.Id;
 
         await _auditLogWriter.LogAsync(
             AuditEventNames.UserProvisioned,
             "User",
             newUser.Id,
             tenant.Id,
-
             newUser.Id,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { newUser.Id, Email = AuditLogMasking.MaskEmail(newUser.Email) }),
+            JsonSerializer.Serialize(new
+            {
+                newUser.Id,
+                Email = AuditLogMasking.MaskEmail(newUser.Email),
+                PartyId = party.Id,
+                UserPartyId = userParty.Id,
+                PersonProfileId = personProfile.Id,
+                EmailContactId = emailContactId
+            }),
             cancellationToken);
 
         return (newUser.Id, true);
