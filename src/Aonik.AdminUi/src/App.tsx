@@ -11,6 +11,7 @@ import {
   SetupJourneyPage,
   SetupGuidePage,
   SetupGuidesLandingPage,
+  TenantSetupWizardPage,
   AiChatMock,
   TenantsListPage,
   CreateTenantPage,
@@ -41,6 +42,7 @@ import { setAccessTokenGetter } from '@/lib/api';
 import { SetupRedirect } from '@/components/SetupRedirect';
 import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
+import { identityService } from '@/services/identityService';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
 
 // Component to set up API authentication
@@ -251,6 +253,7 @@ function AppLayout() {
             <Route path="/cms/media" element={<MediaLibraryPage />} />
             
             <Route path="/setup/journey" element={<SetupJourneyPage />} />
+            <Route path="/setup/tenant" element={<TenantSetupWizardPage />} />
             <Route path="/setup-guides" element={<SetupGuidesLandingPage />} />
             <Route path="/setup-guides/:slug" element={<SetupGuidePage />} />
             {/* Fallback */}
@@ -263,15 +266,37 @@ function AppLayout() {
 }
 
 function DashboardHome() {
-  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [setupState, setSetupState] = useState<'loading' | 'ready' | 'journey'>(
+    'loading'
+  );
 
   useEffect(() => {
-    const skip = localStorage.getItem('aonik:onboarding:skip');
-    const complete = localStorage.getItem('aonik:onboarding:complete');
-    setShowOnboarding(!skip && !complete);
+    const checkTenantSetup = async () => {
+      try {
+        // Check if user has skipped or completed the old onboarding flow
+        const skip = localStorage.getItem('aonik:onboarding:skip');
+        const complete = localStorage.getItem('aonik:onboarding:complete');
+        
+        // Tenant wizard setup is now handled at route level in AuthenticatedApp
+        // Only check if they want to see the journey
+        if (!skip && !complete) {
+          setSetupState('journey');
+          return;
+        }
+        
+        setSetupState('ready');
+      } catch (err) {
+        // If we can't check, default to showing the journey (old behavior)
+        const skip = localStorage.getItem('aonik:onboarding:skip');
+        const complete = localStorage.getItem('aonik:onboarding:complete');
+        setSetupState(!skip && !complete ? 'journey' : 'ready');
+      }
+    };
+
+    checkTenantSetup();
   }, []);
 
-  if (showOnboarding === null) {
+  if (setupState === 'loading') {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
@@ -279,11 +304,11 @@ function DashboardHome() {
     );
   }
 
-  if (showOnboarding) {
+  if (setupState === 'journey') {
     return (
       <SetupJourneyPage
-        onSkip={() => setShowOnboarding(false)}
-        onComplete={() => setShowOnboarding(false)}
+        onSkip={() => setSetupState('ready')}
+        onComplete={() => setSetupState('ready')}
       />
     );
   }
@@ -304,21 +329,54 @@ function PlaceholderPage({ title }: { title: string }) {
 
 function AuthenticatedApp() {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+  const [tenantNeedsSetup, setTenantNeedsSetup] = useState<boolean | null>(null);
+  const { isLoading: authLoading, isAuthenticated, accessToken, getAccessToken } = useAuth();
 
   useEffect(() => {
     const checkSetup = async () => {
+      // Wait for auth to complete before checking
+      if (authLoading) return;
+
+      // Ensure API layer has the latest token getter before any calls
+      setAccessTokenGetter(getAccessToken);
+
       try {
         const status = await bootstrapService.status();
         setNeedsSetup(status.tenantCount === 0);
+        
+        // Only check tenant setup if user is authenticated
+        if (status.tenantCount > 0 && isAuthenticated) {
+          try {
+            const selectedTenant = getSelectedTenant();
+            if (!selectedTenant?.tenantId) {
+              setTenantNeedsSetup(false);
+              return;
+            }
+            if (!accessToken) {
+              const token = await getAccessToken();
+              if (!token) {
+                return;
+              }
+            }
+            const currentUser = await identityService.getCurrentUser();
+            const tenant = await tenantService.get(currentUser.tenantId);
+            setTenantNeedsSetup(!tenant.isSetupComplete);
+          } catch {
+            setTenantNeedsSetup(false);
+          }
+        } else {
+          setTenantNeedsSetup(false);
+        }
       } catch {
         setNeedsSetup(false);
+        setTenantNeedsSetup(false);
       }
     };
 
     checkSetup();
-  }, []);
+  }, [authLoading, isAuthenticated, accessToken, getAccessToken]);
 
-  if (needsSetup === null) {
+  if (needsSetup === null || tenantNeedsSetup === null) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
         <div className="flex flex-col items-center gap-4">
@@ -348,18 +406,36 @@ function AuthenticatedApp() {
     <>
       <ApiAuthSetup />
       <TenantContextSetup />
-      <SetupRedirect />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
-        <Route
-          path="/*"
+        <Route 
+          path="/setup/tenant" 
           element={
             <ProtectedRoute>
-              <AppLayout />
+              <TenantSetupWizardPage onComplete={() => window.location.href = '/'} />
             </ProtectedRoute>
-          }
+          } 
         />
+        {tenantNeedsSetup ? (
+          <Route 
+            path="/*" 
+            element={
+              <ProtectedRoute>
+                <TenantSetupWizardPage onComplete={() => window.location.href = '/'} />
+              </ProtectedRoute>
+            } 
+          />
+        ) : (
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          />
+        )}
       </Routes>
     </>
   );

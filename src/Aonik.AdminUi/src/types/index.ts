@@ -114,6 +114,24 @@ export interface Tenant {
   createdBy?: string;
   updatedAt?: string;
   updatedBy?: string;
+  // Company Setup fields
+  logoUrl?: string | null;
+  industry?: string | null;
+  companySize?: string | null;
+  website?: string | null;
+  // Contact fields
+  contactEmail?: string | null;
+  contactMobile?: string | null;
+  // Address fields
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  stateProvince?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  // Setup tracking
+  isSetupComplete: boolean;
+  setupStep: number;
 }
 
 export interface CreateTenantRequest {
@@ -130,6 +148,24 @@ export interface UpdateTenantRequest {
   defaultCurrency?: string;
   supportedCountries?: string[];
   supportedCurrencies?: string[];
+  // Company Setup fields
+  logoUrl?: string | null;
+  industry?: string | null;
+  companySize?: string | null;
+  website?: string | null;
+  // Contact fields
+  contactEmail?: string | null;
+  contactMobile?: string | null;
+  // Address fields
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  stateProvince?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+  // Setup tracking
+  isSetupComplete?: boolean;
+  setupStep?: number;
 }
 
 export interface PagedResult<T> {

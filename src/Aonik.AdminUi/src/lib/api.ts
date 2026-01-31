@@ -102,18 +102,27 @@ apiClient.interceptors.response.use(
 
     const redirectToLogin = (reason?: 'session-expired' | 'tenant-missing') => {
       try {
+        if (window.location.pathname.startsWith('/login')) {
+          return;
+        }
         const currentUrl = window.location.pathname + window.location.search + window.location.hash;
         const params = new URLSearchParams();
         if (reason) params.set('reason', reason);
         params.set('returnTo', currentUrl);
         window.location.href = `/login?${params.toString()}`;
       } catch {
-        window.location.href = '/login';
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
+        }
       }
     };
 
     // Handle 401 Unauthorized
     if (error.response?.status === 401) {
+      const requestUrl = typeof originalRequest?.url === 'string' ? originalRequest.url : '';
+      if (requestUrl.startsWith('/host') || requestUrl.startsWith('/bootstrap')) {
+        return Promise.reject(error);
+      }
       const message = resolveErrorMessage(error);
       const isTenantMissing = message.toLowerCase().includes('tenant context is missing')
         || message.toLowerCase().includes('tenant context missing');

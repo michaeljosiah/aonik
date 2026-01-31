@@ -4,6 +4,7 @@ export { SetupWizardPage } from './SetupWizardPage';
 export { SetupJourneyPage } from './SetupJourneyPage';
 export { SetupGuidePage } from './SetupGuidePage';
 export { SetupGuidesLandingPage } from './SetupGuidesLandingPage';
+export { TenantSetupWizardPage } from './TenantSetupWizardPage';
 export { TenantsListPage, CreateTenantPage, TenantDetailPage } from './tenants';
 export { AccessUsersPage, AccessRolesPage, AccessPermissionsPage, UserDetailPage } from './access';
 export {
