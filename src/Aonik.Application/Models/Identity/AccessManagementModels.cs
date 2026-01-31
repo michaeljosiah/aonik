@@ -62,7 +62,58 @@ public record AccessUserDetail(
     Guid? PartyId,
     string? PartyDisplayName,
     string? PartyType,
-    string? PartyLinkType
+    string? PartyLinkType,
+    PersonProfileDetail? PersonProfile,
+    BusinessProfileDetail? BusinessProfile,
+    List<PartyContactDetail> Contacts,
+    List<PartyAddressDetail> Addresses
+);
+
+public record PersonProfileDetail(
+    string? Title,
+    string? FirstName,
+    string? LastName,
+    string? CountryCode,
+    string? PhotoUrl,
+    DateTime? Dob,
+    string? Nationality,
+    string? Occupation,
+    string IdvStatus
+);
+
+public record BusinessProfileDetail(
+    string? RegistrationNumber,
+    string? IncorporationCountry,
+    string? Industry,
+    string KybStatus
+);
+
+public record PartyContactDetail(
+    Guid ContactId,
+    string Type,
+    string Value,
+    bool IsPrimary
+);
+
+public record PartyAddressDetail(
+    Guid AddressId,
+    string Type,
+    string Line1,
+    string? Line2,
+    string? Line3,
+    string City,
+    string? State,
+    string Postcode,
+    string Country
+);
+
+public record UpdateUserProfileRequest(
+    string? FirstName,
+    string? LastName,
+    string? Title,
+    string? CountryCode,
+    string? Nationality,
+    string? Occupation
 );
 
 public record PermissionDefinition(

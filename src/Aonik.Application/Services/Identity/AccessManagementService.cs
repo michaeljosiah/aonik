@@ -136,22 +136,101 @@ public class AccessManagementService : IAccessManagementService
 
         var permissions = await _permissionService.GetUserPermissionsAsync(userId, cancellationToken);
 
-        var partyInfo = await _dbContext.UserParties
+        // Load party info with extended details
+        var partyLink = await _dbContext.UserParties
             .AsNoTracking()
             .Where(link => link.TenantId == tenantId && link.UserId == userId)
-            .Join(_dbContext.Parties,
-                link => link.PartyId,
-                party => party.Id,
-                (link, party) => new
-                {
-                    PartyId = (Guid?)party.Id,
-                    party.DisplayName,
-                    party.PartyType,
-                    link.LinkType,
-                    link.CreatedAt
-                })
             .OrderBy(link => link.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
+
+        PersonProfileDetail? personProfile = null;
+        BusinessProfileDetail? businessProfile = null;
+        List<PartyContactDetail> contacts = new();
+        List<PartyAddressDetail> addresses = new();
+        Guid? partyId = null;
+        string? partyDisplayName = null;
+        string? partyType = null;
+        string? linkType = null;
+
+        if (partyLink != null)
+        {
+            var party = await _dbContext.Parties
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
+
+            if (party != null)
+            {
+                partyId = party.Id;
+                partyDisplayName = party.DisplayName;
+                partyType = party.PartyType;
+                linkType = partyLink.LinkType;
+
+                // Load PersonProfile if party type is Person
+                if (party.PartyType == "Person")
+                {
+                    var personProfileEntity = await _dbContext.PersonProfiles
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
+
+                    if (personProfileEntity != null)
+                    {
+                        personProfile = new PersonProfileDetail(
+                            personProfileEntity.Title,
+                            personProfileEntity.FirstName,
+                            personProfileEntity.LastName,
+                            personProfileEntity.CountryCode,
+                            personProfileEntity.PhotoUrl,
+                            personProfileEntity.Dob,
+                            personProfileEntity.Nationality,
+                            personProfileEntity.Occupation,
+                            personProfileEntity.IdvStatus);
+                    }
+                }
+
+                // Load BusinessProfile if party type is Business
+                if (party.PartyType == "Business")
+                {
+                    var businessProfileEntity = await _dbContext.BusinessProfiles
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
+
+                    if (businessProfileEntity != null)
+                    {
+                        businessProfile = new BusinessProfileDetail(
+                            businessProfileEntity.RegistrationNumber,
+                            businessProfileEntity.IncorporationCountry,
+                            businessProfileEntity.Industry,
+                            businessProfileEntity.KybStatus);
+                    }
+                }
+
+                // Load contacts
+                contacts = await _dbContext.PartyContacts
+                    .AsNoTracking()
+                    .Where(c => c.PartyId == party.Id)
+                    .OrderByDescending(c => c.IsPrimary)
+                    .ThenBy(c => c.Type)
+                    .Select(c => new PartyContactDetail(c.Id, c.Type, c.Value, c.IsPrimary))
+                    .ToListAsync(cancellationToken);
+
+                // Load addresses
+                addresses = await _dbContext.PartyAddresses
+                    .AsNoTracking()
+                    .Where(a => a.PartyId == party.Id)
+                    .OrderBy(a => a.Type)
+                    .Select(a => new PartyAddressDetail(
+                        a.Id,
+                        a.Type,
+                        a.Line1,
+                        a.Line2,
+                        a.Line3,
+                        a.City,
+                        a.State,
+                        a.Postcode,
+                        a.Country))
+                    .ToListAsync(cancellationToken);
+            }
+        }
 
         return new AccessUserDetail(
             user.Id,
@@ -162,10 +241,14 @@ public class AccessManagementService : IAccessManagementService
             user.LastLoginAt,
             roles,
             permissions,
-            partyInfo?.PartyId,
-            partyInfo?.DisplayName,
-            partyInfo?.PartyType,
-            partyInfo?.LinkType);
+            partyId,
+            partyDisplayName,
+            partyType,
+            linkType,
+            personProfile,
+            businessProfile,
+            contacts,
+            addresses);
     }
 
     public async Task InviteUserAsync(InviteUserRequest request, CancellationToken cancellationToken = default)
@@ -273,6 +356,109 @@ public class AccessManagementService : IAccessManagementService
                 _correlationContext.CorrelationId,
                 JsonSerializer.Serialize(new { userId, roleId = role.RoleId, roleName }),
                 cancellationToken);
+        }
+    }
+
+    public async Task UpdateUserProfileAsync(
+        Guid userId,
+        UpdateUserProfileRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Users.Manage", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}");
+        }
+
+        // Get the user's party link
+        var partyLink = await _dbContext.UserParties
+            .Where(link => link.TenantId == tenantId && link.UserId == userId)
+            .OrderBy(link => link.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (partyLink == null)
+        {
+            throw new InvalidOperationException($"User {userId} does not have a party linked");
+        }
+
+        var party = await _dbContext.Parties
+            .FirstOrDefaultAsync(p => p.Id == partyLink.PartyId, cancellationToken);
+
+        if (party == null)
+        {
+            throw new InvalidOperationException($"Party {partyLink.PartyId} not found");
+        }
+
+        // Only update PersonProfile for Person parties
+        if (party.PartyType == "Person")
+        {
+            var personProfile = await _dbContext.PersonProfiles
+                .FirstOrDefaultAsync(p => p.PartyId == party.Id, cancellationToken);
+
+            if (personProfile != null)
+            {
+                // Update profile fields
+                if (request.FirstName != null)
+                {
+                    personProfile.FirstName = request.FirstName;
+                }
+
+                if (request.LastName != null)
+                {
+                    personProfile.LastName = request.LastName;
+                }
+
+                if (request.Title != null)
+                {
+                    personProfile.Title = request.Title;
+                }
+
+                if (request.CountryCode != null)
+                {
+                    personProfile.CountryCode = request.CountryCode;
+                }
+
+                if (request.Nationality != null)
+                {
+                    personProfile.Nationality = request.Nationality;
+                }
+
+                if (request.Occupation != null)
+                {
+                    personProfile.Occupation = request.Occupation;
+                }
+
+                personProfile.UpdatedAt = _clock.UtcNow;
+                personProfile.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+
+                // Update party display name if first/last name changed
+                if (request.FirstName != null || request.LastName != null)
+                {
+                    var firstName = request.FirstName ?? personProfile.FirstName ?? string.Empty;
+                    var lastName = request.LastName ?? personProfile.LastName ?? string.Empty;
+                    party.DisplayName = $"{firstName} {lastName}".Trim();
+                    party.UpdatedAt = _clock.UtcNow;
+                    party.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+                }
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                // Audit log
+                await _auditLogWriter.LogAsync(
+                    AuditEventNames.CustomerProfileUpdated,
+                    "PersonProfile",
+                    personProfile.Id,
+                    tenantId,
+                    _currentUserProvider.GetCurrentUserId(),
+                    _correlationContext.CorrelationId,
+                    System.Text.Json.JsonSerializer.Serialize(new { userId, partyId = party.Id, request }),
+                    cancellationToken);
+            }
         }
     }
 
