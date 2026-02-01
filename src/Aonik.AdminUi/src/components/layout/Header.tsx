@@ -1,4 +1,4 @@
-import { Home, Bell, Copy, Maximize2, Minimize2, Sun, Moon, Monitor, Building2 } from 'lucide-react';
+import { Home, Bell, MessageSquareText, Maximize2, Minimize2, Sun, Moon, Monitor, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts';
 import { useState, useRef, useEffect } from 'react';
@@ -167,8 +167,14 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
         >
           <Bell className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
-          <Copy className="w-4 h-4" />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-[var(--color-text-secondary)]"
+          aria-label="Open AI chat"
+          title="Open AI chat"
+        >
+          <MessageSquareText className="w-4 h-4" />
         </Button>
         <Button
           variant="ghost"
