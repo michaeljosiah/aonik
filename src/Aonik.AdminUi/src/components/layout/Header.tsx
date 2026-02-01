@@ -9,9 +9,10 @@ interface HeaderProps {
   title?: string;
   breadcrumb?: string[];
   leftSlot?: React.ReactNode;
+  onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
-export function Header({ breadcrumb = ['My Space'], leftSlot }: HeaderProps) {
+export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange }: HeaderProps) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -43,12 +44,14 @@ export function Header({ breadcrumb = ['My Space'], leftSlot }: HeaderProps) {
   // Track fullscreen state changes
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const fullscreen = !!document.fullscreenElement;
+      setIsFullscreen(fullscreen);
+      onFullscreenChange?.(fullscreen);
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+  }, [onFullscreenChange]);
 
   const toggleFullscreen = async () => {
     try {

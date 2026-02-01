@@ -4,7 +4,7 @@ import { Toaster } from 'sonner';
 import { Sidebar, Header } from '@/components/layout';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
-  import {
+import {
   MySpacePage,
   AnalyticsPage,
   LoginPage,
@@ -34,10 +34,11 @@ import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
   ContentBlockEditPage,
   MediaLibraryPage,
   AutonumberingPage,
-    FxRatesPage,
-    CustomersListPage,
-    CustomerDetailPage,
-  } from '@/pages';
+  FxRatesPage,
+  CustomersListPage,
+  CustomerDetailPage,
+  WorkspacePage,
+} from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -100,8 +101,10 @@ function TenantContextSetup() {
 function AppLayout() {
   const location = useLocation();
   const isAiChat = location.pathname.startsWith('/ai/chat');
+  const isWorkspace = location.pathname.startsWith('/workspace');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const previousSidebarCollapsed = useRef<boolean | null>(null);
+  const preFullscreenSidebarState = useRef<boolean | null>(null);
 
   const agents = useRef<AiAgentSelectorItem[]>([
     {
@@ -159,6 +162,21 @@ function AppLayout() {
     }
   }, [isAiChat, sidebarCollapsed]);
 
+  // Handle fullscreen state changes - auto-collapse sidebar for maximum screen real estate
+  const handleFullscreenChange = (isFullscreen: boolean) => {
+    if (isFullscreen) {
+      // Save current sidebar state before collapsing
+      preFullscreenSidebarState.current = sidebarCollapsed;
+      setSidebarCollapsed(true);
+    } else {
+      // Restore previous sidebar state when exiting fullscreen
+      if (preFullscreenSidebarState.current !== null) {
+        setSidebarCollapsed(preFullscreenSidebarState.current);
+        preFullscreenSidebarState.current = null;
+      }
+    }
+  };
+
   // Determine breadcrumb based on current route (simplified)
   const getBreadcrumb = () => {
     const path = window.location.pathname;
@@ -171,6 +189,7 @@ function AppLayout() {
     if (path.startsWith('/orders')) return ['Orders'];
     if (path.startsWith('/ledger')) return ['Ledger'];
     if (path.startsWith('/ai')) return ['AI & Agents'];
+    if (path.startsWith('/workspace')) return ['Workspace'];
     if (path.startsWith('/access')) return ['Users & Access'];
     if (path.startsWith('/catalog')) return ['Catalog'];
     if (path.startsWith('/tenants')) return ['Tenants'];
@@ -196,12 +215,14 @@ function AppLayout() {
               />
             ) : undefined
           }
+          onFullscreenChange={handleFullscreenChange}
         />
-        <main className={isAiChat ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
+        <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
           <Routes>
             <Route path="/" element={<DashboardHome />} />
             <Route path="/search" element={<PlaceholderPage title="Search" />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/workspace" element={<WorkspacePage />} />
             {/* Customers */}
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/:partyId" element={<CustomerDetailPage />} />
