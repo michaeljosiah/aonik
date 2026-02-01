@@ -1,4 +1,4 @@
-import { Home, Bell, Copy, Maximize2, Sun, Moon, Monitor, Building2 } from 'lucide-react';
+import { Home, Bell, Copy, Maximize2, Minimize2, Sun, Moon, Monitor, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts';
 import { useState, useRef, useEffect } from 'react';
@@ -15,6 +15,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot }: HeaderProps) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [tenantLabel, setTenantLabel] = useState<string | null>(null);
   const [tenantEnv, setTenantEnv] = useState<string | null>(null);
@@ -38,6 +39,28 @@ export function Header({ breadcrumb = ['My Space'], leftSlot }: HeaderProps) {
     setTenantLabel(name && name.length > 0 ? name : null);
     setTenantEnv(selected.environment?.trim() || null);
   }, []);
+
+  // Track fullscreen state changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (error) {
+      console.error('Fullscreen toggle failed:', error);
+    }
+  };
 
   const themeOptions = [
     { value: 'light' as const, label: 'Light', icon: Sun },
@@ -144,8 +167,14 @@ export function Header({ breadcrumb = ['My Space'], leftSlot }: HeaderProps) {
         <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
           <Copy className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]">
-          <Maximize2 className="w-4 h-4" />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-[var(--color-text-secondary)]"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        >
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </Button>
       </div>
     </header>
