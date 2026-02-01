@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, Eye, Plus, User, UsersRound } from 'lucide-react';
+import { AlertCircle, Building2, Eye, Plus, User, UserCheck, UsersRound, UserX } from 'lucide-react';
 
 import { customerService } from '@/services/customerService';
 import type { CreateCustomerRequest, CustomerListItem, PagedResult } from '@/types';
@@ -353,6 +353,11 @@ export function CustomersListPage() {
     { label: 'Customers', icon: <User className="w-3.5 h-3.5" /> },
   ];
 
+  const totalCustomers = totalCount;
+  const activeCustomers = customers.filter((customer) => customer.status === 'Active').length;
+  const pendingCustomers = customers.filter((customer) => customer.status === 'Pending').length;
+  const businessCustomers = customers.filter((customer) => customer.partyType === 'Business').length;
+
   return (
     <div className="h-full overflow-auto p-6">
       <Breadcrumb items={breadcrumbItems} className="mb-4" />
@@ -368,6 +373,57 @@ export function CustomersListPage() {
           <Plus className="w-4 h-4 mr-2" />
           New Customer
         </Button>
+      </div>
+
+      <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+              <UsersRound className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total customers</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalCustomers}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Matches current filters</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active customers</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activeCustomers}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-warning-light)] text-[var(--color-warning)]">
+              <UserX className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pending customers</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{pendingCustomers}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Businesses</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{businessCustomers}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {error && (
