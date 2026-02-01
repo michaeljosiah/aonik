@@ -62,7 +62,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     (panelId: string) => {
       if (!api) return;
       const existing = api.getPanel(panelId);
-      if (existing) return;
+      if (existing) {
+        existing.api?.setActive();
+        return;
+      }
       if (api.activePanel) {
         addPanelToDock(panelId, { referencePanel: api.activePanel, direction: 'within' });
         return;

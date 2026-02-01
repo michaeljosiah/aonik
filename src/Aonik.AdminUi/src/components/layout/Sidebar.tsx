@@ -60,6 +60,7 @@ import {
 import type { NavItem, NavItemGroup, NavigationSection } from '@/types';
 import { identityService } from '@/services/identityService';
 import { navigationSections } from '@/data/mockData';
+import { getWorkspacePanelForRoute } from '@/workspace/registry';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 import { isPortalAdmin as resolvePortalAdmin } from '@/lib/roleUtils';
 
@@ -132,6 +133,15 @@ function FlyoutMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
+  const resolveHref = (href?: string) => {
+    if (!href) return '#';
+    const panel = getWorkspacePanelForRoute(href);
+    if (panel) {
+      return `/workspace?panel=${panel.id}`;
+    }
+    return href;
+  };
+
   // Calculate position based on trigger element
   useEffect(() => {
     if (triggerRef.current) {
@@ -171,7 +181,7 @@ function FlyoutMenu({
                 return (
                   <Link
                     key={child.id}
-                    to={child.href || '#'}
+                    to={resolveHref(child.href)}
                     className={cn(
                       'flex items-center gap-2.5 px-2 py-1 rounded-md text-sm transition-colors',
                       isActive
@@ -197,7 +207,7 @@ function FlyoutMenu({
       {item.viewAllHref && (
         <div className="px-1.5 py-1 border-t border-[var(--color-border-light)]">
           <Link
-            to={item.viewAllHref}
+            to={resolveHref(item.viewAllHref)}
             className="flex items-center justify-center gap-1 px-2 py-1 rounded-md text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
             onClick={onClose}
           >
@@ -313,10 +323,13 @@ function NavItemComponent({
 
   // For collapsed sidebar without children, show tooltip
   if (collapsed && !hasChildren) {
+    const href = item.href || '#';
+    const panel = getWorkspacePanelForRoute(href);
+    const targetHref = panel ? `/workspace?panel=${panel.id}` : href;
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link to={item.href || '#'} className={baseClasses}>
+          <Link to={targetHref} className={baseClasses}>
             {content}
           </Link>
         </TooltipTrigger>
@@ -345,8 +358,11 @@ function NavItemComponent({
   }
 
   // For expanded sidebar without children, simple link
+  const href = item.href || '#';
+  const panel = getWorkspacePanelForRoute(href);
+  const targetHref = panel ? `/workspace?panel=${panel.id}` : href;
   return (
-    <Link to={item.href || '#'} className={baseClasses}>
+    <Link to={targetHref} className={baseClasses}>
       {content}
     </Link>
   );

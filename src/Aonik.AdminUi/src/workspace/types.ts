@@ -14,6 +14,7 @@ export interface WorkspacePanelConfig {
   type: WorkspacePanelType;
   componentKey?: string;
   url?: string;
+  route?: string;
   appCardId?: string;
   defaultWidth?: number;
   defaultHeight?: number;

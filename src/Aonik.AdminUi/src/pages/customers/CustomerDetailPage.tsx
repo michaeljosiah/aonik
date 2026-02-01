@@ -1,15 +1,48 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { AlertCircle, RefreshCw, User, UsersRound } from 'lucide-react';
+import {
+  AlertCircle,
+  Building2,
+  CalendarClock,
+  FileText,
+  Link2,
+  Mail,
+  MapPin,
+  RefreshCw,
+  ShieldCheck,
+  User,
+  UserCircle2,
+  Users,
+  UsersRound,
+  Wallet,
+} from 'lucide-react';
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { customerService } from '@/services/customerService';
 import type { CustomerDetail } from '@/types';
+
+const statusStyles: Record<string, { text: string; bg: string }> = {
+  Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
+  Pending: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
+  Suspended: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
+  Inactive: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
+};
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2">
+      <span className="text-xs text-[var(--color-text-tertiary)]">{label}</span>
+      <span className="text-sm text-[var(--color-text-primary)] text-right">{value}</span>
+    </div>
+  );
+}
 
 export function CustomerDetailPage() {
   const navigate = useNavigate();
@@ -18,6 +51,7 @@ export function CustomerDetailPage() {
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
@@ -50,6 +84,58 @@ export function CustomerDetailPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const formatDateTime = (dateString?: string | null) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getInitials = (name?: string | null, email?: string | null) => {
+    if (name) {
+      return name
+        .split(' ')
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
+    }
+    return email?.charAt(0).toUpperCase() || 'C';
+  };
+
+  const getPhotoUrl = (size: 'original' | 'medium' | 'small' | 'tiny' = 'small') => {
+    if (!customer?.personProfile) return null;
+
+    let photoUrl: string | null | undefined;
+    switch (size) {
+      case 'original':
+        photoUrl = customer.personProfile.photoUrl;
+        break;
+      case 'medium':
+        photoUrl = customer.personProfile.photoUrlMedium || customer.personProfile.photoUrl;
+        break;
+      case 'small':
+        photoUrl = customer.personProfile.photoUrlSmall || customer.personProfile.photoUrl;
+        break;
+      case 'tiny':
+        photoUrl = customer.personProfile.photoUrlTiny || customer.personProfile.photoUrl;
+        break;
+    }
+
+    if (!photoUrl) return null;
+
+    if (photoUrl.startsWith('http')) {
+      return photoUrl;
+    }
+
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://localhost:5001';
+    return `${apiBaseUrl}${photoUrl}`;
   };
 
   const breadcrumbItems = [
