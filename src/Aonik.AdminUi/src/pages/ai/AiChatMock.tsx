@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, Mic, MoreHorizontal, Plus, Search, Send, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Plus, Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { AiChatComposer } from '@/components/ai/AiChatComposer';
 import {
   Conversation,
   ConversationContent,
@@ -95,97 +96,6 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
       },
     ]);
     setDraft('');
-  };
-
-  const ChatComposer = ({ mode }: { mode: 'center' | 'footer' }) => {
-    const isCenter = mode === 'center';
-
-    const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
-    };
-
-    return (
-      <div
-        className={cn(
-          'rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm',
-          isCenter ? 'w-full max-w-[640px]' : 'overflow-hidden'
-        )}
-      >
-        <div className={cn('px-4 pt-4', !isCenter && 'pt-3')}>
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask me anything..."
-            rows={isCenter ? 3 : 1}
-            className={cn(
-              'w-full resize-none bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none leading-6',
-              isCenter ? 'min-h-[96px]' : 'min-h-9'
-            )}
-          />
-        </div>
-
-        <div className={cn('px-3 pb-3 flex items-center justify-between', isCenter && 'pb-3')}
-        >
-          <button
-            className="h-9 w-9 rounded-xl grid place-items-center text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-            title="Attach"
-            type="button"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-              title="Model"
-            >
-              ChatGPT 5.2
-              <ChevronDown className="h-4 w-4 text-[var(--color-text-tertiary)]" />
-            </button>
-            <button
-              type="button"
-              className="h-9 w-9 rounded-xl grid place-items-center text-[var(--color-text-tertiary)] hover:bg-[var(--color-background)]"
-              title="Voice"
-            >
-              <Mic className="h-4 w-4" />
-            </button>
-            <button
-              className={cn(
-                'h-10 w-10 rounded-xl grid place-items-center',
-                draft.trim()
-                  ? 'bg-[var(--color-brand-primary)] text-white hover:bg-[var(--color-brand-primary-dark)]'
-                  : 'bg-[var(--color-background)] text-[var(--color-text-tertiary)]'
-              )}
-              title="Send"
-              type="button"
-              onClick={handleSend}
-              disabled={!draft.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {!isCenter && (
-          <div className="px-4 pb-3 flex items-center justify-between text-[12px] text-[var(--color-text-tertiary)]">
-            <span>Shift+Enter for newline</span>
-            <button
-              type="button"
-              onClick={resetChat}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-[var(--color-background)]"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Clear
-            </button>
-          </div>
-        )}
-      </div>
-    );
   };
 
   return (
@@ -317,7 +227,13 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
                       <div className="text-lg font-semibold text-[var(--color-text-primary)]">John, I'm ready when you are.</div>
                       <div className="mt-1 text-sm text-[var(--color-text-secondary)]">Ask me anything...</div>
                     </div>
-                    <ChatComposer mode="center" />
+                    <AiChatComposer
+                      mode="center"
+                      value={draft}
+                      onChange={setDraft}
+                      onSend={handleSend}
+                      showHelper={false}
+                    />
                   </div>
                 </ConversationEmptyState>
               ) : (
@@ -337,7 +253,13 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
         {messages.length > 0 && (
           <div className="border-t border-[var(--color-border-light)] bg-[var(--color-surface)]">
             <div className="mx-auto w-full max-w-3xl px-4 py-4">
-              <ChatComposer mode="footer" />
+              <AiChatComposer
+                mode="footer"
+                value={draft}
+                onChange={setDraft}
+                onSend={handleSend}
+                onClear={resetChat}
+              />
               <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
                 <span>Mock UI - endpoints not wired.</span>
                 <span>Agent: {agentLabel}</span>

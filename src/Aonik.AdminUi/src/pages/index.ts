@@ -1,4 +1,5 @@
 export { MySpacePage } from './MySpacePage';
+export { AnalyticsPage } from './AnalyticsPage';
 export { LoginPage } from './LoginPage';
 export { SetupWizardPage } from './SetupWizardPage';
 export { SetupJourneyPage } from './SetupJourneyPage';

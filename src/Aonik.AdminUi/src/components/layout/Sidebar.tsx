@@ -55,11 +55,13 @@ import {
   Globe,
   Layers,
   Image,
+  BarChart3,
 } from 'lucide-react';
 import type { NavItem, NavItemGroup, NavigationSection } from '@/types';
 import { identityService } from '@/services/identityService';
 import { navigationSections } from '@/data/mockData';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
+import { isPortalAdmin as resolvePortalAdmin } from '@/lib/roleUtils';
 
 const iconMap: Record<string, React.ElementType> = {
   Search,
@@ -108,6 +110,7 @@ const iconMap: Record<string, React.ElementType> = {
   // CMS
   Layers,
   Image,
+  BarChart3,
 };
 
 interface SidebarProps {
@@ -448,7 +451,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
   if (collapsed) {
     return (
       <div className="flex justify-center p-3 border-t border-[var(--color-border-light)]">
-        <Avatar className="w-10 h-10 cursor-pointer relative">
+        <Avatar className="w-9 h-9 cursor-pointer relative">
           {displayPhotoUrl && (
             <>
               <AvatarImage 
@@ -496,7 +499,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
         <Avatar 
           className={cn(
             "absolute left-4 cursor-pointer border-4 border-[var(--color-background)] z-10",
-            isExpanded ? "w-20 h-20 -top-8" : "w-20 h-20 -top-8"
+            isExpanded ? "w-16 h-16 -top-6" : "w-16 h-16 -top-6"
           )}
           onClick={() => setIsExpanded(!isExpanded)}
         >
@@ -714,12 +717,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     hydrateRoles();
   }, [user]);
 
-  const isPortalAdmin = navRoles.some((role) => {
-    const normalized = role.toLowerCase();
-    const isAdmin = normalized.includes('admin') || normalized.includes('administrator');
-    const isHostScope = normalized.includes('platform') || normalized.includes('portal') || normalized.includes('host');
-    return isAdmin && isHostScope;
-  });
+  const isPortalAdmin = resolvePortalAdmin(navRoles);
 
   const visibleSections = navigationSections.filter((section) => {
     if (section.audience === 'host') {
@@ -730,6 +728,40 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     }
     return true;
   });
+
+  const isNavItemVisible = (item: NavItem) => {
+    if (item.audience === 'host') {
+      return isPortalAdmin;
+    }
+    if (item.audience === 'tenant') {
+      return !isPortalAdmin && !isLoadingNavRoles;
+    }
+    return true;
+  };
+
+  const filterNavItems = (items: NavItem[]) => {
+    return items.reduce<NavItem[]>((acc, item) => {
+      if (!isNavItemVisible(item)) {
+        return acc;
+      }
+
+      const filteredChildren = item.children?.filter(isNavItemVisible);
+      const filteredChildGroups = item.childGroups
+        ?.map((group) => ({
+          ...group,
+          items: group.items.filter(isNavItemVisible),
+        }))
+        .filter((group) => group.items.length > 0);
+
+      acc.push({
+        ...item,
+        children: filteredChildren,
+        childGroups: filteredChildGroups,
+      });
+
+      return acc;
+    }, []);
+  };
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -765,20 +797,27 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-3">
-          {visibleSections.map((section: NavigationSection) => (
-            <div key={section.id} className="space-y-1">
-              {section.label && (
-                <div className="px-3 pt-2 pb-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-                    {section.label}
-                  </span>
-                </div>
-              )}
-              {section.items.map((item) => (
-                <NavItemComponent key={item.id} item={item} collapsed={collapsed} />
-              ))}
-            </div>
-          ))}
+          {visibleSections.map((section: NavigationSection) => {
+            const sectionItems = filterNavItems(section.items);
+            if (sectionItems.length === 0) {
+              return null;
+            }
+
+            return (
+              <div key={section.id} className="space-y-1">
+                {section.label && (
+                  <div className="px-3 pt-2 pb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                      {section.label}
+                    </span>
+                  </div>
+                )}
+                {sectionItems.map((item) => (
+                  <NavItemComponent key={item.id} item={item} collapsed={collapsed} />
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
         {/* User Profile - fixed at bottom */}

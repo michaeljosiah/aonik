@@ -24,6 +24,13 @@ export const navigationSections: NavigationSection[] = [
         href: '/',
       },
       {
+        id: 'analytics',
+        label: 'Analytics',
+        icon: 'BarChart3',
+        href: '/analytics',
+        audience: 'host',
+      },
+      {
         id: 'billing',
         label: 'Billing',
         icon: 'FileText',

@@ -18,6 +18,7 @@ export interface NavItem {
   href?: string;
   badge?: string;
   children?: NavItem[];
+  audience?: 'host' | 'tenant' | 'all';
   /** Grouped children for flyout menus - takes precedence over children if present */
   childGroups?: NavItemGroup[];
   /** Footer link for the flyout menu (e.g., "View all") */

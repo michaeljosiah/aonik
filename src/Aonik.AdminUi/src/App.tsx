@@ -6,6 +6,7 @@ import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
   import {
   MySpacePage,
+  AnalyticsPage,
   LoginPage,
   SetupWizardPage,
   SetupJourneyPage,
@@ -162,6 +163,7 @@ function AppLayout() {
   const getBreadcrumb = () => {
     const path = window.location.pathname;
     if (path === '/') return ['Dashboard'];
+    if (path.startsWith('/analytics')) return ['Analytics'];
     if (path.startsWith('/billing')) return ['Billing'];
     if (path.startsWith('/orders/bill-payments')) return ['Orders', 'Bill Payments'];
     if (path.startsWith('/payments')) return ['Payments'];
@@ -198,6 +200,7 @@ function AppLayout() {
           <Routes>
             <Route path="/" element={<DashboardHome />} />
             <Route path="/search" element={<PlaceholderPage title="Search" />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
             {/* Billing */}
             <Route path="/billing/invoices" element={<PlaceholderPage title="Invoices" />} />
             <Route path="/billing/invoices/new" element={<PlaceholderPage title="Create Invoice" />} />
