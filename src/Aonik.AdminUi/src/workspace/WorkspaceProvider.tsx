@@ -172,7 +172,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const snapshot = api.toJSON() as WorkspaceLayoutSnapshot;
     const defaultLayout: WorkspaceLayoutRecord = {
       id: defaultLayoutId,
-      name: 'Getting Started',
+      name: 'Workspace',
       isDefault: true,
       updatedAt: new Date().toISOString(),
       layout: snapshot,
@@ -186,6 +186,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       isRestoringRef.current = false;
     }, 0);
   }, [api, addPanelToDock, persistLayouts]);
+
+  const renameLayout = useCallback(
+    (layoutId: string, newName: string) => {
+      const trimmed = newName.trim();
+      if (!trimmed) return;
+      setLayouts((current) => {
+        const next = current.map((layout) =>
+          layout.id === layoutId
+            ? {
+                ...layout,
+                name: trimmed,
+                updatedAt: new Date().toISOString(),
+              }
+            : layout
+        );
+        persistLayouts(next, activeLayoutId);
+        return next;
+      });
+    },
+    [activeLayoutId, persistLayouts]
+  );
 
   const dispatchAction = useCallback(
     (action: WorkspaceAction) => {
@@ -224,6 +245,47 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [closePanel, exitMaximizedGroup, loadLayout, maximizeActivePanel, openPanel, resetToDefaultLayout, saveActiveLayout]
   );
 
+  const removeLayout = useCallback(
+    (layoutId: string) => {
+      if (!layoutId) return;
+      const target = layouts.find((layout) => layout.id === layoutId);
+      if (!target || target.isDefault) return;
+      let nextActiveLayout: WorkspaceLayoutRecord | undefined;
+      let shouldReset = false;
+
+      setLayouts((current) => {
+        const next = current.filter((layout) => layout.id !== layoutId);
+        let nextActive = activeLayoutId;
+        if (layoutId === activeLayoutId) {
+          nextActiveLayout = next[0];
+          nextActive = nextActiveLayout?.id ?? '';
+          if (!nextActiveLayout) {
+            shouldReset = true;
+          }
+        }
+        persistLayouts(next, nextActive || undefined);
+        return next;
+      });
+
+      if (layoutId === activeLayoutId) {
+        if (nextActiveLayout && api) {
+          isRestoringRef.current = true;
+          api.fromJSON(nextActiveLayout.layout);
+          setActiveLayoutId(nextActiveLayout.id);
+          setTimeout(() => {
+            isRestoringRef.current = false;
+          }, 0);
+        } else {
+          setActiveLayoutId('');
+          if (shouldReset) {
+            resetToDefaultLayout();
+          }
+        }
+      }
+    },
+    [activeLayoutId, api, layouts, persistLayouts, resetToDefaultLayout]
+  );
+
   const setApiInstance = useCallback((nextApi: DockviewApi) => {
     setApi(nextApi);
   }, []);
@@ -260,6 +322,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [activeLayoutId, api, layouts, resetToDefaultLayout, storageLoaded]);
 
   useEffect(() => {
+    const summary = layouts.map((layout) => ({
+      id: layout.id,
+      name: layout.name,
+      isDefault: layout.isDefault,
+      updatedAt: layout.updatedAt,
+    }));
+    window.dispatchEvent(
+      new CustomEvent('aonik:workspace:state', {
+        detail: { layouts: summary, activeLayoutId },
+      })
+    );
+  }, [activeLayoutId, layouts]);
+
+  useEffect(() => {
     if (!api) return;
     const disposable = api.onDidLayoutChange(() => {
       if (isRestoringRef.current) return;
@@ -282,6 +358,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       saveActiveLayout,
       createLayoutFromActive,
       resetToDefaultLayout,
+      renameLayout,
+      removeLayout,
       eventBus,
       dispatchAction,
     }),
@@ -298,6 +376,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       loadLayout,
       maximizeActivePanel,
       openPanel,
+      renameLayout,
+      removeLayout,
       resetToDefaultLayout,
       saveActiveLayout,
     ]

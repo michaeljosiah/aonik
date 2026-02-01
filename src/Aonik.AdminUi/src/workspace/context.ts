@@ -16,6 +16,8 @@ export interface WorkspaceContextValue {
   saveActiveLayout: () => void;
   createLayoutFromActive: (name: string) => void;
   resetToDefaultLayout: () => void;
+  renameLayout: (layoutId: string, newName: string) => void;
+  removeLayout: (layoutId: string) => void;
   eventBus: WorkspaceEventBus;
   dispatchAction: (action: WorkspaceAction) => void;
 }

@@ -206,6 +206,7 @@ function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header
           breadcrumb={getBreadcrumb()}
+          isWorkspace={isWorkspace}
           leftSlot={
             isAiChat ? (
               <AiAgentSelector
