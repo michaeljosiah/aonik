@@ -53,8 +53,7 @@ export function CustomerDetailPage() {
   };
 
   const breadcrumbItems = [
-    { label: 'Billing', href: '/billing', icon: <UsersRound className="w-3.5 h-3.5" /> },
-    { label: 'Customers', href: '/billing/customers', icon: <UsersRound className="w-3.5 h-3.5" /> },
+    { label: 'Customers', href: '/customers', icon: <UsersRound className="w-3.5 h-3.5" /> },
     { label: 'Customer', icon: <User className="w-3.5 h-3.5" /> },
   ];
 
@@ -78,7 +77,7 @@ export function CustomerDetailPage() {
           <p className="text-[var(--color-text-secondary)] mb-4">
             The customer you're looking for doesn't exist or you don't have access.
           </p>
-          <Button onClick={() => navigate('/billing/customers')}>Back to Customers</Button>
+          <Button onClick={() => navigate('/customers')}>Back to Customers</Button>
         </div>
       </div>
     );

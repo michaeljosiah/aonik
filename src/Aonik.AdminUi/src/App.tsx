@@ -164,6 +164,7 @@ function AppLayout() {
     const path = window.location.pathname;
     if (path === '/') return ['Dashboard'];
     if (path.startsWith('/analytics')) return ['Analytics'];
+    if (path.startsWith('/customers')) return ['Customers'];
     if (path.startsWith('/billing')) return ['Billing'];
     if (path.startsWith('/orders/bill-payments')) return ['Orders', 'Bill Payments'];
     if (path.startsWith('/payments')) return ['Payments'];
@@ -201,11 +202,12 @@ function AppLayout() {
             <Route path="/" element={<DashboardHome />} />
             <Route path="/search" element={<PlaceholderPage title="Search" />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
+            {/* Customers */}
+            <Route path="/customers" element={<CustomersListPage />} />
+            <Route path="/customers/:partyId" element={<CustomerDetailPage />} />
             {/* Billing */}
             <Route path="/billing/invoices" element={<PlaceholderPage title="Invoices" />} />
             <Route path="/billing/invoices/new" element={<PlaceholderPage title="Create Invoice" />} />
-            <Route path="/billing/customers" element={<CustomersListPage />} />
-            <Route path="/billing/customers/:partyId" element={<CustomerDetailPage />} />
             <Route path="/billing/dunning" element={<PlaceholderPage title="Dunning Plans" />} />
             {/* Payments */}
             <Route path="/payments/transactions" element={<PlaceholderPage title="Transactions" />} />

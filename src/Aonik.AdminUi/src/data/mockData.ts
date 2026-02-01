@@ -31,6 +31,12 @@ export const navigationSections: NavigationSection[] = [
         audience: 'host',
       },
       {
+        id: 'customers',
+        label: 'Customers',
+        icon: 'Building2',
+        href: '/customers',
+      },
+      {
         id: 'billing',
         label: 'Billing',
         icon: 'FileText',
@@ -41,7 +47,6 @@ export const navigationSections: NavigationSection[] = [
             label: 'Documents',
             items: [
               { id: 'invoices', label: 'Invoices', icon: 'Receipt', href: '/billing/invoices' },
-              { id: 'customers', label: 'Customers', icon: 'Building2', href: '/billing/customers' },
             ],
           },
           {

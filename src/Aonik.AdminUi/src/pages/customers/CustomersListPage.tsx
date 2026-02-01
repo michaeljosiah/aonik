@@ -171,7 +171,7 @@ export function CustomersListPage() {
     {
       label: 'View Details',
       icon: <Eye className="w-4 h-4" />,
-      onClick: () => navigate(`/billing/customers/${customer.partyId}`),
+      onClick: () => navigate(`/customers/${customer.partyId}`),
     },
   ];
 
@@ -350,7 +350,6 @@ export function CustomersListPage() {
   };
 
   const breadcrumbItems = [
-    { label: 'Billing', href: '/billing', icon: <UsersRound className="w-3.5 h-3.5" /> },
     { label: 'Customers', icon: <User className="w-3.5 h-3.5" /> },
   ];
 
