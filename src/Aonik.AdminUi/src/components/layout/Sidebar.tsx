@@ -232,7 +232,9 @@ function NavItemComponent({
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const Icon = iconMap[item.icon] || LayoutDashboard;
-  const isActive = item.href === location.pathname;
+  const isWorkspace = location.pathname === '/workspace';
+  const activeWorkspaceHref = sessionStorage.getItem('aonik:active-workspace-href');
+  const isActive = item.href === location.pathname || (isWorkspace && item.href === activeWorkspaceHref);
   const hasChildren = (item.childGroups && item.childGroups.length > 0) || (item.children && item.children.length > 0);
 
   // Clean up timeout on unmount
@@ -262,7 +264,7 @@ function NavItemComponent({
     }
   };
 
-  const handleClick = () => {
+  const handleCollapsedToggleClick = () => {
     if (collapsed && hasChildren) {
       // In collapsed mode, click toggles flyout
       setClickedOpen(!clickedOpen);
@@ -306,7 +308,7 @@ function NavItemComponent({
       <div ref={triggerRef} className="relative" onMouseLeave={handleFlyoutClose}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={baseClasses} onClick={handleClick}>
+            <div className={baseClasses} onClick={handleCollapsedToggleClick}>
               {content}
             </div>
           </TooltipTrigger>
@@ -326,10 +328,15 @@ function NavItemComponent({
     const href = item.href || '#';
     const panel = getWorkspacePanelForRoute(href);
     const targetHref = panel ? `/workspace?panel=${panel.id}` : href;
+    const handleCollapsedWorkspaceClick = () => {
+      if (panel) {
+        sessionStorage.setItem('aonik:active-workspace-href', href);
+      }
+    };
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link to={targetHref} className={baseClasses}>
+          <Link to={targetHref} className={baseClasses} onClick={handleCollapsedWorkspaceClick}>
             {content}
           </Link>
         </TooltipTrigger>
@@ -361,8 +368,13 @@ function NavItemComponent({
   const href = item.href || '#';
   const panel = getWorkspacePanelForRoute(href);
   const targetHref = panel ? `/workspace?panel=${panel.id}` : href;
+  const handleExpandedWorkspaceClick = () => {
+    if (panel) {
+      sessionStorage.setItem('aonik:active-workspace-href', href);
+    }
+  };
   return (
-    <Link to={targetHref} className={baseClasses}>
+    <Link to={targetHref} className={baseClasses} onClick={handleExpandedWorkspaceClick}>
       {content}
     </Link>
   );
