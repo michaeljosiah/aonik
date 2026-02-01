@@ -362,7 +362,8 @@ public class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootstra
                 "Invoice.Issue",
                 "Catalog.Read"
                 ,
-                "Customers.Read"
+                "Customers.Read",
+                "Customers.Create"
             ],
             ["Operations"] =
             [
@@ -381,7 +382,8 @@ public class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootstra
                 "Invoice.Issue",
                 "Catalog.Read"
                 ,
-                "Customers.Read"
+                "Customers.Read",
+                "Customers.Create"
             ],
             ["ReadOnly"] =
             [

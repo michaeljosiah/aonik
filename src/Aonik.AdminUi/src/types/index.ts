@@ -522,6 +522,50 @@ export interface CreatePartyRequest {
   countryCode?: string | null;
 }
 
+export interface CreateCustomerContactRequest {
+  type: 'Email' | 'Phone';
+  value: string;
+  isPrimary: boolean;
+}
+
+export interface CreateCustomerAddressRequest {
+  type: string;
+  line1: string;
+  line2?: string | null;
+  line3?: string | null;
+  city: string;
+  state?: string | null;
+  postcode: string;
+  country: string;
+}
+
+export interface CreateCustomerRequest {
+  displayName: string;
+  partyType: 'Person' | 'Business';
+  status: string;
+  customerTierCode?: string | null;
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  dob?: string | null;
+  nationality?: string | null;
+  occupation?: string | null;
+  countryCode?: string | null;
+  registrationNumber?: string | null;
+  incorporationCountry?: string | null;
+  industry?: string | null;
+  contacts: CreateCustomerContactRequest[];
+  addresses: CreateCustomerAddressRequest[];
+}
+
+export interface CreateCustomerResponse {
+  partyId: string;
+  displayName: string;
+  partyType: string;
+  status: string;
+  createdAt: string;
+}
+
 export interface PartyResponse {
   partyId: string;
   displayName: string;

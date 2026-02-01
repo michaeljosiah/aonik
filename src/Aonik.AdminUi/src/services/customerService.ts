@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { CustomerDetail, CustomerListItem, PagedResult } from '@/types';
+import type { CreateCustomerRequest, CreateCustomerResponse, CustomerDetail, CustomerListItem, PagedResult } from '@/types';
 
 export interface ListCustomersParams {
   pageNumber?: number;
@@ -23,5 +23,8 @@ export const customerService = {
   },
   get: async (partyId: string): Promise<CustomerDetail> => {
     return api.get<CustomerDetail>(`/admin/customers/${partyId}`);
+  },
+  create: async (data: CreateCustomerRequest): Promise<CreateCustomerResponse> => {
+    return api.post<CreateCustomerResponse>('/admin/customers', data);
   },
 };

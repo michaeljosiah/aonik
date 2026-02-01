@@ -9,7 +9,7 @@ import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { AlertCircle, Eye, Plus, User, UsersRound } from 'lucide-react';
 
 import { customerService } from '@/services/customerService';
-import type { CustomerListItem, PagedResult } from '@/types';
+import type { CreateCustomerRequest, CustomerListItem, PagedResult } from '@/types';
 import {
   DataTable,
   DataTableGridView,
@@ -21,6 +21,7 @@ import {
   type FilterOption,
   type ViewMode,
 } from '@/components/ui/data-table';
+import { CreateCustomerDialog } from '@/components/dialogs/CreateCustomerDialog';
 
 const statusStyles: Record<string, { text: string; bg: string; iconColor: string }> = {
   Active: {
@@ -73,6 +74,7 @@ export function CustomersListPage() {
   const requestIdRef = useRef(0);
   const [imageLoadStates, setImageLoadStates] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
@@ -128,6 +130,14 @@ export function CustomersListPage() {
     setImageLoadStates((prev) => ({ ...prev, [partyId]: 'error' }));
     setImageErrors((prev) => new Set([...prev, partyId]));
   }, []);
+
+  const handleCreateCustomer = useCallback(
+    async (data: CreateCustomerRequest) => {
+      await customerService.create(data);
+      await loadCustomers();
+    },
+    [loadCustomers]
+  );
 
   const getPhotoUrl = (customer: CustomerListItem) => {
     const photoUrl = customer.photoUrlTiny;
@@ -355,7 +365,7 @@ export function CustomersListPage() {
             Browse people and businesses connected to this tenant.
           </p>
         </div>
-        <Button disabled title="Create customer flow coming soon" className="rounded-sm">
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="rounded-sm">
           <Plus className="w-4 h-4 mr-2" />
           New Customer
         </Button>
@@ -473,6 +483,12 @@ export function CustomersListPage() {
           </div>
         </CardContent>
       </Card>
+
+      <CreateCustomerDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSave={handleCreateCustomer}
+      />
     </div>
   );
 }

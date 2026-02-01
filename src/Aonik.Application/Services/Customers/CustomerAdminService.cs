@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Application.Abstractions.Multitenancy;
@@ -5,25 +6,39 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Customers;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services;
+using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
+using Aonik.Domain.Party;
+using Aonik.Domain.Party.Entities;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Customers;
 
 public class CustomerAdminService : AdminServiceBase, ICustomerAdminService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IClock _clock;
+    private readonly IAuditLogWriter _auditLogWriter;
 
     public CustomerAdminService(
         IAonikDbContext dbContext,
         ITenantProvider tenantProvider,
+        IClock clock,
+        IAuditLogWriter auditLogWriter,
         ICurrentUserProvider currentUserProvider,
         IPermissionService permissionService)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _clock = clock;
+        _auditLogWriter = auditLogWriter;
     }
 
     public async Task<PagedResult<CustomerListItem>> ListCustomersAsync(
@@ -38,7 +53,13 @@ public class CustomerAdminService : AdminServiceBase, ICustomerAdminService
 
         var query = _dbContext.Parties
             .AsNoTracking()
-            .Where(party => party.TenantId == tenantId);
+            .Where(party => party.TenantId == tenantId)
+            .Where(party => _dbContext.PartyRoleAssignments.Any(ra =>
+                ra.PartyId == party.Id &&
+                ra.TenantId == tenantId &&
+                ra.Role == PartyRoles.Customer &&
+                ra.ContextType == "Tenant" &&
+                ra.ContextId == tenantId));
 
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
@@ -308,6 +329,150 @@ public class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             externalAccounts,
             roleAssignments,
             relationships);
+    }
+
+    public async Task<CreateCustomerResponse> CreateCustomerAsync(
+        CreateCustomerRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Customers.Create", cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            throw new ArgumentException("Display name is required.", nameof(request.DisplayName));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.PartyType))
+        {
+            throw new ArgumentException("Party type is required.", nameof(request.PartyType));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var now = _clock.UtcNow;
+        var status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
+
+        var party = new Party
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartyType = request.PartyType.Trim(),
+            DisplayName = request.DisplayName.Trim(),
+            Status = status,
+            CustomerTierCode = request.CustomerTierCode?.Trim(),
+            CreatedAt = now
+        };
+
+        if (request.Contacts != null && request.Contacts.Count > 0)
+        {
+            foreach (var contact in request.Contacts)
+            {
+                if (string.IsNullOrWhiteSpace(contact.Value))
+                {
+                    continue;
+                }
+
+                party.Contacts.Add(new PartyContact
+                {
+                    PartyId = party.Id,
+                    Type = contact.Type.Trim(),
+                    Value = contact.Value.Trim(),
+                    IsPrimary = contact.IsPrimary,
+                    CreatedAt = now
+                });
+            }
+        }
+
+        if (request.Addresses != null && request.Addresses.Count > 0)
+        {
+            foreach (var address in request.Addresses)
+            {
+                if (string.IsNullOrWhiteSpace(address.Line1))
+                {
+                    continue;
+                }
+
+                party.Addresses.Add(new PartyAddress
+                {
+                    PartyId = party.Id,
+                    Type = address.Type.Trim(),
+                    Line1 = address.Line1.Trim(),
+                    Line2 = address.Line2?.Trim(),
+                    Line3 = address.Line3?.Trim(),
+                    City = address.City.Trim(),
+                    State = address.State?.Trim(),
+                    Postcode = address.Postcode.Trim(),
+                    Country = address.Country.Trim(),
+                    CreatedAt = now
+                });
+            }
+        }
+
+        if (string.Equals(party.PartyType, "Person", StringComparison.OrdinalIgnoreCase))
+        {
+            _dbContext.PersonProfiles.Add(new PersonProfile
+            {
+                PartyId = party.Id,
+                Title = request.Title?.Trim(),
+                FirstName = request.FirstName?.Trim(),
+                LastName = request.LastName?.Trim(),
+                Dob = request.Dob,
+                Nationality = request.Nationality?.Trim(),
+                Occupation = request.Occupation?.Trim(),
+                CountryCode = request.CountryCode?.Trim(),
+                IdvStatus = "Unverified",
+                CreatedAt = now
+            });
+        }
+
+        if (string.Equals(party.PartyType, "Business", StringComparison.OrdinalIgnoreCase))
+        {
+            _dbContext.BusinessProfiles.Add(new BusinessProfile
+            {
+                PartyId = party.Id,
+                RegistrationNumber = request.RegistrationNumber?.Trim(),
+                IncorporationCountry = request.IncorporationCountry?.Trim(),
+                Industry = request.Industry?.Trim(),
+                KybStatus = "Unverified",
+                CreatedAt = now
+            });
+        }
+
+        _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartyId = party.Id,
+            Role = PartyRoles.Customer,
+            ContextType = "Tenant",
+            ContextId = tenantId,
+            CreatedAt = now
+        });
+
+        _dbContext.Parties.Add(party);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerCreated,
+            "Party",
+            party.Id,
+            tenantId,
+            actorId: null,
+            correlationId: null,
+            detailsJson: JsonSerializer.Serialize(new
+            {
+                party.Id,
+                party.DisplayName,
+                party.PartyType,
+                party.Status
+            }, JsonOptions),
+            cancellationToken: cancellationToken);
+
+        return new CreateCustomerResponse(
+            party.Id,
+            party.DisplayName,
+            party.PartyType,
+            party.Status,
+            party.CreatedAt);
     }
 
 }

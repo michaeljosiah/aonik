@@ -12,4 +12,8 @@ public interface ICustomerAdminService
     Task<CustomerDetail?> GetCustomerAsync(
         Guid partyId,
         CancellationToken cancellationToken = default);
+
+    Task<CreateCustomerResponse> CreateCustomerAsync(
+        CreateCustomerRequest request,
+        CancellationToken cancellationToken = default);
 }

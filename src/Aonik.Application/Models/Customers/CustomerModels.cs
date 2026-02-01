@@ -69,3 +69,47 @@ public record CustomerDetail(
     List<PartyRoleAssignmentDetail> RoleAssignments,
     List<PartyRelationshipDetail> Relationships
 );
+
+public record CreateCustomerContactRequest(
+    string Type,
+    string Value,
+    bool IsPrimary
+);
+
+public record CreateCustomerAddressRequest(
+    string Type,
+    string Line1,
+    string? Line2,
+    string? Line3,
+    string City,
+    string? State,
+    string Postcode,
+    string Country
+);
+
+public record CreateCustomerRequest(
+    string DisplayName,
+    string PartyType,
+    string Status,
+    string? CustomerTierCode,
+    string? Title,
+    string? FirstName,
+    string? LastName,
+    DateTime? Dob,
+    string? Nationality,
+    string? Occupation,
+    string? CountryCode,
+    string? RegistrationNumber,
+    string? IncorporationCountry,
+    string? Industry,
+    List<CreateCustomerContactRequest> Contacts,
+    List<CreateCustomerAddressRequest> Addresses
+);
+
+public record CreateCustomerResponse(
+    Guid PartyId,
+    string DisplayName,
+    string PartyType,
+    string Status,
+    DateTime CreatedAt
+);

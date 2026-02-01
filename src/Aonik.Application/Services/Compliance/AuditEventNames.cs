@@ -2,6 +2,7 @@ namespace Aonik.Application.Services.Compliance;
 
 public static class AuditEventNames
 {
+    public const string CustomerCreated = "CustomerCreated";
     public const string CustomerProfileUpdated = "CustomerProfileUpdated";
     public const string CustomerEmailUpdated = "CustomerEmailUpdated";
     public const string CustomerPasswordUpdated = "CustomerPasswordUpdated";
