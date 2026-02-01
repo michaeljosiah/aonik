@@ -637,6 +637,19 @@ export interface PartyRelationshipDetail {
   notes?: string | null;
 }
 
+export interface CurrencyAmount {
+  currency: string;
+  amount: number;
+}
+
+export interface CustomerStats {
+  partyId: string;
+  totalOrders: number;
+  totalPaidByCurrency: CurrencyAmount[];
+  outstandingByCurrency: CurrencyAmount[];
+  lastActivityAt?: string | null;
+}
+
 export interface CustomerDetail {
   partyId: string;
   displayName: string;

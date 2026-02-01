@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { customerService } from '@/services/customerService';
-import type { CustomerDetail } from '@/types';
+import type { CurrencyAmount, CustomerDetail, CustomerStats } from '@/types';
 
 const statusStyles: Record<string, { text: string; bg: string }> = {
   Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
@@ -51,6 +51,8 @@ export function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [stats, setStats] = useState<CustomerStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
@@ -72,9 +74,25 @@ export function CustomerDetailPage() {
     }
   }, [partyId]);
 
+  const loadStats = useCallback(async () => {
+    if (!partyId) return;
+
+    setStatsLoading(true);
+    try {
+      const data = await customerService.getStats(partyId);
+      setStats(data);
+    } catch (err: unknown) {
+      console.error('Failed to load customer stats:', err);
+      setStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [partyId]);
+
   useEffect(() => {
     loadCustomer();
-  }, [loadCustomer]);
+    loadStats();
+  }, [loadCustomer, loadStats]);
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return '—';
@@ -94,6 +112,27 @@ export function CustomerDetailPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const formatCurrencyValue = (amount: number, currency: string) => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch {
+      return `${amount.toLocaleString('en-US')} ${currency}`;
+    }
+  };
+
+  const formatCurrencySummary = (amounts?: CurrencyAmount[] | null) => {
+    if (!amounts || amounts.length === 0) return '—';
+    if (amounts.length === 1) {
+      const entry = amounts[0];
+      return formatCurrencyValue(entry.amount, entry.currency);
+    }
+    return `Multiple (${amounts.length})`;
   };
 
   const getInitials = (name?: string | null, email?: string | null) => {
@@ -192,7 +231,10 @@ export function CustomerDetailPage() {
       ? customer.businessProfile?.industry || 'Business customer'
       : customer.personProfile?.occupation || 'Individual customer';
 
-  const lastActivityAt = customer.updatedAt || customer.createdAt;
+  const lastActivityAt = stats?.lastActivityAt || customer.updatedAt || customer.createdAt;
+  const totalOrders = stats?.totalOrders;
+  const totalPaidSummary = formatCurrencySummary(stats?.totalPaidByCurrency);
+  const outstandingSummary = formatCurrencySummary(stats?.outstandingByCurrency);
   const primaryAddress = addresses[0];
 
   return (
@@ -273,15 +315,21 @@ export function CustomerDetailPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-lg border border-[var(--color-border-light)] p-3">
                       <p className="text-xs text-[var(--color-text-tertiary)]">Total orders</p>
-                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">—</p>
+                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        {statsLoading && totalOrders === undefined ? 'Loading...' : totalOrders ?? '—'}
+                      </p>
                     </div>
                     <div className="rounded-lg border border-[var(--color-border-light)] p-3">
                       <p className="text-xs text-[var(--color-text-tertiary)]">Total paid</p>
-                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">—</p>
+                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        {statsLoading && !stats ? 'Loading...' : totalPaidSummary}
+                      </p>
                     </div>
                     <div className="rounded-lg border border-[var(--color-border-light)] p-3">
                       <p className="text-xs text-[var(--color-text-tertiary)]">Outstanding</p>
-                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">—</p>
+                      <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        {statsLoading && !stats ? 'Loading...' : outstandingSummary}
+                      </p>
                     </div>
                     <div className="rounded-lg border border-[var(--color-border-light)] p-3">
                       <p className="text-xs text-[var(--color-text-tertiary)]">Accounts linked</p>

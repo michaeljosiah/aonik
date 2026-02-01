@@ -52,6 +52,19 @@ public record PartyRelationshipDetail(
     string? Notes
 );
 
+public record CurrencyAmount(
+    string Currency,
+    decimal Amount
+);
+
+public record CustomerStats(
+    Guid PartyId,
+    int TotalOrders,
+    IReadOnlyList<CurrencyAmount> TotalPaidByCurrency,
+    IReadOnlyList<CurrencyAmount> OutstandingByCurrency,
+    DateTime? LastActivityAt
+);
+
 public record CustomerDetail(
     Guid PartyId,
     string DisplayName,
