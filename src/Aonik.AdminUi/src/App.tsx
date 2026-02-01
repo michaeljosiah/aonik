@@ -215,6 +215,11 @@ function AppLayout() {
               />
             ) : undefined
           }
+          onWorkspaceReset={
+            isWorkspace
+              ? () => window.dispatchEvent(new CustomEvent('aonik:workspace:reset'))
+              : undefined
+          }
           onFullscreenChange={handleFullscreenChange}
         />
         <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>

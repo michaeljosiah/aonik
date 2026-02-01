@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { WorkspaceProvider } from './WorkspaceProvider';
-import { WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceDock } from './WorkspaceDock';
 import { useWorkspace } from './useWorkspace';
 
 function WorkspacePageContent() {
-  const { openPanel, loadLayout } = useWorkspace();
+  const { openPanel, loadLayout, resetToDefaultLayout } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -29,9 +28,14 @@ function WorkspacePageContent() {
     }
   }, [loadLayout, openPanel, searchParams, setSearchParams]);
 
+  useEffect(() => {
+    const handleReset = () => resetToDefaultLayout();
+    window.addEventListener('aonik:workspace:reset', handleReset);
+    return () => window.removeEventListener('aonik:workspace:reset', handleReset);
+  }, [resetToDefaultLayout]);
+
   return (
     <div className="flex h-full flex-col">
-      <WorkspaceToolbar />
       <WorkspaceDock />
     </div>
   );

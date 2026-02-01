@@ -10,9 +10,10 @@ interface HeaderProps {
   breadcrumb?: string[];
   leftSlot?: React.ReactNode;
   onFullscreenChange?: (isFullscreen: boolean) => void;
+  onWorkspaceReset?: () => void;
 }
 
-export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange }: HeaderProps) {
+export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange, onWorkspaceReset }: HeaderProps) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -100,8 +101,22 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
           </>
         )}
 
+        {onWorkspaceReset && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-3 text-[var(--color-text-secondary)]"
+            onClick={onWorkspaceReset}
+          >
+            Reset layout
+          </Button>
+        )}
+      </nav>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
         {tenantLabel && (
-          <span className="ml-3 flex items-center gap-2 px-2 py-1 rounded-md bg-[var(--color-surface-elevated)] border border-[var(--color-border-light)]">
+          <span className="flex items-center gap-2 px-2 py-1 rounded-md bg-[var(--color-surface-elevated)] border border-[var(--color-border-light)]">
             <Building2 className="w-4 h-4 text-[var(--color-text-tertiary)]" />
             <span className="text-xs text-[var(--color-text-tertiary)]">Tenant</span>
             <span className="text-xs font-medium text-[var(--color-text-primary)] truncate max-w-[14rem]">{tenantLabel}</span>
@@ -112,10 +127,6 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
             )}
           </span>
         )}
-      </nav>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2">
         {/* Theme Toggle */}
         <div className="relative" ref={menuRef}>
           <Button
