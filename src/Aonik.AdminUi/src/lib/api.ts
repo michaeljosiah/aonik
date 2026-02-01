@@ -52,7 +52,7 @@ apiClient.interceptors.request.use(
 const statusMessages: Record<number, string> = {
   400: 'The request was invalid. Check your inputs and try again.',
   401: 'You are not signed in or your session expired. Please sign in and try again.',
-  403: 'You do not have access to perform this action.',
+  403: 'Access denied. You do not have permission to perform this action. Contact your administrator if you believe this is an error.',
   404: 'We could not find what you requested.',
   409: 'This request could not be completed because of a conflict.',
   422: 'Some of the provided data is not valid. Please review and try again.',

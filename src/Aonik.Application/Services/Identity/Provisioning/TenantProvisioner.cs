@@ -525,7 +525,8 @@ public class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootstra
             "Invoice.Update",
             "Invoice.Delete",
             "Invoice.Issue",
-            "Catalog.Read"
+            "Catalog.Read",
+            "Customers.Read"
         };
 
         var permissions = await _dbContext.Permissions
