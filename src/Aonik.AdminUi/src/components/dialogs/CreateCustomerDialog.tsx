@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ArrowLeft, ChevronDown, ChevronUp, User, Building2 } from 'lucide-react';
 
 import {
   Dialog,
@@ -10,24 +10,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
+import { CountrySelect } from '@/components/ui/country-select';
 import type {
   CreateCustomerAddressRequest,
-  CreateCustomerContactRequest,
   CreateCustomerRequest,
 } from '@/types';
+
+type Step = 'selection' | 'person-form' | 'business-form';
 
 interface CreateCustomerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: CreateCustomerRequest) => Promise<void>;
 }
-
-const createEmptyContact = (): CreateCustomerContactRequest => ({
-  type: 'Email',
-  value: '',
-  isPrimary: false,
-});
 
 const createEmptyAddress = (): CreateCustomerAddressRequest => ({
   type: 'Home',
@@ -40,7 +36,7 @@ const createEmptyAddress = (): CreateCustomerAddressRequest => ({
   country: '',
 });
 
-const createEmptyForm = (): CreateCustomerRequest => ({
+const createEmptyPersonForm = (): CreateCustomerRequest => ({
   displayName: '',
   partyType: 'Person',
   status: 'Active',
@@ -52,50 +48,44 @@ const createEmptyForm = (): CreateCustomerRequest => ({
   nationality: '',
   occupation: '',
   countryCode: '',
+  contacts: [
+    { type: 'Email', value: '', isPrimary: true },
+    { type: 'Phone', value: '', isPrimary: false },
+  ],
+  addresses: [],
+});
+
+const createEmptyBusinessForm = (): CreateCustomerRequest => ({
+  displayName: '',
+  partyType: 'Business',
+  status: 'Active',
+  customerTierCode: '',
   registrationNumber: '',
   incorporationCountry: '',
   industry: '',
-  contacts: [createEmptyContact()],
+  contacts: [
+    { type: 'Email', value: '', isPrimary: true },
+    { type: 'Phone', value: '', isPrimary: false },
+  ],
   addresses: [],
 });
 
 export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCustomerDialogProps) {
-  const [activeTab, setActiveTab] = useState('basic');
-  const [formData, setFormData] = useState<CreateCustomerRequest>(() => createEmptyForm());
+  const [step, setStep] = useState<Step>('selection');
+  const [formData, setFormData] = useState<CreateCustomerRequest>(() => createEmptyPersonForm());
+  const [addressExpanded, setAddressExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isPerson = formData.partyType === 'Person';
-
   const isValid = useMemo(() => {
-    return formData.displayName.trim().length > 0 && formData.partyType.length > 0;
-  }, [formData.displayName, formData.partyType]);
-
-  const updateField = <K extends keyof CreateCustomerRequest>(field: K, value: CreateCustomerRequest[K]) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handlePartyTypeChange = (value: 'Person' | 'Business') => {
-    setFormData((prev) => ({
-      ...prev,
-      partyType: value,
-      title: value === 'Person' ? prev.title : '',
-      firstName: value === 'Person' ? prev.firstName : '',
-      lastName: value === 'Person' ? prev.lastName : '',
-      dob: value === 'Person' ? prev.dob : '',
-      nationality: value === 'Person' ? prev.nationality : '',
-      occupation: value === 'Person' ? prev.occupation : '',
-      countryCode: value === 'Person' ? prev.countryCode : '',
-      registrationNumber: value === 'Business' ? prev.registrationNumber : '',
-      incorporationCountry: value === 'Business' ? prev.incorporationCountry : '',
-      industry: value === 'Business' ? prev.industry : '',
-    }));
-    setActiveTab('profile');
-  };
+    if (!formData.displayName.trim()) return false;
+    return true;
+  }, [formData.displayName]);
 
   const resetForm = () => {
-    setFormData(createEmptyForm());
-    setActiveTab('basic');
+    setStep('selection');
+    setFormData(createEmptyPersonForm());
+    setAddressExpanded(false);
     setError(null);
   };
 
@@ -104,6 +94,21 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
       resetForm();
     }
     onOpenChange(nextOpen);
+  };
+
+  const handleSelectPerson = () => {
+    setFormData(createEmptyPersonForm());
+    setStep('person-form');
+  };
+
+  const handleSelectBusiness = () => {
+    setFormData(createEmptyBusinessForm());
+    setStep('business-form');
+  };
+
+  const handleBack = () => {
+    setStep('selection');
+    setAddressExpanded(false);
   };
 
   const handleSave = async () => {
@@ -120,456 +125,663 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     }
   };
 
-  const addContact = () => {
-    setFormData((prev) => ({
-      ...prev,
-      contacts: [...prev.contacts, createEmptyContact()],
-    }));
+  const updateField = <K extends keyof CreateCustomerRequest>(field: K, value: CreateCustomerRequest[K]) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const removeContact = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      contacts: prev.contacts.filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateContact = (index: number, field: keyof CreateCustomerContactRequest, value: unknown) => {
+  const updateContact = (index: number, value: string) => {
     setFormData((prev) => ({
       ...prev,
       contacts: prev.contacts.map((contact, i) =>
-        i === index ? { ...contact, [field]: value } : contact,
+        i === index ? { ...contact, value } : contact
       ),
     }));
   };
 
-  const addAddress = () => {
-    setFormData((prev) => ({
-      ...prev,
-      addresses: [...prev.addresses, createEmptyAddress()],
-    }));
+  const updateAddress = (field: keyof CreateCustomerAddressRequest, value: string) => {
+    setFormData((prev) => {
+      const currentAddress = prev.addresses[0] || createEmptyAddress();
+      const updatedAddress = { ...currentAddress, [field]: value };
+      return {
+        ...prev,
+        addresses: [updatedAddress],
+      };
+    });
   };
 
-  const removeAddress = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      addresses: prev.addresses.filter((_, i) => i !== index),
-    }));
-  };
+  const SelectionScreen = () => (
+    <div className="space-y-6">
+      <DialogHeader>
+        <DialogTitle>Create New Customer</DialogTitle>
+        <DialogDescription>
+          Choose the type of customer you want to register
+        </DialogDescription>
+      </DialogHeader>
 
-  const updateAddress = (index: number, field: keyof CreateCustomerAddressRequest, value: unknown) => {
-    setFormData((prev) => ({
-      ...prev,
-      addresses: prev.addresses.map((address, i) =>
-        i === index ? { ...address, [field]: value } : address,
-      ),
-    }));
-  };
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Person Card */}
+        <Card
+          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-[var(--color-brand-primary)] group"
+          onClick={handleSelectPerson}
+        >
+          <div className="h-32 bg-gradient-to-br from-[var(--color-brand-primary)] to-[var(--color-brand-secondary)] flex items-center justify-center relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20">
+              <img
+                src="/assets/images/person-card.png"
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback to icon if image fails to load
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+            <User className="w-16 h-16 text-white relative z-10" />
+          </div>
+          <div className="p-5">
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2 group-hover:text-[var(--color-brand-primary)] transition-colors">
+              Individual Person
+            </h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Register an individual customer with personal details, contact information, and address.
+            </p>
+          </div>
+        </Card>
 
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create New Customer</DialogTitle>
-          <DialogDescription>
-            Add a new customer to your tenant. Mandatory fields are marked with an asterisk.
-          </DialogDescription>
-        </DialogHeader>
+        {/* Business Card */}
+        <Card
+          className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-[var(--color-brand-primary)] group"
+          onClick={handleSelectBusiness}
+        >
+          <div className="h-32 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20">
+              <img
+                src="/assets/images/business-card.png"
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+            <Building2 className="w-16 h-16 text-white relative z-10" />
+          </div>
+          <div className="p-5">
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2 group-hover:text-[var(--color-brand-primary)] transition-colors">
+              Business Entity
+            </h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Register a business or organization with company details, contact information, and address.
+            </p>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
 
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-[var(--color-text-primary)]">
-            Party Type <span className="text-[var(--color-error)]">*</span>
-          </label>
-          <select
-            value={formData.partyType}
-            onChange={(e) => handlePartyTypeChange(e.target.value as 'Person' | 'Business')}
-            className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-          >
-            <option value="Person">Person</option>
-            <option value="Business">Business</option>
-          </select>
+  const PersonForm = () => (
+    <div className="space-y-6">
+      <DialogHeader>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon-sm" onClick={handleBack} className="-ml-2">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <DialogTitle>Register Individual</DialogTitle>
+        </div>
+        <DialogDescription>
+          Enter the individual's information below
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+        {/* Basic Info */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+            Basic Information
+          </h4>
+          
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              Display Name <span className="text-[var(--color-error)]">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.displayName}
+              onChange={(e) => updateField('displayName', e.target.value)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              placeholder="Enter display name"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => updateField('status', e.target.value)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              >
+                <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
+                <option value="Deactivated">Deactivated</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
+              <input
+                type="text"
+                value={formData.customerTierCode || ''}
+                onChange={(e) => updateField('customerTierCode', e.target.value || null)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                placeholder="e.g., Standard, Premium"
+              />
+            </div>
+          </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-4 bg-transparent p-0 h-auto gap-0 border-b border-[var(--color-border-light)]">
-            <TabsTrigger
-              value="basic"
-              className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:text-[var(--color-brand-primary)]"
-            >
-              Basic Info *
-            </TabsTrigger>
-            <TabsTrigger
-              value="profile"
-              className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:text-[var(--color-brand-primary)]"
-            >
-              {isPerson ? 'Personal Profile' : 'Business Profile'}
-            </TabsTrigger>
-            <TabsTrigger
-              value="contacts"
-              className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:text-[var(--color-brand-primary)]"
-            >
-              Contacts
-            </TabsTrigger>
-            <TabsTrigger
-              value="addresses"
-              className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:text-[var(--color-brand-primary)]"
-            >
-              Addresses
-            </TabsTrigger>
-          </TabsList>
+        {/* Personal Details */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+            Personal Details
+          </h4>
+          
+          <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
+              <select
+                value={formData.title || ''}
+                onChange={(e) => updateField('title', e.target.value || null)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              >
+                <option value="">Select title</option>
+                <option value="Mr">Mr</option>
+                <option value="Mrs">Mrs</option>
+                <option value="Ms">Ms</option>
+                <option value="Dr">Dr</option>
+                <option value="Prof">Prof</option>
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">First Name</label>
+              <input
+                type="text"
+                value={formData.firstName || ''}
+                onChange={(e) => updateField('firstName', e.target.value || null)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Last Name</label>
+              <input
+                type="text"
+                value={formData.lastName || ''}
+                onChange={(e) => updateField('lastName', e.target.value || null)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              />
+            </div>
+          </div>
 
-          <TabsContent value="basic" className="mt-6 space-y-4">
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">
-                  Display Name <span className="text-[var(--color-error)]">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.displayName}
-                  onChange={(e) => updateField('displayName', e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  placeholder="Enter display name"
-                />
-              </div>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Date of Birth</label>
+            <input
+              type="date"
+              value={formData.dob || ''}
+              onChange={(e) => updateField('dob', e.target.value || null)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+            />
+          </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Nationality</label>
+              <CountrySelect
+                value={formData.nationality || ''}
+                onChange={(value) => updateField('nationality', value || null)}
+                placeholder="Select nationality"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Occupation</label>
+              <input
+                type="text"
+                value={formData.occupation || ''}
+                onChange={(e) => updateField('occupation', e.target.value || null)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+            <CountrySelect
+              value={formData.countryCode || ''}
+              onChange={(value) => updateField('countryCode', value || null)}
+              placeholder="Select country"
+            />
+          </div>
+        </div>
+
+        {/* Contact Information */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+            Contact Information
+          </h4>
+          
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
+            <input
+              type="email"
+              value={formData.contacts[0]?.value || ''}
+              onChange={(e) => updateContact(0, e.target.value)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              placeholder="email@example.com"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
+            <input
+              type="tel"
+              value={formData.contacts[1]?.value || ''}
+              onChange={(e) => updateContact(1, e.target.value)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              placeholder="+1234567890"
+            />
+          </div>
+        </div>
+
+        {/* Address Section - Collapsible */}
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => setAddressExpanded(!addressExpanded)}
+            className="flex items-center justify-between w-full text-left group"
+          >
+            <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2 flex-1">
+              Address Details
+            </h4>
+            <span className="ml-2 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-brand-primary)] transition-colors">
+              {addressExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </span>
+          </button>
+
+          {addressExpanded && (
+            <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+                <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
                 <select
-                  value={formData.status}
-                  onChange={(e) => updateField('status', e.target.value)}
+                  value={formData.addresses[0]?.type || 'Home'}
+                  onChange={(e) => updateAddress('type', e.target.value)}
                   className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
                 >
-                  <option value="Active">Active</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Deactivated">Deactivated</option>
-                  <option value="Suspended">Suspended</option>
+                  <option value="Home">Home</option>
+                  <option value="Work">Work</option>
+                  <option value="Billing">Billing</option>
+                  <option value="Shipping">Shipping</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier Code</label>
+                <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 1</label>
                 <input
                   type="text"
-                  value={formData.customerTierCode || ''}
-                  onChange={(e) => updateField('customerTierCode', e.target.value || null)}
+                  value={formData.addresses[0]?.line1 || ''}
+                  onChange={(e) => updateAddress('line1', e.target.value)}
                   className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  placeholder="e.g., Standard, Premium"
+                  placeholder="Street address"
                 />
               </div>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="profile" className="mt-6 space-y-4">
-            {isPerson ? (
-              <div className="grid gap-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
-                    <select
-                      value={formData.title || ''}
-                      onChange={(e) => updateField('title', e.target.value || null)}
-                      className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                    >
-                      <option value="">Select title</option>
-                      <option value="Mr">Mr</option>
-                      <option value="Mrs">Mrs</option>
-                      <option value="Ms">Ms</option>
-                      <option value="Dr">Dr</option>
-                      <option value="Prof">Prof</option>
-                    </select>
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-[var(--color-text-primary)]">First Name</label>
-                    <input
-                      type="text"
-                      value={formData.firstName || ''}
-                      onChange={(e) => updateField('firstName', e.target.value || null)}
-                      className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-[var(--color-text-primary)]">Last Name</label>
-                    <input
-                      type="text"
-                      value={formData.lastName || ''}
-                      onChange={(e) => updateField('lastName', e.target.value || null)}
-                      className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                    />
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={formData.dob || ''}
-                    onChange={(e) => updateField('dob', e.target.value || null)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-[var(--color-text-primary)]">Nationality</label>
-                    <input
-                      type="text"
-                      value={formData.nationality || ''}
-                      onChange={(e) => updateField('nationality', e.target.value || null)}
-                      className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-[var(--color-text-primary)]">Occupation</label>
-                    <input
-                      type="text"
-                      value={formData.occupation || ''}
-                      onChange={(e) => updateField('occupation', e.target.value || null)}
-                      className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Country Code</label>
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 2</label>
                   <input
                     type="text"
-                    value={formData.countryCode || ''}
-                    onChange={(e) => updateField('countryCode', e.target.value || null)}
+                    value={formData.addresses[0]?.line2 || ''}
+                    onChange={(e) => updateAddress('line2', e.target.value)}
                     className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                    placeholder="e.g., US, GB, NG"
-                    maxLength={2}
+                    placeholder="Apartment, suite, etc."
                   />
                 </div>
-              </div>
-            ) : (
-              <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Registration Number</label>
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 3</label>
                   <input
                     type="text"
-                    value={formData.registrationNumber || ''}
-                    onChange={(e) => updateField('registrationNumber', e.target.value || null)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Incorporation Country</label>
-                  <input
-                    type="text"
-                    value={formData.incorporationCountry || ''}
-                    onChange={(e) => updateField('incorporationCountry', e.target.value || null)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Industry</label>
-                  <input
-                    type="text"
-                    value={formData.industry || ''}
-                    onChange={(e) => updateField('industry', e.target.value || null)}
+                    value={formData.addresses[0]?.line3 || ''}
+                    onChange={(e) => updateAddress('line3', e.target.value)}
                     className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
                   />
                 </div>
               </div>
-            )}
-          </TabsContent>
 
-          <TabsContent value="contacts" className="mt-6 space-y-4">
-            <div className="space-y-4">
-              {formData.contacts.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-6">
-                  No contacts added yet. Use the button below to add one.
-                </p>
-              ) : (
-                formData.contacts.map((contact, index) => (
-                  <div
-                    key={`${contact.type}-${index}`}
-                    className="flex items-start gap-3 p-4 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)]"
-                  >
-                    <div className="flex-1 grid grid-cols-3 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Type</label>
-                        <select
-                          value={contact.type}
-                          onChange={(e) => updateContact(index, 'type', e.target.value as 'Email' | 'Phone')}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        >
-                          <option value="Email">Email</option>
-                          <option value="Phone">Phone</option>
-                        </select>
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Value</label>
-                        <input
-                          type={contact.type === 'Email' ? 'email' : 'tel'}
-                          value={contact.value}
-                          onChange={(e) => updateContact(index, 'value', e.target.value)}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                          placeholder={contact.type === 'Email' ? 'email@example.com' : '+1234567890'}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Primary</label>
-                        <div className="flex items-center h-10">
-                          <input
-                            type="checkbox"
-                            checked={contact.isPrimary}
-                            onChange={(e) => updateContact(index, 'isPrimary', e.target.checked)}
-                            className="w-4 h-4 rounded border-[var(--color-border)] text-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeContact(index)}
-                      className="mt-6"
-                    >
-                      <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
-                    </Button>
-                  </div>
-                ))
-              )}
-              <Button variant="outline" onClick={addContact} className="w-full">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Contact
-              </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.city || ''}
+                    onChange={(e) => updateAddress('city', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.state || ''}
+                    onChange={(e) => updateAddress('state', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.postcode || ''}
+                    onChange={(e) => updateAddress('postcode', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+                  <CountrySelect
+                    value={formData.addresses[0]?.country || ''}
+                    onChange={(value) => updateAddress('country', value)}
+                    placeholder="Select country"
+                  />
+                </div>
+              </div>
             </div>
-          </TabsContent>
+          )}
+        </div>
+      </div>
 
-          <TabsContent value="addresses" className="mt-6 space-y-4">
-            <div className="space-y-4">
-              {formData.addresses.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-6">
-                  No addresses added yet. Use the button below to add one.
-                </p>
-              ) : (
-                formData.addresses.map((address, index) => (
-                  <div
-                    key={`${address.type}-${index}`}
-                    className="p-4 border border-[var(--color-border)] rounded-md bg-[var(--color-surface)] space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-48">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Type</label>
-                        <select
-                          value={address.type}
-                          onChange={(e) => updateAddress(index, 'type', e.target.value)}
-                          className="mt-1 flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        >
-                          <option value="Home">Home</option>
-                          <option value="Work">Work</option>
-                          <option value="Billing">Billing</option>
-                          <option value="Shipping">Shipping</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeAddress(index)}>
-                        <Trash2 className="w-4 h-4 text-[var(--color-error)]" />
-                      </Button>
-                    </div>
+      {error && (
+        <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          {error}
+        </div>
+      )}
 
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 1</label>
-                      <input
-                        type="text"
-                        value={address.line1}
-                        onChange={(e) => updateAddress(index, 'line1', e.target.value)}
-                        className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                      />
-                    </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={handleBack} disabled={saving}>
+          Back
+        </Button>
+        <Button onClick={handleSave} disabled={saving || !isValid}>
+          {saving ? 'Creating...' : 'Create Customer'}
+        </Button>
+      </DialogFooter>
+    </div>
+  );
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 2</label>
-                        <input
-                          type="text"
-                          value={address.line2 || ''}
-                          onChange={(e) => updateAddress(index, 'line2', e.target.value || null)}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 3</label>
-                        <input
-                          type="text"
-                          value={address.line3 || ''}
-                          onChange={(e) => updateAddress(index, 'line3', e.target.value || null)}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        />
-                      </div>
-                    </div>
+  const BusinessForm = () => (
+    <div className="space-y-6">
+      <DialogHeader>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon-sm" onClick={handleBack} className="-ml-2">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <DialogTitle>Register Business</DialogTitle>
+        </div>
+        <DialogDescription>
+          Enter the business information below
+        </DialogDescription>
+      </DialogHeader>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
-                        <input
-                          type="text"
-                          value={address.city}
-                          onChange={(e) => updateAddress(index, 'city', e.target.value)}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
-                        <input
-                          type="text"
-                          value={address.state || ''}
-                          onChange={(e) => updateAddress(index, 'state', e.target.value || null)}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
-                        <input
-                          type="text"
-                          value={address.postcode}
-                          onChange={(e) => updateAddress(index, 'postcode', e.target.value)}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
-                        <input
-                          type="text"
-                          value={address.country}
-                          onChange={(e) => updateAddress(index, 'country', e.target.value)}
-                          className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-              <Button variant="outline" onClick={addAddress} className="w-full">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Address
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {error && (
-          <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
-            {error}
+      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+        {/* Basic Info */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+            Basic Information
+          </h4>
+          
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">
+              Display Name <span className="text-[var(--color-error)]">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.displayName}
+              onChange={(e) => updateField('displayName', e.target.value)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              placeholder="Enter business display name"
+            />
           </div>
-        )}
 
-        <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={() => handleClose(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving || !isValid}>
-            {saving ? 'Creating...' : 'Create Customer'}
-          </Button>
-        </DialogFooter>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => updateField('status', e.target.value)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              >
+                <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
+                <option value="Deactivated">Deactivated</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
+              <input
+                type="text"
+                value={formData.customerTierCode || ''}
+                onChange={(e) => updateField('customerTierCode', e.target.value || null)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                placeholder="e.g., Standard, Premium"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Business Details */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+            Business Details
+          </h4>
+          
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Registration Number</label>
+            <input
+              type="text"
+              value={formData.registrationNumber || ''}
+              onChange={(e) => updateField('registrationNumber', e.target.value || null)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              placeholder="Company registration number"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Incorporation Country</label>
+              <CountrySelect
+                value={formData.incorporationCountry || ''}
+                onChange={(value) => updateField('incorporationCountry', value || null)}
+                placeholder="Select country"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[var(--color-text-primary)]">Industry</label>
+              <input
+                type="text"
+                value={formData.industry || ''}
+                onChange={(e) => updateField('industry', e.target.value || null)}
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Contact Information */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">
+            Contact Information
+          </h4>
+          
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
+            <input
+              type="email"
+              value={formData.contacts[0]?.value || ''}
+              onChange={(e) => updateContact(0, e.target.value)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              placeholder="business@example.com"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
+            <input
+              type="tel"
+              value={formData.contacts[1]?.value || ''}
+              onChange={(e) => updateContact(1, e.target.value)}
+              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              placeholder="+1234567890"
+            />
+          </div>
+        </div>
+
+        {/* Address Section - Collapsible */}
+        <div className="space-y-4">
+          <button
+            type="button"
+            onClick={() => setAddressExpanded(!addressExpanded)}
+            className="flex items-center justify-between w-full text-left group"
+          >
+            <h4 className="text-sm font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2 flex-1">
+              Address Details
+            </h4>
+            <span className="ml-2 text-[var(--color-text-tertiary)] group-hover:text-[var(--color-brand-primary)] transition-colors">
+              {addressExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </span>
+          </button>
+
+          {addressExpanded && (
+            <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
+                <select
+                  value={formData.addresses[0]?.type || 'Work'}
+                  onChange={(e) => updateAddress('type', e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                >
+                  <option value="Work">Work</option>
+                  <option value="Billing">Billing</option>
+                  <option value="Shipping">Shipping</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 1</label>
+                <input
+                  type="text"
+                  value={formData.addresses[0]?.line1 || ''}
+                  onChange={(e) => updateAddress('line1', e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  placeholder="Street address"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 2</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.line2 || ''}
+                    onChange={(e) => updateAddress('line2', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    placeholder="Suite, floor, etc."
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Line 3</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.line3 || ''}
+                    onChange={(e) => updateAddress('line3', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.city || ''}
+                    onChange={(e) => updateAddress('city', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.state || ''}
+                    onChange={(e) => updateAddress('state', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
+                  <input
+                    type="text"
+                    value={formData.addresses[0]?.postcode || ''}
+                    onChange={(e) => updateAddress('postcode', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
+                  <CountrySelect
+                    value={formData.addresses[0]?.country || ''}
+                    onChange={(value) => updateAddress('country', value)}
+                    placeholder="Select country"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-[var(--color-error-light)] p-3 text-sm text-[var(--color-error)]">
+          {error}
+        </div>
+      )}
+
+      <DialogFooter>
+        <Button variant="outline" onClick={handleBack} disabled={saving}>
+          Back
+        </Button>
+        <Button onClick={handleSave} disabled={saving || !isValid}>
+          {saving ? 'Creating...' : 'Create Customer'}
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent 
+        className={`
+          ${step === 'selection' ? 'sm:max-w-[700px]' : 'sm:max-w-[600px]'} 
+          max-h-[90vh] overflow-y-auto
+        `}
+      >
+        {step === 'selection' && <SelectionScreen />}
+        {step === 'person-form' && <PersonForm />}
+        {step === 'business-form' && <BusinessForm />}
       </DialogContent>
     </Dialog>
   );
