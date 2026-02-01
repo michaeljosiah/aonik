@@ -8,13 +8,20 @@ import { cn } from '@/lib/utils';
 
 interface AppCardProps {
   app: AppCardType;
+  onLaunch?: (appId: string) => void;
 }
 
-function StatusBadge({ status }: { status: AppStatus }) {
+function StatusBadge({ status, onLaunch }: { status: AppStatus; onLaunch?: () => void }) {
   switch (status) {
     case 'active':
       return (
-        <Button variant="success" size="sm" className="h-7 text-xs gap-1.5">
+        <Button
+          variant="success"
+          size="sm"
+          className="h-7 text-xs gap-1.5"
+          onClick={onLaunch}
+          disabled={!onLaunch}
+        >
           <Play className="w-3 h-3" />
           Launch
         </Button>
@@ -58,7 +65,7 @@ function AppIcon({ app }: { app: AppCardType }) {
   );
 }
 
-export function AppCard({ app }: AppCardProps) {
+export function AppCard({ app, onLaunch }: AppCardProps) {
   return (
     <div className="relative pt-7">
       {/* Icon positioned to overlap the card top */}
@@ -70,7 +77,7 @@ export function AppCard({ app }: AppCardProps) {
         {/* Header with Actions (icon space reserved) */}
         <div className="p-4 pb-0 flex items-start justify-end">
           <div className="flex items-center gap-1">
-            <StatusBadge status={app.status} />
+            <StatusBadge status={app.status} onLaunch={onLaunch ? () => onLaunch(app.id) : undefined} />
             <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-tertiary)]">
               <CheckSquare className="w-4 h-4" />
             </Button>

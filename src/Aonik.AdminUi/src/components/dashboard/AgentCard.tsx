@@ -6,6 +6,7 @@ import type { AgentCard as AgentCardType, VisibilityLevel } from '@/types';
 
 interface AgentCardProps {
   agent: AgentCardType;
+  onChat?: (agentId: string) => void;
 }
 
 function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
@@ -50,7 +51,7 @@ function PluginIcon({ color }: { color: string }) {
   );
 }
 
-export function AgentCard({ agent }: AgentCardProps) {
+export function AgentCard({ agent, onChat }: AgentCardProps) {
   const pluginColors = ['#E8A838', '#0D7377', '#3B82F6'];
 
   return (
@@ -122,7 +123,12 @@ export function AgentCard({ agent }: AgentCardProps) {
           </div>
 
           {/* Chat Button */}
-          <Button variant="default" className="w-full mt-auto gap-2">
+          <Button
+            variant="default"
+            className="w-full mt-auto gap-2"
+            onClick={() => onChat?.(agent.id)}
+            disabled={!onChat}
+          >
             <MessageSquare className="w-4 h-4" />
             Chat with agent
           </Button>

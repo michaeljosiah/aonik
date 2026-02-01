@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ActivityFeed,
   BannerCarousel,
@@ -20,8 +21,10 @@ import {
   myDataboxes,
 } from '@/data/mockData';
 import { getActiveContentBlocks } from '@/services/contentBlockService';
+import { getWorkspacePanelForApp } from '@/workspace/registry';
 
 export function MySpacePage() {
+  const navigate = useNavigate();
   const [showResumeSetup, setShowResumeSetup] = useState(false);
   const [bannerImages, setBannerImages] = useState<Array<{ src: string; alt: string }>>([]);
   const defaultBannerImages = [
@@ -58,6 +61,17 @@ export function MySpacePage() {
 
     loadBanner();
   }, []);
+
+  const handleLaunchApp = (appId: string) => {
+    const panel = getWorkspacePanelForApp(appId);
+    if (!panel) return;
+    navigate(`/workspace?panel=${panel.id}`);
+  };
+
+  const handleChatAgent = (agentId: string) => {
+    void agentId;
+    navigate('/ai/chat');
+  };
 
   return (
     <div className="flex-1 overflow-auto">
@@ -123,7 +137,7 @@ export function MySpacePage() {
               <MyAppsHeader />
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-6">
                 {myApps.map((app) => (
-                  <AppCard key={app.id} app={app} />
+                  <AppCard key={app.id} app={app} onLaunch={handleLaunchApp} />
                 ))}
               </div>
             </CardContent>
@@ -139,7 +153,7 @@ export function MySpacePage() {
                 <MyAgentsHeader />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {myAgents.map((agent) => (
-                    <AgentCard key={agent.id} agent={agent} />
+                    <AgentCard key={agent.id} agent={agent} onChat={handleChatAgent} />
                   ))}
                 </div>
               </CardContent>
