@@ -52,7 +52,7 @@ const createEmptyPersonForm = (): CreateCustomerRequest => ({
   title: '',
   firstName: '',
   lastName: '',
-  dob: '',
+  dob: null,
   nationality: '',
   occupation: '',
   countryCode: '',
@@ -76,6 +76,27 @@ const createEmptyBusinessForm = (): CreateCustomerRequest => ({
     { type: 'Phone', value: '', isPrimary: false },
   ],
   addresses: [],
+});
+
+const normalizeOptional = (value?: string | null) => {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizeCustomerRequest = (request: CreateCustomerRequest): CreateCustomerRequest => ({
+  ...request,
+  customerTierCode: normalizeOptional(request.customerTierCode),
+  title: normalizeOptional(request.title),
+  firstName: normalizeOptional(request.firstName),
+  lastName: normalizeOptional(request.lastName),
+  dob: normalizeOptional(request.dob),
+  nationality: normalizeOptional(request.nationality),
+  occupation: normalizeOptional(request.occupation),
+  countryCode: normalizeOptional(request.countryCode),
+  registrationNumber: normalizeOptional(request.registrationNumber),
+  incorporationCountry: normalizeOptional(request.incorporationCountry),
+  industry: normalizeOptional(request.industry),
 });
 
 export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCustomerDialogProps) {
@@ -126,7 +147,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     setSaving(true);
     setError(null);
     try {
-      await onSave(formData);
+      await onSave(normalizeCustomerRequest(formData));
       handleClose(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create customer');

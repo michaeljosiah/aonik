@@ -86,6 +86,7 @@ public static class DependencyInjection
 
         services.AddScoped<IFeatureManager, DatabaseFeatureManager>();
         services.AddScoped<Aonik.Application.Services.Seeding.IDemoSeedService, DemoSeedService>();
+        services.AddScoped<Aonik.Application.Services.Seeding.IPermissionSeedService, PermissionSeedService>();
 
         // Blob Storage: Create IBlobStorage for profile photos
         services.AddSingleton<IBlobStorage>(sp =>

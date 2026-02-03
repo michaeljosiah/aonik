@@ -219,6 +219,7 @@ export const navigationSections: NavigationSection[] = [
             items: [
               { id: 'api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
               { id: 'audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
+              { id: 'system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
             ],
           },
         ],

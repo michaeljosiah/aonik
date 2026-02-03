@@ -52,6 +52,7 @@ import {
   Webhook,
   ScrollText,
   Hash,
+  Wrench,
   Globe,
   Layers,
   Image,
@@ -106,6 +107,7 @@ const iconMap: Record<string, React.ElementType> = {
   Webhook,
   ScrollText,
   Hash,
+  Wrench,
   // Catalog
   Globe,
   // CMS

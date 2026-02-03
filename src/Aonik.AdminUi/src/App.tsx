@@ -34,6 +34,7 @@ import {
   ContentBlockEditPage,
   MediaLibraryPage,
   AutonumberingPage,
+  SystemToolsPage,
   FxRatesPage,
   CustomersListPage,
   CustomerDetailPage,
@@ -279,6 +280,7 @@ function AppLayout() {
             <Route path="/settings/audit-logs" element={<PlaceholderPage title="Audit Logs" />} />
             <Route path="/settings/autonumbering" element={<AutonumberingPage />} />
             <Route path="/settings/fx-rates" element={<FxRatesPage />} />
+            <Route path="/settings/system-tools" element={<SystemToolsPage />} />
             
             {/* CMS */}
             <Route path="/cms/content-blocks" element={<ContentBlocksListPage />} />

@@ -24,6 +24,6 @@ export { AiChatMock } from './ai/AiChatMock';
 export { ContentBlocksListPage } from './ContentBlocksListPage';
 export { ContentBlockEditPage } from './ContentBlockEditPage';
 export { MediaLibraryPage } from './MediaLibraryPage';
-export { AutonumberingPage } from './settings';
+export { AutonumberingPage, SystemToolsPage } from './settings';
 export { FxRatesPage } from './FxRatesPage';
 export { WorkspacePage } from '../workspace/WorkspacePage';

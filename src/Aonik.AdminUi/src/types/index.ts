@@ -858,6 +858,12 @@ export interface DemoSeedResponse {
   operations: string[];
 }
 
+export interface PermissionSeedResponse {
+  tenantId: string;
+  seededAt: string;
+  operations: string[];
+}
+
 // Autonumbering Types
 export type AutonumberStrategy = 'Sequential' | 'Random' | 'Hybrid';
 export type AutonumberResetPolicy = 'None' | 'Monthly' | 'Yearly';

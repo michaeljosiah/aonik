@@ -20,6 +20,7 @@ public static class AuditEventNames
     public const string TenantUpdated = "TenantUpdated";
     public const string TenantFeaturesUpdated = "TenantFeaturesUpdated";
     public const string TenantDemoSeeded = "TenantDemoSeeded";
+    public const string PermissionsSeeded = "PermissionsSeeded";
     public const string UserProvisioned = "UserProvisioned";
     public const string UserRoleAssigned = "UserRoleAssigned";
     public const string UserRoleRemoved = "UserRoleRemoved";
