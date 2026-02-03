@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, User, Building2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, User, Building2, Mail, Phone } from 'lucide-react';
 
 import {
   Dialog,
@@ -12,6 +12,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CountrySelect } from '@/components/ui/country-select';
+import { InputGroup } from '@/components/ui/input-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type {
   CreateCustomerAddressRequest,
   CreateCustomerRequest,
@@ -78,7 +86,6 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
   const [error, setError] = useState<string | null>(null);
   const fieldClassName =
     "flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]";
-  const selectFieldClassName = `${fieldClassName} appearance-none`;
 
   const isValid = useMemo(() => {
     if (!formData.displayName.trim()) return false;
@@ -259,16 +266,17 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => updateField('status', e.target.value)}
-                className={selectFieldClassName}
-              >
-                <option value="Active">Active</option>
-                <option value="Pending">Pending</option>
-                <option value="Deactivated">Deactivated</option>
-                <option value="Suspended">Suspended</option>
-              </select>
+              <Select value={formData.status} onValueChange={(value) => updateField('status', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Deactivated">Deactivated</SelectItem>
+                  <SelectItem value="Suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
@@ -292,18 +300,18 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           <div className="grid grid-cols-3 gap-4 items-start">
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
-              <select
-                value={formData.title || ''}
-                onChange={(e) => updateField('title', e.target.value || null)}
-                className={selectFieldClassName}
-              >
-                <option value="">Select title</option>
-                <option value="Mr">Mr</option>
-                <option value="Mrs">Mrs</option>
-                <option value="Ms">Ms</option>
-                <option value="Dr">Dr</option>
-                <option value="Prof">Prof</option>
-              </select>
+              <Select value={formData.title || ''} onValueChange={(value) => updateField('title', value || null)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select title" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Mr">Mr</SelectItem>
+                  <SelectItem value="Mrs">Mrs</SelectItem>
+                  <SelectItem value="Ms">Ms</SelectItem>
+                  <SelectItem value="Dr">Dr</SelectItem>
+                  <SelectItem value="Prof">Prof</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">First Name</label>
@@ -372,22 +380,22 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
-            <input
+            <InputGroup
               type="email"
+              icon={<Mail className="w-4 h-4" aria-hidden="true" />}
               value={formData.contacts[0]?.value || ''}
               onChange={(e) => updateContact(0, e.target.value)}
-              className={fieldClassName}
               placeholder="email@example.com"
             />
           </div>
 
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
-            <input
+            <InputGroup
               type="tel"
+              icon={<Phone className="w-4 h-4" aria-hidden="true" />}
               value={formData.contacts[1]?.value || ''}
               onChange={(e) => updateContact(1, e.target.value)}
-              className={fieldClassName}
               placeholder="+1234567890"
             />
           </div>
@@ -412,17 +420,21 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
-                <select
+                <Select
                   value={formData.addresses[0]?.type || 'Home'}
-                  onChange={(e) => updateAddress('type', e.target.value)}
-                  className={selectFieldClassName}
+                  onValueChange={(value) => updateAddress('type', value as CreateCustomerAddressRequest['type'])}
                 >
-                  <option value="Home">Home</option>
-                  <option value="Work">Work</option>
-                  <option value="Billing">Billing</option>
-                  <option value="Shipping">Shipping</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select address type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Home">Home</SelectItem>
+                    <SelectItem value="Work">Work</SelectItem>
+                    <SelectItem value="Billing">Billing</SelectItem>
+                    <SelectItem value="Shipping">Shipping</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-2">
@@ -557,16 +569,17 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => updateField('status', e.target.value)}
-                className={selectFieldClassName}
-              >
-                <option value="Active">Active</option>
-                <option value="Pending">Pending</option>
-                <option value="Deactivated">Deactivated</option>
-                <option value="Suspended">Suspended</option>
-              </select>
+              <Select value={formData.status} onValueChange={(value) => updateField('status', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Deactivated">Deactivated</SelectItem>
+                  <SelectItem value="Suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Customer Tier</label>
@@ -627,22 +640,22 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Email Address</label>
-            <input
+            <InputGroup
               type="email"
+              icon={<Mail className="w-4 h-4" aria-hidden="true" />}
               value={formData.contacts[0]?.value || ''}
               onChange={(e) => updateContact(0, e.target.value)}
-              className={fieldClassName}
               placeholder="business@example.com"
             />
           </div>
 
           <div className="grid gap-2">
             <label className="text-sm font-medium text-[var(--color-text-primary)]">Phone Number</label>
-            <input
+            <InputGroup
               type="tel"
+              icon={<Phone className="w-4 h-4" aria-hidden="true" />}
               value={formData.contacts[1]?.value || ''}
               onChange={(e) => updateContact(1, e.target.value)}
-              className={fieldClassName}
               placeholder="+1234567890"
             />
           </div>
@@ -667,16 +680,20 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-[var(--color-text-primary)]">Address Type</label>
-                <select
+                <Select
                   value={formData.addresses[0]?.type || 'Work'}
-                  onChange={(e) => updateAddress('type', e.target.value)}
-                  className={selectFieldClassName}
+                  onValueChange={(value) => updateAddress('type', value as CreateCustomerAddressRequest['type'])}
                 >
-                  <option value="Work">Work</option>
-                  <option value="Billing">Billing</option>
-                  <option value="Shipping">Shipping</option>
-                  <option value="Other">Other</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select address type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Work">Work</SelectItem>
+                    <SelectItem value="Billing">Billing</SelectItem>
+                    <SelectItem value="Shipping">Shipping</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-2">

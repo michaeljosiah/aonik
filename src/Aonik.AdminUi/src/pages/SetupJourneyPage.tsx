@@ -5,6 +5,14 @@ import 'reactflow/dist/style.css';
 import { CheckCircle2, Circle, PauseCircle, PlayCircle, ArrowRight, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { CountrySelect } from '@/components/ui/country-select';
 import { cn } from '@/lib/utils';
 import type { SetupGuideDefinition, SetupGuideManifest } from '@/services/setupGuideService';
 import { getSetupGuideManifest } from '@/services/setupGuideService';
@@ -13,7 +21,7 @@ import { demoSeedService } from '@/services/demoSeedService';
 import { identityService } from '@/services/identityService';
 import { tenantService } from '@/services/tenantService';
 import { tenantFeatureService } from '@/services/tenantFeatureService';
-import type { CatalogCountryItem, CatalogCurrencyItem, Tenant } from '@/types';
+import type { CatalogCurrencyItem, Tenant } from '@/types';
 
 type StepStatus = 'todo' | 'in-progress' | 'blocked' | 'complete' | 'skipped';
 
@@ -361,7 +369,6 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
   const [tenantProfileLoading, setTenantProfileLoading] = useState(false);
   const [tenantProfileError, setTenantProfileError] = useState<string | null>(null);
   const [tenantProfileSaving, setTenantProfileSaving] = useState(false);
-  const [tenantCountries, setTenantCountries] = useState<CatalogCountryItem[]>([]);
   const [tenantCurrencies, setTenantCurrencies] = useState<CatalogCurrencyItem[]>([]);
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [currentTenantId, setCurrentTenantId] = useState<string>('');
@@ -537,12 +544,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
     setTenantProfileLoading(true);
     setTenantProfileError(null);
     try {
-      const [currentUser, countries] = await Promise.all([
-        identityService.getCurrentUser(),
-        catalogService.getTenantCountries(),
-      ]);
+      const currentUser = await identityService.getCurrentUser();
       setCurrentTenantId(currentUser.tenantId);
-      setTenantCountries(countries.countries ?? []);
 
       const tenant = await tenantService.get(currentUser.tenantId);
       setCurrentTenant(tenant);
@@ -1027,52 +1030,56 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Base currency</label>
-                          <select
+                          <Select
                             value={tenantProfile.defaultCurrency}
-                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, defaultCurrency: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                            onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, defaultCurrency: value }))}
                           >
-                            {(tenantCurrencies.length > 0 ? tenantCurrencies : fallbackCurrencies).map((currency) => (
-                              <option key={currency.code} value={currency.code}>
-                                {currency.code} - {currency.name}
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm">
+                              <SelectValue placeholder="Select currency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(tenantCurrencies.length > 0 ? tenantCurrencies : fallbackCurrencies).map((currency) => (
+                                <SelectItem key={currency.code} value={currency.code}>
+                                  {currency.code} - {currency.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           {tenantProfileErrors.defaultCurrency && (
                             <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.defaultCurrency}</p>
                           )}
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Primary country</label>
-                          <select
+                          <CountrySelect
                             value={tenantProfile.primaryCountry}
-                            onChange={(event) => handlePrimaryCountryChange(event.target.value)}
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
-                          >
-                            <option value="">Select a country</option>
-                            {tenantCountries.map((country) => (
-                              <option key={country.countryCode} value={country.countryCode}>
-                                {country.name}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={handlePrimaryCountryChange}
+                            placeholder="Select a country"
+                            includeEmpty={true}
+                            emptyLabel="Clear selection"
+                            className="mt-2 w-full"
+                          />
                           {tenantProfileErrors.primaryCountry && (
                             <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.primaryCountry}</p>
                           )}
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[var(--color-text-tertiary)]">Time zone</label>
-                          <select
+                          <Select
                             value={tenantProfile.timeZone}
-                            onChange={(event) => setTenantProfile((prev) => ({ ...prev, timeZone: event.target.value }))}
-                            className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm"
+                            onValueChange={(value) => setTenantProfile((prev) => ({ ...prev, timeZone: value }))}
                           >
-                            {resolveTimeZones().map((zone) => (
-                              <option key={zone} value={zone}>
-                                {zone}
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-transparent px-4 py-3 text-sm">
+                              <SelectValue placeholder="Select a time zone" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {resolveTimeZones().map((zone) => (
+                                <SelectItem key={zone} value={zone}>
+                                  {zone}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           {tenantProfileErrors.timeZone && (
                             <p className="mt-1 text-xs text-[var(--color-error)]">{tenantProfileErrors.timeZone}</p>
                           )}

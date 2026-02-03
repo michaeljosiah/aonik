@@ -3,13 +3,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { RefreshCw, AlertCircle, ChevronDown, Layers, Search } from 'lucide-react';
+import { RefreshCw, AlertCircle, Layers, Search } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
-import type { CatalogBillerCategoryItem, CatalogCountryItem } from '@/types';
+import type { CatalogBillerCategoryItem } from '@/types';
+import { CountrySelect } from '@/components/ui/country-select';
 
 export function CatalogCategoriesPage() {
   const [categories, setCategories] = useState<CatalogBillerCategoryItem[]>([]);
-  const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countryFilter, setCountryFilter] = useState('');
@@ -19,11 +19,7 @@ export function CatalogCategoriesPage() {
     setLoading(true);
     setError(null);
     try {
-      const [countriesResponse, categoriesResponse] = await Promise.all([
-        catalogService.getCountries(false),
-        catalogService.getCategories(countryFilter || undefined),
-      ]);
-      setCountries(countriesResponse.countries);
+      const categoriesResponse = await catalogService.getCategories(countryFilter || undefined);
       setCategories(categoriesResponse.categories);
     } catch (err: unknown) {
       console.error('Failed to load categories:', err);
@@ -96,27 +92,15 @@ export function CatalogCategoriesPage() {
                 />
               </div>
 
-              <div className="relative inline-flex items-center">
-                <select
+              <div className="w-56 max-w-full">
+                <CountrySelect
                   value={countryFilter}
-                  onChange={(event) => setCountryFilter(event.target.value)}
-                  className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-                  aria-label="Filter by country"
-                >
-                  <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Filter by country
-                  </option>
-                  {countries.map((country) => (
-                    <option
-                      key={country.countryCode}
-                      value={country.countryCode}
-                      className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                    >
-                      {country.name} ({country.countryCode})
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
+                  onChange={setCountryFilter}
+                  placeholder="Filter by country"
+                  includeEmpty={true}
+                  emptyLabel="All countries"
+                  className="w-full"
+                />
               </div>
             </div>
 

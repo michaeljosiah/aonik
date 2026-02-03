@@ -4,6 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   ArrowLeft,
   Save,
   AlertCircle,
@@ -462,15 +469,22 @@ export function TenantDetailPage() {
                     Environment
                   </label>
                   {isEditing ? (
-                    <select
-                      value={formData.environment || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value as TenantEnvironment }))}
-                      className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                    <Select
+                      value={formData.environment ?? undefined}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, environment: value as TenantEnvironment }))}
                     >
-                      {environments.map(env => (
-                        <option key={env.value} value={env.value}>{env.label}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger
+                        aria-label="Environment"
+                        className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                      >
+                        <SelectValue placeholder="Select environment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {environments.map(env => (
+                          <SelectItem key={env.value} value={env.value}>{env.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <Badge className={`${envColor} font-medium`}>{tenant.environment}</Badge>
                   )}
@@ -493,17 +507,24 @@ export function TenantDetailPage() {
                     Default Currency
                   </label>
                   {isEditing ? (
-                    <select
-                      value={formData.defaultCurrency || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value, supportedCurrencies: [e.target.value] }))}
-                      className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                    <Select
+                      value={formData.defaultCurrency ?? undefined}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, defaultCurrency: value, supportedCurrencies: [value] }))}
                     >
-                      {currencyOptions.map(currency => (
-                        <option key={currency.code} value={currency.code}>
-                          {currency.code} - {currency.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger
+                        aria-label="Default currency"
+                        className="w-full px-4 py-2 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                      >
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencyOptions.map(currency => (
+                          <SelectItem key={currency.code} value={currency.code}>
+                            {currency.code} - {currency.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-[var(--color-text-tertiary)]" />

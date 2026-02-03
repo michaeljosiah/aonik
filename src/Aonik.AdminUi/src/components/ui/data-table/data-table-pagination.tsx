@@ -1,5 +1,12 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export interface DataTablePaginationProps {
   pageNumber: number;
@@ -76,20 +83,18 @@ export function DataTablePagination({
         
         <div className="flex items-center gap-2">
           <span className="text-sm text-[var(--color-text-secondary)]">Items per page</span>
-          <div className="relative">
-            <select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="appearance-none h-8 pl-3 pr-8 text-sm border border-[var(--color-border-light)] rounded-md bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border)] cursor-pointer"
-            >
+          <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
+            <SelectTrigger aria-label="Items per page" className="h-8 w-[96px] rounded-md">
+              <SelectValue placeholder={String(pageSize)} />
+            </SelectTrigger>
+            <SelectContent>
               {pageSizeOptions.map((size) => (
-                <option key={size} value={size}>
+                <SelectItem key={size} value={String(size)}>
                   {size}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-            <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none rotate-90" />
-          </div>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

@@ -7,6 +7,13 @@ import { useAuth, getAuthProvider } from '@/auth';
 import { tenantService } from '@/services/tenantService';
 import type { TenantListItemForLogin } from '@/types';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -276,18 +283,25 @@ export function LoginPage() {
                       <p className="text-sm text-[var(--color-text-tertiary)]">No organizations available</p>
                     </div>
                   ) : (
-                    <select
-                      value={selectedTenantId}
-                      onChange={(e) => setSelectedTenantId(e.target.value)}
-                      className="w-full px-4 py-3 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                    <Select
+                      value={selectedTenantId || undefined}
+                      onValueChange={(value) => setSelectedTenantId(value === '__clear__' ? '' : value)}
                     >
-                      <option value="">Select an organization...</option>
-                      {tenants.map(tenant => (
-                        <option key={tenant.tenantId} value={tenant.tenantId}>
-                          {tenant.name} {tenant.environment !== 'Prod' ? `(${tenant.environment})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger
+                        aria-label="Select organization"
+                        className="w-full px-4 py-3 border border-[var(--color-border)] rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent"
+                      >
+                        <SelectValue placeholder="Select an organization..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__clear__">Select an organization...</SelectItem>
+                        {tenants.map((tenant) => (
+                          <SelectItem key={tenant.tenantId} value={tenant.tenantId}>
+                            {tenant.name} {tenant.environment !== 'Prod' ? `(${tenant.environment})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                   <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
                     Choose the organization you want to sign in to.

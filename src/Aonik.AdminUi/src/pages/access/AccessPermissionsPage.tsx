@@ -3,9 +3,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, ChevronDown, Key, RefreshCw, Search, UsersRound } from 'lucide-react';
+import { AlertCircle, Key, RefreshCw, Search, UsersRound } from 'lucide-react';
 import { permissionService } from '@/services/permissionService';
 import type { PermissionDefinition } from '@/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const categoryLabels: Record<string, string> = {
   Invoice: 'Billing',
@@ -130,28 +137,22 @@ export function AccessPermissionsPage() {
                 />
               </div>
 
-              <div className="relative inline-flex items-center">
-                <select
-                  value={categoryFilter}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
-                  className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-                  aria-label="Filter by category"
-                >
-                  <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Filter by category
-                  </option>
+              <Select
+                value={categoryFilter || undefined}
+                onValueChange={(value) => setCategoryFilter(value === '__all__' ? '' : value)}
+              >
+                <SelectTrigger aria-label="Filter by category" className="h-9 rounded-sm w-56">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All categories</SelectItem>
                   {categories.map((category) => (
-                    <option
-                      key={category}
-                      value={category}
-                      className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                    >
+                    <SelectItem key={category} value={category}>
                       {category}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
-              </div>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -6,6 +6,13 @@ import { ArrowLeft, Save, AlertCircle, X } from 'lucide-react';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
 import type { CreateTenantRequest, TenantEnvironment } from '@/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const environments: { value: TenantEnvironment; label: string }[] = [
   { value: 'Dev', label: 'Development' },
@@ -189,17 +196,24 @@ export function CreateTenantPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Environment *
                 </label>
-                <select
+                <Select
                   value={formData.environment}
-                  onChange={(e) => setFormData(prev => ({ ...prev, environment: e.target.value as TenantEnvironment }))}
-                  className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
-                    errors.environment ? 'border-red-300' : 'border-[var(--color-border)]'
-                  }`}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, environment: value as TenantEnvironment }))}
                 >
-                  {environments.map(env => (
-                    <option key={env.value} value={env.value}>{env.label}</option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    aria-label="Environment"
+                    className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
+                      errors.environment ? 'border-red-300' : 'border-[var(--color-border)]'
+                    }`}
+                  >
+                    <SelectValue placeholder="Select environment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {environments.map(env => (
+                      <SelectItem key={env.value} value={env.value}>{env.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {errors.environment && (
                   <p className="mt-1 text-sm text-[var(--color-error)]">{errors.environment}</p>
                 )}
@@ -221,19 +235,26 @@ export function CreateTenantPage() {
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Default Currency *
                 </label>
-                <select
+                <Select
                   value={formData.defaultCurrency}
-                  onChange={(e) => setFormData(prev => ({ ...prev, defaultCurrency: e.target.value, supportedCurrencies: [e.target.value] }))}
-                  className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
-                    errors.defaultCurrency ? 'border-red-300' : 'border-[var(--color-border)]'
-                  }`}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, defaultCurrency: value, supportedCurrencies: [value] }))}
                 >
-                  {currencyOptions.map(currency => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.code} - {currency.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    aria-label="Default currency"
+                    className={`w-full px-4 py-2 border rounded-md text-sm bg-[var(--color-surface-inset)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent ${
+                      errors.defaultCurrency ? 'border-red-300' : 'border-[var(--color-border)]'
+                    }`}
+                  >
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencyOptions.map(currency => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {errors.defaultCurrency && (
                   <p className="mt-1 text-sm text-[var(--color-error)]">{errors.defaultCurrency}</p>
                 )}

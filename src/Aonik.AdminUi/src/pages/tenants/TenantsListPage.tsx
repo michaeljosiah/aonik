@@ -9,7 +9,6 @@ import {
   Search, 
   RefreshCw, 
   Building2, 
-  ChevronDown,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -18,6 +17,13 @@ import {
 import { tenantService } from '@/services/tenantService';
 import type { Tenant, TenantStatus, PagedResult } from '@/types';
 import { DataTablePagination } from '@/components/ui/data-table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const statusConfig: Record<TenantStatus, { icon: React.ElementType; color: string; bgColor: string }> = {
   Active: { icon: CheckCircle, color: 'text-[var(--color-success)]', bgColor: 'bg-[var(--color-success-light)]' },
@@ -141,57 +147,37 @@ export function TenantsListPage() {
                 />
               </div>
 
-              <div className="relative inline-flex items-center">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-                  aria-label="Filter by status"
-                >
-                  <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Filter by status
-                  </option>
-                  <option value="Active" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Active
-                  </option>
-                  <option value="Provisioning" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Provisioning
-                  </option>
-                  <option value="Deactivated" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Deactivated
-                  </option>
-                  <option value="Suspended" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Suspended
-                  </option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
-              </div>
+              <Select
+                value={statusFilter || undefined}
+                onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value)}
+              >
+                <SelectTrigger aria-label="Filter by status" className="h-9 rounded-sm">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Filter by status</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Provisioning">Provisioning</SelectItem>
+                  <SelectItem value="Deactivated">Deactivated</SelectItem>
+                  <SelectItem value="Suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <div className="relative inline-flex items-center">
-                <select
-                  value={environmentFilter}
-                  onChange={(e) => setEnvironmentFilter(e.target.value)}
-                  className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-                  aria-label="Filter by environment"
-                >
-                  <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Filter by environment
-                  </option>
-                  <option value="Dev" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Development
-                  </option>
-                  <option value="Test" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Test
-                  </option>
-                  <option value="Staging" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Staging
-                  </option>
-                  <option value="Prod" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Production
-                  </option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
-              </div>
+              <Select
+                value={environmentFilter || undefined}
+                onValueChange={(value) => setEnvironmentFilter(value === '__all__' ? '' : value)}
+              >
+                <SelectTrigger aria-label="Filter by environment" className="h-9 rounded-sm">
+                  <SelectValue placeholder="Filter by environment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Filter by environment</SelectItem>
+                  <SelectItem value="Dev">Development</SelectItem>
+                  <SelectItem value="Test">Test</SelectItem>
+                  <SelectItem value="Staging">Staging</SelectItem>
+                  <SelectItem value="Prod">Production</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Button

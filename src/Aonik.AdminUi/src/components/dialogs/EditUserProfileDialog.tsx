@@ -8,6 +8,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { PersonProfileDetail, UpdateUserProfileRequest } from '@/types';
 
 interface EditUserProfileDialogProps {
@@ -62,19 +69,26 @@ export function EditUserProfileDialog({ open, onOpenChange, profile, onSave }: E
             <label htmlFor="title" className="text-sm font-medium text-[var(--color-text-primary)]">
               Title
             </label>
-            <select
-              id="title"
-              value={formData.title || ''}
-              onChange={(e) => handleChange('title', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
+            <Select
+              value={formData.title ?? undefined}
+              onValueChange={(value) => handleChange('title', value === '__clear__' ? '' : value)}
             >
-              <option value="">Select title</option>
-              <option value="Mr">Mr</option>
-              <option value="Mrs">Mrs</option>
-              <option value="Ms">Ms</option>
-              <option value="Dr">Dr</option>
-              <option value="Prof">Prof</option>
-            </select>
+              <SelectTrigger
+                id="title"
+                aria-label="Title"
+                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)] focus-visible:ring-offset-2"
+              >
+                <SelectValue placeholder="Select title" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__clear__">Clear selection</SelectItem>
+                <SelectItem value="Mr">Mr</SelectItem>
+                <SelectItem value="Mrs">Mrs</SelectItem>
+                <SelectItem value="Ms">Ms</SelectItem>
+                <SelectItem value="Dr">Dr</SelectItem>
+                <SelectItem value="Prof">Prof</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* First Name */}

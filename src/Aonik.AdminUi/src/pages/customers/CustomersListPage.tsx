@@ -22,6 +22,13 @@ import {
   type ViewMode,
 } from '@/components/ui/data-table';
 import { CreateCustomerDialog } from '@/components/dialogs/CreateCustomerDialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const statusStyles: Record<string, { text: string; bg: string; iconColor: string }> = {
   Active: {
@@ -453,30 +460,22 @@ export function CustomersListPage() {
             showViewToggle={true}
             actions={
               <div className="flex items-center gap-2">
-                <div className="relative inline-flex items-center">
-                  <select
-                    value={partyTypeFilter}
-                    onChange={(e) => setPartyTypeFilter(e.target.value)}
-                    className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-                    aria-label="Party type"
-                  >
-                    <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                      Type
-                    </option>
+                <Select
+                  value={partyTypeFilter || undefined}
+                  onValueChange={(value) => setPartyTypeFilter(value === '__all__' ? '' : value)}
+                >
+                  <SelectTrigger aria-label="Party type" className="h-9 rounded-sm">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Type</SelectItem>
                     {partyTypeFilterOptions.map((option) => (
-                      <option
-                        key={option.value}
-                        value={option.value}
-                        className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                      >
+                      <SelectItem key={option.value} value={option.value}>
                         {option.label}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none">
-                    v
-                  </span>
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
             }
             className="px-0 border-b-0"

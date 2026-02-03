@@ -17,6 +17,14 @@ import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { CountrySelect } from '@/components/ui/country-select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { catalogService } from '@/services/catalogService';
 import { pricingService } from '@/services/pricingService';
 import { orderService } from '@/services/orderService';
@@ -28,7 +36,6 @@ import type {
   CatalogBillerServiceDetailResponse,
   CatalogBillerServiceItem,
   CatalogBillerSummaryItem,
-  CatalogCountryItem,
   CatalogServiceFieldValidationResponse,
   CreateBillPaymentItemRequest,
   CreatePartyRequest,
@@ -146,14 +153,18 @@ function PartyModal({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="grid gap-2 text-xs text-[var(--color-text-secondary)]">
               <span>Party type</span>
-              <select
+              <Select
                 value={form.partyType}
-                onChange={(event) => update('partyType', event.target.value)}
-                className="h-10 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 text-sm text-[var(--color-text-primary)]"
+                onValueChange={(value) => update('partyType', value)}
               >
-                <option value="Person">Person</option>
-                <option value="Business">Business</option>
-              </select>
+                <SelectTrigger className="h-10 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 text-sm text-[var(--color-text-primary)]">
+                  <SelectValue placeholder="Select party type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Person">Person</SelectItem>
+                  <SelectItem value="Business">Business</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <label className="grid gap-2 text-xs text-[var(--color-text-secondary)]">
               <span>Country code</span>
@@ -227,7 +238,6 @@ export function BillPaymentOrderFormPage() {
   const [orderError, setOrderError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
   const [categories, setCategories] = useState<CatalogBillerCategoryItem[]>([]);
   const [billers, setBillers] = useState<CatalogBillerSummaryItem[]>([]);
   const [services, setServices] = useState<CatalogBillerServiceItem[]>([]);
@@ -373,11 +383,7 @@ export function BillPaymentOrderFormPage() {
   useEffect(() => {
     const loadCatalog = async () => {
       try {
-        const [countriesResponse, categoriesResponse] = await Promise.all([
-          catalogService.getTenantCountries(true, 'BILLPAY'),
-          catalogService.getTenantCategories(destinationCountry || undefined),
-        ]);
-        setCountries(countriesResponse.countries);
+        const categoriesResponse = await catalogService.getTenantCategories(destinationCountry || undefined);
         setCategories(categoriesResponse.categories);
       } catch (err) {
         console.error('Failed to load catalog lists:', err);
@@ -813,34 +819,34 @@ export function BillPaymentOrderFormPage() {
 
               <label className="text-sm text-[var(--color-text-secondary)]">
                 Destination country
-                <select
+                <CountrySelect
                   value={destinationCountry}
-                  onChange={(event) => setDestinationCountry(event.target.value)}
-                  className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
-                >
-                  <option value="">Select destination</option>
-                  {countries.map((country) => (
-                    <option key={country.countryCode} value={country.countryCode}>
-                      {country.name} ({country.countryCode})
-                    </option>
-                  ))}
-                </select>
+                  onChange={setDestinationCountry}
+                  placeholder="Select destination"
+                  includeEmpty={true}
+                  emptyLabel="Clear selection"
+                  className="mt-2 w-full"
+                />
               </label>
 
               <label className="text-sm text-[var(--color-text-secondary)]">
                 Biller category
-                <select
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                  className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+                <Select
+                  value={categoryId || undefined}
+                  onValueChange={(value) => setCategoryId(value === '__all__' ? '' : value)}
                 >
-                  <option value="">All categories</option>
-                  {categories.map((category) => (
-                    <option key={category.categoryId} value={category.categoryId}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm">
+                    <SelectValue placeholder="All categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All categories</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.categoryId} value={category.categoryId}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
 
               <label className="text-sm text-[var(--color-text-secondary)]">
@@ -856,34 +862,42 @@ export function BillPaymentOrderFormPage() {
 
               <label className="text-sm text-[var(--color-text-secondary)]">
                 Biller
-                <select
-                  value={selectedBillerId}
-                  onChange={(event) => setSelectedBillerId(event.target.value)}
-                  className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+                <Select
+                  value={selectedBillerId || undefined}
+                  onValueChange={(value) => setSelectedBillerId(value === '__clear__' ? '' : value)}
                 >
-                  <option value="">Select biller</option>
-                  {billers.map((biller) => (
-                    <option key={biller.billerId} value={biller.billerId}>
-                      {biller.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm">
+                    <SelectValue placeholder="Select biller" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__clear__">Select biller</SelectItem>
+                    {billers.map((biller) => (
+                      <SelectItem key={biller.billerId} value={biller.billerId}>
+                        {biller.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
 
               <label className="text-sm text-[var(--color-text-secondary)]">
                 Service
-                <select
-                  value={selectedServiceId}
-                  onChange={(event) => setSelectedServiceId(event.target.value)}
-                  className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+                <Select
+                  value={selectedServiceId || undefined}
+                  onValueChange={(value) => setSelectedServiceId(value === '__clear__' ? '' : value)}
                 >
-                  <option value="">Select service</option>
-                  {services.map((service) => (
-                    <option key={service.serviceId} value={service.serviceId}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm">
+                    <SelectValue placeholder="Select service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__clear__">Select service</SelectItem>
+                    {services.map((service) => (
+                      <SelectItem key={service.serviceId} value={service.serviceId}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1181,34 +1195,42 @@ export function BillPaymentOrderFormPage() {
 
               <label className="text-sm text-[var(--color-text-secondary)]">
                 Relationship type
-                <select
-                  value={relationshipType}
-                  onChange={(event) => setRelationshipType(event.target.value)}
-                  className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+                <Select
+                  value={relationshipType || undefined}
+                  onValueChange={(value) => setRelationshipType(value === '__clear__' ? '' : value)}
                 >
-                  <option value="">Select relationship</option>
-                  {relationshipTypes.map((type) => (
-                    <option key={type.code} value={type.code}>
-                      {type.displayName}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm">
+                    <SelectValue placeholder="Select relationship" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__clear__">Select relationship</SelectItem>
+                    {relationshipTypes.map((type) => (
+                      <SelectItem key={type.code} value={type.code}>
+                        {type.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
 
               <label className="text-sm text-[var(--color-text-secondary)]">
                 Purpose code
-                <select
-                  value={purposeCode}
-                  onChange={(event) => setPurposeCode(event.target.value)}
-                  className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+                <Select
+                  value={purposeCode || undefined}
+                  onValueChange={(value) => setPurposeCode(value === '__clear__' ? '' : value)}
                 >
-                  <option value="">Select purpose</option>
-                  {purposeCodes.map((purpose) => (
-                    <option key={purpose.code} value={purpose.code}>
-                      {purpose.displayName}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="mt-2 w-full rounded-sm border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm">
+                    <SelectValue placeholder="Select purpose" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__clear__">Select purpose</SelectItem>
+                    {purposeCodes.map((purpose) => (
+                      <SelectItem key={purpose.code} value={purpose.code}>
+                        {purpose.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </label>
 
               <label className="text-sm text-[var(--color-text-secondary)]">

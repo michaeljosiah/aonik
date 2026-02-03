@@ -1,6 +1,13 @@
-import { Search, List, LayoutGrid, ChevronDown } from 'lucide-react';
+import { Search, List, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export type ViewMode = 'list' | 'grid';
 
@@ -63,28 +70,22 @@ export function DataTableHeader({
 
         {/* Filter dropdown */}
         {filterOptions.length > 0 && onFilterChange && (
-          <div className="relative inline-flex items-center">
-            <select
-              value={filterValue}
-              onChange={(e) => onFilterChange(e.target.value)}
-              className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-              aria-label={filterPlaceholder}
-            >
-              <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                {filterPlaceholder}
-              </option>
+          <Select
+            value={filterValue || undefined}
+            onValueChange={(value) => onFilterChange(value === '__all__' ? '' : value)}
+          >
+            <SelectTrigger aria-label={filterPlaceholder} className="h-9 rounded-sm">
+              <SelectValue placeholder={filterPlaceholder} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{filterPlaceholder}</SelectItem>
               {filterOptions.map((option) => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                  className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                >
+                <SelectItem key={option.value} value={option.value}>
                   {option.label}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
-          </div>
+            </SelectContent>
+          </Select>
         )}
       </div>
 

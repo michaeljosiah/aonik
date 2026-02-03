@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Building2,
   Search,
-  ChevronDown,
   ArrowUpRight,
 } from 'lucide-react';
 import { catalogService } from '@/services/catalogService';
@@ -19,6 +18,14 @@ import type {
   CatalogCountryItem,
 } from '@/types';
 import { DataTablePagination } from '@/components/ui/data-table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { CountrySelect } from '@/components/ui/country-select';
 
 export function CatalogBillersPage() {
   const navigate = useNavigate();
@@ -139,51 +146,33 @@ export function CatalogBillersPage() {
                 />
               </div>
 
-              <div className="relative inline-flex items-center">
-                <select
+              <div className="w-56 max-w-full">
+                <CountrySelect
                   value={countryFilter}
-                  onChange={(event) => setCountryFilter(event.target.value)}
-                  className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-                  aria-label="Filter by country"
-                >
-                  <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Filter by country
-                  </option>
-                  {countries.map((country) => (
-                    <option
-                      key={country.countryCode}
-                      value={country.countryCode}
-                      className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                    >
-                      {country.name} ({country.countryCode})
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
+                  onChange={setCountryFilter}
+                  placeholder="Filter by country"
+                  includeEmpty={true}
+                  emptyLabel="All countries"
+                  className="w-full"
+                />
               </div>
 
-              <div className="relative inline-flex items-center">
-                <select
-                  value={categoryFilter}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
-                  className="appearance-none h-9 pl-3 pr-9 text-sm rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-brand-primary)] focus:border-[var(--color-brand-primary)] cursor-pointer"
-                  aria-label="Filter by category"
-                >
-                  <option value="" className="bg-[var(--color-surface)] text-[var(--color-text-primary)]">
-                    Filter by category
-                  </option>
+              <Select
+                value={categoryFilter || undefined}
+                onValueChange={(value) => setCategoryFilter(value === '__all__' ? '' : value)}
+              >
+                <SelectTrigger aria-label="Filter by category" className="h-9 rounded-sm w-56">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All categories</SelectItem>
                   {categories.map((category) => (
-                    <option
-                      key={category.categoryId}
-                      value={category.categoryId}
-                      className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                    >
+                    <SelectItem key={category.categoryId} value={category.categoryId}>
                       {category.name}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)] pointer-events-none" />
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
           </div>
