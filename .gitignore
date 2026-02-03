@@ -417,7 +417,6 @@ FodyWeavers.xsd
 *.msm
 *.msp
 /src/Aonik.Api/appsettings.Development.json
-MyBillAfrica/
 nul
 
 # App_Data folders - ignore contents but keep the folder structure

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
+  <rect width="400" height="200" fill="#0D7377"/>
+  <circle cx="200" cy="80" r="40" fill="#ffffff" opacity="0.2"/>
+  <path d="M200 50 L200 110 M170 80 L230 80" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <text x="200" y="160" font-family="system-ui, sans-serif" font-size="16" fill="#ffffff" text-anchor="middle" opacity="0.8">Person</text>
+</svg>
