@@ -227,9 +227,9 @@ public class DocumentService : IDocumentService
             versions);
     }
 
-    private static string SerializeTags(IReadOnlyList<string> tags)
+    private static string SerializeTags(IReadOnlyList<string>? tags)
     {
-        if (tags.Count == 0)
+        if (tags == null || tags.Count == 0)
         {
             return "[]";
         }
