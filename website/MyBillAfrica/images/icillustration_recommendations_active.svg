@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <clipPath id="clip-icillustration_recommendations_active">
+      <rect width="48" height="48"/>
+    </clipPath>
+  </defs>
+  <g id="icillustration_recommendations_active" clip-path="url(#clip-icillustration_recommendations_active)">
+    <path id="Subtraction_1" data-name="Subtraction 1" d="M-491.958,48.083h0L-497.039,43l-6.94,1.859-1.86-6.941-6.939-1.859,1.859-6.94-5.08-5.08,5.08-5.081-1.859-6.941,6.94-1.859,1.859-6.94,6.94,1.859L-491.958,0l5.081,5.08,6.94-1.859,1.859,6.94,6.941,1.859L-473,18.961l5.081,5.08L-473,29.122l1.86,6.94-6.941,1.859-1.859,6.941L-486.878,43l-5.08,5.08Zm-6.8-27.427L-503,24.9l7.778,7.779.707.707,14.142-14.143L-484.616,15l-9.9,9.9-4.243-4.243Z" transform="translate(516)" fill="#ff9e15"/>
+    <path id="Subtraction_3" data-name="Subtraction 3" d="M-492,71.042l0,0L-497.039,66l-6.94,1.859-1.86-6.941-6.939-1.859,1.859-6.94L-516,47.042l5.08-5.08-1.859-6.941,6.94-1.859,1.859-6.94,6.94,1.859L-492,23.043V45.385l-2.515,2.515-4.243-4.243L-503,47.9l7.778,7.779.707.707L-492,53.871v17.17Z" transform="translate(516 -23)" fill="#f37920"/>
+  </g>
+</svg>

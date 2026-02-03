@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>MyBillAfrica</title>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<meta name="description" content="">
+    <meta name="author" content="">
+	<link rel="shortcut icon" href="images/favicon.ico">
+	<link rel="stylesheet" href="css/bootstrap.min.css">
+	<link rel="stylesheet" href="css/select2.min.css">
+	<link rel="stylesheet" href="css/slick.css">
+	<link rel="stylesheet" href="css/intlTelInput.css">
+	<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!-- header start -->
+<header class="header cd-morph-dropdown">
+	<nav class="navbar navbar-expand-xl">
+		<div class="container">
+			<a class="navbar-brand" href="index.html"><img src="images/logo.png" alt="Logo"></a>
+			<button class="nav-trigger"><span aria-hidden="true"></span></button>
+			<div class="main-nav navbar-collapse" id="navbar">
+				<ul class="navbar-nav ms-auto align-items-center">		
+					<li class="nav-item has-dropdown features" data-content="features">
+						<a class="nav-link dropdown-toggle" href="#" id="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">FEATURES</a>
+					</li>	
+					<li class="nav-item">
+						<a class="nav-link" href="get-app.html">GET THE APP</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="about.html">ABOUT</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="help.html">HELP</a>
+					</li>	
+					<li class="nav-item has-dropdown uk" data-content="uk">
+						<a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							<img class="rounded-circle me-2" src="images/flag-round-UK.png" alt="United States"> 
+							<span>United Kingdom</span>
+						</a>
+					</li>	
+				</ul>
+				<ul class="navbar-nav navbar-btn">
+					<li>
+						<a class="btn btn-secondary btn-sm" href="login.html" target="_blank">LOGIN</a>
+					</li>
+					<li>
+						<a class="btn btn-primary btn-sm" href="register.html" target="_blank">REGISTER</a>
+					</li>
+				</ul>
+			</div>		
+		</div>
+	</nav>
+	<div class="morph-dropdown-wrapper">
+		<div class="dropdown-list container p-xl-0">
+			<ul>
+				<li id="features" class="dropdown-nav features">
+					<h4 class="label">FEATURES</h4>
+					<div class="content">
+						<div class="row">
+							<div class="col-md-6">
+								<a class="navbar-promo-link link-active" href="#">
+									<div class="media">
+										<i class="icon recurringbills"></i>
+										<div class="media-body">
+											<h6>MANAGE RECURRING BILLS</h6>
+											<p>Setup recurring bills and get reminders when they are due. Never forget to pay your bills again.</p>
+										</div>
+									</div>
+								</a>
+							</div>
+							<div class="col-md-6">
+								<a class="navbar-promo-link" href="#">
+									<div class="media">
+										<i class="icon budget"></i>
+										<div class="media-body">
+											<h6>Budgeting</h6>
+											<p>Setup budgets and track your spending over time. Avoid overspending again with smart spending alerts.</p>
+										</div>
+									</div>
+								</a>
+							</div>
+							<div class="col-md-6">
+								<a class="navbar-promo-link" href="#">
+									<div class="media">
+										<i class="icon insights"></i>
+										<div class="media-body">
+											<h6>Spending Insights</h6>
+											<p>Gain crucial insights into your spending. Understand where the majority of your money is going to and learn how to save.</p>
+										</div>
+									</div>
+								</a>
+							</div>
+							<div class="col-md-6">
+								<a class="navbar-promo-link" href="#">
+									<div class="media">
+										<i class="icon community"></i>
+										<div class="media-body">
+											<h6>Community Payments</h6>
+											<p>Get assistance with payments from your loved ones and friends as well as the wider MyBillAfrica community.</p>
+										</div>
+									</div>
+								</a>
+							</div>
+							<div class="col-md-6">
+								<a class="navbar-promo-link" href="#">
+									<div class="media">
+										<i class="icon crossborder"></i>
+										<div class="media-body">
+											<h6>Cross Border Bill Payments</h6>
+											<p>Pay your bills from anywhere in the world. We handle currency conversion and settle with the biller in local currency in real time.</p>
+										</div>
+									</div>
+								</a>
+							</div>
+							<div class="col-md-6">
+								<a class="navbar-promo-link" href="#">
+									<div class="media">
+										<i class="icon crossborder"></i>
+										<div class="media-body">
+											<h6>Reminders & Recommendations</h6>
+											<p>Get regular recommendations on how to save money, view alternative service providers.</p>
+										</div>
+									</div>
+								</a>
+							</div>
+						</div>
+					</div>
+				</li>
+				<li>
+					<h4 class="label"><a href="get-app.html">GET THE APP</a></h4>
+				</li>
+				<li>
+					<h4 class="label"><a href="about.html">ABOUT</a></h4>
+				</li>
+				<li>
+					<h4 class="label"><a href="help.html">HELP</a></h4>
+				</li>
+				<li id="uk" class="dropdown-nav uk">
+					<h4 class="d-flex align-items-center label">
+						<img class="rounded-circle me-2" src="images/flag-round-UK.png" alt="United States">  United Kingdom</h4>
+					<div class="content menu-content  pb-2">
+						<p class="mb-2">You’re viewing content specific for:</p>
+						<h6 class="text-primary mb-2">United Kingdom</h6>
+						<p class="mb-0">If you want to view content specific to other location, choose from the countries below.</p>	
+					</div>
+					<hr/>
+					<a class="list-flag pt-2 d-flex align-items-center justify-content-between" href="#">
+						<div class="d-flex align-items-center">
+							<img class="rounded-circle me-2" src="images/flag-round-UK.png" alt="United States"> 
+							<span>United Kingdom</span>
+						</div>
+					</a>
+					<a class="list-flag pt-2 d-flex align-items-center justify-content-between" href="#">
+						<div class="d-flex align-items-center">
+							<img class="rounded-circle me-2" src="images/flag-round-UK.png" alt="United States"> 
+							<span>Great Britain</span>
+						</div>
+					</a>
+					<a class="list-flag pt-2 d-flex align-items-center justify-content-between" href="#">
+						<div class="d-flex align-items-center">
+							<img class="rounded-circle me-2" src="images/flag-round-UK.png" alt="United States"> 
+							<span>United Kingdom</span>
+						</div>
+						<button type="button" class="btn">Coming soon</button>
+					</a>
+					<a class="list-flag pt-2 d-flex align-items-center justify-content-between" href="#">
+						<div class="d-flex align-items-center">
+							<img class="rounded-circle me-2" src="images/flag-round-UK.png" alt="United States"> 
+							<span>Great Britain</span>
+						</div>
+						<button type="button" class="btn">Coming soon</button>
+					</a>
+				</li>
+				<li>
+					<a class="label btn btn-secondary w-100" href="login.html" target="_blank">LOGIN</a>
+				</li>
+				<li>
+					<a class="label btn btn-primary w-100" href="register.html" target="_blank">REGISTER</a>
+				</li>
+			</ul>
+			<div class="bg-layer" aria-hidden="true"></div>
+		</div>
+	</div>	
+</header>
+<!-- header end -->
+
+<!-- main start -->
+<main class="main-wrapper">
+	<!-- .section-header start -->
+	<section class="section-header fullscreen-img bg-img-top shape-u-left" style="background-image: url('images/MBA_img_help.jpg');">
+		<div class="container">	
+			<div class="row justify-content-start">
+				<div class="col-md-8 col-lg-6 col-xl-5 col-xxl-4 offset-xl-1">
+					<h2><strong>PRIVACY POLICY</strong></h2>
+				</div>
+			</div>
+		</div>
+	</section>	
+	<!-- .section-header end -->
+	
+	<!-- section start -->
+	<section class="section shape-o-bottom">
+		<div class="container">	
+			<div class="row justify-content-center">
+				<div class="col-lg-10 col-xxl-8">
+				<h4>What personal data we collect</h4>
+                <ul>
+					<li>your name</li>
+                    <li>your contact details: postal address including billing and delivery addresses, telephone numbers (including mobile numbers) and e-mail address</li>
+                    <li>purchases and orders made by you on MyBillAfrica</li>
+                    <li>your on-line browsing activities on MyBillAfrica</li>
+                    <li>your password(s)</li>
+                    <li>your communication and marketing preferences</li>
+                    <li>your feedback and survey responses</li>
+                    <li>your location</li>
+                    <li>your correspondence and communications with MyBillAfrica; and</li>
+                    <li>other publicly available personal data, including any which you have shared via a public platform (such as on Instagram, a Twitter feed or public Facebook page).</li>
+				</ul>
+                <p>Our websites are not intended for children and we do not knowingly collect data relating to children.</p>
+                <p>This list is not exhaustive and, in specific instances, we may need to collect additional data for the purposes set out in this Policy. Some of the above personal data is collected directly, for example when you set up an on-line account on our websites, or send an email to our customer services team. Other personal data is collected indirectly, for example your browsing or shopping activity. We may also collect personal data from third parties who have your consent to pass your details to us, or from publicly available sources.</p>
+                <h4>How we use your personal data</h4>
+                <ul>
+					<li>to provide goods and services to you</li>
+                    <li>to manage any registered account(s) that you hold with us</li>
+                    <li>to verify your identity</li>
+                    <li>for crime and fraud prevention, detection and related purposes</li>
+                    <li>with your agreement, to contact you electronically about promotional offers and products and services which we think may interest you</li>
+                    <li>for market research purposes – to better understand your needs</li>
+                    <li>to enable MyBillAfrica to manage customer service interactions with you; and</li>
+                    <li>where we have a legal right or duty to use or disclose your information (for example in relation to an investigation by a public authority or in a legal dispute).</li>
+				</ul>
+                <h4>How we protect your data</h4>
+                <ul>
+					<li>our site runs on Secure Sockets Layout (SSL) ensuring that all data is safely transmitted and encrypted</li>
+                    <li>internal policies setting out our data security approach and training for employees</li>
+				</ul>
+                <h4>What you can do to help protect your data</h4>
+                <p>MyBillAfrica will never ask you to confirm any bank account or credit card details via email.  If you receive an email claiming to be from MyBillAfrica asking you to do so, please ignore it and do not respond.</p>
+                <p>If you are using a computing device in a public location, we recommend that you always log out and close the website browser when you complete an online session.</p>
+                <p>In addition, we recommend that you take the following security measures to enhance your online safety both in relation to MyBillAfrica and more generally: </p>
+                <ul>
+					<li>keep your account passwords private.  Remember, anybody who knows your password may access your account</li>
+                    <li>when creating a password, use at least 8 characters.  A combination of letters and numbers is best.  Do not use dictionary words, your name, email address, or other personal data that can be easily obtained.  We also recommend that you frequently change your password.  You can do this accessing your account, clicking ‘your account’, clicking ‘your data’ and selecting ‘change password’</li>
+                    <li>avoid using the same password for multiple online accounts</li>
+				</ul>
+                <h4>Your Rights</h4>
+                <ul>
+					<li>the right to ask for a copy of personal data that we hold about you (the right of access)</li>
+                    <li>the right (in certain circumstances) to request that we delete personal data held on you; where we no longer have any legal reason to retain it (the right of erasure or to be forgotten)</li>
+                    <li>the right to ask us to update and correct any out-of-date or incorrect personal data that we hold about you (the right of rectification)</li>
+                    <li>the right to opt out of any marketing communications that we may send you and to object to us using / holding your personal data if we have no legitimate reasons to do so (the right to object)</li>
+                    <li>the right (in certain circumstances) to ask us to ‘restrict processing of data’; which means that we would need to secure and retain the data for your benefit but not otherwise use it (the right to restrict processing); and</li>
+                    <li>the right (in certain circumstances) to ask us to supply you with some of the personal data we hold about you in a structured machine-readable format and/or to provide a copy of the data in such a format to another organisation (the right to data portability). If you wish to exercise any of the above rights, please contact us using the details on our contact us page</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</section>	
+	<!-- section end -->	
+</main>
+<!-- main end -->
+
+<!-- footer start -->
+<footer class="footer">
+	<div class="container">
+		<div class="row">
+			<div class="col-sm-6 col-lg-3">
+				<div class="widget">
+					<h3>Company</h3>
+					<ul>
+						<li><a href="about.html">About us</a></li>
+						<li><a href="index.html">Pay a bill</a></li>
+						<li><a href="send-money.html">Send money</a></li>
+					</ul>
+				</div>
+			</div>	
+			<div class="col-sm-6 col-lg-3">
+				<div class="widget">
+					<h3>Help</h3>
+					<ul>
+						<li><a href="help.html">FAQ</a></li>
+						<li><a href="#">Contacts</a></li>
+					</ul>
+				</div>
+			</div>	
+			<div class="col-sm-6 col-lg-3">
+				<div class="widget">
+					<h3>Legal</h3>
+					<ul>
+						<li><a href="#">Tems of Service</a></li>
+						<li><a href="#">Privacy Policy</a></li>
+						<li><a href="#">Cookies Policy</a></li>
+					</ul>
+				</div>
+			</div>	
+			<div class="col-sm-6 col-lg-3">
+				<div class="widget">
+					<h3>Follow Us</h3>
+					<ul class="list-social">
+						<li>
+							<a href="#" target="_blank">
+								<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path fill-rule="evenodd" clip-rule="evenodd" d="M16 2.84388C18.1349 2.7638 20.2728 2.82326 22.4 3.02188C23.4318 3.0089 24.4569 3.1897 25.422 3.55488C26.7535 4.17531 27.8236 5.24539 28.444 6.57688C28.8097 7.54224 28.9908 8.56767 28.978 9.59988C28.978 11.1999 29.156 11.7329 29.156 15.9999C29.2361 18.1348 29.1766 20.2727 28.978 22.3999C28.991 23.4317 28.8102 24.4568 28.445 25.4219C27.8246 26.7534 26.7545 27.8235 25.423 28.4439C24.4579 28.8091 23.4328 28.9899 22.401 28.9769C20.801 28.9769 20.268 29.1549 16.001 29.1549C13.8661 29.235 11.7282 29.1755 9.601 28.9769C8.56919 28.9899 7.54411 28.8091 6.579 28.4439C5.24751 27.8235 4.17743 26.7534 3.557 25.4219C3.19113 24.4569 3.00966 23.4318 3.022 22.3999C3.022 20.7999 2.844 20.2669 2.844 15.9999C2.76392 13.8649 2.82338 11.7271 3.022 9.59988C3.00902 8.56807 3.18981 7.54299 3.555 6.57788C3.86548 5.9185 4.28657 5.31715 4.8 4.79988C5.2171 4.1783 5.85112 3.7347 6.578 3.55588C7.54305 3.19035 8.56813 3.00922 9.6 3.02188C11.7272 2.82326 13.8651 2.7638 16 2.84388M16 -0.0001183C13.8058 -0.0783206 11.6088 -0.0188707 9.422 0.177882C8.08592 0.174846 6.76052 0.415798 5.511 0.888882C4.43224 1.24085 3.45589 1.85124 2.667 2.66688C1.85136 3.45577 1.24097 4.43212 0.889 5.51088C0.330824 6.73525 0.0864657 8.0794 0.178 9.42188C-0.0187524 11.6087 -0.0782024 13.8056 -4.47035e-08 15.9999C-0.0782024 18.1941 -0.0187524 20.3911 0.178 22.5779C0.174965 23.914 0.415916 25.2394 0.889 26.4889C1.24097 27.5676 1.85136 28.544 2.667 29.3329C3.45589 30.1485 4.43224 30.7589 5.511 31.1109C6.76052 31.584 8.08592 31.8249 9.422 31.8219C11.6088 32.0186 13.8058 32.0781 16 31.9999C18.1942 32.0781 20.3912 32.0186 22.578 31.8219C23.9141 31.8249 25.2395 31.584 26.489 31.1109C27.5598 30.7419 28.5324 30.134 29.3333 29.3331C30.1341 28.5323 30.742 27.5596 31.111 26.4889C31.5841 25.2394 31.825 23.914 31.822 22.5779C31.822 20.7999 32 20.2669 32 15.9999C32.0782 13.8056 32.0188 11.6087 31.822 9.42188C31.825 8.0858 31.5841 6.7604 31.111 5.51088C30.759 4.43212 30.1486 3.45577 29.333 2.66688C28.5441 1.85124 27.5678 1.24085 26.489 0.888882C25.2395 0.415798 23.9141 0.174846 22.578 0.177882C20.3912 -0.0188707 18.1942 -0.0783206 16 -0.0001183M16 7.82188C14.9211 7.80403 13.8497 8.00337 12.8494 8.40803C11.8492 8.81269 10.9405 9.41442 10.1775 10.1774C9.41454 10.9404 8.81281 11.849 8.40815 12.8493C8.00349 13.8496 7.80415 14.921 7.822 15.9999C7.822 17.6173 8.30163 19.1985 9.20024 20.5433C10.0989 21.8882 11.3761 22.9364 12.8704 23.5554C14.3647 24.1743 16.0091 24.3363 17.5954 24.0207C19.1818 23.7052 20.639 22.9263 21.7827 21.7826C22.9264 20.6389 23.7053 19.1817 24.0209 17.5953C24.3364 16.009 24.1745 14.3646 23.5555 12.8703C22.9365 11.376 21.8883 10.0987 20.5435 9.20012C19.1986 8.30151 17.6175 7.82188 16 7.82188M16 21.3329C15.2961 21.3458 14.5969 21.2166 13.944 20.9532C13.2911 20.6897 12.6981 20.2974 12.2003 19.7996C11.7025 19.3018 11.3101 18.7087 11.0467 18.0559C10.7833 17.403 10.6541 16.7038 10.667 15.9999C10.6541 15.296 10.7833 14.5967 11.0467 13.9439C11.3101 13.291 11.7025 12.698 12.2003 12.2002C12.6981 11.7024 13.2911 11.31 13.944 11.0466C14.5969 10.7831 15.2961 10.654 16 10.6669C16.7039 10.654 17.4031 10.7831 18.056 11.0466C18.7089 11.31 19.3019 11.7024 19.7997 12.2002C20.2975 12.698 20.6899 13.291 20.9533 13.9439C21.2167 14.5967 21.3459 15.296 21.333 15.9999C21.3459 16.7038 21.2167 17.403 20.9533 18.0559C20.6899 18.7087 20.2975 19.3018 19.7997 19.7996C19.3019 20.2974 18.7089 20.6897 18.056 20.9532C17.4031 21.2166 16.7039 21.3458 16 21.3329ZM24.533 5.51088C24.1461 5.51088 23.768 5.6256 23.4463 5.84053C23.1246 6.05546 22.8739 6.36094 22.7259 6.71835C22.5778 7.07577 22.5391 7.46905 22.6146 7.84848C22.6901 8.22791 22.8763 8.57643 23.1499 8.84998C23.4235 9.12353 23.772 9.30983 24.1514 9.3853C24.5308 9.46077 24.9241 9.42203 25.2815 9.27399C25.6389 9.12594 25.9444 8.87524 26.1594 8.55358C26.3743 8.23191 26.489 7.85374 26.489 7.46688C26.4846 6.94949 26.2771 6.45455 25.9112 6.08869C25.5453 5.72282 25.0504 5.51532 24.533 5.51088" fill="currentColor"/>
+								</svg>
+							</a>
+						</li>
+					</ul>
+				</div>
+			</div>	
+		</div>
+	</div>
+	<div class="footer-bar">
+		<div class="container">
+			<div class="row">
+				<div class="col-md-9 col-lg-8">
+					<p>&copy; 2021 iBill Technologies Ltd. All rights reserved. <br/> iBill Technologies Ltd is a company registered in England and Wales with No. 10854277</p>
+				</div>
+				<div class="col-md-3 col-lg-4 text-md-end">
+					<a href="http://www.ibilltech.co.uk/" target="_blank"><img src="images/logo_ibilltechnologies.png" alt="iBilt Technologies"></a>
+				</div>	
+			</div>
+		</div>
+	</div>
+</footer>
+<!-- footer end   -->
+
+	<!-- jQuery and Bootstrap Bundle (includes Popper) -->
+	<script src="js/jquery-3.5.1.min.js"></script>
+	<script src="js/bootstrap.bundle.min.js"></script>
+	<script src="js/select2.min.js"></script>
+	<script src="js/slick.min.js"></script>
+	<script src="js/intlTelInput.js"></script>
+	<script src="js/script.js"></script>	
+</body>
+</html>
