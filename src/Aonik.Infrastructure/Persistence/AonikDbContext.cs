@@ -132,6 +132,11 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
     public virtual DbSet<ComplianceCase> ComplianceCases { get; set; } = null!;
     public virtual DbSet<AuditLog> AuditLogs { get; set; } = null!;
+    public virtual DbSet<Document> Documents { get; set; } = null!;
+    public virtual DbSet<DocumentFile> DocumentFiles { get; set; } = null!;
+    public virtual DbSet<DocumentUsage> DocumentUsages { get; set; } = null!;
+    public virtual DbSet<DocumentVerification> DocumentVerifications { get; set; } = null!;
+    public virtual DbSet<DocumentVersion> DocumentVersions { get; set; } = null!;
 
     // Features
     public virtual DbSet<TenantFeature> TenantFeatures { get; set; } = null!;

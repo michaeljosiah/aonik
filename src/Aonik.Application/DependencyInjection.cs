@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<IFxQuoteService, FxQuoteService>();
         services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
         services.AddScoped<IComplianceService, ComplianceService>();
+        services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IPartyService, PartyService>();
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();
         services.AddScoped<IOrderService, OrderService>();
