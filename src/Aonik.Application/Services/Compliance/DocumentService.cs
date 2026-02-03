@@ -189,7 +189,12 @@ public class DocumentService : IDocumentService
             AiRunId = request.AiRunId
         };
 
-        usage.VerifiedAt = _clock.UtcNow;
+        var isFinalDecision = IsFinalDecision(verification.Decision);
+        if (isFinalDecision)
+        {
+            usage.VerifiedAt = _clock.UtcNow;
+        }
+
         usage.Status = NormalizeUsageStatus(verification.Decision, usage.Status);
 
         _dbContext.DocumentVerifications.Add(verification);
@@ -274,6 +279,12 @@ public class DocumentService : IDocumentService
         }
 
         return currentStatus;
+    }
+
+    private static bool IsFinalDecision(string decision)
+    {
+        return decision.Equals("Approved", StringComparison.OrdinalIgnoreCase)
+            || decision.Equals("Rejected", StringComparison.OrdinalIgnoreCase);
     }
 
     private static DocumentResponse MapDocument(Document document)
