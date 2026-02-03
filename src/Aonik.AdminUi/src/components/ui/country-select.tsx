@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChevronDown, Globe } from 'lucide-react';
 
@@ -115,7 +114,7 @@ export function CountrySelect({
     return (
       <div
         className={cn(
-          'flex h-10 w-full items-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-text-secondary)]',
+          'flex h-10 w-full items-center rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 text-sm text-[var(--color-form-field-text)]',
           className
         )}
       >
@@ -129,7 +128,7 @@ export function CountrySelect({
     <div ref={containerRef} className={cn('relative', className)}>
       <div
         className={cn(
-          'flex h-10 w-full items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--color-brand-primary)]',
+          'flex h-10 w-full items-center gap-2 rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm text-[var(--color-form-field-text)] focus-within:outline-none focus-within:ring-0 focus-within:border-[var(--color-form-field-border-focus)]',
           disabled && 'cursor-not-allowed opacity-50'
         )}
         onClick={() => !disabled && setOpen(true)}
@@ -159,7 +158,7 @@ export function CountrySelect({
               setOpen(false);
             }
           }}
-          className="flex-1 bg-transparent outline-none placeholder:text-[var(--color-text-tertiary)]"
+          className="flex-1 bg-transparent text-[var(--color-form-field-text)] outline-none placeholder:text-[var(--color-form-field-placeholder)]"
           placeholder={placeholder}
           disabled={disabled}
         />
@@ -167,7 +166,7 @@ export function CountrySelect({
       </div>
 
       {open && (
-        <div className="absolute z-[200] mt-1 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] shadow-md">
+        <div className="absolute z-[200] mt-1 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] shadow-md">
           <div className="max-h-64 overflow-auto p-1">
             {includeEmpty && (
               <button

@@ -208,7 +208,7 @@ function FlyoutMenu({
         <div className="px-1.5 py-1 border-t border-[var(--color-border-light)]">
           <Link
             to={resolveHref(item.viewAllHref)}
-            className="flex items-center justify-center gap-1 px-2 py-1 rounded-md text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
+            className="flex items-center justify-center gap-1 px-2 py-1 rounded-sm text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
             onClick={onClose}
           >
             <span>{item.viewAllLabel || 'View all'}</span>
@@ -278,7 +278,7 @@ function NavItemComponent({
   };
 
   const baseClasses = cn(
-    'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer relative',
+    'flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-all duration-200 cursor-pointer relative',
     'hover:bg-[var(--color-sidebar-hover)]',
     isActive && 'bg-[var(--color-sidebar-active)] text-white hover:bg-[var(--color-sidebar-active)]',
     !isActive && 'text-[var(--color-text-secondary)]',
@@ -815,7 +815,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           <button
             onClick={onToggle}
             className={cn(
-              'p-1.5 rounded-md hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-tertiary)] transition-colors',
+              'p-1.5 rounded-sm hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-tertiary)] transition-colors',
               collapsed ? 'ml-0' : 'ml-auto'
             )}
           >

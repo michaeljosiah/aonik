@@ -376,7 +376,7 @@ export function CustomersListPage() {
       </div>
 
       <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
               <UsersRound className="w-5 h-5" />
@@ -388,7 +388,7 @@ export function CustomersListPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
               <UserCheck className="w-5 h-5" />
@@ -400,7 +400,7 @@ export function CustomersListPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-warning-light)] text-[var(--color-warning)]">
               <UserX className="w-5 h-5" />
@@ -412,7 +412,7 @@ export function CustomersListPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-[var(--color-border-light)] bg-[var(--color-surface)]">
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
               <Building2 className="w-5 h-5" />

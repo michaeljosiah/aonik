@@ -23,6 +23,14 @@
   --color-text-secondary: #6B7280;
   --color-text-tertiary: #9CA3AF;
   --color-text-inverse: #FFFFFF;
+
+  /* Form Fields */
+  --color-form-field-border: #D1D5DB;
+  --color-form-field-border-focus: #9CA3AF;
+  --color-form-field-bg: #FFFFFF;
+  --color-form-field-text: #111827;
+  --color-form-field-placeholder: #9CA3AF;
+  --color-form-date-indicator-filter: none;
   
   /* Status Colors */
   --color-success: #10B981;
@@ -101,6 +109,14 @@
   --color-text-secondary: #94A3B8;
   --color-text-tertiary: #64748B;
   --color-text-inverse: #0F172A;
+
+  /* Form Fields */
+  --color-form-field-border: #475569;
+  --color-form-field-border-focus: #94A3B8;
+  --color-form-field-bg: #0F172A;
+  --color-form-field-text: #E2E8F0;
+  --color-form-field-placeholder: #64748B;
+  --color-form-date-indicator-filter: invert(1) brightness(1.1);
   
   /* Status Colors - adjusted for dark backgrounds */
   --color-success: #34D399;
@@ -143,6 +159,20 @@ body {
   padding: 0;
   background-color: var(--color-background);
   color: var(--color-text-primary);
+}
+
+/* Normalize form element baselines (prevents select/input misalignment) */
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  line-height: inherit;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.8;
+  filter: var(--color-form-date-indicator-filter);
 }
 
 #root {

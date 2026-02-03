@@ -76,6 +76,9 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
   const [addressExpanded, setAddressExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fieldClassName =
+    "flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]";
+  const selectFieldClassName = `${fieldClassName} appearance-none`;
 
   const isValid = useMemo(() => {
     if (!formData.displayName.trim()) return false;
@@ -149,7 +152,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     });
   };
 
-  const SelectionScreen = () => (
+  const renderSelectionScreen = () => (
     <div className="space-y-6">
       <DialogHeader>
         <DialogTitle>Create New Customer</DialogTitle>
@@ -219,7 +222,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     </div>
   );
 
-  const PersonForm = () => (
+  const renderPersonForm = () => (
     <div className="space-y-6">
       <DialogHeader>
         <div className="flex items-center gap-2">
@@ -248,7 +251,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="text"
               value={formData.displayName}
               onChange={(e) => updateField('displayName', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
               placeholder="Enter display name"
             />
           </div>
@@ -259,7 +262,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               <select
                 value={formData.status}
                 onChange={(e) => updateField('status', e.target.value)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={selectFieldClassName}
               >
                 <option value="Active">Active</option>
                 <option value="Pending">Pending</option>
@@ -273,7 +276,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 type="text"
                 value={formData.customerTierCode || ''}
                 onChange={(e) => updateField('customerTierCode', e.target.value || null)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={fieldClassName}
                 placeholder="e.g., Standard, Premium"
               />
             </div>
@@ -286,13 +289,13 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
             Personal Details
           </h4>
           
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 items-start">
             <div className="grid gap-2">
               <label className="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
               <select
                 value={formData.title || ''}
                 onChange={(e) => updateField('title', e.target.value || null)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={selectFieldClassName}
               >
                 <option value="">Select title</option>
                 <option value="Mr">Mr</option>
@@ -308,7 +311,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 type="text"
                 value={formData.firstName || ''}
                 onChange={(e) => updateField('firstName', e.target.value || null)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={fieldClassName}
               />
             </div>
             <div className="grid gap-2">
@@ -317,7 +320,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 type="text"
                 value={formData.lastName || ''}
                 onChange={(e) => updateField('lastName', e.target.value || null)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={fieldClassName}
               />
             </div>
           </div>
@@ -328,7 +331,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="date"
               value={formData.dob || ''}
               onChange={(e) => updateField('dob', e.target.value || null)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
             />
           </div>
 
@@ -347,7 +350,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 type="text"
                 value={formData.occupation || ''}
                 onChange={(e) => updateField('occupation', e.target.value || null)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={fieldClassName}
               />
             </div>
           </div>
@@ -373,7 +376,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="email"
               value={formData.contacts[0]?.value || ''}
               onChange={(e) => updateContact(0, e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
               placeholder="email@example.com"
             />
           </div>
@@ -384,14 +387,14 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="tel"
               value={formData.contacts[1]?.value || ''}
               onChange={(e) => updateContact(1, e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
               placeholder="+1234567890"
             />
           </div>
         </div>
 
         {/* Address Section - Collapsible */}
-        <div className="space-y-4">
+        <div className="space-y-4 pb-6">
           <button
             type="button"
             onClick={() => setAddressExpanded(!addressExpanded)}
@@ -412,7 +415,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 <select
                   value={formData.addresses[0]?.type || 'Home'}
                   onChange={(e) => updateAddress('type', e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  className={selectFieldClassName}
                 >
                   <option value="Home">Home</option>
                   <option value="Work">Work</option>
@@ -428,7 +431,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                   type="text"
                   value={formData.addresses[0]?.line1 || ''}
                   onChange={(e) => updateAddress('line1', e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  className={fieldClassName}
                   placeholder="Street address"
                 />
               </div>
@@ -440,7 +443,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                     type="text"
                     value={formData.addresses[0]?.line2 || ''}
                     onChange={(e) => updateAddress('line2', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    className={fieldClassName}
                     placeholder="Apartment, suite, etc."
                   />
                 </div>
@@ -450,7 +453,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                     type="text"
                     value={formData.addresses[0]?.line3 || ''}
                     onChange={(e) => updateAddress('line3', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
@@ -462,7 +465,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                     type="text"
                     value={formData.addresses[0]?.city || ''}
                     onChange={(e) => updateAddress('city', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    className={fieldClassName}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -471,7 +474,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                     type="text"
                     value={formData.addresses[0]?.state || ''}
                     onChange={(e) => updateAddress('state', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
@@ -483,7 +486,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                     type="text"
                     value={formData.addresses[0]?.postcode || ''}
                     onChange={(e) => updateAddress('postcode', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    className={fieldClassName}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -517,7 +520,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     </div>
   );
 
-  const BusinessForm = () => (
+  const renderBusinessForm = () => (
     <div className="space-y-6">
       <DialogHeader>
         <div className="flex items-center gap-2">
@@ -546,7 +549,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="text"
               value={formData.displayName}
               onChange={(e) => updateField('displayName', e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
               placeholder="Enter business display name"
             />
           </div>
@@ -557,7 +560,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               <select
                 value={formData.status}
                 onChange={(e) => updateField('status', e.target.value)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={selectFieldClassName}
               >
                 <option value="Active">Active</option>
                 <option value="Pending">Pending</option>
@@ -571,7 +574,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 type="text"
                 value={formData.customerTierCode || ''}
                 onChange={(e) => updateField('customerTierCode', e.target.value || null)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={fieldClassName}
                 placeholder="e.g., Standard, Premium"
               />
             </div>
@@ -590,7 +593,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="text"
               value={formData.registrationNumber || ''}
               onChange={(e) => updateField('registrationNumber', e.target.value || null)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
               placeholder="Company registration number"
             />
           </div>
@@ -610,7 +613,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 type="text"
                 value={formData.industry || ''}
                 onChange={(e) => updateField('industry', e.target.value || null)}
-                className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                className={fieldClassName}
               />
             </div>
           </div>
@@ -628,7 +631,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="email"
               value={formData.contacts[0]?.value || ''}
               onChange={(e) => updateContact(0, e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
               placeholder="business@example.com"
             />
           </div>
@@ -639,14 +642,14 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               type="tel"
               value={formData.contacts[1]?.value || ''}
               onChange={(e) => updateContact(1, e.target.value)}
-              className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+              className={fieldClassName}
               placeholder="+1234567890"
             />
           </div>
         </div>
 
         {/* Address Section - Collapsible */}
-        <div className="space-y-4">
+        <div className="space-y-4 pb-6">
           <button
             type="button"
             onClick={() => setAddressExpanded(!addressExpanded)}
@@ -667,7 +670,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                 <select
                   value={formData.addresses[0]?.type || 'Work'}
                   onChange={(e) => updateAddress('type', e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  className={selectFieldClassName}
                 >
                   <option value="Work">Work</option>
                   <option value="Billing">Billing</option>
@@ -682,7 +685,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                   type="text"
                   value={formData.addresses[0]?.line1 || ''}
                   onChange={(e) => updateAddress('line1', e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                  className={fieldClassName}
                   placeholder="Street address"
                 />
               </div>
@@ -694,7 +697,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                     type="text"
                     value={formData.addresses[0]?.line2 || ''}
                     onChange={(e) => updateAddress('line2', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    className={fieldClassName}
                     placeholder="Suite, floor, etc."
                   />
                 </div>
@@ -704,7 +707,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
                     type="text"
                     value={formData.addresses[0]?.line3 || ''}
                     onChange={(e) => updateAddress('line3', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
@@ -712,33 +715,33 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">City</label>
-                  <input
-                    type="text"
-                    value={formData.addresses[0]?.city || ''}
-                    onChange={(e) => updateAddress('city', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  />
+                <input
+                  type="text"
+                  value={formData.addresses[0]?.city || ''}
+                  onChange={(e) => updateAddress('city', e.target.value)}
+                  className={fieldClassName}
+                />
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">State/Province</label>
-                  <input
-                    type="text"
-                    value={formData.addresses[0]?.state || ''}
-                    onChange={(e) => updateAddress('state', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  />
+                <input
+                  type="text"
+                  value={formData.addresses[0]?.state || ''}
+                  onChange={(e) => updateAddress('state', e.target.value)}
+                  className={fieldClassName}
+                />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">Postcode</label>
-                  <input
-                    type="text"
-                    value={formData.addresses[0]?.postcode || ''}
-                    onChange={(e) => updateAddress('postcode', e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]"
-                  />
+                <input
+                  type="text"
+                  value={formData.addresses[0]?.postcode || ''}
+                  onChange={(e) => updateAddress('postcode', e.target.value)}
+                  className={fieldClassName}
+                />
                 </div>
                 <div className="grid gap-2">
                   <label className="text-sm font-medium text-[var(--color-text-primary)]">Country</label>
@@ -779,9 +782,9 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           max-h-[90vh] overflow-y-auto
         `}
       >
-        {step === 'selection' && <SelectionScreen />}
-        {step === 'person-form' && <PersonForm />}
-        {step === 'business-form' && <BusinessForm />}
+        {step === 'selection' && renderSelectionScreen()}
+        {step === 'person-form' && renderPersonForm()}
+        {step === 'business-form' && renderBusinessForm()}
       </DialogContent>
     </Dialog>
   );
