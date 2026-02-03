@@ -122,6 +122,11 @@ public interface IAonikDbContext
     DbSet<ScreeningCheck> ScreeningChecks { get; set; }
     DbSet<ComplianceCase> ComplianceCases { get; set; }
     DbSet<AuditLog> AuditLogs { get; set; }
+    DbSet<Document> Documents { get; set; }
+    DbSet<DocumentFile> DocumentFiles { get; set; }
+    DbSet<DocumentUsage> DocumentUsages { get; set; }
+    DbSet<DocumentVerification> DocumentVerifications { get; set; }
+    DbSet<DocumentVersion> DocumentVersions { get; set; }
 
     // Features
     DbSet<TenantFeature> TenantFeatures { get; set; }
