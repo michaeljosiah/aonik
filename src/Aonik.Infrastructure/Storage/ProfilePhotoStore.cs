@@ -17,12 +17,12 @@ public class ProfilePhotoStore : IProfilePhotoStore
     private readonly IImageProcessingService _imageProcessingService;
 
     public ProfilePhotoStore(
-        IBlobStorage blobStorage,
+        Aonik.Application.Abstractions.Storage.IBlobStorageFactory blobStorageFactory,
         IOptions<BlobStorageOptions> storageOptions,
         IImageProcessingService imageProcessingService)
     {
-        _blobStorage = blobStorage;
         _contentTypeOptions = storageOptions.Value.ProfilePhotos;
+        _blobStorage = blobStorageFactory.Create(_contentTypeOptions);
         _imageProcessingService = imageProcessingService;
     }
 

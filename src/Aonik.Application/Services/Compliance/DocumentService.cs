@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
+using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Compliance;
@@ -20,15 +21,18 @@ public class DocumentService : IDocumentService
     private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
+    private readonly IDocumentFileStore _documentFileStore;
 
     public DocumentService(
         IAonikDbContext dbContext,
         ITenantProvider tenantProvider,
-        IClock clock)
+        IClock clock,
+        IDocumentFileStore documentFileStore)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
+        _documentFileStore = documentFileStore;
     }
 
     public async Task<DocumentResponse> CreateDocumentAsync(
@@ -226,6 +230,68 @@ public class DocumentService : IDocumentService
             FileName = request.FileName?.Trim(),
             FileSizeBytes = request.FileSizeBytes,
             Sha256 = request.Sha256?.Trim(),
+            PageIndex = request.PageIndex,
+            Side = request.Side?.Trim(),
+            CapturedAt = request.CapturedAt,
+            CapturedBy = request.CapturedBy?.Trim(),
+            MetadataJson = string.IsNullOrWhiteSpace(request.MetadataJson) ? "{}" : request.MetadataJson
+        };
+
+        _dbContext.DocumentFiles.Add(file);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return MapFile(file);
+    }
+
+    public async Task<DocumentFileResponse> UploadDocumentFileAsync(
+        UploadDocumentFileRequest request,
+        Stream fileStream,
+        CancellationToken cancellationToken = default)
+    {
+        if (fileStream == null)
+        {
+            throw new ArgumentNullException(nameof(fileStream));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FileName))
+        {
+            throw new ArgumentException("File name is required.", nameof(request.FileName));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ContentType))
+        {
+            throw new ArgumentException("Content type is required.", nameof(request.ContentType));
+        }
+
+        var document = await _dbContext.Documents
+            .FirstOrDefaultAsync(d => d.Id == request.DocumentId, cancellationToken);
+
+        if (document == null)
+        {
+            throw new InvalidOperationException($"Document {request.DocumentId} not found.");
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var uploadResult = await _documentFileStore.UploadDocumentFileAsync(
+            tenantId,
+            document.Id,
+            fileStream,
+            request.FileName,
+            request.ContentType,
+            cancellationToken);
+
+        var file = new DocumentFile
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            DocumentId = document.Id,
+            StorageProvider = uploadResult.StorageProvider.Trim(),
+            StorageContainer = uploadResult.StorageContainer?.Trim(),
+            StorageKey = uploadResult.StorageKey.Trim(),
+            ContentType = uploadResult.ContentType.Trim(),
+            FileName = uploadResult.FileName.Trim(),
+            FileSizeBytes = uploadResult.FileSizeBytes,
+            Sha256 = uploadResult.Sha256.Trim(),
             PageIndex = request.PageIndex,
             Side = request.Side?.Trim(),
             CapturedAt = request.CapturedAt,

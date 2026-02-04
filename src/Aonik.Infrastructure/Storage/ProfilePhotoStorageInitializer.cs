@@ -15,11 +15,11 @@ public class ProfilePhotoStorageInitializer : IHostedService
     private readonly BlobStorageOptions _options;
 
     public ProfilePhotoStorageInitializer(
-        IBlobStorage blobStorage,
+        Aonik.Application.Abstractions.Storage.IBlobStorageFactory blobStorageFactory,
         IOptions<BlobStorageOptions> options)
     {
-        _blobStorage = blobStorage;
         _options = options.Value;
+        _blobStorage = blobStorageFactory.Create(_options.ProfilePhotos);
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)

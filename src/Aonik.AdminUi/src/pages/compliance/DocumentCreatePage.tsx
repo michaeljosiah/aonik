@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { documentService } from '@/services/documentService';
-import type { AddDocumentFileRequest, AddDocumentUsageRequest, CreateDocumentRequest } from '@/types';
+import type { AddDocumentUsageRequest, CreateDocumentRequest } from '@/types';
 
 export function DocumentCreatePage() {
   const navigate = useNavigate();
@@ -26,15 +26,9 @@ export function DocumentCreatePage() {
     attributesJson: '',
   });
   const [tagInput, setTagInput] = useState('');
-  const [fileForm, setFileForm] = useState<AddDocumentFileRequest>({
-    storageProvider: '',
-    storageContainer: '',
-    storageKey: '',
-    contentType: '',
-    fileName: '',
-    fileSizeBytes: undefined,
-    sha256: '',
-    pageIndex: undefined,
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileForm, setFileForm] = useState({
+    pageIndex: '',
     side: '',
     capturedAt: '',
     capturedBy: '',
@@ -61,6 +55,15 @@ export function DocumentCreatePage() {
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0);
 
+      const pageIndex = selectedFile && fileForm.pageIndex.trim().length > 0
+        ? Number.parseInt(fileForm.pageIndex, 10)
+        : undefined;
+
+      if (selectedFile && pageIndex !== undefined && Number.isNaN(pageIndex)) {
+        toast.error('Page index must be a number.');
+        return;
+      }
+
       const documentPayload: CreateDocumentRequest = {
         ownerPartyId: documentForm.ownerPartyId,
         documentType: documentForm.documentType,
@@ -76,17 +79,10 @@ export function DocumentCreatePage() {
 
       const created = await documentService.create(documentPayload);
 
-      const hasFilePayload = fileForm.storageProvider && fileForm.storageKey && fileForm.contentType;
-      if (hasFilePayload) {
-        await documentService.addFile(created.documentId, {
-          storageProvider: fileForm.storageProvider,
-          storageContainer: fileForm.storageContainer || undefined,
-          storageKey: fileForm.storageKey,
-          contentType: fileForm.contentType,
-          fileName: fileForm.fileName || undefined,
-          fileSizeBytes: fileForm.fileSizeBytes ? Number(fileForm.fileSizeBytes) : undefined,
-          sha256: fileForm.sha256 || undefined,
-          pageIndex: fileForm.pageIndex ? Number(fileForm.pageIndex) : undefined,
+      if (selectedFile) {
+        await documentService.uploadFile(created.documentId, {
+          file: selectedFile,
+          pageIndex,
           side: fileForm.side || undefined,
           capturedAt: fileForm.capturedAt || undefined,
           capturedBy: fileForm.capturedBy || undefined,
@@ -212,49 +208,40 @@ export function DocumentCreatePage() {
             <CardTitle className="text-sm">Initial File (Optional)</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
+            <div className="md:col-span-2">
+              <Input
+                type="file"
+                onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+              />
+              {selectedFile && (
+                <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+                  {selectedFile.name} · {(selectedFile.size / 1024).toFixed(1)} KB · {selectedFile.type || 'unknown'}
+                </div>
+              )}
+            </div>
             <Input
-              value={fileForm.storageProvider}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, storageProvider: event.target.value }))}
-              placeholder="Storage provider"
-            />
-            <Input
-              value={fileForm.storageKey}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, storageKey: event.target.value }))}
-              placeholder="Storage key"
-            />
-            <Input
-              value={fileForm.contentType}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, contentType: event.target.value }))}
-              placeholder="Content type"
-            />
-            <Input
-              value={fileForm.fileName ?? ''}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, fileName: event.target.value }))}
-              placeholder="File name"
-            />
-            <Input
-              value={fileForm.fileSizeBytes?.toString() ?? ''}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, fileSizeBytes: event.target.value ? Number(event.target.value) : undefined }))}
-              placeholder="File size (bytes)"
+              value={fileForm.pageIndex}
+              onChange={(event) => setFileForm((prev) => ({ ...prev, pageIndex: event.target.value }))}
+              placeholder="Page index"
               type="number"
             />
             <Input
-              value={fileForm.sha256 ?? ''}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, sha256: event.target.value }))}
-              placeholder="SHA-256 hash"
-            />
-            <Input
-              value={fileForm.side ?? ''}
+              value={fileForm.side}
               onChange={(event) => setFileForm((prev) => ({ ...prev, side: event.target.value }))}
               placeholder="Side (front/back)"
             />
             <Input
-              value={fileForm.capturedAt ?? ''}
+              value={fileForm.capturedAt}
               onChange={(event) => setFileForm((prev) => ({ ...prev, capturedAt: event.target.value }))}
               placeholder="Captured at (ISO)"
             />
+            <Input
+              value={fileForm.capturedBy}
+              onChange={(event) => setFileForm((prev) => ({ ...prev, capturedBy: event.target.value }))}
+              placeholder="Captured by"
+            />
             <Textarea
-              value={fileForm.metadataJson ?? ''}
+              value={fileForm.metadataJson}
               onChange={(event) => setFileForm((prev) => ({ ...prev, metadataJson: event.target.value }))}
               placeholder="Metadata JSON"
               className="md:col-span-2"

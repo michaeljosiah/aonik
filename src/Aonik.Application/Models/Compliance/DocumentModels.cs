@@ -72,6 +72,16 @@ public record AddDocumentFileRequest(
     string? CapturedBy,
     string? MetadataJson);
 
+public record UploadDocumentFileRequest(
+    Guid DocumentId,
+    string FileName,
+    string ContentType,
+    int? PageIndex,
+    string? Side,
+    DateTime? CapturedAt,
+    string? CapturedBy,
+    string? MetadataJson);
+
 public record DocumentFileResponse(
     Guid DocumentFileId,
     Guid DocumentId,

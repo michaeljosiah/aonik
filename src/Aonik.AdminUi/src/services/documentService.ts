@@ -58,6 +58,32 @@ export const documentService = {
   addFile: async (documentId: string, data: AddDocumentFileRequest): Promise<DocumentFileResponse> => {
     return api.post<DocumentFileResponse>(`/compliance/documents/${documentId}/files`, data);
   },
+  uploadFile: async (
+    documentId: string,
+    data: {
+      file: File;
+      pageIndex?: number;
+      side?: string;
+      capturedAt?: string;
+      capturedBy?: string;
+      metadataJson?: string;
+    }
+  ): Promise<DocumentFileResponse> => {
+    const formData = new FormData();
+    formData.append('file', data.file);
+
+    if (data.pageIndex !== undefined) formData.append('pageIndex', data.pageIndex.toString());
+    if (data.side) formData.append('side', data.side);
+    if (data.capturedAt) formData.append('capturedAt', data.capturedAt);
+    if (data.capturedBy) formData.append('capturedBy', data.capturedBy);
+    if (data.metadataJson) formData.append('metadataJson', data.metadataJson);
+
+    return api.post<DocumentFileResponse>(`/compliance/documents/${documentId}/files/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   addUsage: async (documentId: string, data: AddDocumentUsageRequest): Promise<DocumentUsageResponse> => {
     return api.post<DocumentUsageResponse>(`/compliance/documents/${documentId}/usages`, data);
   },

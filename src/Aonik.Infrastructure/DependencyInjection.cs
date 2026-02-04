@@ -88,12 +88,8 @@ public static class DependencyInjection
         services.AddScoped<Aonik.Application.Services.Seeding.IDemoSeedService, DemoSeedService>();
         services.AddScoped<Aonik.Application.Services.Seeding.IPermissionSeedService, PermissionSeedService>();
 
-        // Blob Storage: Create IBlobStorage for profile photos
-        services.AddSingleton<IBlobStorage>(sp =>
-        {
-            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BlobStorageOptions>>().Value;
-            return BlobStorageFactory.Create(options, options.ProfilePhotos);
-        });
+        // Blob Storage factory (shared provider, content-type aware)
+        services.AddSingleton<IBlobStorageFactory, BlobStorageFactoryService>();
 
         // Image Processing Service
         services.AddScoped<IImageProcessingService, ImageProcessingService>();
@@ -101,6 +97,8 @@ public static class DependencyInjection
         // Profile Photo Store abstraction
         services.AddScoped<IProfilePhotoStore, ProfilePhotoStore>();
         
+        services.AddScoped<IDocumentFileStore, DocumentFileStore>();
+
         services.AddHostedService<ProfilePhotoStorageInitializer>();
 
         // Multitenancy
