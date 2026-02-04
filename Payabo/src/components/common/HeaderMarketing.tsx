@@ -1,8 +1,12 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 export const HeaderMarketing = () => {
-  return (
-    <header className="header cd-morph-dropdown">
+  const location = useLocation();
+  const isSubHeader = location.pathname === "/features-page";
+  const headerClassName = isSubHeader ? "header-sub cd-morph-dropdown" : "header cd-morph-dropdown";
+
+  const headerContent = (
+    <>
       <nav className="navbar navbar-expand-xl">
         <div className="container">
           <NavLink className="navbar-brand" to="/">
@@ -73,7 +77,7 @@ export const HeaderMarketing = () => {
                         <i className="icon recurringbills"></i>
                         <div className="media-body">
                           <h6>MANAGE RECURRING BILLS</h6>
-                          <p>Setup recurring bills and get reminders when they are due. Never forget to pay your bills again.</p>
+                          <p>Set up recurring bills and get reminders before they are due. Never miss a payment again.</p>
                         </div>
                       </div>
                     </NavLink>
@@ -84,7 +88,7 @@ export const HeaderMarketing = () => {
                         <i className="icon budget"></i>
                         <div className="media-body">
                           <h6>Budgeting</h6>
-                          <p>Setup budgets and track your spending over time. Avoid overspending again with smart spending alerts.</p>
+                          <p>Set up budgets and track your spending over time. Get smart alerts before you overspend.</p>
                         </div>
                       </div>
                     </NavLink>
@@ -95,7 +99,7 @@ export const HeaderMarketing = () => {
                         <i className="icon insights"></i>
                         <div className="media-body">
                           <h6>Spending Insights</h6>
-                          <p>Gain crucial insights into your spending. Understand where the majority of your money is going to and learn how to save.</p>
+                          <p>Gain clear insights into your spending. See where money goes and find practical ways to save.</p>
                         </div>
                       </div>
                     </NavLink>
@@ -106,7 +110,7 @@ export const HeaderMarketing = () => {
                         <i className="icon community"></i>
                         <div className="media-body">
                           <h6>Community Payments</h6>
-                          <p>Get assistance with payments from your loved ones and friends as well as the wider MyBillAfrica community.</p>
+                          <p>Share bills with family or friends and track contributions in one place.</p>
                         </div>
                       </div>
                     </NavLink>
@@ -117,7 +121,10 @@ export const HeaderMarketing = () => {
                         <i className="icon crossborder"></i>
                         <div className="media-body">
                           <h6>Cross Border Bill Payments</h6>
-                          <p>Pay your bills from anywhere in the world. We handle currency conversion and settle with the biller in local currency in real time.</p>
+                          <p>
+                            Pay bills from anywhere in the world. We handle currency conversion and settle locally in
+                            real time.
+                          </p>
                         </div>
                       </div>
                     </NavLink>
@@ -128,7 +135,7 @@ export const HeaderMarketing = () => {
                         <i className="icon recommendations"></i>
                         <div className="media-body">
                           <h6>Reminders & Recommendations</h6>
-                          <p>Get regular recommendations on how to save money, view alternative service providers.</p>
+                          <p>Get proactive reminders and savings suggestions, plus alternative providers when it helps.</p>
                         </div>
                       </div>
                     </NavLink>
@@ -158,9 +165,7 @@ export const HeaderMarketing = () => {
               <div className="content menu-content pb-2">
                 <p className="mb-2">You're viewing content specific for:</p>
                 <h6 className="text-primary mb-2">United Kingdom</h6>
-                <p className="mb-0">
-                  If you want to view content specific to other location, choose from the countries below.
-                </p>
+                <p className="mb-0">If you want to view content specific to other location, choose from the countries below.</p>
               </div>
               <hr />
               <a className="list-flag pt-2 d-flex align-items-center justify-content-between" href="#">
@@ -208,6 +213,8 @@ export const HeaderMarketing = () => {
           <div className="bg-layer" aria-hidden="true"></div>
         </div>
       </div>
-    </header>
+    </>
   );
+
+  return <header className={headerClassName}>{isSubHeader ? <div className="header-top">{headerContent}</div> : headerContent}</header>;
 };

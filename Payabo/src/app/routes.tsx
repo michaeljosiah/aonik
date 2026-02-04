@@ -7,40 +7,40 @@ import { FlowLayout } from "./layouts/FlowLayout";
 import { MarketingLayout } from "./layouts/MarketingLayout";
 import { StaticHtmlPage } from "../components/common/StaticHtmlPage";
 import { Home } from "../pages/marketing/Home";
+import { About } from "../pages/marketing/About";
+import { Community } from "../pages/marketing/Community";
+import { Cookies } from "../pages/marketing/Cookies";
+import { Features } from "../pages/marketing/Features";
+import { FeaturesPage } from "../pages/marketing/FeaturesPage";
+import { GetApp } from "../pages/marketing/GetApp";
+import { Help } from "../pages/marketing/Help";
+import { Privacy } from "../pages/marketing/Privacy";
 import { ProviderList } from "../pages/payments/ProviderList";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
 
-import aboutHtml from "../../../website/MyBillAfrica/about.html?raw";
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
 import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
 import cardDetailsHtml from "../../../website/MyBillAfrica/carddetails.html?raw";
-import communityHtml from "../../../website/MyBillAfrica/community.html?raw";
 import confirmationBillPaidHtml from "../../../website/MyBillAfrica/confirmation-billpaid.html?raw";
 import confirmationOrderReceivedHtml from "../../../website/MyBillAfrica/confirmation-orderreceived.html?raw";
 import confirmationPaymentSentHtml from "../../../website/MyBillAfrica/confirmation-paymentsent.html?raw";
-import cookiesHtml from "../../../website/MyBillAfrica/cookies.html?raw";
 import dashboardEmptyHtml from "../../../website/MyBillAfrica/dashboard-empty.html?raw";
 import dashboardRawHtml from "../../../website/MyBillAfrica/dashboard-raw.html?raw";
 import dashboardSampleHtml from "../../../website/MyBillAfrica/dashboard-sample.html?raw";
 import dashboardTransactionsCalendarHtml from "../../../website/MyBillAfrica/dashboard-transactions-calendar.html?raw";
 import dashboardTransactionsRawHtml from "../../../website/MyBillAfrica/dashboard-transactions-raw.html?raw";
 import dashboardTransactionsSampleHtml from "../../../website/MyBillAfrica/dashboard-transactions-rsample.html?raw";
-import featuresHtml from "../../../website/MyBillAfrica/features.html?raw";
-import featuresPageHtml from "../../../website/MyBillAfrica/features-page.html?raw";
 import friendCheckoutRowHtml from "../../../website/MyBillAfrica/friendcheckout-row.html?raw";
 import friendCheckoutSampleHtml from "../../../website/MyBillAfrica/friendcheckout-sample.html?raw";
 import friendCheckoutSampleNoMessageHtml from "../../../website/MyBillAfrica/friendcheckout-sample-nomessage.html?raw";
 import friendDetailsHtml from "../../../website/MyBillAfrica/frienddetails.html?raw";
 import friendMessageHtml from "../../../website/MyBillAfrica/friend-message.html?raw";
-import getAppHtml from "../../../website/MyBillAfrica/get-app.html?raw";
-import helpHtml from "../../../website/MyBillAfrica/help.html?raw";
 import manageCardsRawHtml from "../../../website/MyBillAfrica/managecards-raw.html?raw";
 import manageCardsSampleHtml from "../../../website/MyBillAfrica/managecards-sample.html?raw";
 import paymentSelectionHtml from "../../../website/MyBillAfrica/paymentselection.html?raw";
-import privacyHtml from "../../../website/MyBillAfrica/privacy.html?raw";
 import profileLoginDetailsEmailHtml from "../../../website/MyBillAfrica/profile-logindetails-email.html?raw";
 import profileLoginDetailsHtml from "../../../website/MyBillAfrica/profile-logindetails.html?raw";
 import profileLoginDetailsPasswordHtml from "../../../website/MyBillAfrica/profile-logindetails-password.html?raw";
@@ -76,14 +76,14 @@ export const router = createBrowserRouter([
         element: <MarketingLayout />,
         children: [
           { path: "/", element: <Home /> },
-          { path: "/features", element: <StaticHtmlPage html={featuresHtml} selector="main" /> },
-          { path: "/features-page", element: <StaticHtmlPage html={featuresPageHtml} selector="main" /> },
-          { path: "/about", element: <StaticHtmlPage html={aboutHtml} selector="main" /> },
-          { path: "/help", element: <StaticHtmlPage html={helpHtml} selector="main" /> },
-          { path: "/community", element: <StaticHtmlPage html={communityHtml} selector="main" /> },
-          { path: "/get-app", element: <StaticHtmlPage html={getAppHtml} selector="main" /> },
-          { path: "/privacy", element: <StaticHtmlPage html={privacyHtml} selector="main" /> },
-          { path: "/cookies", element: <StaticHtmlPage html={cookiesHtml} selector="main" /> }
+          { path: "/features", element: <Features /> },
+          { path: "/features-page", element: <FeaturesPage /> },
+          { path: "/about", element: <About /> },
+          { path: "/help", element: <Help /> },
+          { path: "/community", element: <Community /> },
+          { path: "/get-app", element: <GetApp /> },
+          { path: "/privacy", element: <Privacy /> },
+          { path: "/cookies", element: <Cookies /> }
         ]
       },
       {

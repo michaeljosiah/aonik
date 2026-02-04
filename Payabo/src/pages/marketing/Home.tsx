@@ -20,14 +20,14 @@ export const Home = () => {
           <div className="row justify-content-between">
             <div className="col-lg-6 col-xl-5 col-xxl-4 pt-xl-5 mt-xl-5 pb-4">
               <h2 className="mb-3 mt-4">
-                PAY YOUR BILLS <br />
-                <strong>IN ONE PLACE</strong>
+                MEET PAYABO <br />
+                <strong>YOUR FINANCE &amp; BILLS ASSISTANT</strong>
               </h2>
               <p className="mb-3">
-                Pay your bills or those of your loved ones in Africa from anywhere in the world, directly to the bill
-                provider. We cover medical bills, utility bills, energy bills and much more.
+                Track bills and subscriptions, plan budgets, and pay invoices in seconds. Payabo keeps you on schedule
+                with smart reminders, spending insights, and recommendations that help you stay in control.
               </p>
-              <p className="h4 mb-4 pb-3">Payment is instant, easy and secure.</p>
+              <p className="h4 mb-4 pb-3">Bills calendar - Budget guidance - Instant bill pay</p>
               <ul className="list-brand-logo">
                 <li>
                   <img src="/images/logo-AIRTEL.png" alt="Airtel" />
@@ -55,7 +55,7 @@ export const Home = () => {
                         href="#tab-1"
                         onClick={(event) => handleTabClick("search", event)}
                       >
-                        SEARCH BILL
+                        FIND A BILLER
                       </a>
                       <a
                         className={`nav-link ${activeTab === "invoice" ? "active" : ""}`}
@@ -63,7 +63,7 @@ export const Home = () => {
                         href="#tab-2"
                         onClick={(event) => handleTabClick("invoice", event)}
                       >
-                        PAY INVOICE
+                        PAY AN INVOICE
                       </a>
                     </div>
                   </nav>
@@ -87,7 +87,7 @@ export const Home = () => {
                           </select>
                         </div>
                         <p className="text-md mb-4">
-                          Note: Start by selecting the country you wish to pay a bill from.
+                          Note: Choose a country, pick a provider, and Payabo pre-fills what you need to pay.
                         </p>
                         <div className="text-center">
                           <button type="submit" className="btn btn-primary btn-sm">
@@ -107,12 +107,11 @@ export const Home = () => {
                             className="form-control"
                             name="InvoiceNumber"
                             id="invoice"
-                            placeholder="Enter MBA invoice number"
+                            placeholder="Enter Payabo invoice number"
                           />
                         </div>
                         <p className="text-md mb-3">
-                          Note: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
-                          ut labore.
+                          Note: Payabo checks the bill details before you pay, then stores your receipt automatically.
                         </p>
                         <div className="text-center">
                           <button type="submit" className="btn btn-primary btn-sm">
@@ -167,7 +166,7 @@ export const Home = () => {
                   <img src="/images/icon-team.png" alt="Team of professionals" />
                 </div>
                 <h3 className="alt mb-3">Team of professionals</h3>
-                <p>MyBillAfrica is managed by a team of highly skilled professionals ensuring an unrivalled service.</p>
+                <p>Private by design. Your data stays protected and is used only to help you manage money.</p>
               </div>
             </div>
           </div>
@@ -185,8 +184,8 @@ export const Home = () => {
                 </strong>
               </h3>
               <p>
-                We provide tools to help you manage all your bills in one place. With renewal reminders and auto payment
-                you will always be in control.
+                Payabo brings your bills and subscriptions into one timeline, reminds you before due dates, and helps you
+                set up autopay where available.
               </p>
               <a className="btn btn-primary" href="#">
                 GET STARTED
@@ -210,8 +209,8 @@ export const Home = () => {
                 </strong>
               </h3>
               <p>
-                We provide tools to help you stay on top of your spending. Manage your outgoings directly from your
-                account, set budgets and view quarterly reports.
+                See where money goes, set budgets that match your life, and get gentle alerts before you overspend plus
+                monthly insights that help you save.
               </p>
               <a className="btn btn-primary" href="#">
                 GET STARTED
@@ -234,7 +233,7 @@ export const Home = () => {
                   REQUEST HELP <br /> TO PAY A BILL
                 </strong>
               </h3>
-              <p>You can easily request for help paying your bills from your family or friends anywhere in the world.</p>
+              <p>Share a bill link with family or friends, split payments, and track who contributed.</p>
               <a className="btn btn-primary" href="#">
                 GET STARTED
               </a>
@@ -251,10 +250,10 @@ export const Home = () => {
           <div className="row text-center justify-content-center mb-4">
             <div className="col-lg-7 col-xxl-6">
               <h3 className="title-lg">
-                MBA <br />
-                <strong className="text-primary">RECENT NEWS</strong>
+                PAYABO <br />
+                <strong className="text-primary">TIPS &amp; INSIGHTS</strong>
               </h3>
-              <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc sit amet ipsum ac eli.</p>
+              <p>Guides and money insights to help you build better habits and stay ahead of bills.</p>
             </div>
           </div>
           <div className="row">
@@ -272,7 +271,7 @@ export const Home = () => {
                   </div>
                   <div className="card-footer">
                     <a className="btn btn-primary btn-sm" href="#">
-                      READ MORE
+                      READ GUIDE
                     </a>
                     <ul className="social-share">
                       <li>
@@ -310,7 +309,7 @@ export const Home = () => {
           </div>
           <div className="text-center pt-2 pb-4">
             <a className="btn btn-secondary btn-lg" href="#">
-              VIEW ALL NEWS
+              VIEW ALL INSIGHTS
             </a>
           </div>
         </div>
@@ -327,7 +326,7 @@ export const Home = () => {
                       THE APP <br /> <strong className="text-primary">IN YOUR HANDS</strong>
                     </h3>
                     <p>
-                      Stay on top of your bills on the go with the <br /> MyBillAfrica app.
+                      Stay on top of your bills on the go with the <br /> Payabo app.
                     </p>
                     <h4 className="title-app">Available on</h4>
                     <a className="mb-2 me-2" href="#">

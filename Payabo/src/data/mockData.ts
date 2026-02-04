@@ -1,30 +1,30 @@
 export const recentNews = [
   {
     id: "news-1",
-    title: "Lorem ipsum dolor sit amet, consectetur adipis",
+    title: "Build a bills buffer that actually sticks",
     excerpt:
-      "Lorem ipsum dolor sit amet, conse tetur adipiscing elit. Nullam tincidunt, leo ut auctor congue, nibh metus maximus tortor, sed luctus orci tellus at turpis...",
+      "Create a small monthly buffer for essentials so due dates stop catching you off guard, and automate the top-ups.",
     image: "/images/card-img-01.png"
   },
   {
     id: "news-2",
-    title: "Lorem ipsum dolor sit amet, consectetur adipis",
+    title: "Spot subscription creep in minutes",
     excerpt:
-      "Lorem ipsum dolor sit amet, conse tetur adipiscing elit. Nullam tincidunt, leo ut auctor congue, nibh metus maximus tortor, sed luctus orci tellus at turpis...",
+      "See recurring charges, cancel what you do not use, and keep the services that really matter.",
     image: "/images/card-img-01.png"
   },
   {
     id: "news-3",
-    title: "Lorem ipsum dolor sit amet, consectetur adipis",
+    title: "Set a budget you can live with",
     excerpt:
-      "Lorem ipsum dolor sit amet, conse tetur adipiscing elit. Nullam tincidunt, leo ut auctor congue, nibh metus maximus tortor, sed luctus orci tellus at turpis...",
+      "Start with essentials, add a realistic buffer for surprises, and let Payabo keep you on track.",
     image: "/images/card-img-01.png"
   },
   {
     id: "news-4",
-    title: "Lorem ipsum dolor sit amet, consectetur adipis",
+    title: "Paying family bills abroad, safely",
     excerpt:
-      "Lorem ipsum dolor sit amet, conse tetur adipiscing elit. Nullam tincidunt, leo ut auctor congue, nibh metus maximus tortor, sed luctus orci tellus at turpis...",
+      "Send support with receipts and reminders built in, plus clear tracking for every payment.",
     image: "/images/card-img-01.png"
   }
 ];
