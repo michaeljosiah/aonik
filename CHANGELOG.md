@@ -39,6 +39,7 @@ All notable changes to the AONIK project will be documented in this file.
   - Displays user's role(s) in bottom-left sidebar profile menu
 - **Admin UI**: FX Rate management page and navigation entry
   - Added a dedicated FX Rates settings page with rate sources, spread policies, and refresh cadence overview
+- **Payabo Web**: Added a new root-level `Payabo/` React app scaffold with routing, layouts, and asset imports for the Payabo migration.
   - Linked the page in Settings navigation for quick access
 - **Pricing**: Added FX management tables for rate sources, spread policies, and refresh schedules.
 
