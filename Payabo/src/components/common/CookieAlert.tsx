@@ -1,6 +1,23 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 export const CookieAlert = () => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const storedChoice = window.localStorage.getItem("payabo_cookie_choice");
+    setIsVisible(!storedChoice);
+  }, []);
+
+  const handleChoice = (choice: "accepted" | "declined") => {
+    window.localStorage.setItem("payabo_cookie_choice", choice);
+    setIsVisible(false);
+  };
+
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <div className="alert cookiealert fixed-bottom" role="alert">
       <div className="container">
@@ -14,10 +31,10 @@ export const CookieAlert = () => {
             </p>
           </div>
           <div className="col-lg-4 col-xl-3 text-lg-end">
-            <button className="btn btn-primary btn-sm mb-4 me-2" type="button">
+            <button className="btn btn-primary btn-sm mb-4 me-2" type="button" onClick={() => handleChoice("accepted")}>
               ACCEPT
             </button>
-            <button className="btn btn-secondary btn-sm mb-4" type="button">
+            <button className="btn btn-secondary btn-sm mb-4" type="button" onClick={() => handleChoice("declined")}>
               DECLINE
             </button>
           </div>
