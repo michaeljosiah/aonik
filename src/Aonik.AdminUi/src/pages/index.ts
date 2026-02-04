@@ -19,6 +19,7 @@ export {
 } from './catalog';
 export { BillPaymentOrderFormPage, OrdersLandingPage } from './orders';
 export { CustomersListPage, CustomerDetailPage } from './customers';
+export { ComplianceLandingPage, DocumentsListPage, DocumentDetailPage, DocumentCreatePage } from './compliance';
 
 export { AiChatMock } from './ai/AiChatMock';
 export { ContentBlocksListPage } from './ContentBlocksListPage';

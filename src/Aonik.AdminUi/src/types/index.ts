@@ -177,6 +177,149 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
+export interface DocumentListItem {
+  documentId: string;
+  ownerPartyId: string;
+  documentType: string;
+  status: string;
+  issuedOn?: string | null;
+  expiresOn?: string | null;
+  issuerName?: string | null;
+  countryCode?: string | null;
+  referenceNumber?: string | null;
+  tags: string[];
+  filesCount: number;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface DocumentResponse {
+  documentId: string;
+  ownerPartyId: string;
+  documentType: string;
+  status: string;
+  issuedOn?: string | null;
+  expiresOn?: string | null;
+  issuerName?: string | null;
+  countryCode?: string | null;
+  referenceNumber?: string | null;
+  tags: string[];
+  attributesJson: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface DocumentFileResponse {
+  documentFileId: string;
+  documentId: string;
+  storageProvider: string;
+  storageContainer?: string | null;
+  storageKey: string;
+  contentType: string;
+  fileName?: string | null;
+  fileSizeBytes?: number | null;
+  sha256?: string | null;
+  pageIndex?: number | null;
+  side?: string | null;
+  capturedAt?: string | null;
+  capturedBy?: string | null;
+  metadataJson: string;
+  createdAt: string;
+}
+
+export interface DocumentVerificationResponse {
+  documentVerificationId: string;
+  documentUsageId: string;
+  decision: string;
+  decisionReasonCode?: string | null;
+  decisionNotes?: string | null;
+  verifierType: string;
+  verifierId?: string | null;
+  aiRunId?: string | null;
+  createdAt: string;
+}
+
+export interface DocumentUsageResponse {
+  documentUsageId: string;
+  documentId: string;
+  ownerPartyId: string;
+  purpose: string;
+  relatedEntityType?: string | null;
+  relatedEntityId?: string | null;
+  status: string;
+  verifiedByUserId?: string | null;
+  verifiedAt?: string | null;
+  notes?: string | null;
+  verifications: DocumentVerificationResponse[];
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface DocumentVersionResponse {
+  documentVersionId: string;
+  documentId: string;
+  version: number;
+  status: string;
+  submittedAt?: string | null;
+  decisionedAt?: string | null;
+  decisionReason?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface DocumentDetailsResponse {
+  document: DocumentResponse;
+  files: DocumentFileResponse[];
+  usages: DocumentUsageResponse[];
+  versions: DocumentVersionResponse[];
+}
+
+export interface CreateDocumentRequest {
+  ownerPartyId: string;
+  documentType: string;
+  status?: string | null;
+  issuedOn?: string | null;
+  expiresOn?: string | null;
+  issuerName?: string | null;
+  countryCode?: string | null;
+  referenceNumber?: string | null;
+  tags: string[];
+  attributesJson?: string | null;
+}
+
+export interface AddDocumentFileRequest {
+  storageProvider: string;
+  storageContainer?: string | null;
+  storageKey: string;
+  contentType: string;
+  fileName?: string | null;
+  fileSizeBytes?: number | null;
+  sha256?: string | null;
+  pageIndex?: number | null;
+  side?: string | null;
+  capturedAt?: string | null;
+  capturedBy?: string | null;
+  metadataJson?: string | null;
+}
+
+export interface AddDocumentUsageRequest {
+  ownerPartyId: string;
+  purpose: string;
+  relatedEntityType?: string | null;
+  relatedEntityId?: string | null;
+  status?: string | null;
+  notes?: string | null;
+}
+
+export interface AddDocumentVerificationRequest {
+  decision: string;
+  decisionReasonCode?: string | null;
+  decisionNotes?: string | null;
+  verifierType: string;
+  verifierId?: string | null;
+  aiRunId?: string | null;
+}
+
 export interface BootstrapTenantResult {
   tenantId: string;
   tenantName: string;

@@ -39,6 +39,10 @@ import {
   CustomersListPage,
   CustomerDetailPage,
   WorkspacePage,
+  ComplianceLandingPage,
+  DocumentsListPage,
+  DocumentDetailPage,
+  DocumentCreatePage,
 } from '@/pages';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
@@ -193,6 +197,7 @@ function AppLayout() {
     if (path.startsWith('/workspace')) return ['Workspace'];
     if (path.startsWith('/access')) return ['Users & Access'];
     if (path.startsWith('/catalog')) return ['Catalog'];
+    if (path.startsWith('/compliance')) return ['Compliance'];
     if (path.startsWith('/tenants')) return ['Tenants'];
     if (path.startsWith('/settings')) return ['Settings'];
     return ['Dashboard'];
@@ -269,6 +274,11 @@ function AppLayout() {
             <Route path="/catalog/billers/:billerId" element={<CatalogBillerDetailPage />} />
             <Route path="/catalog/billers/:billerId/services" element={<CatalogBillerServicesPage />} />
             <Route path="/catalog/billers/:billerId/services/:serviceId" element={<CatalogBillerServiceDetailPage />} />
+            {/* Compliance */}
+            <Route path="/compliance" element={<ComplianceLandingPage />} />
+            <Route path="/compliance/documents" element={<DocumentsListPage />} />
+            <Route path="/compliance/documents/new" element={<DocumentCreatePage />} />
+            <Route path="/compliance/documents/:documentId" element={<DocumentDetailPage />} />
             {/* Tenants */}
             <Route path="/tenants" element={<TenantsListPage />} />
             <Route path="/tenants/new" element={<CreateTenantPage />} />
