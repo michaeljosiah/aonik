@@ -1,11 +1,13 @@
-using Aonik.Api.Contracts.Compliance;
-using Aonik.Application.Models.Compliance;
+using ApiCreateDocumentRequest = Aonik.Api.Contracts.Compliance.CreateDocumentRequest;
+using ApiDocumentResponse = Aonik.Api.Contracts.Compliance.DocumentResponse;
+using AppCreateDocumentRequest = Aonik.Application.Models.Compliance.CreateDocumentRequest;
+using AppDocumentResponse = Aonik.Application.Models.Compliance.DocumentResponse;
 using Aonik.Application.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;
 
-public class CreateDocumentEndpoint : Endpoint<CreateDocumentRequest, DocumentResponse>
+public class CreateDocumentEndpoint : Endpoint<ApiCreateDocumentRequest, ApiDocumentResponse>
 {
     private readonly IDocumentService _documentService;
 
@@ -20,10 +22,10 @@ public class CreateDocumentEndpoint : Endpoint<CreateDocumentRequest, DocumentRe
         Policies("AdminUserPolicy");
     }
 
-    public override async Task HandleAsync(CreateDocumentRequest req, CancellationToken ct)
+    public override async Task HandleAsync(ApiCreateDocumentRequest req, CancellationToken ct)
     {
         var result = await _documentService.CreateDocumentAsync(
-            new Application.Models.Compliance.CreateDocumentRequest(
+            new AppCreateDocumentRequest(
                 req.OwnerPartyId,
                 req.DocumentType,
                 req.Status,
@@ -42,9 +44,9 @@ public class CreateDocumentEndpoint : Endpoint<CreateDocumentRequest, DocumentRe
             cancellation: ct);
     }
 
-    private static DocumentResponse MapDocument(Application.Models.Compliance.DocumentResponse response)
+    private static ApiDocumentResponse MapDocument(AppDocumentResponse response)
     {
-        return new DocumentResponse(
+        return new ApiDocumentResponse(
             response.DocumentId,
             response.OwnerPartyId,
             response.DocumentType,

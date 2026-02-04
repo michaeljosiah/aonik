@@ -382,7 +382,7 @@ public class DocumentService : IDocumentService
         try
         {
             var tags = JsonSerializer.Deserialize<List<string>>(tagsJson, JsonOptions);
-            return tags ?? Array.Empty<string>();
+            return tags ?? new List<string>();
         }
         catch (JsonException)
         {
