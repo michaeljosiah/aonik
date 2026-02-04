@@ -14,9 +14,9 @@ export const HeaderMarketing = () => {
           <div className="main-nav navbar-collapse" id="navbar">
             <ul className="navbar-nav ms-auto align-items-center">
               <li className="nav-item has-dropdown features" data-content="features">
-                <a className="nav-link dropdown-toggle" href="#" id="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <NavLink className="nav-link dropdown-toggle" to="/features" aria-haspopup="true" aria-expanded="false">
                   FEATURES
-                </a>
+                </NavLink>
               </li>
               <li className="nav-item">
                 <NavLink className="nav-link" to="/get-app">
@@ -37,8 +37,6 @@ export const HeaderMarketing = () => {
                 <a
                   className="nav-link dropdown-toggle d-flex align-items-center"
                   href="#"
-                  id="dropdown"
-                  data-bs-toggle="dropdown"
                   aria-haspopup="true"
                   aria-expanded="false"
                 >
@@ -70,7 +68,7 @@ export const HeaderMarketing = () => {
               <div className="content">
                 <div className="row">
                   <div className="col-md-6">
-                    <a className="navbar-promo-link link-active" href="#">
+                    <NavLink className="navbar-promo-link link-active" to="/features-page#features-one">
                       <div className="media">
                         <i className="icon recurringbills"></i>
                         <div className="media-body">
@@ -78,10 +76,10 @@ export const HeaderMarketing = () => {
                           <p>Setup recurring bills and get reminders when they are due. Never forget to pay your bills again.</p>
                         </div>
                       </div>
-                    </a>
+                    </NavLink>
                   </div>
                   <div className="col-md-6">
-                    <a className="navbar-promo-link" href="#">
+                    <NavLink className="navbar-promo-link" to="/features-page#features-four">
                       <div className="media">
                         <i className="icon budget"></i>
                         <div className="media-body">
@@ -89,10 +87,10 @@ export const HeaderMarketing = () => {
                           <p>Setup budgets and track your spending over time. Avoid overspending again with smart spending alerts.</p>
                         </div>
                       </div>
-                    </a>
+                    </NavLink>
                   </div>
                   <div className="col-md-6">
-                    <a className="navbar-promo-link" href="#">
+                    <NavLink className="navbar-promo-link" to="/features-page#features-two">
                       <div className="media">
                         <i className="icon insights"></i>
                         <div className="media-body">
@@ -100,10 +98,10 @@ export const HeaderMarketing = () => {
                           <p>Gain crucial insights into your spending. Understand where the majority of your money is going to and learn how to save.</p>
                         </div>
                       </div>
-                    </a>
+                    </NavLink>
                   </div>
                   <div className="col-md-6">
-                    <a className="navbar-promo-link" href="#">
+                    <NavLink className="navbar-promo-link" to="/features-page#features-five">
                       <div className="media">
                         <i className="icon community"></i>
                         <div className="media-body">
@@ -111,10 +109,10 @@ export const HeaderMarketing = () => {
                           <p>Get assistance with payments from your loved ones and friends as well as the wider MyBillAfrica community.</p>
                         </div>
                       </div>
-                    </a>
+                    </NavLink>
                   </div>
                   <div className="col-md-6">
-                    <a className="navbar-promo-link" href="#">
+                    <NavLink className="navbar-promo-link" to="/features-page#features-three">
                       <div className="media">
                         <i className="icon crossborder"></i>
                         <div className="media-body">
@@ -122,10 +120,10 @@ export const HeaderMarketing = () => {
                           <p>Pay your bills from anywhere in the world. We handle currency conversion and settle with the biller in local currency in real time.</p>
                         </div>
                       </div>
-                    </a>
+                    </NavLink>
                   </div>
                   <div className="col-md-6">
-                    <a className="navbar-promo-link" href="#">
+                    <NavLink className="navbar-promo-link" to="/features-page#features-six">
                       <div className="media">
                         <i className="icon recommendations"></i>
                         <div className="media-body">
@@ -133,7 +131,7 @@ export const HeaderMarketing = () => {
                           <p>Get regular recommendations on how to save money, view alternative service providers.</p>
                         </div>
                       </div>
-                    </a>
+                    </NavLink>
                   </div>
                 </div>
               </div>

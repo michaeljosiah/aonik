@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="60" height="48" viewBox="0 0 60 48">
+  <defs>
+    <clipPath id="clip-path">
+      <rect id="Rectangle_1915" data-name="Rectangle 1915" width="60" height="36" fill="none"/>
+    </clipPath>
+    <clipPath id="clip-icillustration_crossborder_inactive">
+      <rect width="60" height="48"/>
+    </clipPath>
+  </defs>
+  <g id="icillustration_crossborder_inactive" clip-path="url(#clip-icillustration_crossborder_inactive)">
+    <g id="Group_8" data-name="Group 8" transform="translate(0 6)">
+      <g id="Group_860" data-name="Group 860" clip-path="url(#clip-path)">
+        <path id="Path_1512" data-name="Path 1512" d="M56.853,24.628a5.975,5.975,0,0,0-8.13,2.445,6.075,6.075,0,0,0,2.423,8.2,5.973,5.973,0,0,0,8.13-2.445,6.075,6.075,0,0,0-2.423-8.2" fill="#e5e9ea"/>
+        <path id="Path_1513" data-name="Path 1513" d="M52.6,19.76V5.441L48.965,7.555A26.7,26.7,0,0,0,30.3,0,27.124,27.124,0,0,0,3.438,24.481,5.978,5.978,0,0,0,.723,27.073a6.076,6.076,0,0,0,2.423,8.2,5.975,5.975,0,0,0,8.131-2.445A6.08,6.08,0,0,0,9.42,24.979,21.093,21.093,0,0,1,30.3,6.051a20.731,20.731,0,0,1,13.186,4.694L40.3,12.6Z" fill="#e5e9ea"/>
+        <path id="Path_1514" data-name="Path 1514" d="M30,6.054V0A27.127,27.127,0,0,0,3.437,24.481,6,6,0,0,0,.723,27.072a6.075,6.075,0,0,0,2.424,8.2,5.973,5.973,0,0,0,8.13-2.444A6.08,6.08,0,0,0,9.419,24.98,21.1,21.1,0,0,1,30,6.054" fill="#b4bfc3"/>
+      </g>
+    </g>
+  </g>
+</svg>

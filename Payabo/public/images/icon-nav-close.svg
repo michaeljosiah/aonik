@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+  <g id="btn_CLOSE" transform="translate(-175 -620)">
+    <circle id="btn_BG" cx="15" cy="15" r="15" transform="translate(175 620)" fill="#f37920"/>
+    <path id="_" data-name="+" d="M-1774-1718v-7h-7v-2h7v-7h2v7h7v2h-7v7Z" transform="translate(223.234 3109.167) rotate(45)" fill="#fff"/>
+  </g>
+</svg>

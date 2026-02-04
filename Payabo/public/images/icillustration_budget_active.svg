@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <clipPath id="clip-path">
+      <rect id="Rectangle_1918" data-name="Rectangle 1918" width="42" height="48" fill="none"/>
+    </clipPath>
+    <clipPath id="clip-icillustration_budget_active">
+      <rect width="48" height="48"/>
+    </clipPath>
+  </defs>
+  <g id="icillustration_budget_active" clip-path="url(#clip-icillustration_budget_active)">
+    <g id="Group_4" data-name="Group 4" transform="translate(6)">
+      <g id="Group_866" data-name="Group 866" clip-path="url(#clip-path)">
+        <path id="Path_1523" data-name="Path 1523" d="M32,0H4A4,4,0,0,0,0,4V43.636A4.194,4.194,0,0,0,4,48H28a10,10,0,0,1,8-16V4a4,4,0,0,0-4-4M12,40H8V36h4Zm0-8H8V28h4Zm0-8H8V20h4Zm8,16H16V36h4Zm0-8H16V28h4Zm0-8H16V20h4Zm8,8H24V28h4Zm0-8H24V20h4Zm0-8H8V8H28Z" fill="#ff9e15"/>
+        <path id="Path_1524" data-name="Path 1524" d="M30,42a6,6,0,1,1,6,6,6,6,0,0,1-6-6" fill="#f37920"/>
+        <path id="Path_1525" data-name="Path 1525" d="M4,48H18V40H16V36h2V32H16V28h2V24H16V20h2V16H8V8H18V0H4A4,4,0,0,0,0,4V43.636A4.194,4.194,0,0,0,4,48M8,20h4v4H8Zm0,8h4v4H8Zm0,8h4v4H8Z" fill="#f37920"/>
+      </g>
+    </g>
+  </g>
+</svg>

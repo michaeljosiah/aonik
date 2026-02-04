@@ -1,6 +1,40 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
+import $ from "jquery";
+import intlTelInput from "intl-tel-input";
+import { Tooltip } from "bootstrap";
+
+import intlTelInputUtilsUrl from "intl-tel-input/build/js/utils.js?url";
+
+let select2ImportPromise: Promise<void> | null = null;
+let slickImportPromise: Promise<void> | null = null;
+
+const ensureSelect2Loaded = () => {
+  // Select2 is a UMD build that expects window.jQuery/window.$ at evaluation time.
+  // In ESM builds (Vite), importing at module scope can run before we assign globals.
+  select2ImportPromise ??= import("select2/dist/js/select2.js").then((module) => {
+    // Vite may wrap UMD/CJS as an ESM module; in that case the default export
+    // can be the Select2 factory (root, jQuery) => jQuery.
+    const factory = (module as { default?: unknown }).default;
+    if (typeof factory === "function") {
+      (factory as (root: Window, jQuery: typeof $) => typeof $)(window, $);
+    }
+  });
+
+  return select2ImportPromise;
+};
+
+const ensureSlickLoaded = () => {
+  slickImportPromise ??= import("slick-carousel/slick/slick.js").then((module) => {
+    const factory = (module as { default?: unknown }).default;
+    if (typeof factory === "function") {
+      (factory as (root: Window, jQuery: typeof $) => typeof $)(window, $);
+    }
+  });
+  return slickImportPromise;
+};
+
 const parseMq = (element: HTMLElement) => {
   const content = window.getComputedStyle(element, "::before").getPropertyValue("content");
   return content.replace(/"/g, "").replace(/'/g, "").split(", ")[0] ?? "desktop";
@@ -11,6 +45,11 @@ export const UiScripts = () => {
 
   useEffect(() => {
     const cleanupCallbacks: Array<() => void> = [];
+
+    window.$ = $;
+    window.jQuery = $;
+
+    let cancelled = false;
 
     const handleScroll = () => {
       const scrollPosition = window.scrollY;
@@ -148,6 +187,285 @@ export const UiScripts = () => {
 
     document.addEventListener("click", handleSmoothScroll);
     cleanupCallbacks.push(() => document.removeEventListener("click", handleSmoothScroll));
+
+    const scrollToHash = (hashValue: string) => {
+      if (!hashValue || hashValue.length <= 1) {
+        return;
+      }
+
+      const decodedHash = decodeURIComponent(hashValue);
+      let attempts = 0;
+      const maxAttempts = 30;
+
+      const tryScroll = () => {
+        const targetElement = document.querySelector<HTMLElement>(decodedHash);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+
+        attempts += 1;
+        if (attempts < maxAttempts) {
+          window.requestAnimationFrame(tryScroll);
+        }
+      };
+
+      // Delay until after the current paint so static HTML is in the DOM.
+      window.setTimeout(() => tryScroll(), 0);
+    };
+
+    scrollToHash(window.location.hash);
+
+    const tooltipInstances: Tooltip[] = [];
+    document.querySelectorAll<HTMLElement>("[data-bs-toggle='tooltip']").forEach((element) => {
+      tooltipInstances.push(new Tooltip(element));
+    });
+    cleanupCallbacks.push(() => {
+      tooltipInstances.forEach((tooltip) => tooltip.dispose());
+    });
+
+    // Bootstrap dropdowns can throw if a toggle exists without a corresponding menu.
+    // Guard those clicks so the app doesn't crash.
+    const handleBootstrapDropdownClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const toggle = target?.closest<HTMLElement>("[data-bs-toggle='dropdown']");
+      if (!toggle) {
+        return;
+      }
+
+      const container =
+        toggle.closest<HTMLElement>(".dropdown, .btn-group, .dropup, .dropend, .dropstart") ??
+        toggle.parentElement;
+
+      const menu = container?.querySelector<HTMLElement>(".dropdown-menu");
+      if (!menu) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    document.addEventListener("click", handleBootstrapDropdownClick, true);
+    cleanupCallbacks.push(() => document.removeEventListener("click", handleBootstrapDropdownClick, true));
+
+    const selectElements: HTMLElement[] = [];
+
+    const formatCountry = (item: { id: string; element?: HTMLOptionElement; text: string }) => {
+      if (!item.id) {
+        return item.text;
+      }
+
+      const countryCode = item.element?.value?.toLowerCase() ?? "";
+      const img = $("<img>", {
+        class: "rounded-circle me-3",
+        width: 32,
+        src: `/images/flags/${countryCode}.svg`
+      });
+      const span = $("<span>", { text: ` ${item.text}` });
+      span.prepend(img);
+      return span;
+    };
+
+    const optionFormat = (item: { id: string; element?: HTMLOptionElement; text: string }) => {
+      if (!item.id) {
+        return item.text;
+      }
+
+      const imgUrl = item.element?.getAttribute("data-img") ?? "";
+      const span = document.createElement("span");
+      span.innerHTML = `<img src="${imgUrl}" class="rounded-circle me-3" alt="img"/>${item.text}`;
+      return $(span);
+    };
+
+    const optionFormatAlt = (item: { id: string; element?: HTMLOptionElement; text: string }) => {
+      if (!item.id) {
+        return item.text;
+      }
+
+      const imgUrl = item.element?.getAttribute("data-img") ?? "";
+      const span = document.createElement("span");
+      span.innerHTML = `<img src="${imgUrl}" class="me-3" alt="img"/>${item.text}`;
+      return $(span);
+    };
+
+    const initSelect2 = () => {
+      $(".select-box").each((_, element) => {
+      const $element = $(element);
+      if ($element.data("select2")) {
+        return;
+      }
+      $element.select2({ width: "100%", minimumResultsForSearch: -1 });
+      selectElements.push(element);
+      });
+
+      $(".countries").each((_, element) => {
+      const $element = $(element);
+      if ($element.data("select2")) {
+        return;
+      }
+      $element.select2({
+        width: "100%",
+        templateSelection: formatCountry,
+        templateResult: formatCountry
+      });
+      selectElements.push(element);
+      });
+
+      $("#categories").each((_, element) => {
+      const $element = $(element);
+      if ($element.data("select2")) {
+        return;
+      }
+      $element.select2({
+        width: "100%",
+        templateSelection: optionFormat,
+        templateResult: optionFormat,
+        minimumResultsForSearch: -1
+      });
+      selectElements.push(element);
+      });
+
+      $(".categories").each((_, element) => {
+      const $element = $(element);
+      if ($element.data("select2")) {
+        return;
+      }
+      $element.select2({
+        width: "100%",
+        templateSelection: optionFormatAlt,
+        templateResult: optionFormatAlt,
+        minimumResultsForSearch: -1
+      });
+      selectElements.push(element);
+      });
+    };
+
+    cleanupCallbacks.push(() => {
+      selectElements.forEach((element) => {
+        const $element = $(element);
+        if ($element.data("select2")) {
+          $element.select2("destroy");
+        }
+      });
+    });
+
+    const slickElements: HTMLElement[] = [];
+
+    const initSlick = () => {
+      $(".card-slider").each((_, element) => {
+      const $element = $(element);
+      if ($element.hasClass("slick-initialized")) {
+        return;
+      }
+      $element
+        .slick({
+          autoplay: false,
+          infinite: true,
+          speed: 500,
+          slidesToShow: 2,
+          slidesToScroll: 2,
+          dots: true,
+          arrows: true,
+          prevArrow:
+            '<svg class="slick-prev" width="17" height="26" viewBox="0 0 17 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.7283 25.4555L16.9709 21.2129L4.24303 8.48497L0.000384808 12.7276L12.7283 25.4555Z" fill="currentColor"/><path d="M0.000279307 12.7281L4.24292 16.9707L16.9708 4.24278L12.7282 0.000140667L0.000279307 12.7281Z" fill="currentColor"/></svg>',
+          nextArrow:
+            '<svg class="slick-next" width="17" height="26" viewBox="0 0 17 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.9709 12.729L12.7283 8.48633L0.000349641 21.2142L4.24299 25.4569L16.9709 12.729Z" fill="currentColor"/><path d="M4.24313 0.00150001L0.000488281 4.24414L12.7284 16.9721L16.9711 12.7294L4.24313 0.00150001Z" fill="currentColor"/></svg>',
+          responsive: [
+            { breakpoint: 1199, settings: { slidesToShow: 2, slidesToScroll: 2, arrows: true, dots: true } },
+            { breakpoint: 991, settings: { slidesToShow: 2, slidesToScroll: 2, arrows: true, dots: true } },
+            { breakpoint: 767, settings: { slidesToShow: 1, slidesToScroll: 1, arrows: true, dots: true, autoplay: false } }
+          ]
+        })
+        .on("setPosition", function () {
+          const $slider = $(this);
+          $slider.find(".slick-slide").height("auto");
+          const slickTrackHeight = $slider.find(".slick-track").height() ?? 0;
+          $slider.find(".slick-slide").css("height", `${slickTrackHeight}px`);
+        });
+      slickElements.push(element);
+      });
+
+      $(".profile-slider").each((_, element) => {
+      const $element = $(element);
+      if ($element.hasClass("slick-initialized")) {
+        return;
+      }
+      $element
+        .slick({
+          autoplay: false,
+          infinite: true,
+          speed: 500,
+          slidesToShow: 3,
+          slidesToScroll: 3,
+          dots: true,
+          arrows: true,
+          prevArrow:
+            '<svg class="slick-prev" width="17" height="26" viewBox="0 0 17 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.7283 25.4555L16.9709 21.2129L4.24303 8.48497L0.000384808 12.7276L12.7283 25.4555Z" fill="currentColor"/><path d="M0.000279307 12.7281L4.24292 16.9707L16.9708 4.24278L12.7282 0.000140667L0.000279307 12.7281Z" fill="currentColor"/></svg>',
+          nextArrow:
+            '<svg class="slick-next" width="17" height="26" viewBox="0 0 17 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.9709 12.729L12.7283 8.48633L0.000349641 21.2142L4.24299 25.4569L16.9709 12.729Z" fill="currentColor"/><path d="M4.24313 0.00150001L0.000488281 4.24414L12.7284 16.9721L16.9711 12.7294L4.24313 0.00150001Z" fill="currentColor"/></svg>',
+          responsive: [
+            { breakpoint: 1199, settings: { slidesToShow: 2, slidesToScroll: 2, arrows: true, dots: true } },
+            { breakpoint: 991, settings: { slidesToShow: 2, slidesToScroll: 2, arrows: true, dots: true } },
+            { breakpoint: 767, settings: { slidesToShow: 1, slidesToScroll: 1, arrows: false, dots: true, autoplay: false } }
+          ]
+        })
+        .on("setPosition", function () {
+          const $slider = $(this);
+          $slider.find(".slick-slide").height("auto");
+          const slickTrackHeight = $slider.find(".slick-track").height() ?? 0;
+          $slider.find(".slick-slide").css("height", `${slickTrackHeight}px`);
+        });
+      slickElements.push(element);
+      });
+    };
+
+    const initJQueryPlugins = async () => {
+      try {
+        await Promise.all([ensureSelect2Loaded(), ensureSlickLoaded()]);
+      } catch {
+        // If plugin bundles fail to load, keep the app usable.
+        return;
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      try {
+        if (typeof ($.fn as unknown as { select2?: unknown }).select2 === "function") {
+          initSelect2();
+        }
+
+        if (typeof ($.fn as unknown as { slick?: unknown }).slick === "function") {
+          initSlick();
+        }
+      } catch {
+        // Swallow plugin init issues; these scripts are progressive enhancement.
+      }
+    };
+
+    void initJQueryPlugins();
+
+    cleanupCallbacks.push(() => {
+      slickElements.forEach((element) => {
+        const $element = $(element);
+        if ($element.hasClass("slick-initialized")) {
+          $element.slick("unslick");
+        }
+      });
+    });
+
+    const telInputElement = document.querySelector<HTMLInputElement>("#phone");
+    let telInputInstance: ReturnType<typeof intlTelInput> | null = null;
+    if (telInputElement) {
+      telInputInstance = intlTelInput(telInputElement, {
+        excludeCountries: ["us"],
+        separateDialCode: true,
+        utilsScript: intlTelInputUtilsUrl
+      });
+    }
+    cleanupCallbacks.push(() => {
+      telInputInstance?.destroy();
+    });
 
     const setupMorphDropdown = (element: HTMLElement) => {
       const mainNavigation = element.querySelector<HTMLElement>(".main-nav");
@@ -311,9 +629,10 @@ export const UiScripts = () => {
     });
 
     return () => {
+      cancelled = true;
       cleanupCallbacks.forEach((cleanup) => cleanup());
     };
-  }, [location.pathname]);
+  }, [location.pathname, location.hash]);
 
   return null;
 };

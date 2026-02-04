@@ -9,14 +9,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "bootstrap": "^5.3.3",
+    "intl-tel-input": "^19.5.7",
+    "jquery": "^3.7.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
     "react-select": "^5.8.0",
     "react-slick": "^0.30.2",
+    "select2": "^4.1.0-rc.0",
     "slick-carousel": "^1.8.1"
   },
   "devDependencies": {
+    "@types/jquery": "^3.5.32",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

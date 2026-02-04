@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <clipPath id="clip-path">
+      <rect id="Rectangle_1912" data-name="Rectangle 1912" width="36" height="48" fill="none"/>
+    </clipPath>
+    <clipPath id="clip-icillustration_recurringbills_active">
+      <rect width="48" height="48"/>
+    </clipPath>
+  </defs>
+  <g id="icillustration_recurringbills_active" clip-path="url(#clip-icillustration_recurringbills_active)">
+    <g id="Group_6" data-name="Group 6" transform="translate(6)">
+      <g id="Group_854" data-name="Group 854" clip-path="url(#clip-path)">
+        <path id="Path_1505" data-name="Path 1505" d="M32,0H4A4,4,0,0,0,0,4V44a4,4,0,0,0,4,4H32a4,4,0,0,0,4-4V4a4,4,0,0,0-4-4M20,38H8V34H20Zm0-8H8V26H20Zm0-8H8V18H20Zm8,16H24V34h4Zm0-8H24V26h4Zm0-8H24V18h4Zm0-8H8V10H28Z" fill="#f37920"/>
+        <path id="Path_1506" data-name="Path 1506" d="M32,0H18V10H28v4H18v4h2v4H18v4h2v4H18v4h2v4H18V48H32a4,4,0,0,0,4-4V4a4,4,0,0,0-4-4M28,38H24V34h4Zm0-8H24V26h4Zm0-8H24V18h4Z" fill="#ff9e15"/>
+      </g>
+    </g>
+  </g>
+</svg>
