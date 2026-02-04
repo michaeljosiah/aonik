@@ -12,6 +12,36 @@ public record CreateDocumentRequest(
     IReadOnlyList<string> Tags,
     string? AttributesJson);
 
+public record ListDocumentsRequest(
+    int PageNumber = 1,
+    int PageSize = 20,
+    string? DocumentType = null,
+    string? Status = null,
+    Guid? OwnerPartyId = null,
+    string? CountryCode = null,
+    DateTime? IssuedFrom = null,
+    DateTime? IssuedTo = null,
+    DateTime? ExpiresFrom = null,
+    DateTime? ExpiresTo = null,
+    string? Tag = null,
+    string? UsagePurpose = null,
+    string? Search = null);
+
+public record DocumentListItem(
+    Guid DocumentId,
+    Guid OwnerPartyId,
+    string DocumentType,
+    string Status,
+    DateTime? IssuedOn,
+    DateTime? ExpiresOn,
+    string? IssuerName,
+    string? CountryCode,
+    string? ReferenceNumber,
+    IReadOnlyList<string> Tags,
+    int FilesCount,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
 public record DocumentResponse(
     Guid DocumentId,
     Guid OwnerPartyId,

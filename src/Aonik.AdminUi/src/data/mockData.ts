@@ -193,6 +193,21 @@ export const navigationSections: NavigationSection[] = [
         ],
       },
       {
+        id: 'compliance',
+        label: 'Compliance',
+        icon: 'ClipboardCheck',
+        viewAllHref: '/compliance',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Documents',
+            items: [
+              { id: 'compliance-documents', label: 'Documents', icon: 'FileText', href: '/compliance/documents' },
+            ],
+          },
+        ],
+      },
+      {
         id: 'tenants',
         label: 'Tenants',
         icon: 'Building',

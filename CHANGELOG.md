@@ -30,6 +30,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Autonumbering**: Added documentation covering performance considerations and reservation table usage guidance.
 - **Documentation**: Added a flexible document and file model proposal for multi-purpose evidence and verification workflows.
 - **Compliance**: Added document evidence entities, services, and API endpoints with storage-ready metadata fields.
+- **Compliance**: Added document listing support plus Admin UI document management pages with create/detail flows.
 - **Admin UI**: Added an autonumbering settings page with configuration overview and test preview.
 - **Admin UI**: Role display in sidebar user profile
   - Added `identityService.getUserInfo()` to fetch user roles from `/identity/userinfo` endpoint

@@ -25,7 +25,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { customerService } from '@/services/customerService';
-import type { CurrencyAmount, CustomerDetail, CustomerStats } from '@/types';
+import { documentService } from '@/services/documentService';
+import type { CurrencyAmount, CustomerDetail, CustomerStats, DocumentListItem } from '@/types';
 
 const statusStyles: Record<string, { text: string; bg: string }> = {
   Active: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
@@ -53,6 +54,9 @@ export function CustomerDetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState<CustomerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [documents, setDocuments] = useState<DocumentListItem[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
 
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
@@ -89,10 +93,39 @@ export function CustomerDetailPage() {
     }
   }, [partyId]);
 
+  const loadDocuments = useCallback(async () => {
+    if (!partyId) return;
+
+    setDocumentsLoading(true);
+    setDocumentsError(null);
+    try {
+      const result = await documentService.list({
+        ownerPartyId: partyId,
+        pageNumber: 1,
+        pageSize: 5,
+      });
+      setDocuments(result.items);
+    } catch (err: unknown) {
+      console.error('Failed to load customer documents:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setDocumentsError(message || 'Failed to load documents.');
+    } finally {
+      setDocumentsLoading(false);
+    }
+  }, [partyId]);
+
   useEffect(() => {
     loadCustomer();
     loadStats();
   }, [loadCustomer, loadStats]);
+
+  useEffect(() => {
+    if (activeTab === 'documents') {
+      loadDocuments();
+    }
+  }, [activeTab, loadDocuments]);
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return '—';
@@ -111,6 +144,15 @@ export function CustomerDetailPage() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+    });
+  };
+
+  const formatDateShort = (dateString?: string | null) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
   };
 
@@ -697,10 +739,64 @@ export function CustomerDetailPage() {
 
                     <TabsContent value="documents" className="mt-0">
                       <Card>
-                        <CardContent className="text-center py-12">
-                          <FileText className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-                          <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-2">Documents</h3>
-                          <p className="text-[var(--color-text-secondary)]">KYC/KYB documents will appear here.</p>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                          <div>
+                            <CardTitle className="text-sm">Documents</CardTitle>
+                            <p className="text-xs text-[var(--color-text-tertiary)]">Recent compliance documents.</p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/compliance/documents')}
+                          >
+                            View all
+                          </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {documentsError && (
+                            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                              {documentsError}
+                            </div>
+                          )}
+                          {documentsLoading ? (
+                            <div className="flex items-center justify-center py-6">
+                              <div className="w-6 h-6 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          ) : documents.length === 0 ? (
+                            <div className="text-center py-6">
+                              <FileText className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-tertiary)]" />
+                              <p className="text-sm text-[var(--color-text-secondary)]">No documents recorded.</p>
+                            </div>
+                          ) : (
+                            documents.map((doc) => (
+                              <div
+                                key={doc.documentId}
+                                className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
+                              >
+                                <div>
+                                  <div className="text-sm text-[var(--color-text-primary)] font-medium">{doc.documentType}</div>
+                                  <div className="text-xs text-[var(--color-text-tertiary)]">
+                                    Issued {formatDateShort(doc.issuedOn)} · Expires {formatDateShort(doc.expiresOn)}
+                                  </div>
+                                  <div className="text-xs text-[var(--color-text-tertiary)]">
+                                    Reference {doc.referenceNumber || '—'}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {doc.status}
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => navigate(`/compliance/documents/${doc.documentId}`)}
+                                  >
+                                    View
+                                  </Button>
+                                </div>
+                              </div>
+                            ))
+                          )}
                         </CardContent>
                       </Card>
                     </TabsContent>

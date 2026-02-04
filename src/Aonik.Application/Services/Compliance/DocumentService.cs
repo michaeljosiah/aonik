@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Compliance;
+using Aonik.Application.Models.Identity;
 using Aonik.Domain.Compliance.Entities;
 using Aonik.SharedKernel.Abstractions;
 
@@ -60,6 +61,129 @@ public class DocumentService : IDocumentService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapDocument(document);
+    }
+
+    public async Task<PagedResult<DocumentListItem>> ListDocumentsAsync(
+        ListDocumentsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
+        var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
+
+        var query = _dbContext.Documents.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(request.DocumentType))
+        {
+            var documentType = request.DocumentType.Trim();
+            query = query.Where(document => document.DocumentType == documentType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            var status = request.Status.Trim();
+            query = query.Where(document => document.Status == status);
+        }
+
+        if (request.OwnerPartyId.HasValue)
+        {
+            query = query.Where(document => document.OwnerPartyId == request.OwnerPartyId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.CountryCode))
+        {
+            var countryCode = request.CountryCode.Trim();
+            query = query.Where(document => document.CountryCode == countryCode);
+        }
+
+        if (request.IssuedFrom.HasValue)
+        {
+            query = query.Where(document => document.IssuedOn >= request.IssuedFrom.Value);
+        }
+
+        if (request.IssuedTo.HasValue)
+        {
+            query = query.Where(document => document.IssuedOn <= request.IssuedTo.Value);
+        }
+
+        if (request.ExpiresFrom.HasValue)
+        {
+            query = query.Where(document => document.ExpiresOn >= request.ExpiresFrom.Value);
+        }
+
+        if (request.ExpiresTo.HasValue)
+        {
+            query = query.Where(document => document.ExpiresOn <= request.ExpiresTo.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Tag))
+        {
+            var tag = request.Tag.Trim();
+            var tagPattern = $"%{tag}%";
+            query = query.Where(document => EF.Functions.Like(document.TagsJson, tagPattern));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.UsagePurpose))
+        {
+            var purpose = request.UsagePurpose.Trim();
+            query = query.Where(document =>
+                _dbContext.DocumentUsages.Any(usage =>
+                    usage.DocumentId == document.Id && usage.Purpose == purpose));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            var searchPattern = $"%{search}%";
+            query = query.Where(document =>
+                EF.Functions.Like(document.DocumentType, searchPattern) ||
+                (document.ReferenceNumber != null && EF.Functions.Like(document.ReferenceNumber, searchPattern)) ||
+                (document.IssuerName != null && EF.Functions.Like(document.IssuerName, searchPattern)));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var documents = await query
+            .OrderByDescending(document => document.UpdatedAt ?? document.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(document => new
+            {
+                document.Id,
+                document.OwnerPartyId,
+                document.DocumentType,
+                document.Status,
+                document.IssuedOn,
+                document.ExpiresOn,
+                document.IssuerName,
+                document.CountryCode,
+                document.ReferenceNumber,
+                document.TagsJson,
+                document.CreatedAt,
+                document.UpdatedAt,
+                FilesCount = _dbContext.DocumentFiles.Count(file => file.DocumentId == document.Id)
+            })
+            .ToListAsync(cancellationToken);
+
+        var items = documents.Select(document => new DocumentListItem(
+            document.Id,
+            document.OwnerPartyId,
+            document.DocumentType,
+            document.Status,
+            document.IssuedOn,
+            document.ExpiresOn,
+            document.IssuerName,
+            document.CountryCode,
+            document.ReferenceNumber,
+            DeserializeTags(document.TagsJson),
+            document.FilesCount,
+            document.CreatedAt,
+            document.UpdatedAt)).ToList();
+
+        return new PagedResult<DocumentListItem>(
+            items,
+            totalCount,
+            pageNumber,
+            pageSize);
     }
 
     public async Task<DocumentFileResponse> AddDocumentFileAsync(

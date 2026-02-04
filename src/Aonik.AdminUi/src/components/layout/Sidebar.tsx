@@ -38,6 +38,7 @@ import {
   RotateCcw,
   ShieldAlert,
   Banknote,
+  ClipboardCheck,
   Landmark,
   ClipboardList,
   GitCompare,
@@ -90,6 +91,7 @@ const iconMap: Record<string, React.ElementType> = {
   Landmark,
   ClipboardList,
   GitCompare,
+  ClipboardCheck,
   // AI & Agents
   Bot,
   Brain,
