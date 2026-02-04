@@ -9,9 +9,12 @@ import "./styles/css/intlTelInput.css";
 import "./styles/css/style.css";
 
 import { router } from "./app/routes";
+import { AuthProvider } from "./app/auth/AuthContext";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </React.StrictMode>
 );

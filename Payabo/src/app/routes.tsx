@@ -8,6 +8,10 @@ import { MarketingLayout } from "./layouts/MarketingLayout";
 import { StaticHtmlPage } from "../components/common/StaticHtmlPage";
 import { Home } from "../pages/marketing/Home";
 import { ProviderList } from "../pages/payments/ProviderList";
+import { Login } from "../pages/auth/Login";
+import { Register } from "../pages/auth/Register";
+import { RequireAuth } from "./auth/RequireAuth";
+import { Logout } from "../pages/auth/Logout";
 
 import aboutHtml from "../../../website/MyBillAfrica/about.html?raw";
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
@@ -33,7 +37,6 @@ import friendDetailsHtml from "../../../website/MyBillAfrica/frienddetails.html?
 import friendMessageHtml from "../../../website/MyBillAfrica/friend-message.html?raw";
 import getAppHtml from "../../../website/MyBillAfrica/get-app.html?raw";
 import helpHtml from "../../../website/MyBillAfrica/help.html?raw";
-import loginHtml from "../../../website/MyBillAfrica/login.html?raw";
 import manageCardsRawHtml from "../../../website/MyBillAfrica/managecards-raw.html?raw";
 import manageCardsSampleHtml from "../../../website/MyBillAfrica/managecards-sample.html?raw";
 import paymentSelectionHtml from "../../../website/MyBillAfrica/paymentselection.html?raw";
@@ -50,7 +53,6 @@ import profilePersonalDetailsEditNameHtml from "../../../website/MyBillAfrica/pr
 import profilePersonalDetailsHtml from "../../../website/MyBillAfrica/profile-personaldetails.html?raw";
 import profilePersonalDetailsPhoneHtml from "../../../website/MyBillAfrica/profile-personaldetails-phone.html?raw";
 import profilePersonalDetailsUpdatePhotoHtml from "../../../website/MyBillAfrica/profile-personaldetails-updatephoto.html?raw";
-import registerHtml from "../../../website/MyBillAfrica/register.html?raw";
 import selectCardHtml from "../../../website/MyBillAfrica/selectcard.html?raw";
 import selectFriendHtml from "../../../website/MyBillAfrica/selectfriend.html?raw";
 import selectFriendRowHtml from "../../../website/MyBillAfrica/selectfriend-row.html?raw";
@@ -87,12 +89,17 @@ export const router = createBrowserRouter([
       {
         element: <AuthLayout />,
         children: [
-          { path: "/login", element: <StaticHtmlPage html={loginHtml} selector=".fullscreen-xl" /> },
-          { path: "/register", element: <StaticHtmlPage html={registerHtml} selector=".fullscreen-xl" /> }
+          { path: "/login", element: <Login /> },
+          { path: "/register", element: <Register /> },
+          { path: "/logout", element: <Logout /> }
         ]
       },
       {
-        element: <DashboardLayout />,
+        element: (
+          <RequireAuth>
+            <DashboardLayout />
+          </RequireAuth>
+        ),
         children: [
           { path: "/dashboard", element: <StaticHtmlPage html={dashboardSampleHtml} selector="main" /> },
           { path: "/dashboard/empty", element: <StaticHtmlPage html={dashboardEmptyHtml} selector="main" /> },
@@ -189,7 +196,11 @@ export const router = createBrowserRouter([
         ]
       },
       {
-        element: <FlowLayout currentStep={0} headerClassName="border-bottom-0" />,
+        element: (
+          <RequireAuth>
+            <FlowLayout currentStep={0} headerClassName="border-bottom-0" />
+          </RequireAuth>
+        ),
         children: [
           { path: "/payments/providers", element: <ProviderList /> },
           { path: "/serviceproviderlist-raw", element: <StaticHtmlPage html={serviceProviderListRawHtml} selector="main" /> },
@@ -200,7 +211,11 @@ export const router = createBrowserRouter([
         ]
       },
       {
-        element: <FlowLayout currentStep={1} />,
+        element: (
+          <RequireAuth>
+            <FlowLayout currentStep={1} />
+          </RequireAuth>
+        ),
         children: [
           { path: "/payments/service/:id", element: <StaticHtmlPage html={serviceDetailsRawHtml} selector="main" /> },
           { path: "/servicedetails-raw", element: <StaticHtmlPage html={serviceDetailsRawHtml} selector="main" /> },
@@ -212,14 +227,22 @@ export const router = createBrowserRouter([
         ]
       },
       {
-        element: <FlowLayout currentStep={2} />,
+        element: (
+          <RequireAuth>
+            <FlowLayout currentStep={2} />
+          </RequireAuth>
+        ),
         children: [
           { path: "/payments/selection", element: <StaticHtmlPage html={paymentSelectionHtml} selector="main" /> },
           { path: "/paymentselection", element: <StaticHtmlPage html={paymentSelectionHtml} selector="main" /> }
         ]
       },
       {
-        element: <FlowLayout currentStep={3} />,
+        element: (
+          <RequireAuth>
+            <FlowLayout currentStep={3} />
+          </RequireAuth>
+        ),
         children: [
           {
             path: "/payments/card-checkout",
@@ -248,7 +271,11 @@ export const router = createBrowserRouter([
         ]
       },
       {
-        element: <FlowLayout currentStep={4} />,
+        element: (
+          <RequireAuth>
+            <FlowLayout currentStep={4} />
+          </RequireAuth>
+        ),
         children: [
           {
             path: "/payments/confirm/bill-paid",

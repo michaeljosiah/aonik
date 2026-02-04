@@ -1,7 +1,34 @@
+import { useState, type FormEvent } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+
+import { useAuth } from "../../app/auth/AuthContext";
+
+type LocationState = {
+  from?: string;
+};
+
 export const Login = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+
+  const [email, setEmail] = useState("john.doe@example.com");
+  const [password, setPassword] = useState("password");
+  const from = (location.state as LocationState | null)?.from;
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    login(email);
+    navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
+  };
+
+  const handleClose = () => {
+    navigate("/", { replace: true });
+  };
+
   return (
     <div className="fullscreen-xl">
-      <button type="button" className="btn-close close"></button>
+      <button type="button" className="btn-close close" aria-label="Close" onClick={handleClose}></button>
       <div className="container">
         <div
           className="img-lg-full-left py-3 d-none d-lg-block"
@@ -28,18 +55,36 @@ export const Login = () => {
                 <img className="mb-4" src="/images/logo.png" alt="MyBillAfrica" />
                 <h4>Nice to see you again.</h4>
                 <p>
-                  Don't have an account? <a href="/register">Register now</a>
+                  Don't have an account? <NavLink to="/register">Register now</NavLink>
                 </p>
               </div>
-              <form action="#" method="post">
+              <form action="#" method="post" onSubmit={handleSubmit}>
                 <div className="form-group">
                   <label htmlFor="email-login">Email</label>
-                  <input type="email" className="form-control" id="email-login" name="LoginEmail" placeholder="Your email address" />
+                  <input
+                    type="email"
+                    className="form-control"
+                    id="email-login"
+                    name="LoginEmail"
+                    placeholder="Your email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="form-group">
                   <label htmlFor="password-login">Password</label>
                   <div className="input-group">
-                    <input type="password" className="form-control" id="password-login" name="LoginPassword" placeholder="Your password" />
+                    <input
+                      type="password"
+                      className="form-control"
+                      id="password-login"
+                      name="LoginPassword"
+                      placeholder="Your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
                     <div className="input-group-append">
                       <span className="input-group-text">
                         <i className="toggle-password icon-eye"></i>
@@ -63,7 +108,7 @@ export const Login = () => {
                     <a href="#">Forgot your password?</a>
                   </p>
                   <p className="small">
-                    By continuing you agree with <br /> <a href="#">our Terms and Conditions</a> and <a href="/privacy">Privacy Policy</a>.
+                    By continuing you agree with <br /> <a href="#">our Terms and Conditions</a> and <NavLink to="/privacy">Privacy Policy</NavLink>.
                   </p>
                 </div>
               </form>

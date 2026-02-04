@@ -1,6 +1,9 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../app/auth/AuthContext";
 
 export const HeaderDashboard = () => {
+  const { user } = useAuth();
+
   return (
     <header className="header-sub cd-morph-dropdown">
       <div className="header-top">
@@ -22,7 +25,7 @@ export const HeaderDashboard = () => {
               </ul>
               <ul className="navbar-nav navbar-btn">
                 <li>
-                  <NavLink className="btn btn-primary btn-sm" to="/login">
+                  <NavLink className="btn btn-primary btn-sm" to="/logout">
                     LOGOUT
                   </NavLink>
                 </li>
@@ -38,11 +41,11 @@ export const HeaderDashboard = () => {
                   <NavLink to="/help">HELP &amp; SUPPORT</NavLink>
                 </h4>
               </li>
-              <li>
-                <NavLink className="label btn btn-primary w-100" to="/login" target="_blank">
-                  LOGOUT
-                </NavLink>
-              </li>
+                <li>
+                  <NavLink className="label btn btn-primary w-100" to="/logout">
+                    LOGOUT
+                  </NavLink>
+                </li>
             </ul>
             <div className="bg-layer" aria-hidden="true"></div>
           </div>
@@ -61,7 +64,7 @@ export const HeaderDashboard = () => {
               >
                 <img src="/images/profile-pic.png" alt="User" />
                 <div>
-                  <strong className="d-block">Welcome, John Doe</strong>
+                  <strong className="d-block">Welcome, {user?.fullName ?? "John Doe"}</strong>
                   <small>Last login: 05:15 PM Friday, 19 August, 2022</small>
                 </div>
               </a>
