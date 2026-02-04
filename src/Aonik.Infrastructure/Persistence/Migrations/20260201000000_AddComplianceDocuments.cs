@@ -1,11 +1,14 @@
-﻿using System;
+using System;
+using Aonik.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Aonik.Infrastructure.Persistence.Migrations
 {
-    /// <inheritdoc />
+    [DbContext(typeof(AonikDbContext))]
+    [Migration("20260201000000_AddComplianceDocuments")]
     public partial class AddComplianceDocuments : Migration
     {
         /// <inheritdoc />
