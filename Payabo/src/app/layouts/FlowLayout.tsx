@@ -1,21 +1,25 @@
-import { Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
+import { Footer } from "../../components/common/Footer";
+import { Preloader } from "../../components/common/Preloader";
 import { ProgressBar } from "../../components/navigation/ProgressBar";
 
 interface FlowLayoutProps {
-  currentStep: number;
+  currentStep?: number;
+  headerClassName?: string;
 }
 
-export const FlowLayout = ({ currentStep }: FlowLayoutProps) => {
+export const FlowLayout = ({ currentStep = 0, headerClassName }: FlowLayoutProps) => {
   return (
     <>
-      <header className="header-sub">
+      <Preloader />
+      <header className={`header-sub ${headerClassName ?? ""}`.trim()}>
         <div className="header-top">
           <nav className="navbar navbar-expand-lg">
             <div className="container">
-              <a className="navbar-brand" href="/">
+              <NavLink className="navbar-brand" to="/">
                 <img src="/images/logo.png" alt="Logo" />
-              </a>
+              </NavLink>
               <ProgressBar currentStep={currentStep} />
               <button type="button" className="btn-close"></button>
             </div>
@@ -23,6 +27,7 @@ export const FlowLayout = ({ currentStep }: FlowLayoutProps) => {
         </div>
       </header>
       <Outlet />
+      <Footer />
     </>
   );
 };
