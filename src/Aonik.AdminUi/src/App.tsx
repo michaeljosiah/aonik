@@ -401,6 +401,7 @@ function AuthenticatedApp() {
             if (!accessToken) {
               const token = await getAccessToken();
               if (!token) {
+                setTenantNeedsSetup(false);
                 return;
               }
             }

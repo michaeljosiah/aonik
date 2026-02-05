@@ -116,6 +116,7 @@ function Auth0AuthProvider({ children }: AuthProviderProps) {
       authorizationParams={auth0Config.authorizationParams}
       cacheLocation={auth0Config.cacheLocation}
       useRefreshTokens={auth0Config.useRefreshTokens}
+      useRefreshTokensFallback={auth0Config.useRefreshTokensFallback}
       onRedirectCallback={(appState) => {
         // Handle redirect after login
         window.history.replaceState(

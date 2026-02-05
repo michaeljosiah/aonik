@@ -170,6 +170,40 @@ function useAuth0Auth(): AuthContextType {
     error: auth0Error,
   } = useAuth0();
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const consentPromptKey = 'aonik:auth0:consent_prompted';
+  const loginPromptKey = 'aonik:auth0:login_prompted';
+
+  const isConsentRequiredError = (err: unknown): boolean => {
+    if (!err) return false;
+    if (typeof err === 'string') {
+      const lower = err.toLowerCase();
+      return lower.includes('consent required') || lower.includes('consent_required');
+    }
+    if (typeof err === 'object') {
+      const typed = err as { error?: string; error_description?: string; message?: string };
+      const errorCode = typed.error ?? '';
+      const message = typed.message ?? typed.error_description ?? '';
+      const combined = `${errorCode} ${message}`.toLowerCase();
+      return combined.includes('consent required') || combined.includes('consent_required');
+    }
+    return false;
+  };
+
+  const isLoginRequiredError = (err: unknown): boolean => {
+    if (!err) return false;
+    if (typeof err === 'string') {
+      const lower = err.toLowerCase();
+      return lower.includes('login required') || lower.includes('login_required');
+    }
+    if (typeof err === 'object') {
+      const typed = err as { error?: string; error_description?: string; message?: string };
+      const errorCode = typed.error ?? '';
+      const message = typed.message ?? typed.error_description ?? '';
+      const combined = `${errorCode} ${message}`.toLowerCase();
+      return combined.includes('login required') || combined.includes('login_required');
+    }
+    return false;
+  };
 
   const user: AuthUser | null = auth0User
     ? {
@@ -205,15 +239,41 @@ function useAuth0Auth(): AuthContextType {
   }, [auth0Logout]);
 
   const getAccessToken = useCallback(async (): Promise<string | null> => {
+    if (isLoading || !isAuthenticated) {
+      return null;
+    }
     try {
       const token = await getAccessTokenSilently();
       setAccessToken(token);
       return token;
     } catch (error) {
+      if (isLoginRequiredError(error)) {
+        setAccessToken(null);
+        try {
+          if (!sessionStorage.getItem(loginPromptKey)) {
+            sessionStorage.setItem(loginPromptKey, 'true');
+            await loginWithRedirect({ authorizationParams: { prompt: 'login' } });
+          }
+        } catch (loginError) {
+          console.error('Auth0 login redirect error:', loginError);
+        }
+        return null;
+      }
+      if (isConsentRequiredError(error)) {
+        try {
+          if (!sessionStorage.getItem(consentPromptKey)) {
+            sessionStorage.setItem(consentPromptKey, 'true');
+            await loginWithRedirect({ authorizationParams: { prompt: 'consent' } });
+          }
+        } catch (consentError) {
+          console.error('Auth0 consent redirect error:', consentError);
+        }
+        return null;
+      }
       console.error('Auth0 token acquisition error:', error);
       return null;
     }
-  }, [getAccessTokenSilently]);
+  }, [getAccessTokenSilently, loginWithRedirect, isAuthenticated, isLoading]);
 
   // Acquire token on mount if authenticated
   useEffect(() => {

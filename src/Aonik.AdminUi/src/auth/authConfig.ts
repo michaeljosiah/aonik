@@ -148,6 +148,7 @@ export const auth0Config = {
   },
   cacheLocation: 'localstorage' as const,
   useRefreshTokens: true,
+  useRefreshTokensFallback: true,
 };
 
 // API Configuration
