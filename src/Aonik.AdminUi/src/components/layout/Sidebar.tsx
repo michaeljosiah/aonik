@@ -46,6 +46,7 @@ import {
   Brain,
   Workflow,
   MessageSquare,
+  Network,
   Shield,
   Key,
   Cog,
@@ -97,6 +98,7 @@ const iconMap: Record<string, React.ElementType> = {
   Brain,
   Workflow,
   MessageSquare,
+  Network,
   // Users & Access
   UserCog,
   Shield,
@@ -837,7 +839,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
             return (
               <div key={section.id} className="space-y-1">
-                {section.label && (
+                {section.label && !collapsed && (
                   <div className="px-3 pt-2 pb-1">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
                       {section.label}

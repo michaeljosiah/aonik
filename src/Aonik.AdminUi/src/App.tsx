@@ -24,6 +24,8 @@ import {
   CatalogBillerDetailPage,
   CatalogBillerServicesPage,
   CatalogBillerServiceDetailPage,
+  CatalogPartnersPage,
+  CatalogPartnerDetailPage,
   AccessUsersPage,
   AccessRolesPage,
   AccessPermissionsPage,
@@ -232,35 +234,15 @@ function AppLayout() {
         <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
           <Routes>
             <Route path="/" element={<DashboardHome />} />
-            <Route path="/search" element={<PlaceholderPage title="Search" />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/workspace" element={<WorkspacePage />} />
             {/* Customers */}
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/:partyId" element={<CustomerDetailPage />} />
-            {/* Billing */}
-            <Route path="/billing/invoices" element={<PlaceholderPage title="Invoices" />} />
-            <Route path="/billing/invoices/new" element={<PlaceholderPage title="Create Invoice" />} />
-            <Route path="/billing/dunning" element={<PlaceholderPage title="Dunning Plans" />} />
-            {/* Payments */}
-            <Route path="/payments/transactions" element={<PlaceholderPage title="Transactions" />} />
-            <Route path="/payments/refunds" element={<PlaceholderPage title="Refunds" />} />
-            <Route path="/payments/chargebacks" element={<PlaceholderPage title="Chargebacks" />} />
-            <Route path="/payments/payouts" element={<PlaceholderPage title="Payouts" />} />
             {/* Orders */}
             <Route path="/orders" element={<OrdersLandingPage />} />
             <Route path="/orders/bill-payments/new" element={<BillPaymentOrderFormPage />} />
             <Route path="/orders/bill-payments/:orderId" element={<BillPaymentOrderFormPage />} />
-            <Route path="/orders/activity" element={<PlaceholderPage title="Order Activity" />} />
-            {/* Ledger */}
-            <Route path="/ledger/accounts" element={<PlaceholderPage title="Accounts" />} />
-            <Route path="/ledger/journal-entries" element={<PlaceholderPage title="Journal Entries" />} />
-            <Route path="/ledger/reconciliation" element={<PlaceholderPage title="Reconciliation" />} />
-            {/* AI & Agents */}
-            <Route path="/ai/agents" element={<PlaceholderPage title="Agents" />} />
-            <Route path="/ai/models" element={<PlaceholderPage title="AI Models" />} />
-            <Route path="/ai/orchestrator" element={<PlaceholderPage title="Orchestrator" />} />
-            <Route path="/ai/chat" element={<AiChatMock agentId={selectedAgentId} />} />
             {/* Users & Access */}
             <Route path="/access/users" element={<AccessUsersPage />} />
             <Route path="/access/users/:userId" element={<UserDetailPage />} />
@@ -274,6 +256,8 @@ function AppLayout() {
             <Route path="/catalog/billers/:billerId" element={<CatalogBillerDetailPage />} />
             <Route path="/catalog/billers/:billerId/services" element={<CatalogBillerServicesPage />} />
             <Route path="/catalog/billers/:billerId/services/:serviceId" element={<CatalogBillerServiceDetailPage />} />
+            <Route path="/catalog/partners" element={<CatalogPartnersPage />} />
+            <Route path="/catalog/partners/:partnerId" element={<CatalogPartnerDetailPage />} />
             {/* Compliance */}
             <Route path="/compliance" element={<ComplianceLandingPage />} />
             <Route path="/compliance/documents" element={<DocumentsListPage />} />
@@ -284,10 +268,6 @@ function AppLayout() {
             <Route path="/tenants/new" element={<CreateTenantPage />} />
             <Route path="/tenants/:id" element={<TenantDetailPage />} />
             {/* Settings */}
-            <Route path="/settings/general" element={<PlaceholderPage title="General Settings" />} />
-            <Route path="/settings/api-keys" element={<PlaceholderPage title="API Keys" />} />
-            <Route path="/settings/webhooks" element={<PlaceholderPage title="Webhooks" />} />
-            <Route path="/settings/audit-logs" element={<PlaceholderPage title="Audit Logs" />} />
             <Route path="/settings/autonumbering" element={<AutonumberingPage />} />
             <Route path="/settings/fx-rates" element={<FxRatesPage />} />
             <Route path="/settings/system-tools" element={<SystemToolsPage />} />

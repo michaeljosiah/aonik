@@ -9,76 +9,49 @@ export const currentUser: User = {
 
 export const navigationSections: NavigationSection[] = [
   {
-    id: 'core',
+    id: 'cross-functional',
+    label: 'Home',
     items: [
-      {
-        id: 'search',
-        label: 'Search',
-        icon: 'Search',
-        href: '/search',
-      },
       {
         id: 'dashboard',
         label: 'Dashboard',
         icon: 'LayoutDashboard',
         href: '/',
       },
+    ],
+  },
+  {
+    id: 'platform-core',
+    label: 'Finance',
+    items: [
       {
-        id: 'analytics',
-        label: 'Analytics',
-        icon: 'BarChart3',
-        href: '/analytics',
+        id: 'identity-access',
+        label: 'Access',
+        icon: 'Users',
+        viewAllHref: '/access/users',
+        viewAllLabel: 'View all',
         audience: 'host',
+        childGroups: [
+          {
+            label: 'Team',
+            items: [
+              { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users', audience: 'host' },
+            ],
+          },
+          {
+            label: 'Permissions',
+            items: [
+              { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles', audience: 'host' },
+              { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions', audience: 'host' },
+            ],
+          },
+        ],
       },
       {
-        id: 'customers',
+        id: 'party-profiles',
         label: 'Customers',
         icon: 'Building2',
         href: '/customers',
-      },
-      {
-        id: 'billing',
-        label: 'Billing',
-        icon: 'FileText',
-        viewAllHref: '/billing',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Documents',
-            items: [
-              { id: 'invoices', label: 'Invoices', icon: 'Receipt', href: '/billing/invoices' },
-            ],
-          },
-          {
-            label: 'Management',
-            items: [
-              { id: 'dunning', label: 'Dunning Plans', icon: 'AlertTriangle', href: '/billing/dunning' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'payments',
-        label: 'Payments',
-        icon: 'CreditCard',
-        viewAllHref: '/payments',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Activity',
-            items: [
-              { id: 'transactions', label: 'Transactions', icon: 'ArrowRightLeft', href: '/payments/transactions' },
-              { id: 'payouts', label: 'Payouts', icon: 'Banknote', href: '/payments/payouts' },
-            ],
-          },
-          {
-            label: 'Disputes',
-            items: [
-              { id: 'refunds', label: 'Refunds', icon: 'RotateCcw', href: '/payments/refunds' },
-              { id: 'chargebacks', label: 'Chargebacks', icon: 'ShieldAlert', href: '/payments/chargebacks' },
-            ],
-          },
-        ],
       },
       {
         id: 'orders',
@@ -88,31 +61,63 @@ export const navigationSections: NavigationSection[] = [
         viewAllLabel: 'View all',
         childGroups: [
           {
-            label: 'Bill Payments',
+            label: 'Actions',
             items: [
-              { id: 'order-bill-payments', label: 'Create Bill Payment', icon: 'Receipt', href: '/orders/bill-payments/new' },
+              { id: 'order-bill-payments', label: 'New Bill Payment', icon: 'Receipt', href: '/orders/bill-payments/new' },
             ],
           },
         ],
       },
       {
-        id: 'ledger',
-        label: 'Ledger',
-        icon: 'BookOpen',
-        viewAllHref: '/ledger',
+        id: 'partner-network-routing',
+        label: 'Network',
+        icon: 'Network',
+        viewAllHref: '/catalog',
         viewAllLabel: 'View all',
         childGroups: [
           {
-            label: 'Core',
+            label: 'Coverage',
             items: [
-              { id: 'accounts', label: 'Accounts', icon: 'Landmark', href: '/ledger/accounts' },
-              { id: 'journal-entries', label: 'Journal Entries', icon: 'ClipboardList', href: '/ledger/journal-entries' },
+              { id: 'catalog-countries', label: 'Countries', icon: 'Globe', href: '/catalog/countries' },
             ],
           },
           {
-            label: 'Operations',
+            label: 'Partners',
             items: [
-              { id: 'reconciliation', label: 'Reconciliation', icon: 'GitCompare', href: '/ledger/reconciliation' },
+              { id: 'catalog-partners', label: 'Partners', icon: 'Network', href: '/catalog/partners' },
+              { id: 'catalog-billers', label: 'Billers', icon: 'Building2', href: '/catalog/billers' },
+              { id: 'catalog-categories', label: 'Categories', icon: 'Grid3x3', href: '/catalog/categories' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'pricing-policy',
+        label: 'Pricing',
+        icon: 'ArrowRightLeft',
+        viewAllHref: '/settings/fx-rates',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Rates & Rules',
+            items: [
+              { id: 'fx-rates', label: 'FX Rates', icon: 'ArrowRightLeft', href: '/settings/fx-rates' },
+              { id: 'autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'compliance-risk',
+        label: 'Compliance',
+        icon: 'ClipboardCheck',
+        viewAllHref: '/compliance',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Screening',
+            items: [
+              { id: 'compliance-documents', label: 'Documents', icon: 'FileText', href: '/compliance/documents' },
             ],
           },
         ],
@@ -120,54 +125,21 @@ export const navigationSections: NavigationSection[] = [
     ],
   },
   {
-    id: 'host',
-    label: 'Host',
+    id: 'platform-admin',
+    label: 'Admin',
     audience: 'host',
     items: [
       {
-        id: 'ai-agents',
-        label: 'AI & Agents',
-        icon: 'Sparkles',
-        viewAllHref: '/ai',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'AI Platform',
-            items: [
-              { id: 'ai-models', label: 'AI Models', icon: 'Brain', href: '/ai/models' },
-              { id: 'ai-chat', label: 'AI Assistant', icon: 'MessageSquare', href: '/ai/chat' },
-            ],
-          },
-          {
-            label: 'Agent Framework',
-            items: [
-              { id: 'agents', label: 'Agents', icon: 'Bot', href: '/ai/agents' },
-              { id: 'orchestrator', label: 'Orchestrator', icon: 'Workflow', href: '/ai/orchestrator' },
-            ],
-          },
-        ],
+        id: 'tenants',
+        label: 'Tenants',
+        icon: 'Building',
+        href: '/tenants',
       },
       {
-        id: 'users-access',
-        label: 'Users & Access',
-        icon: 'Users',
-        viewAllHref: '/access',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Identity',
-            items: [
-              { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users' },
-            ],
-          },
-          {
-            label: 'Authorization',
-            items: [
-              { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles' },
-              { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions' },
-            ],
-          },
-        ],
+        id: 'system-tools',
+        label: 'System Tools',
+        icon: 'Wrench',
+        href: '/settings/system-tools',
       },
       {
         id: 'catalog',
@@ -177,64 +149,9 @@ export const navigationSections: NavigationSection[] = [
         viewAllLabel: 'View all',
         childGroups: [
           {
-            label: 'Browse',
+            label: 'Overview',
             items: [
-              { id: 'catalog-overview', label: 'Overview', icon: 'Store', href: '/catalog' },
-              { id: 'catalog-countries', label: 'Countries', icon: 'Globe', href: '/catalog/countries' },
-            ],
-          },
-          {
-            label: 'Entities',
-            items: [
-              { id: 'catalog-categories', label: 'Categories', icon: 'Grid3x3', href: '/catalog/categories' },
-              { id: 'catalog-billers', label: 'Billers', icon: 'Building2', href: '/catalog/billers' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'compliance',
-        label: 'Compliance',
-        icon: 'ClipboardCheck',
-        viewAllHref: '/compliance',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Documents',
-            items: [
-              { id: 'compliance-documents', label: 'Documents', icon: 'FileText', href: '/compliance/documents' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'tenants',
-        label: 'Tenants',
-        icon: 'Building',
-        href: '/tenants',
-      },
-      {
-        id: 'settings',
-        label: 'Settings',
-        icon: 'Settings',
-        viewAllHref: '/settings',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Configuration',
-            items: [
-              { id: 'general-settings', label: 'General', icon: 'Cog', href: '/settings/general' },
-              { id: 'autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
-              { id: 'fx-rates', label: 'FX Rates', icon: 'ArrowRightLeft', href: '/settings/fx-rates' },
-              { id: 'webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
-            ],
-          },
-          {
-            label: 'Security & Audit',
-            items: [
-              { id: 'api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
-              { id: 'audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
-              { id: 'system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
+              { id: 'catalog-overview', label: 'Home', icon: 'Store', href: '/catalog' },
             ],
           },
         ],
@@ -243,11 +160,11 @@ export const navigationSections: NavigationSection[] = [
         id: 'cms',
         label: 'Content',
         icon: 'Layers',
-        viewAllHref: '/cms',
+        viewAllHref: '/cms/content-blocks',
         viewAllLabel: 'View all',
         childGroups: [
           {
-            label: 'Content Blocks',
+            label: 'Library',
             items: [
               { id: 'content-blocks', label: 'Content Blocks', icon: 'Layers', href: '/cms/content-blocks' },
               { id: 'media-library', label: 'Media Library', icon: 'Image', href: '/cms/media' },
@@ -291,11 +208,11 @@ export const activityFeed: ActivityItem[] = [
 ];
 
 export const quickLinks: QuickLink[] = [
-  { id: '1', label: 'Create Invoice', icon: 'FilePlus', href: '/billing/invoices/new' },
-  { id: '2', label: 'View Transactions', icon: 'ArrowRightLeft', href: '/payments/transactions' },
-  { id: '3', label: 'Manage Users', icon: 'UserCog', href: '/access/users' },
-  { id: '4', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
-  { id: '5', label: 'AI Assistant', icon: 'Sparkles', href: '/ai/chat' },
+  { id: '1', label: 'New Bill Payment', icon: 'Receipt', href: '/orders/bill-payments/new' },
+  { id: '2', label: 'Users', icon: 'UserCog', href: '/access/users' },
+  { id: '3', label: 'Customers', icon: 'Building2', href: '/customers' },
+  { id: '4', label: 'Documents', icon: 'FileText', href: '/compliance/documents' },
+  { id: '5', label: 'Tenants', icon: 'Building', href: '/tenants' },
 ];
 
 export const myApps: AppCard[] = [
