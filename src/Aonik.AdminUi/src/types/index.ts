@@ -177,6 +177,21 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
+export interface OrderListItem {
+  orderId: string;
+  orderType: string;
+  status: string;
+  payerPartyId?: string | null;
+  payerName: string;
+  originCountry?: string | null;
+  originCurrency: string;
+  totalAmountIn: number;
+  totalAmountOut?: number | null;
+  destinationCurrency?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
 export interface DocumentListItem {
   documentId: string;
   ownerPartyId: string;

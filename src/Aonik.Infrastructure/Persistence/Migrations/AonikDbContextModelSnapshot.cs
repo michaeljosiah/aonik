@@ -1470,7 +1470,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("CorrespondentPartnerId")
+                    b.Property<Guid>("CorrespondentPartnerId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CountryCode")
@@ -1537,6 +1537,8 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CorrespondentPartnerId");
 
                     b.HasIndex("TenantId", "CorrespondentPartnerId");
 
@@ -2006,6 +2008,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("AttributesJson")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("{}");
 
@@ -2033,15 +2036,15 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ExpiresOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("IssuerName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("IssuedOn")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("IssuerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("OwnerPartyId")
                         .HasColumnType("uniqueidentifier");
@@ -2061,6 +2064,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("TagsJson")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("[]");
 
@@ -2090,12 +2094,12 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CapturedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("CapturedBy")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime?>("CapturedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
@@ -2129,6 +2133,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("MetadataJson")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("{}");
 
@@ -2270,12 +2275,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Decision")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -2288,6 +2287,12 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.Property<string>("DecisionReasonCode")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("DocumentUsageId")
                         .HasColumnType("uniqueidentifier");
@@ -2338,12 +2343,12 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("DecisionedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("DecisionReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("DecisionedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -4300,6 +4305,76 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasIndex("PartnerId");
 
                     b.ToTable("PartnerBranches");
+                });
+
+            modelBuilder.Entity("Aonik.Domain.Partners.Entities.PartnerFundingAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountRole")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("LedgerAccountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerAccountId");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("TenantId", "LedgerAccountId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "PartnerId", "Currency", "AccountRole")
+                        .IsUnique();
+
+                    b.ToTable("PartnerFundingAccounts", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Partners.Entities.PayoutSchema", b =>
@@ -6896,6 +6971,15 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Aonik.Domain.Catalog.Entities.CatalogBiller", b =>
+                {
+                    b.HasOne("Aonik.Domain.Partners.Entities.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CorrespondentPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Aonik.Domain.Cms.Entities.ContentBlockMedia", b =>
                 {
                     b.HasOne("Aonik.Domain.Cms.Entities.ContentBlock", null)
@@ -7038,6 +7122,21 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .WithMany("Branches")
                         .HasForeignKey("PartnerId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Aonik.Domain.Partners.Entities.PartnerFundingAccount", b =>
+                {
+                    b.HasOne("Aonik.Domain.Ledger.Entities.LedgerAccount", null)
+                        .WithMany()
+                        .HasForeignKey("LedgerAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Aonik.Domain.Partners.Entities.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

@@ -57,7 +57,7 @@ export const navigationSections: NavigationSection[] = [
         id: 'orders',
         label: 'Orders',
         icon: 'ClipboardList',
-        viewAllHref: '/orders',
+        viewAllHref: '/orders/activity',
         viewAllLabel: 'View all',
         childGroups: [
           {

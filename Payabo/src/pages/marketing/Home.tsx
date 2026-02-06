@@ -1,18 +1,51 @@
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import { getPublicCatalogCountries, type CatalogCountry } from "../../api/catalog";
 import { recentNews } from "../../data/mockData";
 
 export const Home = () => {
+  const navigate = useNavigate();
+  const countriesSelectRef = useRef<HTMLSelectElement | null>(null);
   const [activeTab, setActiveTab] = useState<"search" | "invoice">("search");
   const [countries, setCountries] = useState<CatalogCountry[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [countriesError, setCountriesError] = useState<string | null>(null);
   const [isLoadingCountries, setIsLoadingCountries] = useState<boolean>(true);
 
+  const buildProvidersPath = (countryCode: string) => {
+    const normalizedCountryCode = countryCode.trim().toUpperCase();
+    if (!normalizedCountryCode) {
+      return "/payments/providers";
+    }
+
+    const params = new URLSearchParams({ countryCode: normalizedCountryCode });
+    return `/payments/providers?${params.toString()}`;
+  };
+
   const handleTabClick = (tab: "search" | "invoice", event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     setActiveTab(tab);
+  };
+
+  const getStartedPath = useMemo(() => {
+    return buildProvidersPath(selectedCountry);
+  }, [selectedCountry]);
+
+  const handleFindBillerSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const selectedCountryCode = (countriesSelectRef.current?.value ?? selectedCountry).trim().toUpperCase();
+    setSelectedCountry(selectedCountryCode);
+    navigate(buildProvidersPath(selectedCountryCode));
+  };
+
+  const handleGetStartedLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+
+    const selectedCountryCode = (countriesSelectRef.current?.value ?? selectedCountry).trim().toUpperCase();
+    setSelectedCountry(selectedCountryCode);
+    navigate(buildProvidersPath(selectedCountryCode));
   };
 
   useEffect(() => {
@@ -114,12 +147,13 @@ export const Home = () => {
                   </nav>
                   <div className="tab-content">
                     <div className={`tab-pane fade ${activeTab === "search" ? "show active" : ""}`} id="tab-1">
-                      <form action="#" method="post">
+                      <form onSubmit={handleFindBillerSubmit}>
                         <label htmlFor="countries" className="form-label">
                           Destination country
                         </label>
                         <div className="select mb-3">
                           <select
+                            ref={countriesSelectRef}
                             className="form-control countries"
                             id="countries"
                             value={selectedCountry}
@@ -142,7 +176,11 @@ export const Home = () => {
                           Note: Choose a country, pick a provider, and Payabo pre-fills what you need to pay.
                         </p>
                         <div className="text-center">
-                          <button type="submit" className="btn btn-primary btn-sm">
+                          <button
+                            type="submit"
+                            className="btn btn-primary btn-sm"
+                            disabled={isLoadingCountries || countries.length === 0}
+                          >
                             GET STARTED
                           </button>
                         </div>
@@ -239,9 +277,9 @@ export const Home = () => {
                 Payabo brings your bills and subscriptions into one timeline, reminds you before due dates, and helps you
                 set up autopay where available.
               </p>
-              <a className="btn btn-primary" href="#">
+              <Link className="btn btn-primary" to={getStartedPath} onClick={handleGetStartedLinkClick}>
                 GET STARTED
-              </a>
+              </Link>
             </div>
             <div className="col-lg-6 col-xl-6">
               <img src="/images/mba_homepage_img_appscreen_providerslist.png" alt="appscreen providerslist" />
@@ -264,9 +302,9 @@ export const Home = () => {
                 See where money goes, set budgets that match your life, and get gentle alerts before you overspend plus
                 monthly insights that help you save.
               </p>
-              <a className="btn btn-primary" href="#">
+              <Link className="btn btn-primary" to={getStartedPath} onClick={handleGetStartedLinkClick}>
                 GET STARTED
-              </a>
+              </Link>
             </div>
             <div className="col-lg-6 col-xl-5">
               <img src="/images/mba_homepage_img_appscreen_budget.png" alt="appscreen budget" />
@@ -286,9 +324,9 @@ export const Home = () => {
                 </strong>
               </h3>
               <p>Share a bill link with family or friends, split payments, and track who contributed.</p>
-              <a className="btn btn-primary" href="#">
+              <Link className="btn btn-primary" to={getStartedPath} onClick={handleGetStartedLinkClick}>
                 GET STARTED
-              </a>
+              </Link>
             </div>
             <div className="col-lg-6 col-xl-6">
               <img src="/images/mba_homepage_img_appscreen_help.png" alt="appscreen help" />

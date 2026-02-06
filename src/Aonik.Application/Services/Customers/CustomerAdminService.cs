@@ -72,7 +72,14 @@ public class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         if (!string.IsNullOrWhiteSpace(request.PartyType))
         {
             var partyType = request.PartyType.Trim();
-            query = query.Where(party => party.PartyType == partyType);
+            if (IsPersonPartyType(partyType))
+            {
+                query = query.Where(party => party.PartyType == "Person" || party.PartyType == "Individual");
+            }
+            else
+            {
+                query = query.Where(party => party.PartyType == partyType);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(request.Search))
@@ -160,13 +167,14 @@ public class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             personByPartyId.TryGetValue(party.Id, out var person);
             businessByPartyId.TryGetValue(party.Id, out var business);
 
-            var verificationStatus = party.PartyType == "Business" ? business?.KybStatus : person?.IdvStatus;
-            var photoUrlTiny = party.PartyType == "Person" ? person?.PhotoUrlTiny : null;
+            var canonicalPartyType = CanonicalizePartyType(party.PartyType);
+            var verificationStatus = canonicalPartyType == "Business" ? business?.KybStatus : person?.IdvStatus;
+            var photoUrlTiny = canonicalPartyType == "Person" ? person?.PhotoUrlTiny : null;
 
             return new CustomerListItem(
                 party.Id,
                 party.DisplayName,
-                party.PartyType,
+                canonicalPartyType,
                 party.Status,
                 pc?.Email,
                 pc?.Phone,
@@ -180,6 +188,17 @@ public class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             totalCount,
             pageNumber,
             pageSize);
+    }
+
+    private static bool IsPersonPartyType(string? partyType)
+    {
+        return string.Equals(partyType, "Person", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(partyType, "Individual", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string CanonicalizePartyType(string partyType)
+    {
+        return IsPersonPartyType(partyType) ? "Person" : partyType;
     }
 
     public async Task<CustomerDetail?> GetCustomerAsync(Guid partyId, CancellationToken cancellationToken = default)

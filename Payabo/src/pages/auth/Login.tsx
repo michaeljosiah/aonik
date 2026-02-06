@@ -52,10 +52,10 @@ export const Login = () => {
           <div className="col-lg-6">
             <div className="login-content">
               <div className="login-header text-center">
-                <img className="mb-4" src="/images/logo.png" alt="MyBillAfrica" />
+                <img className="mb-4" src="/images/payabo_logo_horizontal.png" alt="Payabo" />
                 <h4>Nice to see you again.</h4>
                 <p>
-                  Don't have an account? <NavLink to="/register">Register now</NavLink>
+                  Don't have an account? <NavLink to="/register" state={from ? { from } : undefined}>Register now</NavLink>
                 </p>
               </div>
               <form action="#" method="post" onSubmit={handleSubmit}>

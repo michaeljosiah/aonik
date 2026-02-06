@@ -890,6 +890,17 @@ Navbar
 	margin-right: 0px;
 }
 
+.brand-logo-horizontal {
+	height: 52px;
+	width: auto;
+}
+
+@media (max-width: 575.98px) {
+	.brand-logo-horizontal {
+		height: 40px;
+	}
+}
+
 @media (min-width: 576px) {
 	.navbar-brand {
 		margin-right: 10px;
@@ -7602,6 +7613,11 @@ Footer
 	margin: 0 0 15px 0;
 	font-size: 13px;
 	line-height: 18px;
+}
+
+.footer-brand-logo {
+	max-height: 104px;
+	width: auto;
 }
 
 @media (min-width: 768px) {

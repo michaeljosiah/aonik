@@ -9,3 +9,15 @@ public record PaymentIntentResponse(
     string Status,
     string Reference,
     DateTime CreatedUtc);
+
+public record PublicPaymentIntentResponse(
+    Guid PaymentIntentId,
+    Guid OrderId,
+    decimal Amount,
+    string Currency,
+    string Status,
+    string Provider,
+    string ProviderReference,
+    string? ClientSecret,
+    string? CheckoutUrl,
+    DateTime CreatedAt);

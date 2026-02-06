@@ -18,7 +18,7 @@ const orderTiles = [
     description: 'Track order submissions, compliance status, and fulfilment.',
     href: '/orders/activity',
     icon: Layers,
-    badge: 'Coming soon',
+    badge: 'View',
   },
 ];
 

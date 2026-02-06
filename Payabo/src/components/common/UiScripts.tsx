@@ -313,6 +313,13 @@ export const UiScripts = () => {
         templateSelection: formatCountry,
         templateResult: formatCountry
       });
+      $element.off("select2:select.payaboReactSync select2:clear.payaboReactSync");
+      $element.on("select2:select.payaboReactSync select2:clear.payaboReactSync", () => {
+        const nativeElement = $element.get(0);
+        if (nativeElement) {
+          nativeElement.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
       selectElements.push(element);
       });
 

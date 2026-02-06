@@ -10,7 +10,7 @@ export const HeaderDashboard = () => {
         <nav className="navbar navbar-expand-lg">
           <div className="container">
             <NavLink className="navbar-brand" to="/">
-              <img src="/images/logo.png" alt="Logo" />
+              <img className="brand-logo-horizontal" src="/images/payabo_logo_horizontal.png" alt="Payabo" />
             </NavLink>
             <button className="nav-trigger" type="button">
               <span aria-hidden="true"></span>
