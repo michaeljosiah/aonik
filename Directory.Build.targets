@@ -1,2 +1,10 @@
 <Project>
+  <Target Name="BlockReservedOpencodeOutputPath" BeforeTargets="PrepareForBuild">
+    <Error Condition="$([System.String]::Copy('$(OutputPath)').ToLowerInvariant().Contains('.opencode'))"
+           Text="Build output path cannot target '.opencode'. Use default bin/obj output paths or another temporary directory outside '.opencode'." />
+    <Error Condition="$([System.String]::Copy('$(BaseOutputPath)').ToLowerInvariant().Contains('.opencode'))"
+           Text="Base output path cannot target '.opencode'. Use default bin/obj output paths or another temporary directory outside '.opencode'." />
+    <Error Condition="$([System.String]::Copy('$(PublishDir)').ToLowerInvariant().Contains('.opencode'))"
+           Text="Publish output path cannot target '.opencode'. Use a publish directory outside '.opencode'." />
+  </Target>
 </Project>
