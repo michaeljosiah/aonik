@@ -1,18 +1,24 @@
 import { useMemo, useState } from 'react';
-import { ShieldCheck, Wrench, RefreshCw, AlertCircle, ServerCog } from 'lucide-react';
+import { ShieldCheck, Wrench, RefreshCw, AlertCircle, ServerCog, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ImportDemoDataDialog } from '@/components/dialogs/ImportDemoDataDialog';
+import { demoSeedService } from '@/services/demoSeedService';
 import { permissionSeedService } from '@/services/permissionSeedService';
 import { getSelectedTenant } from '@/lib/tenantContext';
-import type { PermissionSeedResponse } from '@/types';
+import type { DemoSeedResponse, DemoSeedType, PermissionSeedResponse } from '@/types';
 
 type ToolStatus = 'idle' | 'running' | 'success' | 'error';
 
 export function SystemToolsPage() {
   const selectedTenant = useMemo(() => getSelectedTenant(), []);
+  const [demoSeedDialogOpen, setDemoSeedDialogOpen] = useState(false);
+  const [demoSeedResult, setDemoSeedResult] = useState<DemoSeedResponse | null>(null);
+  const [demoSeedStatus, setDemoSeedStatus] = useState<ToolStatus>('idle');
+  const [demoSeedError, setDemoSeedError] = useState<string | null>(null);
   const [permissionSeedResult, setPermissionSeedResult] = useState<PermissionSeedResponse | null>(null);
   const [permissionSeedStatus, setPermissionSeedStatus] = useState<ToolStatus>('idle');
   const [permissionSeedError, setPermissionSeedError] = useState<string | null>(null);
@@ -43,6 +49,32 @@ export function SystemToolsPage() {
         : '';
       setPermissionSeedError(message || 'Permission sync failed. Please try again.');
       setPermissionSeedStatus('error');
+    }
+  };
+
+  const handleImportDemoData = async (seedType: DemoSeedType) => {
+    if (!selectedTenant?.tenantId) {
+      setDemoSeedStatus('error');
+      setDemoSeedError('Select a tenant before running a system tool.');
+      return;
+    }
+
+    setDemoSeedStatus('running');
+    setDemoSeedError(null);
+
+    try {
+      const result = await demoSeedService.seed(selectedTenant.tenantId, seedType);
+      setDemoSeedResult(result);
+      setDemoSeedStatus('success');
+      setDemoSeedDialogOpen(false);
+      toast.success(`${result.seedType === 'CrossBorderPayments' ? 'Cross-border payments' : 'Bill collection'} demo data imported.`);
+    } catch (err: unknown) {
+      console.error('Demo seed failed:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setDemoSeedError(message || 'Demo data import failed. Please try again.');
+      setDemoSeedStatus('error');
     }
   };
 
@@ -83,6 +115,67 @@ export function SystemToolsPage() {
       )}
 
       <div className="grid gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                Demo Data Import
+              </CardTitle>
+              <CardDescription>
+                Import curated sandbox datasets for bill collection or cross-border payment demos.
+              </CardDescription>
+            </div>
+            <Button
+              onClick={() => {
+                setDemoSeedError(null);
+                setDemoSeedDialogOpen(true);
+              }}
+              disabled={demoSeedStatus === 'running' || !selectedTenant?.tenantId}
+              className="rounded-sm"
+            >
+              {demoSeedStatus === 'running' ? 'Importing...' : 'Import Data'}
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {demoSeedError && (
+              <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+                {demoSeedError}
+              </div>
+            )}
+
+            {demoSeedResult ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                  <span>Last import</span>
+                  <span>{new Date(demoSeedResult.seededAt).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                  <span>Dataset</span>
+                  <span>{demoSeedResult.seedType === 'CrossBorderPayments' ? 'Cross-border Payments' : 'Bill Collection'}</span>
+                </div>
+                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
+                    Operations
+                  </p>
+                  <ul className="space-y-1 text-sm text-[var(--color-text-secondary)]">
+                    {demoSeedResult.operations.map((operation) => (
+                      <li key={operation} className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-primary)]" />
+                        {operation}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                Import demo data to quickly showcase bill pay and cross-border capabilities in the admin workspace.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-1">
@@ -140,6 +233,14 @@ export function SystemToolsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <ImportDemoDataDialog
+        open={demoSeedDialogOpen}
+        onOpenChange={setDemoSeedDialogOpen}
+        onImport={handleImportDemoData}
+        saving={demoSeedStatus === 'running'}
+        error={demoSeedError}
+      />
     </div>
   );
 }

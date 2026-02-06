@@ -712,7 +712,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
     setDemoSeedError(null);
     try {
       if (demoSeedEnabled) {
-        await demoSeedService.seed(currentTenantId);
+        await demoSeedService.seed(currentTenantId, 'BillCollection');
       }
       markComplete();
       setWizardOpen(false);

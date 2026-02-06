@@ -4,7 +4,7 @@ using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Admin.Tenants;
 
-public class SeedTenantDemoEndpoint : EndpointWithoutRequest<DemoSeedResponse>
+public class SeedTenantDemoEndpoint : Endpoint<DemoSeedRequest, DemoSeedResponse>
 {
     private readonly IDemoSeedService _demoSeedService;
 
@@ -19,13 +19,14 @@ public class SeedTenantDemoEndpoint : EndpointWithoutRequest<DemoSeedResponse>
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(DemoSeedRequest req, CancellationToken ct)
     {
         var tenantId = Route<Guid>("tenantId");
-        var result = await _demoSeedService.SeedAsync(tenantId, ct);
+        var result = await _demoSeedService.SeedAsync(tenantId, req.SeedType, ct);
 
         var response = new DemoSeedResponse(
             result.TenantId,
+            result.SeedType,
             result.SeededAt,
             result.Operations);
 

@@ -4,5 +4,5 @@ namespace Aonik.Application.Services.Seeding;
 
 public interface IDemoSeedService
 {
-    Task<DemoSeedResult> SeedAsync(Guid tenantId, CancellationToken cancellationToken = default);
+    Task<DemoSeedResult> SeedAsync(Guid tenantId, string? seedType = null, CancellationToken cancellationToken = default);
 }

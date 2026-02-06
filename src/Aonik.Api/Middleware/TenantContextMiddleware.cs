@@ -29,7 +29,8 @@ public class TenantContextMiddleware
             if (path.StartsWithSegments("/health") ||
                 path.StartsWithSegments("/swagger") ||
                 path.StartsWithSegments("/host") ||
-                path.StartsWithSegments("/bootstrap"))
+                path.StartsWithSegments("/bootstrap") ||
+                HttpMethods.IsOptions(context.Request.Method))
             {
                 await _next(context);
                 return;
@@ -39,7 +40,7 @@ public class TenantContextMiddleware
             {
                 if (!tenantContext.IsResolved)
                 {
-                    var resolvedTenantId = tenantResolver.ResolveFromHttpContext();
+                    var resolvedTenantId = ResolveAnonymousTenantId(context, tenantResolver);
                     if (resolvedTenantId != null)
                     {
                         tenantContext.TenantId = resolvedTenantId;
@@ -82,6 +83,17 @@ public class TenantContextMiddleware
         {
             // Client disconnected; ignore.
         }
+    }
+
+    private static Guid? ResolveAnonymousTenantId(HttpContext context, ITenantResolver tenantResolver)
+    {
+        var headerValue = context.Request.Headers["X-Tenant-Id"].FirstOrDefault();
+        if (Guid.TryParse(headerValue, out var tenantId))
+        {
+            return tenantId;
+        }
+
+        return tenantResolver.ResolveFromHttpContext();
     }
 }
 

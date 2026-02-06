@@ -7,6 +7,8 @@ public record FeePolicyConditions(
     string? OriginCurrency,
     string? DestinationCurrency,
     string? CustomerTier,
+    decimal? MinTransferAmount,
+    decimal? MaxTransferAmount,
     decimal? MinFee,
     decimal? MaxFee,
     int? MarkupBps,

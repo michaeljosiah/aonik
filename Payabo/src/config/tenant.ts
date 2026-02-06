@@ -1,3 +1,10 @@
-// Read tenant id from Vite env variable so it can be configured per-environment.
-// Falls back to the previous development GUID if the env var is not provided.
-export const PAYABO_TENANT_ID = import.meta.env.VITE_PAYABO_TENANT_ID ?? "550e8400-e29b-41d4-a716-446655440000";
+const tenantId = (import.meta.env.VITE_PAYABO_TENANT_ID ?? "").trim();
+const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+if (!guidPattern.test(tenantId)) {
+  throw new Error(
+    "Invalid or missing VITE_PAYABO_TENANT_ID. Set a valid tenant GUID in Payabo/.env and restart the Vite server."
+  );
+}
+
+export const PAYABO_TENANT_ID = tenantId;

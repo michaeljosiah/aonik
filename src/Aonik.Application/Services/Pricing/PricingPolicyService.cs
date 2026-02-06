@@ -102,11 +102,11 @@ public class PricingPolicyService : IPricingPolicyService
     {
         if (string.IsNullOrWhiteSpace(conditionsJson))
         {
-            return new FeePolicyConditions(null, null, null, null, null, null, null, null, null, null, null, null);
+            return new FeePolicyConditions(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         }
 
         return JsonSerializer.Deserialize<FeePolicyConditions>(conditionsJson, JsonOptions)
-            ?? new FeePolicyConditions(null, null, null, null, null, null, null, null, null, null, null, null);
+            ?? new FeePolicyConditions(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     private static bool Matches(FeePolicyConditions conditions, PricingQuoteRequest request, string customerTier)
@@ -128,6 +128,35 @@ public class PricingPolicyService : IPricingPolicyService
 
         if (!MatchesValue(conditions.CustomerTier, customerTier))
             return false;
+
+        if (!MatchesTransferAmountBand(conditions, request))
+            return false;
+
+        return true;
+    }
+
+    private static bool MatchesTransferAmountBand(FeePolicyConditions conditions, PricingQuoteRequest request)
+    {
+        if (!conditions.MinTransferAmount.HasValue && !conditions.MaxTransferAmount.HasValue)
+        {
+            return true;
+        }
+
+        var transferAmount = request.OriginAmount ?? request.DestinationAmount;
+        if (!transferAmount.HasValue)
+        {
+            return false;
+        }
+
+        if (conditions.MinTransferAmount.HasValue && transferAmount.Value < conditions.MinTransferAmount.Value)
+        {
+            return false;
+        }
+
+        if (conditions.MaxTransferAmount.HasValue && transferAmount.Value > conditions.MaxTransferAmount.Value)
+        {
+            return false;
+        }
 
         return true;
     }
@@ -157,6 +186,10 @@ public class PricingPolicyService : IPricingPolicyService
         if (!string.IsNullOrWhiteSpace(conditions.DestinationCurrency))
             score++;
         if (!string.IsNullOrWhiteSpace(conditions.CustomerTier))
+            score++;
+        if (conditions.MinTransferAmount.HasValue)
+            score++;
+        if (conditions.MaxTransferAmount.HasValue)
             score++;
 
         return score;

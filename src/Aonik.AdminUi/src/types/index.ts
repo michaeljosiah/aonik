@@ -995,8 +995,11 @@ export interface TenantFeatureUpdateRequest {
   features: TenantFeatureToggleRequest[];
 }
 
+export type DemoSeedType = 'BillCollection' | 'CrossBorderPayments';
+
 export interface DemoSeedResponse {
   tenantId: string;
+  seedType: DemoSeedType;
   seededAt: string;
   operations: string[];
 }
