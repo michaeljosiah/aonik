@@ -287,11 +287,14 @@ export const UiScripts = () => {
       return $(span);
     };
 
-    const initSelect2 = () => {
+    const initSelect2 = (force = false) => {
       $(".select-box").each((_, element) => {
       const $element = $(element);
       if ($element.data("select2")) {
-        return;
+        if (!force) {
+          return;
+        }
+        $element.select2("destroy");
       }
       $element.select2({ width: "100%", minimumResultsForSearch: -1 });
       selectElements.push(element);
@@ -300,7 +303,10 @@ export const UiScripts = () => {
       $(".countries").each((_, element) => {
       const $element = $(element);
       if ($element.data("select2")) {
-        return;
+        if (!force) {
+          return;
+        }
+        $element.select2("destroy");
       }
       $element.select2({
         width: "100%",
@@ -313,7 +319,10 @@ export const UiScripts = () => {
       $("#categories").each((_, element) => {
       const $element = $(element);
       if ($element.data("select2")) {
-        return;
+        if (!force) {
+          return;
+        }
+        $element.select2("destroy");
       }
       $element.select2({
         width: "100%",
@@ -327,7 +336,10 @@ export const UiScripts = () => {
       $(".categories").each((_, element) => {
       const $element = $(element);
       if ($element.data("select2")) {
-        return;
+        if (!force) {
+          return;
+        }
+        $element.select2("destroy");
       }
       $element.select2({
         width: "100%",
@@ -442,6 +454,33 @@ export const UiScripts = () => {
         // Swallow plugin init issues; these scripts are progressive enhancement.
       }
     };
+
+    const refreshSelects = async () => {
+      try {
+        await ensureSelect2Loaded();
+      } catch {
+        return;
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      try {
+        if (typeof ($.fn as unknown as { select2?: unknown }).select2 === "function") {
+          initSelect2(true);
+        }
+      } catch {
+        // ignore refresh errors
+      }
+    };
+
+    const handleRefreshSelects = () => {
+      void refreshSelects();
+    };
+
+    window.addEventListener("payabo:refresh-selects", handleRefreshSelects);
+    cleanupCallbacks.push(() => window.removeEventListener("payabo:refresh-selects", handleRefreshSelects));
 
     void initJQueryPlugins();
 

@@ -37,6 +37,16 @@ public class TenantContextMiddleware
 
             if (context.User.Identity?.IsAuthenticated != true)
             {
+                if (!tenantContext.IsResolved)
+                {
+                    var resolvedTenantId = tenantResolver.ResolveFromHttpContext();
+                    if (resolvedTenantId != null)
+                    {
+                        tenantContext.TenantId = resolvedTenantId;
+                        tenantContext.ResolutionSource = configuration["Auth:TenantRouting"] ?? "Resolver";
+                    }
+                }
+
                 await _next(context);
                 return;
             }

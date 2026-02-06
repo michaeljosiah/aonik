@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<ICatalogService, CatalogService>();
+        services.AddScoped<IPublicCatalogService, PublicCatalogService>();
         services.AddScoped<IAiInsightsService, AiInsightsService>();
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
 

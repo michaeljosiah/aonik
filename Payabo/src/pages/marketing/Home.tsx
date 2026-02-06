@@ -1,14 +1,59 @@
-import { useState, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 
+import { getPublicCatalogCountries, type CatalogCountry } from "../../api/catalog";
 import { recentNews } from "../../data/mockData";
 
 export const Home = () => {
   const [activeTab, setActiveTab] = useState<"search" | "invoice">("search");
+  const [countries, setCountries] = useState<CatalogCountry[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [countriesError, setCountriesError] = useState<string | null>(null);
+  const [isLoadingCountries, setIsLoadingCountries] = useState<boolean>(true);
 
   const handleTabClick = (tab: "search" | "invoice", event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     setActiveTab(tab);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCountries = async () => {
+      setIsLoadingCountries(true);
+      setCountriesError(null);
+
+      try {
+        const result = await getPublicCatalogCountries();
+        if (cancelled) {
+          return;
+        }
+
+        setCountries(result);
+        setSelectedCountry((current) => current || result[0]?.code || "");
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(new Event("payabo:refresh-selects"));
+        });
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setCountries([]);
+        setSelectedCountry("");
+        setCountriesError("We couldn't load countries right now. Please try again.");
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCountries(false);
+        }
+      }
+    };
+
+    void loadCountries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="main-wrapper">
@@ -74,18 +119,25 @@ export const Home = () => {
                           Destination country
                         </label>
                         <div className="select mb-3">
-                          <select className="form-control countries" id="countries">
-                            <option value="GB" data-capital="London">
-                              United Kingdom
-                            </option>
-                            <option value="GH" data-capital="Accra">
-                              Ghana
-                            </option>
-                            <option value="NG" data-capital="Abuja">
-                              Nigeria
-                            </option>
+                          <select
+                            className="form-control countries"
+                            id="countries"
+                            value={selectedCountry}
+                            onChange={(event) => setSelectedCountry(event.target.value)}
+                            disabled={isLoadingCountries || countries.length === 0}
+                          >
+                            {isLoadingCountries && <option value="">Loading countries...</option>}
+                            {!isLoadingCountries && countries.length === 0 && (
+                              <option value="">No countries available</option>
+                            )}
+                            {countries.map((country) => (
+                              <option key={country.code} value={country.code}>
+                                {country.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
+                        {countriesError && <p className="text-danger small mb-3">{countriesError}</p>}
                         <p className="text-md mb-4">
                           Note: Choose a country, pick a provider, and Payabo pre-fills what you need to pay.
                         </p>

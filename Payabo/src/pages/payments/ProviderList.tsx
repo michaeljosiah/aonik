@@ -1,6 +1,54 @@
-import { billCategories, destinationCountries, serviceProviders } from "../../data/mockData";
+import { useEffect, useState } from "react";
+
+import { getPublicCatalogCountries, type CatalogCountry } from "../../api/catalog";
+import { billCategories, serviceProviders } from "../../data/mockData";
 
 export const ProviderList = () => {
+  const [countries, setCountries] = useState<CatalogCountry[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [countriesError, setCountriesError] = useState<string | null>(null);
+  const [isLoadingCountries, setIsLoadingCountries] = useState<boolean>(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCountries = async () => {
+      setIsLoadingCountries(true);
+      setCountriesError(null);
+
+      try {
+        const result = await getPublicCatalogCountries();
+        if (cancelled) {
+          return;
+        }
+
+        setCountries(result);
+        setSelectedCountry((current) => current || result[0]?.code || "");
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(new Event("payabo:refresh-selects"));
+        });
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setCountries([]);
+        setSelectedCountry("");
+        setCountriesError("We couldn't load countries right now. Please try again.");
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCountries(false);
+        }
+      }
+    };
+
+    void loadCountries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <main className="main-wrapper overflow-hidden">
       <div className="container">
@@ -100,13 +148,21 @@ export const ProviderList = () => {
                       className="form-control countries"
                       data-placeholder="Select country..."
                       id="destinationCountry"
+                      value={selectedCountry}
+                      onChange={(event) => setSelectedCountry(event.target.value)}
+                      disabled={isLoadingCountries || countries.length === 0}
                     >
-                      {destinationCountries.map((country) => (
-                        <option key={country.code} value={country.code} data-capital={country.capital}>
+                      {isLoadingCountries && <option value="">Loading countries...</option>}
+                      {!isLoadingCountries && countries.length === 0 && (
+                        <option value="">No countries available</option>
+                      )}
+                      {countries.map((country) => (
+                        <option key={country.code} value={country.code}>
                           {country.name}
                         </option>
                       ))}
                     </select>
+                    {countriesError && <p className="text-danger small mt-2 mb-0">{countriesError}</p>}
                   </div>
                 </div>
                 <div className="col">
