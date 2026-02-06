@@ -5,28 +5,38 @@ import { WorkspaceDock } from './WorkspaceDock';
 import { useWorkspace } from './useWorkspace';
 
 function WorkspacePageContent() {
-  const { openPanel, loadLayout, resetToDefaultLayout, createLayoutFromActive, renameLayout, removeLayout } = useWorkspace();
+  const { api, openPanel, loadLayout, resetToDefaultLayout, createLayoutFromActive, renameLayout, removeLayout } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
+    if (!api) {
+      return;
+    }
+
     const panelId = searchParams.get('panel');
     const layoutId = searchParams.get('layout');
 
-    if (layoutId) {
-      loadLayout(layoutId);
+    if (!panelId && !layoutId) {
+      return;
     }
 
-    if (panelId) {
-      openPanel(panelId);
-    }
+    const timerId = window.setTimeout(() => {
+      if (layoutId) {
+        loadLayout(layoutId);
+      }
 
-    if (panelId || layoutId) {
+      if (panelId) {
+        openPanel(panelId);
+      }
+
       const nextParams = new URLSearchParams(searchParams);
       nextParams.delete('panel');
       nextParams.delete('layout');
       setSearchParams(nextParams, { replace: true });
-    }
-  }, [loadLayout, openPanel, searchParams, setSearchParams]);
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+  }, [api, loadLayout, openPanel, searchParams, setSearchParams]);
 
   useEffect(() => {
     const handleReset = () => resetToDefaultLayout();
