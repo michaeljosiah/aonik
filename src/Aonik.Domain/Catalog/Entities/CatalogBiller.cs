@@ -6,7 +6,7 @@ public class CatalogBiller : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid CategoryId { get; set; }
-    public Guid? CorrespondentPartnerId { get; set; }
+    public Guid CorrespondentPartnerId { get; set; }
     public string CountryCode { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }

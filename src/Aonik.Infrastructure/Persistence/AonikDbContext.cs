@@ -118,6 +118,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<RoutingRule> RoutingRules { get; set; } = null!;
     public virtual DbSet<PayoutSchema> PayoutSchemas { get; set; } = null!;
     public virtual DbSet<Transmission> Transmissions { get; set; } = null!;
+    public virtual DbSet<PartnerFundingAccount> PartnerFundingAccounts { get; set; } = null!;
 
     // Pricing
     public virtual DbSet<FeePolicy> FeePolicies { get; set; } = null!;

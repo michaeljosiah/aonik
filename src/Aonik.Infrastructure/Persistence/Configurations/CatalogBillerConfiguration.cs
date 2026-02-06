@@ -1,4 +1,5 @@
 using Aonik.Domain.Catalog.Entities;
+using Aonik.Domain.Partners.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,7 +16,8 @@ public class CatalogBillerConfiguration : IEntityTypeConfiguration<CatalogBiller
         builder.Property(x => x.CategoryId)
             .IsRequired();
 
-        builder.Property(x => x.CorrespondentPartnerId);
+        builder.Property(x => x.CorrespondentPartnerId)
+            .IsRequired();
 
         builder.Property(x => x.CountryCode)
             .IsRequired()
@@ -52,5 +54,10 @@ public class CatalogBillerConfiguration : IEntityTypeConfiguration<CatalogBiller
         builder.HasIndex(x => new { x.TenantId, x.CountryCode, x.CategoryId, x.SortOrder });
         builder.HasIndex(x => new { x.TenantId, x.CountryCode, x.Name });
         builder.HasIndex(x => new { x.TenantId, x.CorrespondentPartnerId });
+
+        builder.HasOne<Partner>()
+            .WithMany()
+            .HasForeignKey(x => x.CorrespondentPartnerId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

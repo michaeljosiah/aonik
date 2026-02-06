@@ -8,6 +8,7 @@ using Aonik.Application.Models.Identity;
 using Aonik.Application.Models.Partners;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
+using Aonik.Domain.Ledger.Entities;
 using Aonik.Domain.Partners.Entities;
 using Aonik.SharedKernel.Abstractions;
 
@@ -15,6 +16,8 @@ namespace Aonik.Application.Services.Partners;
 
 public class PartnerAdminService : AdminServiceBase, IPartnerAdminService
 {
+    private const string PrefundAccountRole = "PrefundAsset";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -159,9 +162,8 @@ public class PartnerAdminService : AdminServiceBase, IPartnerAdminService
             .AsNoTracking()
             .Where(biller =>
                 biller.TenantId == tenantId &&
-                biller.CorrespondentPartnerId.HasValue &&
-                partnerIds.Contains(biller.CorrespondentPartnerId.Value))
-            .GroupBy(biller => biller.CorrespondentPartnerId!.Value)
+                partnerIds.Contains(biller.CorrespondentPartnerId))
+            .GroupBy(biller => biller.CorrespondentPartnerId)
             .Select(group => new
             {
                 PartnerId = group.Key,
@@ -394,6 +396,14 @@ public class PartnerAdminService : AdminServiceBase, IPartnerAdminService
         };
 
         _dbContext.Partners.Add(partner);
+
+        await EnsurePartnerPrefundAccountsAsync(
+            tenantId,
+            partner.Id,
+            partner.Name,
+            now,
+            cancellationToken);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
@@ -542,15 +552,21 @@ public class PartnerAdminService : AdminServiceBase, IPartnerAdminService
             .Where(biller => biller.TenantId == tenantId && biller.CorrespondentPartnerId == partnerId)
             .ToListAsync(cancellationToken);
 
-        foreach (var biller in linkedBillers)
+        if (linkedBillers.Count > 0)
         {
-            biller.CorrespondentPartnerId = null;
+            throw new InvalidOperationException(
+                $"Partner {partnerId} cannot be deleted while linked to {linkedBillers.Count} biller(s). Reassign billers first.");
         }
+
+        var fundingAccounts = await _dbContext.PartnerFundingAccounts
+            .Where(account => account.TenantId == tenantId && account.PartnerId == partnerId)
+            .ToListAsync(cancellationToken);
 
         _dbContext.Transmissions.RemoveRange(transmissions);
         _dbContext.RoutingRules.RemoveRange(routingRules);
         _dbContext.Connectors.RemoveRange(connectors);
         _dbContext.PartnerBranches.RemoveRange(branches);
+        _dbContext.PartnerFundingAccounts.RemoveRange(fundingAccounts);
         _dbContext.Partners.Remove(partner);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -569,8 +585,124 @@ public class PartnerAdminService : AdminServiceBase, IPartnerAdminService
                 ConnectorCount = connectors.Count,
                 RoutingRuleCount = routingRules.Count,
                 TransmissionCount = transmissions.Count,
-                BillerUnmappedCount = linkedBillers.Count
+                FundingAccountCount = fundingAccounts.Count
             }, JsonOptions),
             cancellationToken: cancellationToken);
+    }
+
+    private async Task EnsurePartnerPrefundAccountsAsync(
+        Guid tenantId,
+        Guid partnerId,
+        string partnerName,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var ledgerId = await _dbContext.Ledgers
+            .AsNoTracking()
+            .Where(ledger => ledger.TenantId == tenantId)
+            .Select(ledger => (Guid?)ledger.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!ledgerId.HasValue)
+        {
+            throw new InvalidOperationException($"Tenant {tenantId} does not have a ledger.");
+        }
+
+        var currencyCodes = await GetPartnerPrefundCurrencyCodesAsync(tenantId, cancellationToken);
+
+        var existingFundingAccounts = await _dbContext.PartnerFundingAccounts
+            .Where(account => account.TenantId == tenantId && account.PartnerId == partnerId && account.AccountRole == PrefundAccountRole)
+            .ToListAsync(cancellationToken);
+
+        foreach (var currencyCode in currencyCodes)
+        {
+            var existingFundingAccount = existingFundingAccounts
+                .FirstOrDefault(account => account.Currency == currencyCode);
+
+            if (existingFundingAccount != null)
+            {
+                continue;
+            }
+
+            var accountCode = BuildPartnerPrefundAccountCode(partnerId, currencyCode);
+
+            var ledgerAccount = await _dbContext.LedgerAccounts
+                .FirstOrDefaultAsync(account => account.TenantId == tenantId && account.Code == accountCode, cancellationToken);
+
+            if (ledgerAccount == null)
+            {
+                ledgerAccount = new LedgerAccount
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    LedgerId = ledgerId.Value,
+                    AccountType = "Asset",
+                    Name = $"Due From Partner {partnerName} ({currencyCode})",
+                    Code = accountCode,
+                    DimensionsJson = JsonSerializer.Serialize(new
+                    {
+                        partnerId,
+                        currency = currencyCode,
+                        accountRole = PrefundAccountRole
+                    }),
+                    CreatedAt = now
+                };
+
+                _dbContext.LedgerAccounts.Add(ledgerAccount);
+            }
+
+            _dbContext.PartnerFundingAccounts.Add(new PartnerFundingAccount
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                PartnerId = partnerId,
+                LedgerAccountId = ledgerAccount.Id,
+                Currency = currencyCode,
+                AccountRole = PrefundAccountRole,
+                Status = "Active",
+                CreatedAt = now
+            });
+        }
+    }
+
+    private async Task<List<string>> GetPartnerPrefundCurrencyCodesAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var tenantCurrencies = await _dbContext.TenantCurrencies
+            .AsNoTracking()
+            .Where(tenantCurrency => tenantCurrency.TenantId == tenantId)
+            .Join(
+                _dbContext.Currencies.AsNoTracking(),
+                tenantCurrency => tenantCurrency.CurrencyId,
+                currency => currency.Id,
+                (_, currency) => currency.Code)
+            .Distinct()
+            .OrderBy(code => code)
+            .ToListAsync(cancellationToken);
+
+        if (tenantCurrencies.Count > 0)
+        {
+            return tenantCurrencies;
+        }
+
+        var defaultCurrency = await _dbContext.Tenants
+            .AsNoTracking()
+            .Where(tenant => tenant.Id == tenantId)
+            .Select(tenant => tenant.DefaultCurrency)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(defaultCurrency))
+        {
+            return new List<string> { defaultCurrency.Trim().ToUpperInvariant() };
+        }
+
+        return new List<string> { "USD" };
+    }
+
+    private static string BuildPartnerPrefundAccountCode(Guid partnerId, string currencyCode)
+    {
+        var partnerCode = partnerId.ToString("N")[..12].ToUpperInvariant();
+        return $"1300-{partnerCode}-{currencyCode}";
     }
 }

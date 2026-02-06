@@ -31,7 +31,7 @@ public record CatalogBillerSummaryItemResponse(
     string? LogoUrl,
     string CountryCode,
     Guid CategoryId,
-    Guid? CorrespondentPartnerId,
+    Guid CorrespondentPartnerId,
     bool IsActive,
     bool IsFeatured);
 
@@ -55,7 +55,7 @@ public record CatalogBillerDetailResponse(
     string? SupportEmail,
     string CountryCode,
     Guid CategoryId,
-    Guid? CorrespondentPartnerId,
+    Guid CorrespondentPartnerId,
     bool IsActive,
     int ServiceCount);
 

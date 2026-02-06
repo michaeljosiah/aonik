@@ -109,6 +109,7 @@ public interface IAonikDbContext
     DbSet<RoutingRule> RoutingRules { get; set; }
     DbSet<PayoutSchema> PayoutSchemas { get; set; }
     DbSet<Transmission> Transmissions { get; set; }
+    DbSet<PartnerFundingAccount> PartnerFundingAccounts { get; set; }
 
     // Pricing
     DbSet<FeePolicy> FeePolicies { get; set; }
