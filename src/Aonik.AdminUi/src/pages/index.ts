@@ -16,6 +16,8 @@ export {
   CatalogBillerDetailPage,
   CatalogBillerServicesPage,
   CatalogBillerServiceDetailPage,
+  CatalogPartnersPage,
+  CatalogPartnerDetailPage,
 } from './catalog';
 export { BillPaymentOrderFormPage, OrdersLandingPage } from './orders';
 export { CustomersListPage, CustomerDetailPage } from './customers';

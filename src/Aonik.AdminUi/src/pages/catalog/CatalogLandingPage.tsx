@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { Globe2, Layers, Building2, Wrench, ArrowUpRight } from 'lucide-react';
+import { Globe2, Layers, Building2, Wrench, ArrowUpRight, Network } from 'lucide-react';
 
 const catalogTiles = [
   {
@@ -23,6 +23,12 @@ const catalogTiles = [
     description: 'All billers available across configured markets.',
     href: '/catalog/billers',
     icon: Building2,
+  },
+  {
+    title: 'Partners',
+    description: 'Manage payout and bill payment partners used for routing.',
+    href: '/catalog/partners',
+    icon: Network,
   },
   {
     title: 'Services',

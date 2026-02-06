@@ -4,7 +4,7 @@ import { FraudDetectionPanel } from './apps/FraudDetectionPanel';
 import { InvoiceManagerPanel } from './apps/InvoiceManagerPanel';
 import { PlaceholderPanel } from './apps/PlaceholderPanel';
 import { ReconciliationHubPanel } from './apps/ReconciliationHubPanel';
-import { AccessPermissionsPage, AccessRolesPage, AccessUsersPage, AutonumberingPage, BillPaymentOrderFormPage, CatalogBillersPage, CatalogCategoriesPage, CatalogCountriesPage, CatalogLandingPage, ContentBlocksListPage, CustomersListPage, FxRatesPage, MediaLibraryPage, OrdersLandingPage, TenantsListPage } from '@/pages';
+import { AccessPermissionsPage, AccessRolesPage, AccessUsersPage, AutonumberingPage, BillPaymentOrderFormPage, CatalogBillersPage, CatalogCategoriesPage, CatalogCountriesPage, CatalogLandingPage, CatalogPartnersPage, ContentBlocksListPage, CustomersListPage, FxRatesPage, MediaLibraryPage, OrdersLandingPage, TenantsListPage } from '@/pages';
 import { createElement } from 'react';
 import type { ComponentType } from 'react';
 import type { WorkspacePanelRenderProps } from './types';
@@ -28,6 +28,7 @@ export const workspacePanelComponents: Record<string, ComponentType<WorkspacePan
   'catalog-countries': wrapPage(CatalogCountriesPage),
   'catalog-categories': wrapPage(CatalogCategoriesPage),
   'catalog-billers': wrapPage(CatalogBillersPage),
+  'catalog-partners': wrapPage(CatalogPartnersPage),
   tenants: wrapPage(TenantsListPage),
   autonumbering: wrapPage(AutonumberingPage),
   'fx-rates': wrapPage(FxRatesPage),

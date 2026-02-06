@@ -214,6 +214,13 @@ export const workspacePanelRegistry: WorkspacePanelConfig[] = [
     route: '/catalog/billers',
   },
   {
+    id: 'catalog-partners',
+    title: 'Partners',
+    type: 'internal',
+    componentKey: 'catalog-partners',
+    route: '/catalog/partners',
+  },
+  {
     id: 'tenants',
     title: 'Tenants',
     type: 'internal',

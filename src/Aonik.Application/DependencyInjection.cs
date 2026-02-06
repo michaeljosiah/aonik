@@ -15,6 +15,7 @@ using Aonik.Application.Services.Pricing;
 using Aonik.Application.Services.Settings;
 using Aonik.Application.Services.Parties;
 using Aonik.Application.Services.Customers;
+using Aonik.Application.Services.Partners;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Application;
@@ -57,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IPartyService, PartyService>();
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();
+        services.AddScoped<IPartnerAdminService, PartnerAdminService>();
         services.AddScoped<IOrderService, OrderService>();
 
         // AI Workflows

@@ -5,3 +5,5 @@ export { CatalogBillersPage } from './CatalogBillersPage';
 export { CatalogBillerDetailPage } from './CatalogBillerDetailPage';
 export { CatalogBillerServicesPage } from './CatalogBillerServicesPage';
 export { CatalogBillerServiceDetailPage } from './CatalogBillerServiceDetailPage';
+export { CatalogPartnersPage } from './CatalogPartnersPage';
+export { CatalogPartnerDetailPage } from './CatalogPartnerDetailPage';
