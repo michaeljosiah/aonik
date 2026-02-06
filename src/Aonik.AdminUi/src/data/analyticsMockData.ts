@@ -100,7 +100,7 @@ export const analyticsPerformanceCards: AnalyticsCard[] = [
     valueLabel: '912 completed, 48 failed',
     trend: { direction: 'down', value: '3.1%', label: 'pending backlog' },
     footerLabel: 'View orders',
-    footerHref: '/orders',
+    footerHref: '/orders/activity',
     accent: '#A855F7',
   },
   {

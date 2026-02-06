@@ -1,9 +1,14 @@
 using Aonik.Application.Models.Orders;
+using Aonik.Application.Models.Identity;
 
 namespace Aonik.Application.Services.Orders;
 
 public interface IOrderService
 {
+    Task<PagedResult<OrderListItem>> ListOrdersAsync(
+        ListOrdersRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<BillPaymentOrderResponse> CreateBillPaymentOrderAsync(
         CreateBillPaymentOrderRequest request,
         CancellationToken cancellationToken = default);

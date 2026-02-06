@@ -4,7 +4,7 @@ import { FraudDetectionPanel } from './apps/FraudDetectionPanel';
 import { InvoiceManagerPanel } from './apps/InvoiceManagerPanel';
 import { PlaceholderPanel } from './apps/PlaceholderPanel';
 import { ReconciliationHubPanel } from './apps/ReconciliationHubPanel';
-import { AccessPermissionsPage, AccessRolesPage, AccessUsersPage, AutonumberingPage, BillPaymentOrderFormPage, CatalogBillersPage, CatalogCategoriesPage, CatalogCountriesPage, CatalogLandingPage, CatalogPartnersPage, ContentBlocksListPage, CustomersListPage, FxRatesPage, MediaLibraryPage, OrdersLandingPage, TenantsListPage } from '@/pages';
+import { AccessPermissionsPage, AccessRolesPage, AccessUsersPage, AutonumberingPage, BillPaymentOrderFormPage, CatalogBillersPage, CatalogCategoriesPage, CatalogCountriesPage, CatalogLandingPage, CatalogPartnersPage, ContentBlocksListPage, CustomersListPage, FxRatesPage, MediaLibraryPage, OrdersLandingPage, OrdersListPage, TenantsListPage } from '@/pages';
 import { createElement } from 'react';
 import type { ComponentType } from 'react';
 import type { WorkspacePanelRenderProps } from './types';
@@ -20,6 +20,7 @@ export const workspacePanelComponents: Record<string, ComponentType<WorkspacePan
   placeholder: PlaceholderPanel,
   'customers-list': wrapPage(CustomersListPage),
   'orders-landing': wrapPage(OrdersLandingPage),
+  'orders-list': wrapPage(OrdersListPage),
   'bill-payment-form': wrapPage(BillPaymentOrderFormPage),
   'access-users': wrapPage(AccessUsersPage),
   'access-roles': wrapPage(AccessRolesPage),

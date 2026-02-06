@@ -19,7 +19,7 @@ export {
   CatalogPartnersPage,
   CatalogPartnerDetailPage,
 } from './catalog';
-export { BillPaymentOrderFormPage, OrdersLandingPage } from './orders';
+export { BillPaymentOrderFormPage, OrdersLandingPage, OrdersListPage } from './orders';
 export { CustomersListPage, CustomerDetailPage } from './customers';
 export { ComplianceLandingPage, DocumentsListPage, DocumentDetailPage, DocumentCreatePage } from './compliance';
 

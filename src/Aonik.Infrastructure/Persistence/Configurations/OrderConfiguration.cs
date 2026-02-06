@@ -49,6 +49,18 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.ProvenanceJson)
             .HasColumnType("nvarchar(max)");
 
+        builder.Property<string>("OrderNumber")
+            .HasMaxLength(64);
+
+        builder.Property<string>("ServiceCode")
+            .HasMaxLength(50);
+
+        builder.Property<string>("MetadataJson")
+            .HasColumnType("nvarchar(max)");
+
+        builder.Property<string>("OrderDetailsJson")
+            .HasColumnType("nvarchar(max)");
+
         builder.HasMany(x => x.Items)
             .WithOne()
             .HasForeignKey(x => x.OrderId)
@@ -68,5 +80,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(x => x.OrderType);
         builder.HasIndex(x => x.PayerPartyId);
         builder.HasIndex(x => x.IdempotencyKey);
+        builder.HasIndex("OrderNumber")
+            .IsUnique();
+        builder.HasIndex("ServiceCode");
     }
 }

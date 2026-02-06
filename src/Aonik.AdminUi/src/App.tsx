@@ -13,7 +13,6 @@ import {
   SetupGuidePage,
   SetupGuidesLandingPage,
   TenantSetupWizardPage,
-  AiChatMock,
   TenantsListPage,
   CreateTenantPage,
   TenantDetailPage,
@@ -32,6 +31,7 @@ import {
   UserDetailPage,
   BillPaymentOrderFormPage,
   OrdersLandingPage,
+  OrdersListPage,
   ContentBlocksListPage,
   ContentBlockEditPage,
   MediaLibraryPage,
@@ -241,6 +241,7 @@ function AppLayout() {
             <Route path="/customers/:partyId" element={<CustomerDetailPage />} />
             {/* Orders */}
             <Route path="/orders" element={<OrdersLandingPage />} />
+            <Route path="/orders/activity" element={<OrdersListPage />} />
             <Route path="/orders/bill-payments/new" element={<BillPaymentOrderFormPage />} />
             <Route path="/orders/bill-payments/:orderId" element={<BillPaymentOrderFormPage />} />
             {/* Users & Access */}

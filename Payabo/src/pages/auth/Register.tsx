@@ -1,9 +1,13 @@
 import { useMemo, useState, type FormEvent, type MouseEvent } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../app/auth/AuthContext";
 
 type TabKey = "personal" | "business";
+
+type LocationState = {
+  from?: string;
+};
 
 type RegistrationCountry = {
   code: string;
@@ -13,7 +17,9 @@ type RegistrationCountry = {
 
 export const Register = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { register } = useAuth();
+  const from = (location.state as LocationState | null)?.from;
 
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
 
@@ -105,13 +111,13 @@ export const Register = () => {
     if (activeTab === "personal") {
       const fullName = `${personalFirstName} ${personalLastName}`.replace(/\s+/g, " ").trim();
       register(fullName || "John Doe", personalEmail);
-      navigate("/dashboard", { replace: true });
+      navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
       return;
     }
 
     const fullName = `${businessFirstName} ${businessLastName}`.replace(/\s+/g, " ").trim();
     register(fullName || "John Doe", businessEmail);
-    navigate("/dashboard", { replace: true });
+    navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
   };
 
   const handleClose = () => {
@@ -144,10 +150,10 @@ export const Register = () => {
           <div className="col-lg-6">
             <div className="login-content">
               <div className="login-header text-center">
-                <img className="mb-4" src="/images/logo.png" alt="MyBillAfrica" />
+                <img className="mb-4" src="/images/payabo_logo_horizontal.png" alt="Payabo" />
                 <h4>Register now, it's free!</h4>
                 <p>
-                  Already have an account? <NavLink to="/login">Login now</NavLink>
+                  Already have an account? <NavLink to="/login" state={from ? { from } : undefined}>Login now</NavLink>
                 </p>
               </div>
               <nav>

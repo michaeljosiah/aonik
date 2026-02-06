@@ -27,7 +27,9 @@ public static class DependencyInjection
         services.AddScoped<ILedgerService, LedgerService>();
         services.AddScoped<IBillingService, BillingService>();
         services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<IPublicPaymentService, PublicPaymentService>();
         services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IPublicOrderService, PublicOrderService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IPublicCatalogService, PublicCatalogService>();
         services.AddScoped<IAiInsightsService, AiInsightsService>();
@@ -55,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IFxQuoteService, FxQuoteService>();
         services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
         services.AddScoped<IComplianceService, ComplianceService>();
+        services.AddSingleton<IPaymentProviderGateway, StripeSimulatedPaymentProviderGateway>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IPartyService, PartyService>();
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();

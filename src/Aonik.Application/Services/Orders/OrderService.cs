@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Application.Models.Identity;
 using Aonik.Application.Models.Orders;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Parties;
@@ -45,6 +46,115 @@ public class OrderService : IOrderService
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+    }
+
+    public async Task<PagedResult<OrderListItem>> ListOrdersAsync(
+        ListOrdersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
+        var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
+
+        var query = _dbContext.Orders
+            .AsNoTracking()
+            .Where(order => order.TenantId == tenantId);
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            var status = request.Status.Trim();
+            query = query.Where(order => order.Status == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.OrderType))
+        {
+            var orderType = request.OrderType.Trim();
+            query = query.Where(order => order.OrderType == orderType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            query = query.Where(order =>
+                order.Id.ToString().Contains(search) ||
+                (order.PayerPartyId.HasValue && _dbContext.Parties.Any(p =>
+                    p.TenantId == tenantId && p.Id == order.PayerPartyId.Value && p.DisplayName.Contains(search))));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var rows = await query
+            .OrderByDescending(order => order.CreatedAt)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(order => new
+            {
+                order.Id,
+                order.OrderType,
+                order.Status,
+                order.PayerPartyId,
+                order.OriginCountry,
+                order.CurrencyIn,
+                order.AmountIn,
+                order.AmountOut,
+                order.CurrencyOut,
+                order.CreatedAt,
+                order.UpdatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        if (rows.Count == 0)
+        {
+            return new PagedResult<OrderListItem>(
+                Items: new List<OrderListItem>(),
+                TotalCount: totalCount,
+                PageNumber: pageNumber,
+                PageSize: pageSize);
+        }
+
+        var payerPartyIds = rows
+            .Select(r => r.PayerPartyId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        var payerNamesById = payerPartyIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _dbContext.Parties
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantId && payerPartyIds.Contains(p.Id))
+                .Select(p => new { p.Id, p.DisplayName })
+                .ToDictionaryAsync(p => p.Id, p => p.DisplayName, cancellationToken);
+
+        var items = rows.Select(r =>
+        {
+            var payerName = string.Empty;
+            if (r.PayerPartyId.HasValue)
+            {
+                payerNamesById.TryGetValue(r.PayerPartyId.Value, out payerName);
+            }
+
+            return new OrderListItem(
+                r.Id,
+                r.OrderType,
+                r.Status,
+                r.PayerPartyId,
+                payerName ?? string.Empty,
+                r.OriginCountry,
+                r.CurrencyIn,
+                r.AmountIn,
+                r.AmountOut,
+                r.CurrencyOut,
+                r.CreatedAt,
+                r.UpdatedAt);
+        }).ToList();
+
+        return new PagedResult<OrderListItem>(
+            items,
+            totalCount,
+            pageNumber,
+            pageSize);
     }
 
     public async Task<BillPaymentOrderResponse> CreateBillPaymentOrderAsync(

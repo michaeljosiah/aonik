@@ -19,11 +19,10 @@ const buildHeaders = (headers?: HeadersInit) => {
   return resolved;
 };
 
-export const apiGet = async <T>(path: string, init?: RequestInit): Promise<T> => {
+const apiRequest = async <T>(path: string, init: RequestInit): Promise<T> => {
   const response = await fetch(buildUrl(path), {
     ...init,
-    method: "GET",
-    headers: buildHeaders(init?.headers)
+    headers: buildHeaders(init.headers)
   });
 
   if (!response.ok) {
@@ -46,4 +45,23 @@ export const apiGet = async <T>(path: string, init?: RequestInit): Promise<T> =>
   }
 
   return (await response.json()) as T;
+};
+
+export const apiGet = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  return apiRequest<T>(path, {
+    ...init,
+    method: "GET"
+  });
+};
+
+export const apiPost = async <T>(path: string, body: unknown, init?: RequestInit): Promise<T> => {
+  return apiRequest<T>(path, {
+    ...init,
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers
+    }
+  });
 };

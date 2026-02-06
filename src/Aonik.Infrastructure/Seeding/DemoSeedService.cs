@@ -12,6 +12,7 @@ using Aonik.Infrastructure.Persistence.Seed;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Pricing.Entities;
+using Aonik.Domain.Party;
 using Aonik.Domain.Party.Entities;
 using Aonik.Domain.Settings;
 using Aonik.Domain.Settings.Entities;
@@ -21,12 +22,17 @@ using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Application.Models.Catalog;
 using Aonik.Application.Models.Pricing;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace Aonik.Infrastructure.Seeding;
 
 public class DemoSeedService : IDemoSeedService
 {
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> TenantSeedLocks = new();
+
+    private const string PersonPartyType = "Person";
+    private const string BusinessPartyType = "Business";
     private const string PrefundAccountRole = "PrefundAsset";
     private const string PartnerPrefundSeedSourceType = "PartnerPrefundSeed";
 
@@ -46,6 +52,8 @@ public class DemoSeedService : IDemoSeedService
     private static readonly Guid GhanaWaterBillerId = Guid.Parse("0f3b7b2a-c5c2-4d06-b8a2-6f3f28f0b2c5");
     private static readonly Guid EcgPrepaidServiceId = Guid.Parse("3c1f6a6a-73cf-4be0-a15d-2ed45e8d3577");
     private static readonly Guid GhanaWaterServiceId = Guid.Parse("c4a7f65d-2f7a-4b77-9a7c-5c9c9b8a7c91");
+    private static readonly Guid EcgPostpaidServiceId = Guid.Parse("9e1a2ff2-7f48-45fd-9af7-3d2d9cf5241e");
+    private static readonly Guid GhanaWaterPrepaidServiceId = Guid.Parse("8f80cb7d-fc6e-4b8f-8998-0f683ecf3f58");
     private static readonly Guid DemoPayerPartyId = Guid.Parse("bfe9921e-2f3e-4c56-b8d1-4f5b2a7c3d44");
     private static readonly Guid DemoReceiverPartyId = Guid.Parse("2a3e1f59-44f7-4df4-a8f1-936f9d9d13cd");
     private static readonly Guid DemoRelationshipId = Guid.Parse("c90127f4-9b45-4a8e-9b90-7d0f3d4e65cc");
@@ -60,9 +68,13 @@ public class DemoSeedService : IDemoSeedService
     private static readonly Guid KenyaPowerBillerId = Guid.Parse("f5f91117-a466-4f89-b7e4-ce1b6ace9f9a");
     private static readonly Guid CityPowerBillerId = Guid.Parse("3d6622ff-7661-4f43-bf6a-2a3f6ae97f8c");
     private static readonly Guid IkejaPrepaidServiceId = Guid.Parse("60d7de6b-e579-412a-bbe6-f7fc6cad2b2d");
+    private static readonly Guid IkejaPostpaidServiceId = Guid.Parse("a7d13065-8e2a-47c9-a84f-4f9725448e2b");
     private static readonly Guid LagosWaterServiceId = Guid.Parse("bc767227-e727-4370-b54b-a52cd57774e8");
+    private static readonly Guid LagosWaterPrepaidServiceId = Guid.Parse("f6bbca26-05b4-47c3-afca-f3f7453c189f");
     private static readonly Guid KenyaPowerServiceId = Guid.Parse("61a14f31-37e8-4fc1-8f8a-22ca7ddd8efe");
+    private static readonly Guid KenyaPowerPostpaidServiceId = Guid.Parse("46ddbdce-446e-4898-8a4b-b8a28f6999aa");
     private static readonly Guid CityPowerServiceId = Guid.Parse("5b997ce8-66dc-4fc2-9e1b-a7144a3294b6");
+    private static readonly Guid CityPowerPostpaidServiceId = Guid.Parse("6c99f4f0-8d6b-4e5d-a6a5-65bdcb7e6f4f");
     private static readonly Guid NigeriaPartnerId = Guid.Parse("f8b8a6cb-7f85-45aa-84af-7ce4d17172af");
     private static readonly Guid GhanaPartnerId = Guid.Parse("5f8fa8a8-f16a-4256-b7ea-32a8322c2f8d");
     private static readonly Guid KenyaPartnerId = Guid.Parse("3da50f8d-5f9b-4c27-96f1-c7c603ec073d");
@@ -87,10 +99,14 @@ public class DemoSeedService : IDemoSeedService
     private static readonly Guid KofiPartyId = Guid.Parse("563b6348-c34f-423f-8b22-c92ca6f9f195");
     private static readonly Guid AcmeImportsPartyId = Guid.Parse("f0f72256-f43b-455a-af08-8fab70115794");
     private static readonly Guid SafariFreightPartyId = Guid.Parse("087f4f38-a018-4b65-a47e-2e287d74f8f5");
+    private static readonly Guid OliviaPartyId = Guid.Parse("fb229001-e24c-4fd3-a87d-e0458a2cf8cb");
+    private static readonly Guid LiamPartyId = Guid.Parse("3f48a4fc-c7ce-4f78-af09-a2796e735f85");
     private static readonly Guid TundeAdwoaRelationshipId = Guid.Parse("0d9cb5b0-9d5f-41a8-9f6f-e6ae45e4dd9f");
     private static readonly Guid TundePeterRelationshipId = Guid.Parse("15f65e53-3252-4a82-b6b9-f97b8b9d7199");
     private static readonly Guid NalediAishaRelationshipId = Guid.Parse("2f29a6f4-af26-4c2a-a6b1-0d64874fd6b3");
     private static readonly Guid KofiAmaRelationshipId = Guid.Parse("93c83fed-d56a-4ca6-8f44-4512f50eeecb");
+    private static readonly Guid OliviaNalediRelationshipId = Guid.Parse("f28be4e6-e5bc-43a5-8c52-cf3906f6c16f");
+    private static readonly Guid LiamKwameRelationshipId = Guid.Parse("0fd357dd-58a3-481b-a36d-5e7efde0ebca");
     private static readonly Guid FamilyHouseholdId = Guid.Parse("96f58c5f-82f3-41b8-beb6-bf11fbcce5c2");
     private static readonly Guid ProfessionalsHouseholdId = Guid.Parse("89b29ec1-a771-4926-8897-ec7408ee8917");
     private static readonly Guid FamilyHouseholdMemberId = Guid.Parse("09f17349-c107-46b7-a3c9-c2bc42053a7e");
@@ -100,6 +116,10 @@ public class DemoSeedService : IDemoSeedService
     private static readonly Guid UsdGhsFxQuoteId = Guid.Parse("6d81b4d5-e8e0-46c0-ae17-a43eca0bfe61");
     private static readonly Guid UsdKesFxQuoteId = Guid.Parse("a30b90e1-784c-4fb9-ab2b-3941a93bc981");
     private static readonly Guid UsdZarFxQuoteId = Guid.Parse("a244a0b1-b6d4-4f95-827a-7001243b9d58");
+    private static readonly Guid GbpNgnFxQuoteId = Guid.Parse("1496b1ee-6af8-4744-a740-239b4f8b8136");
+    private static readonly Guid GbpGhsFxQuoteId = Guid.Parse("ca2992ea-9f4f-4347-98ea-65f8872ef8e4");
+    private static readonly Guid GbpKesFxQuoteId = Guid.Parse("4874f7ab-1368-4414-b595-249143ca25da");
+    private static readonly Guid GbpZarFxQuoteId = Guid.Parse("5cf25d4d-2834-4027-b84a-500f5f6e113f");
     private static readonly Guid CrossBorderBand1FeePolicyId = Guid.Parse("af7ae2fe-2f1d-4e8a-b6f1-2d3ce43af183");
     private static readonly Guid CrossBorderBand2FeePolicyId = Guid.Parse("6f87556a-8369-425d-a9ff-85082f7c3767");
     private static readonly Guid CrossBorderBand3FeePolicyId = Guid.Parse("45eb59de-9970-476f-8ee5-cc2f196f998e");
@@ -140,65 +160,91 @@ public class DemoSeedService : IDemoSeedService
             throw new InvalidOperationException($"Tenant {tenantId} not found");
         }
 
-        _tenantContext.TenantId = tenantId;
-        _tenantContext.ResolutionSource = "AdminTenantAction";
+        var tenantSeedLock = TenantSeedLocks.GetOrAdd(tenantId, _ => new SemaphoreSlim(1, 1));
+        await tenantSeedLock.WaitAsync(cancellationToken);
 
-        var operations = new List<string>();
-
-        var identitySeed = new IdentitySeedService((IAonikDbContext)_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());
-        await identitySeed.SeedAsync(cancellationToken);
-        operations.Add("IdentitySeed");
-
-        var catalogSeed = new CatalogSeedService((IAonikDbContext)_dbContext, _loggerFactory.CreateLogger<CatalogSeedService>());
-        await catalogSeed.SeedAsync(cancellationToken);
-        operations.Add("CatalogSeed");
-
-        await EnsureTenantAdminRoleAsync(tenantId, operations, cancellationToken);
-        var billCollectionPartnerId = await EnsureBillCollectionPartnerAsync(tenantId, operations, cancellationToken);
-        var catalogIds = await SeedCatalogAsync(tenantId, billCollectionPartnerId, operations, cancellationToken);
-        var partyIds = await SeedPartiesAsync(tenantId, operations, cancellationToken);
-        var pricingIds = await SeedPricingAsync(tenantId, operations, cancellationToken);
-        await UpsertMarkerAsync(tenantId, catalogIds, partyIds, pricingIds, operations, cancellationToken);
-
-        if (normalizedSeedType == DemoSeedTypes.CrossBorderPayments)
+        try
         {
-            var tenantCoverage = await SeedCrossBorderTenantCoverageAsync(tenantId, operations, cancellationToken);
-            var partnerNetwork = await SeedCrossBorderPartnerNetworkAsync(tenantId, operations, cancellationToken);
-            var crossBorderCatalog = await SeedCrossBorderCatalogAsync(tenantId, partnerNetwork, operations, cancellationToken);
-            var crossBorderParties = await SeedCrossBorderPartiesAsync(tenantId, operations, cancellationToken);
-            var householdIds = await SeedHouseholdsAsync(tenantId, operations, cancellationToken);
-            var crossBorderPricing = await SeedCrossBorderPricingAsync(tenantId, operations, cancellationToken);
+            _tenantContext.TenantId = tenantId;
+            _tenantContext.ResolutionSource = "AdminTenantAction";
 
-            await UpsertCrossBorderMarkerAsync(
+            var operations = new List<string>();
+
+            var identitySeed = new IdentitySeedService((IAonikDbContext)_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());
+            await identitySeed.SeedAsync(cancellationToken);
+            operations.Add("IdentitySeed");
+            ClearTrackingIfSupported(_dbContext);
+
+            var catalogSeed = new CatalogSeedService((IAonikDbContext)_dbContext, _loggerFactory.CreateLogger<CatalogSeedService>());
+            await catalogSeed.SeedAsync(cancellationToken);
+            operations.Add("CatalogSeed");
+            ClearTrackingIfSupported(_dbContext);
+
+            await EnsureTenantAdminRoleAsync(tenantId, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+            var billCollectionPartnerId = await EnsureBillCollectionPartnerAsync(tenantId, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+            var catalogIds = await SeedCatalogAsync(tenantId, billCollectionPartnerId, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+            var partyIds = await SeedPartiesAsync(tenantId, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+            var pricingIds = await SeedPricingAsync(tenantId, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+            await UpsertMarkerAsync(tenantId, catalogIds, partyIds, pricingIds, operations, cancellationToken);
+            ClearTrackingIfSupported(_dbContext);
+
+            if (normalizedSeedType == DemoSeedTypes.CrossBorderPayments)
+            {
+                await EnsureUkHomeBaseAsync(tenantId, operations, cancellationToken);
+                ClearTrackingIfSupported(_dbContext);
+                var tenantCoverage = await SeedCrossBorderTenantCoverageAsync(tenantId, operations, cancellationToken);
+                ClearTrackingIfSupported(_dbContext);
+                var partnerNetwork = await SeedCrossBorderPartnerNetworkAsync(tenantId, operations, cancellationToken);
+                ClearTrackingIfSupported(_dbContext);
+                var crossBorderCatalog = await SeedCrossBorderCatalogAsync(tenantId, partnerNetwork, operations, cancellationToken);
+                ClearTrackingIfSupported(_dbContext);
+                var crossBorderParties = await SeedCrossBorderPartiesAsync(tenantId, operations, cancellationToken);
+                ClearTrackingIfSupported(_dbContext);
+                var householdIds = await SeedHouseholdsAsync(tenantId, operations, cancellationToken);
+                ClearTrackingIfSupported(_dbContext);
+                var crossBorderPricing = await SeedCrossBorderPricingAsync(tenantId, operations, cancellationToken);
+                ClearTrackingIfSupported(_dbContext);
+
+                await UpsertCrossBorderMarkerAsync(
+                    tenantId,
+                    normalizedSeedType,
+                    catalogIds,
+                    partyIds,
+                    pricingIds,
+                    tenantCoverage,
+                    partnerNetwork,
+                    crossBorderCatalog,
+                    crossBorderParties,
+                    householdIds,
+                    crossBorderPricing,
+                    operations,
+                    cancellationToken);
+            }
+
+            var now = _clock.UtcNow;
+            var userId = _currentUserProvider.GetCurrentUserId();
+
+            await _auditLogWriter.LogAsync(
+                AuditEventNames.TenantDemoSeeded,
+                "TenantDemoSeed",
                 tenantId,
-                normalizedSeedType,
-                catalogIds,
-                partyIds,
-                pricingIds,
-                tenantCoverage,
-                partnerNetwork,
-                crossBorderCatalog,
-                crossBorderParties,
-                householdIds,
-                crossBorderPricing,
-                operations,
+                tenantId,
+                userId,
+                _correlationContext.CorrelationId,
+                JsonSerializer.Serialize(new { tenantId, seedType = normalizedSeedType, operations }),
                 cancellationToken);
+
+            return new DemoSeedResult(tenantId, normalizedSeedType, now, operations);
         }
-
-        var now = _clock.UtcNow;
-        var userId = _currentUserProvider.GetCurrentUserId();
-
-        await _auditLogWriter.LogAsync(
-            AuditEventNames.TenantDemoSeeded,
-            "TenantDemoSeed",
-            tenantId,
-            tenantId,
-            userId,
-            _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { tenantId, seedType = normalizedSeedType, operations }),
-            cancellationToken);
-
-        return new DemoSeedResult(tenantId, normalizedSeedType, now, operations);
+        finally
+        {
+            tenantSeedLock.Release();
+        }
     }
 
     private async Task EnsureTenantAdminRoleAsync(Guid tenantId, List<string> operations, CancellationToken cancellationToken)
@@ -633,6 +679,52 @@ public class DemoSeedService : IDemoSeedService
             operations,
             cancellationToken);
 
+        await UpsertServiceAsync(
+            tenantId,
+            ecgBillerId,
+            EcgPostpaidServiceId,
+            "BILLPAY.ELECTRICITY.POSTPAID.GH.ECG",
+            "ECG Postpaid Electricity",
+            "Postpaid",
+            "GHS",
+            20,
+            2000,
+            false,
+            true,
+            BuildServiceFieldsJson(new[]
+            {
+                new CatalogServiceField("accountNumber", "Account number", "text", true, 8, 20, null, "Enter account number", null),
+                new CatalogServiceField("customerName", "Customer name", "text", true, 2, 80, null, "Enter customer name", null)
+            }),
+            JsonSerializer.Serialize(new CatalogServiceValidation(
+                $"/catalog/billers/{EcgBillerId}/services/{EcgPostpaidServiceId}/validate",
+                "precheck")),
+            operations,
+            cancellationToken);
+
+        await UpsertServiceAsync(
+            tenantId,
+            waterBillerId,
+            GhanaWaterPrepaidServiceId,
+            "BILLPAY.WATER.PREPAID.GH.GWL",
+            "Ghana Water Prepaid",
+            "Prepaid",
+            "GHS",
+            5,
+            1000,
+            true,
+            true,
+            BuildServiceFieldsJson(new[]
+            {
+                new CatalogServiceField("meterNumber", "Meter number", "text", true, 6, 16, null, "Enter meter number", null),
+                new CatalogServiceField("customerName", "Customer name", "text", true, 2, 80, null, "Enter customer name", null)
+            }),
+            JsonSerializer.Serialize(new CatalogServiceValidation(
+                $"/catalog/billers/{GhanaWaterBillerId}/services/{GhanaWaterPrepaidServiceId}/validate",
+                "precheck")),
+            operations,
+            cancellationToken);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
         return (categoryId, ecgBillerId, waterBillerId, ecgServiceId, waterServiceId);
     }
@@ -777,14 +869,23 @@ public class DemoSeedService : IDemoSeedService
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
 
-        var payerEmail = "kwame.mensah@demo.aonik";
-        var receiverEmail = "ama.boateng@demo.aonik";
+        var payerEmail = "kwame.mensah@mailinator.com";
+        var receiverEmail = "ama.boateng@mailinator.com";
 
         var payerParty = await _dbContext.Parties
             .Include(party => party.Contacts)
             .FirstOrDefaultAsync(party => party.TenantId == tenantId
-                                          && party.Contacts.Any(contact => contact.Type == "Email" && contact.Value == payerEmail),
+                                          && party.Id == DemoPayerPartyId,
                 cancellationToken);
+
+        if (payerParty == null)
+        {
+            payerParty = await _dbContext.Parties
+                .Include(party => party.Contacts)
+                .FirstOrDefaultAsync(party => party.TenantId == tenantId
+                                              && party.Contacts.Any(contact => contact.Type == "Email" && contact.Value == payerEmail),
+                    cancellationToken);
+        }
 
         if (payerParty == null)
         {
@@ -792,7 +893,7 @@ public class DemoSeedService : IDemoSeedService
             {
                 Id = DemoPayerPartyId,
                 TenantId = tenantId,
-                PartyType = "Person",
+                PartyType = PersonPartyType,
                 DisplayName = "Kwame Mensah",
                 Status = "Active",
                 CustomerTierCode = "Retail",
@@ -803,14 +904,31 @@ public class DemoSeedService : IDemoSeedService
             operations.Add("Seeded payer party");
         }
 
+        payerParty.PartyType = PersonPartyType;
+        payerParty.DisplayName = "Kwame Mensah";
+        payerParty.Status = "Active";
+        payerParty.CustomerTierCode = "Retail";
+        payerParty.UpdatedAt = now;
+        payerParty.UpdatedBy = userId;
+
         await UpsertPartyContactsAsync(payerParty, now, payerEmail, "+234800000000");
         await UpsertPersonProfileAsync(payerParty.Id, "Kwame", "Mensah", "NG", now, userId, cancellationToken);
+        await EnsureCustomerRoleAssignmentAsync(tenantId, payerParty.Id, now, userId, cancellationToken);
 
         var receiverParty = await _dbContext.Parties
             .Include(party => party.Contacts)
             .FirstOrDefaultAsync(party => party.TenantId == tenantId
-                                          && party.Contacts.Any(contact => contact.Type == "Email" && contact.Value == receiverEmail),
+                                          && party.Id == DemoReceiverPartyId,
                 cancellationToken);
+
+        if (receiverParty == null)
+        {
+            receiverParty = await _dbContext.Parties
+                .Include(party => party.Contacts)
+                .FirstOrDefaultAsync(party => party.TenantId == tenantId
+                                              && party.Contacts.Any(contact => contact.Type == "Email" && contact.Value == receiverEmail),
+                    cancellationToken);
+        }
 
         if (receiverParty == null)
         {
@@ -818,7 +936,7 @@ public class DemoSeedService : IDemoSeedService
             {
                 Id = DemoReceiverPartyId,
                 TenantId = tenantId,
-                PartyType = "Person",
+                PartyType = PersonPartyType,
                 DisplayName = "Ama Boateng",
                 Status = "Active",
                 CreatedAt = now,
@@ -828,8 +946,16 @@ public class DemoSeedService : IDemoSeedService
             operations.Add("Seeded receiver party");
         }
 
+        receiverParty.PartyType = PersonPartyType;
+        receiverParty.DisplayName = "Ama Boateng";
+        receiverParty.Status = "Active";
+        receiverParty.CustomerTierCode = "Retail";
+        receiverParty.UpdatedAt = now;
+        receiverParty.UpdatedBy = userId;
+
         await UpsertPartyContactsAsync(receiverParty, now, receiverEmail, "+233200000000");
         await UpsertPersonProfileAsync(receiverParty.Id, "Ama", "Boateng", "GH", now, userId, cancellationToken);
+        await EnsureCustomerRoleAssignmentAsync(tenantId, receiverParty.Id, now, userId, cancellationToken);
 
         var relationship = await _dbContext.PartyRelationships
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
@@ -861,33 +987,80 @@ public class DemoSeedService : IDemoSeedService
         return (payerParty.Id, receiverParty.Id, relationshipId);
     }
 
-    private async Task UpsertPartyContactsAsync(Party party, DateTime now, string email = "kwame.mensah@demo.aonik", string phone = "+234800000000")
+    private Task UpsertPartyContactsAsync(Party party, DateTime now, string email = "kwame.mensah@mailinator.com", string phone = "+234800000000")
     {
-        var hasEmail = party.Contacts.Any(contact => contact.Type == "Email" && contact.Value == email);
-        if (!hasEmail)
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var existingEmail = party.Contacts.FirstOrDefault(contact =>
+            contact.Type == "Email" &&
+            string.Equals(contact.Value, normalizedEmail, StringComparison.OrdinalIgnoreCase));
+
+        if (existingEmail == null)
         {
-            party.Contacts.Add(new PartyContact
+            existingEmail = party.Contacts.FirstOrDefault(contact => contact.Type == "Email");
+            if (existingEmail == null)
             {
-                PartyId = party.Id,
-                Type = "Email",
-                Value = email,
-                IsPrimary = true,
-                CreatedAt = now
-            });
+                existingEmail = new PartyContact
+                {
+                    PartyId = party.Id,
+                    Type = "Email",
+                    Value = normalizedEmail,
+                    IsPrimary = true,
+                    CreatedAt = now
+                };
+
+                party.Contacts.Add(existingEmail);
+            }
+            else
+            {
+                existingEmail.Value = normalizedEmail;
+                existingEmail.UpdatedAt = now;
+            }
+        }
+        else
+        {
+            existingEmail.Value = normalizedEmail;
+            existingEmail.UpdatedAt = now;
         }
 
-        var hasPhone = party.Contacts.Any(contact => contact.Type == "Phone" && contact.Value == phone);
-        if (!hasPhone)
+        existingEmail.IsPrimary = true;
+
+        foreach (var otherEmail in party.Contacts.Where(contact => contact.Type == "Email" && !ReferenceEquals(contact, existingEmail)))
         {
-            party.Contacts.Add(new PartyContact
-            {
-                PartyId = party.Id,
-                Type = "Phone",
-                Value = phone,
-                IsPrimary = false,
-                CreatedAt = now
-            });
+            otherEmail.IsPrimary = false;
         }
+
+        var normalizedPhone = phone.Trim();
+        var existingPhone = party.Contacts.FirstOrDefault(contact =>
+            contact.Type == "Phone" &&
+            string.Equals(contact.Value, normalizedPhone, StringComparison.OrdinalIgnoreCase));
+
+        if (existingPhone == null)
+        {
+            existingPhone = party.Contacts.FirstOrDefault(contact => contact.Type == "Phone");
+            if (existingPhone == null)
+            {
+                party.Contacts.Add(new PartyContact
+                {
+                    PartyId = party.Id,
+                    Type = "Phone",
+                    Value = normalizedPhone,
+                    IsPrimary = false,
+                    CreatedAt = now
+                });
+            }
+            else
+            {
+                existingPhone.Value = normalizedPhone;
+                existingPhone.UpdatedAt = now;
+            }
+        }
+        else
+        {
+            existingPhone.Value = normalizedPhone;
+            existingPhone.UpdatedAt = now;
+        }
+
+        return Task.CompletedTask;
     }
 
     private async Task UpsertPersonProfileAsync(
@@ -1148,13 +1321,78 @@ public class DemoSeedService : IDemoSeedService
         throw new InvalidOperationException($"Unsupported demo seed type '{seedType}'.");
     }
 
+    private async Task EnsureUkHomeBaseAsync(
+        Guid tenantId,
+        List<string> operations,
+        CancellationToken cancellationToken)
+    {
+        var tenant = await _dbContext.Tenants
+            .FirstOrDefaultAsync(item => item.Id == tenantId, cancellationToken);
+
+        if (tenant == null)
+        {
+            throw new InvalidOperationException($"Tenant {tenantId} not found.");
+        }
+
+        var now = _clock.UtcNow;
+        var userId = _currentUserProvider.GetCurrentUserId();
+
+        tenant.Country = "GB";
+        tenant.DefaultCurrency = "GBP";
+        tenant.City ??= "London";
+        tenant.StateProvince ??= "England";
+        tenant.AddressLine1 ??= "25 Finsbury Circus";
+
+        var supportedCountries = ParseSupportedCountries(tenant.SupportedCountriesJson);
+        supportedCountries.Add("GB");
+        supportedCountries.Add("NG");
+        supportedCountries.Add("GH");
+        supportedCountries.Add("KE");
+        supportedCountries.Add("ZA");
+
+        tenant.SupportedCountriesJson = JsonSerializer.Serialize(supportedCountries.OrderBy(code => code));
+        tenant.UpdatedAt = now;
+        tenant.UpdatedBy = userId;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        operations.Add("Configured tenant home base to UK (GBP) for Africa billing and remittance");
+    }
+
+    private static HashSet<string> ParseSupportedCountries(string? supportedCountriesJson)
+    {
+        if (string.IsNullOrWhiteSpace(supportedCountriesJson))
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            var items = JsonSerializer.Deserialize<List<string>>(supportedCountriesJson);
+            return items == null
+                ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(items.Where(item => !string.IsNullOrWhiteSpace(item)).Select(item => item.Trim().ToUpperInvariant()), StringComparer.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static void ClearTrackingIfSupported(IAonikDbContext dbContext)
+    {
+        if (dbContext is DbContext efDbContext)
+        {
+            efDbContext.ChangeTracker.Clear();
+        }
+    }
+
     private async Task<(IReadOnlyList<Guid> CountryIds, IReadOnlyList<Guid> CurrencyIds)> SeedCrossBorderTenantCoverageAsync(
         Guid tenantId,
         List<string> operations,
         CancellationToken cancellationToken)
     {
-        var countryCodes = new[] { "NG", "GH", "KE", "ZA" };
-        var currencyCodes = new[] { "NGN", "GHS", "KES", "ZAR", "USD" };
+        var countryCodes = new[] { "GB", "NG", "GH", "KE", "ZA" };
+        var currencyCodes = new[] { "GBP", "NGN", "GHS", "KES", "ZAR", "USD" };
 
         var countries = await _dbContext.Countries
             .Where(country => countryCodes.Contains(country.IsoAlpha2))
@@ -1233,7 +1471,7 @@ public class DemoSeedService : IDemoSeedService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        operations.Add("Seeded cross-border tenant countries and currencies");
+        operations.Add("Seeded UK-to-Africa tenant countries and currencies");
 
         return (
             countries.Select(country => country.Id).ToList(),
@@ -1717,6 +1955,29 @@ public class DemoSeedService : IDemoSeedService
             operations,
             cancellationToken);
 
+        var ikejaPostpaidServiceId = await UpsertServiceAsync(
+            tenantId,
+            ikejaBillerId,
+            IkejaPostpaidServiceId,
+            "BILLPAY.ELECTRICITY.POSTPAID.NG.IKEJA",
+            "Ikeja Postpaid Electricity",
+            "Postpaid",
+            "NGN",
+            1000,
+            400000,
+            false,
+            true,
+            BuildServiceFieldsJson(new[]
+            {
+                new CatalogServiceField("accountNumber", "Account number", "text", true, 8, 20, null, "Enter account number", null),
+                new CatalogServiceField("customerName", "Customer name", "text", true, 2, 80, null, "Enter customer name", null)
+            }),
+            JsonSerializer.Serialize(new CatalogServiceValidation(
+                $"/catalog/billers/{IkejaElectricBillerId}/services/{IkejaPostpaidServiceId}/validate",
+                "precheck")),
+            operations,
+            cancellationToken);
+
         var lagosWaterServiceId = await UpsertServiceAsync(
             tenantId,
             lagosWaterBillerId,
@@ -1734,6 +1995,29 @@ public class DemoSeedService : IDemoSeedService
                 new CatalogServiceField("accountNumber", "Account number", "text", true, 8, 20, null, "Enter account number", null)
             }),
             null,
+            operations,
+            cancellationToken);
+
+        var lagosWaterPrepaidServiceId = await UpsertServiceAsync(
+            tenantId,
+            lagosWaterBillerId,
+            LagosWaterPrepaidServiceId,
+            "BILLPAY.WATER.PREPAID.NG.LAGOS",
+            "Lagos Water Prepaid",
+            "Prepaid",
+            "NGN",
+            500,
+            150000,
+            true,
+            true,
+            BuildServiceFieldsJson(new[]
+            {
+                new CatalogServiceField("meterNumber", "Meter number", "text", true, 6, 16, null, "Enter meter number", null),
+                new CatalogServiceField("customerName", "Customer name", "text", true, 2, 80, null, "Enter customer name", null)
+            }),
+            JsonSerializer.Serialize(new CatalogServiceValidation(
+                $"/catalog/billers/{LagosWaterBillerId}/services/{LagosWaterPrepaidServiceId}/validate",
+                "precheck")),
             operations,
             cancellationToken);
 
@@ -1756,6 +2040,29 @@ public class DemoSeedService : IDemoSeedService
             }),
             JsonSerializer.Serialize(new CatalogServiceValidation(
                 $"/catalog/billers/{KenyaPowerBillerId}/services/{KenyaPowerServiceId}/validate",
+                "precheck")),
+            operations,
+            cancellationToken);
+
+        var kenyaPowerPostpaidServiceId = await UpsertServiceAsync(
+            tenantId,
+            kenyaPowerBillerId,
+            KenyaPowerPostpaidServiceId,
+            "BILLPAY.ELECTRICITY.POSTPAID.KE.KPLC",
+            "Kenya Power Postpaid",
+            "Postpaid",
+            "KES",
+            250,
+            200000,
+            false,
+            true,
+            BuildServiceFieldsJson(new[]
+            {
+                new CatalogServiceField("accountNumber", "Account number", "text", true, 8, 20, null, "Enter account number", null),
+                new CatalogServiceField("nationalId", "National ID", "text", true, 6, 12, null, "Enter national ID", null)
+            }),
+            JsonSerializer.Serialize(new CatalogServiceValidation(
+                $"/catalog/billers/{KenyaPowerBillerId}/services/{KenyaPowerPostpaidServiceId}/validate",
                 "precheck")),
             operations,
             cancellationToken);
@@ -1783,13 +2090,48 @@ public class DemoSeedService : IDemoSeedService
             operations,
             cancellationToken);
 
+        var cityPowerPostpaidServiceId = await UpsertServiceAsync(
+            tenantId,
+            cityPowerBillerId,
+            CityPowerPostpaidServiceId,
+            "BILLPAY.ELECTRICITY.POSTPAID.ZA.CPJ",
+            "City Power Postpaid",
+            "Postpaid",
+            "ZAR",
+            50,
+            50000,
+            false,
+            true,
+            BuildServiceFieldsJson(new[]
+            {
+                new CatalogServiceField("accountNumber", "Account number", "text", true, 8, 20, null, "Enter account number", null),
+                new CatalogServiceField("surname", "Surname", "text", true, 2, 80, null, "Enter surname", null)
+            }),
+            JsonSerializer.Serialize(new CatalogServiceValidation(
+                $"/catalog/billers/{CityPowerBillerId}/services/{CityPowerPostpaidServiceId}/validate",
+                "precheck")),
+            operations,
+            cancellationToken);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
         operations.Add("Extended catalog for NG, GH, KE, and ZA bill collection corridors");
 
         return (
             new[] { ghCategoryId, ngCategoryId, keCategoryId, zaCategoryId },
             new[] { ecgBillerId, ghWaterBillerId, ikejaBillerId, lagosWaterBillerId, kenyaPowerBillerId, cityPowerBillerId },
-            new[] { ecgServiceId, ghWaterServiceId, ikejaServiceId, lagosWaterServiceId, kenyaPowerServiceId, cityPowerServiceId });
+            new[]
+            {
+                ecgServiceId,
+                ghWaterServiceId,
+                ikejaServiceId,
+                ikejaPostpaidServiceId,
+                lagosWaterServiceId,
+                lagosWaterPrepaidServiceId,
+                kenyaPowerServiceId,
+                kenyaPowerPostpaidServiceId,
+                cityPowerServiceId,
+                cityPowerPostpaidServiceId
+            });
     }
 
     private sealed record DemoPersonSeed(
@@ -1834,28 +2176,68 @@ public class DemoSeedService : IDemoSeedService
         List<string> operations,
         CancellationToken cancellationToken)
     {
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            try
+            {
+                return await SeedCrossBorderPartiesCoreAsync(tenantId, operations, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException ex) when (attempt == 1)
+            {
+                if (_dbContext is DbContext dbContext)
+                {
+                    dbContext.ChangeTracker.Clear();
+                    continue;
+                }
+
+                foreach (var entry in ex.Entries)
+                {
+                    if (entry.State == EntityState.Added)
+                    {
+                        entry.State = EntityState.Detached;
+                        continue;
+                    }
+
+                    if (entry.State is EntityState.Modified or EntityState.Deleted)
+                    {
+                        await entry.ReloadAsync(cancellationToken);
+                    }
+                }
+            }
+        }
+
+        throw new InvalidOperationException("Unable to seed cross-border parties after retry.");
+    }
+
+    private async Task<(IReadOnlyList<Guid> PartyIds, IReadOnlyList<Guid> RelationshipIds)> SeedCrossBorderPartiesCoreAsync(
+        Guid tenantId,
+        List<string> operations,
+        CancellationToken cancellationToken)
+    {
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
 
         var personSeeds = new List<DemoPersonSeed>
         {
-            new(DemoPayerPartyId, "Kwame Mensah", "kwame.mensah@demo.aonik", "+234800000000", "NG", "Retail", "Kwame", "Mensah", "GH", "Product Designer", "22 Admiralty Way", "Lagos", "Lagos", "101241"),
-            new(DemoReceiverPartyId, "Ama Boateng", "ama.boateng@demo.aonik", "+233200000000", "GH", "Retail", "Ama", "Boateng", "GH", "Teacher", "12 Spintex Road", "Accra", "Greater Accra", "23321"),
-            new(TundePartyId, "Tunde Adebayo", "tunde.adebayo@demo.aonik", "+2348011110001", "NG", "Retail", "Tunde", "Adebayo", "NG", "Software Engineer", "5 Isaac John Street", "Lagos", "Lagos", "100271"),
-            new(AdwoaPartyId, "Adwoa Ofori", "adwoa.ofori@demo.aonik", "+2332011110002", "GH", "SMB", "Adwoa", "Ofori", "GH", "Pharmacist", "19 Liberation Road", "Accra", "Greater Accra", "23334"),
-            new(PeterPartyId, "Peter Mwangi", "peter.mwangi@demo.aonik", "+254711110003", "KE", "Retail", "Peter", "Mwangi", "KE", "Procurement Officer", "14 Ngong Road", "Nairobi", "Nairobi", "00100"),
-            new(NalediPartyId, "Naledi Dlamini", "naledi.dlamini@demo.aonik", "+27711110004", "ZA", "Enterprise", "Naledi", "Dlamini", "ZA", "Finance Analyst", "28 Rivonia Road", "Johannesburg", "Gauteng", "2196"),
-            new(AishaPartyId, "Aisha Bello", "aisha.bello@demo.aonik", "+234811110005", "NG", "Retail", "Aisha", "Bello", "NG", "Medical Doctor", "9 Gana Street", "Abuja", "FCT", "900271"),
-            new(KofiPartyId, "Kofi Asante", "kofi.asante@demo.aonik", "+233241110006", "GH", "SMB", "Kofi", "Asante", "GH", "Accountant", "8 Castle Road", "Kumasi", "Ashanti", "00233")
+            new(TundePartyId, "Tunde Adebayo", "tunde.adebayo@mailinator.com", "+2348011110001", "NG", "Retail", "Tunde", "Adebayo", "NG", "Software Engineer", "5 Isaac John Street", "Lagos", "Lagos", "100271"),
+            new(AdwoaPartyId, "Adwoa Ofori", "adwoa.ofori@mailinator.com", "+2332011110002", "GH", "SMB", "Adwoa", "Ofori", "GH", "Pharmacist", "19 Liberation Road", "Accra", "Greater Accra", "23334"),
+            new(PeterPartyId, "Peter Mwangi", "peter.mwangi@mailinator.com", "+254711110003", "KE", "Retail", "Peter", "Mwangi", "KE", "Procurement Officer", "14 Ngong Road", "Nairobi", "Nairobi", "00100"),
+            new(NalediPartyId, "Naledi Dlamini", "naledi.dlamini@mailinator.com", "+27711110004", "ZA", "Enterprise", "Naledi", "Dlamini", "ZA", "Finance Analyst", "28 Rivonia Road", "Johannesburg", "Gauteng", "2196"),
+            new(AishaPartyId, "Aisha Bello", "aisha.bello@mailinator.com", "+234811110005", "NG", "Retail", "Aisha", "Bello", "NG", "Medical Doctor", "9 Gana Street", "Abuja", "FCT", "900271"),
+            new(KofiPartyId, "Kofi Asante", "kofi.asante@mailinator.com", "+233241110006", "GH", "SMB", "Kofi", "Asante", "GH", "Accountant", "8 Castle Road", "Kumasi", "Ashanti", "00233"),
+            new(OliviaPartyId, "Olivia Bennett", "olivia.bennett@mailinator.com", "+447700900101", "GB", "Enterprise", "Olivia", "Bennett", "GB", "Investment Manager", "120 Bishopsgate", "London", "England", "EC2M 3AB"),
+            new(LiamPartyId, "Liam Okoro", "liam.okoro@mailinator.com", "+447700900202", "GB", "SMB", "Liam", "Okoro", "GB", "Operations Lead", "48 Canary Wharf", "London", "England", "E14 5AB")
         };
 
         var businessSeeds = new List<DemoBusinessSeed>
         {
-            new(AcmeImportsPartyId, "Acme Imports Ltd", "ops@acmeimports.demo.aonik", "+2348095551001", "NG", "SMB", "RC-908771", "Logistics", "Plot 3 Wharf Road", "Apapa", "Lagos", "102272"),
-            new(SafariFreightPartyId, "Safari Freight Co", "finance@safarifreight.demo.aonik", "+2547015552002", "KE", "Enterprise", "PVT-557782", "Transportation", "31 Mombasa Road", "Nairobi", "Nairobi", "00506")
+            new(AcmeImportsPartyId, "Acme Imports Ltd", "acme.imports@mailinator.com", "+2348095551001", "NG", "SMB", "RC-908771", "Logistics", "Plot 3 Wharf Road", "Apapa", "Lagos", "102272"),
+            new(SafariFreightPartyId, "Safari Freight Co", "safari.freight@mailinator.com", "+2547015552002", "KE", "Enterprise", "PVT-557782", "Transportation", "31 Mombasa Road", "Nairobi", "Nairobi", "00506")
         };
 
         var partyIds = new List<Guid>();
+        partyIds.Add(DemoPayerPartyId);
+        partyIds.Add(DemoReceiverPartyId);
 
         foreach (var person in personSeeds)
         {
@@ -1875,7 +2257,9 @@ public class DemoSeedService : IDemoSeedService
             new(TundeAdwoaRelationshipId, TundePartyId, AdwoaPartyId, "Spouse", "Household transfer relationship"),
             new(TundePeterRelationshipId, TundePartyId, PeterPartyId, "Business", "Supplier payment relationship"),
             new(NalediAishaRelationshipId, NalediPartyId, AishaPartyId, "Sibling", "Family support relationship"),
-            new(KofiAmaRelationshipId, KofiPartyId, DemoReceiverPartyId, "Child", "Family support relationship")
+            new(KofiAmaRelationshipId, KofiPartyId, DemoReceiverPartyId, "Child", "Family support relationship"),
+            new(OliviaNalediRelationshipId, OliviaPartyId, NalediPartyId, "Business", "UK sender relationship to ZA payee"),
+            new(LiamKwameRelationshipId, LiamPartyId, DemoPayerPartyId, "Sibling", "UK sender relationship to NG payer")
         };
 
         var relationshipIds = new List<Guid>();
@@ -1887,7 +2271,7 @@ public class DemoSeedService : IDemoSeedService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        operations.Add("Seeded extended customer profiles and family/business relationships");
+        operations.Add("Seeded UK-Africa customers with mailinator contacts and relationship graph");
 
         return (partyIds, relationshipIds);
     }
@@ -1899,12 +2283,23 @@ public class DemoSeedService : IDemoSeedService
         Guid? userId,
         CancellationToken cancellationToken)
     {
+        var normalizedEmail = seed.Email.Trim().ToLowerInvariant();
+
         var party = await _dbContext.Parties
             .Include(item => item.Contacts)
             .Include(item => item.Addresses)
-            .FirstOrDefaultAsync(item => item.TenantId == tenantId
-                                         && item.Contacts.Any(contact => contact.Type == "Email" && contact.Value == seed.Email),
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Id == seed.PartyId,
                 cancellationToken);
+
+        if (party == null)
+        {
+            party = await _dbContext.Parties
+                .Include(item => item.Contacts)
+                .Include(item => item.Addresses)
+                .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                             && item.Contacts.Any(contact => contact.Type == "Email" && contact.Value == normalizedEmail),
+                    cancellationToken);
+        }
 
         if (party == null)
         {
@@ -1912,7 +2307,7 @@ public class DemoSeedService : IDemoSeedService
             {
                 Id = seed.PartyId,
                 TenantId = tenantId,
-                PartyType = "Person",
+                PartyType = PersonPartyType,
                 DisplayName = seed.DisplayName,
                 Status = "Active",
                 CustomerTierCode = seed.CustomerTier,
@@ -1923,7 +2318,7 @@ public class DemoSeedService : IDemoSeedService
         }
         else
         {
-            party.PartyType = "Person";
+            party.PartyType = PersonPartyType;
             party.DisplayName = seed.DisplayName;
             party.Status = "Active";
             party.CustomerTierCode = seed.CustomerTier;
@@ -1951,6 +2346,7 @@ public class DemoSeedService : IDemoSeedService
             cancellationToken,
             seed.Nationality,
             seed.Occupation);
+        await EnsureCustomerRoleAssignmentAsync(tenantId, party.Id, now, userId, cancellationToken);
 
         return party.Id;
     }
@@ -1962,12 +2358,23 @@ public class DemoSeedService : IDemoSeedService
         Guid? userId,
         CancellationToken cancellationToken)
     {
+        var normalizedEmail = seed.Email.Trim().ToLowerInvariant();
+
         var party = await _dbContext.Parties
             .Include(item => item.Contacts)
             .Include(item => item.Addresses)
-            .FirstOrDefaultAsync(item => item.TenantId == tenantId
-                                         && item.Contacts.Any(contact => contact.Type == "Email" && contact.Value == seed.Email),
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Id == seed.PartyId,
                 cancellationToken);
+
+        if (party == null)
+        {
+            party = await _dbContext.Parties
+                .Include(item => item.Contacts)
+                .Include(item => item.Addresses)
+                .FirstOrDefaultAsync(item => item.TenantId == tenantId
+                                             && item.Contacts.Any(contact => contact.Type == "Email" && contact.Value == normalizedEmail),
+                    cancellationToken);
+        }
 
         if (party == null)
         {
@@ -1975,7 +2382,7 @@ public class DemoSeedService : IDemoSeedService
             {
                 Id = seed.PartyId,
                 TenantId = tenantId,
-                PartyType = "Business",
+                PartyType = BusinessPartyType,
                 DisplayName = seed.DisplayName,
                 Status = "Active",
                 CustomerTierCode = seed.CustomerTier,
@@ -1986,7 +2393,7 @@ public class DemoSeedService : IDemoSeedService
         }
         else
         {
-            party.PartyType = "Business";
+            party.PartyType = BusinessPartyType;
             party.DisplayName = seed.DisplayName;
             party.Status = "Active";
             party.CustomerTierCode = seed.CustomerTier;
@@ -2012,8 +2419,43 @@ public class DemoSeedService : IDemoSeedService
             now,
             userId,
             cancellationToken);
+        await EnsureCustomerRoleAssignmentAsync(tenantId, party.Id, now, userId, cancellationToken);
 
         return party.Id;
+    }
+
+    private async Task EnsureCustomerRoleAssignmentAsync(
+        Guid tenantId,
+        Guid partyId,
+        DateTime now,
+        Guid? userId,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await _dbContext.PartyRoleAssignments
+            .FirstOrDefaultAsync(item =>
+                item.TenantId == tenantId &&
+                item.PartyId == partyId &&
+                item.Role == PartyRoles.Customer &&
+                item.ContextType == "Tenant" &&
+                item.ContextId == tenantId,
+                cancellationToken);
+
+        if (assignment != null)
+        {
+            return;
+        }
+
+        _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartyId = partyId,
+            Role = PartyRoles.Customer,
+            ContextType = "Tenant",
+            ContextId = tenantId,
+            CreatedAt = now,
+            CreatedBy = userId
+        });
     }
 
     private async Task UpsertPartyAddressAsync(
@@ -2224,7 +2666,11 @@ public class DemoSeedService : IDemoSeedService
             await UpsertFxQuoteAsync(tenantId, NgnZarFxQuoteId, "NGN", "ZAR", 0.011m, "DemoRate", JsonSerializer.Serialize(new { corridor = "NG-ZA" }), now, userId, cancellationToken),
             await UpsertFxQuoteAsync(tenantId, UsdGhsFxQuoteId, "USD", "GHS", 12.85m, "DemoRate", JsonSerializer.Serialize(new { corridor = "USD-GH" }), now, userId, cancellationToken),
             await UpsertFxQuoteAsync(tenantId, UsdKesFxQuoteId, "USD", "KES", 150.40m, "DemoRate", JsonSerializer.Serialize(new { corridor = "USD-KE" }), now, userId, cancellationToken),
-            await UpsertFxQuoteAsync(tenantId, UsdZarFxQuoteId, "USD", "ZAR", 18.60m, "DemoRate", JsonSerializer.Serialize(new { corridor = "USD-ZA" }), now, userId, cancellationToken)
+            await UpsertFxQuoteAsync(tenantId, UsdZarFxQuoteId, "USD", "ZAR", 18.60m, "DemoRate", JsonSerializer.Serialize(new { corridor = "USD-ZA" }), now, userId, cancellationToken),
+            await UpsertFxQuoteAsync(tenantId, GbpNgnFxQuoteId, "GBP", "NGN", 1985.25m, "DemoRate", JsonSerializer.Serialize(new { corridor = "UK-NG" }), now, userId, cancellationToken),
+            await UpsertFxQuoteAsync(tenantId, GbpGhsFxQuoteId, "GBP", "GHS", 16.78m, "DemoRate", JsonSerializer.Serialize(new { corridor = "UK-GH" }), now, userId, cancellationToken),
+            await UpsertFxQuoteAsync(tenantId, GbpKesFxQuoteId, "GBP", "KES", 168.45m, "DemoRate", JsonSerializer.Serialize(new { corridor = "UK-KE" }), now, userId, cancellationToken),
+            await UpsertFxQuoteAsync(tenantId, GbpZarFxQuoteId, "GBP", "ZAR", 24.31m, "DemoRate", JsonSerializer.Serialize(new { corridor = "UK-ZA" }), now, userId, cancellationToken)
         };
 
         var breakdown = new List<FeeBreakdownDefinition>
@@ -2295,7 +2741,7 @@ public class DemoSeedService : IDemoSeedService
         };
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        operations.Add("Seeded multi-currency FX quotes and tiered cross-border charging policies");
+        operations.Add("Seeded UK-to-Africa FX quotes and tiered cross-border charging policies");
 
         return (fxQuoteIds, feePolicyIds, limitsPolicyIds);
     }

@@ -105,7 +105,7 @@ export const workspacePanelRegistry: WorkspacePanelConfig[] = [
     id: 'orders-activity',
     title: 'Order Activity',
     type: 'internal',
-    componentKey: 'placeholder',
+    componentKey: 'orders-list',
     route: '/orders/activity',
   },
   {

@@ -97,7 +97,7 @@ export const Footer = () => {
             </div>
             <div className="col-md-3 col-lg-4 text-md-end">
               <a href="#" target="_blank" rel="noreferrer">
-                <img src="/images/payabo-logo.png" alt="payabo" />
+                <img className="footer-brand-logo" src="/images/aonik-logo.png" alt="Aonik" />
               </a>
             </div>
           </div>
