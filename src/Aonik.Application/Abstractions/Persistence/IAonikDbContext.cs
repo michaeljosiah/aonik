@@ -177,6 +177,7 @@ public interface IAonikDbContext
     DbSet<PersonalProfile> PersonalProfiles { get; set; }
     DbSet<Household> Households { get; set; }
     DbSet<HouseholdMember> HouseholdMembers { get; set; }
+    DbSet<PersonalAccount> PersonalAccounts { get; set; }
     DbSet<PersonalTransaction> PersonalTransactions { get; set; }
     DbSet<CategorisationRule> CategorisationRules { get; set; }
     DbSet<BudgetLine> BudgetLines { get; set; }

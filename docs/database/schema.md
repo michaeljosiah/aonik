@@ -701,12 +701,20 @@ This document is derived from the EF Core model snapshot, with simple explanatio
 - When to use (example): Create a PersonalProfile when a user starts using budgeting and personal finance features.
 - Key columns: `Id`, `TenantId`, `UserId`, `PartyId`, `HouseholdId`
 
+### `PersonalAccounts`
+
+- Entity: `Aonik.Domain.PersonalFinance.Entities.PersonalAccount`
+- Purpose: User-defined accounts that represent imported financial accounts (bank, wallet, loan, cash) for grouping personal transactions.
+- When to use (example): Create a PersonalAccount when a user connects a bank, adds a cash wallet, or tracks a loan payoff account.
+- Key columns: `Id`, `TenantId`, `UserId`, `HouseholdId`, `Name`, `AccountType`, `Currency`, `InstitutionName`, `ExternalReference`, `Status`
+- Indexes (partial): (`UserId`), (`HouseholdId`), (`ExternalReference`)
+
 ### `PersonalTransactions`
 
 - Entity: `Aonik.Domain.PersonalFinance.Entities.PersonalTransaction`
 - Purpose: Personal finance transaction records (imported or manually entered) used for categorisation and budgeting.
 - When to use (example): Create a PersonalTransaction when importing a bank statement line item or recording a cash expense.
-- Key columns: `Id`, `TenantId`, `Currency`, `Amount`, `UserId`, `SourceId`, `TagsJson`, `CategorisedBy`, `Category`, `Confidence`, `Merchant`, `Notes`
+- Key columns: `Id`, `TenantId`, `Currency`, `Amount`, `UserId`, `PersonalAccountId`, `SourceId`, `TagsJson`, `CategorisedBy`, `Category`, `Confidence`, `Merchant`, `Notes`
 
 ### `Subscriptions`
 
