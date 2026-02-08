@@ -19,7 +19,11 @@ import { ProviderList } from "../pages/payments/ProviderList";
 import { ServiceDetails } from "../pages/payments/ServiceDetails";
 import { PaymentSelection } from "../pages/payments/PaymentSelection";
 import { CardCheckout } from "../pages/payments/CardCheckout";
+import { FriendCheckout } from "../pages/payments/FriendCheckout";
+import { FriendDetails } from "../pages/payments/FriendDetails";
+import { FriendMessage } from "../pages/payments/FriendMessage";
 import { SelectCard } from "../pages/payments/SelectCard";
+import { SelectFriend } from "../pages/payments/SelectFriend";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
 import { RequireAuth } from "./auth/RequireAuth";
@@ -41,8 +45,6 @@ import dashboardTransactionsSampleHtml from "../../../website/MyBillAfrica/dashb
 import friendCheckoutRowHtml from "../../../website/MyBillAfrica/friendcheckout-row.html?raw";
 import friendCheckoutSampleHtml from "../../../website/MyBillAfrica/friendcheckout-sample.html?raw";
 import friendCheckoutSampleNoMessageHtml from "../../../website/MyBillAfrica/friendcheckout-sample-nomessage.html?raw";
-import friendDetailsHtml from "../../../website/MyBillAfrica/frienddetails.html?raw";
-import friendMessageHtml from "../../../website/MyBillAfrica/friend-message.html?raw";
 import manageCardsRawHtml from "../../../website/MyBillAfrica/managecards-raw.html?raw";
 import manageCardsSampleHtml from "../../../website/MyBillAfrica/managecards-sample.html?raw";
 import profileLoginDetailsEmailHtml from "../../../website/MyBillAfrica/profile-logindetails-email.html?raw";
@@ -57,7 +59,6 @@ import profilePersonalDetailsEditNameHtml from "../../../website/MyBillAfrica/pr
 import profilePersonalDetailsHtml from "../../../website/MyBillAfrica/profile-personaldetails.html?raw";
 import profilePersonalDetailsPhoneHtml from "../../../website/MyBillAfrica/profile-personaldetails-phone.html?raw";
 import profilePersonalDetailsUpdatePhotoHtml from "../../../website/MyBillAfrica/profile-personaldetails-updatephoto.html?raw";
-import selectFriendHtml from "../../../website/MyBillAfrica/selectfriend.html?raw";
 import selectFriendRowHtml from "../../../website/MyBillAfrica/selectfriend-row.html?raw";
 import selectFriendSampleHtml from "../../../website/MyBillAfrica/selectfriend-sample.html?raw";
 import serviceDetailsRawHtml from "../../../website/MyBillAfrica/servicedetails-raw.html?raw";
@@ -245,10 +246,12 @@ export const router = createBrowserRouter([
           },
           {
             path: "/payments/friend-checkout",
-            element: <StaticHtmlPage html={friendCheckoutSampleHtml} selector="main" />
+            element: <FriendCheckout />
           },
           { path: "/payments/select-card", element: <SelectCard /> },
-          { path: "/payments/select-friend", element: <StaticHtmlPage html={selectFriendHtml} selector="main" /> },
+          { path: "/payments/select-friend", element: <SelectFriend /> },
+          { path: "/payments/friend-details", element: <FriendDetails /> },
+          { path: "/payments/friend-message", element: <FriendMessage /> },
           { path: "/cardcheckout-row", element: <StaticHtmlPage html={cardCheckoutRowHtml} selector="main" /> },
           { path: "/cardcheckout-sample", element: <StaticHtmlPage html={cardCheckoutSampleHtml} selector="main" /> },
           { path: "/friendcheckout-row", element: <StaticHtmlPage html={friendCheckoutRowHtml} selector="main" /> },
@@ -258,11 +261,11 @@ export const router = createBrowserRouter([
             element: <StaticHtmlPage html={friendCheckoutSampleNoMessageHtml} selector="main" />
           },
           { path: "/selectcard", element: <SelectCard /> },
-          { path: "/selectfriend", element: <StaticHtmlPage html={selectFriendHtml} selector="main" /> },
+          { path: "/selectfriend", element: <SelectFriend /> },
           { path: "/selectfriend-row", element: <StaticHtmlPage html={selectFriendRowHtml} selector="main" /> },
           { path: "/selectfriend-sample", element: <StaticHtmlPage html={selectFriendSampleHtml} selector="main" /> },
-          { path: "/friend-message", element: <StaticHtmlPage html={friendMessageHtml} selector="main" /> },
-          { path: "/frienddetails", element: <StaticHtmlPage html={friendDetailsHtml} selector="main" /> }
+          { path: "/friend-message", element: <FriendMessage /> },
+          { path: "/frienddetails", element: <FriendDetails /> }
         ]
       },
       {
