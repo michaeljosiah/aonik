@@ -41,6 +41,7 @@ All notable changes to the AONIK project will be documented in this file.
   - Added a dedicated FX Rates settings page with rate sources, spread policies, and refresh cadence overview
 - **Payabo Web**: Added a new root-level `Payabo/` React app scaffold with routing, layouts, and asset imports for the Payabo migration.
   - Linked the page in Settings navigation for quick access
+- **Payabo Web**: Implemented the Payabo dashboard layout with upcoming bills, bill payment tabs, transactions, budgets, and organizations sections.
 - **Pricing**: Added FX management tables for rate sources, spread policies, and refresh schedules.
 
 ### Added - 2026-01-17
