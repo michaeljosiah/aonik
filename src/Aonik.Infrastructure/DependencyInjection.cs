@@ -10,6 +10,7 @@ using Aonik.Application.Abstractions.Autonumbering;
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Messaging;
 using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.Application.Abstractions.Notifications;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.ReferenceData;
@@ -21,6 +22,7 @@ using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
 using Aonik.Application.Services.Autonumbering;
+using Aonik.Application.Services.Notifications;
 using Aonik.Application.Services.Registration;
 using Aonik.Application.Services.Settings;
 using Aonik.Application.Services.Onboarding;
@@ -44,6 +46,7 @@ using Aonik.Infrastructure.Identity;
 using Aonik.Infrastructure.Settings;
 using Aonik.Infrastructure.ReferenceData;
 using Aonik.Infrastructure.Multitenancy;
+using Aonik.Infrastructure.Notifications;
 using Aonik.Infrastructure.Observability;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Storage;
@@ -160,6 +163,7 @@ public static class DependencyInjection
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<IContentBlockService, ContentBlockService>();
+        services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
@@ -175,6 +179,7 @@ public static class DependencyInjection
         services.AddScoped<IIdpAccountServiceFactory, IdpAccountServiceFactory>();
         services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
         services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
+        services.AddSingleton<INotificationTemplateRenderer, ScribanNotificationTemplateRenderer>();
 
 
 

@@ -148,6 +148,8 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
     // Notifications
     public virtual DbSet<Notification> Notifications { get; set; } = null!;
+    public virtual DbSet<NotificationTemplate> NotificationTemplates { get; set; } = null!;
+    public virtual DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; } = null!;
     public virtual DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
 
     // AI
@@ -395,6 +397,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
     }
 
     private void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType)
