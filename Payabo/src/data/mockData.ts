@@ -81,3 +81,75 @@ export const billCategories = [
   { id: "electricity", name: "Electricity", icon: "/images/select-icon-internet.png" },
   { id: "television", name: "Television", icon: "/images/select-icon-internet.png" }
 ];
+
+export const upcomingBills = [
+  {
+    id: "bill-dstv",
+    name: "DStv",
+    description: "Subscription payment",
+    dueDate: "05.10.2022",
+    amount: "₦ 500.00",
+    image: "/images/product-img-04.png"
+  },
+  {
+    id: "bill-telecel",
+    name: "Telecel",
+    description: "Subscription payment",
+    dueDate: "17.10.2022",
+    amount: "₦ 350.00",
+    image: "/images/product-img-02.png"
+  }
+];
+
+export const recentTransactions = [
+  {
+    id: "txn-airtel",
+    name: "airtel",
+    description: "Subscription payment",
+    date: "05.08.2022",
+    amount: "₦ 500.00",
+    points: "+35 MBA points",
+    image: "/images/product-img-03.png"
+  },
+  {
+    id: "txn-netflix",
+    name: "Netflix",
+    description: "Monthly plan",
+    date: "01.08.2022",
+    amount: "₦ 1,100.00",
+    points: "+52 MBA points",
+    image: "/images/product-img-01.png"
+  }
+];
+
+export const organisations = [
+  {
+    id: "org-volunteers",
+    title: "World Volunteers",
+    updatedOn: "Updated 12.08.2022",
+    description: "New campaign available, for psum dolor sit amet, consectetur adipiscing elit. Nam sagittis aliquet mrere ...",
+    image: "/images/post-img-01.png",
+    badge: "NEW CAMPAIGN"
+  },
+  {
+    id: "org-relief",
+    title: "Community Relief Fund",
+    updatedOn: "Updated 06.08.2022",
+    description: "Partnering with local communities to keep essential services running for families.",
+    image: "/images/post-img-02.png"
+  }
+];
+
+export const payAssistRequests = [
+  {
+    id: "assist-alicia",
+    requester: "Alicia Caves",
+    timeAgo: "30 min. ago",
+    purpose: "for phone bill",
+    biller: "airtel",
+    description: "Subscription payment",
+    amount: "₦ 350.00",
+    dueLabel: "due date",
+    image: "/images/product-img-05.png"
+  }
+];

@@ -24,6 +24,7 @@ import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
+import { Dashboard } from "../pages/dashboard/Dashboard";
 
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
 import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
@@ -103,7 +104,7 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
         children: [
-          { path: "/dashboard", element: <StaticHtmlPage html={dashboardSampleHtml} selector="main" /> },
+          { path: "/dashboard", element: <Dashboard /> },
           { path: "/dashboard/empty", element: <StaticHtmlPage html={dashboardEmptyHtml} selector="main" /> },
           { path: "/dashboard/raw", element: <StaticHtmlPage html={dashboardRawHtml} selector="main" /> },
           { path: "/dashboard-sample", element: <StaticHtmlPage html={dashboardSampleHtml} selector="main" /> },
