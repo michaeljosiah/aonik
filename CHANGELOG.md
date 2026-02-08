@@ -26,6 +26,7 @@ All notable changes to the AONIK project will be documented in this file.
   - Updated CustomWebApplicationFactory to explicitly use InMemory for tests
 
 ### Added
+- **Personal Finance**: Added household creation and member invitation endpoints with service support.
 - **Party Relationships**: Added relationship type catalog constants and a party endpoint to create an individual related party (e.g., friend) linked to an existing customer.
 - **Autonumbering**: Added autonumbering profiles, reservations, and service models with tests for sequencing and reset behavior.
 - **Autonumbering**: Added documentation covering performance considerations and reservation table usage guidance.
