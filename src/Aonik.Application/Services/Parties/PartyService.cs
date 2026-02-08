@@ -5,6 +5,7 @@ using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Party;
 using Aonik.Application.Services.Compliance;
+using Aonik.Domain.Party;
 using Aonik.Domain.Party.Entities;
 using PartyEntity = Aonik.Domain.Party.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
@@ -61,31 +62,9 @@ public class PartyService : IPartyService
             CreatedAt = now
         };
 
-        if (!string.IsNullOrWhiteSpace(request.Email))
-        {
-            party.Contacts.Add(new PartyContact
-            {
-                PartyId = party.Id,
-                Type = "Email",
-                Value = request.Email.Trim(),
-                IsPrimary = true,
-                CreatedAt = now
-            });
-        }
+        AddContacts(party, request.Email, request.Phone, now);
 
-        if (!string.IsNullOrWhiteSpace(request.Phone))
-        {
-            party.Contacts.Add(new PartyContact
-            {
-                PartyId = party.Id,
-                Type = "Phone",
-                Value = request.Phone.Trim(),
-                IsPrimary = string.IsNullOrWhiteSpace(request.Email),
-                CreatedAt = now
-            });
-        }
-
-        if (string.Equals(request.PartyType, "Person", StringComparison.OrdinalIgnoreCase))
+        if (IsPersonPartyType(request.PartyType))
         {
             _dbContext.PersonProfiles.Add(new PersonProfile
             {
@@ -144,6 +123,92 @@ public class PartyService : IPartyService
         return new PartyResponse(party.Id, party.DisplayName, party.PartyType, party.Status);
     }
 
+    public async Task<RelatedPartyResponse> CreateRelatedPartyAsync(
+        CreateRelatedPartyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.CustomerPartyId == Guid.Empty)
+        {
+            throw new ArgumentException("Customer party id is required.", nameof(request.CustomerPartyId));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.RelationshipTypeCode))
+        {
+            throw new ArgumentException("Relationship type code is required.", nameof(request.RelationshipTypeCode));
+        }
+
+        if (!PartyRelationshipTypes.Codes.Contains(request.RelationshipTypeCode))
+        {
+            throw new InvalidOperationException($"Unknown relationship type '{request.RelationshipTypeCode}'.");
+        }
+
+        var displayName = ResolveDisplayName(request.DisplayName, request.FirstName, request.LastName);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var now = _clock.UtcNow;
+
+        var customerPartyExists = await _dbContext.Parties
+            .AnyAsync(party => party.Id == request.CustomerPartyId, cancellationToken);
+
+        if (!customerPartyExists)
+        {
+            throw new InvalidOperationException($"Customer party {request.CustomerPartyId} not found.");
+        }
+
+        var party = new PartyEntity
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartyType = "Individual",
+            DisplayName = displayName,
+            Status = "Active",
+            CreatedAt = now
+        };
+
+        AddContacts(party, request.Email, request.Phone, now);
+
+        _dbContext.PersonProfiles.Add(new PersonProfile
+        {
+            PartyId = party.Id,
+            FirstName = request.FirstName?.Trim(),
+            LastName = request.LastName?.Trim(),
+            CountryCode = request.CountryCode?.Trim(),
+            IdvStatus = "Unverified",
+            CreatedAt = now
+        });
+
+        _dbContext.Parties.Add(party);
+
+        var relationship = new PartyRelationship
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            FromPartyId = request.CustomerPartyId,
+            ToPartyId = party.Id,
+            RelationshipTypeCode = request.RelationshipTypeCode.Trim(),
+            Notes = request.Notes?.Trim(),
+            IsActive = true,
+            CreatedAt = now
+        };
+
+        _dbContext.PartyRelationships.Add(relationship);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var parties = await LoadPartyNamesAsync(request.CustomerPartyId, party.Id, cancellationToken);
+        var relationshipResponse = new PartyRelationshipResponse(
+            relationship.Id,
+            request.CustomerPartyId,
+            parties.FromPartyName,
+            party.Id,
+            parties.ToPartyName,
+            relationship.RelationshipTypeCode,
+            relationship.RelationshipTypeCode,
+            relationship.IsActive);
+
+        return new RelatedPartyResponse(
+            new PartyResponse(party.Id, party.DisplayName, party.PartyType, party.Status),
+            relationshipResponse);
+    }
+
     public async Task<PartyRelationshipResponse> CreateRelationshipAsync(
         CreatePartyRelationshipRequest request,
         CancellationToken cancellationToken = default)
@@ -151,6 +216,11 @@ public class PartyService : IPartyService
         if (string.IsNullOrWhiteSpace(request.RelationshipTypeCode))
         {
             throw new ArgumentException("Relationship type code is required.", nameof(request.RelationshipTypeCode));
+        }
+
+        if (!PartyRelationshipTypes.Codes.Contains(request.RelationshipTypeCode))
+        {
+            throw new InvalidOperationException($"Unknown relationship type '{request.RelationshipTypeCode}'.");
         }
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
@@ -230,5 +300,55 @@ public class PartyService : IPartyService
         var fromName = parties.FirstOrDefault(party => party.Id == fromPartyId)?.DisplayName ?? string.Empty;
         var toName = parties.FirstOrDefault(party => party.Id == toPartyId)?.DisplayName ?? string.Empty;
         return (fromName, toName);
+    }
+
+    private static bool IsPersonPartyType(string partyType)
+    {
+        return string.Equals(partyType, "Person", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(partyType, "Individual", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveDisplayName(string displayName, string? firstName, string? lastName)
+    {
+        var normalizedDisplayName = displayName?.Trim();
+        if (!string.IsNullOrWhiteSpace(normalizedDisplayName))
+        {
+            return normalizedDisplayName;
+        }
+
+        var combinedName = $"{firstName} {lastName}".Trim();
+        if (string.IsNullOrWhiteSpace(combinedName))
+        {
+            throw new ArgumentException("Display name is required.", nameof(displayName));
+        }
+
+        return combinedName;
+    }
+
+    private static void AddContacts(PartyEntity party, string? email, string? phone, DateTimeOffset now)
+    {
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            party.Contacts.Add(new PartyContact
+            {
+                PartyId = party.Id,
+                Type = "Email",
+                Value = email.Trim(),
+                IsPrimary = true,
+                CreatedAt = now
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            party.Contacts.Add(new PartyContact
+            {
+                PartyId = party.Id,
+                Type = "Phone",
+                Value = phone.Trim(),
+                IsPrimary = string.IsNullOrWhiteSpace(email),
+                CreatedAt = now
+            });
+        }
     }
 }

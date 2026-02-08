@@ -12,6 +12,10 @@ public interface IPartyService
         Guid partyId,
         CancellationToken cancellationToken = default);
 
+    Task<RelatedPartyResponse> CreateRelatedPartyAsync(
+        CreateRelatedPartyRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<PartyRelationshipResponse> CreateRelationshipAsync(
         CreatePartyRelationshipRequest request,
         CancellationToken cancellationToken = default);
