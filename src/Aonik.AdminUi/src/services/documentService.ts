@@ -27,6 +27,8 @@ export interface ListDocumentsParams {
   tag?: string;
   usagePurpose?: string;
   search?: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
 }
 
 export const documentService = {
@@ -45,6 +47,8 @@ export const documentService = {
     if (params.tag) queryParams.append('tag', params.tag);
     if (params.usagePurpose) queryParams.append('usagePurpose', params.usagePurpose);
     if (params.search) queryParams.append('search', params.search);
+    if (params.relatedEntityType) queryParams.append('relatedEntityType', params.relatedEntityType);
+    if (params.relatedEntityId) queryParams.append('relatedEntityId', params.relatedEntityId);
 
     const query = queryParams.toString();
     return api.get<PagedResult<DocumentListItem>>(`/compliance/documents${query ? `?${query}` : ''}`);

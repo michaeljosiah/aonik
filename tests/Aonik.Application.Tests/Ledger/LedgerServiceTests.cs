@@ -71,7 +71,8 @@ public class LedgerServiceTests
             tenantProvider,
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
-        var request = new CreateLedgerAccountRequest("Cash", "USD");
+        var ledger = await service.CreateLedgerAsync(new CreateLedgerRequest("USD"));
+        var request = new CreateLedgerAccountRequest(ledger.Id, "Cash", "1000", "Asset");
 
         // Act
         var result = await service.CreateAccountAsync(request);
@@ -80,7 +81,7 @@ public class LedgerServiceTests
         result.Should().NotBeNull();
         result.Id.Should().NotBeEmpty();
         result.Name.Should().Be("Cash");
-        result.Currency.Should().Be("N/A");
+        result.Currency.Should().Be("USD");
         result.CreatedUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
         var savedAccount = await context.LedgerAccounts.FirstOrDefaultAsync(a => a.Id == result.Id);
@@ -101,16 +102,19 @@ public class LedgerServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
 
-        // Create account first
-        var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
-        var account = await service.CreateAccountAsync(accountRequest);
+        var ledger = await service.CreateLedgerAsync(new CreateLedgerRequest("USD"));
+        var cashAccount = await service.CreateAccountAsync(new CreateLedgerAccountRequest(ledger.Id, "Cash", "1000", "Asset"));
+        var revenueAccount = await service.CreateAccountAsync(new CreateLedgerAccountRequest(ledger.Id, "Revenue", "4000", "Income"));
 
         var entryRequest = new AddJournalEntryRequest(
-            account.Id,
-            500.00m,
-            "USD",
+            ledger.Id,
             "REF-001",
-            "Payment received");
+            "Payment received",
+            new List<AddJournalEntryLineRequest>
+            {
+                new(cashAccount.Id, "Debit", 500.00m, "USD", "Cash received"),
+                new(revenueAccount.Id, "Credit", 500.00m, "USD", "Recognize revenue")
+            });
 
         // Act
         var result = await service.AddJournalEntryAsync(entryRequest);
@@ -118,16 +122,15 @@ public class LedgerServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Id.Should().NotBeEmpty();
-        result.AccountId.Should().Be(account.Id);
-        result.Amount.Should().Be(500.00m);
-        result.Currency.Should().Be("USD");
+        result.LedgerId.Should().Be(ledger.Id);
         result.Reference.Should().Be("REF-001");
         result.Description.Should().Be("Payment received");
         result.EntryUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+        result.Lines.Should().HaveCount(2);
 
         var savedEntry = await context.JournalEntries.FirstOrDefaultAsync(e => e.Id == result.Id);
         savedEntry.Should().NotBeNull();
-        savedEntry!.SourceId.Should().Be(account.Id);
+        savedEntry!.LedgerId.Should().Be(ledger.Id);
     }
 
     [Fact]
@@ -143,24 +146,49 @@ public class LedgerServiceTests
             new AllowAllPermissionService(),
             new TestCurrentUserProvider(Guid.NewGuid()));
 
-        var accountRequest = new CreateLedgerAccountRequest("Operating Account", "USD");
-        var account = await service.CreateAccountAsync(accountRequest);
+        var ledger = await service.CreateLedgerAsync(new CreateLedgerRequest("USD"));
+        var cashAccount = await service.CreateAccountAsync(new CreateLedgerAccountRequest(ledger.Id, "Operating Cash", "1000", "Asset"));
+        var expenseAccount = await service.CreateAccountAsync(new CreateLedgerAccountRequest(ledger.Id, "Office Expense", "6000", "Expense"));
 
         // Act
         var entry1 = await service.AddJournalEntryAsync(
-            new AddJournalEntryRequest(account.Id, 100.00m, "USD", "REF-001", "Entry 1"));
+            new AddJournalEntryRequest(
+                ledger.Id,
+                "REF-001",
+                "Entry 1",
+                new List<AddJournalEntryLineRequest>
+                {
+                    new(cashAccount.Id, "Credit", 100.00m, "USD", "Cash out"),
+                    new(expenseAccount.Id, "Debit", 100.00m, "USD", "Expense")
+                }));
         var entry2 = await service.AddJournalEntryAsync(
-            new AddJournalEntryRequest(account.Id, 200.00m, "USD", "REF-002", "Entry 2"));
+            new AddJournalEntryRequest(
+                ledger.Id,
+                "REF-002",
+                "Entry 2",
+                new List<AddJournalEntryLineRequest>
+                {
+                    new(cashAccount.Id, "Credit", 200.00m, "USD", "Cash out"),
+                    new(expenseAccount.Id, "Debit", 200.00m, "USD", "Expense")
+                }));
         var entry3 = await service.AddJournalEntryAsync(
-            new AddJournalEntryRequest(account.Id, -50.00m, "USD", "REF-003", "Entry 3"));
+            new AddJournalEntryRequest(
+                ledger.Id,
+                "REF-003",
+                "Entry 3",
+                new List<AddJournalEntryLineRequest>
+                {
+                    new(cashAccount.Id, "Credit", 50.00m, "USD", "Cash out"),
+                    new(expenseAccount.Id, "Debit", 50.00m, "USD", "Expense")
+                }));
 
         // Assert
-        entry1.Amount.Should().Be(100.00m);
-        entry2.Amount.Should().Be(200.00m);
-        entry3.Amount.Should().Be(-50.00m);
+        entry1.Lines.Should().HaveCount(2);
+        entry2.Lines.Should().HaveCount(2);
+        entry3.Lines.Should().HaveCount(2);
 
         var entries = await context.JournalEntries
-            .Where(e => e.SourceId == account.Id)
+            .Where(e => e.LedgerId == ledger.Id)
             .ToListAsync();
         entries.Should().HaveCount(3);
     }

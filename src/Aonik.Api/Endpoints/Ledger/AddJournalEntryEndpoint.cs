@@ -22,22 +22,32 @@ public class AddJournalEntryEndpoint : Endpoint<AddJournalEntryRequest, JournalE
     public override async Task HandleAsync(AddJournalEntryRequest req, CancellationToken ct)
     {
         var appRequest = new Application.Models.Ledger.AddJournalEntryRequest(
-            req.AccountId,
-            req.Amount,
-            req.Currency,
+            req.LedgerId,
             req.Reference,
-            req.Description);
+            req.Description,
+            req.Lines.Select(line => new Application.Models.Ledger.AddJournalEntryLineRequest(
+                line.AccountId,
+                line.Direction,
+                line.Amount,
+                line.Currency,
+                line.Narration)).ToList());
 
         var result = await _ledgerService.AddJournalEntryAsync(appRequest, ct);
 
         var response = new JournalEntryResponse(
             result.Id,
-            result.AccountId,
-            result.Amount,
-            result.Currency,
+            result.LedgerId,
             result.EntryUtc,
+            result.Status,
             result.Reference,
-            result.Description);
+            result.Description,
+            result.Lines.Select(line => new JournalEntryLineResponse(
+                line.Id,
+                line.AccountId,
+                line.Direction,
+                line.Amount,
+                line.Currency,
+                line.Narration)).ToList());
 
         await Send.CreatedAtAsync<AddJournalEntryEndpoint>(
             routeValues: new { id = response.Id },

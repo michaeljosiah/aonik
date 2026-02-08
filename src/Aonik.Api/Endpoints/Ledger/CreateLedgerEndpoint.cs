@@ -1,0 +1,34 @@
+using Aonik.Api.Contracts.Ledger;
+using Aonik.Application.Services.Ledger;
+using FastEndpoints;
+
+namespace Aonik.Api.Endpoints.Ledger;
+
+public class CreateLedgerEndpoint : Endpoint<CreateLedgerRequest, LedgerResponse>
+{
+    private readonly ILedgerService _ledgerService;
+
+    public CreateLedgerEndpoint(ILedgerService ledgerService)
+    {
+        _ledgerService = ledgerService;
+    }
+
+    public override void Configure()
+    {
+        Post("/ledger");
+        Policies("AdminUserPolicy");
+    }
+
+    public override async Task HandleAsync(CreateLedgerRequest req, CancellationToken ct)
+    {
+        var appRequest = new Application.Models.Ledger.CreateLedgerRequest(req.BaseCurrency);
+        var result = await _ledgerService.CreateLedgerAsync(appRequest, ct);
+
+        var response = new LedgerResponse(result.Id, result.BaseCurrency, result.CreatedUtc);
+
+        await Send.CreatedAtAsync<CreateLedgerEndpoint>(
+            routeValues: new { id = response.Id },
+            responseBody: response,
+            cancellation: ct);
+    }
+}

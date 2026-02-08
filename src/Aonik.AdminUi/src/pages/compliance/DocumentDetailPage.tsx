@@ -93,6 +93,14 @@ export function DocumentDetailPage() {
     capturedBy: '',
     metadataJson: '',
   });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadMeta, setUploadMeta] = useState({
+    pageIndex: '',
+    side: '',
+    capturedAt: '',
+    capturedBy: '',
+    metadataJson: '',
+  });
   const [usageForm, setUsageForm] = useState<AddDocumentUsageRequest>({
     ownerPartyId: '',
     purpose: '',
@@ -111,6 +119,7 @@ export function DocumentDetailPage() {
   });
   const [selectedUsageId, setSelectedUsageId] = useState('');
   const [isSubmittingFile, setIsSubmittingFile] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [isSubmittingUsage, setIsSubmittingUsage] = useState(false);
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
 
@@ -189,6 +198,52 @@ export function DocumentDetailPage() {
       toast.error(message || 'Failed to add document file.');
     } finally {
       setIsSubmittingFile(false);
+    }
+  };
+
+  const handleUploadFile = async () => {
+    if (!documentId) return;
+    if (!uploadFile) {
+      toast.error('Select a file to upload.');
+      return;
+    }
+
+    const pageIndex = uploadMeta.pageIndex.trim().length > 0
+      ? Number.parseInt(uploadMeta.pageIndex, 10)
+      : undefined;
+
+    if (pageIndex !== undefined && Number.isNaN(pageIndex)) {
+      toast.error('Page index must be a number.');
+      return;
+    }
+
+    setIsUploadingFile(true);
+    try {
+      await documentService.uploadFile(documentId, {
+        file: uploadFile,
+        pageIndex,
+        side: uploadMeta.side || undefined,
+        capturedAt: uploadMeta.capturedAt || undefined,
+        capturedBy: uploadMeta.capturedBy || undefined,
+        metadataJson: uploadMeta.metadataJson || undefined,
+      });
+      toast.success('File uploaded.');
+      setUploadFile(null);
+      setUploadMeta({
+        pageIndex: '',
+        side: '',
+        capturedAt: '',
+        capturedBy: '',
+        metadataJson: '',
+      });
+      await loadDocument();
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      toast.error(message || 'Failed to upload file.');
+    } finally {
+      setIsUploadingFile(false);
     }
   };
 
@@ -404,6 +459,56 @@ export function DocumentDetailPage() {
 
         <TabsContent value="files">
           <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Upload File</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
+                <div className="md:col-span-2">
+                  <Input
+                    type="file"
+                    onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
+                  />
+                  {uploadFile && (
+                    <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
+                      {uploadFile.name} · {(uploadFile.size / 1024).toFixed(1)} KB · {uploadFile.type || 'unknown'}
+                    </div>
+                  )}
+                </div>
+                <Input
+                  value={uploadMeta.pageIndex}
+                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, pageIndex: event.target.value }))}
+                  placeholder="Page index"
+                  type="number"
+                />
+                <Input
+                  value={uploadMeta.side}
+                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, side: event.target.value }))}
+                  placeholder="Side (front/back)"
+                />
+                <Input
+                  value={uploadMeta.capturedAt}
+                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, capturedAt: event.target.value }))}
+                  placeholder="Captured at (ISO)"
+                />
+                <Input
+                  value={uploadMeta.capturedBy}
+                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, capturedBy: event.target.value }))}
+                  placeholder="Captured by"
+                />
+                <Textarea
+                  value={uploadMeta.metadataJson}
+                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, metadataJson: event.target.value }))}
+                  placeholder="Metadata JSON"
+                  className="md:col-span-2"
+                />
+                <div className="md:col-span-2">
+                  <Button onClick={handleUploadFile} disabled={isUploadingFile}>
+                    {isUploadingFile ? 'Uploading...' : 'Upload File'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Add a File</CardTitle>

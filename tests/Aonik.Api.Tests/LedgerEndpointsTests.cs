@@ -24,17 +24,27 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
                 .WithPermissions("Ledger.Write")
                 .WithRoles("Operations"));
 
+        var ledgerResponse = await client.PostAsJsonAsync("/ledger", new CreateLedgerRequest("USD"));
+        var ledger = await ledgerResponse.Content.ReadFromJsonAsync<LedgerResponse>();
 
-        var accountRequest = new CreateLedgerAccountRequest("Revenue", "USD");
+        var accountRequest = new CreateLedgerAccountRequest(ledger!.Id, "Revenue", "4000", "Income");
         var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);
         var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
 
+        var cashAccountResponse = await client.PostAsJsonAsync(
+            "/ledger/accounts",
+            new CreateLedgerAccountRequest(ledger.Id, "Cash", "1000", "Asset"));
+        var cashAccount = await cashAccountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
+
         var entryRequest = new AddJournalEntryRequest(
-            account!.Id,
-            500.00m,
-            "USD",
+            ledger.Id,
             "REF-001",
-            "Payment received");
+            "Payment received",
+            new List<AddJournalEntryLineRequest>
+            {
+                new(cashAccount!.Id, "Debit", 500.00m, "USD", "Cash received"),
+                new(account!.Id, "Credit", 500.00m, "USD", "Recognize revenue")
+            });
 
         // Act
         var response = await client.PostAsJsonAsync("/ledger/journal-entries", entryRequest);
@@ -44,8 +54,8 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
 
         var entry = await response.Content.ReadFromJsonAsync<JournalEntryResponse>();
         entry.Should().NotBeNull();
-        entry!.AccountId.Should().Be(account.Id);
-        entry.Amount.Should().Be(500.00m);
+        entry!.LedgerId.Should().Be(ledger.Id);
+        entry.Lines.Should().HaveCount(2);
         entry.Reference.Should().Be("REF-001");
         entry.Description.Should().Be("Payment received");
     }
@@ -59,18 +69,50 @@ public class LedgerEndpointsTests : IClassFixture<CustomWebApplicationFactory>
                 .WithPermissions("Ledger.Write")
                 .WithRoles("Operations"));
 
+        var ledgerResponse = await client.PostAsJsonAsync("/ledger", new CreateLedgerRequest("USD"));
+        var ledger = await ledgerResponse.Content.ReadFromJsonAsync<LedgerResponse>();
 
-        var accountRequest = new CreateLedgerAccountRequest("Operations", "USD");
-        var accountResponse = await client.PostAsJsonAsync("/ledger/accounts", accountRequest);
-        var account = await accountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
+        var cashAccountResponse = await client.PostAsJsonAsync(
+            "/ledger/accounts",
+            new CreateLedgerAccountRequest(ledger!.Id, "Operations", "1000", "Asset"));
+        var cashAccount = await cashAccountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
+
+        var expenseAccountResponse = await client.PostAsJsonAsync(
+            "/ledger/accounts",
+            new CreateLedgerAccountRequest(ledger.Id, "Expense", "6000", "Expense"));
+        var expenseAccount = await expenseAccountResponse.Content.ReadFromJsonAsync<LedgerAccountResponse>();
 
         // Act
         var entry1Response = await client.PostAsJsonAsync("/ledger/journal-entries",
-            new AddJournalEntryRequest(account!.Id, 100.00m, "USD", "REF-001", "Entry 1"));
+            new AddJournalEntryRequest(
+                ledger.Id,
+                "REF-001",
+                "Entry 1",
+                new List<AddJournalEntryLineRequest>
+                {
+                    new(cashAccount!.Id, "Credit", 100.00m, "USD", "Cash out"),
+                    new(expenseAccount!.Id, "Debit", 100.00m, "USD", "Expense")
+                }));
         var entry2Response = await client.PostAsJsonAsync("/ledger/journal-entries",
-            new AddJournalEntryRequest(account.Id, 200.00m, "USD", "REF-002", "Entry 2"));
+            new AddJournalEntryRequest(
+                ledger.Id,
+                "REF-002",
+                "Entry 2",
+                new List<AddJournalEntryLineRequest>
+                {
+                    new(cashAccount!.Id, "Credit", 200.00m, "USD", "Cash out"),
+                    new(expenseAccount!.Id, "Debit", 200.00m, "USD", "Expense")
+                }));
         var entry3Response = await client.PostAsJsonAsync("/ledger/journal-entries",
-            new AddJournalEntryRequest(account.Id, -50.00m, "USD", "REF-003", "Entry 3"));
+            new AddJournalEntryRequest(
+                ledger.Id,
+                "REF-003",
+                "Entry 3",
+                new List<AddJournalEntryLineRequest>
+                {
+                    new(cashAccount!.Id, "Credit", 50.00m, "USD", "Cash out"),
+                    new(expenseAccount!.Id, "Debit", 50.00m, "USD", "Expense")
+                }));
 
         // Assert
         entry1Response.StatusCode.Should().Be(HttpStatusCode.Created);
