@@ -1025,6 +1025,68 @@ export interface PermissionSeedResponse {
   operations: string[];
 }
 
+// Ledger Types
+export interface LedgerSummary {
+  id: string;
+  baseCurrency: string;
+  createdUtc: string;
+}
+
+export interface CreateLedgerRequest {
+  baseCurrency: string;
+}
+
+export interface LedgerAccountSummary {
+  id: string;
+  ledgerId: string;
+  name: string;
+  code: string;
+  accountType: string;
+  currency: string;
+  createdUtc: string;
+}
+
+export interface CreateLedgerAccountRequest {
+  ledgerId: string;
+  name: string;
+  code: string;
+  accountType: string;
+}
+
+export interface JournalEntryLineRequest {
+  accountId: string;
+  direction: string;
+  amount: number;
+  currency: string;
+  narration?: string | null;
+}
+
+export interface AddJournalEntryRequest {
+  ledgerId: string;
+  reference?: string | null;
+  description?: string | null;
+  lines: JournalEntryLineRequest[];
+}
+
+export interface JournalEntryLineResponse {
+  id: string;
+  accountId: string;
+  direction: string;
+  amount: number;
+  currency: string;
+  narration?: string | null;
+}
+
+export interface JournalEntryResponse {
+  id: string;
+  ledgerId: string;
+  entryUtc: string;
+  status: string;
+  reference?: string | null;
+  description?: string | null;
+  lines: JournalEntryLineResponse[];
+}
+
 // Autonumbering Types
 export type AutonumberStrategy = 'Sequential' | 'Random' | 'Hybrid';
 export type AutonumberResetPolicy = 'None' | 'Monthly' | 'Yearly';

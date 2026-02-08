@@ -25,7 +25,9 @@ public record ListDocumentsRequest(
     DateTime? ExpiresTo = null,
     string? Tag = null,
     string? UsagePurpose = null,
-    string? Search = null);
+    string? Search = null,
+    string? RelatedEntityType = null,
+    Guid? RelatedEntityId = null);
 
 public record DocumentListItem(
     Guid DocumentId,

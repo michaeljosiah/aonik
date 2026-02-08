@@ -36,6 +36,8 @@ All notable changes to the AONIK project will be documented in this file.
 - **Compliance**: Added document listing support plus Admin UI document management pages with create/detail flows.
 - **Notifications**: Added notification template entities, bindings, and Scriban-based rendering service for multi-tenant shared templates.
 - **Admin UI**: Added an autonumbering settings page with configuration overview and test preview.
+- **Ledger**: Added tenant ledger, account, and journal entry API endpoints plus Admin UI pages for creating ledgers, accounts, and transactions.
+- **Compliance**: Added related-entity document filtering and ledger-facing document upload workflows in the Admin UI.
 - **Admin UI**: Role display in sidebar user profile
   - Added `identityService.getUserInfo()` to fetch user roles from `/identity/userinfo` endpoint
   - Added `formatRoleLabel()` helper to convert role names to Title Case

@@ -69,6 +69,23 @@ export const navigationSections: NavigationSection[] = [
         ],
       },
       {
+        id: 'ledger',
+        label: 'Ledger',
+        icon: 'BookOpen',
+        viewAllHref: '/ledger',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Core ledger',
+            items: [
+              { id: 'ledger-overview', label: 'Ledgers', icon: 'BookOpen', href: '/ledger' },
+              { id: 'ledger-accounts', label: 'Accounts', icon: 'Landmark', href: '/ledger/accounts' },
+              { id: 'ledger-journal-entries', label: 'Journal Entries', icon: 'ClipboardList', href: '/ledger/journal-entries' },
+            ],
+          },
+        ],
+      },
+      {
         id: 'partner-network-routing',
         label: 'Network',
         icon: 'Network',

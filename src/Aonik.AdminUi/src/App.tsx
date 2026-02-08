@@ -40,6 +40,9 @@ import {
   FxRatesPage,
   CustomersListPage,
   CustomerDetailPage,
+  LedgerOverviewPage,
+  LedgerAccountsPage,
+  LedgerJournalEntriesPage,
   WorkspacePage,
   ComplianceLandingPage,
   DocumentsListPage,
@@ -244,6 +247,10 @@ function AppLayout() {
             <Route path="/orders/activity" element={<OrdersListPage />} />
             <Route path="/orders/bill-payments/new" element={<BillPaymentOrderFormPage />} />
             <Route path="/orders/bill-payments/:orderId" element={<BillPaymentOrderFormPage />} />
+            {/* Ledger */}
+            <Route path="/ledger" element={<LedgerOverviewPage />} />
+            <Route path="/ledger/accounts" element={<LedgerAccountsPage />} />
+            <Route path="/ledger/journal-entries" element={<LedgerJournalEntriesPage />} />
             {/* Users & Access */}
             <Route path="/access/users" element={<AccessUsersPage />} />
             <Route path="/access/users/:userId" element={<UserDetailPage />} />

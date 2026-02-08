@@ -134,6 +134,16 @@ public class DocumentService : IDocumentService
                     usage.DocumentId == document.Id && usage.Purpose == purpose));
         }
 
+        if (!string.IsNullOrWhiteSpace(request.RelatedEntityType) || request.RelatedEntityId.HasValue)
+        {
+            var relatedEntityType = request.RelatedEntityType?.Trim();
+            query = query.Where(document =>
+                _dbContext.DocumentUsages.Any(usage =>
+                    usage.DocumentId == document.Id &&
+                    (relatedEntityType == null || usage.RelatedEntityType == relatedEntityType) &&
+                    (!request.RelatedEntityId.HasValue || usage.RelatedEntityId == request.RelatedEntityId)));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();

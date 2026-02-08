@@ -21,10 +21,21 @@ public class CreateLedgerAccountEndpoint : Endpoint<CreateLedgerAccountRequest, 
 
     public override async Task HandleAsync(CreateLedgerAccountRequest req, CancellationToken ct)
     {
-        var appRequest = new Application.Models.Ledger.CreateLedgerAccountRequest(req.Name, req.Currency);
+        var appRequest = new Application.Models.Ledger.CreateLedgerAccountRequest(
+            req.LedgerId,
+            req.Name,
+            req.Code,
+            req.AccountType);
         var result = await _ledgerService.CreateAccountAsync(appRequest, ct);
 
-        var response = new LedgerAccountResponse(result.Id, result.Name, result.Currency, result.CreatedUtc);
+        var response = new LedgerAccountResponse(
+            result.Id,
+            result.LedgerId,
+            result.Name,
+            result.Code,
+            result.AccountType,
+            result.Currency,
+            result.CreatedUtc);
 
         await Send.CreatedAtAsync<CreateLedgerAccountEndpoint>(
             routeValues: new { id = response.Id },
