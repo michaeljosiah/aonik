@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { getPublicBillPaymentDraft, type GuestBillPaymentDraftDetail } from "../../api/orders";
 import { draftOrderIdStorageKey } from "./draftIntent";
-import { loadFriendSelection, saveFriendMessage } from "./friendFlowStorage";
+import { loadFriendMessage, loadFriendSelection, saveFriendMessage } from "./friendFlowStorage";
 
 export const FriendMessage = () => {
   const navigate = useNavigate();
@@ -14,7 +14,8 @@ export const FriendMessage = () => {
   const [draft, setDraft] = useState<GuestBillPaymentDraftDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
+  const savedMessage = useMemo(() => loadFriendMessage(), []);
+  const [message, setMessage] = useState(() => savedMessage?.message ?? "");
 
   const selectedFriend = useMemo(() => loadFriendSelection(), []);
 
