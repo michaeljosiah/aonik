@@ -5,9 +5,9 @@
 
 # AONIK
 
-**AONIK** is an **AI-native financial infrastructure platform** designed to power modern payments, remittances, billing, and financial intelligence. Built from the ground up with AI in mind, AONIK provides core financial primitives alongside intelligent agents that assist with reconciliation, forecasting, anomaly detection, and insights.
+**AONIK** is an **AI-native financial infrastructure platform** designed to power modern payments, remittances, personal finance, and financial intelligence. Built from the ground up with AI in mind, AONIK provides core financial primitives alongside intelligent agents that assist with reconciliation, forecasting, anomaly detection, and insights.
 
-The project serves as a foundational layer for both consumer and business financial products, with an initial focus on Africa and the global diaspora, while remaining flexible enough for global use cases.
+The project serves as a foundational layer for both consumer and business financial products, built to be globally applicable and adaptable across regions and use cases.
 
 ---
 
@@ -67,6 +67,17 @@ AONIK is intended to power a wide range of products and services, including:
 - Subscription and recurring payment services
 - SME and enterprise finance tools
 - AI-driven financial insights and analytics
+
+---
+
+## 🧱 Core Modules
+
+The AONIK platform is organized around a set of core modules that can be composed into full products:
+
+- **Payments**: money movement rails, orchestration, and settlement
+- **Remittances**: cross-border flows, routing, and payout execution
+- **Personal Finance**: budgeting, goals, subscriptions, and insights
+- **Agentic Core**: governed AI agents, audit trails, and policy-driven automation
 
 ---
 
@@ -170,7 +181,7 @@ If you are interested in:
 - Financial systems
 - AI agents
 - Open-source infrastructure
-- Building for emerging markets
+- Building global financial platforms
 
 …this project is for you.
 
@@ -194,9 +205,8 @@ See the `LICENSE` file for full details.
 
 ## 🌍 Vision
 
-AONIK aims to become a **trusted, intelligent foundation for financial systems**, enabling developers and businesses to build adaptive, transparent, and AI-assisted finance products — starting with Africa and the global diaspora, and scaling globally over time.
+AONIK aims to become a **trusted, intelligent foundation for financial systems**, enabling developers and businesses to build adaptive, transparent, and AI-assisted finance products for a global audience.
 
 ---
 
 *This project is just getting started. The foundations you help build today will shape what AONIK becomes tomorrow.*
-
