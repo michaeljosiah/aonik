@@ -1,49 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { getPublicBillPaymentDraft, type GuestBillPaymentDraftDetail } from "../../api/orders";
 import { draftOrderIdStorageKey } from "./draftIntent";
-import {
-  loadFriendSelection,
-  saveFriendSelection,
-  type FriendProfile
-} from "./friendFlowStorage";
+import { saveFriendSelection, type FriendProfile } from "./friendFlowStorage";
 
-const savedFriends: FriendProfile[] = [
-  {
-    id: "friend_1",
-    firstName: "Amaka",
-    lastName: "Okoro",
-    email: "amaka.okoro@example.com",
-    relationship: "Sister"
-  },
-  {
-    id: "friend_2",
-    firstName: "Kwame",
-    lastName: "Mensah",
-    email: "kwame.mensah@example.com",
-    relationship: "Friend"
-  },
-  {
-    id: "friend_3",
-    firstName: "Zainab",
-    lastName: "Yusuf",
-    email: "zainab.yusuf@example.com",
-    relationship: "Cousin"
-  }
-];
+const relationshipOptions = ["Friend", "Sibling", "Parent", "Partner", "Colleague", "Other"];
 
-export const SelectFriend = () => {
+export const FriendDetails = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const orderIdFromQuery = searchParams.get("orderId") ?? "";
-
-  const [orderId, setOrderId] = useState<string>(orderIdFromQuery);
+  const [orderId, setOrderId] = useState(orderIdFromQuery);
   const [draft, setDraft] = useState<GuestBillPaymentDraftDetail | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedFriendId, setSelectedFriendId] = useState<string>(() => loadFriendSelection()?.id ?? savedFriends[0].id);
-  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [relationship, setRelationship] = useState(relationshipOptions[0]);
 
   useEffect(() => {
     if (orderId) {
@@ -130,27 +106,18 @@ export const SelectFriend = () => {
     return [draft.serviceName, draft.accountHolderName, ...entries.slice(0, 2), amountLabel].filter(Boolean) as string[];
   }, [amountLabel, draft]);
 
-  const filteredFriends = useMemo(() => {
-    if (!searchTerm) {
-      return savedFriends;
-    }
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-    const normalized = searchTerm.toLowerCase();
-    return savedFriends.filter((friend) => {
-      return (
-        friend.firstName.toLowerCase().includes(normalized) ||
-        friend.lastName.toLowerCase().includes(normalized) ||
-        friend.email.toLowerCase().includes(normalized)
-      );
-    });
-  }, [searchTerm]);
+    const friend: FriendProfile = {
+      id: `friend_${Date.now()}`,
+      firstName,
+      lastName,
+      email,
+      relationship
+    };
 
-  const selectedFriend = useMemo(() => {
-    return savedFriends.find((friend) => friend.id === selectedFriendId) ?? savedFriends[0];
-  }, [selectedFriendId]);
-
-  const handleContinue = () => {
-    saveFriendSelection(selectedFriend);
+    saveFriendSelection(friend);
     const params = new URLSearchParams({ orderId });
     navigate(`/payments/friend-message?${params.toString()}`);
   };
@@ -215,91 +182,90 @@ export const SelectFriend = () => {
             <div className="wrapper-content">
               <div className="row justify-content-center mb-md-2">
                 <div className="col-md-11 col-xl-10 col-xxl-8">
-                  <Link className="back-left-arrow" to="/payments/selection">
+                  <Link className="back-left-arrow" to={`/payments/select-friend?orderId=${encodeURIComponent(orderId)}`}>
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M-7.69392e-05 8.00008L8 0L9.60002 1.60002L3.19995 8.00008L9.60002 14.4001L8 16.0002L-7.69392e-05 8.00008Z" fill="currentColor" />
                     </svg>{" "}
-                    Back to Select payment method
+                    Back to friend selection
                   </Link>
                   <h3 className="alt mt-4 mb-3 pt-lg-3">Request help with payment</h3>
-                  <p>Please select the friend or family member that will be helping to pay this bill.</p>
+                  <p>Please enter the details of the friend or family member that will be helping to pay this bill.</p>
                   {errorMessage && <div className="alert alert-warning mt-3">{errorMessage}</div>}
                   {isLoading && <div className="alert alert-info mt-3">Loading your order summary...</div>}
-                  <div className="d-sm-flex align-items-end justify-content-between">
-                    <div className="d-flex align-items-center mb-4">
-                      <h4 className="mb-0 me-2">My friends</h4>
-                      <Link className="text-underline small ms-2" to="#">
-                        Manage
-                      </Link>
-                    </div>
-                    <Link className="btn btn-secondary btn-md mb-4" to={`/payments/friend-details?orderId=${encodeURIComponent(orderId)}`}>
-                      ADD NEW FRIEND
-                    </Link>
-                  </div>
                   <div className="form-tbox">
-                    <div className="mb-3">
-                      <div className="input-group search-box">
-                        <span className="input-group-text">
-                          <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M10.1499 10.1484L24.0015 24.002" stroke="#B4BFC3" strokeWidth="2" />
-                            <path d="M10 20C15.5228 20 20 15.5228 20 10C20 4.47715 15.5228 0 10 0C4.47715 0 0 4.47715 0 10C0 15.5228 4.47715 20 10 20Z" fill="white" />
-                            <path d="M10 19C14.9706 19 19 14.9706 19 10C19 5.02944 14.9706 1 10 1C5.02944 1 1 5.02944 1 10C1 14.9706 5.02944 19 10 19Z" stroke="#B4BFC3" strokeWidth="2" />
-                          </svg>
-                        </span>
-                        <input
-                          className="form-control"
-                          placeholder="Search friends"
-                          value={searchTerm}
-                          onChange={(event) => setSearchTerm(event.target.value)}
-                        />
+                    <form onSubmit={handleSubmit}>
+                      <div className="row">
+                        <div className="col-md-6 form-group">
+                          <label htmlFor="friend-first-name">
+                            Friend first name<em>*</em>
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            id="friend-first-name"
+                            placeholder="Enter your friend first name"
+                            value={firstName}
+                            onChange={(event) => setFirstName(event.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="col-md-6 form-group">
+                          <label htmlFor="friend-last-name">
+                            Friend last name<em>*</em>
+                          </label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            id="friend-last-name"
+                            placeholder="Enter your friend last name"
+                            value={lastName}
+                            onChange={(event) => setLastName(event.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="col-md-6 form-group">
+                          <label htmlFor="friend-email">
+                            Friend email<em>*</em>
+                          </label>
+                          <input
+                            type="email"
+                            className="form-control"
+                            id="friend-email"
+                            placeholder="Enter your friend email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="col-md-6 form-group">
+                          <label htmlFor="relationship">Relationship</label>
+                          <select
+                            id="relationship"
+                            className="form-control select-box"
+                            value={relationship}
+                            onChange={(event) => setRelationship(event.target.value)}
+                          >
+                            {relationshipOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                    </div>
-                    <div className="table-responsive mb-4">
-                      <table className="table table-card">
-                        <thead>
-                          <tr>
-                            <th className="col pe-4 py-2">NAME</th>
-                            <th className="col py-2">EMAIL</th>
-                            <th className="col py-2">RELATIONSHIP</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredFriends.map((friend) => {
-                            const isSelected = friend.id === selectedFriendId;
-                            return (
-                              <tr key={friend.id} className={isSelected ? "table-active" : undefined}>
-                                <td>
-                                  <label className="d-flex align-items-center gap-2 mb-0">
-                                    <input
-                                      type="radio"
-                                      name="friend"
-                                      checked={isSelected}
-                                      onChange={() => setSelectedFriendId(friend.id)}
-                                    />
-                                    <div>
-                                      <strong className="heading-td">
-                                        {friend.firstName} {friend.lastName}
-                                      </strong>
-                                    </div>
-                                  </label>
-                                </td>
-                                <td>
-                                  <span className="info-td">{friend.email}</span>
-                                </td>
-                                <td>
-                                  <span className="info-td">{friend.relationship ?? "Friend"}</span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="d-flex justify-content-end">
-                      <button className="btn btn-primary btn-md" type="button" onClick={handleContinue} disabled={!orderId}>
-                        CONTINUE
-                      </button>
-                    </div>
+                      <div className="row align-items-end pt-3">
+                        <div className="col">
+                          <Link className="text-underline small" to={`/payments/select-friend?orderId=${encodeURIComponent(orderId)}`}>
+                            Cancel
+                          </Link>
+                        </div>
+                        <div className="col-auto">
+                          <button className="btn btn-primary btn-md" type="submit" disabled={!orderId}>
+                            CONTINUE
+                          </button>
+                        </div>
+                      </div>
+                    </form>
                   </div>
                 </div>
               </div>
