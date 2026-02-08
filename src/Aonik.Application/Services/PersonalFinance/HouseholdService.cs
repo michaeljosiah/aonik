@@ -195,7 +195,7 @@ public class HouseholdService : IHouseholdService
 
         if (profile == null)
         {
-            return;
+            throw new InvalidOperationException("Personal profile is required to manage household membership.");
         }
 
         if (profile.HouseholdId.HasValue && profile.HouseholdId.Value != householdId)
