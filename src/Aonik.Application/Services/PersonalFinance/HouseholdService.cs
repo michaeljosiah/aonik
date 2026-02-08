@@ -50,6 +50,8 @@ public class HouseholdService : IHouseholdService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        await EnsurePersonalProfileAsync(userId, tenantId, cancellationToken);
+
         var alreadyMember = await _dbContext.HouseholdMembers
             .AnyAsync(member => member.UserId == userId, cancellationToken);
 
@@ -136,6 +138,8 @@ public class HouseholdService : IHouseholdService
             throw new InvalidOperationException("Only household members can invite others.");
         }
 
+        await EnsurePersonalProfileAsync(request.UserId, tenantId, cancellationToken);
+
         var userExists = await _dbContext.Users
             .AnyAsync(user => user.Id == request.UserId && user.TenantId == tenantId, cancellationToken);
 
@@ -204,6 +208,20 @@ public class HouseholdService : IHouseholdService
         }
 
         profile.HouseholdId = householdId;
+    }
+
+    private async Task EnsurePersonalProfileAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var profileExists = await _dbContext.PersonalProfiles
+            .AnyAsync(item => item.UserId == userId && item.TenantId == tenantId, cancellationToken);
+
+        if (!profileExists)
+        {
+            throw new InvalidOperationException("Personal profile is required to manage household membership.");
+        }
     }
 
     private static IReadOnlyList<string> NormalizePermissions(IReadOnlyList<string>? permissions)
