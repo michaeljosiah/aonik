@@ -37,12 +37,13 @@ export const SelectFriend = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const orderIdFromQuery = searchParams.get("orderId") ?? "";
+  const storedSelection = useMemo(() => loadFriendSelection(), []);
 
   const [orderId, setOrderId] = useState<string>(orderIdFromQuery);
   const [draft, setDraft] = useState<GuestBillPaymentDraftDetail | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedFriendId, setSelectedFriendId] = useState<string>(() => loadFriendSelection()?.id ?? savedFriends[0].id);
+  const [selectedFriendId, setSelectedFriendId] = useState<string>(() => storedSelection?.id ?? savedFriends[0].id);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   useEffect(() => {
@@ -130,24 +131,32 @@ export const SelectFriend = () => {
     return [draft.serviceName, draft.accountHolderName, ...entries.slice(0, 2), amountLabel].filter(Boolean) as string[];
   }, [amountLabel, draft]);
 
-  const filteredFriends = useMemo(() => {
-    if (!searchTerm) {
+  const availableFriends = useMemo(() => {
+    if (!storedSelection || savedFriends.some((friend) => friend.id === storedSelection.id)) {
       return savedFriends;
     }
 
+    return [storedSelection, ...savedFriends];
+  }, [storedSelection]);
+
+  const filteredFriends = useMemo(() => {
+    if (!searchTerm) {
+      return availableFriends;
+    }
+
     const normalized = searchTerm.toLowerCase();
-    return savedFriends.filter((friend) => {
+    return availableFriends.filter((friend) => {
       return (
         friend.firstName.toLowerCase().includes(normalized) ||
         friend.lastName.toLowerCase().includes(normalized) ||
         friend.email.toLowerCase().includes(normalized)
       );
     });
-  }, [searchTerm]);
+  }, [availableFriends, searchTerm]);
 
   const selectedFriend = useMemo(() => {
-    return savedFriends.find((friend) => friend.id === selectedFriendId) ?? savedFriends[0];
-  }, [selectedFriendId]);
+    return availableFriends.find((friend) => friend.id === selectedFriendId) ?? availableFriends[0];
+  }, [availableFriends, selectedFriendId]);
 
   const handleContinue = () => {
     saveFriendSelection(selectedFriend);
