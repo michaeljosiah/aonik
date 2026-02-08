@@ -16,6 +16,7 @@ using Aonik.Application.Services.Settings;
 using Aonik.Application.Services.Parties;
 using Aonik.Application.Services.Customers;
 using Aonik.Application.Services.Partners;
+using Aonik.Application.Services.PersonalFinance;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Application;
@@ -55,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<IPricingPolicyService, PricingPolicyService>();
         services.AddScoped<IFxRateService, FxRateService>();
         services.AddScoped<IFxQuoteService, FxQuoteService>();
+        services.AddScoped<IHouseholdService, HouseholdService>();
         services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
         services.AddScoped<IComplianceService, ComplianceService>();
         services.AddSingleton<IPaymentProviderGateway, StripeSimulatedPaymentProviderGateway>();
