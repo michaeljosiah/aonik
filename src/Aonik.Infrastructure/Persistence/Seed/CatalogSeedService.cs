@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Catalog.Entities;
+using Aonik.Domain.Party;
 using Aonik.Domain.ReferenceData.Entities;
 
 namespace Aonik.Infrastructure.Persistence.Seed;
@@ -467,90 +468,17 @@ public class CatalogSeedService
 
     private async Task SeedRelationshipTypesAsync(CancellationToken cancellationToken)
     {
-        var types = new List<ReferenceDataItem>
-        {
-            new()
+        var types = PartyRelationshipTypes.All
+            .Select(type => new ReferenceDataItem
             {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"),
+                Id = Guid.Parse(RelationshipTypeId(type.SortOrder)),
                 Type = "RelationshipType",
-                Code = "Self",
-                DisplayName = "Self",
-                SortOrder = 1,
+                Code = type.Code,
+                DisplayName = type.DisplayName,
+                SortOrder = type.SortOrder,
                 IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000002"),
-                Type = "RelationshipType",
-                Code = "Mother",
-                DisplayName = "Mother",
-                SortOrder = 2,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000003"),
-                Type = "RelationshipType",
-                Code = "Father",
-                DisplayName = "Father",
-                SortOrder = 3,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000004"),
-                Type = "RelationshipType",
-                Code = "Spouse",
-                DisplayName = "Spouse",
-                SortOrder = 4,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000005"),
-                Type = "RelationshipType",
-                Code = "Sibling",
-                DisplayName = "Sibling",
-                SortOrder = 5,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000006"),
-                Type = "RelationshipType",
-                Code = "Child",
-                DisplayName = "Child",
-                SortOrder = 6,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000007"),
-                Type = "RelationshipType",
-                Code = "Friend",
-                DisplayName = "Friend",
-                SortOrder = 7,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000008"),
-                Type = "RelationshipType",
-                Code = "Business",
-                DisplayName = "Business",
-                SortOrder = 8,
-                IsActive = true
-            },
-            new()
-            {
-                Id = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000009"),
-                Type = "RelationshipType",
-                Code = "Other",
-                DisplayName = "Other",
-                SortOrder = 9,
-                IsActive = true
-            }
-        };
+            })
+            .ToList();
 
         await SeedReferenceDataAsync(types, "RelationshipType", cancellationToken);
     }
@@ -659,5 +587,10 @@ public class CatalogSeedService
             SortOrder = sortOrder,
             IsActive = true
         };
+    }
+
+    private static string RelationshipTypeId(int sortOrder)
+    {
+        return $"aaaaaaaa-0000-0000-0000-{sortOrder:000000000000}";
     }
 }

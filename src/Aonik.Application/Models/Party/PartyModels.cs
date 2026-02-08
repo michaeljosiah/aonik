@@ -21,6 +21,17 @@ public record CreatePartyRelationshipRequest(
     string RelationshipTypeCode,
     string? Notes);
 
+public record CreateRelatedPartyRequest(
+    Guid CustomerPartyId,
+    string RelationshipTypeCode,
+    string DisplayName,
+    string? FirstName,
+    string? LastName,
+    string? Phone,
+    string? Email,
+    string? CountryCode,
+    string? Notes);
+
 public record PartyRelationshipResponse(
     Guid RelationshipId,
     Guid FromPartyId,
@@ -30,3 +41,7 @@ public record PartyRelationshipResponse(
     string RelationshipTypeCode,
     string RelationshipTypeName,
     bool IsActive);
+
+public record RelatedPartyResponse(
+    PartyResponse Party,
+    PartyRelationshipResponse Relationship);

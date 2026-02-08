@@ -26,6 +26,7 @@ All notable changes to the AONIK project will be documented in this file.
   - Updated CustomWebApplicationFactory to explicitly use InMemory for tests
 
 ### Added
+- **Party Relationships**: Added relationship type catalog constants and a party endpoint to create an individual related party (e.g., friend) linked to an existing customer.
 - **Autonumbering**: Added autonumbering profiles, reservations, and service models with tests for sequencing and reset behavior.
 - **Autonumbering**: Added documentation covering performance considerations and reservation table usage guidance.
 - **Documentation**: Added a flexible document and file model proposal for multi-purpose evidence and verification workflows.
