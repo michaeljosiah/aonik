@@ -186,6 +186,7 @@ public class AonikDbContext : DbContext, IAonikDbContext
     public virtual DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
     public virtual DbSet<Household> Households { get; set; } = null!;
     public virtual DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
+    public virtual DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public virtual DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
     public virtual DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
     public virtual DbSet<BudgetLine> BudgetLines { get; set; } = null!;

@@ -6,6 +6,7 @@ public class PersonalTransaction : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
+    public Guid? PersonalAccountId { get; set; }
     public string SourceType { get; set; } = string.Empty;
     public Guid SourceId { get; set; }
     public DateTime OccurredAt { get; set; }
