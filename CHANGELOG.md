@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Payabo Web**: Prioritized query-level cancellation (`result=cancelled`) as failed in status reconciliation so immediate cancel returns do not show as pending while provider intent remains pending.
 - **Payabo Web**: Updated payment status reconciliation to prioritize backend payment/order failure states over query params so failed/cancelled intents never render as success.
 - **Payabo Payments**: Fixed Stripe simulated checkout URL generation to append provider query parameters with `&` when return URLs already include query strings (prevents malformed `result` values on cancel redirects).
 - **API Tests**: Fixed test database isolation issue

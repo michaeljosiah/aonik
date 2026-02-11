@@ -120,16 +120,16 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
     const backendPaymentStatus = mapBackendStatusToUiStatus(paymentStatus?.status);
     const backendOrderStatus = mapBackendStatusToUiStatus(paymentStatus?.orderStatus);
 
+    if (queryResultStatus === "failed") {
+      return "failed";
+    }
+
     if (backendPaymentStatus === "failed" || backendOrderStatus === "failed") {
       return "failed";
     }
 
     if (backendPaymentStatus === "pending" || backendOrderStatus === "pending") {
       return "pending";
-    }
-
-    if (queryResultStatus === "failed") {
-      return "failed";
     }
 
     if (queryResultStatus === "pending") {
