@@ -12,9 +12,7 @@ public class StripeSimulatedPaymentProviderGateway : IPaymentProviderGateway
         var providerReference = $"pi_{suffix}";
         var clientSecret = $"{providerReference}_secret_{Guid.NewGuid():N}";
 
-        var checkoutUrl = request.ReturnUrl == null
-            ? null
-            : $"{request.ReturnUrl}?provider=stripe&payment_intent={providerReference}";
+        var checkoutUrl = BuildCheckoutUrl(request.ReturnUrl, providerReference);
 
         var result = new PaymentProviderIntentResult(
             ProviderCode,
@@ -24,5 +22,16 @@ public class StripeSimulatedPaymentProviderGateway : IPaymentProviderGateway
             checkoutUrl);
 
         return Task.FromResult(result);
+    }
+
+    private static string? BuildCheckoutUrl(string? returnUrl, string providerReference)
+    {
+        if (string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return null;
+        }
+
+        var separator = returnUrl.Contains('?', StringComparison.Ordinal) ? '&' : '?';
+        return $"{returnUrl}{separator}provider=stripe&payment_intent={providerReference}";
     }
 }

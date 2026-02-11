@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Payabo Payments**: Fixed Stripe simulated checkout URL generation to append provider query parameters with `&` when return URLs already include query strings (prevents malformed `result` values on cancel redirects).
 - **API Tests**: Fixed test database isolation issue
   - Each `CustomWebApplicationFactory` instance now uses a consistent database name across all requests
   - Previously, each DbContext registration created a new unique database, causing resources created in one request to be invisible in subsequent requests
