@@ -21,6 +21,34 @@ const normalizeResult = (value: string | null): UiStatus => {
   return "success";
 };
 
+const mapBackendStatusToUiStatus = (status: string | null | undefined): UiStatus | null => {
+  if (!status) {
+    return null;
+  }
+
+  const normalizedStatus = status.trim().toLowerCase();
+
+  if (normalizedStatus === "pending" || normalizedStatus === "processing" || normalizedStatus === "authorized") {
+    return "pending";
+  }
+
+  if (
+    normalizedStatus === "failed" ||
+    normalizedStatus === "cancelled" ||
+    normalizedStatus === "canceled" ||
+    normalizedStatus === "declined" ||
+    normalizedStatus === "expired"
+  ) {
+    return "failed";
+  }
+
+  if (normalizedStatus === "captured" || normalizedStatus === "completed" || normalizedStatus === "succeeded" || normalizedStatus === "paid") {
+    return "success";
+  }
+
+  return null;
+};
+
 type StatusPaymentSentProps = {
   forcedResult?: UiStatus;
 };
@@ -31,7 +59,8 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
 
   const orderId = searchParams.get("orderId") ?? savedAttempt?.orderId ?? "";
   const paymentIntentId = searchParams.get("paymentIntentId") ?? savedAttempt?.paymentIntentId ?? "";
-  const providerReference = searchParams.get("providerReference") ?? searchParams.get("payment_intent") ?? savedAttempt?.providerReference ?? "";
+  const providerReference =
+    searchParams.get("providerReference") ?? searchParams.get("payment_intent") ?? savedAttempt?.providerReference ?? "";
 
   const [paymentStatus, setPaymentStatus] = useState<PublicPaymentIntentStatus | null>(null);
   const [draft, setDraft] = useState<GuestBillPaymentDraftDetail | null>(null);
@@ -86,26 +115,42 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
   }, [orderId, paymentIntentId, providerReference]);
 
   const uiStatus = useMemo<UiStatus>(() => {
-    const resultStatus = forcedResult ?? normalizeResult(searchParams.get("result"));
+    const queryResultStatus = forcedResult ?? normalizeResult(searchParams.get("result"));
 
-    if (resultStatus === "failed") {
+    const backendPaymentStatus = mapBackendStatusToUiStatus(paymentStatus?.status);
+    const backendOrderStatus = mapBackendStatusToUiStatus(paymentStatus?.orderStatus);
+
+    if (backendPaymentStatus === "failed" || backendOrderStatus === "failed") {
       return "failed";
     }
 
-    if (paymentStatus?.status.toLowerCase() === "pending") {
+    if (backendPaymentStatus === "pending" || backendOrderStatus === "pending") {
       return "pending";
     }
 
-    return "success";
-  }, [forcedResult, paymentStatus?.status, searchParams]);
+    if (queryResultStatus === "failed") {
+      return "failed";
+    }
+
+    if (queryResultStatus === "pending") {
+      return "pending";
+    }
+
+    if (backendPaymentStatus === "success" || backendOrderStatus === "success") {
+      return "success";
+    }
+
+    return queryResultStatus;
+  }, [forcedResult, paymentStatus?.orderStatus, paymentStatus?.status, searchParams]);
 
   const title = uiStatus === "success" ? "Payment submitted" : uiStatus === "pending" ? "Payment pending" : "Payment failed";
 
-  const subtitle = uiStatus === "success"
-    ? "Your payment has been submitted and is being processed."
-    : uiStatus === "pending"
-      ? "We received your request and are still waiting for provider confirmation."
-      : "Your payment could not be completed. You can retry from payment selection.";
+  const subtitle =
+    uiStatus === "success"
+      ? "Your payment has been submitted and is being processed."
+      : uiStatus === "pending"
+        ? "We received your request and are still waiting for provider confirmation."
+        : "Your payment could not be completed. You can retry from payment selection.";
 
   return (
     <main className="main-wrapper overflow-hidden">
@@ -121,11 +166,21 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
           <div className="card card-tbox mb-3">
             <div className="card-body">
               <h5 className="mb-3">Payment reference</h5>
-              <p className="mb-1"><strong>Order ID:</strong> {paymentStatus.orderId}</p>
-              <p className="mb-1"><strong>Payment Intent ID:</strong> {paymentStatus.paymentIntentId}</p>
-              <p className="mb-1"><strong>Provider Reference:</strong> {paymentStatus.providerReference}</p>
-              <p className="mb-1"><strong>Payment Status:</strong> {paymentStatus.status}</p>
-              <p className="mb-0"><strong>Order Status:</strong> {paymentStatus.orderStatus}</p>
+              <p className="mb-1">
+                <strong>Order ID:</strong> {paymentStatus.orderId}
+              </p>
+              <p className="mb-1">
+                <strong>Payment Intent ID:</strong> {paymentStatus.paymentIntentId}
+              </p>
+              <p className="mb-1">
+                <strong>Provider Reference:</strong> {paymentStatus.providerReference}
+              </p>
+              <p className="mb-1">
+                <strong>Payment Status:</strong> {paymentStatus.status}
+              </p>
+              <p className="mb-0">
+                <strong>Order Status:</strong> {paymentStatus.orderStatus}
+              </p>
             </div>
           </div>
         )}
@@ -134,16 +189,26 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
           <div className="card card-tbox mb-4">
             <div className="card-body">
               <h5 className="mb-3">Service details</h5>
-              <p className="mb-1"><strong>Biller:</strong> {draft.billerName ?? "Selected provider"}</p>
-              <p className="mb-1"><strong>Service:</strong> {draft.serviceName}</p>
-              <p className="mb-0"><strong>Amount:</strong> {draft.requestedAmount ?? "Not set"} {draft.currency}</p>
+              <p className="mb-1">
+                <strong>Biller:</strong> {draft.billerName ?? "Selected provider"}
+              </p>
+              <p className="mb-1">
+                <strong>Service:</strong> {draft.serviceName}
+              </p>
+              <p className="mb-0">
+                <strong>Amount:</strong> {draft.requestedAmount ?? "Not set"} {draft.currency}
+              </p>
             </div>
           </div>
         )}
 
         <div className="d-flex gap-3">
-          <Link className="btn btn-primary" to="/dashboard">Go to dashboard</Link>
-          <Link className="btn btn-secondary" to="/payments/selection">Pay another bill</Link>
+          <Link className="btn btn-primary" to="/dashboard">
+            Go to dashboard
+          </Link>
+          <Link className="btn btn-secondary" to="/payments/selection">
+            Pay another bill
+          </Link>
         </div>
       </div>
     </main>
