@@ -18,3 +18,19 @@ public record GuestPaymentIntentResponse(
     string? ClientSecret,
     string? CheckoutUrl,
     DateTime CreatedAt);
+
+
+public record GetGuestPaymentIntentStatusRequest(
+    Guid OrderId,
+    Guid? PaymentIntentId,
+    string? ProviderReference);
+
+public record GuestPaymentIntentStatusResponse(
+    Guid PaymentIntentId,
+    Guid OrderId,
+    decimal Amount,
+    string Currency,
+    string Status,
+    string ProviderReference,
+    DateTime CreatedAt,
+    string OrderStatus);

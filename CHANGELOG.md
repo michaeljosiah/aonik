@@ -26,6 +26,8 @@ All notable changes to the AONIK project will be documented in this file.
   - Updated CustomWebApplicationFactory to explicitly use InMemory for tests
 
 ### Added
+- **Payabo Web**: Implemented phase 1 payment status flow with provider return handling, public payment intent status lookup endpoint, and live status/confirmation screens backed by order and payment state.
+- **Documentation**: Added `docs/Payabo-MVP-Next-Steps.md` with a prioritized implementation plan to move Payabo from prototype state to a working MVP.
 - **Personal Finance**: Added household creation and member invitation endpoints with service support.
 - **Party Relationships**: Added relationship type catalog constants and a party endpoint to create an individual related party (e.g., friend) linked to an existing customer.
 - **Autonumbering**: Added autonumbering profiles, reservations, and service models with tests for sequencing and reset behavior.

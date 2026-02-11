@@ -21,3 +21,14 @@ public record PublicPaymentIntentResponse(
     string? ClientSecret,
     string? CheckoutUrl,
     DateTime CreatedAt);
+
+
+public record PublicPaymentIntentStatusResponse(
+    Guid PaymentIntentId,
+    Guid OrderId,
+    decimal Amount,
+    string Currency,
+    string Status,
+    string ProviderReference,
+    DateTime CreatedAt,
+    string OrderStatus);

@@ -105,6 +105,59 @@ public class PublicPaymentService : IPublicPaymentService
             paymentIntent.CreatedAt);
     }
 
+
+
+    public async Task<GuestPaymentIntentStatusResponse?> GetGuestPaymentIntentStatusAsync(
+        GetGuestPaymentIntentStatusRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.PaymentIntentId == null && string.IsNullOrWhiteSpace(request.ProviderReference))
+        {
+            throw new InvalidOperationException("Either paymentIntentId or providerReference is required.");
+        }
+
+        var order = await _dbContext.Orders
+            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId, cancellationToken);
+
+        if (order == null)
+        {
+            return null;
+        }
+
+        var query = _dbContext.PaymentIntents
+            .Where(entity => entity.OrderId == request.OrderId);
+
+        if (request.PaymentIntentId != null)
+        {
+            query = query.Where(entity => entity.Id == request.PaymentIntentId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ProviderReference))
+        {
+            var normalizedProviderReference = request.ProviderReference.Trim();
+            query = query.Where(entity => entity.PaymentMethodRef == normalizedProviderReference);
+        }
+
+        var paymentIntent = await query
+            .OrderByDescending(entity => entity.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (paymentIntent == null)
+        {
+            return null;
+        }
+
+        return new GuestPaymentIntentStatusResponse(
+            paymentIntent.Id,
+            paymentIntent.OrderId,
+            paymentIntent.Amount,
+            paymentIntent.Currency,
+            paymentIntent.Status,
+            paymentIntent.PaymentMethodRef ?? string.Empty,
+            paymentIntent.CreatedAt,
+            order.Status);
+    }
+
     private IPaymentProviderGateway ResolveProvider(string provider)
     {
         var normalized = provider.Trim();
