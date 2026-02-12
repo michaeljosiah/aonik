@@ -50,7 +50,53 @@ const isAuthFailure = (error: unknown): boolean => {
   }
 
   const status = (error as { status?: unknown }).status;
-  return status === 401 || status === 403;
+  return status === 401;
+};
+
+const decodeBase64Url = (value: string): string | null => {
+  try {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return atob(padded);
+  } catch {
+    return null;
+  }
+};
+
+const resolveUserFromAccessToken = (accessToken: string): AuthUser | null => {
+  const segments = accessToken.split(".");
+  if (segments.length < 2) {
+    return null;
+  }
+
+  const payloadJson = decodeBase64Url(segments[1]);
+  if (!payloadJson) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const subject = typeof payload.sub === "string" ? payload.sub : null;
+    const email = typeof payload.email === "string" ? payload.email : null;
+
+    if (!subject || !email) {
+      return null;
+    }
+
+    const firstName = typeof payload.given_name === "string" ? payload.given_name : "";
+    const lastName = typeof payload.family_name === "string" ? payload.family_name : "";
+    const fullNameFromClaims = [firstName, lastName].join(" ").replace(/\s+/g, " ").trim();
+    const fullName =
+      fullNameFromClaims || (typeof payload.name === "string" && payload.name.trim() ? payload.name.trim() : "Payabo User");
+
+    return {
+      id: subject,
+      email,
+      fullName
+    };
+  } catch {
+    return null;
+  }
 };
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
@@ -101,6 +147,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           return;
         }
 
+        const fallbackUser = resolveUserFromAccessToken(accessToken);
+        if (fallbackUser) {
+          setUser(fallbackUser);
+          writeStoredAuthUser(fallbackUser);
+          setIsLoading(false);
+          return;
+        }
+
         if (bootstrapRetryCount < 3) {
           const delayMs = (bootstrapRetryCount + 1) * 1500;
           retryTimer = window.setTimeout(() => {
@@ -146,6 +200,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           clearAccessToken();
           clearStoredAuthUser();
           setUser(null);
+          throw error;
+        }
+
+        const fallbackUser = resolveUserFromAccessToken(token.accessToken);
+        if (fallbackUser) {
+          setUser(fallbackUser);
+          writeStoredAuthUser(fallbackUser);
+          return;
         }
 
         throw error;
