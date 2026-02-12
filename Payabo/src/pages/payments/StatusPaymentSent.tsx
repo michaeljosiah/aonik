@@ -158,7 +158,7 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
 
     const timer = window.setTimeout(() => setRefreshTick((value) => value + 1), 5000);
     return () => window.clearTimeout(timer);
-  }, [uiStatus]);
+  }, [refreshTick, uiStatus]);
 
   useEffect(() => {
     if (!user?.id || !paymentStatus) {
