@@ -1,5 +1,5 @@
-import { PAYABO_TENANT_ID } from "../config/tenant";
 import { readAccessToken } from "../app/auth/authStorage";
+import { PAYABO_TENANT_ID } from "../config/tenant";
 
 const rawBaseUrl = import.meta.env.VITE_AONIK_API_BASE_URL ?? "https://localhost:5001";
 const apiBaseUrl = rawBaseUrl.replace(/\/+$/, "");
@@ -13,10 +13,14 @@ const buildUrl = (path: string) => {
   return `${apiBaseUrl}${normalized}`;
 };
 
-const buildHeaders = (headers?: HeadersInit) => {
+const buildHeaders = (headers?: HeadersInit, contentType?: "json" | "multipart") => {
   const resolved = new Headers(headers);
   resolved.set("Accept", "application/json");
   resolved.set("X-Tenant-Id", PAYABO_TENANT_ID);
+
+  if (contentType === "json") {
+    resolved.set("Content-Type", "application/json");
+  }
 
   const accessToken = readAccessToken();
   if (accessToken) {
@@ -26,10 +30,10 @@ const buildHeaders = (headers?: HeadersInit) => {
   return resolved;
 };
 
-const apiRequest = async <T>(path: string, init: RequestInit): Promise<T> => {
+const apiRequest = async <T>(path: string, init: RequestInit, contentType?: "json" | "multipart"): Promise<T> => {
   const response = await fetch(buildUrl(path), {
     ...init,
-    headers: buildHeaders(init.headers)
+    headers: buildHeaders(init.headers, contentType)
   });
 
   if (!response.ok) {
@@ -51,6 +55,10 @@ const apiRequest = async <T>(path: string, init: RequestInit): Promise<T> => {
     throw error;
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return (await response.json()) as T;
 };
 
@@ -65,10 +73,29 @@ export const apiPost = async <T>(path: string, body: unknown, init?: RequestInit
   return apiRequest<T>(path, {
     ...init,
     method: "POST",
-    body: JSON.stringify(body),
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers
-    }
+    body: JSON.stringify(body)
+  }, "json");
+};
+
+export const apiPut = async <T>(path: string, body: unknown, init?: RequestInit): Promise<T> => {
+  return apiRequest<T>(path, {
+    ...init,
+    method: "PUT",
+    body: JSON.stringify(body)
+  }, "json");
+};
+
+export const apiDelete = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  return apiRequest<T>(path, {
+    ...init,
+    method: "DELETE"
   });
+};
+
+export const apiPostForm = async <T>(path: string, formData: FormData, init?: RequestInit): Promise<T> => {
+  return apiRequest<T>(path, {
+    ...init,
+    method: "POST",
+    body: formData
+  }, "multipart");
 };

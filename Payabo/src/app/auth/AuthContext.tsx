@@ -1,7 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
-import { loginWithPassword } from "../../api/auth";
-import { writeAccessToken } from "./authStorage";
+import { getUserInfo, loginWithPassword, registerIndividual } from "../../api/auth";
+import {
+  clearAccessToken,
+  clearStoredAuthUser,
+  readAccessToken,
+  readStoredAuthUser,
+  writeAccessToken,
+  writeStoredAuthUser
+} from "./authStorage";
 
 type AuthUser = {
   id: string;
@@ -9,83 +16,112 @@ type AuthUser = {
   email: string;
 };
 
+type RegisterPayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  registrationCountry?: string;
+};
+
 type AuthContextValue = {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: AuthUser | null;
-  login: (email: string, password: string, fullName?: string) => Promise<void>;
-  register: (fullName: string, email: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const authStorageKey = "payabo.mockAuth";
-const useRealAuth = import.meta.env.VITE_PAYABO_USE_REAL_AUTH === "true";
-
-const readAuthFromStorage = (): AuthUser | null => {
-  try {
-    const raw = window.localStorage.getItem(authStorageKey);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return null;
-    const user = parsed as Partial<AuthUser>;
-    if (!user.id || !user.email || !user.fullName) return null;
-    return { id: user.id, email: user.email, fullName: user.fullName };
-  } catch {
-    return null;
-  }
+const buildFullName = (firstName?: string | null, lastName?: string | null) => {
+  const composed = [firstName ?? "", lastName ?? ""].join(" ").replace(/\s+/g, " ").trim();
+  return composed || "Payabo User";
 };
-
-const writeAuthToStorage = (user: AuthUser | null) => {
-  try {
-    if (!user) {
-      window.localStorage.removeItem(authStorageKey);
-      return;
-    }
-
-    window.localStorage.setItem(authStorageKey, JSON.stringify(user));
-  } catch {
-    // ignore
-  }
-};
-
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
-    if (typeof window === "undefined") return null;
-    return readAuthFromStorage();
+    const stored = readStoredAuthUser();
+    return stored
+      ? {
+          id: stored.id,
+          email: stored.email,
+          fullName: stored.fullName
+        }
+      : null;
   });
-  const [isLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    writeAuthToStorage(user);
-  }, [user]);
+    let cancelled = false;
 
-  const value = useMemo<AuthContextValue>(() => {
-    const login = async (email: string, password: string, fullName?: string) => {
-      if (useRealAuth) {
-        const token = await loginWithPassword({ email, password });
-        writeAccessToken(token.accessToken);
+    const bootstrap = async () => {
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        setIsLoading(false);
+        return;
       }
 
-      setUser({
-        id: crypto.randomUUID(),
-        email,
-        fullName: fullName?.trim() ? fullName.trim() : "Payabo User"
-      });
+      try {
+        const info = await getUserInfo();
+        if (cancelled) {
+          return;
+        }
+
+        const resolvedUser = {
+          id: info.userId,
+          email: info.email,
+          fullName: buildFullName(info.firstName, info.lastName)
+        };
+
+        setUser(resolvedUser);
+        writeStoredAuthUser(resolvedUser);
+      } catch {
+        if (!cancelled) {
+          clearAccessToken();
+          clearStoredAuthUser();
+          setUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    const register = async (fullName: string, email: string) => {
-      setUser({
-        id: crypto.randomUUID(),
-        email,
-        fullName: fullName.trim() || "Payabo User"
-      });
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const value = useMemo<AuthContextValue>(() => {
+    const login = async (email: string, password: string) => {
+      const token = await loginWithPassword({ email, password });
+      writeAccessToken(token.accessToken);
+
+      const info = await getUserInfo();
+      const resolvedUser = {
+        id: info.userId,
+        email: info.email,
+        fullName: buildFullName(info.firstName, info.lastName)
+      };
+
+      setUser(resolvedUser);
+      writeStoredAuthUser(resolvedUser);
+    };
+
+    const register = async (payload: RegisterPayload) => {
+      await registerIndividual(payload);
+      await login(payload.email, payload.password);
     };
 
     const logout = () => {
-      writeAccessToken(null);
+      clearAccessToken();
+      clearStoredAuthUser();
       setUser(null);
     };
 

@@ -4,6 +4,10 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Payabo Web**: Completed Phase 2 authenticated account integration by switching to backend token + userinfo login bootstrap, adding registration API wiring, and enforcing auth guard loading/session checks.
+- **Payabo Web**: Added live profile management pages for personal details, email updates, password updates, and photo upload/delete backed by customer profile endpoints.
+
 ### Fixed
 - **Payabo Web**: Prevented stale cached `paymentIntentId` reuse on provider-return flows by only reusing cached IDs when callback context matches the saved provider reference.
 - **Payabo Web**: Prioritized query-level cancellation (`result=cancelled`) as failed in status reconciliation so immediate cancel returns do not show as pending while provider intent remains pending.

@@ -40,6 +40,13 @@ import { Dashboard } from "../pages/dashboard/Dashboard";
 import { Transactions } from "../pages/dashboard/Transactions";
 import { TransactionDetails } from "../pages/payments/TransactionDetails";
 import { PersonalDetails } from "../pages/profile/PersonalDetails";
+import { PersonalDetailsEditName } from "../pages/profile/PersonalDetailsEditName";
+import { PersonalDetailsEditCountry } from "../pages/profile/PersonalDetailsEditCountry";
+import { PersonalDetailsPhone } from "../pages/profile/PersonalDetailsPhone";
+import { PersonalDetailsUpdatePhoto } from "../pages/profile/PersonalDetailsUpdatePhoto";
+import { LoginDetails } from "../pages/profile/LoginDetails";
+import { LoginDetailsEmail } from "../pages/profile/LoginDetailsEmail";
+import { LoginDetailsPassword } from "../pages/profile/LoginDetailsPassword";
 
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
 import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
@@ -140,28 +147,28 @@ export const router = createBrowserRouter([
           { path: "/profile/personal", element: <PersonalDetails /> },
           {
             path: "/profile/personal/edit-name",
-            element: <StaticHtmlPage html={profilePersonalDetailsEditNameHtml} selector="main" />
+            element: <PersonalDetailsEditName />
           },
           {
             path: "/profile/personal/edit-country",
-            element: <StaticHtmlPage html={profilePersonalDetailsEditCountryHtml} selector="main" />
+            element: <PersonalDetailsEditCountry />
           },
           {
             path: "/profile/personal/phone",
-            element: <StaticHtmlPage html={profilePersonalDetailsPhoneHtml} selector="main" />
+            element: <PersonalDetailsPhone />
           },
           {
             path: "/profile/personal/photo",
-            element: <StaticHtmlPage html={profilePersonalDetailsUpdatePhotoHtml} selector="main" />
+            element: <PersonalDetailsUpdatePhoto />
           },
-          { path: "/profile/login-details", element: <StaticHtmlPage html={profileLoginDetailsHtml} selector="main" /> },
+          { path: "/profile/login-details", element: <LoginDetails /> },
           {
             path: "/profile/login-details/email",
-            element: <StaticHtmlPage html={profileLoginDetailsEmailHtml} selector="main" />
+            element: <LoginDetailsEmail />
           },
           {
             path: "/profile/login-details/password",
-            element: <StaticHtmlPage html={profileLoginDetailsPasswordHtml} selector="main" />
+            element: <LoginDetailsPassword />
           },
           { path: "/profile/notifications", element: <StaticHtmlPage html={profileNotificationHtml} selector="main" /> },
           { path: "/profile/marketing", element: <StaticHtmlPage html={profileMarketingHtml} selector="main" /> },

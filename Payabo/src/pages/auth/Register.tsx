@@ -114,14 +114,25 @@ export const Register = () => {
 
     try {
       if (activeTab === "personal") {
-        const fullName = `${personalFirstName} ${personalLastName}`.replace(/\s+/g, " ").trim();
-        await register(fullName || "John Doe", personalEmail);
+        await register({
+          firstName: personalFirstName.trim() || "John",
+          lastName: personalLastName.trim() || "Doe",
+          email: personalEmail,
+          phone: personalPhone || undefined,
+          password: personalPassword,
+          registrationCountry: personalCountry || undefined
+        });
         navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
         return;
       }
 
-      const fullName = `${businessFirstName} ${businessLastName}`.replace(/\s+/g, " ").trim();
-      await register(fullName || "John Doe", businessEmail);
+      await register({
+        firstName: businessFirstName.trim() || "John",
+        lastName: businessLastName.trim() || "Doe",
+        email: businessEmail,
+        password: businessPassword,
+        registrationCountry: businessCountry || undefined
+      });
       navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
     } catch {
       setErrorMessage("Unable to register at the moment. Please try again.");
@@ -290,8 +301,8 @@ export const Register = () => {
                     </div>
 
                     <div className="py-4 mb-lg-1">
-                      <button type="submit" className="btn btn-primary w-100">
-                        REGISTER ACCOUNT
+                      <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+                        {isSubmitting ? "CREATING ACCOUNT..." : "REGISTER ACCOUNT"}
                       </button>
                     </div>
 
@@ -391,8 +402,8 @@ export const Register = () => {
                     </div>
 
                     <div className="py-4 mb-lg-1">
-                      <button type="submit" className="btn btn-primary w-100">
-                        REGISTER ACCOUNT
+                      <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+                        {isSubmitting ? "CREATING ACCOUNT..." : "REGISTER ACCOUNT"}
                       </button>
                     </div>
 

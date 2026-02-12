@@ -1,5 +1,5 @@
-import { PlaceholderPage } from "../PlaceholderPage";
+import { PersonalDetails } from "./PersonalDetails";
 
 export const PersonalDetailsPhone = () => {
-  return <PlaceholderPage title="Phone Details" description="Update your phone number and verification." />;
+  return <PersonalDetails />;
 };
