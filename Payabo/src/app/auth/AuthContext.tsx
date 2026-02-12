@@ -95,15 +95,22 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       const token = await loginWithPassword({ email, password });
       writeAccessToken(token.accessToken);
 
-      const info = await getUserInfo();
-      const resolvedUser = {
-        id: info.userId,
-        email: info.email,
-        fullName: buildFullName(info.firstName, info.lastName)
-      };
+      try {
+        const info = await getUserInfo();
+        const resolvedUser = {
+          id: info.userId,
+          email: info.email,
+          fullName: buildFullName(info.firstName, info.lastName)
+        };
 
-      setUser(resolvedUser);
-      writeStoredAuthUser(resolvedUser);
+        setUser(resolvedUser);
+        writeStoredAuthUser(resolvedUser);
+      } catch (error) {
+        clearAccessToken();
+        clearStoredAuthUser();
+        setUser(null);
+        throw error;
+      }
     };
 
     const register = async (payload: RegisterPayload) => {
