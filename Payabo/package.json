@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "node ./scripts/smoke.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.phase3.json",
+    "test": "node ./scripts/smoke.mjs"
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
