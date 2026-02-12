@@ -64,6 +64,7 @@ export const Dashboard = () => {
                                 <th>SERVICE</th>
                                 <th>DUE DATE</th>
                                 <th className="text-end">AMOUNT</th>
+                                <th></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -143,6 +144,7 @@ export const Dashboard = () => {
                                 <th>DATE</th>
                                 <th>STATUS</th>
                                 <th className="text-end">AMOUNT</th>
+                                <th></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -153,6 +155,9 @@ export const Dashboard = () => {
                                   <td>{transaction.dateLabel}</td>
                                   <td>{transaction.status}</td>
                                   <td className="text-end">{transaction.amountLabel}</td>
+                                  <td>
+                                    <Link to={`/payments/transaction-details?id=${encodeURIComponent(transaction.id)}`}>Details</Link>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
