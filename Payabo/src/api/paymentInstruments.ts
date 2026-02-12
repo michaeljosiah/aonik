@@ -1,5 +1,3 @@
-import { apiGet } from "./client";
-
 export type PaymentInstrument = {
   id: string;
   brand: string;
@@ -10,7 +8,6 @@ export type PaymentInstrument = {
 };
 
 const storageKey = "payabo.payment-instruments";
-const instrumentsApiEnabled = import.meta.env.VITE_PAYABO_ENABLE_INSTRUMENTS_API === "true";
 
 const readLocalInstruments = (userId: string): PaymentInstrument[] => {
   try {
@@ -73,13 +70,5 @@ const resolveLocalInstruments = (userId: string): PaymentInstrument[] => {
 };
 
 export const getPaymentInstrumentsForUser = async (userId: string): Promise<PaymentInstrument[]> => {
-  if (!instrumentsApiEnabled) {
-    return resolveLocalInstruments(userId);
-  }
-
-  try {
-    return await apiGet<PaymentInstrument[]>(`/public/payments/instruments?userId=${encodeURIComponent(userId)}`);
-  } catch {
-    return resolveLocalInstruments(userId);
-  }
+  return resolveLocalInstruments(userId);
 };
