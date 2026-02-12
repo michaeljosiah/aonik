@@ -5,7 +5,6 @@ import {
   clearAccessToken,
   clearStoredAuthUser,
   readAccessToken,
-  readStoredAuthUser,
   writeAccessToken,
   writeStoredAuthUser
 } from "./authStorage";
@@ -42,16 +41,7 @@ const buildFullName = (firstName?: string | null, lastName?: string | null) => {
 };
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const stored = readStoredAuthUser();
-    return stored
-      ? {
-          id: stored.id,
-          email: stored.email,
-          fullName: stored.fullName
-        }
-      : null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -60,6 +50,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     const bootstrap = async () => {
       const accessToken = readAccessToken();
       if (!accessToken) {
+        clearStoredAuthUser();
+        setUser(null);
         setIsLoading(false);
         return;
       }
