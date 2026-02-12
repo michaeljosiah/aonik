@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { getPublicPaymentIntentStatus, type PublicPaymentIntentStatus } from "../../api/payments";
 import { getPublicBillPaymentDraft, type GuestBillPaymentDraftDetail } from "../../api/orders";
+import { useAuth } from "../../app/auth/AuthContext";
+import { upsertPaymentHistory } from "./paymentHistory";
 import { readCheckoutAttemptState, resolvePaymentIntentIdForReturn } from "./paymentFlowState";
 
 type UiStatus = "success" | "failed" | "pending";
@@ -55,6 +57,8 @@ type StatusPaymentSentProps = {
 
 export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  const [refreshTick, setRefreshTick] = useState(0);
   const savedAttempt = readCheckoutAttemptState();
 
   const orderId = searchParams.get("orderId") ?? savedAttempt?.orderId ?? "";
@@ -116,7 +120,7 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
     return () => {
       cancelled = true;
     };
-  }, [orderId, paymentIntentId, providerReference]);
+  }, [orderId, paymentIntentId, providerReference, refreshTick]);
 
   const uiStatus = useMemo<UiStatus>(() => {
     const queryResultStatus = forcedResult ?? normalizeResult(searchParams.get("result"));
@@ -147,6 +151,35 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
     return queryResultStatus;
   }, [forcedResult, paymentStatus?.orderStatus, paymentStatus?.status, searchParams]);
 
+  useEffect(() => {
+    if (uiStatus !== "pending") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setRefreshTick((value) => value + 1), 5000);
+    return () => window.clearTimeout(timer);
+  }, [refreshTick, uiStatus]);
+
+  useEffect(() => {
+    if (!user?.id || !paymentStatus) {
+      return;
+    }
+
+    upsertPaymentHistory({
+      userId: user.id,
+      orderId: paymentStatus.orderId,
+      paymentIntentId: paymentStatus.paymentIntentId,
+      providerReference: paymentStatus.providerReference,
+      status: paymentStatus.status,
+      orderStatus: paymentStatus.orderStatus,
+      amount: paymentStatus.amount,
+      currency: paymentStatus.currency,
+      serviceName: draft?.serviceName ?? "Service",
+      billerName: draft?.billerName ?? null,
+      createdAt: paymentStatus.createdAt
+    });
+  }, [draft?.billerName, draft?.serviceName, paymentStatus, user?.id]);
+
   const title = uiStatus === "success" ? "Payment submitted" : uiStatus === "pending" ? "Payment pending" : "Payment failed";
 
   const subtitle =
@@ -163,6 +196,10 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
         <p>{subtitle}</p>
 
         {isLoading && <p>Loading latest status...</p>}
+
+        <button type="button" className="btn btn-link p-0 mb-3" onClick={() => setRefreshTick((value) => value + 1)}>
+          Refresh status
+        </button>
 
         {errorMessage && <div className="alert alert-warning">{errorMessage}</div>}
 

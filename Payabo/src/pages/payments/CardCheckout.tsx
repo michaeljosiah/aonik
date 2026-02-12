@@ -4,45 +4,17 @@ import { Link, useSearchParams } from "react-router-dom";
 import { getSelectedOriginCountry } from "../../app/originCountry";
 import { getPublicBillPaymentDraft, type GuestBillPaymentDraftDetail } from "../../api/orders";
 import { createPublicPaymentIntent, type PublicPaymentIntent } from "../../api/payments";
+import { useAuth } from "../../app/auth/AuthContext";
+import { getPaymentInstrumentsForUser, type PaymentInstrument } from "../../api/paymentInstruments";
 import { draftOrderIdStorageKey } from "./draftIntent";
 import { saveCheckoutAttemptState } from "./paymentFlowState";
-
-type SavedCardOption = {
-  id: string;
-  cardType: string;
-  logoUrl: string;
-  last4: string;
-  expiry: string;
-};
-
-const savedCards: SavedCardOption[] = [
-  {
-    id: "card_1",
-    cardType: "Debit card",
-    logoUrl: "/images/credit-card-logo.jpg",
-    last4: "7568",
-    expiry: "12/24"
-  },
-  {
-    id: "card_2",
-    cardType: "Debit card",
-    logoUrl: "/images/debit-card-logo.jpg",
-    last4: "1982",
-    expiry: "05/27"
-  },
-  {
-    id: "card_3",
-    cardType: "Debit card",
-    logoUrl: "/images/debit-card-logo.jpg",
-    last4: "4721",
-    expiry: "08/26"
-  }
-];
+import { upsertPaymentHistory } from "./paymentHistory";
 
 export const CardCheckout = () => {
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const orderIdFromQuery = searchParams.get("orderId") ?? "";
-  const savedCardIdFromQuery = searchParams.get("savedCardId") ?? savedCards[0].id;
+  const savedCardIdFromQuery = searchParams.get("savedCardId") ?? "";
   const [orderId, setOrderId] = useState<string>(orderIdFromQuery);
   const savedCardId = savedCardIdFromQuery;
   const [draft, setDraft] = useState<GuestBillPaymentDraftDetail | null>(null);
@@ -51,6 +23,7 @@ export const CardCheckout = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCreatingIntent, setIsCreatingIntent] = useState<boolean>(false);
   const [paymentIntent, setPaymentIntent] = useState<PublicPaymentIntent | null>(null);
+  const [savedCards, setSavedCards] = useState<PaymentInstrument[]>([]);
 
   useEffect(() => {
     const syncOriginCountry = () => {
@@ -121,9 +94,29 @@ export const CardCheckout = () => {
     return Object.entries(draft.serviceFieldValues).map(([key, value]) => ({ key, value }));
   }, [draft]);
 
+  useEffect(() => {
+    if (!user?.id) {
+      setSavedCards([]);
+      return;
+    }
+
+    let cancelled = false;
+    const loadCards = async () => {
+      const cards = await getPaymentInstrumentsForUser(user.id);
+      if (!cancelled) {
+        setSavedCards(cards);
+      }
+    };
+
+    void loadCards();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const selectedCard = useMemo(() => {
-    return savedCards.find((card) => card.id === savedCardId) ?? savedCards[0];
-  }, [savedCardId]);
+    return savedCards.find((card) => card.id === savedCardId) ?? null;
+  }, [savedCardId, savedCards]);
 
   const amount = draft?.requestedAmount ?? 0;
   const fees = amount > 0 ? 1.99 : 0;
@@ -224,6 +217,22 @@ export const CardCheckout = () => {
         providerReference: result.providerReference,
         createdAt: result.createdAt
       });
+
+      if (user?.id) {
+        upsertPaymentHistory({
+          userId: user.id,
+          orderId: result.orderId,
+          paymentIntentId: result.paymentIntentId,
+          providerReference: result.providerReference,
+          status: result.status,
+          orderStatus: draft.status,
+          amount: result.amount,
+          currency: result.currency,
+          serviceName: draft.serviceName,
+          billerName: draft.billerName,
+          createdAt: result.createdAt
+        });
+      }
 
       if (result.checkoutUrl) {
         window.location.assign(result.checkoutUrl);
@@ -346,16 +355,22 @@ export const CardCheckout = () => {
                           <tbody>
                             <tr>
                               <td>
-                                <div className="d-flex align-items-center">
-                                  <div className="img-td">
-                                    <img src={selectedCard.logoUrl} alt={selectedCard.cardType} />
+                                {selectedCard ? (
+                                  <div className="d-flex align-items-center">
+                                    <div className="img-td">
+                                      <img src="/images/credit-card-logo.jpg" alt={selectedCard.brand} />
+                                    </div>
+                                    <div>
+                                      <strong className="heading-td">{selectedCard.type === "credit" ? "Credit card" : "Debit card"}</strong>{" "}
+                                      <span className="dot-info">Ending in {selectedCard.last4}</span>
+                                      <span className="info-td text-gray d-block">
+                                        Valid until {String(selectedCard.expiryMonth).padStart(2, "0")}/{selectedCard.expiryYear}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <strong className="heading-td">{selectedCard.cardType}</strong>{" "}
-                                    <span className="dot-info">Ending in {selectedCard.last4}</span>
-                                    <span className="info-td text-gray d-block">Valid until {selectedCard.expiry}</span>
-                                  </div>
-                                </div>
+                                ) : (
+                                  <span className="text-muted">No saved card selected. A new card will be used at provider checkout.</span>
+                                )}
                               </td>
                             </tr>
                           </tbody>

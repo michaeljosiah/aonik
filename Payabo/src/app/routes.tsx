@@ -37,6 +37,16 @@ import { Register } from "../pages/auth/Register";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
 import { Dashboard } from "../pages/dashboard/Dashboard";
+import { Transactions } from "../pages/dashboard/Transactions";
+import { TransactionDetails } from "../pages/payments/TransactionDetails";
+import { PersonalDetails } from "../pages/profile/PersonalDetails";
+import { PersonalDetailsEditName } from "../pages/profile/PersonalDetailsEditName";
+import { PersonalDetailsEditCountry } from "../pages/profile/PersonalDetailsEditCountry";
+import { PersonalDetailsPhone } from "../pages/profile/PersonalDetailsPhone";
+import { PersonalDetailsUpdatePhoto } from "../pages/profile/PersonalDetailsUpdatePhoto";
+import { LoginDetails } from "../pages/profile/LoginDetails";
+import { LoginDetailsEmail } from "../pages/profile/LoginDetailsEmail";
+import { LoginDetailsPassword } from "../pages/profile/LoginDetailsPassword";
 
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
 import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
@@ -112,7 +122,7 @@ export const router = createBrowserRouter([
           { path: "/dashboard-sample", element: <StaticHtmlPage html={dashboardSampleHtml} selector="main" /> },
           { path: "/dashboard-raw", element: <StaticHtmlPage html={dashboardRawHtml} selector="main" /> },
           { path: "/dashboard-empty", element: <StaticHtmlPage html={dashboardEmptyHtml} selector="main" /> },
-          { path: "/transactions", element: <StaticHtmlPage html={dashboardTransactionsRawHtml} selector="main" /> },
+          { path: "/transactions", element: <Transactions /> },
           {
             path: "/transactions/calendar",
             element: <StaticHtmlPage html={dashboardTransactionsCalendarHtml} selector="main" />
@@ -134,31 +144,31 @@ export const router = createBrowserRouter([
           { path: "/managecards-sample", element: <StaticHtmlPage html={manageCardsSampleHtml} selector="main" /> },
           { path: "/cards/details", element: <StaticHtmlPage html={cardDetailsHtml} selector="main" /> },
           { path: "/carddetails", element: <StaticHtmlPage html={cardDetailsHtml} selector="main" /> },
-          { path: "/profile/personal", element: <StaticHtmlPage html={profilePersonalDetailsHtml} selector="main" /> },
+          { path: "/profile/personal", element: <PersonalDetails /> },
           {
             path: "/profile/personal/edit-name",
-            element: <StaticHtmlPage html={profilePersonalDetailsEditNameHtml} selector="main" />
+            element: <PersonalDetailsEditName />
           },
           {
             path: "/profile/personal/edit-country",
-            element: <StaticHtmlPage html={profilePersonalDetailsEditCountryHtml} selector="main" />
+            element: <PersonalDetailsEditCountry />
           },
           {
             path: "/profile/personal/phone",
-            element: <StaticHtmlPage html={profilePersonalDetailsPhoneHtml} selector="main" />
+            element: <PersonalDetailsPhone />
           },
           {
             path: "/profile/personal/photo",
-            element: <StaticHtmlPage html={profilePersonalDetailsUpdatePhotoHtml} selector="main" />
+            element: <PersonalDetailsUpdatePhoto />
           },
-          { path: "/profile/login-details", element: <StaticHtmlPage html={profileLoginDetailsHtml} selector="main" /> },
+          { path: "/profile/login-details", element: <LoginDetails /> },
           {
             path: "/profile/login-details/email",
-            element: <StaticHtmlPage html={profileLoginDetailsEmailHtml} selector="main" />
+            element: <LoginDetailsEmail />
           },
           {
             path: "/profile/login-details/password",
-            element: <StaticHtmlPage html={profileLoginDetailsPasswordHtml} selector="main" />
+            element: <LoginDetailsPassword />
           },
           { path: "/profile/notifications", element: <StaticHtmlPage html={profileNotificationHtml} selector="main" /> },
           { path: "/profile/marketing", element: <StaticHtmlPage html={profileMarketingHtml} selector="main" /> },
@@ -317,7 +327,7 @@ export const router = createBrowserRouter([
           { path: "/status-order-received", element: <StatusOrderReceived /> },
           {
             path: "/payments/transaction-details",
-            element: <StaticHtmlPage html={transactionDetailsHtml} selector="main" />
+            element: <TransactionDetails />
           },
           { path: "/transactiondetails-raw", element: <StaticHtmlPage html={transactionDetailsHtml} selector="main" /> }
         ]

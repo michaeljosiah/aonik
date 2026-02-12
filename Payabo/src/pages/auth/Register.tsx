@@ -19,6 +19,8 @@ export const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { register } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const from = (location.state as LocationState | null)?.from;
 
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
@@ -105,19 +107,38 @@ export const Register = () => {
     setActiveTab(tab);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setErrorMessage(null);
+    setIsSubmitting(true);
 
-    if (activeTab === "personal") {
-      const fullName = `${personalFirstName} ${personalLastName}`.replace(/\s+/g, " ").trim();
-      register(fullName || "John Doe", personalEmail);
+    try {
+      if (activeTab === "personal") {
+        await register({
+          firstName: personalFirstName.trim() || "John",
+          lastName: personalLastName.trim() || "Doe",
+          email: personalEmail,
+          phone: personalPhone || undefined,
+          password: personalPassword,
+          registrationCountry: personalCountry || undefined
+        });
+        navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
+        return;
+      }
+
+      await register({
+        firstName: businessFirstName.trim() || "John",
+        lastName: businessLastName.trim() || "Doe",
+        email: businessEmail,
+        password: businessPassword,
+        registrationCountry: businessCountry || undefined
+      });
       navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
-      return;
+    } catch {
+      setErrorMessage("Unable to register at the moment. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const fullName = `${businessFirstName} ${businessLastName}`.replace(/\s+/g, " ").trim();
-    register(fullName || "John Doe", businessEmail);
-    navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
   };
 
   const handleClose = () => {
@@ -180,6 +201,7 @@ export const Register = () => {
               <div className="tab-content">
                 <div className={`tab-pane fade ${activeTab === "personal" ? "show active" : ""}`} id="tab-1">
                   <form className="form" action="#" method="post" onSubmit={handleSubmit}>
+                    {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
                     <div className="form-group">
                       <label htmlFor="RegistrationCountries">Registration country</label>
                       <div className="select">
@@ -279,8 +301,8 @@ export const Register = () => {
                     </div>
 
                     <div className="py-4 mb-lg-1">
-                      <button type="submit" className="btn btn-primary w-100">
-                        REGISTER ACCOUNT
+                      <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+                        {isSubmitting ? "CREATING ACCOUNT..." : "REGISTER ACCOUNT"}
                       </button>
                     </div>
 
@@ -294,6 +316,7 @@ export const Register = () => {
 
                 <div className={`tab-pane fade ${activeTab === "business" ? "show active" : ""}`} id="tab-2">
                   <form className="form" action="#" method="post" onSubmit={handleSubmit}>
+                    {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
                     <div className="form-group">
                       <label htmlFor="registrationCountry1">Registration country</label>
                       <div className="select">
@@ -379,8 +402,8 @@ export const Register = () => {
                     </div>
 
                     <div className="py-4 mb-lg-1">
-                      <button type="submit" className="btn btn-primary w-100">
-                        REGISTER ACCOUNT
+                      <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+                        {isSubmitting ? "CREATING ACCOUNT..." : "REGISTER ACCOUNT"}
                       </button>
                     </div>
 

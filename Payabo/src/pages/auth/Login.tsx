@@ -11,15 +11,26 @@ export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [email, setEmail] = useState("john.doe@example.com");
   const [password, setPassword] = useState("password");
   const from = (location.state as LocationState | null)?.from;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    login(email);
-    navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      await login(email, password);
+      navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
+    } catch {
+      setErrorMessage("Unable to sign in. Please check your credentials and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -59,6 +70,7 @@ export const Login = () => {
                 </p>
               </div>
               <form action="#" method="post" onSubmit={handleSubmit}>
+                {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
                 <div className="form-group">
                   <label htmlFor="email-login">Email</label>
                   <input
@@ -99,8 +111,8 @@ export const Login = () => {
                   </label>
                 </div>
                 <div className="py-4">
-                  <button type="submit" className="btn btn-primary w-100">
-                    LOGIN
+                  <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+                    {isSubmitting ? "SIGNING IN..." : "LOGIN"}
                   </button>
                 </div>
                 <div className="text-center">

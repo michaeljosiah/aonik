@@ -1,87 +1,239 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
+import { getUserInfo, loginWithPassword, registerIndividual } from "../../api/auth";
+import {
+  clearAccessToken,
+  clearStoredAuthUser,
+  readAccessToken,
+  writeAccessToken,
+  writeStoredAuthUser
+} from "./authStorage";
+
 type AuthUser = {
   id: string;
   fullName: string;
   email: string;
 };
 
+type RegisterPayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  registrationCountry?: string;
+};
+
 type AuthContextValue = {
   isAuthenticated: boolean;
+  isLoading: boolean;
   user: AuthUser | null;
-  login: (email: string, fullName?: string) => void;
-  register: (fullName: string, email: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const authStorageKey = "payabo.mockAuth";
+const buildFullName = (firstName?: string | null, lastName?: string | null) => {
+  const composed = [firstName ?? "", lastName ?? ""].join(" ").replace(/\s+/g, " ").trim();
+  return composed || "Payabo User";
+};
 
-const readAuthFromStorage = (): AuthUser | null => {
+const isAuthFailure = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  if (!("status" in error)) {
+    return false;
+  }
+
+  const status = (error as { status?: unknown }).status;
+  return status === 401;
+};
+
+const decodeBase64Url = (value: string): string | null => {
   try {
-    const raw = window.localStorage.getItem(authStorageKey);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return null;
-    const user = parsed as Partial<AuthUser>;
-    if (!user.id || !user.email || !user.fullName) return null;
-    return { id: user.id, email: user.email, fullName: user.fullName };
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    return atob(padded);
   } catch {
     return null;
   }
 };
 
-const writeAuthToStorage = (user: AuthUser | null) => {
+const resolveUserFromAccessToken = (accessToken: string): AuthUser | null => {
+  const segments = accessToken.split(".");
+  if (segments.length < 2) {
+    return null;
+  }
+
+  const payloadJson = decodeBase64Url(segments[1]);
+  if (!payloadJson) {
+    return null;
+  }
+
   try {
-    if (!user) {
-      window.localStorage.removeItem(authStorageKey);
-      return;
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const subject = typeof payload.sub === "string" ? payload.sub : null;
+    const email = typeof payload.email === "string" ? payload.email : null;
+
+    if (!subject || !email) {
+      return null;
     }
 
-    window.localStorage.setItem(authStorageKey, JSON.stringify(user));
+    const firstName = typeof payload.given_name === "string" ? payload.given_name : "";
+    const lastName = typeof payload.family_name === "string" ? payload.family_name : "";
+    const fullNameFromClaims = [firstName, lastName].join(" ").replace(/\s+/g, " ").trim();
+    const fullName =
+      fullNameFromClaims || (typeof payload.name === "string" && payload.name.trim() ? payload.name.trim() : "Payabo User");
+
+    return {
+      id: subject,
+      email,
+      fullName
+    };
   } catch {
-    // ignore
+    return null;
   }
 };
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    if (typeof window === "undefined") return null;
-    return readAuthFromStorage();
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [bootstrapRetryCount, setBootstrapRetryCount] = useState(0);
 
   useEffect(() => {
-    writeAuthToStorage(user);
-  }, [user]);
+    let cancelled = false;
+
+    let retryTimer: number | null = null;
+
+    const bootstrap = async () => {
+      const accessToken = readAccessToken();
+      if (!accessToken) {
+        clearStoredAuthUser();
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const info = await getUserInfo();
+        if (cancelled) {
+          return;
+        }
+
+        const resolvedUser = {
+          id: info.userId,
+          email: info.email,
+          fullName: buildFullName(info.firstName, info.lastName)
+        };
+
+        setUser(resolvedUser);
+        writeStoredAuthUser(resolvedUser);
+        setBootstrapRetryCount(0);
+        setIsLoading(false);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        if (isAuthFailure(error)) {
+          clearAccessToken();
+          clearStoredAuthUser();
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const fallbackUser = resolveUserFromAccessToken(accessToken);
+        if (fallbackUser) {
+          setUser(fallbackUser);
+          writeStoredAuthUser(fallbackUser);
+          setIsLoading(false);
+          return;
+        }
+
+        if (bootstrapRetryCount < 3) {
+          const delayMs = (bootstrapRetryCount + 1) * 1500;
+          retryTimer = window.setTimeout(() => {
+            setBootstrapRetryCount((current) => current + 1);
+          }, delayMs);
+          return;
+        }
+
+        setUser(null);
+        setIsLoading(false);
+      }
+    };
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [bootstrapRetryCount]);
 
   const value = useMemo<AuthContextValue>(() => {
-    const login = (email: string, fullName?: string) => {
-      setUser({
-        id: crypto.randomUUID(),
-        email,
-        fullName: fullName?.trim() ? fullName.trim() : "John Doe"
-      });
+    const login = async (email: string, password: string) => {
+      const token = await loginWithPassword({ email, password });
+      writeAccessToken(token.accessToken);
+
+      try {
+        const info = await getUserInfo();
+        const resolvedUser = {
+          id: info.userId,
+          email: info.email,
+          fullName: buildFullName(info.firstName, info.lastName)
+        };
+
+        setUser(resolvedUser);
+        writeStoredAuthUser(resolvedUser);
+        setBootstrapRetryCount(0);
+        setIsLoading(false);
+      } catch (error) {
+        if (isAuthFailure(error)) {
+          clearAccessToken();
+          clearStoredAuthUser();
+          setUser(null);
+          throw error;
+        }
+
+        const fallbackUser = resolveUserFromAccessToken(token.accessToken);
+        if (fallbackUser) {
+          setUser(fallbackUser);
+          writeStoredAuthUser(fallbackUser);
+          return;
+        }
+
+        throw error;
+      }
     };
 
-    const register = (fullName: string, email: string) => {
-      setUser({
-        id: crypto.randomUUID(),
-        email,
-        fullName: fullName.trim() || "John Doe"
-      });
+    const register = async (payload: RegisterPayload) => {
+      await registerIndividual(payload);
+      await login(payload.email, payload.password);
     };
 
-    const logout = () => setUser(null);
+    const logout = () => {
+      clearAccessToken();
+      clearStoredAuthUser();
+      setUser(null);
+    };
 
     return {
       isAuthenticated: Boolean(user),
+      isLoading,
       user,
       login,
       register,
       logout
     };
-  }, [user]);
+  }, [isLoading, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
