@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { readCheckoutAttemptState } from "./paymentFlowState";
+import { readCheckoutAttemptState, resolvePaymentIntentIdForReturn } from "./paymentFlowState";
 
 const normalizeResult = (value: string | null): "success" | "failed" | "pending" => {
   const normalized = value?.trim().toLowerCase();
@@ -25,8 +25,13 @@ export const PaymentReturn = () => {
     const attempt = readCheckoutAttemptState();
 
     const orderId = searchParams.get("orderId") ?? attempt?.orderId ?? "";
-    const paymentIntentId = searchParams.get("paymentIntentId") ?? attempt?.paymentIntentId ?? "";
-    const providerReference = searchParams.get("payment_intent") ?? attempt?.providerReference ?? "";
+    const providerReferenceFromQuery = searchParams.get("providerReference") ?? searchParams.get("payment_intent");
+    const providerReference = providerReferenceFromQuery ?? attempt?.providerReference ?? "";
+    const paymentIntentId = resolvePaymentIntentIdForReturn({
+      paymentIntentIdFromQuery: searchParams.get("paymentIntentId"),
+      providerReferenceFromQuery,
+      savedAttempt: attempt
+    });
     const result = normalizeResult(searchParams.get("result"));
 
     const params = new URLSearchParams({ result });

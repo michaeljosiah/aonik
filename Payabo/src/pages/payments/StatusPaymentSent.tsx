@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { getPublicPaymentIntentStatus, type PublicPaymentIntentStatus } from "../../api/payments";
 import { getPublicBillPaymentDraft, type GuestBillPaymentDraftDetail } from "../../api/orders";
-import { readCheckoutAttemptState } from "./paymentFlowState";
+import { readCheckoutAttemptState, resolvePaymentIntentIdForReturn } from "./paymentFlowState";
 
 type UiStatus = "success" | "failed" | "pending";
 
@@ -58,9 +58,13 @@ export const StatusPaymentSent = ({ forcedResult }: StatusPaymentSentProps) => {
   const savedAttempt = readCheckoutAttemptState();
 
   const orderId = searchParams.get("orderId") ?? savedAttempt?.orderId ?? "";
-  const paymentIntentId = searchParams.get("paymentIntentId") ?? savedAttempt?.paymentIntentId ?? "";
-  const providerReference =
-    searchParams.get("providerReference") ?? searchParams.get("payment_intent") ?? savedAttempt?.providerReference ?? "";
+  const providerReferenceFromQuery = searchParams.get("providerReference") ?? searchParams.get("payment_intent");
+  const providerReference = providerReferenceFromQuery ?? savedAttempt?.providerReference ?? "";
+  const paymentIntentId = resolvePaymentIntentIdForReturn({
+    paymentIntentIdFromQuery: searchParams.get("paymentIntentId"),
+    providerReferenceFromQuery,
+    savedAttempt
+  });
 
   const [paymentStatus, setPaymentStatus] = useState<PublicPaymentIntentStatus | null>(null);
   const [draft, setDraft] = useState<GuestBillPaymentDraftDetail | null>(null);

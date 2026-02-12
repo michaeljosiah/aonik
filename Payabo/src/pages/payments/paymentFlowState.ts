@@ -37,3 +37,28 @@ export const readCheckoutAttemptState = (): CheckoutAttemptState | null => {
     return null;
   }
 };
+
+
+export const resolvePaymentIntentIdForReturn = (options: {
+  paymentIntentIdFromQuery: string | null;
+  providerReferenceFromQuery: string | null;
+  savedAttempt: CheckoutAttemptState | null;
+}): string => {
+  const paymentIntentIdFromQuery = options.paymentIntentIdFromQuery?.trim() ?? "";
+  if (paymentIntentIdFromQuery) {
+    return paymentIntentIdFromQuery;
+  }
+
+  const providerReferenceFromQuery = options.providerReferenceFromQuery?.trim() ?? "";
+  const savedAttempt = options.savedAttempt;
+
+  if (!savedAttempt) {
+    return "";
+  }
+
+  if (!providerReferenceFromQuery) {
+    return savedAttempt.paymentIntentId;
+  }
+
+  return providerReferenceFromQuery === savedAttempt.providerReference ? savedAttempt.paymentIntentId : "";
+};
