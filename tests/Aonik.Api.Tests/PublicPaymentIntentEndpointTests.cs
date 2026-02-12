@@ -84,6 +84,67 @@ public class PublicPaymentIntentEndpointTests : IClassFixture<CustomWebApplicati
         paymentIntent!.OrderId.Should().Be(draft.OrderId);
     }
 
+
+    [Fact]
+    public async Task GetPublicPaymentIntentStatus_ShouldReturnIntentStatus_ForOrderScopedLookup()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId.ToString());
+
+        var draftResponse = await client.PostAsJsonAsync(
+            "/public/orders/bill-payments/drafts",
+            new PublicOrderDraftRequest(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "BILLPAY.ELECTRICITY.PREPAID.GH.ECG",
+                "ECG Prepaid Electricity",
+                "ECG",
+                "GH",
+                "GHS",
+                new Dictionary<string, string> { ["meterNumber"] = "1234567890" },
+                true,
+                DateTimeOffset.UtcNow,
+                "precheck",
+                null,
+                120,
+                "Payabo"));
+
+        var draft = await draftResponse.Content.ReadFromJsonAsync<PublicOrderDraftResponse>();
+        draft.Should().NotBeNull();
+
+        var createIntentResponse = await client.PostAsJsonAsync(
+            "/public/payments/intents",
+            new PublicPaymentIntentRequest(
+                draft!.OrderId,
+                "Stripe",
+                "Card",
+                "https://localhost/payments/status-payment-sent",
+                "https://localhost/payments/selection"));
+
+        createIntentResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var paymentIntent = await createIntentResponse.Content.ReadFromJsonAsync<PublicPaymentIntentResponse>();
+        paymentIntent.Should().NotBeNull();
+
+        // Act
+        var getStatusResponse = await client.GetAsync(
+            $"/public/payments/intents/status?orderId={draft.OrderId}&paymentIntentId={paymentIntent!.PaymentIntentId}");
+
+        // Assert
+        getStatusResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await getStatusResponse.Content.ReadFromJsonAsync<PublicPaymentIntentStatusResponse>();
+        payload.Should().NotBeNull();
+        payload!.PaymentIntentId.Should().Be(paymentIntent.PaymentIntentId);
+        payload.OrderId.Should().Be(draft.OrderId);
+        payload.Status.Should().Be("Pending");
+        payload.OrderStatus.Should().Be("PendingFunding");
+    }
+
     private async Task SeedTenantAsync(Guid tenantId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -144,4 +205,14 @@ public class PublicPaymentIntentEndpointTests : IClassFixture<CustomWebApplicati
         string? ClientSecret,
         string? CheckoutUrl,
         DateTime CreatedAt);
-}
+
+    private sealed record PublicPaymentIntentStatusResponse(
+        Guid PaymentIntentId,
+        Guid OrderId,
+        decimal Amount,
+        string Currency,
+        string Status,
+        string ProviderReference,
+        DateTime CreatedAt,
+        string OrderStatus);
+

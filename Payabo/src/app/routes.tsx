@@ -24,6 +24,14 @@ import { FriendDetails } from "../pages/payments/FriendDetails";
 import { FriendMessage } from "../pages/payments/FriendMessage";
 import { SelectCard } from "../pages/payments/SelectCard";
 import { SelectFriend } from "../pages/payments/SelectFriend";
+import { PaymentReturn } from "../pages/payments/PaymentReturn";
+import { ConfirmationBillPaid } from "../pages/payments/ConfirmationBillPaid";
+import { ConfirmationOrderReceived } from "../pages/payments/ConfirmationOrderReceived";
+import { ConfirmationPaymentSent } from "../pages/payments/ConfirmationPaymentSent";
+import { StatusBillPaid } from "../pages/payments/StatusBillPaid";
+import { StatusBillPaidFailed } from "../pages/payments/StatusBillPaidFailed";
+import { StatusOrderReceived } from "../pages/payments/StatusOrderReceived";
+import { StatusPaymentSent } from "../pages/payments/StatusPaymentSent";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
 import { RequireAuth } from "./auth/RequireAuth";
@@ -33,9 +41,6 @@ import { Dashboard } from "../pages/dashboard/Dashboard";
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
 import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
 import cardDetailsHtml from "../../../website/MyBillAfrica/carddetails.html?raw";
-import confirmationBillPaidHtml from "../../../website/MyBillAfrica/confirmation-billpaid.html?raw";
-import confirmationOrderReceivedHtml from "../../../website/MyBillAfrica/confirmation-orderreceived.html?raw";
-import confirmationPaymentSentHtml from "../../../website/MyBillAfrica/confirmation-paymentsent.html?raw";
 import dashboardEmptyHtml from "../../../website/MyBillAfrica/dashboard-empty.html?raw";
 import dashboardRawHtml from "../../../website/MyBillAfrica/dashboard-raw.html?raw";
 import dashboardSampleHtml from "../../../website/MyBillAfrica/dashboard-sample.html?raw";
@@ -66,10 +71,6 @@ import serviceDetailsRecurringHtml from "../../../website/MyBillAfrica/servicede
 import serviceDetailsSampleHtml from "../../../website/MyBillAfrica/servicedetails-sample.html?raw";
 import serviceProviderListRawHtml from "../../../website/MyBillAfrica/serviceproviderlist-raw.html?raw";
 import serviceProviderListSampleHtml from "../../../website/MyBillAfrica/serviceproviderlist-sample.html?raw";
-import statusBillPaidFailedHtml from "../../../website/MyBillAfrica/status-billpaid-failled.html?raw";
-import statusBillPaidHtml from "../../../website/MyBillAfrica/status-billpaid.html?raw";
-import statusOrderReceivedHtml from "../../../website/MyBillAfrica/status-order-received.html?raw";
-import statusPaymentSentHtml from "../../../website/MyBillAfrica/status-paymentsent.html?raw";
 import transactionDetailsHtml from "../../../website/MyBillAfrica/transactiondetails-raw.html?raw";
 
 export const router = createBrowserRouter([
@@ -245,6 +246,10 @@ export const router = createBrowserRouter([
             element: <CardCheckout />
           },
           {
+            path: "/payments/return",
+            element: <PaymentReturn />
+          },
+          {
             path: "/payments/friend-checkout",
             element: <FriendCheckout />
           },
@@ -277,39 +282,39 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "/payments/confirm/bill-paid",
-            element: <StaticHtmlPage html={confirmationBillPaidHtml} selector="main" />
+            element: <ConfirmationBillPaid />
           },
           {
             path: "/payments/confirm/payment-sent",
-            element: <StaticHtmlPage html={confirmationPaymentSentHtml} selector="main" />
+            element: <ConfirmationPaymentSent />
           },
           {
             path: "/payments/confirm/order-received",
-            element: <StaticHtmlPage html={confirmationOrderReceivedHtml} selector="main" />
+            element: <ConfirmationOrderReceived />
           },
-          { path: "/confirmation-billpaid", element: <StaticHtmlPage html={confirmationBillPaidHtml} selector="main" /> },
+          { path: "/confirmation-billpaid", element: <ConfirmationBillPaid /> },
           {
             path: "/confirmation-paymentsent",
-            element: <StaticHtmlPage html={confirmationPaymentSentHtml} selector="main" />
+            element: <ConfirmationPaymentSent />
           },
           {
             path: "/confirmation-orderreceived",
-            element: <StaticHtmlPage html={confirmationOrderReceivedHtml} selector="main" />
+            element: <ConfirmationOrderReceived />
           },
-          { path: "/payments/status/bill-paid", element: <StaticHtmlPage html={statusBillPaidHtml} selector="main" /> },
+          { path: "/payments/status/bill-paid", element: <StatusBillPaid /> },
           {
             path: "/payments/status/bill-paid-failed",
-            element: <StaticHtmlPage html={statusBillPaidFailedHtml} selector="main" />
+            element: <StatusBillPaidFailed />
           },
-          { path: "/payments/status/payment-sent", element: <StaticHtmlPage html={statusPaymentSentHtml} selector="main" /> },
+          { path: "/payments/status/payment-sent", element: <StatusPaymentSent /> },
           {
             path: "/payments/status/order-received",
-            element: <StaticHtmlPage html={statusOrderReceivedHtml} selector="main" />
+            element: <StatusOrderReceived />
           },
-          { path: "/status-billpaid", element: <StaticHtmlPage html={statusBillPaidHtml} selector="main" /> },
-          { path: "/status-billpaid-failled", element: <StaticHtmlPage html={statusBillPaidFailedHtml} selector="main" /> },
-          { path: "/status-paymentsent", element: <StaticHtmlPage html={statusPaymentSentHtml} selector="main" /> },
-          { path: "/status-order-received", element: <StaticHtmlPage html={statusOrderReceivedHtml} selector="main" /> },
+          { path: "/status-billpaid", element: <StatusBillPaid /> },
+          { path: "/status-billpaid-failled", element: <StatusBillPaidFailed /> },
+          { path: "/status-paymentsent", element: <StatusPaymentSent /> },
+          { path: "/status-order-received", element: <StatusOrderReceived /> },
           {
             path: "/payments/transaction-details",
             element: <StaticHtmlPage html={transactionDetailsHtml} selector="main" />

@@ -5,6 +5,10 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- **Payabo Web**: Prevented stale cached `paymentIntentId` reuse on provider-return flows by only reusing cached IDs when callback context matches the saved provider reference.
+- **Payabo Web**: Prioritized query-level cancellation (`result=cancelled`) as failed in status reconciliation so immediate cancel returns do not show as pending while provider intent remains pending.
+- **Payabo Web**: Updated payment status reconciliation to prioritize backend payment/order failure states over query params so failed/cancelled intents never render as success.
+- **Payabo Payments**: Fixed Stripe simulated checkout URL generation to append provider query parameters with `&` when return URLs already include query strings (prevents malformed `result` values on cancel redirects).
 - **API Tests**: Fixed test database isolation issue
   - Each `CustomWebApplicationFactory` instance now uses a consistent database name across all requests
   - Previously, each DbContext registration created a new unique database, causing resources created in one request to be invisible in subsequent requests
@@ -26,6 +30,8 @@ All notable changes to the AONIK project will be documented in this file.
   - Updated CustomWebApplicationFactory to explicitly use InMemory for tests
 
 ### Added
+- **Payabo Web**: Implemented phase 1 payment status flow with provider return handling, public payment intent status lookup endpoint, and live status/confirmation screens backed by order and payment state.
+- **Documentation**: Added `docs/Payabo-MVP-Next-Steps.md` with a prioritized implementation plan to move Payabo from prototype state to a working MVP.
 - **Personal Finance**: Added household creation and member invitation endpoints with service support.
 - **Party Relationships**: Added relationship type catalog constants and a party endpoint to create an individual related party (e.g., friend) linked to an existing customer.
 - **Autonumbering**: Added autonumbering profiles, reservations, and service models with tests for sequencing and reset behavior.

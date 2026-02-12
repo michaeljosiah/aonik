@@ -5,6 +5,7 @@ import { getSelectedOriginCountry } from "../../app/originCountry";
 import { getPublicBillPaymentDraft, type GuestBillPaymentDraftDetail } from "../../api/orders";
 import { createPublicPaymentIntent, type PublicPaymentIntent } from "../../api/payments";
 import { draftOrderIdStorageKey } from "./draftIntent";
+import { saveCheckoutAttemptState } from "./paymentFlowState";
 
 type SavedCardOption = {
   id: string;
@@ -212,15 +213,26 @@ export const CardCheckout = () => {
         orderId: draft.orderId,
         provider: "Stripe",
         paymentMethodType: "Card",
-        returnUrl: `${window.location.origin}/payments/status/payment-sent`,
-        cancelUrl: `${window.location.origin}/payments/selection`
+        returnUrl: `${window.location.origin}/payments/return?orderId=${encodeURIComponent(draft.orderId)}&result=success`,
+        cancelUrl: `${window.location.origin}/payments/return?orderId=${encodeURIComponent(draft.orderId)}&result=cancelled`
       });
 
       setPaymentIntent(result);
+      saveCheckoutAttemptState({
+        orderId: result.orderId,
+        paymentIntentId: result.paymentIntentId,
+        providerReference: result.providerReference,
+        createdAt: result.createdAt
+      });
 
       if (result.checkoutUrl) {
         window.location.assign(result.checkoutUrl);
+        return;
       }
+
+      window.location.assign(
+        `/payments/return?orderId=${encodeURIComponent(result.orderId)}&paymentIntentId=${encodeURIComponent(result.paymentIntentId)}&providerReference=${encodeURIComponent(result.providerReference)}&result=pending`
+      );
     } catch {
       setErrorMessage("Unable to initialize payment provider. Please try again.");
     } finally {

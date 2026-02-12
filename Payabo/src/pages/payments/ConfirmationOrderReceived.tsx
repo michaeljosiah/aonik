@@ -1,5 +1,5 @@
-import { PlaceholderPage } from "../PlaceholderPage";
+import { StatusPaymentSent } from "./StatusPaymentSent";
 
 export const ConfirmationOrderReceived = () => {
-  return <PlaceholderPage title="Order Received" description="Confirmation for order received." />;
+  return <StatusPaymentSent forcedResult="pending" />;
 };

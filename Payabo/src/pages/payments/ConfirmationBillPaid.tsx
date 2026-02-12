@@ -1,5 +1,5 @@
-import { PlaceholderPage } from "../PlaceholderPage";
+import { StatusPaymentSent } from "./StatusPaymentSent";
 
 export const ConfirmationBillPaid = () => {
-  return <PlaceholderPage title="Bill Paid" description="Confirmation for bill paid." />;
+  return <StatusPaymentSent forcedResult="success" />;
 };
