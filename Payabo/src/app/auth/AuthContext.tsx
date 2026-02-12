@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
+import { loginWithPassword } from "../../api/auth";
+import { writeAccessToken } from "./authStorage";
+
 type AuthUser = {
   id: string;
   fullName: string;
@@ -8,15 +11,17 @@ type AuthUser = {
 
 type AuthContextValue = {
   isAuthenticated: boolean;
+  isLoading: boolean;
   user: AuthUser | null;
-  login: (email: string, fullName?: string) => void;
-  register: (fullName: string, email: string) => void;
+  login: (email: string, password: string, fullName?: string) => Promise<void>;
+  register: (fullName: string, email: string) => Promise<void>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const authStorageKey = "payabo.mockAuth";
+const useRealAuth = import.meta.env.VITE_PAYABO_USE_REAL_AUTH === "true";
 
 const readAuthFromStorage = (): AuthUser | null => {
   try {
@@ -45,43 +50,54 @@ const writeAuthToStorage = (user: AuthUser | null) => {
   }
 };
 
+
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
     if (typeof window === "undefined") return null;
     return readAuthFromStorage();
   });
+  const [isLoading] = useState<boolean>(false);
 
   useEffect(() => {
     writeAuthToStorage(user);
   }, [user]);
 
   const value = useMemo<AuthContextValue>(() => {
-    const login = (email: string, fullName?: string) => {
+    const login = async (email: string, password: string, fullName?: string) => {
+      if (useRealAuth) {
+        const token = await loginWithPassword({ email, password });
+        writeAccessToken(token.accessToken);
+      }
+
       setUser({
         id: crypto.randomUUID(),
         email,
-        fullName: fullName?.trim() ? fullName.trim() : "John Doe"
+        fullName: fullName?.trim() ? fullName.trim() : "Payabo User"
       });
     };
 
-    const register = (fullName: string, email: string) => {
+    const register = async (fullName: string, email: string) => {
       setUser({
         id: crypto.randomUUID(),
         email,
-        fullName: fullName.trim() || "John Doe"
+        fullName: fullName.trim() || "Payabo User"
       });
     };
 
-    const logout = () => setUser(null);
+    const logout = () => {
+      writeAccessToken(null);
+      setUser(null);
+    };
 
     return {
       isAuthenticated: Boolean(user),
+      isLoading,
       user,
       login,
       register,
       logout
     };
-  }, [user]);
+  }, [isLoading, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

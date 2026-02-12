@@ -1,4 +1,5 @@
 import { PAYABO_TENANT_ID } from "../config/tenant";
+import { readAccessToken } from "../app/auth/authStorage";
 
 const rawBaseUrl = import.meta.env.VITE_AONIK_API_BASE_URL ?? "https://localhost:5001";
 const apiBaseUrl = rawBaseUrl.replace(/\/+$/, "");
@@ -16,6 +17,12 @@ const buildHeaders = (headers?: HeadersInit) => {
   const resolved = new Headers(headers);
   resolved.set("Accept", "application/json");
   resolved.set("X-Tenant-Id", PAYABO_TENANT_ID);
+
+  const accessToken = readAccessToken();
+  if (accessToken) {
+    resolved.set("Authorization", `Bearer ${accessToken}`);
+  }
+
   return resolved;
 };
 

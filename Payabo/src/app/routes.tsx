@@ -37,6 +37,9 @@ import { Register } from "../pages/auth/Register";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
 import { Dashboard } from "../pages/dashboard/Dashboard";
+import { Transactions } from "../pages/dashboard/Transactions";
+import { TransactionDetails } from "../pages/payments/TransactionDetails";
+import { PersonalDetails } from "../pages/profile/PersonalDetails";
 
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
 import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
@@ -112,7 +115,7 @@ export const router = createBrowserRouter([
           { path: "/dashboard-sample", element: <StaticHtmlPage html={dashboardSampleHtml} selector="main" /> },
           { path: "/dashboard-raw", element: <StaticHtmlPage html={dashboardRawHtml} selector="main" /> },
           { path: "/dashboard-empty", element: <StaticHtmlPage html={dashboardEmptyHtml} selector="main" /> },
-          { path: "/transactions", element: <StaticHtmlPage html={dashboardTransactionsRawHtml} selector="main" /> },
+          { path: "/transactions", element: <Transactions /> },
           {
             path: "/transactions/calendar",
             element: <StaticHtmlPage html={dashboardTransactionsCalendarHtml} selector="main" />
@@ -134,7 +137,7 @@ export const router = createBrowserRouter([
           { path: "/managecards-sample", element: <StaticHtmlPage html={manageCardsSampleHtml} selector="main" /> },
           { path: "/cards/details", element: <StaticHtmlPage html={cardDetailsHtml} selector="main" /> },
           { path: "/carddetails", element: <StaticHtmlPage html={cardDetailsHtml} selector="main" /> },
-          { path: "/profile/personal", element: <StaticHtmlPage html={profilePersonalDetailsHtml} selector="main" /> },
+          { path: "/profile/personal", element: <PersonalDetails /> },
           {
             path: "/profile/personal/edit-name",
             element: <StaticHtmlPage html={profilePersonalDetailsEditNameHtml} selector="main" />
@@ -317,7 +320,7 @@ export const router = createBrowserRouter([
           { path: "/status-order-received", element: <StatusOrderReceived /> },
           {
             path: "/payments/transaction-details",
-            element: <StaticHtmlPage html={transactionDetailsHtml} selector="main" />
+            element: <TransactionDetails />
           },
           { path: "/transactiondetails-raw", element: <StaticHtmlPage html={transactionDetailsHtml} selector="main" /> }
         ]
