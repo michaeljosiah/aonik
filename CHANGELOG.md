@@ -9,6 +9,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added live profile management pages for personal details, email updates, password updates, and photo upload/delete backed by customer profile endpoints.
 
 ### Fixed
+- **Payabo Web**: Stopped unconditional calls to non-existent `/public/payments/instruments` by making instrument API usage opt-in (`VITE_PAYABO_ENABLE_INSTRUMENTS_API=true`) and defaulting to local persisted instruments.
 - **Payabo Web**: Prevented stale cached `paymentIntentId` reuse on provider-return flows by only reusing cached IDs when callback context matches the saved provider reference.
 - **Payabo Web**: Prioritized query-level cancellation (`result=cancelled`) as failed in status reconciliation so immediate cancel returns do not show as pending while provider intent remains pending.
 - **Payabo Web**: Updated payment status reconciliation to prioritize backend payment/order failure states over query params so failed/cancelled intents never render as success.

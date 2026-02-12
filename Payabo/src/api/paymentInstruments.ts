@@ -10,6 +10,7 @@ export type PaymentInstrument = {
 };
 
 const storageKey = "payabo.payment-instruments";
+const instrumentsApiEnabled = import.meta.env.VITE_PAYABO_ENABLE_INSTRUMENTS_API === "true";
 
 const readLocalInstruments = (userId: string): PaymentInstrument[] => {
   try {
@@ -62,15 +63,23 @@ const seedLocalInstruments = (userId: string): PaymentInstrument[] => {
   return seeded;
 };
 
+const resolveLocalInstruments = (userId: string): PaymentInstrument[] => {
+  const local = readLocalInstruments(userId);
+  if (local.length > 0) {
+    return local;
+  }
+
+  return seedLocalInstruments(userId);
+};
+
 export const getPaymentInstrumentsForUser = async (userId: string): Promise<PaymentInstrument[]> => {
+  if (!instrumentsApiEnabled) {
+    return resolveLocalInstruments(userId);
+  }
+
   try {
     return await apiGet<PaymentInstrument[]>(`/public/payments/instruments?userId=${encodeURIComponent(userId)}`);
   } catch {
-    const local = readLocalInstruments(userId);
-    if (local.length > 0) {
-      return local;
-    }
-
-    return seedLocalInstruments(userId);
+    return resolveLocalInstruments(userId);
   }
 };
