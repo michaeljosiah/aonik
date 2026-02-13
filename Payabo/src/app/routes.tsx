@@ -47,6 +47,8 @@ import { PersonalDetailsUpdatePhoto } from "../pages/profile/PersonalDetailsUpda
 import { LoginDetails } from "../pages/profile/LoginDetails";
 import { LoginDetailsEmail } from "../pages/profile/LoginDetailsEmail";
 import { LoginDetailsPassword } from "../pages/profile/LoginDetailsPassword";
+import { NotificationSettings } from "../pages/profile/NotificationSettings";
+import { MarketingPreferences } from "../pages/profile/MarketingPreferences";
 
 import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
 import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
@@ -66,9 +68,7 @@ import profileLoginDetailsEmailHtml from "../../../website/MyBillAfrica/profile-
 import profileLoginDetailsHtml from "../../../website/MyBillAfrica/profile-logindetails.html?raw";
 import profileLoginDetailsPasswordHtml from "../../../website/MyBillAfrica/profile-logindetails-password.html?raw";
 import profileMarketingEmailHtml from "../../../website/MyBillAfrica/profile-marketing-email.html?raw";
-import profileMarketingHtml from "../../../website/MyBillAfrica/profile-marketing.html?raw";
 import profileNotificationEmailHtml from "../../../website/MyBillAfrica/profile-notification-email.html?raw";
-import profileNotificationHtml from "../../../website/MyBillAfrica/profile-notification.html?raw";
 import profilePersonalDetailsEditCountryHtml from "../../../website/MyBillAfrica/profile-personaldetails-editcountry.html?raw";
 import profilePersonalDetailsEditNameHtml from "../../../website/MyBillAfrica/profile-personaldetails-editname.html?raw";
 import profilePersonalDetailsHtml from "../../../website/MyBillAfrica/profile-personaldetails.html?raw";
@@ -170,8 +170,8 @@ export const router = createBrowserRouter([
             path: "/profile/login-details/password",
             element: <LoginDetailsPassword />
           },
-          { path: "/profile/notifications", element: <StaticHtmlPage html={profileNotificationHtml} selector="main" /> },
-          { path: "/profile/marketing", element: <StaticHtmlPage html={profileMarketingHtml} selector="main" /> },
+          { path: "/profile/notifications", element: <NotificationSettings /> },
+          { path: "/profile/marketing", element: <MarketingPreferences /> },
           {
             path: "/profile-notification-email",
             element: <StaticHtmlPage html={profileNotificationEmailHtml} selector="main" />
@@ -206,8 +206,8 @@ export const router = createBrowserRouter([
             path: "/profile-personaldetails-updatephoto",
             element: <StaticHtmlPage html={profilePersonalDetailsUpdatePhotoHtml} selector="main" />
           },
-          { path: "/profile-notification", element: <StaticHtmlPage html={profileNotificationHtml} selector="main" /> },
-          { path: "/profile-marketing", element: <StaticHtmlPage html={profileMarketingHtml} selector="main" /> }
+          { path: "/profile-notification", element: <NotificationSettings /> },
+          { path: "/profile-marketing", element: <MarketingPreferences /> }
         ]
       },
       {
