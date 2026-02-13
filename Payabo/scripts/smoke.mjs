@@ -5,6 +5,7 @@ const ordersApiSource = fs.readFileSync(new URL("../src/api/orders.ts", import.m
 const paymentsApiSource = fs.readFileSync(new URL("../src/api/payments.ts", import.meta.url), "utf8");
 const dashboardApiSource = fs.readFileSync(new URL("../src/api/dashboard.ts", import.meta.url), "utf8");
 const dashboardPageSource = fs.readFileSync(new URL("../src/pages/dashboard/Dashboard.tsx", import.meta.url), "utf8");
+const transactionsPageSource = fs.readFileSync(new URL("../src/pages/dashboard/Transactions.tsx", import.meta.url), "utf8");
 
 const requiredRoutes = [
   'path: "/payments/providers"',
@@ -39,6 +40,14 @@ if (dashboardApiSource.includes('paymentHistory') || dashboardApiSource.includes
 
 if (!dashboardPageSource.includes('/payments/transaction-details?id=')) {
   throw new Error("Dashboard transactions must deep-link to transaction details");
+}
+
+if (transactionsPageSource.includes("paymentHistory")) {
+  throw new Error("Transactions page must be API-backed and not import local paymentHistory");
+}
+
+if (!transactionsPageSource.includes("getRecentTransactions")) {
+  throw new Error("Transactions page must load data from dashboard API contract");
 }
 
 console.log("Smoke checks passed: dashboard/api/profile route and integration guardrails are in place.");
