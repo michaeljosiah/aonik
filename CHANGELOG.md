@@ -26,6 +26,9 @@ All notable changes to the AONIK project will be documented in this file.
   - Tests now properly resolve database dependencies
 
 ### Changed
+- **Engineering**: Added a tag-driven GitHub `Release` workflow that builds/tests the solution, publishes API artifacts, and creates GitHub Releases automatically for `v*` tags.
+- **Documentation**: Added a GitHub release runbook with prerequisites, workflow behavior, and release commands.
+- **Engineering**: Added a GitHub Actions `.NET CI` workflow that restores and builds `Aonik.sln` on pull requests targeting `main` and on pushes to `main`.
 - **Database Configuration**: Removed InMemory database option for Development environment
   - `UseInMemoryDatabase` configuration setting removed from `appsettings.Development.json`
   - Application now uses SQL Server for all non-test environments
