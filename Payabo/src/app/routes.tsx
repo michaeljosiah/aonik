@@ -1,11 +1,10 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { App } from "./App";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { FlowLayout } from "./layouts/FlowLayout";
 import { MarketingLayout } from "./layouts/MarketingLayout";
-import { StaticHtmlPage } from "../components/common/StaticHtmlPage";
 import { Home } from "../pages/marketing/Home";
 import { About } from "../pages/marketing/About";
 import { Community } from "../pages/marketing/Community";
@@ -37,7 +36,11 @@ import { Register } from "../pages/auth/Register";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
 import { Dashboard } from "../pages/dashboard/Dashboard";
+import { DashboardEmpty } from "../pages/dashboard/DashboardEmpty";
 import { Transactions } from "../pages/dashboard/Transactions";
+import { TransactionsCalendar } from "../pages/dashboard/TransactionsCalendar";
+import { ManageCards } from "../pages/dashboard/ManageCards";
+import { CardDetails } from "../pages/dashboard/CardDetails";
 import { TransactionDetails } from "../pages/payments/TransactionDetails";
 import { PersonalDetails } from "../pages/profile/PersonalDetails";
 import { PersonalDetailsEditName } from "../pages/profile/PersonalDetailsEditName";
@@ -47,41 +50,8 @@ import { PersonalDetailsUpdatePhoto } from "../pages/profile/PersonalDetailsUpda
 import { LoginDetails } from "../pages/profile/LoginDetails";
 import { LoginDetailsEmail } from "../pages/profile/LoginDetailsEmail";
 import { LoginDetailsPassword } from "../pages/profile/LoginDetailsPassword";
-
-import cardCheckoutRowHtml from "../../../website/MyBillAfrica/cardcheckout-row.html?raw";
-import cardCheckoutSampleHtml from "../../../website/MyBillAfrica/cardcheckout-sample.html?raw";
-import cardDetailsHtml from "../../../website/MyBillAfrica/carddetails.html?raw";
-import dashboardEmptyHtml from "../../../website/MyBillAfrica/dashboard-empty.html?raw";
-import dashboardRawHtml from "../../../website/MyBillAfrica/dashboard-raw.html?raw";
-import dashboardSampleHtml from "../../../website/MyBillAfrica/dashboard-sample.html?raw";
-import dashboardTransactionsCalendarHtml from "../../../website/MyBillAfrica/dashboard-transactions-calendar.html?raw";
-import dashboardTransactionsRawHtml from "../../../website/MyBillAfrica/dashboard-transactions-raw.html?raw";
-import dashboardTransactionsSampleHtml from "../../../website/MyBillAfrica/dashboard-transactions-rsample.html?raw";
-import friendCheckoutRowHtml from "../../../website/MyBillAfrica/friendcheckout-row.html?raw";
-import friendCheckoutSampleHtml from "../../../website/MyBillAfrica/friendcheckout-sample.html?raw";
-import friendCheckoutSampleNoMessageHtml from "../../../website/MyBillAfrica/friendcheckout-sample-nomessage.html?raw";
-import manageCardsRawHtml from "../../../website/MyBillAfrica/managecards-raw.html?raw";
-import manageCardsSampleHtml from "../../../website/MyBillAfrica/managecards-sample.html?raw";
-import profileLoginDetailsEmailHtml from "../../../website/MyBillAfrica/profile-logindetails-email.html?raw";
-import profileLoginDetailsHtml from "../../../website/MyBillAfrica/profile-logindetails.html?raw";
-import profileLoginDetailsPasswordHtml from "../../../website/MyBillAfrica/profile-logindetails-password.html?raw";
-import profileMarketingEmailHtml from "../../../website/MyBillAfrica/profile-marketing-email.html?raw";
-import profileMarketingHtml from "../../../website/MyBillAfrica/profile-marketing.html?raw";
-import profileNotificationEmailHtml from "../../../website/MyBillAfrica/profile-notification-email.html?raw";
-import profileNotificationHtml from "../../../website/MyBillAfrica/profile-notification.html?raw";
-import profilePersonalDetailsEditCountryHtml from "../../../website/MyBillAfrica/profile-personaldetails-editcountry.html?raw";
-import profilePersonalDetailsEditNameHtml from "../../../website/MyBillAfrica/profile-personaldetails-editname.html?raw";
-import profilePersonalDetailsHtml from "../../../website/MyBillAfrica/profile-personaldetails.html?raw";
-import profilePersonalDetailsPhoneHtml from "../../../website/MyBillAfrica/profile-personaldetails-phone.html?raw";
-import profilePersonalDetailsUpdatePhotoHtml from "../../../website/MyBillAfrica/profile-personaldetails-updatephoto.html?raw";
-import selectFriendRowHtml from "../../../website/MyBillAfrica/selectfriend-row.html?raw";
-import selectFriendSampleHtml from "../../../website/MyBillAfrica/selectfriend-sample.html?raw";
-import serviceDetailsRawHtml from "../../../website/MyBillAfrica/servicedetails-raw.html?raw";
-import serviceDetailsRecurringHtml from "../../../website/MyBillAfrica/servicedetails-recurringbill.html?raw";
-import serviceDetailsSampleHtml from "../../../website/MyBillAfrica/servicedetails-sample.html?raw";
-import serviceProviderListRawHtml from "../../../website/MyBillAfrica/serviceproviderlist-raw.html?raw";
-import serviceProviderListSampleHtml from "../../../website/MyBillAfrica/serviceproviderlist-sample.html?raw";
-import transactionDetailsHtml from "../../../website/MyBillAfrica/transactiondetails-raw.html?raw";
+import { NotificationSettings } from "../pages/profile/NotificationSettings";
+import { MarketingPreferences } from "../pages/profile/MarketingPreferences";
 
 export const router = createBrowserRouter([
   {
@@ -117,33 +87,21 @@ export const router = createBrowserRouter([
         ),
         children: [
           { path: "/dashboard", element: <Dashboard /> },
-          { path: "/dashboard/empty", element: <StaticHtmlPage html={dashboardEmptyHtml} selector="main" /> },
-          { path: "/dashboard/raw", element: <StaticHtmlPage html={dashboardRawHtml} selector="main" /> },
-          { path: "/dashboard-sample", element: <StaticHtmlPage html={dashboardSampleHtml} selector="main" /> },
-          { path: "/dashboard-raw", element: <StaticHtmlPage html={dashboardRawHtml} selector="main" /> },
-          { path: "/dashboard-empty", element: <StaticHtmlPage html={dashboardEmptyHtml} selector="main" /> },
+          { path: "/dashboard/empty", element: <DashboardEmpty /> },
+          { path: "/dashboard/raw", element: <Navigate to="/dashboard" replace /> },
+          { path: "/dashboard-sample", element: <Navigate to="/dashboard" replace /> },
+          { path: "/dashboard-raw", element: <Navigate to="/dashboard" replace /> },
+          { path: "/dashboard-empty", element: <DashboardEmpty /> },
           { path: "/transactions", element: <Transactions /> },
-          {
-            path: "/transactions/calendar",
-            element: <StaticHtmlPage html={dashboardTransactionsCalendarHtml} selector="main" />
-          },
-          {
-            path: "/dashboard-transactions-raw",
-            element: <StaticHtmlPage html={dashboardTransactionsRawHtml} selector="main" />
-          },
-          {
-            path: "/dashboard-transactions-rsample",
-            element: <StaticHtmlPage html={dashboardTransactionsSampleHtml} selector="main" />
-          },
-          {
-            path: "/dashboard-transactions-calendar",
-            element: <StaticHtmlPage html={dashboardTransactionsCalendarHtml} selector="main" />
-          },
-          { path: "/manage-cards", element: <StaticHtmlPage html={manageCardsRawHtml} selector="main" /> },
-          { path: "/managecards-raw", element: <StaticHtmlPage html={manageCardsRawHtml} selector="main" /> },
-          { path: "/managecards-sample", element: <StaticHtmlPage html={manageCardsSampleHtml} selector="main" /> },
-          { path: "/cards/details", element: <StaticHtmlPage html={cardDetailsHtml} selector="main" /> },
-          { path: "/carddetails", element: <StaticHtmlPage html={cardDetailsHtml} selector="main" /> },
+          { path: "/transactions/calendar", element: <TransactionsCalendar /> },
+          { path: "/dashboard-transactions-raw", element: <Navigate to="/transactions" replace /> },
+          { path: "/dashboard-transactions-rsample", element: <Navigate to="/transactions" replace /> },
+          { path: "/dashboard-transactions-calendar", element: <TransactionsCalendar /> },
+          { path: "/manage-cards", element: <ManageCards /> },
+          { path: "/managecards-raw", element: <ManageCards /> },
+          { path: "/managecards-sample", element: <ManageCards /> },
+          { path: "/cards/details", element: <CardDetails /> },
+          { path: "/carddetails", element: <CardDetails /> },
           { path: "/profile/personal", element: <PersonalDetails /> },
           {
             path: "/profile/personal/edit-name",
@@ -170,54 +128,30 @@ export const router = createBrowserRouter([
             path: "/profile/login-details/password",
             element: <LoginDetailsPassword />
           },
-          { path: "/profile/notifications", element: <StaticHtmlPage html={profileNotificationHtml} selector="main" /> },
-          { path: "/profile/marketing", element: <StaticHtmlPage html={profileMarketingHtml} selector="main" /> },
-          {
-            path: "/profile-notification-email",
-            element: <StaticHtmlPage html={profileNotificationEmailHtml} selector="main" />
-          },
-          { path: "/profile-marketing-email", element: <StaticHtmlPage html={profileMarketingEmailHtml} selector="main" /> },
-          { path: "/profile-logindetails", element: <StaticHtmlPage html={profileLoginDetailsHtml} selector="main" /> },
-          {
-            path: "/profile-logindetails-email",
-            element: <StaticHtmlPage html={profileLoginDetailsEmailHtml} selector="main" />
-          },
-          {
-            path: "/profile-logindetails-password",
-            element: <StaticHtmlPage html={profileLoginDetailsPasswordHtml} selector="main" />
-          },
-          {
-            path: "/profile-personaldetails",
-            element: <StaticHtmlPage html={profilePersonalDetailsHtml} selector="main" />
-          },
-          {
-            path: "/profile-personaldetails-editname",
-            element: <StaticHtmlPage html={profilePersonalDetailsEditNameHtml} selector="main" />
-          },
-          {
-            path: "/profile-personaldetails-editcountry",
-            element: <StaticHtmlPage html={profilePersonalDetailsEditCountryHtml} selector="main" />
-          },
-          {
-            path: "/profile-personaldetails-phone",
-            element: <StaticHtmlPage html={profilePersonalDetailsPhoneHtml} selector="main" />
-          },
-          {
-            path: "/profile-personaldetails-updatephoto",
-            element: <StaticHtmlPage html={profilePersonalDetailsUpdatePhotoHtml} selector="main" />
-          },
-          { path: "/profile-notification", element: <StaticHtmlPage html={profileNotificationHtml} selector="main" /> },
-          { path: "/profile-marketing", element: <StaticHtmlPage html={profileMarketingHtml} selector="main" /> }
+          { path: "/profile/notifications", element: <NotificationSettings /> },
+          { path: "/profile/marketing", element: <MarketingPreferences /> },
+          { path: "/profile-notification-email", element: <NotificationSettings /> },
+          { path: "/profile-marketing-email", element: <MarketingPreferences /> },
+          { path: "/profile-logindetails", element: <LoginDetails /> },
+          { path: "/profile-logindetails-email", element: <LoginDetailsEmail /> },
+          { path: "/profile-logindetails-password", element: <LoginDetailsPassword /> },
+          { path: "/profile-personaldetails", element: <PersonalDetails /> },
+          { path: "/profile-personaldetails-editname", element: <PersonalDetailsEditName /> },
+          { path: "/profile-personaldetails-editcountry", element: <PersonalDetailsEditCountry /> },
+          { path: "/profile-personaldetails-phone", element: <PersonalDetailsPhone /> },
+          { path: "/profile-personaldetails-updatephoto", element: <PersonalDetailsUpdatePhoto /> },
+          { path: "/profile-notification", element: <NotificationSettings /> },
+          { path: "/profile-marketing", element: <MarketingPreferences /> }
         ]
       },
       {
         element: <FlowLayout currentStep={0} headerClassName="border-bottom-0" />,
         children: [
           { path: "/payments/providers", element: <ProviderList /> },
-          { path: "/serviceproviderlist-raw", element: <StaticHtmlPage html={serviceProviderListRawHtml} selector="main" /> },
+          { path: "/serviceproviderlist-raw", element: <Navigate to="/payments/providers" replace /> },
           {
             path: "/serviceproviderlist-sample",
-            element: <StaticHtmlPage html={serviceProviderListSampleHtml} selector="main" />
+            element: <Navigate to="/payments/providers" replace />
           }
         ]
       },
@@ -225,11 +159,11 @@ export const router = createBrowserRouter([
         element: <FlowLayout currentStep={1} />,
         children: [
           { path: "/payments/service/:id", element: <ServiceDetails /> },
-          { path: "/servicedetails-raw", element: <StaticHtmlPage html={serviceDetailsRawHtml} selector="main" /> },
-          { path: "/servicedetails-sample", element: <StaticHtmlPage html={serviceDetailsSampleHtml} selector="main" /> },
+          { path: "/servicedetails-raw", element: <Navigate to="/payments/providers" replace /> },
+          { path: "/servicedetails-sample", element: <Navigate to="/payments/providers" replace /> },
           {
             path: "/servicedetails-recurringbill",
-            element: <StaticHtmlPage html={serviceDetailsRecurringHtml} selector="main" />
+            element: <Navigate to="/payments/providers" replace />
           }
         ]
       },
@@ -267,18 +201,18 @@ export const router = createBrowserRouter([
           { path: "/payments/select-friend", element: <SelectFriend /> },
           { path: "/payments/friend-details", element: <FriendDetails /> },
           { path: "/payments/friend-message", element: <FriendMessage /> },
-          { path: "/cardcheckout-row", element: <StaticHtmlPage html={cardCheckoutRowHtml} selector="main" /> },
-          { path: "/cardcheckout-sample", element: <StaticHtmlPage html={cardCheckoutSampleHtml} selector="main" /> },
-          { path: "/friendcheckout-row", element: <StaticHtmlPage html={friendCheckoutRowHtml} selector="main" /> },
-          { path: "/friendcheckout-sample", element: <StaticHtmlPage html={friendCheckoutSampleHtml} selector="main" /> },
+          { path: "/cardcheckout-row", element: <Navigate to="/payments/card-checkout" replace /> },
+          { path: "/cardcheckout-sample", element: <Navigate to="/payments/card-checkout" replace /> },
+          { path: "/friendcheckout-row", element: <Navigate to="/payments/friend-checkout" replace /> },
+          { path: "/friendcheckout-sample", element: <Navigate to="/payments/friend-checkout" replace /> },
           {
             path: "/friendcheckout-sample-nomessage",
-            element: <StaticHtmlPage html={friendCheckoutSampleNoMessageHtml} selector="main" />
+            element: <Navigate to="/payments/friend-checkout" replace />
           },
           { path: "/selectcard", element: <SelectCard /> },
           { path: "/selectfriend", element: <SelectFriend /> },
-          { path: "/selectfriend-row", element: <StaticHtmlPage html={selectFriendRowHtml} selector="main" /> },
-          { path: "/selectfriend-sample", element: <StaticHtmlPage html={selectFriendSampleHtml} selector="main" /> },
+          { path: "/selectfriend-row", element: <Navigate to="/payments/select-friend" replace /> },
+          { path: "/selectfriend-sample", element: <Navigate to="/payments/select-friend" replace /> },
           { path: "/friend-message", element: <FriendMessage /> },
           { path: "/frienddetails", element: <FriendDetails /> }
         ]
@@ -329,7 +263,7 @@ export const router = createBrowserRouter([
             path: "/payments/transaction-details",
             element: <TransactionDetails />
           },
-          { path: "/transactiondetails-raw", element: <StaticHtmlPage html={transactionDetailsHtml} selector="main" /> }
+          { path: "/transactiondetails-raw", element: <Navigate to="/payments/transaction-details" replace /> }
         ]
       }
     ]
