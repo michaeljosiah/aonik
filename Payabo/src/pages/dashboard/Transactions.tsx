@@ -1,18 +1,54 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../../app/auth/AuthContext";
-import { listPaymentHistoryForUser } from "../payments/paymentHistory";
+import { getRecentTransactions, type DashboardRecentTransaction } from "../../api/dashboard";
 
 export const Transactions = () => {
   const { user } = useAuth();
+  const [transactions, setTransactions] = useState<DashboardRecentTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const transactions = useMemo(() => {
-    if (!user?.id) {
-      return [];
-    }
+  useEffect(() => {
+    let cancelled = false;
 
-    return listPaymentHistoryForUser(user.id);
+    const load = async () => {
+      if (!user?.id) {
+        setTransactions([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      try {
+        const result = await getRecentTransactions(user.id);
+        if (cancelled) {
+          return;
+        }
+
+        setTransactions(result);
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setTransactions([]);
+        setErrorMessage("Unable to load transactions right now.");
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   return (
@@ -20,16 +56,20 @@ export const Transactions = () => {
       <div className="container py-4">
         <h3 className="alt mb-3">Transactions</h3>
 
-        {transactions.length === 0 ? (
+        {errorMessage && <div className="alert alert-warning">{errorMessage}</div>}
+
+        {isLoading ? (
+          <div className="alert alert-secondary">Loading transactions...</div>
+        ) : transactions.length === 0 ? (
           <div className="alert alert-info">No transactions yet. Complete a checkout to populate your history.</div>
         ) : (
           <div className="table-responsive">
             <table className="table table-card">
               <thead>
                 <tr>
-                  <th>Created</th>
                   <th>Service</th>
                   <th>Biller</th>
+                  <th>Date</th>
                   <th>Status</th>
                   <th className="text-end">Amount</th>
                   <th></th>
@@ -38,13 +78,11 @@ export const Transactions = () => {
               <tbody>
                 {transactions.map((item) => (
                   <tr key={item.id}>
-                    <td>{new Date(item.createdAt).toLocaleString()}</td>
                     <td>{item.serviceName}</td>
-                    <td>{item.billerName ?? "Provider"}</td>
+                    <td>{item.billerName}</td>
+                    <td>{item.dateLabel}</td>
                     <td>{item.status}</td>
-                    <td className="text-end">
-                      {item.amount != null ? `${item.currency} ${item.amount.toFixed(2)}` : "-"}
-                    </td>
+                    <td className="text-end">{item.amountLabel}</td>
                     <td>
                       <Link to={`/payments/transaction-details?id=${encodeURIComponent(item.id)}`}>Details</Link>
                     </td>
