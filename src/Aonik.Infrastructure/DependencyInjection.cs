@@ -51,11 +51,13 @@ using Aonik.Infrastructure.Observability;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Storage;
 using Aonik.Infrastructure.BackgroundJobs;
+using Aonik.Infrastructure.Caching;
 using Aonik.Infrastructure.Time;
 using Aonik.Infrastructure.Features;
 using Aonik.Infrastructure.Seeding;
 using Aonik.SharedKernel.Abstractions;
 using Microsoft.FeatureManagement;
+using ZiggyCreatures.Caching.Fusion;
 
 
 namespace Aonik.Infrastructure;
@@ -79,10 +81,17 @@ public static class DependencyInjection
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
         services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
-        services.AddMemoryCache();
+        services.AddFusionCache();
         services.AddDataProtection();
 
         services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
+
+        services.AddSingleton<ICachePolicyProvider, CachePolicyProvider>();
+        services.AddSingleton<ICacheSetRegistry, CacheSetRegistry>();
+        services.AddSingleton<ICacheInvalidationPublisher, CacheInvalidationPublisher>();
+        services.AddSingleton<FusionCacheInvalidationHandler>();
+        services.AddHostedService<CacheInvalidationSubscriptionService>();
+        services.AddScoped<ICacheStore, FusionCacheStore>();
 
         services.AddFeatureManagement()
             .AddFeatureFilter<TenantFeatureFilter>();

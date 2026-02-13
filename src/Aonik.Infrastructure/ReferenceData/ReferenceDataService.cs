@@ -3,26 +3,29 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.ReferenceData;
 using Aonik.Application.Models.ReferenceData;
 using Aonik.Domain.ReferenceData.Entities;
+using Aonik.Infrastructure.Caching;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace Aonik.Infrastructure.ReferenceData;
 
 public class ReferenceDataService : IReferenceDataService
 {
-    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
+    private const string CacheSet = "reference-data";
     private readonly IAonikDbContext _dbContext;
-    private readonly IMemoryCache _cache;
+    private readonly ICacheStore _cache;
     private readonly ITenantProvider _tenantProvider;
+    private readonly ICacheInvalidationPublisher _cacheInvalidationPublisher;
 
     public ReferenceDataService(
         IAonikDbContext dbContext,
-        IMemoryCache cache,
-        ITenantProvider tenantProvider)
+        ICacheStore cache,
+        ITenantProvider tenantProvider,
+        ICacheInvalidationPublisher cacheInvalidationPublisher)
     {
         _dbContext = dbContext;
         _cache = cache;
         _tenantProvider = tenantProvider;
+        _cacheInvalidationPublisher = cacheInvalidationPublisher;
     }
 
     public async Task<IReadOnlyList<ReferenceDataItemSnapshot>> GetAsync(
@@ -39,30 +42,35 @@ public class ReferenceDataService : IReferenceDataService
         tenantId ??= _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId) ? resolvedTenantId : null;
 
         var cacheKey = GetCacheKey(normalizedType, tenantId);
-        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<ReferenceDataItemSnapshot>? cached) && cached is not null)
-        {
-            return cached;
-        }
 
-        var items = await _dbContext.ReferenceDataItems
-            .AsNoTracking()
-            .Where(item => item.Type == normalizedType && (item.TenantId == null || item.TenantId == tenantId))
-            .ToListAsync(cancellationToken);
+        var cached = await _cache.GetOrSetAsync(
+            cacheKey,
+            CachePolicy.Medium,
+            async ct =>
+            {
+                var items = await _dbContext.ReferenceDataItems
+                    .AsNoTracking()
+                    .Where(item => item.Type == normalizedType && (item.TenantId == null || item.TenantId == tenantId))
+                    .ToListAsync(ct);
 
-        var resolved = items
-            .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(item => item.TenantId.HasValue)
-                .ThenBy(item => item.SortOrder)
-                .First())
-            .Where(item => item.IsActive)
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.DisplayName)
-            .Select(Map)
-            .ToList();
+                var resolved = items
+                    .GroupBy(item => item.Code, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group
+                        .OrderByDescending(item => item.TenantId.HasValue)
+                        .ThenBy(item => item.SortOrder)
+                        .First())
+                    .Where(item => item.IsActive)
+                    .OrderBy(item => item.SortOrder)
+                    .ThenBy(item => item.DisplayName)
+                    .Select(Map)
+                    .ToList();
 
-        _cache.Set(cacheKey, resolved, CacheTtl);
-        return resolved;
+                return (IReadOnlyList<ReferenceDataItemSnapshot>)resolved;
+            },
+            CacheSet,
+            cancellationToken);
+
+        return cached ?? [];
     }
 
     public async Task<ReferenceDataItemSnapshot> UpsertAsync(
@@ -114,7 +122,7 @@ public class ReferenceDataService : IReferenceDataService
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        EvictCache(normalizedType, tenantId);
+        await EvictCacheAsync(normalizedType, tenantId, cancellationToken);
 
         return Map(item);
     }
@@ -134,14 +142,14 @@ public class ReferenceDataService : IReferenceDataService
             item.IsActive);
     }
 
-    private void EvictCache(string type, Guid? tenantId)
+    private async Task EvictCacheAsync(string type, Guid? tenantId, CancellationToken cancellationToken)
     {
-        _cache.Remove(GetCacheKey(type, tenantId));
-        _cache.Remove(GetCacheKey(type, null));
+        await _cacheInvalidationPublisher.PublishAsync(new CacheInvalidationEvent(CacheSet, GetCacheKey(type, tenantId)), cancellationToken);
+        await _cacheInvalidationPublisher.PublishAsync(new CacheInvalidationEvent(CacheSet, GetCacheKey(type, null)), cancellationToken);
 
         if (_tenantProvider.TryGetCurrentTenantId(out var currentTenantId))
         {
-            _cache.Remove(GetCacheKey(type, currentTenantId));
+            await _cacheInvalidationPublisher.PublishAsync(new CacheInvalidationEvent(CacheSet, GetCacheKey(type, currentTenantId)), cancellationToken);
         }
     }
 }
