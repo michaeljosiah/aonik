@@ -7,6 +7,7 @@ using Aonik.Application.Services;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Ledger.Entities;
 using Aonik.SharedKernel.Abstractions;
+using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 
 namespace Aonik.Application.Services.Ledger;
 
@@ -31,7 +32,7 @@ public class LedgerService : AdminServiceBase, ILedgerService
         await EnsurePermissionAsync("Ledger.Write", cancellationToken);
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var ledger = new Ledger
+        var ledger = new LedgerEntity
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
@@ -177,9 +178,10 @@ public class LedgerService : AdminServiceBase, ILedgerService
             throw new InvalidOperationException("One or more ledger accounts were not found in the selected ledger.");
         }
 
+        var entryId = Guid.NewGuid();
         var entry = new JournalEntry
         {
-            Id = Guid.NewGuid(),
+            Id = entryId,
             LedgerId = ledger.Id,
             TenantId = tenantId,
             Timestamp = DateTime.UtcNow,
@@ -190,7 +192,7 @@ public class LedgerService : AdminServiceBase, ILedgerService
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
-                JournalEntryId = entry.Id,
+                JournalEntryId = entryId,
                 LedgerAccountId = line.AccountId,
                 Direction = line.Direction,
                 Amount = line.Amount,
