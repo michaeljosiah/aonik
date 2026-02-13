@@ -325,7 +325,7 @@ public class PartyService : IPartyService
         return combinedName;
     }
 
-    private static void AddContacts(PartyEntity party, string? email, string? phone, DateTimeOffset now)
+    private static void AddContacts(PartyEntity party, string? email, string? phone, DateTime now)
     {
         if (!string.IsNullOrWhiteSpace(email))
         {
