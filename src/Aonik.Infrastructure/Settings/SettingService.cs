@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 
 using Aonik.Application.Abstractions.Persistence;
@@ -10,29 +9,32 @@ using Aonik.Application.Settings;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Settings;
 using Aonik.Domain.Settings.Entities;
+using Aonik.Infrastructure.Caching;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Infrastructure.Settings;
 
 public class SettingService : ISettingProvider, ISettingManager
 {
-    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
+    private const string CacheSet = "settings";
     private readonly IAonikDbContext _dbContext;
     private readonly IConfiguration _configuration;
-    private readonly IMemoryCache _cache;
+    private readonly ICacheStore _cache;
     private readonly ISettingValueProtector _protector;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IPermissionService _permissionService;
+    private readonly ICacheInvalidationPublisher _cacheInvalidationPublisher;
 
     public SettingService(
         IAonikDbContext dbContext,
         IConfiguration configuration,
-        IMemoryCache cache,
+        ICacheStore cache,
         ISettingValueProtector protector,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IPermissionService permissionService)
+        IPermissionService permissionService,
+        ICacheInvalidationPublisher cacheInvalidationPublisher)
     {
         _dbContext = dbContext;
         _configuration = configuration;
@@ -41,6 +43,7 @@ public class SettingService : ISettingProvider, ISettingManager
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _permissionService = permissionService;
+        _cacheInvalidationPublisher = cacheInvalidationPublisher;
     }
 
     public Task<string?> GetAsync(string key, CancellationToken cancellationToken = default)
@@ -68,37 +71,40 @@ public class SettingService : ISettingProvider, ISettingManager
     {
         await EnsureSettingsReadPermissionAsync(scope, cancellationToken);
         var cacheKey = GetCacheKey(scope, key, tenantId, userId);
-        if (_cache.TryGetValue(cacheKey, out string? cached))
-        {
-            return cached;
-        }
 
-        var definition = SettingDefinitions.Get(key);
-        var query = _dbContext.Settings.AsNoTracking().Where(setting => setting.Key == key && setting.Scope == scope);
+        return await _cache.GetOrSetAsync(
+            cacheKey,
+            CachePolicy.Short,
+            async ct =>
+            {
+                var definition = SettingDefinitions.Get(key);
+                var query = _dbContext.Settings.AsNoTracking().Where(setting => setting.Key == key && setting.Scope == scope);
 
-        if (scope == SettingScope.Tenant)
-        {
-            query = query.Where(setting => setting.TenantId == tenantId);
-        }
-        else if (scope == SettingScope.User)
-        {
-            query = query.Where(setting => setting.TenantId == tenantId && setting.UserId == userId);
-        }
-        else
-        {
-            query = query.Where(setting => setting.TenantId == null && setting.UserId == null);
-        }
+                if (scope == SettingScope.Tenant)
+                {
+                    query = query.Where(setting => setting.TenantId == tenantId);
+                }
+                else if (scope == SettingScope.User)
+                {
+                    query = query.Where(setting => setting.TenantId == tenantId && setting.UserId == userId);
+                }
+                else
+                {
+                    query = query.Where(setting => setting.TenantId == null && setting.UserId == null);
+                }
 
-        var stored = await query.FirstOrDefaultAsync(cancellationToken);
-        var value = stored?.Value;
+                var stored = await query.FirstOrDefaultAsync(ct);
+                var value = stored?.Value;
 
-        if (!string.IsNullOrWhiteSpace(value) && definition?.IsEncrypted == true)
-        {
-            value = _protector.Unprotect(value);
-        }
+                if (!string.IsNullOrWhiteSpace(value) && definition?.IsEncrypted == true)
+                {
+                    value = _protector.Unprotect(value);
+                }
 
-        _cache.Set(cacheKey, value, CacheTtl);
-        return value;
+                return value;
+            },
+            CacheSet,
+            cancellationToken);
     }
 
     public async Task<SettingResolution> GetResolvedAsync(
@@ -180,7 +186,9 @@ public class SettingService : ISettingProvider, ISettingManager
                 await _dbContext.SaveChangesAsync(cancellationToken);
             }
 
-            _cache.Remove(GetCacheKey(scope, key, tenantId, userId));
+            await _cacheInvalidationPublisher.PublishAsync(
+                new CacheInvalidationEvent(CacheSet, GetCacheKey(scope, key, tenantId, userId)),
+                cancellationToken);
             return;
         }
 
@@ -207,7 +215,9 @@ public class SettingService : ISettingProvider, ISettingManager
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        _cache.Remove(GetCacheKey(scope, key, tenantId, userId));
+        await _cacheInvalidationPublisher.PublishAsync(
+            new CacheInvalidationEvent(CacheSet, GetCacheKey(scope, key, tenantId, userId)),
+            cancellationToken);
     }
 
     public async Task<bool> HasStoredValueAsync(

@@ -26,6 +26,7 @@ All notable changes to the AONIK project will be documented in this file.
   - Tests now properly resolve database dependencies
 
 ### Changed
+- **Infrastructure**: Introduced FusionCache-based caching with standardized short/medium/long cache policies, migrated settings/reference-data caching to the shared cache store, and added event-driven cache invalidation for automatic cache set expiry on writes.
 - **Engineering**: Added a tag-driven GitHub `Release` workflow that builds/tests the solution, publishes API artifacts, and creates GitHub Releases automatically for `v*` tags.
 - **Documentation**: Added a GitHub release runbook with prerequisites, workflow behavior, and release commands.
 - **Engineering**: Added a GitHub Actions `.NET CI` workflow that restores and builds `Aonik.sln` on pull requests targeting `main` and on pushes to `main`.
