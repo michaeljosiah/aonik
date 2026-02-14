@@ -92,6 +92,7 @@ public static class DependencyInjection
         services.AddSingleton<FusionCacheInvalidationHandler>();
         services.AddHostedService<CacheInvalidationSubscriptionService>();
         services.AddScoped<ICacheStore, FusionCacheStore>();
+        services.AddScoped<ICacheManagementService, CacheManagementService>();
 
         services.AddFeatureManagement()
             .AddFeatureFilter<TenantFeatureFilter>();

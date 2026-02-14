@@ -6,6 +6,7 @@ public interface ICacheSetRegistry
 {
     void Track(string cacheSet, string cacheKey);
     IReadOnlyCollection<string> GetKeys(string cacheSet);
+    IReadOnlyCollection<string> GetCacheSets();
     void RemoveKey(string cacheSet, string cacheKey);
 }
 
@@ -27,6 +28,11 @@ public class CacheSetRegistry : ICacheSetRegistry
         }
 
         return keys.Keys.ToArray();
+    }
+
+    public IReadOnlyCollection<string> GetCacheSets()
+    {
+        return _sets.Keys.ToArray();
     }
 
     public void RemoveKey(string cacheSet, string cacheKey)
