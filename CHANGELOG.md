@@ -9,6 +9,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added live profile management pages for personal details, email updates, password updates, and photo upload/delete backed by customer profile endpoints.
 
 ### Fixed
+- **Infrastructure**: Corrected the FusionCache DI package reference to `ZiggyCreatures.FusionCache.Microsoft.Extensions.DependencyInjection` so solution restore resolves successfully from NuGet.
 - **Payabo Web**: Removed calls to non-existent `/public/payments/instruments` and now resolves saved payment instruments from local persisted/seeded data until a real endpoint is introduced.
 - **Payabo Web**: Prevented stale cached `paymentIntentId` reuse on provider-return flows by only reusing cached IDs when callback context matches the saved provider reference.
 - **Payabo Web**: Prioritized query-level cancellation (`result=cancelled`) as failed in status reconciliation so immediate cancel returns do not show as pending while provider intent remains pending.

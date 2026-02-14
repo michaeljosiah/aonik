@@ -29,7 +29,7 @@
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
     <PackageReference Include="ZiggyCreatures.FusionCache" Version="2.3.0" />
-    <PackageReference Include="ZiggyCreatures.FusionCache.Microsoft.DependencyInjection" Version="2.3.0" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Microsoft.Extensions.DependencyInjection" Version="2.3.0" />
   </ItemGroup>
 
   <PropertyGroup>
