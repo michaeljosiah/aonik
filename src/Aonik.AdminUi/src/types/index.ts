@@ -1025,6 +1025,23 @@ export interface PermissionSeedResponse {
   operations: string[];
 }
 
+export interface CacheSetSummary {
+  name: string;
+  entryCount: number;
+}
+
+export interface CacheOverviewResponse {
+  cacheSets: CacheSetSummary[];
+  totalCacheSets: number;
+  totalEntries: number;
+}
+
+export interface InvalidateCacheSetResponse {
+  cacheSet: string;
+  invalidated: boolean;
+  invalidatedAtUtc: string;
+}
+
 // Ledger Types
 export interface LedgerSummary {
   id: string;

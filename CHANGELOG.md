@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Admin UI + API**: Added cache management tooling under System Tools with cache-set overview and invalidate actions, backed by new admin cache endpoints and infrastructure cache management service.
 - **Payabo Web**: Completed Phase 2 authenticated account integration by switching to backend token + userinfo login bootstrap, adding registration API wiring, and enforcing auth guard loading/session checks.
 - **Payabo Web**: Added live profile management pages for personal details, email updates, password updates, and photo upload/delete backed by customer profile endpoints.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
