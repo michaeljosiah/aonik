@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export const Community = () => {
   return (
     <main className="main-wrapper">
@@ -117,7 +119,7 @@ export const Community = () => {
                 </div>
                 <div className="card-body">
                   <h4>
-                    <a href="community-details.html">Community support fund</a>
+                    <Link to="/community-details">Community support fund</Link>
                   </h4>
                   <p>Support urgent bills and community projects. Payments go directly to providers.</p>
                 </div>
@@ -141,9 +143,9 @@ export const Community = () => {
                       aria-valuemax={100}
                     ></div>
                   </div>
-                  <a className="btn btn-primary btn-sm" href="community-details.html">
+                  <Link className="btn btn-primary btn-sm" to="/community-details">
                     DETAILS
-                  </a>
+                  </Link>
                   <ul className="social-share">
                     <li>
                       <span>SHARE:</span>
