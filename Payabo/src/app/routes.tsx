@@ -8,6 +8,7 @@ import { MarketingLayout } from "./layouts/MarketingLayout";
 import { Home } from "../pages/marketing/Home";
 import { About } from "../pages/marketing/About";
 import { Community } from "../pages/marketing/Community";
+import { CommunityDetails } from "../pages/marketing/CommunityDetails";
 import { Cookies } from "../pages/marketing/Cookies";
 import { Features } from "../pages/marketing/Features";
 import { FeaturesPage } from "../pages/marketing/FeaturesPage";
@@ -66,6 +67,7 @@ export const router = createBrowserRouter([
           { path: "/about", element: <About /> },
           { path: "/help", element: <Help /> },
           { path: "/community", element: <Community /> },
+          { path: "/community-details", element: <CommunityDetails /> },
           { path: "/get-app", element: <GetApp /> },
           { path: "/privacy", element: <Privacy /> },
           { path: "/cookies", element: <Cookies /> }
