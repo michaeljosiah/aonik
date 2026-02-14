@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "dev"
+    },
+    "workloadName": {
+      "value": "aonik"
+    },
+    "apiImage": {
+      "value": "REPLACE_WITH_ACR_LOGIN_SERVER/aonik-api:dev"
+    },
+    "workerImage": {
+      "value": "REPLACE_WITH_ACR_LOGIN_SERVER/aonik-worker:dev"
+    },
+    "sqlAdminPassword": {
+      "value": "REPLACE_WITH_SECURE_VALUE"
+    },
+    "tags": {
+      "value": {
+        "owner": "platform",
+        "environment": "dev",
+        "product": "aonik"
+      }
+    }
+  }
+}
