@@ -7,6 +7,7 @@ All notable changes to the AONIK project will be documented in this file.
 ### Added
 - **Payabo Web**: Completed Phase 2 authenticated account integration by switching to backend token + userinfo login bootstrap, adding registration API wiring, and enforcing auth guard loading/session checks.
 - **Payabo Web**: Added live profile management pages for personal details, email updates, password updates, and photo upload/delete backed by customer profile endpoints.
+- **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
 - **Infrastructure**: Removed the invalid FusionCache DI package reference (`ZiggyCreatures.FusionCache.Microsoft.Extensions.DependencyInjection`) and rely on `ZiggyCreatures.FusionCache`, which already provides `AddFusionCache()`.
