@@ -5,6 +5,9 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Infrastructure (Azure IaC CD)**: Added a GitHub Actions workflow (`azure-iac-cd.yml`) to run Azure IaC `what-if` previews and deployments for both ACA and App Service profiles using OIDC and environment-scoped secrets.
+- **Infrastructure (Azure IaC)**: Added a Bicep-based Azure Infrastructure as Code baseline under `infra/` with an ACA-first profile (`Aonik.Api` + `Aonik.Worker` on Azure Container Apps), an App Service fallback profile, reusable shared/data modules, and environment parameter templates for `dev`, `staging`, and `prod`.
+- **Deployment Docs**: Updated Azure deployment guidance and added an Azure IaC roadmap document covering current implementation and hardening phases.
 - **Admin UI + API**: Added cache management tooling under System Tools with cache-set overview and invalidate actions, backed by new admin cache endpoints and infrastructure cache management service.
 - **Payabo Web**: Completed Phase 2 authenticated account integration by switching to backend token + userinfo login bootstrap, adding registration API wiring, and enforcing auth guard loading/session checks.
 - **Payabo Web**: Added live profile management pages for personal details, email updates, password updates, and photo upload/delete backed by customer profile endpoints.
