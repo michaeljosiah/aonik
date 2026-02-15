@@ -58,6 +58,12 @@ Set the required GitHub environment secrets before running:
 - `AZURE_SUBSCRIPTION_ID`
 - `SQL_ADMIN_PASSWORD`
 
+1. Build and publish immutable container tags for API and Worker.
+2. Provision/upgrade infrastructure with Bicep.
+3. Run EF Core migrations as a controlled deployment task/job.
+4. Roll out API and Worker revisions.
+5. Execute post-deploy smoke checks and monitor telemetry.
+
 ## Notes
 
 - The app fails fast in non-Development environments if `ConnectionStrings:DefaultConnection` is missing.
