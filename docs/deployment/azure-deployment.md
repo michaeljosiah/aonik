@@ -41,6 +41,29 @@ See `infra/README.md` for structure, deployment commands, and required parameter
 4. Roll out API and Worker revisions.
 5. Execute post-deploy smoke checks and monitor telemetry.
 
+
+## GitHub Actions CD
+
+A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for manual, controlled infrastructure rollout.
+
+- Supports both profiles: `aca` and `appservice`
+- Supports `what-if` mode for safe preview
+- Uses OIDC-based Azure authentication (`azure/login`)
+- Deploys by profile/environment parameter files in `infra/environments/*`
+
+Set the required GitHub environment secrets before running:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `SQL_ADMIN_PASSWORD`
+
+1. Build and publish immutable container tags for API and Worker.
+2. Provision/upgrade infrastructure with Bicep.
+3. Run EF Core migrations as a controlled deployment task/job.
+4. Roll out API and Worker revisions.
+5. Execute post-deploy smoke checks and monitor telemetry.
+
 ## Notes
 
 - The app fails fast in non-Development environments if `ConnectionStrings:DefaultConnection` is missing.

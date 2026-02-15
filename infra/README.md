@@ -53,3 +53,22 @@ az deployment group create \
 - Replace `REPLACE_WITH_*` values in parameter files before deployment.
 - `sqlAdminPassword` is included as a secure parameter placeholder; inject it from your CI secret store.
 - For production hardening, move SQL/Key Vault to private endpoints and lock public network access.
+
+## GitHub Actions CD (Recommended)
+
+Use `.github/workflows/azure-iac-cd.yml` to run controlled IaC rollout via manual dispatch.
+
+### Required GitHub environment secrets
+
+Configure these secrets per environment (`dev`, `staging`, `prod`):
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `SQL_ADMIN_PASSWORD`
+
+### Workflow behavior
+
+- Supports both `aca` and `appservice` profiles.
+- Supports `what-if` preview mode before deployment.
+- Uses Azure OIDC login (`azure/login`) instead of long-lived service principal passwords.
