@@ -2,8 +2,8 @@
 
 This folder provides an Azure-first Infrastructure as Code baseline for AONIK with two deployment profiles:
 
-- **ACA profile (primary)**: Azure Container Apps for `Aonik.Api` and `Aonik.Worker`
-- **App Service profile (fallback)**: App Service for `Aonik.Api`
+- **ACA profile (primary)**: Azure Container Apps for `Aonik.Api`, `Aonik.Worker`, and `Aonik.AdminUi`
+- **App Service profile (fallback)**: App Service for `Aonik.Api` and `Aonik.AdminUi`
 
 AKS is intentionally excluded for now.
 
@@ -29,6 +29,7 @@ AKS is intentionally excluded for now.
 - Container images for:
   - `aonik-api`
   - `aonik-worker` (ACA profile)
+  - `aonik-adminui`
 
 ## Deploy ACA profile
 
@@ -67,8 +68,17 @@ Configure these secrets per environment (`dev`, `staging`, `prod`):
 - `AZURE_SUBSCRIPTION_ID`
 - `SQL_ADMIN_PASSWORD`
 
+### Quick run checklist
+
+1. Update image tags in `infra/environments/<env>/*.parameters.json` (`apiImage`, `workerImage` for ACA, and `adminUiImage`).
+2. Ensure GitHub environment secrets are set for the selected environment.
+3. Run **Actions** → **Azure IaC CD** with `mode=what-if` and review changes.
+4. Re-run with `mode=deploy` to apply changes.
+
 ### Workflow behavior
 
 - Supports both `aca` and `appservice` profiles.
 - Supports `what-if` preview mode before deployment.
 - Uses Azure OIDC login (`azure/login`) instead of long-lived service principal passwords.
+
+For full click-by-click GitHub setup (OIDC, environments, secrets, workflow inputs, and validation), see `docs/deployment/azure-deployment.md`.
