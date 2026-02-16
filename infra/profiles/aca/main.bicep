@@ -15,6 +15,9 @@ param apiImage string
 @description('Worker image reference including tag.')
 param workerImage string
 
+@description('Admin UI image reference including tag.')
+param adminUiImage string
+
 @secure()
 @description('SQL server administrator login password.')
 param sqlAdminPassword string
@@ -187,6 +190,48 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
+resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
+  name: '${workloadName}-${environmentName}-adminui'
+  location: location
+  tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    managedEnvironmentId: containerAppsEnvironment.id
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        targetPort: 80
+        transport: 'auto'
+      }
+      registries: [
+        {
+          server: common.outputs.containerRegistryLoginServer
+          identity: 'system'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'adminui'
+          image: adminUiImage
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+        }
+      ]
+      scale: {
+        minReplicas: environmentName == 'prod' ? 2 : 1
+        maxReplicas: environmentName == 'prod' ? 5 : 2
+      }
+    }
+  }
+}
+
 resource acrPullRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(common.outputs.containerRegistryId, apiApp.id, 'AcrPull')
   scope: resourceId('Microsoft.ContainerRegistry/registries', common.outputs.containerRegistryName)
@@ -203,6 +248,16 @@ resource acrPullRoleForWorker 'Microsoft.Authorization/roleAssignments@2022-04-0
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
     principalId: workerApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource acrPullRoleForAdminUi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(common.outputs.containerRegistryId, adminUiApp.id, 'AcrPull')
+  scope: resourceId('Microsoft.ContainerRegistry/registries', common.outputs.containerRegistryName)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: adminUiApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -228,6 +283,7 @@ resource kvSecretsUserRoleForWorker 'Microsoft.Authorization/roleAssignments@202
 }
 
 output apiUrl string = 'https://${apiApp.properties.configuration.ingress.fqdn}'
+output adminUiUrl string = 'https://${adminUiApp.properties.configuration.ingress.fqdn}'
 output containerRegistryLoginServer string = common.outputs.containerRegistryLoginServer
 output keyVaultName string = data.outputs.keyVaultName
 output sqlServerName string = data.outputs.sqlServerName

@@ -12,6 +12,9 @@ param environmentName string
 @description('API image reference including tag.')
 param apiImage string
 
+@description('Admin UI image reference including tag.')
+param adminUiImage string
+
 @secure()
 @description('SQL server administrator login password.')
 param sqlAdminPassword string
@@ -88,12 +91,47 @@ resource apiWebApp 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
+
+resource adminUiWebApp 'Microsoft.Web/sites@2023-12-01' = {
+  name: '${workloadName}-${environmentName}-adminui'
+  location: location
+  tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: appServicePlan.id
+    httpsOnly: true
+    siteConfig: {
+      linuxFxVersion: 'DOCKER|${adminUiImage}'
+      appSettings: [
+        {
+          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
+          value: 'false'
+        }
+      ]
+      acrUseManagedIdentityCreds: true
+    }
+  }
+}
+
 resource acrPullRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(common.outputs.containerRegistryId, apiWebApp.id, 'AcrPull')
   scope: resourceId('Microsoft.ContainerRegistry/registries', common.outputs.containerRegistryName)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
     principalId: apiWebApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+
+resource acrPullRoleForAdminUi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(common.outputs.containerRegistryId, adminUiWebApp.id, 'AcrPull')
+  scope: resourceId('Microsoft.ContainerRegistry/registries', common.outputs.containerRegistryName)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: adminUiWebApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -109,6 +147,7 @@ resource kvSecretsUserRoleForApi 'Microsoft.Authorization/roleAssignments@2022-0
 }
 
 output apiUrl string = 'https://${apiWebApp.properties.defaultHostName}'
+output adminUiUrl string = 'https://${adminUiWebApp.properties.defaultHostName}'
 output containerRegistryLoginServer string = common.outputs.containerRegistryLoginServer
 output keyVaultName string = data.outputs.keyVaultName
 output sqlServerName string = data.outputs.sqlServerName

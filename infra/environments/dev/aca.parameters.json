@@ -14,6 +14,9 @@
     "workerImage": {
       "value": "REPLACE_WITH_ACR_LOGIN_SERVER/aonik-worker:dev"
     },
+    "adminUiImage": {
+      "value": "REPLACE_WITH_ACR_LOGIN_SERVER/aonik-adminui:dev"
+    },
     "sqlAdminPassword": {
       "value": "REPLACE_WITH_SECURE_VALUE"
     },
