@@ -66,6 +66,7 @@ Configure these secrets per environment (`dev`, `staging`, `prod`):
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
+- `AZURE_CLIENT_SECRET` (optional; if set, workflow uses secret-based service principal auth instead of OIDC)
 - `SQL_ADMIN_PASSWORD`
 
 ### Quick run checklist
@@ -79,6 +80,6 @@ Configure these secrets per environment (`dev`, `staging`, `prod`):
 
 - Supports both `aca` and `appservice` profiles.
 - Supports `what-if` preview mode before deployment.
-- Uses Azure OIDC login (`azure/login`) instead of long-lived service principal passwords.
+- Supports Azure login via either OIDC (`azure/login`) or service principal client secret (`AZURE_CLIENT_SECRET`) when OIDC is unavailable.
 
 For full click-by-click GitHub setup (OIDC, environments, secrets, workflow inputs, and validation), see `docs/deployment/azure-deployment.md`.
