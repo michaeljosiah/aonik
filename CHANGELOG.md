@@ -34,6 +34,7 @@ All notable changes to the AONIK project will be documented in this file.
   - Tests now properly resolve database dependencies
 
 ### Changed
+- **Infrastructure (Azure IaC CD)**: Updated Azure IaC deployment workflow to support optional `AZURE_CLIENT_SECRET` authentication fallback while preserving OIDC as the default path; refreshed deployment docs to describe both auth modes.
 - **Deployment**: Implemented first-class containerisation assets with multi-stage Dockerfiles for `Aonik.Api` and `Aonik.Worker`, a Docker Compose stack (`sql` + `api` + `worker`), and updated deployment guidance for local and production container workflows.
 - **Infrastructure**: Introduced FusionCache-based caching with standardized short/medium/long cache policies, migrated settings/reference-data caching to the shared cache store, and added event-driven cache invalidation for automatic cache set expiry on writes.
 - **Engineering**: Added a tag-driven GitHub `Release` workflow that builds/tests the solution, publishes API artifacts, and creates GitHub Releases automatically for `v*` tags.

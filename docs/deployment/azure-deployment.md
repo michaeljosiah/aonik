@@ -50,7 +50,7 @@ A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for ma
 
 - Supports both profiles: `aca` and `appservice`
 - Supports `what-if` mode for safe preview
-- Uses OIDC-based Azure authentication (`azure/login`)
+- Uses Azure authentication via OIDC by default (`azure/login`), with optional client-secret fallback
 - Deploys using profile/environment parameter files in `infra/environments/*`
 
 ### 1) Prepare Azure once (OIDC for GitHub)
@@ -62,6 +62,7 @@ A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for ma
    - `AZURE_CLIENT_ID`
    - `AZURE_TENANT_ID`
    - `AZURE_SUBSCRIPTION_ID`
+   - `AZURE_CLIENT_SECRET` (optional fallback when OIDC cannot be used)
 
 ### 2) Prepare environment parameter files in the repo
 
@@ -102,6 +103,7 @@ For each environment (`dev`, `staging`, `prod`), add:
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
+- `AZURE_CLIENT_SECRET` (optional)
 - `SQL_ADMIN_PASSWORD`
 
 Path in GitHub UI:
@@ -165,3 +167,4 @@ Recommended sequence:
 - The app fails fast in non-Development environments if `ConnectionStrings:DefaultConnection` is missing.
 - Avoid embedding secrets in `appsettings.json`; use environment variables and Key Vault references.
 - Financially material processing should keep audit/trace telemetry enabled in all non-local environments.
+- If `AZURE_CLIENT_SECRET` is configured in the GitHub environment, the IaC workflow authenticates with service principal secret; otherwise it uses OIDC federation.
