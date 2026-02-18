@@ -28,7 +28,7 @@
       }
     },
     "containerRegistrySku": {
-      "value": "Standard"
+      "value": "Basic"
     }
   }
 }
