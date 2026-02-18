@@ -23,6 +23,9 @@
         "environment": "dev",
         "product": "aonik"
       }
+    },
+    "containerRegistrySku": {
+      "value": "Standard"
     }
   }
 }
