@@ -17,6 +17,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 - **Infrastructure (Azure IaC/CD)**: Hardened deployments by keeping ACR retention policy disabled unless `Premium` is selected, removing unsupported ACR policy fields that trigger Bicep type warnings, and adding workflow validation that fails fast when environment parameter files still contain `REPLACE_WITH_*` placeholders (such as container image references).
+- **Infrastructure (Azure IaC)**: Fixed Azure Container Registry policy configuration for `Basic`/`Standard` SKUs by disabling retention policy unless `Premium` is selected and aligning `azureADAuthenticationAsArmPolicy` casing with Azure resource schema, preventing false `SkuNotSupported` deployment failures on non-Premium tiers.
 
 - **Infrastructure**: Removed the invalid FusionCache DI package reference (`ZiggyCreatures.FusionCache.Microsoft.Extensions.DependencyInjection`) and rely on `ZiggyCreatures.FusionCache`, which already provides `AddFusionCache()`.
 - **Payabo Web**: Removed calls to non-existent `/public/payments/instruments` and now resolves saved payment instruments from local persisted/seeded data until a real endpoint is introduced.

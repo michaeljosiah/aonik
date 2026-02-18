@@ -108,6 +108,7 @@ jobs:
               print("Replace placeholders before running what-if/deploy.")
               sys.exit(1)
           PY
+          python -c "import json, pathlib, sys; p=pathlib.Path(r'${{ env.PARAM_FILE }}'); params=json.loads(p.read_text()).get('parameters', {}); bad=[f'{k}={v.get("value")}' for k,v in params.items() if k != 'sqlAdminPassword' and isinstance(v, dict) and isinstance(v.get('value'), str) and v.get('value').startswith('REPLACE_WITH_')]; print('\n'.join([f"Parameter file '{p}' still contains placeholder values:"] + [f'- {x}' for x in bad] + ['Replace placeholders before running what-if/deploy.'])) if bad else None; sys.exit(1 if bad else 0)"
 
       - name: Compile Bicep template
         run: az bicep build --file "$TEMPLATE_FILE"

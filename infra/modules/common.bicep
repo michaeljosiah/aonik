@@ -80,6 +80,9 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = if (createCon
       exportPolicy: {
         status: 'enabled'
       }
+      azureADAuthenticationAsArmPolicy: {
+        status: 'enabled'
+      }
     }
   }
 }
