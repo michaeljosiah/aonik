@@ -52,6 +52,7 @@ A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for ma
 - Supports `what-if` mode for safe preview
 - Uses Azure authentication via OIDC by default (`azure/login`), with optional client-secret fallback
 - Deploys using profile/environment parameter files in `infra/environments/*`
+- Fails early when parameter files still contain `REPLACE_WITH_*` placeholders (for example image references)
 
 ### 1) Prepare Azure once (OIDC for GitHub)
 
