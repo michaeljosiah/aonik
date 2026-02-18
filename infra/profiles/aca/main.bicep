@@ -25,6 +25,14 @@ param sqlAdminPassword string
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
+@description('Azure Container Registry SKU tier.')
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param containerRegistrySku string = 'Basic'
+
 var namePrefix = toLower('${workloadName}-${environmentName}')
 var containerRegistryName = replace('${namePrefix}acr', '-', '')
 var logAnalyticsWorkspaceName = '${namePrefix}-log'
@@ -37,6 +45,7 @@ module common '../../modules/common.bicep' = {
     workloadName: workloadName
     environmentName: environmentName
     tags: tags
+    containerRegistrySku: containerRegistrySku
   }
 }
 

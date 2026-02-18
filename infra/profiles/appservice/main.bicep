@@ -22,6 +22,14 @@ param sqlAdminPassword string
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
+@description('Azure Container Registry SKU tier.')
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param containerRegistrySku string = 'Basic'
+
 module common '../../modules/common.bicep' = {
   name: 'common-${environmentName}'
   params: {
@@ -29,6 +37,7 @@ module common '../../modules/common.bicep' = {
     workloadName: workloadName
     environmentName: environmentName
     tags: tags
+    containerRegistrySku: containerRegistrySku
   }
 }
 
