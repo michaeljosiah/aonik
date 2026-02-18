@@ -21,8 +21,9 @@ on:
           - staging
           - prod
       resource_group:
-        description: "Azure resource group name"
-        required: true
+        description: "Azure resource group override (optional)"
+        required: false
+        default: ""
         type: string
       location:
         description: "Azure region override (optional)"
@@ -51,6 +52,7 @@ jobs:
       TEMPLATE_FILE: infra/profiles/${{ inputs.profile }}/main.bicep
       PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
 
     steps:
       - name: Checkout repository
@@ -71,6 +73,10 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Validate required deployment settings
+        run: |
+          test -n "$RESOURCE_GROUP" || (echo "RESOURCE_GROUP is empty. Set workflow input 'resource_group' or environment variable AZURE_RESOURCE_GROUP." && exit 1)
+
       - name: Validate template and parameter files exist
         run: |
           test -f "$TEMPLATE_FILE"
@@ -82,34 +88,62 @@ jobs:
       - name: What-if deployment preview
         if: ${{ inputs.mode == 'what-if' }}
         run: |
+          set +e
+
+          what_if_args=(
+            --resource-group "$RESOURCE_GROUP"
+            --template-file "$TEMPLATE_FILE"
+            --parameters "@$PARAM_FILE"
+            --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+          )
+
           if [ -n "${{ inputs.location }}" ]; then
-            az deployment group what-if \
-              --resource-group "${{ inputs.resource_group }}" \
-              --template-file "$TEMPLATE_FILE" \
-              --parameters "@$PARAM_FILE" \
-              --parameters location="${{ inputs.location }}" \
-              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
-          else
-            az deployment group what-if \
-              --resource-group "${{ inputs.resource_group }}" \
-              --template-file "$TEMPLATE_FILE" \
-              --parameters "@$PARAM_FILE" \
-              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
+            what_if_args+=(--parameters "location=${{ inputs.location }}")
           fi
+
+          what_if_output=$(az deployment group what-if "${what_if_args[@]}" 2>&1)
+          what_if_exit_code=$?
+
+          if [ $what_if_exit_code -eq 0 ]; then
+            echo "$what_if_output"
+            exit 0
+          fi
+
+          echo "$what_if_output"
+
+          if [[ "$what_if_output" == *"Microsoft.Resources/deployments/whatIf/action"* ]] || [[ "$what_if_output" == *"AuthorizationFailed"* ]]; then
+            echo "what-if permissions are missing. Falling back to template validation for this run."
+
+            validate_args=(
+              --resource-group "$RESOURCE_GROUP"
+              --template-file "$TEMPLATE_FILE"
+              --parameters "@$PARAM_FILE"
+              --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+            )
+
+            if [ -n "${{ inputs.location }}" ]; then
+              validate_args+=(--parameters "location=${{ inputs.location }}")
+            fi
+
+            az deployment group validate "${validate_args[@]}"
+            exit 0
+          fi
+
+          exit $what_if_exit_code
 
       - name: Deploy infrastructure
         if: ${{ inputs.mode == 'deploy' }}
         run: |
           if [ -n "${{ inputs.location }}" ]; then
             az deployment group create \
-              --resource-group "${{ inputs.resource_group }}" \
+              --resource-group "$RESOURCE_GROUP" \
               --template-file "$TEMPLATE_FILE" \
               --parameters "@$PARAM_FILE" \
               --parameters location="${{ inputs.location }}" \
               --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
           else
             az deployment group create \
-              --resource-group "${{ inputs.resource_group }}" \
+              --resource-group "$RESOURCE_GROUP" \
               --template-file "$TEMPLATE_FILE" \
               --parameters "@$PARAM_FILE" \
               --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
