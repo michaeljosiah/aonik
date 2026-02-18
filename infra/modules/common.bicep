@@ -75,12 +75,9 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = if (createCon
       }
       retentionPolicy: {
         days: 14
-        status: 'enabled'
+        status: containerRegistrySku == 'Premium' ? 'enabled' : 'disabled'
       }
       exportPolicy: {
-        status: 'enabled'
-      }
-      azureAdAuthenticationAsArmPolicy: {
         status: 'enabled'
       }
     }
