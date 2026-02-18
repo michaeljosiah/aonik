@@ -16,7 +16,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
-- **Infrastructure (Azure IaC)**: Made Azure Container Registry SKU configurable (`Basic`/`Standard`/`Premium`) in shared IaC modules and set the `dev` environment profiles to `Standard` to avoid `SkuNotSupported` failures where `Basic` is unavailable while preserving `Basic` as the default for compatibility.
+- **Infrastructure (Azure IaC/CD)**: Hardened deployments by keeping ACR retention policy disabled unless `Premium` is selected, removing unsupported ACR policy fields that trigger Bicep type warnings, and adding workflow validation that fails fast when environment parameter files still contain `REPLACE_WITH_*` placeholders (such as container image references).
 
 - **Infrastructure**: Removed the invalid FusionCache DI package reference (`ZiggyCreatures.FusionCache.Microsoft.Extensions.DependencyInjection`) and rely on `ZiggyCreatures.FusionCache`, which already provides `AddFusionCache()`.
 - **Payabo Web**: Removed calls to non-existent `/public/payments/instruments` and now resolves saved payment instruments from local persisted/seeded data until a real endpoint is introduced.

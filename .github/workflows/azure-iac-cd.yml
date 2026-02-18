@@ -82,6 +82,33 @@ jobs:
           test -f "$TEMPLATE_FILE"
           test -f "$PARAM_FILE"
 
+      - name: Validate parameter values are deployment-ready
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          param_file = pathlib.Path(r"${{ env.PARAM_FILE }}")
+          params = json.loads(param_file.read_text()).get("parameters", {})
+
+          bad = []
+          for key, wrapper in params.items():
+              if key == "sqlAdminPassword":
+                  continue
+
+              value = wrapper.get("value") if isinstance(wrapper, dict) else None
+              if isinstance(value, str) and value.startswith("REPLACE_WITH_"):
+                  bad.append(f"{key}={value}")
+
+          if bad:
+              print(f"Parameter file {param_file} still contains placeholder values:")
+              for item in bad:
+                  print(f"- {item}")
+              print("Replace placeholders before running what-if/deploy.")
+              sys.exit(1)
+          PY
+
       - name: Compile Bicep template
         run: az bicep build --file "$TEMPLATE_FILE"
 
