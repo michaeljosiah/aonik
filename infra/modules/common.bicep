@@ -82,6 +82,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = if (createCon
 output containerRegistryName string = createContainerRegistry ? acr.name : ''
 output containerRegistryId string = createContainerRegistry ? acr.id : ''
 output containerRegistryLoginServer string = createContainerRegistry ? acr.properties.loginServer : ''
+output logAnalyticsWorkspaceName string = createLogAnalytics ? logAnalytics.name : ''
 output logAnalyticsWorkspaceId string = createLogAnalytics ? logAnalytics.id : ''
 output logAnalyticsWorkspaceCustomerId string = createLogAnalytics ? logAnalytics.properties.customerId : ''
 output appInsightsConnectionString string = createApplicationInsights ? appInsights.properties.ConnectionString : ''
