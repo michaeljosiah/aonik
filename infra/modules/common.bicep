@@ -53,7 +53,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = if (createCon
   location: location
   tags: tags
   sku: {
-    name: 'Standard'
+    name: 'Basic'
   }
   properties: {
     adminUserEnabled: false
