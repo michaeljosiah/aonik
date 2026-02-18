@@ -13,6 +13,14 @@ param tags object = {}
 @description('Whether to create an Azure Container Registry.')
 param createContainerRegistry bool = true
 
+@description('Azure Container Registry SKU tier.')
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param containerRegistrySku string = 'Basic'
+
 @description('Whether to create an Azure Log Analytics workspace.')
 param createLogAnalytics bool = true
 
@@ -53,7 +61,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = if (createCon
   location: location
   tags: tags
   sku: {
-    name: 'Basic'
+    name: containerRegistrySku
   }
   properties: {
     adminUserEnabled: false

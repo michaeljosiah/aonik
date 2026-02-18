@@ -134,17 +134,59 @@ jobs:
       - name: Deploy infrastructure
         if: ${{ inputs.mode == 'deploy' }}
         run: |
+          set +e
+
+          deployment_args=(
+            --resource-group "$RESOURCE_GROUP"
+            --template-file "$TEMPLATE_FILE"
+            --parameters "@$PARAM_FILE"
+            --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+          )
+
           if [ -n "${{ inputs.location }}" ]; then
-            az deployment group create \
-              --resource-group "$RESOURCE_GROUP" \
-              --template-file "$TEMPLATE_FILE" \
-              --parameters "@$PARAM_FILE" \
-              --parameters location="${{ inputs.location }}" \
-              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
-          else
-            az deployment group create \
-              --resource-group "$RESOURCE_GROUP" \
-              --template-file "$TEMPLATE_FILE" \
-              --parameters "@$PARAM_FILE" \
-              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
+            deployment_args+=(--parameters "location=${{ inputs.location }}")
           fi
+
+          requested_sku=$(python -c 'import json; data=json.load(open("${{ env.PARAM_FILE }}", "r", encoding="utf-8")); print(data.get("parameters", {}).get("containerRegistrySku", {}).get("value", ""))')
+
+          initial_sku="${requested_sku:-Basic}"
+          sku_candidates=("$initial_sku" Basic Standard Premium)
+          tried_skus=()
+
+          for sku in "${sku_candidates[@]}"; do
+            skip=false
+            for tried in "${tried_skus[@]}"; do
+              if [ "$tried" = "$sku" ]; then
+                skip=true
+                break
+              fi
+            done
+
+            if [ "$skip" = true ]; then
+              continue
+            fi
+
+            tried_skus+=("$sku")
+            echo "Attempting deployment with containerRegistrySku=$sku"
+
+            attempt_output=$(az deployment group create "${deployment_args[@]}" --parameters "containerRegistrySku=$sku" 2>&1)
+            attempt_exit_code=$?
+
+            if [ $attempt_exit_code -eq 0 ]; then
+              echo "$attempt_output"
+              echo "Deployment succeeded with containerRegistrySku=$sku"
+              exit 0
+            fi
+
+            echo "$attempt_output"
+
+            if [[ "$attempt_output" != *"SkuNotSupported"* ]]; then
+              echo "Deployment failed for a non-SKU reason; not retrying with other SKUs."
+              exit $attempt_exit_code
+            fi
+
+            echo "SKU '$sku' is not supported in this subscription/region context. Trying next SKU candidate..."
+          done
+
+          echo "Deployment failed after trying all ACR SKU candidates: ${tried_skus[*]}"
+          exit 1
