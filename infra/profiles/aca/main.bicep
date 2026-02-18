@@ -25,6 +25,11 @@ param sqlAdminPassword string
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
+var namePrefix = toLower('${workloadName}-${environmentName}')
+var containerRegistryName = replace('${namePrefix}acr', '-', '')
+var logAnalyticsWorkspaceName = '${namePrefix}-log'
+var keyVaultName = '${namePrefix}-kv'
+
 module common '../../modules/common.bicep' = {
   name: 'common-${environmentName}'
   params: {
@@ -54,8 +59,8 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
-        customerId: common.outputs.logAnalyticsWorkspaceCustomerId
-        sharedKey: listKeys(resourceId('Microsoft.OperationalInsights/workspaces', common.outputs.logAnalyticsWorkspaceName), '2023-09-01').primarySharedKey
+        customerId: logAnalyticsWorkspace.properties.customerId
+        sharedKey: listKeys(logAnalyticsWorkspace.id, '2023-09-01').primarySharedKey
       }
     }
   }
@@ -234,15 +239,19 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
 
 
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: common.outputs.containerRegistryName
+  name: containerRegistryName
+}
+
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
+  name: logAnalyticsWorkspaceName
 }
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
-  name: data.outputs.keyVaultName
+  name: keyVaultName
 }
 
 resource acrPullRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(common.outputs.containerRegistryName, apiApp.name, 'AcrPull')
+  name: guid(containerRegistryName, apiApp.name, 'AcrPull')
   scope: containerRegistry
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
@@ -252,7 +261,7 @@ resource acrPullRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-01' 
 }
 
 resource acrPullRoleForWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(common.outputs.containerRegistryName, workerApp.name, 'AcrPull')
+  name: guid(containerRegistryName, workerApp.name, 'AcrPull')
   scope: containerRegistry
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
@@ -262,7 +271,7 @@ resource acrPullRoleForWorker 'Microsoft.Authorization/roleAssignments@2022-04-0
 }
 
 resource acrPullRoleForAdminUi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(common.outputs.containerRegistryName, adminUiApp.name, 'AcrPull')
+  name: guid(containerRegistryName, adminUiApp.name, 'AcrPull')
   scope: containerRegistry
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
@@ -272,7 +281,7 @@ resource acrPullRoleForAdminUi 'Microsoft.Authorization/roleAssignments@2022-04-
 }
 
 resource kvSecretsUserRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(data.outputs.keyVaultName, apiApp.name, 'KeyVaultSecretsUser')
+  name: guid(keyVaultName, apiApp.name, 'KeyVaultSecretsUser')
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
@@ -282,7 +291,7 @@ resource kvSecretsUserRoleForApi 'Microsoft.Authorization/roleAssignments@2022-0
 }
 
 resource kvSecretsUserRoleForWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(data.outputs.keyVaultName, workerApp.name, 'KeyVaultSecretsUser')
+  name: guid(keyVaultName, workerApp.name, 'KeyVaultSecretsUser')
   scope: keyVault
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
