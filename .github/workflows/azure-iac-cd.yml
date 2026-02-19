@@ -163,10 +163,10 @@ jobs:
               if len(registries) == 1:
                   acr_login_server = registries[0]
               elif len(registries) > 1:
-                  print("RESOURCE_GROUP contains multiple ACR registries. Set 'acr_login_server' or 'workload_name' to select the correct registry.")
+                  print("RESOURCE_GROUP contains multiple ACR registries; using derived ACR host fallback for first-time deployment.")
+                  print("Set 'acr_login_server' to target an existing registry explicitly.")
                   for item in registries:
                       print(f"- {item}")
-                  sys.exit(1)
 
           if not acr_login_server:
               acr_login_server = f"{acr_name}.azurecr.io"
