@@ -171,8 +171,52 @@ jobs:
           if "appservice" in str(param_file):
               repos.pop("workerImage", None)
 
+          def classify_acr_show_error(error_text: str) -> str:
+              normalized = error_text.lower()
+
+              not_found_markers = (
+                  "manifest unknown",
+                  "name unknown",
+                  "not found",
+                  "does not exist",
+                  "repositorynotfound",
+                  "manifestunknown",
+              )
+
+              auth_markers = (
+                  "unauthorized",
+                  "authenticationfailed",
+                  "forbidden",
+                  "insufficient",
+                  "denied",
+                  "authorizationfailed",
+              )
+
+              transport_markers = (
+                  "timed out",
+                  "timeout",
+                  "temporarily unavailable",
+                  "connection",
+                  "network",
+                  "econn",
+                  "tls",
+                  "503",
+                  "500",
+                  "429",
+              )
+
+              if any(marker in normalized for marker in auth_markers):
+                  return "auth"
+              if any(marker in normalized for marker in transport_markers):
+                  return "transport"
+              if any(marker in normalized for marker in not_found_markers):
+                  return "not_found"
+              return "unknown"
+
           resolved = {}
-          missing = []
+          missing_images = []
+          query_failures = []
+
           for param_key, repository in repos.items():
               if skip_image_validation:
                   resolved[param_key] = f"{acr_login_server}/{repository}:{release_version}"
@@ -187,7 +231,11 @@ jobs:
               result = subprocess.run(show_cmd, capture_output=True, text=True)
               if result.returncode != 0:
                   details = (result.stderr or result.stdout or "unknown az acr error").strip()
-                  missing.append((repository, details))
+                  category = classify_acr_show_error(details)
+                  if category == "not_found":
+                      missing_images.append((repository, details))
+                  else:
+                      query_failures.append((repository, category, details))
                   continue
 
               metadata = json.loads(result.stdout)
@@ -197,10 +245,19 @@ jobs:
               else:
                   resolved[param_key] = f"{acr_login_server}/{repository}:{release_version}"
 
-          if missing:
+          if query_failures:
+              print("Runtime deploy blocked: unable to verify image tags in ACR due to registry query failures.")
+              print("These failures are not treated as missing-image signals:")
+              for repository, category, details in query_failures:
+                  print(f"- {repository}:{release_version} [{category}] ({details})")
+              print("Grant the deploy principal ACR metadata read permission (for example AcrPull) or resolve transient registry/network issues.")
+              print("Use skip_image_validation=true only for emergency/manual recovery paths.")
+              sys.exit(1)
+
+          if missing_images:
               print(f"Runtime deploy blocked: release version '{release_version}' is incomplete.")
               print("Missing images:")
-              for repository, details in missing:
+              for repository, details in missing_images:
                   print(f"- {repository}:{release_version} ({details})")
               print("Run 'Azure Image Release' with the same release version so all services share one cohesive version set.")
               print("Use skip_image_validation=true only for emergency/manual recovery paths.")

@@ -18,6 +18,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Azure Runtime Deploy)**: Classified ACR query failures separately from true image-not-found results in `azure-runtime-deploy.yml`, so auth/transport errors no longer appear as misleading missing-tag failures.
 - **Infrastructure (Platform Bootstrap)**: Replaced single `bootstrap_image` override with service-specific bootstrap image inputs (`bootstrap_api_image`, `bootstrap_worker_image`, `bootstrap_adminui_image`) so ACA bootstrap honors API/Admin UI port assumptions and avoids first-run false starts.
 - **Infrastructure (Workflow Lint)**: Fixed additional ShellCheck SC2129 in `azure-image-release.yml` metadata output export by grouping `GITHUB_OUTPUT` writes under one redirect block.
 - **Infrastructure (Workflow Lint)**: Fixed ShellCheck SC2129 in `azure-image-release.yml` by grouping `image-release.env` writes under a single redirection to satisfy `actionlint` shell checks.

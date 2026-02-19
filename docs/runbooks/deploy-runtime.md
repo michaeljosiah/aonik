@@ -30,5 +30,6 @@ Deploy ACA/AppService runtime updates using one explicit image release version.
 
 ## Fail-fast behavior
 - Deployment fails if any required service image for the selected version is missing.
+- Authentication/authorization or transport errors during ACR metadata queries fail fast with a separate message (not classified as missing tags).
 - No automatic cross-service fallback is applied.
 - Use `skip_image_validation=true` only for controlled emergency recovery.
