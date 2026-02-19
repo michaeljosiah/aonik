@@ -263,22 +263,30 @@ jobs:
               print("No image references found in effective parameters; skipping ACR image validation.")
               sys.exit(0)
 
-          def find_latest_tag(registry_name: str, repository: str) -> str:
+          def list_recent_tags(registry_name: str, repository: str, top: int = 50) -> list[str]:
               cmd = [
                   "az", "acr", "repository", "show-tags",
                   "--name", registry_name,
                   "--repository", repository,
                   "--orderby", "time_desc",
-                  "--top", "1",
+                  "--top", str(top),
                   "-o", "tsv",
               ]
               result = subprocess.run(cmd, capture_output=True, text=True)
               if result.returncode != 0:
-                  return ""
-              return (result.stdout or "").strip()
+                  return []
+              return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+
+          def image_exists(registry_name: str, repository: str, tag: str) -> bool:
+              cmd = [
+                  "az", "acr", "repository", "show", "--name", registry_name,
+                  "--image", f"{repository}:{tag}", "--output", "none"
+              ]
+              result = subprocess.run(cmd, capture_output=True, text=True)
+              return result.returncode == 0
 
           missing = []
-          resolved = []
+          parsed_images = []
 
           for key, image_ref in image_refs:
               registry_and_repo, separator, tag = image_ref.rpartition(":")
@@ -289,53 +297,63 @@ jobs:
 
               registry, repository = registry_and_repo.split("/", 1)
               registry_name = registry.split(".", 1)[0]
+              parsed_images.append((key, image_ref, registry_and_repo, registry_name, repository, tag))
+
+          if missing:
+              print("Deployment aborted because one or more container image tags were invalid:")
+              for item in missing:
+                  print(f"- {item}")
+              sys.exit(1)
+
+          missing_images = []
+
+          for key, image_ref, _registry_and_repo, registry_name, repository, tag in parsed_images:
+              if image_exists(registry_name, repository, tag):
+                  print(f"Validated image exists: {image_ref}")
+                  continue
 
               cmd = [
                   "az", "acr", "repository", "show", "--name", registry_name,
                   "--image", f"{repository}:{tag}", "--output", "none"
               ]
-
               result = subprocess.run(cmd, capture_output=True, text=True)
-
-              if result.returncode == 0:
-                  print(f"Validated image exists: {image_ref}")
-                  continue
-
-              fallback_tag = ""
-              if not image_tag_override:
-                  fallback_tag = find_latest_tag(registry_name, repository)
-
-              if fallback_tag:
-                  fallback_image_ref = f"{registry_and_repo}:{fallback_tag}"
-                  fallback_cmd = [
-                      "az", "acr", "repository", "show", "--name", registry_name,
-                      "--image", f"{repository}:{fallback_tag}", "--output", "none"
-                  ]
-                  fallback_result = subprocess.run(fallback_cmd, capture_output=True, text=True)
-
-                  if fallback_result.returncode == 0:
-                      wrapper = params.get(key)
-                      if isinstance(wrapper, dict):
-                          wrapper["value"] = fallback_image_ref
-                      resolved.append((image_ref, fallback_image_ref))
-                      print(
-                          f"Resolved missing image tag for {key}: {image_ref} -> {fallback_image_ref}"
-                      )
-                      continue
-
               stderr = (result.stderr or "").strip()
               stdout = (result.stdout or "").strip()
               details = stderr or stdout or "unknown az acr error"
-              missing.append(f"{key}={image_ref} ({details})")
+              missing_images.append((key, image_ref, details))
 
-          if resolved:
-              effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
-              print(f"Updated effective parameters with resolved image tags at {effective_param_file}")
+          if missing_images and not image_tag_override:
+              print("Attempting cohesive image-tag fallback across api/worker/adminui repositories.")
+              first_registry_name = parsed_images[0][3]
+              first_repository = parsed_images[0][4]
+              candidate_tags = list_recent_tags(first_registry_name, first_repository)
 
-          if missing:
+              fallback_tag = ""
+              for candidate_tag in candidate_tags:
+                  if all(
+                      image_exists(registry_name, repository, candidate_tag)
+                      for _, _, _, registry_name, repository, _ in parsed_images
+                  ):
+                      fallback_tag = candidate_tag
+                      break
+
+              if fallback_tag:
+                  for key, _image_ref, registry_and_repo, _registry_name, _repository, _tag in parsed_images:
+                      wrapper = params.get(key)
+                      if isinstance(wrapper, dict):
+                          wrapper["value"] = f"{registry_and_repo}:{fallback_tag}"
+                  effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
+                  print(
+                      f"Resolved missing image tags using shared fallback tag '{fallback_tag}' and updated {effective_param_file}"
+                  )
+                  sys.exit(0)
+
+          if missing_images:
               print("Deployment aborted because one or more container image tags were not found in ACR:")
-              for item in missing:
-                  print(f"- {item}")
+              for key, image_ref, details in missing_images:
+                  print(f"- {key}={image_ref} ({details})")
+              if not image_tag_override:
+                  print("No shared fallback tag exists across all required repositories.")
               print("Provide an existing tag via workflow input 'image_tag' or update infra/environments/* parameter files to known published tags before deploying.")
               sys.exit(1)
           PY
