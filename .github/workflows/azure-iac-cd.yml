@@ -1,4 +1,4 @@
-name: Azure IaC CD
+name: Azure IaC CD (Deprecated)
 
 on:
   workflow_dispatch:
@@ -76,6 +76,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+
+      - name: Deprecation notice
+        run: |
+          echo "This workflow is deprecated. Prefer the separated workflows:"
+          echo "- azure-platform-bootstrap.yml"
+          echo "- azure-image-release.yml"
+          echo "- azure-runtime-deploy.yml"
 
       - name: Azure login (Service Principal Secret)
         if: ${{ env.AZURE_CLIENT_SECRET != '' }}

@@ -1,0 +1,27 @@
+# Runbook: Build and Push Runtime Images
+
+Workflow: `.github/workflows/azure-image-release.yml`
+
+## Purpose
+Build and push `aonik-api`, `aonik-worker`, and `aonik-adminui` images to ACR using one cohesive release version.
+
+## Inputs
+- `environment`: `dev|staging|prod`
+- `image_tag` (optional; defaults to `github.sha`)
+- `semver_alias` (optional)
+- `workload_name` (optional)
+- `acr_name` (optional explicit override)
+
+## Required GitHub Environment Secrets/Vars
+- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+- Optional secret fallback: `AZURE_CLIENT_SECRET`
+
+## Steps
+1. Trigger workflow and set `image_tag` if needed.
+2. Wait for all three images to build and push.
+3. Download artifact `image-release-<version>`.
+4. Record `image-release-manifest.json` for deployment/audit.
+
+## Notes
+- OIDC is default; avoid static registry credentials.
+- Optional `semver_alias` is mutable and should not be used as deployment source of truth.

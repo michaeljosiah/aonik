@@ -1,0 +1,200 @@
+name: Azure Platform Bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Infrastructure profile to deploy"
+        required: true
+        default: "aca"
+        type: choice
+        options:
+          - aca
+          - appservice
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      resource_group:
+        description: "Azure resource group override (optional)"
+        required: false
+        default: ""
+        type: string
+      workload_name:
+        description: "Workload name override used for naming and default ACR derivation"
+        required: false
+        default: ""
+        type: string
+      location:
+        description: "Azure region override (optional)"
+        required: false
+        default: ""
+        type: string
+      mode:
+        description: "Run what-if preview or deploy"
+        required: true
+        default: "what-if"
+        type: choice
+        options:
+          - what-if
+          - deploy
+      bootstrap_image:
+        description: "Temporary public image used for first-run bootstrap"
+        required: false
+        default: "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Bootstrap platform (${{ inputs.profile }} / ${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      TEMPLATE_FILE: infra/profiles/${{ inputs.profile }}/main.bicep
+      PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
+      EFFECTIVE_PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.bootstrap.parameters.json
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
+      WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
+      BOOTSTRAP_IMAGE: ${{ inputs.bootstrap_image }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login (Service Principal Secret fallback)
+        if: ${{ env.AZURE_CLIENT_SECRET != '' }}
+        uses: azure/login@v2
+        with:
+          creds: >-
+            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ env.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
+
+      - name: Azure login (OIDC)
+        if: ${{ env.AZURE_CLIENT_SECRET == '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate required deployment settings
+        run: |
+          test -n "$RESOURCE_GROUP" || (echo "RESOURCE_GROUP is empty. Set workflow input 'resource_group' or environment variable AZURE_RESOURCE_GROUP." && exit 1)
+          test -f "$TEMPLATE_FILE"
+          test -f "$PARAM_FILE"
+
+      - name: Build bootstrap parameter file (infra-only)
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+
+          param_file = pathlib.Path(r"${{ env.PARAM_FILE }}")
+          effective_param_file = pathlib.Path(r"${{ env.EFFECTIVE_PARAM_FILE }}")
+          workload_name = r"${{ env.WORKLOAD_NAME }}".strip()
+          bootstrap_image = r"${{ env.BOOTSTRAP_IMAGE }}".strip()
+
+          document = json.loads(param_file.read_text())
+          params = document.get("parameters", {})
+
+          workload_wrapper = params.get("workloadName")
+          if not workload_name and isinstance(workload_wrapper, dict):
+              candidate = workload_wrapper.get("value")
+              if isinstance(candidate, str) and candidate.strip():
+                  workload_name = candidate.strip()
+
+          if not workload_name:
+              workload_name = "aonik"
+
+          if not isinstance(workload_wrapper, dict):
+              params["workloadName"] = {"value": workload_name}
+          else:
+              workload_wrapper["value"] = workload_name
+
+          for key in ("apiImage", "workerImage", "adminUiImage"):
+              wrapper = params.get(key)
+              if isinstance(wrapper, dict):
+                  wrapper["value"] = bootstrap_image
+
+          effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
+          print(f"Using workload_name={workload_name}")
+          print(f"Using bootstrap image={bootstrap_image}")
+          print(f"Wrote bootstrap parameter file to {effective_param_file}")
+          PY
+
+      - name: Compile Bicep template
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: What-if deployment preview
+        if: ${{ inputs.mode == 'what-if' }}
+        run: |
+          set +e
+
+          what_if_args=(
+            --resource-group "$RESOURCE_GROUP"
+            --template-file "$TEMPLATE_FILE"
+            --parameters "@$EFFECTIVE_PARAM_FILE"
+            --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+          )
+
+          if [ -n "${{ inputs.location }}" ]; then
+            what_if_args+=(--parameters "location=${{ inputs.location }}")
+          fi
+
+          what_if_output=$(az deployment group what-if "${what_if_args[@]}" 2>&1)
+          what_if_exit_code=$?
+
+          if [ $what_if_exit_code -eq 0 ]; then
+            echo "$what_if_output"
+            exit 0
+          fi
+
+          echo "$what_if_output"
+
+          if [[ "$what_if_output" == *"Microsoft.Resources/deployments/whatIf/action"* ]] || [[ "$what_if_output" == *"AuthorizationFailed"* ]]; then
+            echo "what-if permissions are missing. Falling back to template validation for this run."
+
+            validate_args=(
+              --resource-group "$RESOURCE_GROUP"
+              --template-file "$TEMPLATE_FILE"
+              --parameters "@$EFFECTIVE_PARAM_FILE"
+              --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+            )
+
+            if [ -n "${{ inputs.location }}" ]; then
+              validate_args+=(--parameters "location=${{ inputs.location }}")
+            fi
+
+            az deployment group validate "${validate_args[@]}"
+            exit 0
+          fi
+
+          exit $what_if_exit_code
+
+      - name: Deploy infrastructure baseline
+        if: ${{ inputs.mode == 'deploy' }}
+        run: |
+          if [ -n "${{ inputs.location }}" ]; then
+            az deployment group create \
+              --resource-group "$RESOURCE_GROUP" \
+              --template-file "$TEMPLATE_FILE" \
+              --parameters "@$EFFECTIVE_PARAM_FILE" \
+              --parameters location="${{ inputs.location }}" \
+              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
+          else
+            az deployment group create \
+              --resource-group "$RESOURCE_GROUP" \
+              --template-file "$TEMPLATE_FILE" \
+              --parameters "@$EFFECTIVE_PARAM_FILE" \
+              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
+          fi

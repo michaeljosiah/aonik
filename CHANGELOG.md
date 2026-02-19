@@ -5,6 +5,8 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Infrastructure (Azure CD)**: Added separated Azure workflows for platform bootstrap (`azure-platform-bootstrap.yml`), image build/tag/push (`azure-image-release.yml`), runtime rollout (`azure-runtime-deploy.yml`), plus workflow linting (`workflow-lint.yml`) to enforce CI validation of GitHub workflow syntax.
+- **Deployment Runbooks**: Added concise operator runbooks under `docs/runbooks/` for bootstrap, build-and-push, and runtime deployment execution.
 - **Infrastructure (Azure IaC CD)**: Added a GitHub Actions workflow (`azure-iac-cd.yml`) to run Azure IaC `what-if` previews and deployments for both ACA and App Service profiles using OIDC and environment-scoped secrets.
 - **Infrastructure (Azure IaC)**: Added a Bicep-based Azure Infrastructure as Code baseline under `infra/` with an ACA-first profile (`Aonik.Api` + `Aonik.Worker` on Azure Container Apps), an App Service fallback profile, reusable shared/data modules, and environment parameter templates for `dev`, `staging`, and `prod`.
 - **Infrastructure (Azure IaC/CD)**: Expanded both ACA and App Service deployment profiles to also deploy `Aonik.AdminUi`, including new `adminUiImage` parameters, runtime resources, and environment templates for `dev`, `staging`, and `prod`.
@@ -41,6 +43,8 @@ All notable changes to the AONIK project will be documented in this file.
   - Tests now properly resolve database dependencies
 
 ### Changed
+- **Deployment Documentation**: Refactored Azure deployment guidance to document the new bootstrap -> image release -> runtime deploy architecture, first-run flow, rollback, troubleshooting, and migration from the legacy single workflow path.
+- **Containerization**: Added `docker/adminui.Dockerfile` and updated Docker documentation to include Admin UI image build support.
 - **Infrastructure (Azure IaC/CD)**: Added optional `image_tag` workflow input to override all service image tags (`apiImage`, `workerImage`, `adminUiImage`) per run while keeping existing ACR host substitution behavior.
 - **Infrastructure (Azure IaC)**: Switched Azure Container Registry SKU default from `Standard` to `Basic` in the shared module to improve compatibility in constrained subscriptions/regions.
 - **Infrastructure (Azure IaC CD)**: Updated Azure IaC deployment workflow to support optional `AZURE_CLIENT_SECRET` authentication fallback while preserving OIDC as the default path; refreshed deployment docs to describe both auth modes.

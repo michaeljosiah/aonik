@@ -1,190 +1,131 @@
 # Azure Deployment
 
-This guide provides a practical Azure deployment baseline for AONIK.
+This guide defines AONIK's Azure container delivery model with strict separation of concerns:
 
-## Supported Deployment Profiles
+1. **Platform Bootstrap** (`azure-platform-bootstrap.yml`) provisions/updates shared Azure infrastructure only.
+2. **Image Release** (`azure-image-release.yml`) builds and pushes a cohesive runtime image set.
+3. **Runtime Deploy** (`azure-runtime-deploy.yml`) deploys app runtimes using those exact image references.
 
-- **Primary:** Azure Container Apps (ACA) for API + Worker + Admin UI
-- **Fallback:** Azure App Service for API + Admin UI (worker can remain on ACA/Jobs later)
+> Legacy path: `.github/workflows/azure-iac-cd.yml` remains available during migration, but is now considered deprecated for day-to-day operations.
 
-> AKS is intentionally out of scope for the current phase.
+## Deployment Architecture
 
-## Target Architecture (ACA Primary)
+```text
+┌──────────────────────────┐
+│ 1) Azure Platform        │
+│    Bootstrap             │
+│    (infra only)          │
+└────────────┬─────────────┘
+             │ outputs infra foundations (ACR, SQL, KV, ACA/AppService)
+             ▼
+┌──────────────────────────┐
+│ 2) Azure Image Release   │
+│    (build/tag/push)      │
+│    aonik-api             │
+│    aonik-worker          │
+│    aonik-adminui         │
+└────────────┬─────────────┘
+             │ emits release manifest + immutable refs
+             ▼
+┌──────────────────────────┐
+│ 3) Azure Runtime Deploy  │
+│    (rollout)             │
+│    fail-fast preflight   │
+│    no mixed versions     │
+└──────────────────────────┘
+```
 
-- **API**: Azure Container Apps (`Aonik.Api`) with external ingress
-- **Worker**: Azure Container Apps (`Aonik.Worker`) without public ingress
-- **Admin UI**: Azure Container Apps (`Aonik.AdminUi`) with external ingress
-- **Database**: Azure SQL Database
-- **Secrets**: Azure Key Vault + managed identity access
-- **Container registry**: Azure Container Registry (ACR)
-- **Observability**: Log Analytics + Application Insights
+## First-Run Playbook (bootstrap-first)
 
-## Infrastructure as Code (Bicep)
+Run order for a fresh environment:
 
-IaC assets live under `infra/`:
+1. **Platform bootstrap** (`mode=deploy`) for `profile=aca|appservice` and target `environment`.
+2. **Image release** with default tag (`git SHA`) or explicit immutable tag.
+3. **Runtime deploy** using the same image version.
 
-- `infra/profiles/aca/main.bicep`
-- `infra/profiles/appservice/main.bicep`
-- `infra/environments/dev|staging|prod/*.parameters.json`
+This removes first-run ambiguity; no skip flags are required for normal bootstrap.
 
-See `infra/README.md` for structure, deployment commands, and required parameter substitutions.
+## Normal Release Playbook
 
-## Required Configuration
+1. Run **Azure Image Release** with:
+   - `environment`: target env credential scope
+   - `image_tag`: optional override (default `github.sha`)
+   - `semver_alias`: optional mutable alias (e.g. `v1.5.0`)
+2. Capture release artifact `image-release-<version>/image-release-manifest.json`.
+3. Run **Azure Runtime Deploy** with:
+   - same `environment`
+   - same `profile`
+   - `image_version=<version from image release>`
+   - `use_digest_references=true` (recommended)
 
-- `ConnectionStrings:DefaultConnection` (required outside Development)
-- Auth provider configuration under `Auth:*`
+## Rollback Playbook
 
-## Recommended Deployment Flow
+1. Identify a prior successful image release version.
+2. Re-run **Azure Runtime Deploy** with:
+   - `image_version=<previous immutable version>`
+   - unchanged profile/environment
+3. Runtime deploy preflight validates that all required service images exist for that version before rollout.
 
-1. Build and publish immutable container tags for API, Worker, and Admin UI.
-2. Provision/upgrade infrastructure with Bicep.
-3. Run EF Core migrations as a controlled deployment task/job.
-4. Roll out API, Worker, and Admin UI revisions.
-5. Execute post-deploy smoke checks and monitor telemetry.
+## Runtime Consistency Rules
 
-## GitHub Actions CD (Step-by-Step)
+- Default release tag is **git SHA**.
+- Optional semver alias is supported for operator convenience.
+- Deployment always resolves one cohesive version set across `aonik-api`, `aonik-worker`, and `aonik-adminui` (or API/AdminUI for `appservice`).
+- If any required image is missing, runtime deploy fails with actionable guidance.
+- `skip_image_validation` exists only as an advanced/emergency bypass.
 
-A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for manual, controlled infrastructure rollout.
+## Security and Azure Authentication
 
-### What the workflow does
+All three workflows use:
 
-- Supports both profiles: `aca` and `appservice`
-- Supports `what-if` mode for safe preview
-- Uses Azure authentication via OIDC by default (`azure/login`), with optional client-secret fallback
-- Deploys using profile/environment parameter files in `infra/environments/*`
-- Fails early when parameter files still contain `REPLACE_WITH_*` placeholders (for example image references)
+- **OIDC (`azure/login`) by default**.
+- **Service principal secret fallback** only when `AZURE_CLIENT_SECRET` is configured.
 
-### 1) Prepare Azure once (OIDC for GitHub)
-
-1. In Azure, create or choose a service principal / app registration for GitHub deployments.
-2. Grant it permissions on the target subscription/resource group (typically `Contributor` at minimum scope required).
-3. Configure a federated credential that trusts your GitHub repo and environment.
-4. Collect values for:
-   - `AZURE_CLIENT_ID`
-   - `AZURE_TENANT_ID`
-   - `AZURE_SUBSCRIPTION_ID`
-   - `AZURE_CLIENT_SECRET` (optional fallback when OIDC cannot be used)
-
-### 2) Understand placeholders and choose how to supply values
-
-The committed parameter files intentionally keep generic image placeholders such as:
-
-- `REPLACE_WITH_ACR_LOGIN_SERVER/aonik-api:<tag>`
-- `REPLACE_WITH_ACR_LOGIN_SERVER/aonik-worker:<tag>`
-- `REPLACE_WITH_ACR_LOGIN_SERVER/aonik-adminui:<tag>`
-
-You can supply the ACR login server explicitly, but it is no longer mandatory for standard naming.
-
-Use one of these options:
-
-1. **Automatic default (new):** the workflow derives the ACR login server from workload name + environment using the same naming convention as IaC: `<workload>-<environment>acr` (hyphens removed) + `.azurecr.io`.
-2. **Preferred explicit config:** set `ACR_LOGIN_SERVER` as a GitHub environment variable.
-3. **Per-run override:** pass workflow input `acr_login_server` when clicking **Run workflow**.
-
-To control deterministic naming for non-`aonik` deployments, optionally set workflow input `workload_name` (or environment variable `WORKLOAD_NAME`). If omitted, workflow falls back to `workloadName` in the parameter file, then to `aonik`. The workflow also writes the resolved workload into the effective parameter file so `workloadName`, registry naming, and image host substitution stay internally consistent.
-
-The workflow builds an effective parameter file at runtime and replaces `REPLACE_WITH_ACR_LOGIN_SERVER` automatically.
-
-> Important: this replaces only the registry host. Keep image tags in parameter files current for each release (for example `:dev-2026-02-18`) so deployments are predictable and immutable.
-
-### 3) Create GitHub environments
-
-In GitHub:
-
-1. Open your repository.
-2. Go to **Settings** → **Environments**.
-3. Create environments named exactly:
-   - `dev`
-   - `staging`
-   - `prod`
-4. (Optional but recommended) configure protection rules/required reviewers for `staging` and `prod`.
-
-### 4) Add required GitHub environment secrets
-
-For each environment (`dev`, `staging`, `prod`), add:
+Required environment secrets:
 
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
-- `AZURE_CLIENT_SECRET` (optional)
-- `SQL_ADMIN_PASSWORD`
+- `SQL_ADMIN_PASSWORD` (bootstrap/runtime deployment)
+- `AZURE_CLIENT_SECRET` (optional fallback)
 
-Path in GitHub UI:
+Recommended least-privilege role scoping:
 
-- **Settings** → **Environments** → `<environment>` → **Secrets and variables** → **Actions** → **New environment secret**.
+- **Platform Bootstrap**: Contributor on target resource group/subscription scope used for infra.
+- **Image Release**: `AcrPush` on target ACR + read access to subscription metadata.
+- **Runtime Deploy**: Contributor on target resource group + pull access via managed identity/runtime config.
 
-### 4a) (Optional) Add the ACR login server variable (step-by-step)
+## Troubleshooting Missing Tags
 
-If you want explicit control (or your naming differs from the default convention), do this:
+If runtime deploy fails with missing tags:
 
-1. In GitHub, open **Settings** → **Environments** → `<environment>` → **Secrets and variables** → **Actions**.
-2. Under **Variables**, click **New environment variable**.
-3. Name: `ACR_LOGIN_SERVER`
-4. Value: your registry host only (example: `myregistry.azurecr.io`, without `https://`).
-5. Save and re-run **Azure IaC CD** workflow.
+1. Confirm `image_version` matches image release output.
+2. Re-run **Azure Image Release** for that version.
+3. Verify all repositories exist in ACR:
+   - `aonik-api`
+   - `aonik-worker`
+   - `aonik-adminui`
+4. Re-run **Azure Runtime Deploy**.
 
-You can skip this variable and rely on automatic derivation, or provide `acr_login_server` directly in the workflow run form for one-off deployments.
+Avoid mixing ad-hoc service tags. Runtime deploy intentionally blocks partial version sets.
 
-### 5) Ensure the target Azure Resource Group exists
+## Migration: old way → new way
 
-The workflow deploys at resource-group scope and requires an existing RG.
+### Old way
 
-If needed, create it first:
+- Run one mixed workflow (`azure-iac-cd.yml`) for infra + image resolution/validation.
+- Optional fallback/skip behaviors created first-run and consistency friction.
 
-```bash
-az group create --name <rg-name> --location <azure-region>
-```
+### New way
 
-### 6) Run a safe preview (what-if)
+- `azure-platform-bootstrap.yml` for infra baseline only.
+- `azure-image-release.yml` for image build/tag/push and release manifest publication.
+- `azure-runtime-deploy.yml` for deterministic runtime rollout using a single release version.
 
-In GitHub:
+During migration, legacy workflow remains available for manual users, but new environments should follow the 3-workflow architecture.
 
-1. Go to **Actions**.
-2. Open **Azure IaC CD** workflow.
-3. Click **Run workflow**.
-4. Select inputs:
-   - `profile`: `aca` or `appservice`
-   - `environment`: `dev` / `staging` / `prod`
-   - `resource_group`: existing RG name
-   - `workload_name`: optional workload override for naming (fallback: parameter `workloadName`, then `aonik`)
-   - `acr_login_server`: optional per-run ACR host override (example: `myregistry.azurecr.io`)
-   - `image_tag`: optional per-run image tag override applied to `apiImage`, `workerImage`, and `adminUiImage`
-   - `location`: optional override (or leave empty)
-   - `mode`: `what-if`
-5. Run and review output to confirm planned changes.
+## Operations Runbooks
 
-### 7) Execute deployment
-
-Repeat the same steps as above, but set:
-
-- `mode`: `deploy`
-
-Monitor the job logs until completion.
-
-Before `az deployment group create`, deploy mode now validates that each resolved image reference exists in ACR. If any tag is missing, the workflow fails early with a clear message so you can either publish the image first or rerun with a valid `image_tag`.
-
-### 8) Verify deployment outputs and health
-
-After a successful deployment:
-
-1. In Azure Portal, check deployed resources under the target RG.
-2. Confirm runtime endpoints are up:
-   - API URL (`apiUrl` output)
-   - Admin UI URL (`adminUiUrl` output)
-3. Validate logs/telemetry in Application Insights and Log Analytics.
-4. Run smoke tests against API and UI.
-
-### 9) Promote between environments
-
-Recommended sequence:
-
-1. Deploy `dev` first (`what-if` → `deploy`).
-2. Deploy `staging` after validation.
-3. Deploy `prod` with approval gates enabled in GitHub environments.
-
-## Notes
-
-- The app fails fast in non-Development environments if `ConnectionStrings:DefaultConnection` is missing.
-- Avoid embedding secrets in `appsettings.json`; use environment variables and Key Vault references.
-- Financially material processing should keep audit/trace telemetry enabled in all non-local environments.
-- If `AZURE_CLIENT_SECRET` is configured in the GitHub environment, the IaC workflow authenticates with service principal secret; otherwise it uses OIDC federation.
+- `docs/runbooks/bootstrap.md`
+- `docs/runbooks/build-and-push.md`
+- `docs/runbooks/deploy-runtime.md`

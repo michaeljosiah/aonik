@@ -1,0 +1,193 @@
+name: Azure Image Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment for Azure credentials/variables"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      image_tag:
+        description: "Immutable image tag (defaults to git SHA)"
+        required: false
+        default: ""
+        type: string
+      semver_alias:
+        description: "Optional mutable alias (example: v1.4.0)"
+        required: false
+        default: ""
+        type: string
+      workload_name:
+        description: "Workload name override used for default ACR derivation"
+        required: false
+        default: ""
+        type: string
+      acr_name:
+        description: "Optional ACR name override (without .azurecr.io)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  release-images:
+    name: Build and push API/Worker/AdminUI images
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
+      ACR_NAME_OVERRIDE: ${{ inputs.acr_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login (Service Principal Secret fallback)
+        if: ${{ env.AZURE_CLIENT_SECRET != '' }}
+        uses: azure/login@v2
+        with:
+          creds: >-
+            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ env.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
+
+      - name: Azure login (OIDC)
+        if: ${{ env.AZURE_CLIENT_SECRET == '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          image_tag_input="${{ inputs.image_tag }}"
+          semver_alias="${{ inputs.semver_alias }}"
+          environment_name="${{ inputs.environment }}"
+          workload_name="${WORKLOAD_NAME:-aonik}"
+
+          if [ -z "$workload_name" ]; then
+            workload_name="aonik"
+          fi
+
+          if [ -n "$image_tag_input" ]; then
+            release_version="$image_tag_input"
+          else
+            release_version="${GITHUB_SHA}"
+          fi
+
+          normalized_workload=$(echo "$workload_name" | tr '[:upper:]' '[:lower:]')
+          normalized_environment=$(echo "$environment_name" | tr '[:upper:]' '[:lower:]')
+          derived_acr_name="${normalized_workload}-${normalized_environment}acr"
+          derived_acr_name="${derived_acr_name//-/}"
+
+          acr_name="${ACR_NAME_OVERRIDE:-$derived_acr_name}"
+          if [ -z "$acr_name" ]; then
+            echo "Unable to resolve ACR name." >&2
+            exit 1
+          fi
+
+          acr_login_server=$(az acr show --name "$acr_name" --query loginServer -o tsv)
+          if [ -z "$acr_login_server" ]; then
+            echo "Unable to resolve ACR login server for '$acr_name'. Run Azure Platform Bootstrap first." >&2
+            exit 1
+          fi
+
+          echo "release_version=$release_version" >> "$GITHUB_OUTPUT"
+          echo "semver_alias=$semver_alias" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$acr_name" >> "$GITHUB_OUTPUT"
+          echo "acr_login_server=$acr_login_server" >> "$GITHUB_OUTPUT"
+
+      - name: Login to ACR (via Azure identity)
+        run: az acr login --name "${{ steps.metadata.outputs.acr_name }}"
+
+      - name: Build and push runtime images
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+          SEMVER_ALIAS: ${{ steps.metadata.outputs.semver_alias }}
+          ACR_LOGIN_SERVER: ${{ steps.metadata.outputs.acr_login_server }}
+        run: |
+          set -euo pipefail
+
+          build_and_push() {
+            local service="$1"
+            local dockerfile="$2"
+            local image_ref="${ACR_LOGIN_SERVER}/${service}:${RELEASE_VERSION}"
+
+            echo "Building ${image_ref}"
+            docker build --file "$dockerfile" --tag "$image_ref" .
+            docker push "$image_ref"
+
+            digest=$(az acr repository show --name "${{ steps.metadata.outputs.acr_name }}" --image "${service}:${RELEASE_VERSION}" --query digest -o tsv)
+            if [ -z "$digest" ]; then
+              echo "Failed to resolve digest for ${service}:${RELEASE_VERSION}" >&2
+              exit 1
+            fi
+
+            immutable_ref="${ACR_LOGIN_SERVER}/${service}@${digest}"
+            service_key=${service//-/_}
+            printf '%s=%s\n' "${service_key}_tag" "$image_ref" >> image-release.env
+            printf '%s=%s\n' "${service_key}_digest" "$immutable_ref" >> image-release.env
+
+            if [ -n "$SEMVER_ALIAS" ]; then
+              alias_ref="${ACR_LOGIN_SERVER}/${service}:${SEMVER_ALIAS}"
+              docker tag "$image_ref" "$alias_ref"
+              docker push "$alias_ref"
+            fi
+          }
+
+          : > image-release.env
+          build_and_push aonik-api docker/api.Dockerfile
+          build_and_push aonik-worker docker/worker.Dockerfile
+          build_and_push aonik-adminui docker/adminui.Dockerfile
+
+      - name: Generate image release manifest
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+          SEMVER_ALIAS: ${{ steps.metadata.outputs.semver_alias }}
+          ACR_LOGIN_SERVER: ${{ steps.metadata.outputs.acr_login_server }}
+        run: |
+          set -euo pipefail
+          source image-release.env
+
+          mkdir -p artifacts
+          cat > artifacts/image-release-manifest.json <<JSON
+          {
+            "releaseVersion": "${RELEASE_VERSION}",
+            "semverAlias": "${SEMVER_ALIAS}",
+            "registry": "${ACR_LOGIN_SERVER}",
+            "images": {
+              "api": {
+                "tag": "${aonik_api_tag}",
+                "digest": "${aonik_api_digest}"
+              },
+              "worker": {
+                "tag": "${aonik_worker_tag}",
+                "digest": "${aonik_worker_digest}"
+              },
+              "adminUi": {
+                "tag": "${aonik_adminui_tag}",
+                "digest": "${aonik_adminui_digest}"
+              }
+            }
+          }
+          JSON
+
+          cp image-release.env artifacts/image-release.env
+
+      - name: Upload image release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-release-${{ steps.metadata.outputs.release_version }}
+          path: artifacts/
