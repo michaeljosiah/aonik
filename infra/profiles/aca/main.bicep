@@ -18,6 +18,9 @@ param workerImage string
 @description('Admin UI image reference including tag.')
 param adminUiImage string
 
+@description('Admin UI container ingress target port.')
+param adminUiTargetPort int = 80
+
 @secure()
 @description('SQL server administrator login password.')
 param sqlAdminPassword string
@@ -253,7 +256,7 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
       activeRevisionsMode: 'Single'
       ingress: {
         external: true
-        targetPort: 80
+        targetPort: adminUiTargetPort
         transport: 'auto'
       }
       registries: [

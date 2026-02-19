@@ -54,9 +54,14 @@ on:
         default: "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
         type: string
       bootstrap_adminui_image:
-        description: "Temporary Admin UI bootstrap image (should listen on port 80)"
+        description: "Temporary Admin UI bootstrap image (should listen on configured admin UI target port)"
         required: false
-        default: "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+        default: "mcr.microsoft.com/dotnet/samples:aspnetapp"
+        type: string
+      bootstrap_adminui_target_port:
+        description: "Temporary Admin UI bootstrap target port"
+        required: false
+        default: "8080"
         type: string
 
 permissions:
@@ -79,6 +84,7 @@ jobs:
       BOOTSTRAP_API_IMAGE: ${{ inputs.bootstrap_api_image }}
       BOOTSTRAP_WORKER_IMAGE: ${{ inputs.bootstrap_worker_image }}
       BOOTSTRAP_ADMINUI_IMAGE: ${{ inputs.bootstrap_adminui_image }}
+      BOOTSTRAP_ADMINUI_TARGET_PORT: ${{ inputs.bootstrap_adminui_target_port }}
 
     steps:
       - name: Checkout repository
@@ -117,6 +123,7 @@ jobs:
           bootstrap_api_image = r"${{ env.BOOTSTRAP_API_IMAGE }}".strip()
           bootstrap_worker_image = r"${{ env.BOOTSTRAP_WORKER_IMAGE }}".strip()
           bootstrap_adminui_image = r"${{ env.BOOTSTRAP_ADMINUI_IMAGE }}".strip()
+          bootstrap_adminui_target_port = r"${{ env.BOOTSTRAP_ADMINUI_TARGET_PORT }}".strip()
 
           document = json.loads(param_file.read_text())
           params = document.get("parameters", {})
@@ -141,6 +148,10 @@ jobs:
               "adminUiImage": bootstrap_adminui_image,
           }
 
+          admin_ui_target_port_wrapper = params.get("adminUiTargetPort")
+          if isinstance(admin_ui_target_port_wrapper, dict) and bootstrap_adminui_target_port:
+              admin_ui_target_port_wrapper["value"] = int(bootstrap_adminui_target_port)
+
           for key, image_ref in bootstrap_images.items():
               wrapper = params.get(key)
               if isinstance(wrapper, dict) and image_ref:
@@ -151,6 +162,7 @@ jobs:
           print(f"Using bootstrap_api_image={bootstrap_api_image}")
           print(f"Using bootstrap_worker_image={bootstrap_worker_image}")
           print(f"Using bootstrap_adminui_image={bootstrap_adminui_image}")
+          print(f"Using bootstrap_adminui_target_port={bootstrap_adminui_target_port}")
           print(f"Wrote bootstrap parameter file to {effective_param_file}")
           PY
 
