@@ -65,25 +65,27 @@ A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for ma
    - `AZURE_SUBSCRIPTION_ID`
    - `AZURE_CLIENT_SECRET` (optional fallback when OIDC cannot be used)
 
-### 2) Prepare environment parameter files in the repo
+### 2) Understand placeholders and choose how to supply values
 
-For each environment, update image placeholders before deployment:
+The committed parameter files intentionally keep generic image placeholders such as:
 
-- ACA: `infra/environments/<env>/aca.parameters.json`
-  - `apiImage`
-  - `workerImage`
-  - `adminUiImage`
-- App Service: `infra/environments/<env>/appservice.parameters.json`
-  - `apiImage`
-  - `adminUiImage`
+- `REPLACE_WITH_ACR_LOGIN_SERVER/aonik-api:<tag>`
+- `REPLACE_WITH_ACR_LOGIN_SERVER/aonik-worker:<tag>`
+- `REPLACE_WITH_ACR_LOGIN_SERVER/aonik-adminui:<tag>`
 
-Example image format:
+You can supply the ACR login server explicitly, but it is no longer mandatory for standard naming.
 
-- `myregistry.azurecr.io/aonik-api:staging-2026-01-30`
-- `myregistry.azurecr.io/aonik-worker:staging-2026-01-30`
-- `myregistry.azurecr.io/aonik-adminui:staging-2026-01-30`
+Use one of these options:
 
-Commit these parameter updates to your branch before running the workflow.
+1. **Automatic default (new):** the workflow derives the ACR login server from workload name + environment using the same naming convention as IaC: `<workload>-<environment>acr` (hyphens removed) + `.azurecr.io`.
+2. **Preferred explicit config:** set `ACR_LOGIN_SERVER` as a GitHub environment variable.
+3. **Per-run override:** pass workflow input `acr_login_server` when clicking **Run workflow**.
+
+To control deterministic naming for non-`aonik` deployments, optionally set workflow input `workload_name` (or environment variable `WORKLOAD_NAME`). If omitted, workflow falls back to `workloadName` in the parameter file, then to `aonik`. The workflow also writes the resolved workload into the effective parameter file so `workloadName`, registry naming, and image host substitution stay internally consistent.
+
+The workflow builds an effective parameter file at runtime and replaces `REPLACE_WITH_ACR_LOGIN_SERVER` automatically.
+
+> Important: this replaces only the registry host. Keep image tags in parameter files current for each release (for example `:dev-2026-02-18`) so deployments are predictable and immutable.
 
 ### 3) Create GitHub environments
 
@@ -111,6 +113,18 @@ Path in GitHub UI:
 
 - **Settings** → **Environments** → `<environment>` → **Secrets and variables** → **Actions** → **New environment secret**.
 
+### 4a) (Optional) Add the ACR login server variable (step-by-step)
+
+If you want explicit control (or your naming differs from the default convention), do this:
+
+1. In GitHub, open **Settings** → **Environments** → `<environment>` → **Secrets and variables** → **Actions**.
+2. Under **Variables**, click **New environment variable**.
+3. Name: `ACR_LOGIN_SERVER`
+4. Value: your registry host only (example: `myregistry.azurecr.io`, without `https://`).
+5. Save and re-run **Azure IaC CD** workflow.
+
+You can skip this variable and rely on automatic derivation, or provide `acr_login_server` directly in the workflow run form for one-off deployments.
+
 ### 5) Ensure the target Azure Resource Group exists
 
 The workflow deploys at resource-group scope and requires an existing RG.
@@ -132,6 +146,8 @@ In GitHub:
    - `profile`: `aca` or `appservice`
    - `environment`: `dev` / `staging` / `prod`
    - `resource_group`: existing RG name
+   - `workload_name`: optional workload override for naming (fallback: parameter `workloadName`, then `aonik`)
+   - `acr_login_server`: optional per-run ACR host override (example: `myregistry.azurecr.io`)
    - `location`: optional override (or leave empty)
    - `mode`: `what-if`
 5. Run and review output to confirm planned changes.
