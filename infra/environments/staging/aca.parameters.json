@@ -17,6 +17,9 @@
     "adminUiImage": {
       "value": "REPLACE_WITH_ACR_LOGIN_SERVER/aonik-adminui:staging"
     },
+    "adminUiTargetPort": {
+      "value": 80
+    },
     "sqlAdminPassword": {
       "value": "REPLACE_WITH_SECURE_VALUE"
     },
