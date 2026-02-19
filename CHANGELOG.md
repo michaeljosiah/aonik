@@ -18,6 +18,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Docker Images)**: Updated API and Worker runtime Dockerfiles to run with the pre-defined non-root `APP_UID` user from .NET 10 base images instead of invoking `adduser`, fixing Linux image builds that failed with `/bin/sh: adduser: not found` on the hosted GitHub runner.
 - **Infrastructure (Azure Runtime Deploy)**: Classified ACR query failures separately from true image-not-found results in `azure-runtime-deploy.yml`, so auth/transport errors no longer appear as misleading missing-tag failures.
 - **Infrastructure (Platform Bootstrap)**: Replaced single `bootstrap_image` override with service-specific bootstrap image inputs (`bootstrap_api_image`, `bootstrap_worker_image`, `bootstrap_adminui_image`) so ACA bootstrap honors API/Admin UI port assumptions and avoids first-run false starts.
 - **Infrastructure (Platform Bootstrap)**: Added `bootstrap_adminui_target_port` and changed the default admin UI bootstrap image to `mcr.microsoft.com/dotnet/samples:aspnetapp`, then threaded `adminUiTargetPort` through ACA profile parameters so bootstrap deployments avoid admin UI revision timeouts caused by image/port mismatches.
