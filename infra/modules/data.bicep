@@ -24,6 +24,8 @@ param sqlSkuName string = 'S0'
 param sqlMaxSizeBytes int = 268435456000
 
 var namePrefix = toLower('${workloadName}-${environmentName}')
+var sqlServerHostnameSuffix = environment().suffixes.sqlServerHostname
+var sqlServerFullyQualifiedDomainName = '${sqlServer.name}.${sqlServerHostnameSuffix}'
 
 resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
   name: '${namePrefix}-sql'
@@ -73,7 +75,7 @@ resource sqlConnectionSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   name: 'ConnectionStrings--DefaultConnection'
   parent: keyVault
   properties: {
-    value: 'Server=tcp:${sqlServer.name}.database.windows.net,1433;Initial Catalog=${sqlDatabase.name};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
+    value: 'Server=tcp:${sqlServerFullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabase.name};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
   }
 }
 
