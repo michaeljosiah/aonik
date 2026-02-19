@@ -73,6 +73,7 @@ AONIK now includes production-ready container definitions:
 
 - `docker/api.Dockerfile`
 - `docker/worker.Dockerfile`
+- `docker/adminui.Dockerfile`
 - `docker/compose.yml`
 - `.dockerignore`
 
@@ -83,6 +84,7 @@ From repository root:
 ```bash
 docker build -f docker/api.Dockerfile -t aonik-api:local .
 docker build -f docker/worker.Dockerfile -t aonik-worker:local .
+docker build -f docker/adminui.Dockerfile -t aonik-adminui:local .
 ```
 
 ### Run full stack with Docker Compose
@@ -116,7 +118,7 @@ docker compose down -v
 For production and CI/CD, use a **two-track strategy**:
 
 1. **Aspire for developer orchestration**
-2. **Hardened OCI images for deployable services** (`Aonik.Api`, `Aonik.Worker`)
+2. **Hardened OCI images for deployable services** (`Aonik.Api`, `Aonik.Worker`, `Aonik.AdminUi`)
 
 ### Build and runtime hardening
 

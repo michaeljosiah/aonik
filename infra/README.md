@@ -26,10 +26,8 @@ AKS is intentionally excluded for now.
 
 - Azure CLI with Bicep support
 - A target subscription and resource group
-- Container images for:
-  - `aonik-api`
-  - `aonik-worker` (ACA profile)
-  - `aonik-adminui`
+
+> For first-run environments, bootstrap infrastructure first using `.github/workflows/azure-platform-bootstrap.yml`; runtime images are published afterward via `.github/workflows/azure-image-release.yml`.
 
 ## Deploy ACA profile
 
@@ -57,7 +55,13 @@ az deployment group create \
 
 ## GitHub Actions CD (Recommended)
 
-Use `.github/workflows/azure-iac-cd.yml` to run controlled IaC rollout via manual dispatch.
+Use the separated workflow model:
+
+1. `.github/workflows/azure-platform-bootstrap.yml` (infra-only)
+2. `.github/workflows/azure-image-release.yml` (build/tag/push API/Worker/AdminUI images)
+3. `.github/workflows/azure-runtime-deploy.yml` (runtime rollout with fail-fast image checks)
+
+Legacy `.github/workflows/azure-iac-cd.yml` remains available temporarily during migration.
 
 ### Required GitHub environment secrets
 
@@ -71,15 +75,16 @@ Configure these secrets per environment (`dev`, `staging`, `prod`):
 
 ### Quick run checklist
 
-1. Update image tags in `infra/environments/<env>/*.parameters.json` (`apiImage`, `workerImage` for ACA, and `adminUiImage`).
-2. Ensure GitHub environment secrets are set for the selected environment.
-3. Run **Actions** → **Azure IaC CD** with `mode=what-if` and review changes.
-4. Re-run with `mode=deploy` to apply changes.
+1. Ensure GitHub environment secrets are set for the selected environment.
+2. Run **Azure Platform Bootstrap** (`what-if` then `deploy`).
+3. Run **Azure Image Release** and record `image-release-manifest.json`.
+4. Run **Azure Runtime Deploy** with the same release version (`what-if` then `deploy`).
 
 ### Workflow behavior
 
 - Supports both `aca` and `appservice` profiles.
-- Supports `what-if` preview mode before deployment.
-- Supports Azure login via either OIDC (`azure/login`) or service principal client secret (`AZURE_CLIENT_SECRET`) when OIDC is unavailable.
+- Uses `what-if` preview mode before deployment for bootstrap/runtime workflows.
+- Uses Azure login via OIDC (`azure/login`) by default, with service principal secret fallback (`AZURE_CLIENT_SECRET`) when required.
+- Runtime deploy enforces one cohesive image version across required services and blocks mixed/incomplete releases.
 
 For full click-by-click GitHub setup (OIDC, environments, secrets, workflow inputs, and validation), see `docs/deployment/azure-deployment.md`.

@@ -1,0 +1,344 @@
+name: Azure Runtime Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Deployment profile"
+        required: true
+        default: "aca"
+        type: choice
+        options:
+          - aca
+          - appservice
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      resource_group:
+        description: "Azure resource group override (optional)"
+        required: false
+        default: ""
+        type: string
+      workload_name:
+        description: "Workload name override used for ACR derivation"
+        required: false
+        default: ""
+        type: string
+      acr_login_server:
+        description: "Optional ACR login server override"
+        required: false
+        default: ""
+        type: string
+      image_version:
+        description: "Required immutable release version tag (defaults to current SHA)"
+        required: false
+        default: ""
+        type: string
+      use_digest_references:
+        description: "Use registry digest references in deployment parameters"
+        required: true
+        default: true
+        type: boolean
+      location:
+        description: "Azure region override (optional)"
+        required: false
+        default: ""
+        type: string
+      mode:
+        description: "Run what-if preview or deploy"
+        required: true
+        default: "what-if"
+        type: choice
+        options:
+          - what-if
+          - deploy
+      skip_image_validation:
+        description: "Advanced/emergency only: skip preflight image validation"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Runtime deploy (${{ inputs.profile }} / ${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      TEMPLATE_FILE: infra/profiles/${{ inputs.profile }}/main.bicep
+      PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
+      EFFECTIVE_PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.runtime.parameters.json
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
+      WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
+      ACR_LOGIN_SERVER_OVERRIDE: ${{ inputs.acr_login_server }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login (Service Principal Secret fallback)
+        if: ${{ env.AZURE_CLIENT_SECRET != '' }}
+        uses: azure/login@v2
+        with:
+          creds: >-
+            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ env.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
+
+      - name: Azure login (OIDC)
+        if: ${{ env.AZURE_CLIENT_SECRET == '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate deployment files
+        run: |
+          test -n "$RESOURCE_GROUP" || (echo "RESOURCE_GROUP is empty. Set workflow input 'resource_group' or environment variable AZURE_RESOURCE_GROUP." && exit 1)
+          test -f "$TEMPLATE_FILE"
+          test -f "$PARAM_FILE"
+
+      - name: Resolve and validate runtime images
+        env:
+          RELEASE_VERSION_INPUT: ${{ inputs.image_version }}
+          ENVIRONMENT_NAME: ${{ inputs.environment }}
+          USE_DIGEST_REFERENCES: ${{ inputs.use_digest_references }}
+          SKIP_IMAGE_VALIDATION: ${{ inputs.skip_image_validation }}
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import subprocess
+          import sys
+
+          param_file = pathlib.Path(r"${{ env.PARAM_FILE }}")
+          effective_param_file = pathlib.Path(r"${{ env.EFFECTIVE_PARAM_FILE }}")
+          workload_name = r"${{ env.WORKLOAD_NAME }}".strip()
+          acr_login_server_override = r"${{ env.ACR_LOGIN_SERVER_OVERRIDE }}".strip()
+
+          release_version = r"${{ env.RELEASE_VERSION_INPUT }}".strip() or r"${{ github.sha }}"
+          environment_name = r"${{ env.ENVIRONMENT_NAME }}".strip().lower()
+          use_digest_references = r"${{ env.USE_DIGEST_REFERENCES }}".strip().lower() == "true"
+          skip_image_validation = r"${{ env.SKIP_IMAGE_VALIDATION }}".strip().lower() == "true"
+
+          document = json.loads(param_file.read_text())
+          params = document.get("parameters", {})
+
+          workload_wrapper = params.get("workloadName")
+          workload_value = workload_wrapper.get("value") if isinstance(workload_wrapper, dict) else None
+          if not workload_name and isinstance(workload_value, str) and workload_value.strip():
+              workload_name = workload_value.strip()
+          if not workload_name:
+              workload_name = "aonik"
+
+          if not isinstance(workload_wrapper, dict):
+              params["workloadName"] = {"value": workload_name}
+          else:
+              workload_wrapper["value"] = workload_name
+
+          normalized_workload = workload_name.lower()
+          derived_acr_name = f"{normalized_workload}-{environment_name}acr".replace("-", "")
+
+          if acr_login_server_override:
+              acr_login_server = acr_login_server_override
+              acr_name = acr_login_server.split(".", 1)[0]
+          else:
+              acr_name = derived_acr_name
+              cmd = ["az", "acr", "show", "--name", acr_name, "--query", "loginServer", "-o", "tsv"]
+              result = subprocess.run(cmd, capture_output=True, text=True)
+              acr_login_server = (result.stdout or "").strip() if result.returncode == 0 else ""
+
+          if not acr_login_server or not acr_name:
+              print("Unable to resolve ACR registry identity. Run Azure Platform Bootstrap first or provide 'acr_login_server'.")
+              sys.exit(1)
+
+          repos = {
+              "apiImage": "aonik-api",
+              "workerImage": "aonik-worker",
+              "adminUiImage": "aonik-adminui",
+          }
+
+          if "appservice" in str(param_file):
+              repos.pop("workerImage", None)
+
+          def classify_acr_show_error(error_text: str) -> str:
+              normalized = error_text.lower()
+
+              not_found_markers = (
+                  "manifest unknown",
+                  "name unknown",
+                  "not found",
+                  "does not exist",
+                  "repositorynotfound",
+                  "manifestunknown",
+              )
+
+              auth_markers = (
+                  "unauthorized",
+                  "authenticationfailed",
+                  "forbidden",
+                  "insufficient",
+                  "denied",
+                  "authorizationfailed",
+              )
+
+              transport_markers = (
+                  "timed out",
+                  "timeout",
+                  "temporarily unavailable",
+                  "connection",
+                  "network",
+                  "econn",
+                  "tls",
+                  "503",
+                  "500",
+                  "429",
+              )
+
+              if any(marker in normalized for marker in auth_markers):
+                  return "auth"
+              if any(marker in normalized for marker in transport_markers):
+                  return "transport"
+              if any(marker in normalized for marker in not_found_markers):
+                  return "not_found"
+              return "unknown"
+
+          resolved = {}
+          missing_images = []
+          query_failures = []
+
+          for param_key, repository in repos.items():
+              if skip_image_validation:
+                  resolved[param_key] = f"{acr_login_server}/{repository}:{release_version}"
+                  continue
+
+              show_cmd = [
+                  "az", "acr", "repository", "show",
+                  "--name", acr_name,
+                  "--image", f"{repository}:{release_version}",
+                  "-o", "json",
+              ]
+              result = subprocess.run(show_cmd, capture_output=True, text=True)
+              if result.returncode != 0:
+                  details = (result.stderr or result.stdout or "unknown az acr error").strip()
+                  category = classify_acr_show_error(details)
+                  if category == "not_found":
+                      missing_images.append((repository, details))
+                  else:
+                      query_failures.append((repository, category, details))
+                  continue
+
+              metadata = json.loads(result.stdout)
+              digest = metadata.get("digest")
+              if use_digest_references and digest:
+                  resolved[param_key] = f"{acr_login_server}/{repository}@{digest}"
+              else:
+                  resolved[param_key] = f"{acr_login_server}/{repository}:{release_version}"
+
+          if query_failures:
+              print("Runtime deploy blocked: unable to verify image tags in ACR due to registry query failures.")
+              print("These failures are not treated as missing-image signals:")
+              for repository, category, details in query_failures:
+                  print(f"- {repository}:{release_version} [{category}] ({details})")
+              print("Grant the deploy principal ACR metadata read permission (for example AcrPull) or resolve transient registry/network issues.")
+              print("Use skip_image_validation=true only for emergency/manual recovery paths.")
+              sys.exit(1)
+
+          if missing_images:
+              print(f"Runtime deploy blocked: release version '{release_version}' is incomplete.")
+              print("Missing images:")
+              for repository, details in missing_images:
+                  print(f"- {repository}:{release_version} ({details})")
+              print("Run 'Azure Image Release' with the same release version so all services share one cohesive version set.")
+              print("Use skip_image_validation=true only for emergency/manual recovery paths.")
+              sys.exit(1)
+
+          for key, value in resolved.items():
+              wrapper = params.get(key)
+              if isinstance(wrapper, dict):
+                  wrapper["value"] = value
+
+          effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
+          print(f"Resolved ACR login server: {acr_login_server}")
+          print(f"Resolved ACR registry name: {acr_name}")
+          print(f"Release version: {release_version}")
+          for key, value in resolved.items():
+              print(f"- {key}={value}")
+          PY
+
+      - name: Compile Bicep template
+        run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: What-if deployment preview
+        if: ${{ inputs.mode == 'what-if' }}
+        run: |
+          set +e
+
+          what_if_args=(
+            --resource-group "$RESOURCE_GROUP"
+            --template-file "$TEMPLATE_FILE"
+            --parameters "@$EFFECTIVE_PARAM_FILE"
+            --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+          )
+
+          if [ -n "${{ inputs.location }}" ]; then
+            what_if_args+=(--parameters "location=${{ inputs.location }}")
+          fi
+
+          what_if_output=$(az deployment group what-if "${what_if_args[@]}" 2>&1)
+          what_if_exit_code=$?
+
+          if [ $what_if_exit_code -eq 0 ]; then
+            echo "$what_if_output"
+            exit 0
+          fi
+
+          echo "$what_if_output"
+
+          if [[ "$what_if_output" == *"Microsoft.Resources/deployments/whatIf/action"* ]] || [[ "$what_if_output" == *"AuthorizationFailed"* ]]; then
+            echo "what-if permissions are missing. Falling back to template validation for this run."
+
+            validate_args=(
+              --resource-group "$RESOURCE_GROUP"
+              --template-file "$TEMPLATE_FILE"
+              --parameters "@$EFFECTIVE_PARAM_FILE"
+              --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+            )
+
+            if [ -n "${{ inputs.location }}" ]; then
+              validate_args+=(--parameters "location=${{ inputs.location }}")
+            fi
+
+            az deployment group validate "${validate_args[@]}"
+            exit 0
+          fi
+
+          exit $what_if_exit_code
+
+      - name: Deploy runtime
+        if: ${{ inputs.mode == 'deploy' }}
+        run: |
+          if [ -n "${{ inputs.location }}" ]; then
+            az deployment group create \
+              --resource-group "$RESOURCE_GROUP" \
+              --template-file "$TEMPLATE_FILE" \
+              --parameters "@$EFFECTIVE_PARAM_FILE" \
+              --parameters location="${{ inputs.location }}" \
+              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
+          else
+            az deployment group create \
+              --resource-group "$RESOURCE_GROUP" \
+              --template-file "$TEMPLATE_FILE" \
+              --parameters "@$EFFECTIVE_PARAM_FILE" \
+              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
+          fi

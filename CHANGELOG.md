@@ -5,6 +5,8 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Infrastructure (Azure CD)**: Added separated Azure workflows for platform bootstrap (`azure-platform-bootstrap.yml`), image build/tag/push (`azure-image-release.yml`), runtime rollout (`azure-runtime-deploy.yml`), plus workflow linting (`workflow-lint.yml`) to enforce CI validation of GitHub workflow syntax.
+- **Deployment Runbooks**: Added concise operator runbooks under `docs/runbooks/` for bootstrap, build-and-push, and runtime deployment execution.
 - **Infrastructure (Azure IaC CD)**: Added a GitHub Actions workflow (`azure-iac-cd.yml`) to run Azure IaC `what-if` previews and deployments for both ACA and App Service profiles using OIDC and environment-scoped secrets.
 - **Infrastructure (Azure IaC)**: Added a Bicep-based Azure Infrastructure as Code baseline under `infra/` with an ACA-first profile (`Aonik.Api` + `Aonik.Worker` on Azure Container Apps), an App Service fallback profile, reusable shared/data modules, and environment parameter templates for `dev`, `staging`, and `prod`.
 - **Infrastructure (Azure IaC/CD)**: Expanded both ACA and App Service deployment profiles to also deploy `Aonik.AdminUi`, including new `adminUiImage` parameters, runtime resources, and environment templates for `dev`, `staging`, and `prod`.
@@ -16,7 +18,12 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Azure Runtime Deploy)**: Classified ACR query failures separately from true image-not-found results in `azure-runtime-deploy.yml`, so auth/transport errors no longer appear as misleading missing-tag failures.
+- **Infrastructure (Platform Bootstrap)**: Replaced single `bootstrap_image` override with service-specific bootstrap image inputs (`bootstrap_api_image`, `bootstrap_worker_image`, `bootstrap_adminui_image`) so ACA bootstrap honors API/Admin UI port assumptions and avoids first-run false starts.
+- **Infrastructure (Workflow Lint)**: Fixed additional ShellCheck SC2129 in `azure-image-release.yml` metadata output export by grouping `GITHUB_OUTPUT` writes under one redirect block.
+- **Infrastructure (Workflow Lint)**: Fixed ShellCheck SC2129 in `azure-image-release.yml` by grouping `image-release.env` writes under a single redirection to satisfy `actionlint` shell checks.
 - **Infrastructure (Azure IaC/CD)**: Updated `azure-iac-cd.yml` deploy-mode safeguards to always validate `apiImage`, `workerImage`, and `adminUiImage` tags from effective parameters before `az deployment group create`, so deployments fail fast when default environment tags (for example `:dev`) are missing in ACR.
+- **Infrastructure (Azure Runtime Deploy)**: Fixed `azure-runtime-deploy.yml` ACR validation to honor `acr_login_server` overrides when resolving the registry name used by `az acr repository show`, preventing false missing-tag failures for non-derived registries.
 - **Infrastructure (Azure IaC/CD)**: Prevented late-stage ACA deployment failures caused by missing container tags by adding pre-deploy ACR image existence validation in `azure-iac-cd.yml`; deploy mode now fails fast with actionable errors before `az deployment group create`.
 - **Infrastructure (Azure IaC / ACA)**: Removed current Bicep compile warnings by replacing `listKeys(...)` with resource symbol usage, removing unsupported ACR policy properties, using cloud-aware SQL host suffixes, and applying null-safe outputs in shared modules; also reduced first-revision ACA provisioning races by introducing dedicated user-assigned ACR pull identities with explicit role-assignment ordering for API/Worker/Admin UI.
 
@@ -41,6 +48,8 @@ All notable changes to the AONIK project will be documented in this file.
   - Tests now properly resolve database dependencies
 
 ### Changed
+- **Deployment Documentation**: Refactored Azure deployment guidance to document the new bootstrap -> image release -> runtime deploy architecture, first-run flow, rollback, troubleshooting, and migration from the legacy single workflow path.
+- **Containerization**: Added `docker/adminui.Dockerfile` and updated Docker documentation to include Admin UI image build support.
 - **Infrastructure (Azure IaC/CD)**: Added optional `image_tag` workflow input to override all service image tags (`apiImage`, `workerImage`, `adminUiImage`) per run while keeping existing ACR host substitution behavior.
 - **Infrastructure (Azure IaC)**: Switched Azure Container Registry SKU default from `Standard` to `Basic` in the shared module to improve compatibility in constrained subscriptions/regions.
 - **Infrastructure (Azure IaC CD)**: Updated Azure IaC deployment workflow to support optional `AZURE_CLIENT_SECRET` authentication fallback while preserving OIDC as the default path; refreshed deployment docs to describe both auth modes.
