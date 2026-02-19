@@ -147,17 +147,19 @@ jobs:
               workload_wrapper["value"] = workload_name
 
           normalized_workload = workload_name.lower()
-          acr_name = f"{normalized_workload}-{environment_name}acr".replace("-", "")
+          derived_acr_name = f"{normalized_workload}-{environment_name}acr".replace("-", "")
 
           if acr_login_server_override:
               acr_login_server = acr_login_server_override
+              acr_name = acr_login_server.split(".", 1)[0]
           else:
+              acr_name = derived_acr_name
               cmd = ["az", "acr", "show", "--name", acr_name, "--query", "loginServer", "-o", "tsv"]
               result = subprocess.run(cmd, capture_output=True, text=True)
               acr_login_server = (result.stdout or "").strip() if result.returncode == 0 else ""
 
-          if not acr_login_server:
-              print("Unable to resolve ACR login server. Run Azure Platform Bootstrap first or provide 'acr_login_server'.")
+          if not acr_login_server or not acr_name:
+              print("Unable to resolve ACR registry identity. Run Azure Platform Bootstrap first or provide 'acr_login_server'.")
               sys.exit(1)
 
           repos = {
@@ -211,6 +213,7 @@ jobs:
 
           effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
           print(f"Resolved ACR login server: {acr_login_server}")
+          print(f"Resolved ACR registry name: {acr_name}")
           print(f"Release version: {release_version}")
           for key, value in resolved.items():
               print(f"- {key}={value}")
