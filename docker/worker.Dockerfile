@@ -23,8 +23,7 @@ RUN dotnet publish src/Aonik.Worker/Aonik.Worker.csproj \
 FROM mcr.microsoft.com/dotnet/runtime:${DOTNET_VERSION} AS runtime
 WORKDIR /app
 
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+USER ${APP_UID}
 
 COPY --from=publish /app/publish .
 
