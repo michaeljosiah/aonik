@@ -133,11 +133,16 @@ jobs:
           else:
               workload_wrapper["value"] = workload_name
 
+          normalized_workload_name = workload_name.lower()
+          normalized_environment = deployment_environment.lower()
+          acr_name = f"{normalized_workload_name}-{normalized_environment}acr".replace("-", "")
+
           if not acr_login_server:
               cmd = [
-                  "az", "acr", "list",
+                  "az", "acr", "show",
                   "--resource-group", r"${{ env.RESOURCE_GROUP }}",
-                  "--query", "[0].loginServer",
+                  "--name", acr_name,
+                  "--query", "loginServer",
                   "-o", "tsv",
               ]
               result = subprocess.run(cmd, capture_output=True, text=True)
@@ -146,9 +151,24 @@ jobs:
                   acr_login_server = discovered
 
           if not acr_login_server:
-              normalized_workload_name = workload_name.lower()
-              normalized_environment = deployment_environment.lower()
-              acr_name = f"{normalized_workload_name}-{normalized_environment}acr".replace("-", "")
+              cmd = [
+                  "az", "acr", "list",
+                  "--resource-group", r"${{ env.RESOURCE_GROUP }}",
+                  "--query", "[].loginServer",
+                  "-o", "tsv",
+              ]
+              result = subprocess.run(cmd, capture_output=True, text=True)
+              registries = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+
+              if len(registries) == 1:
+                  acr_login_server = registries[0]
+              elif len(registries) > 1:
+                  print("RESOURCE_GROUP contains multiple ACR registries. Set 'acr_login_server' or 'workload_name' to select the correct registry.")
+                  for item in registries:
+                      print(f"- {item}")
+                  sys.exit(1)
+
+          if not acr_login_server:
               acr_login_server = f"{acr_name}.azurecr.io"
 
           print(f"Using workload_name={workload_name}")
