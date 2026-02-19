@@ -18,6 +18,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Workflow Lint)**: Fixed ShellCheck SC2129 in `azure-image-release.yml` by grouping `image-release.env` writes under a single redirection to satisfy `actionlint` shell checks.
 - **Infrastructure (Azure IaC/CD)**: Updated `azure-iac-cd.yml` deploy-mode safeguards to always validate `apiImage`, `workerImage`, and `adminUiImage` tags from effective parameters before `az deployment group create`, so deployments fail fast when default environment tags (for example `:dev`) are missing in ACR.
 - **Infrastructure (Azure Runtime Deploy)**: Fixed `azure-runtime-deploy.yml` ACR validation to honor `acr_login_server` overrides when resolving the registry name used by `az acr repository show`, preventing false missing-tag failures for non-derived registries.
 - **Infrastructure (Azure IaC/CD)**: Prevented late-stage ACA deployment failures caused by missing container tags by adding pre-deploy ACR image existence validation in `azure-iac-cd.yml`; deploy mode now fails fast with actionable errors before `az deployment group create`.

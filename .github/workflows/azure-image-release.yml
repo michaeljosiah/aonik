@@ -137,8 +137,10 @@ jobs:
 
             immutable_ref="${ACR_LOGIN_SERVER}/${service}@${digest}"
             service_key=${service//-/_}
-            printf '%s=%s\n' "${service_key}_tag" "$image_ref" >> image-release.env
-            printf '%s=%s\n' "${service_key}_digest" "$immutable_ref" >> image-release.env
+            {
+              printf '%s=%s\n' "${service_key}_tag" "$image_ref"
+              printf '%s=%s\n' "${service_key}_digest" "$immutable_ref"
+            } >> image-release.env
 
             if [ -n "$SEMVER_ALIAS" ]; then
               alias_ref="${ACR_LOGIN_SERVER}/${service}:${SEMVER_ALIAS}"
