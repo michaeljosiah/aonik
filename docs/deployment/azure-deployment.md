@@ -81,7 +81,7 @@ Use one of these options:
 2. **Preferred explicit config:** set `ACR_LOGIN_SERVER` as a GitHub environment variable.
 3. **Per-run override:** pass workflow input `acr_login_server` when clicking **Run workflow**.
 
-To control deterministic naming for non-`aonik` deployments, optionally set workflow input `workload_name` (or environment variable `WORKLOAD_NAME`). If omitted, workflow falls back to `workloadName` in the parameter file, then to `aonik`.
+To control deterministic naming for non-`aonik` deployments, optionally set workflow input `workload_name` (or environment variable `WORKLOAD_NAME`). If omitted, workflow falls back to `workloadName` in the parameter file, then to `aonik`. The workflow also writes the resolved workload into the effective parameter file so `workloadName`, registry naming, and image host substitution stay internally consistent.
 
 The workflow builds an effective parameter file at runtime and replaces `REPLACE_WITH_ACR_LOGIN_SERVER` automatically.
 

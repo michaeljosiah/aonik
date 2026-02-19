@@ -111,14 +111,19 @@ jobs:
           document = json.loads(param_file.read_text())
           params = document.get("parameters", {})
 
-          if not workload_name:
-              workload_wrapper = params.get("workloadName")
-              workload_value = workload_wrapper.get("value") if isinstance(workload_wrapper, dict) else None
-              if isinstance(workload_value, str) and workload_value.strip():
-                  workload_name = workload_value.strip()
+          workload_wrapper = params.get("workloadName")
+          workload_value = workload_wrapper.get("value") if isinstance(workload_wrapper, dict) else None
+
+          if not workload_name and isinstance(workload_value, str) and workload_value.strip():
+              workload_name = workload_value.strip()
 
           if not workload_name:
               workload_name = "aonik"
+
+          if not isinstance(workload_wrapper, dict):
+              params["workloadName"] = {"value": workload_name}
+          else:
+              workload_wrapper["value"] = workload_name
 
           if not acr_login_server:
               normalized_workload_name = workload_name.lower()
