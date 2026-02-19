@@ -246,6 +246,7 @@ jobs:
           import sys
 
           effective_param_file = pathlib.Path(r"${{ env.EFFECTIVE_PARAM_FILE }}")
+          image_tag_override = r"${{ env.IMAGE_TAG }}".strip()
           document = json.loads(effective_param_file.read_text())
           params = document.get("parameters", {})
 
@@ -262,7 +263,22 @@ jobs:
               print("No image references found in effective parameters; skipping ACR image validation.")
               sys.exit(0)
 
+          def find_latest_tag(registry_name: str, repository: str) -> str:
+              cmd = [
+                  "az", "acr", "repository", "show-tags",
+                  "--name", registry_name,
+                  "--repository", repository,
+                  "--orderby", "time_desc",
+                  "--top", "1",
+                  "-o", "tsv",
+              ]
+              result = subprocess.run(cmd, capture_output=True, text=True)
+              if result.returncode != 0:
+                  return ""
+              return (result.stdout or "").strip()
+
           missing = []
+          resolved = []
 
           for key, image_ref in image_refs:
               registry_and_repo, separator, tag = image_ref.rpartition(":")
@@ -285,10 +301,36 @@ jobs:
                   print(f"Validated image exists: {image_ref}")
                   continue
 
+              fallback_tag = ""
+              if not image_tag_override:
+                  fallback_tag = find_latest_tag(registry_name, repository)
+
+              if fallback_tag:
+                  fallback_image_ref = f"{registry_and_repo}:{fallback_tag}"
+                  fallback_cmd = [
+                      "az", "acr", "repository", "show", "--name", registry_name,
+                      "--image", f"{repository}:{fallback_tag}", "--output", "none"
+                  ]
+                  fallback_result = subprocess.run(fallback_cmd, capture_output=True, text=True)
+
+                  if fallback_result.returncode == 0:
+                      wrapper = params.get(key)
+                      if isinstance(wrapper, dict):
+                          wrapper["value"] = fallback_image_ref
+                      resolved.append((image_ref, fallback_image_ref))
+                      print(
+                          f"Resolved missing image tag for {key}: {image_ref} -> {fallback_image_ref}"
+                      )
+                      continue
+
               stderr = (result.stderr or "").strip()
               stdout = (result.stdout or "").strip()
               details = stderr or stdout or "unknown az acr error"
               missing.append(f"{key}={image_ref} ({details})")
+
+          if resolved:
+              effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
+              print(f"Updated effective parameters with resolved image tags at {effective_param_file}")
 
           if missing:
               print("Deployment aborted because one or more container image tags were not found in ACR:")
