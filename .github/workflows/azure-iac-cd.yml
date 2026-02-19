@@ -35,6 +35,11 @@ on:
         required: false
         default: ""
         type: string
+      image_tag:
+        description: "Container image tag override for api/worker/adminui images (optional, e.g. dev-2026-02-19 or a git SHA)"
+        required: false
+        default: ""
+        type: string
       location:
         description: "Azure region override (optional)"
         required: false
@@ -66,6 +71,7 @@ jobs:
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       ACR_LOGIN_SERVER: ${{ inputs.acr_login_server != '' && inputs.acr_login_server || vars.ACR_LOGIN_SERVER }}
+      IMAGE_TAG: ${{ inputs.image_tag }}
 
     steps:
       - name: Checkout repository
@@ -107,6 +113,7 @@ jobs:
           acr_login_server = r"${{ env.ACR_LOGIN_SERVER }}".strip()
           workload_name = r"${{ env.WORKLOAD_NAME }}".strip()
           deployment_environment = r"${{ inputs.environment }}".strip()
+          image_tag_override = r"${{ env.IMAGE_TAG }}".strip()
 
           document = json.loads(param_file.read_text())
           params = document.get("parameters", {})
@@ -143,6 +150,31 @@ jobs:
                   if isinstance(value, str) and "REPLACE_WITH_ACR_LOGIN_SERVER" in value:
                       wrapper["value"] = value.replace("REPLACE_WITH_ACR_LOGIN_SERVER", acr_login_server)
 
+          if image_tag_override:
+              image_param_keys = ("apiImage", "workerImage", "adminUiImage")
+
+              for key in image_param_keys:
+                  wrapper = params.get(key)
+                  value = wrapper.get("value") if isinstance(wrapper, dict) else None
+
+                  if not isinstance(value, str):
+                      continue
+
+                  image_repo, separator, _current_tag = value.rpartition(":")
+                  if separator:
+                      wrapper["value"] = f"{image_repo}:{image_tag_override}"
+
+          resolved_image_values = {
+              key: params[key]["value"]
+              for key in ("apiImage", "workerImage", "adminUiImage")
+              if isinstance(params.get(key), dict) and isinstance(params[key].get("value"), str)
+          }
+
+          if resolved_image_values:
+              print("Using container images:")
+              for key, value in resolved_image_values.items():
+                  print(f"- {key}={value}")
+
           bad = []
           for key, wrapper in params.items():
               if key == "sqlAdminPassword":
@@ -170,6 +202,68 @@ jobs:
 
       - name: Compile Bicep template
         run: az bicep build --file "$TEMPLATE_FILE"
+
+      - name: Validate ACR image tags exist (deploy mode)
+        if: ${{ inputs.mode == 'deploy' }}
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import subprocess
+          import sys
+
+          effective_param_file = pathlib.Path(r"${{ env.EFFECTIVE_PARAM_FILE }}")
+          document = json.loads(effective_param_file.read_text())
+          params = document.get("parameters", {})
+
+          image_param_keys = ("apiImage", "workerImage", "adminUiImage")
+          image_refs = []
+
+          for key in image_param_keys:
+              wrapper = params.get(key)
+              value = wrapper.get("value") if isinstance(wrapper, dict) else None
+              if isinstance(value, str) and value.strip():
+                  image_refs.append((key, value.strip()))
+
+          if not image_refs:
+              print("No image references found in effective parameters; skipping ACR image validation.")
+              sys.exit(0)
+
+          missing = []
+
+          for key, image_ref in image_refs:
+              registry_and_repo, separator, tag = image_ref.rpartition(":")
+
+              if not separator or "/" not in registry_and_repo:
+                  missing.append(f"{key}={image_ref} (invalid image reference format)")
+                  continue
+
+              registry, repository = registry_and_repo.split("/", 1)
+              registry_name = registry.split(".", 1)[0]
+
+              cmd = [
+                  "az", "acr", "repository", "show", "--name", registry_name,
+                  "--image", f"{repository}:{tag}", "--output", "none"
+              ]
+
+              result = subprocess.run(cmd, capture_output=True, text=True)
+
+              if result.returncode == 0:
+                  print(f"Validated image exists: {image_ref}")
+                  continue
+
+              stderr = (result.stderr or "").strip()
+              stdout = (result.stdout or "").strip()
+              details = stderr or stdout or "unknown az acr error"
+              missing.append(f"{key}={image_ref} ({details})")
+
+          if missing:
+              print("Deployment aborted because one or more container image tags were not found in ACR:")
+              for item in missing:
+                  print(f"- {item}")
+              print("Provide an existing tag via workflow input 'image_tag' or update infra/environments/* parameter files to known published tags.")
+              sys.exit(1)
+          PY
 
       - name: What-if deployment preview
         if: ${{ inputs.mode == 'what-if' }}

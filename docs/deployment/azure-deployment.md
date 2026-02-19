@@ -148,6 +148,7 @@ In GitHub:
    - `resource_group`: existing RG name
    - `workload_name`: optional workload override for naming (fallback: parameter `workloadName`, then `aonik`)
    - `acr_login_server`: optional per-run ACR host override (example: `myregistry.azurecr.io`)
+   - `image_tag`: optional per-run image tag override applied to `apiImage`, `workerImage`, and `adminUiImage`
    - `location`: optional override (or leave empty)
    - `mode`: `what-if`
 5. Run and review output to confirm planned changes.
@@ -159,6 +160,8 @@ Repeat the same steps as above, but set:
 - `mode`: `deploy`
 
 Monitor the job logs until completion.
+
+Before `az deployment group create`, deploy mode now validates that each resolved image reference exists in ACR. If any tag is missing, the workflow fails early with a clear message so you can either publish the image first or rerun with a valid `image_tag`.
 
 ### 8) Verify deployment outputs and health
 
