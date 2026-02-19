@@ -25,6 +25,16 @@ on:
         required: false
         default: ""
         type: string
+      workload_name:
+        description: "Workload name override for naming (used to derive default ACR login server)"
+        required: false
+        default: ""
+        type: string
+      acr_login_server:
+        description: "ACR login server override used to replace REPLACE_WITH_ACR_LOGIN_SERVER placeholders (optional)"
+        required: false
+        default: ""
+        type: string
       location:
         description: "Azure region override (optional)"
         required: false
@@ -51,8 +61,11 @@ jobs:
     env:
       TEMPLATE_FILE: infra/profiles/${{ inputs.profile }}/main.bicep
       PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
+      EFFECTIVE_PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.effective.parameters.json
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
+      WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
+      ACR_LOGIN_SERVER: ${{ inputs.acr_login_server != '' && inputs.acr_login_server || vars.ACR_LOGIN_SERVER }}
 
     steps:
       - name: Checkout repository
@@ -82,7 +95,7 @@ jobs:
           test -f "$TEMPLATE_FILE"
           test -f "$PARAM_FILE"
 
-      - name: Validate parameter values are deployment-ready
+      - name: Build effective parameter file
         run: |
           python - <<'PY'
           import json
@@ -90,7 +103,40 @@ jobs:
           import sys
 
           param_file = pathlib.Path(r"${{ env.PARAM_FILE }}")
-          params = json.loads(param_file.read_text()).get("parameters", {})
+          effective_param_file = pathlib.Path(r"${{ env.EFFECTIVE_PARAM_FILE }}")
+          acr_login_server = r"${{ env.ACR_LOGIN_SERVER }}".strip()
+          workload_name = r"${{ env.WORKLOAD_NAME }}".strip()
+          deployment_environment = r"${{ inputs.environment }}".strip()
+
+          document = json.loads(param_file.read_text())
+          params = document.get("parameters", {})
+
+          if not workload_name:
+              workload_wrapper = params.get("workloadName")
+              workload_value = workload_wrapper.get("value") if isinstance(workload_wrapper, dict) else None
+              if isinstance(workload_value, str) and workload_value.strip():
+                  workload_name = workload_value.strip()
+
+          if not workload_name:
+              workload_name = "aonik"
+
+          if not acr_login_server:
+              normalized_workload_name = workload_name.lower()
+              normalized_environment = deployment_environment.lower()
+              acr_name = f"{normalized_workload_name}-{normalized_environment}acr".replace("-", "")
+              acr_login_server = f"{acr_name}.azurecr.io"
+
+          print(f"Using workload_name={workload_name}")
+          print(f"Using acr_login_server={acr_login_server}")
+
+          if acr_login_server:
+              for wrapper in params.values():
+                  if not isinstance(wrapper, dict):
+                      continue
+
+                  value = wrapper.get("value")
+                  if isinstance(value, str) and "REPLACE_WITH_ACR_LOGIN_SERVER" in value:
+                      wrapper["value"] = value.replace("REPLACE_WITH_ACR_LOGIN_SERVER", acr_login_server)
 
           bad = []
           for key, wrapper in params.items():
@@ -103,12 +149,19 @@ jobs:
 
           if bad:
               print(f"Parameter file {param_file} still contains placeholder values:")
+              if not acr_login_server:
+                  print("Hint: provide workflow input 'acr_login_server', set 'ACR_LOGIN_SERVER', or provide 'workload_name'/'workloadName' so the workflow can derive the ACR host.")
               for item in bad:
                   print(f"- {item}")
               print("Replace placeholders before running what-if/deploy.")
               sys.exit(1)
+
+          effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
+          print(f"Wrote effective deployment parameters to {effective_param_file}")
           PY
-          python -c "import json, pathlib, sys; p=pathlib.Path(r'${{ env.PARAM_FILE }}'); params=json.loads(p.read_text()).get('parameters', {}); bad=[f'{k}={v.get("value")}' for k,v in params.items() if k != 'sqlAdminPassword' and isinstance(v, dict) and isinstance(v.get('value'), str) and v.get('value').startswith('REPLACE_WITH_')]; print('\n'.join([f"Parameter file '{p}' still contains placeholder values:"] + [f'- {x}' for x in bad] + ['Replace placeholders before running what-if/deploy.'])) if bad else None; sys.exit(1 if bad else 0)"
+
+      - name: Validate effective parameter file exists
+        run: test -f "$EFFECTIVE_PARAM_FILE"
 
       - name: Compile Bicep template
         run: az bicep build --file "$TEMPLATE_FILE"
@@ -121,7 +174,7 @@ jobs:
           what_if_args=(
             --resource-group "$RESOURCE_GROUP"
             --template-file "$TEMPLATE_FILE"
-            --parameters "@$PARAM_FILE"
+            --parameters "@$EFFECTIVE_PARAM_FILE"
             --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
           )
 
@@ -145,7 +198,7 @@ jobs:
             validate_args=(
               --resource-group "$RESOURCE_GROUP"
               --template-file "$TEMPLATE_FILE"
-              --parameters "@$PARAM_FILE"
+              --parameters "@$EFFECTIVE_PARAM_FILE"
               --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
             )
 
@@ -166,13 +219,13 @@ jobs:
             az deployment group create \
               --resource-group "$RESOURCE_GROUP" \
               --template-file "$TEMPLATE_FILE" \
-              --parameters "@$PARAM_FILE" \
+              --parameters "@$EFFECTIVE_PARAM_FILE" \
               --parameters location="${{ inputs.location }}" \
               --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
           else
             az deployment group create \
               --resource-group "$RESOURCE_GROUP" \
               --template-file "$TEMPLATE_FILE" \
-              --parameters "@$PARAM_FILE" \
+              --parameters "@$EFFECTIVE_PARAM_FILE" \
               --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
           fi
