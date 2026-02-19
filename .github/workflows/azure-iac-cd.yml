@@ -236,8 +236,8 @@ jobs:
       - name: Compile Bicep template
         run: az bicep build --file "$TEMPLATE_FILE"
 
-      - name: Validate ACR image tags exist (deploy mode, explicit image_tag only)
-        if: ${{ inputs.mode == 'deploy' && inputs.image_tag != '' }}
+      - name: Validate ACR image tags exist (deploy mode)
+        if: ${{ inputs.mode == 'deploy' }}
         run: |
           python - <<'PY'
           import json
@@ -294,7 +294,7 @@ jobs:
               print("Deployment aborted because one or more container image tags were not found in ACR:")
               for item in missing:
                   print(f"- {item}")
-              print("Provide an existing tag via workflow input 'image_tag' or update infra/environments/* parameter files to known published tags.")
+              print("Provide an existing tag via workflow input 'image_tag' or update infra/environments/* parameter files to known published tags before deploying.")
               sys.exit(1)
           PY
 

@@ -16,6 +16,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Azure IaC/CD)**: Updated `azure-iac-cd.yml` deploy-mode safeguards to always validate `apiImage`, `workerImage`, and `adminUiImage` tags from effective parameters before `az deployment group create`, so deployments fail fast when default environment tags (for example `:dev`) are missing in ACR.
 - **Infrastructure (Azure IaC/CD)**: Prevented late-stage ACA deployment failures caused by missing container tags by adding pre-deploy ACR image existence validation in `azure-iac-cd.yml`; deploy mode now fails fast with actionable errors before `az deployment group create`.
 - **Infrastructure (Azure IaC / ACA)**: Removed current Bicep compile warnings by replacing `listKeys(...)` with resource symbol usage, removing unsupported ACR policy properties, using cloud-aware SQL host suffixes, and applying null-safe outputs in shared modules; also reduced first-revision ACA provisioning races by introducing dedicated user-assigned ACR pull identities with explicit role-assignment ordering for API/Worker/Admin UI.
 
