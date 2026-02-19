@@ -106,6 +106,7 @@ jobs:
           python - <<'PY'
           import json
           import pathlib
+          import subprocess
           import sys
 
           param_file = pathlib.Path(r"${{ env.PARAM_FILE }}")
@@ -131,6 +132,18 @@ jobs:
               params["workloadName"] = {"value": workload_name}
           else:
               workload_wrapper["value"] = workload_name
+
+          if not acr_login_server:
+              cmd = [
+                  "az", "acr", "list",
+                  "--resource-group", r"${{ env.RESOURCE_GROUP }}",
+                  "--query", "[0].loginServer",
+                  "-o", "tsv",
+              ]
+              result = subprocess.run(cmd, capture_output=True, text=True)
+              discovered = (result.stdout or "").strip()
+              if result.returncode == 0 and discovered:
+                  acr_login_server = discovered
 
           if not acr_login_server:
               normalized_workload_name = workload_name.lower()
@@ -203,8 +216,8 @@ jobs:
       - name: Compile Bicep template
         run: az bicep build --file "$TEMPLATE_FILE"
 
-      - name: Validate ACR image tags exist (deploy mode)
-        if: ${{ inputs.mode == 'deploy' }}
+      - name: Validate ACR image tags exist (deploy mode, explicit image_tag only)
+        if: ${{ inputs.mode == 'deploy' && inputs.image_tag != '' }}
         run: |
           python - <<'PY'
           import json
