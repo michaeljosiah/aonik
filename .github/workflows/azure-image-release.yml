@@ -104,10 +104,12 @@ jobs:
             exit 1
           fi
 
-          echo "release_version=$release_version" >> "$GITHUB_OUTPUT"
-          echo "semver_alias=$semver_alias" >> "$GITHUB_OUTPUT"
-          echo "acr_name=$acr_name" >> "$GITHUB_OUTPUT"
-          echo "acr_login_server=$acr_login_server" >> "$GITHUB_OUTPUT"
+          {
+            echo "release_version=$release_version"
+            echo "semver_alias=$semver_alias"
+            echo "acr_name=$acr_name"
+            echo "acr_login_server=$acr_login_server"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Login to ACR (via Azure identity)
         run: az acr login --name "${{ steps.metadata.outputs.acr_name }}"
