@@ -43,8 +43,18 @@ on:
         options:
           - what-if
           - deploy
-      bootstrap_image:
-        description: "Temporary public image used for first-run bootstrap"
+      bootstrap_api_image:
+        description: "Temporary API bootstrap image (should listen on port 8080)"
+        required: false
+        default: "mcr.microsoft.com/dotnet/samples:aspnetapp"
+        type: string
+      bootstrap_worker_image:
+        description: "Temporary worker bootstrap image"
+        required: false
+        default: "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+        type: string
+      bootstrap_adminui_image:
+        description: "Temporary Admin UI bootstrap image (should listen on port 80)"
         required: false
         default: "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
         type: string
@@ -66,7 +76,9 @@ jobs:
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
-      BOOTSTRAP_IMAGE: ${{ inputs.bootstrap_image }}
+      BOOTSTRAP_API_IMAGE: ${{ inputs.bootstrap_api_image }}
+      BOOTSTRAP_WORKER_IMAGE: ${{ inputs.bootstrap_worker_image }}
+      BOOTSTRAP_ADMINUI_IMAGE: ${{ inputs.bootstrap_adminui_image }}
 
     steps:
       - name: Checkout repository
@@ -102,7 +114,9 @@ jobs:
           param_file = pathlib.Path(r"${{ env.PARAM_FILE }}")
           effective_param_file = pathlib.Path(r"${{ env.EFFECTIVE_PARAM_FILE }}")
           workload_name = r"${{ env.WORKLOAD_NAME }}".strip()
-          bootstrap_image = r"${{ env.BOOTSTRAP_IMAGE }}".strip()
+          bootstrap_api_image = r"${{ env.BOOTSTRAP_API_IMAGE }}".strip()
+          bootstrap_worker_image = r"${{ env.BOOTSTRAP_WORKER_IMAGE }}".strip()
+          bootstrap_adminui_image = r"${{ env.BOOTSTRAP_ADMINUI_IMAGE }}".strip()
 
           document = json.loads(param_file.read_text())
           params = document.get("parameters", {})
@@ -121,14 +135,22 @@ jobs:
           else:
               workload_wrapper["value"] = workload_name
 
-          for key in ("apiImage", "workerImage", "adminUiImage"):
+          bootstrap_images = {
+              "apiImage": bootstrap_api_image,
+              "workerImage": bootstrap_worker_image,
+              "adminUiImage": bootstrap_adminui_image,
+          }
+
+          for key, image_ref in bootstrap_images.items():
               wrapper = params.get(key)
-              if isinstance(wrapper, dict):
-                  wrapper["value"] = bootstrap_image
+              if isinstance(wrapper, dict) and image_ref:
+                  wrapper["value"] = image_ref
 
           effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
           print(f"Using workload_name={workload_name}")
-          print(f"Using bootstrap image={bootstrap_image}")
+          print(f"Using bootstrap_api_image={bootstrap_api_image}")
+          print(f"Using bootstrap_worker_image={bootstrap_worker_image}")
+          print(f"Using bootstrap_adminui_image={bootstrap_adminui_image}")
           print(f"Wrote bootstrap parameter file to {effective_param_file}")
           PY
 

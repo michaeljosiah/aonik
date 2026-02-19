@@ -12,7 +12,9 @@ Provision/update Azure platform foundations (ACR, SQL, Key Vault, observability,
 - `workload_name` (optional override)
 - `location` (optional)
 - `mode`: `what-if` or `deploy`
-- `bootstrap_image` (optional emergency override)
+- `bootstrap_api_image` (optional API bootstrap override, port 8080)
+- `bootstrap_worker_image` (optional worker bootstrap override)
+- `bootstrap_adminui_image` (optional Admin UI bootstrap override, port 80)
 
 ## Required GitHub Environment Secrets/Vars
 - Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `SQL_ADMIN_PASSWORD`

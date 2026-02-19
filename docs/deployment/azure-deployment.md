@@ -43,7 +43,7 @@ Run order for a fresh environment:
 2. **Image release** with default tag (`git SHA`) or explicit immutable tag.
 3. **Runtime deploy** using the same image version.
 
-This removes first-run ambiguity; no skip flags are required for normal bootstrap.
+This removes first-run ambiguity; no skip flags are required for normal bootstrap. Bootstrap uses per-service image defaults so API/Admin UI runtime port assumptions remain valid in first-run ACA deployments.
 
 ## Normal Release Playbook
 
