@@ -69,10 +69,28 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
         customerId: logAnalyticsWorkspace.properties.customerId
-        sharedKey: listKeys(logAnalyticsWorkspace.id, '2023-09-01').primarySharedKey
+        sharedKey: logAnalyticsWorkspace.listKeys().primarySharedKey
       }
     }
   }
+}
+
+resource apiPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${workloadName}-${environmentName}-api-pull-id'
+  location: location
+  tags: tags
+}
+
+resource workerPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${workloadName}-${environmentName}-worker-pull-id'
+  location: location
+  tags: tags
+}
+
+resource adminUiPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${workloadName}-${environmentName}-adminui-pull-id'
+  location: location
+  tags: tags
 }
 
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
@@ -80,8 +98,14 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
   location: location
   tags: tags
   identity: {
-    type: 'SystemAssigned'
+    type: 'SystemAssigned,UserAssigned'
+    userAssignedIdentities: {
+      '${apiPullIdentity.id}': {}
+    }
   }
+  dependsOn: [
+    acrPullRoleForApiPullIdentity
+  ]
   properties: {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
@@ -94,7 +118,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: common.outputs.containerRegistryLoginServer
-          identity: 'system'
+          identity: apiPullIdentity.id
         }
       ]
       secrets: [
@@ -147,8 +171,14 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
   location: location
   tags: tags
   identity: {
-    type: 'SystemAssigned'
+    type: 'SystemAssigned,UserAssigned'
+    userAssignedIdentities: {
+      '${workerPullIdentity.id}': {}
+    }
   }
+  dependsOn: [
+    acrPullRoleForWorkerPullIdentity
+  ]
   properties: {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
@@ -156,7 +186,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: common.outputs.containerRegistryLoginServer
-          identity: 'system'
+          identity: workerPullIdentity.id
         }
       ]
       secrets: [
@@ -209,8 +239,14 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
   location: location
   tags: tags
   identity: {
-    type: 'SystemAssigned'
+    type: 'SystemAssigned,UserAssigned'
+    userAssignedIdentities: {
+      '${adminUiPullIdentity.id}': {}
+    }
   }
+  dependsOn: [
+    acrPullRoleForAdminUiPullIdentity
+  ]
   properties: {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
@@ -223,7 +259,7 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: common.outputs.containerRegistryLoginServer
-          identity: 'system'
+          identity: adminUiPullIdentity.id
         }
       ]
     }
@@ -269,6 +305,16 @@ resource acrPullRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-01' 
   }
 }
 
+resource acrPullRoleForApiPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerRegistryName, apiPullIdentity.name, 'AcrPull')
+  scope: containerRegistry
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: apiPullIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 resource acrPullRoleForWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(containerRegistryName, workerApp.name, 'AcrPull')
   scope: containerRegistry
@@ -279,12 +325,32 @@ resource acrPullRoleForWorker 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
+resource acrPullRoleForWorkerPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerRegistryName, workerPullIdentity.name, 'AcrPull')
+  scope: containerRegistry
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: workerPullIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 resource acrPullRoleForAdminUi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(containerRegistryName, adminUiApp.name, 'AcrPull')
   scope: containerRegistry
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
     principalId: adminUiApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource acrPullRoleForAdminUiPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerRegistryName, adminUiPullIdentity.name, 'AcrPull')
+  scope: containerRegistry
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: adminUiPullIdentity.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }

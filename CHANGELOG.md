@@ -16,6 +16,8 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Azure IaC / ACA)**: Removed current Bicep compile warnings by replacing `listKeys(...)` with resource symbol usage, removing unsupported ACR policy properties, using cloud-aware SQL host suffixes, and applying null-safe outputs in shared modules; also reduced first-revision ACA provisioning races by introducing dedicated user-assigned ACR pull identities with explicit role-assignment ordering for API/Worker/Admin UI.
+
 - **Infrastructure (Azure IaC/CD)**: Hardened deployments by keeping ACR retention policy disabled unless `Premium` is selected, removing unsupported ACR policy fields that trigger Bicep type warnings, and adding workflow validation that fails fast when environment parameter files still contain `REPLACE_WITH_*` placeholders (such as container image references).
 - **Infrastructure (Azure IaC)**: Fixed Azure Container Registry policy configuration for `Basic`/`Standard` SKUs by disabling retention policy unless `Premium` is selected and aligning `azureADAuthenticationAsArmPolicy` casing with Azure resource schema, preventing false `SkuNotSupported` deployment failures on non-Premium tiers.
 
