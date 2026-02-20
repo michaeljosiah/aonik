@@ -13,13 +13,9 @@ Provide a single operator entry point that can either:
 - `build_images`: `true|false`
 - `image_version`: required when `build_images=false`
 - `image_tag`: optional tag override when `build_images=true`
-- `semver_alias`: optional alias when `build_images=true`
 - `resource_group` (optional override)
 - `workload_name` (optional override)
-- `acr_name` (optional, image release)
-- `acr_login_server` (optional, runtime deploy)
 - `use_digest_references` (`true` recommended)
-- `location` (optional)
 - `mode`: `what-if` or `deploy`
 - `skip_image_validation` (advanced/emergency only)
 
@@ -32,3 +28,5 @@ Provide a single operator entry point that can either:
 ## Notes
 - Recommended default: keep `build_images=true` for normal release operations.
 - Use `build_images=false` for controlled rollback or environment promotion with a known image version.
+
+- Advanced overrides (`semver_alias`, `acr_name`, `acr_login_server`, `location`) are intentionally excluded from this orchestrator to keep `workflow_dispatch` within GitHub's 10-input limit; use the underlying workflows directly when those overrides are needed.

@@ -68,6 +68,8 @@ For teams that want a single entry point, use `azure-release-and-deploy.yml`:
 
 This preserves the standard split between build/release and deployment while reducing operator handoff errors.
 
+This orchestrator intentionally exposes a compact input set to satisfy GitHub's `workflow_dispatch` 10-input limit; use `azure-image-release.yml` or `azure-runtime-deploy.yml` directly for advanced overrides such as `semver_alias`, explicit `acr_name` / `acr_login_server`, or `location`.
+
 ## Rollback Playbook
 
 1. Identify a prior successful image release version.

@@ -35,11 +35,6 @@ on:
         required: false
         default: ""
         type: string
-      semver_alias:
-        description: "Optional semver alias when build_images=true"
-        required: false
-        default: ""
-        type: string
       resource_group:
         description: "Azure resource group override (optional)"
         required: false
@@ -50,26 +45,11 @@ on:
         required: false
         default: ""
         type: string
-      acr_name:
-        description: "Optional ACR name override for image release (without .azurecr.io)"
-        required: false
-        default: ""
-        type: string
-      acr_login_server:
-        description: "Optional ACR login server override for runtime deploy"
-        required: false
-        default: ""
-        type: string
       use_digest_references:
         description: "Use registry digest references in deployment parameters"
         required: true
         default: true
         type: boolean
-      location:
-        description: "Azure region override (optional)"
-        required: false
-        default: ""
-        type: string
       mode:
         description: "Run what-if preview or deploy"
         required: true
@@ -113,9 +93,7 @@ jobs:
     with:
       environment: ${{ inputs.environment }}
       image_tag: ${{ inputs.image_tag }}
-      semver_alias: ${{ inputs.semver_alias }}
       workload_name: ${{ inputs.workload_name }}
-      acr_name: ${{ inputs.acr_name }}
     secrets: inherit
 
   runtime-deploy:
@@ -130,10 +108,8 @@ jobs:
       environment: ${{ inputs.environment }}
       resource_group: ${{ inputs.resource_group }}
       workload_name: ${{ inputs.workload_name }}
-      acr_login_server: ${{ inputs.acr_login_server != '' && inputs.acr_login_server || needs.release-images.outputs.acr_login_server }}
       image_version: ${{ inputs.build_images && needs.release-images.outputs.release_version || inputs.image_version }}
       use_digest_references: ${{ inputs.use_digest_references }}
-      location: ${{ inputs.location }}
       mode: ${{ inputs.mode }}
       skip_image_validation: ${{ inputs.skip_image_validation }}
     secrets: inherit

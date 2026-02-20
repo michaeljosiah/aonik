@@ -19,6 +19,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Azure CD Orchestrator)**: Reduced `azure-release-and-deploy.yml` `workflow_dispatch` inputs to 10 (GitHub platform limit) and documented that advanced override knobs remain available via the underlying image-release/runtime-deploy workflows.
 - **Infrastructure (Azure CD Orchestrator)**: Fixed reusable workflow output wiring by declaring `azure-image-release.yml` outputs under `on.workflow_call.outputs`, ensuring `azure-release-and-deploy.yml` receives `release_version` and `acr_login_server` when `build_images=true`.
 - **Infrastructure (Docker Images)**: Updated API and Worker runtime Dockerfiles to run with the pre-defined non-root `APP_UID` user from .NET 10 base images instead of invoking `adduser`, fixing Linux image builds that failed with `/bin/sh: adduser: not found` on the hosted GitHub runner.
 - **Infrastructure (Azure Runtime Deploy)**: Classified ACR query failures separately from true image-not-found results in `azure-runtime-deploy.yml`, so auth/transport errors no longer appear as misleading missing-tag failures.
