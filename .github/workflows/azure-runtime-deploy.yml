@@ -63,6 +63,58 @@ on:
         required: true
         default: false
         type: boolean
+  workflow_call:
+    inputs:
+      profile:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+      resource_group:
+        required: false
+        default: ""
+        type: string
+      workload_name:
+        required: false
+        default: ""
+        type: string
+      acr_login_server:
+        required: false
+        default: ""
+        type: string
+      image_version:
+        required: false
+        default: ""
+        type: string
+      use_digest_references:
+        required: false
+        default: true
+        type: boolean
+      location:
+        required: false
+        default: ""
+        type: string
+      mode:
+        required: false
+        default: "what-if"
+        type: string
+      skip_image_validation:
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      SQL_ADMIN_PASSWORD:
+        required: true
+      AZURE_CLIENT_SECRET:
+        required: false
+
 
 permissions:
   id-token: write

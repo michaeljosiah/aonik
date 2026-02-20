@@ -33,3 +33,8 @@ Deploy ACA/AppService runtime updates using one explicit image release version.
 - Authentication/authorization or transport errors during ACR metadata queries fail fast with a separate message (not classified as missing tags).
 - No automatic cross-service fallback is applied.
 - Use `skip_image_validation=true` only for controlled emergency recovery.
+
+
+## Optional Combined Execution
+
+If image release is not required, run `.github/workflows/azure-release-and-deploy.yml` with `build_images=false` and set `image_version` explicitly.

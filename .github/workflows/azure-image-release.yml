@@ -32,6 +32,46 @@ on:
         required: false
         default: ""
         type: string
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image_tag:
+        required: false
+        default: ""
+        type: string
+      semver_alias:
+        required: false
+        default: ""
+        type: string
+      workload_name:
+        required: false
+        default: ""
+        type: string
+      acr_name:
+        required: false
+        default: ""
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+      AZURE_CLIENT_SECRET:
+        required: false
+    outputs:
+      release_version:
+        description: "Resolved immutable release version"
+        value: ${{ jobs.release-images.outputs.release_version }}
+      acr_name:
+        description: "Resolved ACR registry name"
+        value: ${{ jobs.release-images.outputs.acr_name }}
+      acr_login_server:
+        description: "Resolved ACR login server"
+        value: ${{ jobs.release-images.outputs.acr_login_server }}
 
 permissions:
   id-token: write
@@ -42,6 +82,10 @@ jobs:
     name: Build and push API/Worker/AdminUI images
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    outputs:
+      release_version: ${{ steps.metadata.outputs.release_version }}
+      acr_name: ${{ steps.metadata.outputs.acr_name }}
+      acr_login_server: ${{ steps.metadata.outputs.acr_login_server }}
 
     env:
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
