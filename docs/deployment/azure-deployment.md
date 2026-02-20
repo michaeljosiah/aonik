@@ -58,6 +58,16 @@ This removes first-run ambiguity; no skip flags are required for normal bootstra
    - `image_version=<version from image release>`
    - `use_digest_references=true` (recommended)
 
+
+### Optional Operator Orchestrator
+
+For teams that want a single entry point, use `azure-release-and-deploy.yml`:
+
+- Set `build_images=true` to run image release first and automatically pass the resolved immutable `release_version` into runtime deployment.
+- Set `build_images=false` to skip image build/push and provide `image_version` explicitly (required).
+
+This preserves the standard split between build/release and deployment while reducing operator handoff errors.
+
 ## Rollback Playbook
 
 1. Identify a prior successful image release version.
@@ -129,3 +139,4 @@ During migration, legacy workflow remains available for manual users, but new en
 - `docs/runbooks/bootstrap.md`
 - `docs/runbooks/build-and-push.md`
 - `docs/runbooks/deploy-runtime.md`
+- `docs/runbooks/release-and-deploy.md`

@@ -25,3 +25,8 @@ Build and push `aonik-api`, `aonik-worker`, and `aonik-adminui` images to ACR us
 ## Notes
 - OIDC is default; avoid static registry credentials.
 - Optional `semver_alias` is mutable and should not be used as deployment source of truth.
+
+
+## Optional Combined Execution
+
+If you want one manual trigger for release + deploy, use `.github/workflows/azure-release-and-deploy.yml` with `build_images=true`.
