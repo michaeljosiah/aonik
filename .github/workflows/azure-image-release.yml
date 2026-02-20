@@ -62,17 +62,16 @@ on:
         required: true
       AZURE_CLIENT_SECRET:
         required: false
-
-outputs:
-  release_version:
-    description: "Resolved immutable release version"
-    value: ${{ jobs.release-images.outputs.release_version }}
-  acr_name:
-    description: "Resolved ACR registry name"
-    value: ${{ jobs.release-images.outputs.acr_name }}
-  acr_login_server:
-    description: "Resolved ACR login server"
-    value: ${{ jobs.release-images.outputs.acr_login_server }}
+    outputs:
+      release_version:
+        description: "Resolved immutable release version"
+        value: ${{ jobs.release-images.outputs.release_version }}
+      acr_name:
+        description: "Resolved ACR registry name"
+        value: ${{ jobs.release-images.outputs.acr_name }}
+      acr_login_server:
+        description: "Resolved ACR login server"
+        value: ${{ jobs.release-images.outputs.acr_login_server }}
 
 permissions:
   id-token: write
