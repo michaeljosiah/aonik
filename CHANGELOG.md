@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Infrastructure (Runtime Config Overrides)**: Added optional runtime app-settings injection for deployment workflows via explicit GitHub environment variables for key API/Worker settings (auth, platform-admin, blob storage), with backward-compatible JSON bundle support (`API_APP_SETTINGS_JSON`, `WORKER_APP_SETTINGS_JSON`), allowing per-environment API/Worker configuration overrides without rebuilding images.
 - **Infrastructure (Azure CD Orchestrator)**: Added `azure-release-and-deploy.yml` as an operator orchestration workflow that conditionally runs image release and then runtime deploy; when `build_images=true` it auto-propagates the resolved release version, and when `build_images=false` it requires explicit `image_version`. Also enabled reusable `workflow_call` interfaces for `azure-image-release.yml` and `azure-runtime-deploy.yml`.
 - **Infrastructure (Azure CD)**: Added separated Azure workflows for platform bootstrap (`azure-platform-bootstrap.yml`), image build/tag/push (`azure-image-release.yml`), runtime rollout (`azure-runtime-deploy.yml`), plus workflow linting (`workflow-lint.yml`) to enforce CI validation of GitHub workflow syntax.
 - **Deployment Runbooks**: Added concise operator runbooks under `docs/runbooks/` for bootstrap, build-and-push, and runtime deployment execution.

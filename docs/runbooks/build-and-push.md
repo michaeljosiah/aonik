@@ -15,6 +15,10 @@ Build and push `aonik-api`, `aonik-worker`, and `aonik-adminui` images to ACR us
 ## Required GitHub Environment Secrets/Vars
 - Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
 - Optional secret fallback: `AZURE_CLIENT_SECRET`
+- Vars: `VITE_AUTH_PROVIDER`, `VITE_API_BASE_URL`
+- Vars when `VITE_AUTH_PROVIDER=azure-ad`: `VITE_AZURE_AD_CLIENT_ID`, `VITE_AZURE_AD_TENANT_ID`
+- Vars when `VITE_AUTH_PROVIDER=auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
+- Optional vars: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`
 
 ## Steps
 1. Trigger workflow and set `image_tag` if needed.
