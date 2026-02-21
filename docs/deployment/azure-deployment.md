@@ -101,6 +101,43 @@ Required environment secrets:
 - `SQL_ADMIN_PASSWORD` (bootstrap/runtime deployment)
 - `AZURE_CLIENT_SECRET` (optional fallback)
 
+Required environment variables for Admin UI image build:
+
+- `VITE_AUTH_PROVIDER` (`azure-ad`, `auth0`, or `mock`)
+- `VITE_API_BASE_URL`
+
+If `VITE_AUTH_PROVIDER` is omitted, image release defaults it to `azure-ad` during Admin UI build.
+- If provider is `azure-ad`: `VITE_AZURE_AD_CLIENT_ID`, `VITE_AZURE_AD_TENANT_ID`
+- If provider is `auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
+- Optional overrides: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`
+
+Optional environment variables for API/Worker runtime settings overrides:
+
+- `API_AUTH_PROVIDER` → `Auth__Provider`
+- `API_AUTH_TENANT_ROUTING` → `Auth__TenantRouting`
+- `API_AUTH_AUTH0_AUTHORITY` → `Auth__Auth0__Authority`
+- `API_AUTH_AUTH0_AUDIENCE` → `Auth__Auth0__Audience`
+- `API_AUTH_AZUREAD_AUTHORITY` → `Auth__AzureAd__Authority`
+- `API_AUTH_AZUREAD_AUDIENCE` → `Auth__AzureAd__Audience`
+- `API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE` → `PlatformAdmin__RoleClaimType`
+- `API_PLATFORM_ADMIN_ROLE_VALUE` → `PlatformAdmin__RoleValue`
+- `API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE` → `PlatformAdmin__ScopeClaimType`
+- `API_PLATFORM_ADMIN_ADMIN_EMAIL_0` → `PlatformAdmin__AdminEmails__0`
+- `API_BLOB_STORAGE_PROVIDER` → `BlobStorage__Provider`
+- `API_BLOB_STORAGE_AZURE_ACCOUNT_NAME` → `BlobStorage__Azure__AccountName`
+- `API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL` → `BlobStorage__ProfilePhotos__PublicBaseUrl`
+- `API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL` → `BlobStorage__ProductImages__PublicBaseUrl`
+- `API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL` → `BlobStorage__Documents__PublicBaseUrl`
+- `WORKER_BLOB_STORAGE_PROVIDER` → `BlobStorage__Provider`
+- `WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME` → `BlobStorage__Azure__AccountName`
+
+Backward-compatible JSON bundle variables are still supported:
+
+- `API_APP_SETTINGS_JSON`
+- `WORKER_APP_SETTINGS_JSON`
+
+If both explicit variables and JSON bundles are present, explicit variables take precedence for duplicate keys.
+
 Recommended least-privilege role scoping:
 
 - **Platform Bootstrap**: Contributor on target resource group/subscription scope used for infra.

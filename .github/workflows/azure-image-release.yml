@@ -91,6 +91,16 @@ jobs:
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       ACR_NAME_OVERRIDE: ${{ inputs.acr_name }}
+      VITE_AUTH_PROVIDER: ${{ vars.VITE_AUTH_PROVIDER }}
+      VITE_AZURE_AD_CLIENT_ID: ${{ vars.VITE_AZURE_AD_CLIENT_ID }}
+      VITE_AZURE_AD_TENANT_ID: ${{ vars.VITE_AZURE_AD_TENANT_ID }}
+      VITE_AZURE_AD_REDIRECT_URI: ${{ vars.VITE_AZURE_AD_REDIRECT_URI }}
+      VITE_AZURE_AD_API_SCOPE: ${{ vars.VITE_AZURE_AD_API_SCOPE }}
+      VITE_AUTH0_DOMAIN: ${{ vars.VITE_AUTH0_DOMAIN }}
+      VITE_AUTH0_CLIENT_ID: ${{ vars.VITE_AUTH0_CLIENT_ID }}
+      VITE_AUTH0_REDIRECT_URI: ${{ vars.VITE_AUTH0_REDIRECT_URI }}
+      VITE_AUTH0_AUDIENCE: ${{ vars.VITE_AUTH0_AUDIENCE }}
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
 
     steps:
       - name: Checkout repository
@@ -158,6 +168,35 @@ jobs:
       - name: Login to ACR (via Azure identity)
         run: az acr login --name "${{ steps.metadata.outputs.acr_name }}"
 
+      - name: Validate AdminUI build configuration
+        run: |
+          set -euo pipefail
+
+          auth_provider="${VITE_AUTH_PROVIDER:-azure-ad}"
+          api_base_url="${VITE_API_BASE_URL:-}"
+
+          if [ -z "$api_base_url" ]; then
+            echo "Missing GitHub environment variable: VITE_API_BASE_URL" >&2
+            exit 1
+          fi
+
+          case "$auth_provider" in
+            azure-ad)
+              test -n "${VITE_AZURE_AD_CLIENT_ID:-}" || (echo "Missing GitHub environment variable: VITE_AZURE_AD_CLIENT_ID" >&2 && exit 1)
+              test -n "${VITE_AZURE_AD_TENANT_ID:-}" || (echo "Missing GitHub environment variable: VITE_AZURE_AD_TENANT_ID" >&2 && exit 1)
+              ;;
+            auth0)
+              test -n "${VITE_AUTH0_DOMAIN:-}" || (echo "Missing GitHub environment variable: VITE_AUTH0_DOMAIN" >&2 && exit 1)
+              test -n "${VITE_AUTH0_CLIENT_ID:-}" || (echo "Missing GitHub environment variable: VITE_AUTH0_CLIENT_ID" >&2 && exit 1)
+              ;;
+            mock)
+              ;;
+            *)
+              echo "Invalid VITE_AUTH_PROVIDER='$auth_provider'. Use azure-ad, auth0, or mock." >&2
+              exit 1
+              ;;
+          esac
+
       - name: Build and push runtime images
         env:
           RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
@@ -166,13 +205,16 @@ jobs:
         run: |
           set -euo pipefail
 
+          auth_provider="${VITE_AUTH_PROVIDER:-azure-ad}"
+
           build_and_push() {
             local service="$1"
             local dockerfile="$2"
             local image_ref="${ACR_LOGIN_SERVER}/${service}:${RELEASE_VERSION}"
+            shift 2
 
             echo "Building ${image_ref}"
-            docker build --file "$dockerfile" --tag "$image_ref" .
+            docker build --file "$dockerfile" --tag "$image_ref" "$@" .
             docker push "$image_ref"
 
             digest=$(az acr repository show --name "${{ steps.metadata.outputs.acr_name }}" --image "${service}:${RELEASE_VERSION}" --query digest -o tsv)
@@ -198,7 +240,17 @@ jobs:
           : > image-release.env
           build_and_push aonik-api docker/api.Dockerfile
           build_and_push aonik-worker docker/worker.Dockerfile
-          build_and_push aonik-adminui docker/adminui.Dockerfile
+          build_and_push aonik-adminui docker/adminui.Dockerfile \
+            --build-arg "VITE_AUTH_PROVIDER=${auth_provider}" \
+            --build-arg "VITE_AZURE_AD_CLIENT_ID=${VITE_AZURE_AD_CLIENT_ID}" \
+            --build-arg "VITE_AZURE_AD_TENANT_ID=${VITE_AZURE_AD_TENANT_ID}" \
+            --build-arg "VITE_AZURE_AD_REDIRECT_URI=${VITE_AZURE_AD_REDIRECT_URI}" \
+            --build-arg "VITE_AZURE_AD_API_SCOPE=${VITE_AZURE_AD_API_SCOPE}" \
+            --build-arg "VITE_AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}" \
+            --build-arg "VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID}" \
+            --build-arg "VITE_AUTH0_REDIRECT_URI=${VITE_AUTH0_REDIRECT_URI}" \
+            --build-arg "VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}" \
+            --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL}"
 
       - name: Generate image release manifest
         env:

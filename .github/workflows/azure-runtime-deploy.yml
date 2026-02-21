@@ -134,6 +134,25 @@ jobs:
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       ACR_LOGIN_SERVER_OVERRIDE: ${{ inputs.acr_login_server }}
+      API_APP_SETTINGS_JSON: ${{ vars.API_APP_SETTINGS_JSON }}
+      WORKER_APP_SETTINGS_JSON: ${{ vars.WORKER_APP_SETTINGS_JSON }}
+      API_AUTH_PROVIDER: ${{ vars.API_AUTH_PROVIDER }}
+      API_AUTH_TENANT_ROUTING: ${{ vars.API_AUTH_TENANT_ROUTING }}
+      API_AUTH_AUTH0_AUTHORITY: ${{ vars.API_AUTH_AUTH0_AUTHORITY }}
+      API_AUTH_AUTH0_AUDIENCE: ${{ vars.API_AUTH_AUTH0_AUDIENCE }}
+      API_AUTH_AZUREAD_AUTHORITY: ${{ vars.API_AUTH_AZUREAD_AUTHORITY }}
+      API_AUTH_AZUREAD_AUDIENCE: ${{ vars.API_AUTH_AZUREAD_AUDIENCE }}
+      API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE: ${{ vars.API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE }}
+      API_PLATFORM_ADMIN_ROLE_VALUE: ${{ vars.API_PLATFORM_ADMIN_ROLE_VALUE }}
+      API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE: ${{ vars.API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE }}
+      API_PLATFORM_ADMIN_ADMIN_EMAIL_0: ${{ vars.API_PLATFORM_ADMIN_ADMIN_EMAIL_0 }}
+      API_BLOB_STORAGE_PROVIDER: ${{ vars.API_BLOB_STORAGE_PROVIDER }}
+      API_BLOB_STORAGE_AZURE_ACCOUNT_NAME: ${{ vars.API_BLOB_STORAGE_AZURE_ACCOUNT_NAME }}
+      API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL: ${{ vars.API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL }}
+      API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL: ${{ vars.API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL }}
+      API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL: ${{ vars.API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL }}
+      WORKER_BLOB_STORAGE_PROVIDER: ${{ vars.WORKER_BLOB_STORAGE_PROVIDER }}
+      WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME: ${{ vars.WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME }}
 
     steps:
       - name: Checkout repository
@@ -182,6 +201,8 @@ jobs:
           environment_name = r"${{ env.ENVIRONMENT_NAME }}".strip().lower()
           use_digest_references = r"${{ env.USE_DIGEST_REFERENCES }}".strip().lower() == "true"
           skip_image_validation = r"${{ env.SKIP_IMAGE_VALIDATION }}".strip().lower() == "true"
+          api_app_settings_json = r"""${{ env.API_APP_SETTINGS_JSON }}""".strip()
+          worker_app_settings_json = r"""${{ env.WORKER_APP_SETTINGS_JSON }}""".strip()
 
           document = json.loads(param_file.read_text())
           params = document.get("parameters", {})
@@ -319,6 +340,62 @@ jobs:
               wrapper = params.get(key)
               if isinstance(wrapper, dict):
                   wrapper["value"] = value
+
+          def parse_json_settings(param_name: str, raw_json: str) -> dict[str, str]:
+              if not raw_json:
+                  return {}
+
+              try:
+                  parsed = json.loads(raw_json)
+              except json.JSONDecodeError as error:
+                  print(f"Invalid JSON for {param_name}: {error}")
+                  sys.exit(1)
+
+              if not isinstance(parsed, dict):
+                  print(f"Invalid {param_name}: expected a JSON object.")
+                  sys.exit(1)
+
+              return {str(key): str(value) for key, value in parsed.items()}
+
+          def apply_object_parameter(param_name: str, settings: dict[str, str]) -> None:
+              if not settings:
+                  return
+
+              params[param_name] = {"value": settings}
+
+          api_settings = parse_json_settings("apiAppSettings", api_app_settings_json)
+          explicit_api_mapping = {
+              "Auth__Provider": r"""${{ env.API_AUTH_PROVIDER }}""",
+              "Auth__TenantRouting": r"""${{ env.API_AUTH_TENANT_ROUTING }}""",
+              "Auth__Auth0__Authority": r"""${{ env.API_AUTH_AUTH0_AUTHORITY }}""",
+              "Auth__Auth0__Audience": r"""${{ env.API_AUTH_AUTH0_AUDIENCE }}""",
+              "Auth__AzureAd__Authority": r"""${{ env.API_AUTH_AZUREAD_AUTHORITY }}""",
+              "Auth__AzureAd__Audience": r"""${{ env.API_AUTH_AZUREAD_AUDIENCE }}""",
+              "PlatformAdmin__RoleClaimType": r"""${{ env.API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE }}""",
+              "PlatformAdmin__RoleValue": r"""${{ env.API_PLATFORM_ADMIN_ROLE_VALUE }}""",
+              "PlatformAdmin__ScopeClaimType": r"""${{ env.API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE }}""",
+              "PlatformAdmin__AdminEmails__0": r"""${{ env.API_PLATFORM_ADMIN_ADMIN_EMAIL_0 }}""",
+              "BlobStorage__Provider": r"""${{ env.API_BLOB_STORAGE_PROVIDER }}""",
+              "BlobStorage__Azure__AccountName": r"""${{ env.API_BLOB_STORAGE_AZURE_ACCOUNT_NAME }}""",
+              "BlobStorage__ProfilePhotos__PublicBaseUrl": r"""${{ env.API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL }}""",
+              "BlobStorage__ProductImages__PublicBaseUrl": r"""${{ env.API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL }}""",
+              "BlobStorage__Documents__PublicBaseUrl": r"""${{ env.API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL }}""",
+          }
+          for key, value in explicit_api_mapping.items():
+              if value.strip():
+                  api_settings[key] = value.strip()
+          apply_object_parameter("apiAppSettings", api_settings)
+
+          if "appservice" not in str(param_file):
+              worker_settings = parse_json_settings("workerAppSettings", worker_app_settings_json)
+              explicit_worker_mapping = {
+                  "BlobStorage__Provider": r"""${{ env.WORKER_BLOB_STORAGE_PROVIDER }}""",
+                  "BlobStorage__Azure__AccountName": r"""${{ env.WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME }}""",
+              }
+              for key, value in explicit_worker_mapping.items():
+                  if value.strip():
+                      worker_settings[key] = value.strip()
+              apply_object_parameter("workerAppSettings", worker_settings)
 
           effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
           print(f"Resolved ACR login server: {acr_login_server}")

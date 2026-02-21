@@ -22,6 +22,9 @@ param sqlAdminPassword string
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
+@description('Optional API app settings overrides (name/value pairs).')
+param apiAppSettings object = {}
+
 @description('Azure Container Registry SKU tier.')
 @allowed([
   'Basic'
@@ -94,7 +97,10 @@ resource apiWebApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: common.outputs.appInsightsConnectionString
         }
-      ]
+      ] ++ [for setting in items(apiAppSettings): {
+        name: setting.key
+        value: string(setting.value)
+      }]
       acrUseManagedIdentityCreds: true
     }
   }

@@ -28,6 +28,12 @@ param sqlAdminPassword string
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
+@description('Optional API container environment variable overrides (name/value pairs).')
+param apiAppSettings object = {}
+
+@description('Optional worker container environment variable overrides (name/value pairs).')
+param workerAppSettings object = {}
+
 @description('Azure Container Registry SKU tier.')
 @allowed([
   'Basic'
@@ -40,6 +46,14 @@ var namePrefix = toLower('${workloadName}-${environmentName}')
 var containerRegistryName = replace('${namePrefix}acr', '-', '')
 var logAnalyticsWorkspaceName = '${namePrefix}-log'
 var keyVaultName = '${namePrefix}-kv'
+var apiAdditionalEnvVars = [for setting in items(apiAppSettings): {
+  name: setting.key
+  value: string(setting.value)
+}]
+var workerAdditionalEnvVars = [for setting in items(workerAppSettings): {
+  name: setting.key
+  value: string(setting.value)
+}]
 
 module common '../../modules/common.bicep' = {
   name: 'common-${environmentName}'
@@ -154,7 +168,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               secretRef: 'app-insights-connection-string'
             }
-          ]
+          ] ++ apiAdditionalEnvVars
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -222,7 +236,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               secretRef: 'app-insights-connection-string'
             }
-          ]
+          ] ++ workerAdditionalEnvVars
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Infrastructure (Runtime Config Overrides)**: Added optional runtime app-settings injection for deployment workflows via explicit GitHub environment variables for key API/Worker settings (auth, platform-admin, blob storage), with backward-compatible JSON bundle support (`API_APP_SETTINGS_JSON`, `WORKER_APP_SETTINGS_JSON`), allowing per-environment API/Worker configuration overrides without rebuilding images.
 - **Infrastructure (Azure CD Orchestrator)**: Added `azure-release-and-deploy.yml` as an operator orchestration workflow that conditionally runs image release and then runtime deploy; when `build_images=true` it auto-propagates the resolved release version, and when `build_images=false` it requires explicit `image_version`. Also enabled reusable `workflow_call` interfaces for `azure-image-release.yml` and `azure-runtime-deploy.yml`.
 - **Infrastructure (Azure CD)**: Added separated Azure workflows for platform bootstrap (`azure-platform-bootstrap.yml`), image build/tag/push (`azure-image-release.yml`), runtime rollout (`azure-runtime-deploy.yml`), plus workflow linting (`workflow-lint.yml`) to enforce CI validation of GitHub workflow syntax.
 - **Deployment Runbooks**: Added concise operator runbooks under `docs/runbooks/` for bootstrap, build-and-push, and runtime deployment execution.
@@ -19,6 +20,7 @@ All notable changes to the AONIK project will be documented in this file.
 - **Payabo Web**: Added `Payabo/AGENTS.md` guidance for LLM/browser automation to run authenticated Playwright flows, including shared test login steps and environment prerequisites.
 
 ### Fixed
+- **Infrastructure (Azure Image Release)**: Fixed Admin UI provider fallback mismatch by ensuring build-time `VITE_AUTH_PROVIDER` defaults to `azure-ad` when unset, aligning docker build args with validation behavior.
 - **Infrastructure (Azure CD Orchestrator)**: Reduced `azure-release-and-deploy.yml` `workflow_dispatch` inputs to 10 (GitHub platform limit) and documented that advanced override knobs remain available via the underlying image-release/runtime-deploy workflows.
 - **Infrastructure (Azure CD Orchestrator)**: Fixed reusable workflow output wiring by declaring `azure-image-release.yml` outputs under `on.workflow_call.outputs`, ensuring `azure-release-and-deploy.yml` receives `release_version` and `acr_login_server` when `build_images=true`.
 - **Infrastructure (Docker Images)**: Updated API and Worker runtime Dockerfiles to run with the pre-defined non-root `APP_UID` user from .NET 10 base images instead of invoking `adduser`, fixing Linux image builds that failed with `/bin/sh: adduser: not found` on the hosted GitHub runner.
