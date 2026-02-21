@@ -80,6 +80,8 @@ Set these per environment (`dev`, `staging`, `prod`) so the Admin UI image is bu
 - `VITE_AUTH_PROVIDER` (`azure-ad`, `auth0`, or `mock`)
 - `VITE_API_BASE_URL`
 
+If `VITE_AUTH_PROVIDER` is unset, image release defaults it to `azure-ad` during Admin UI build.
+
 If `VITE_AUTH_PROVIDER=azure-ad`:
 
 - `VITE_AZURE_AD_CLIENT_ID`

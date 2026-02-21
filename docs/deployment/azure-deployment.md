@@ -105,6 +105,8 @@ Required environment variables for Admin UI image build:
 
 - `VITE_AUTH_PROVIDER` (`azure-ad`, `auth0`, or `mock`)
 - `VITE_API_BASE_URL`
+
+If `VITE_AUTH_PROVIDER` is omitted, image release defaults it to `azure-ad` during Admin UI build.
 - If provider is `azure-ad`: `VITE_AZURE_AD_CLIENT_ID`, `VITE_AZURE_AD_TENANT_ID`
 - If provider is `auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
 - Optional overrides: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`

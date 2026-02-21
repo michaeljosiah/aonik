@@ -205,6 +205,8 @@ jobs:
         run: |
           set -euo pipefail
 
+          auth_provider="${VITE_AUTH_PROVIDER:-azure-ad}"
+
           build_and_push() {
             local service="$1"
             local dockerfile="$2"
@@ -239,7 +241,7 @@ jobs:
           build_and_push aonik-api docker/api.Dockerfile
           build_and_push aonik-worker docker/worker.Dockerfile
           build_and_push aonik-adminui docker/adminui.Dockerfile \
-            --build-arg "VITE_AUTH_PROVIDER=${VITE_AUTH_PROVIDER}" \
+            --build-arg "VITE_AUTH_PROVIDER=${auth_provider}" \
             --build-arg "VITE_AZURE_AD_CLIENT_ID=${VITE_AZURE_AD_CLIENT_ID}" \
             --build-arg "VITE_AZURE_AD_TENANT_ID=${VITE_AZURE_AD_TENANT_ID}" \
             --build-arg "VITE_AZURE_AD_REDIRECT_URI=${VITE_AZURE_AD_REDIRECT_URI}" \

@@ -20,6 +20,8 @@ Build and push `aonik-api`, `aonik-worker`, and `aonik-adminui` images to ACR us
 - Vars when `VITE_AUTH_PROVIDER=auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
 - Optional vars: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`
 
+If `VITE_AUTH_PROVIDER` is not set, the workflow defaults it to `azure-ad` for the Admin UI build.
+
 ## Steps
 1. Trigger workflow and set `image_tag` if needed.
 2. Wait for all three images to build and push.
