@@ -1,4 +1,4 @@
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 
 namespace Aonik.Application.Services.Identity;
 

@@ -2,7 +2,7 @@ using System.Text.Json;
 using FastEndpoints;
 
 using Aonik.Api.Contracts.Onboarding;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Models.Onboarding;
 using Aonik.Application.Services.Compliance;

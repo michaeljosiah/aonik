@@ -1,4 +1,4 @@
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Billing;
 using Aonik.Application.Services.Billing;
 using Aonik.Application.Services.Identity;

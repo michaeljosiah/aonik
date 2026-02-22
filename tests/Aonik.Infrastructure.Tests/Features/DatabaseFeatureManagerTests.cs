@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.FeatureManagement;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Domain.Features.Entities;
 using Aonik.Infrastructure.Features;
 using Aonik.Infrastructure.Persistence;

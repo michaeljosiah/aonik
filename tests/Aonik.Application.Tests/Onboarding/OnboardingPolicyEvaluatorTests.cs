@@ -7,12 +7,11 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Onboarding;
 using Aonik.Application.Options;
 using Aonik.Application.Services.Onboarding;
-using Aonik.Domain.Identity;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Domain.Party.Entities;
 using Aonik.Infrastructure.Persistence;
 

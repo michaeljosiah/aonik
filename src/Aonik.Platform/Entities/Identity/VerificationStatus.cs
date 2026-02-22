@@ -1,4 +1,4 @@
-namespace Aonik.Domain.Identity;
+namespace Aonik.Platform.Entities.Identity;
 
 public enum VerificationStatus
 {

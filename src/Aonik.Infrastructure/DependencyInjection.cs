@@ -9,7 +9,7 @@ using Aonik.Application.Abstractions.Ai;
 using Aonik.Application.Abstractions.Autonumbering;
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Messaging;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Notifications;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;

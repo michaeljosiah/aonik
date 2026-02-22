@@ -7,13 +7,12 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 
 using Aonik.Api.Contracts.Identity;
 using Aonik.Application.Services.Identity;
-using Aonik.Domain.Identity;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Infrastructure.Persistence;
 
 namespace Aonik.Api.Tests;

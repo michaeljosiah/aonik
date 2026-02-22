@@ -4,7 +4,7 @@ using System.Text.Json;
 using Aonik.Application.Abstractions.Authentication;
 using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Settings;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 
 namespace Aonik.Infrastructure.Authentication.Account;
 

@@ -3,8 +3,7 @@ using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Onboarding;
 using Aonik.Application.Options;
-using Aonik.Domain.Identity;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 
 namespace Aonik.Application.Services.Onboarding;
 

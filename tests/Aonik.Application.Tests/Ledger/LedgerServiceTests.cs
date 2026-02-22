@@ -1,4 +1,4 @@
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Ledger;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Ledger;

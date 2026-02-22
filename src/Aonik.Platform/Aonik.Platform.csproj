@@ -15,9 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
-    <!-- Transitional: referenced for AonikDbContextBase during migration.
-         Will be removed in Phase 6 when base class is relocated. -->
-    <ProjectReference Include="..\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
+    <ProjectReference Include="..\Aonik.Domain\Aonik.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

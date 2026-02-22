@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Notifications;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Notifications;

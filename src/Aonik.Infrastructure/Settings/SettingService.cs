@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Models.Settings;
 using Aonik.Application.Settings;

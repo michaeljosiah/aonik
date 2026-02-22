@@ -1,7 +1,7 @@
 using System;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Autonumbering;
 using Aonik.Application.Services.Autonumbering;
 using Aonik.Domain.Autonumbering.Entities;

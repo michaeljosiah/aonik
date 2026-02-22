@@ -7,7 +7,7 @@ using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Domain.Ai.Entities;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Domain.Ledger.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.SharedKernel.Abstractions;

@@ -1,8 +1,8 @@
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Infrastructure.Persistence.Configurations;
+namespace Aonik.Platform.Persistence.Configurations;
 
 public class RoleConfiguration : IEntityTypeConfiguration<Role>
 {

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Catalog;
 using Aonik.Application.Services.Catalog;
 using Aonik.Domain.Catalog.Entities;

@@ -1,7 +1,7 @@
 using Aonik.Api.Contracts.Onboarding;
 using Aonik.Api.Contracts.Registrations;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Onboarding;
 using ApplicationRegistrationRequest = Aonik.Application.Models.Registration.IndividualRegistrationRequest;
 using Aonik.Application.Services.Registration;

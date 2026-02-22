@@ -1,10 +1,10 @@
-using Aonik.Application.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Primitives;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
-namespace Aonik.Infrastructure.Persistence;
+namespace Aonik.SharedKernel.Persistence;
 
 /// <summary>
 /// Base class for all module-scoped DbContexts in AONIK.

@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Application.Abstractions.Storage;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Compliance;
 using Aonik.Application.Models.Identity;

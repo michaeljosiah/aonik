@@ -1,6 +1,4 @@
-using System;
-
-namespace Aonik.Application.Abstractions.Multitenancy;
+namespace Aonik.SharedKernel.Abstractions.Multitenancy;
 
 /// <summary>
 /// Provides the and current tenant information allows changing the tenant context.

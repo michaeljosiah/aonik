@@ -1,4 +1,4 @@
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Abstractions.ReferenceData;
 using Aonik.Application.Models.ReferenceData;

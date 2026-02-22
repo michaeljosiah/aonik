@@ -1,4 +1,4 @@
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
@@ -8,7 +8,7 @@ using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Cms.Entities;
 using Aonik.Domain.Compliance.Entities;
 using Aonik.Domain.Features.Entities;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Domain.Notifications.Entities;
 using Aonik.Domain.Operations.Entities;
 using Aonik.Domain.Orders.Entities;
@@ -20,6 +20,7 @@ using Aonik.Domain.Pricing.Entities;
 using Aonik.Domain.ReferenceData.Entities;
 using Aonik.Domain.Settings.Entities;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
@@ -202,6 +203,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
 
         // Apply all configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Apply Identity configurations from Platform assembly
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Tenant).Assembly);
 
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);

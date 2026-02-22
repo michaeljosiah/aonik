@@ -1,6 +1,6 @@
 using FastEndpoints;
 
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 

@@ -6,8 +6,8 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-using Aonik.Application.Abstractions.Multitenancy;
-using Aonik.Domain.Identity.Entities;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Infrastructure.Persistence;
 
 namespace Aonik.Api.Tests;

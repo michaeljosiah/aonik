@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Seeding;
@@ -16,7 +16,7 @@ using Aonik.Domain.Party;
 using Aonik.Domain.Party.Entities;
 using Aonik.Domain.Settings;
 using Aonik.Domain.Settings.Entities;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Domain.Ledger.Entities;
 using Aonik.Domain.Partners.Entities;
 using Aonik.Domain.PersonalFinance.Entities;

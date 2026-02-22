@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 
 namespace Aonik.Api.Middleware;

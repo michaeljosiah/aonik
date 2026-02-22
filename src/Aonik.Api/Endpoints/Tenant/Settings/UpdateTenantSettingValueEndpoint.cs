@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Settings;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Settings;
 using Aonik.Application.Settings;
 using Aonik.Domain.Settings;

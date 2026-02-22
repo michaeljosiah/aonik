@@ -1,7 +1,6 @@
-using Aonik.Domain.Identity;
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Identity.Entities;
+namespace Aonik.Platform.Entities.Identity;
 
 public class VerificationChallenge : AuditableEntity, ITenantScoped
 {

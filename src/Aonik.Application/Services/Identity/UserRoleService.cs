@@ -2,13 +2,13 @@ using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Identity;
 using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Identity;

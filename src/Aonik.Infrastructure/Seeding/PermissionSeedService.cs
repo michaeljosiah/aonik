@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Seeding;
@@ -11,7 +11,7 @@ using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Seeding;
 using Aonik.Infrastructure.Persistence.Seed;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 
 namespace Aonik.Infrastructure.Seeding;
 

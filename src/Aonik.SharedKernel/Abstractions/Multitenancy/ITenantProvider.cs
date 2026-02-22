@@ -1,4 +1,4 @@
-namespace Aonik.Application.Abstractions.Multitenancy;
+namespace Aonik.SharedKernel.Abstractions.Multitenancy;
 
 public interface ITenantProvider
 {

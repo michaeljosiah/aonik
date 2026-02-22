@@ -2,7 +2,7 @@ using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
 using Aonik.Api.Contracts.PersonalFinance;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using AppModels = Aonik.Application.Models.PersonalFinance;

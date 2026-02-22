@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Aonik.Application.Abstractions.Autonumbering;
-using Aonik.Application.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Autonumbering;
 using Aonik.Domain.Autonumbering.Entities;

@@ -1,5 +1,5 @@
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Domain.Identity.Entities;
+using Aonik.Platform.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
