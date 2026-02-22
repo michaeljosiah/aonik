@@ -14,7 +14,7 @@
 - [x] **PR 0.2** — Multi-DbContext Migration Infrastructure
 
 ### Phase 1: Extract Platform Module
-- [ ] **PR 1.1** — Scaffold Aonik.Platform Project
+- [x] **PR 1.1** — Scaffold Aonik.Platform Project
 - [ ] **PR 1.2** — Move Identity & Tenancy Entities
 - [ ] **PR 1.3** — Move Party & Profile Entities
 - [ ] **PR 1.4** — Move Compliance, Notifications, Operations

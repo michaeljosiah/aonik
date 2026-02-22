@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Persistence.Seed;
+using Aonik.Platform;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,9 @@ builder.AddServiceDefaults();
 // Add Application and Infrastructure layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
+
+// Add domain modules
+builder.Services.AddPlatformModule(builder.Configuration);
 
 // Add CORS for development
 builder.Services.AddCors(options =>

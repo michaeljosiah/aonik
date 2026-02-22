@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Migrator", "src\Aonik
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.SharedKernel.Tests", "tests\Aonik.SharedKernel.Tests\Aonik.SharedKernel.Tests.csproj", "{A936E609-1839-4D80-A26E-4CDAED8F5679}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aonik.Platform", "src\Aonik.Platform\Aonik.Platform.csproj", "{BC4AD68E-36C0-4E15-903A-1814FF339E37}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -227,6 +229,18 @@ Global
 		{A936E609-1839-4D80-A26E-4CDAED8F5679}.Release|x64.Build.0 = Release|Any CPU
 		{A936E609-1839-4D80-A26E-4CDAED8F5679}.Release|x86.ActiveCfg = Release|Any CPU
 		{A936E609-1839-4D80-A26E-4CDAED8F5679}.Release|x86.Build.0 = Release|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Debug|x64.Build.0 = Debug|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Debug|x86.Build.0 = Debug|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Release|x64.ActiveCfg = Release|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Release|x64.Build.0 = Release|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Release|x86.ActiveCfg = Release|Any CPU
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -247,5 +261,6 @@ Global
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{B283F05A-779A-4A96-A0F2-652AB5014E99} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A936E609-1839-4D80-A26E-4CDAED8F5679} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{BC4AD68E-36C0-4E15-903A-1814FF339E37} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
