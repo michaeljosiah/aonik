@@ -32,7 +32,7 @@ public class GetPublicPaymentIntentStatusEndpoint : EndpointWithoutRequest<Publi
             return;
         }
 
-        var orderIdRaw = Query<string>("orderId");
+        var orderIdRaw = Query<string>("orderId", isRequired: false);
         if (!Guid.TryParse(orderIdRaw, out var orderId) || orderId == Guid.Empty)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
@@ -41,7 +41,7 @@ public class GetPublicPaymentIntentStatusEndpoint : EndpointWithoutRequest<Publi
         }
 
         Guid? paymentIntentId = null;
-        var paymentIntentIdRaw = Query<string>("paymentIntentId");
+        var paymentIntentIdRaw = Query<string>("paymentIntentId", isRequired: false);
         if (!string.IsNullOrWhiteSpace(paymentIntentIdRaw))
         {
             if (!Guid.TryParse(paymentIntentIdRaw, out var parsedPaymentIntentId) || parsedPaymentIntentId == Guid.Empty)
@@ -54,7 +54,7 @@ public class GetPublicPaymentIntentStatusEndpoint : EndpointWithoutRequest<Publi
             paymentIntentId = parsedPaymentIntentId;
         }
 
-        var providerReference = Query<string>("providerReference");
+        var providerReference = Query<string>("providerReference", isRequired: false);
         if (paymentIntentId == null && string.IsNullOrWhiteSpace(providerReference))
         {
             HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
