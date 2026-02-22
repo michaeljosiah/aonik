@@ -1,6 +1,6 @@
 # Runbook: Release and Deploy Runtime
 
-Workflow: `.github/workflows/azure-release-and-deploy.yml`
+Workflow: `.github/workflows/cd-pipeline.yml`
 
 ## Purpose
 Provide a single operator entry point that can either:

@@ -1,6 +1,6 @@
 # Runbook: Deploy Runtime
 
-Workflow: `.github/workflows/azure-runtime-deploy.yml`
+Workflow: `.github/workflows/cd-deploy.yml`
 
 ## Purpose
 Deploy ACA/AppService runtime updates using one explicit image release version.
@@ -18,7 +18,7 @@ Deploy ACA/AppService runtime updates using one explicit image release version.
 - `skip_image_validation` (advanced/emergency only)
 
 ## Required GitHub Environment Secrets/Vars
-- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `SQL_ADMIN_PASSWORD`
+- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `SQL_ADMIN_PASSWORD`, `ACS_CONNECTION_STRING`, `VERIFICATION_HASH_KEY`
 - Optional secret fallback: `AZURE_CLIENT_SECRET`
 - Variable: `AZURE_RESOURCE_GROUP`
 - Optional variables:
@@ -28,6 +28,10 @@ Deploy ACA/AppService runtime updates using one explicit image release version.
   - `API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE`, `API_PLATFORM_ADMIN_ROLE_VALUE`, `API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE`, `API_PLATFORM_ADMIN_ADMIN_EMAIL_0`
   - `API_BLOB_STORAGE_PROVIDER`, `API_BLOB_STORAGE_AZURE_ACCOUNT_NAME`, `API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL`, `API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL`, `API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL`
   - `WORKER_BLOB_STORAGE_PROVIDER`, `WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME`
+  - Settings (IdP): `API_SETTINGS_AUTH_PROVIDER`, `API_SETTINGS_AUTH_AUTH0_DOMAIN`, `API_SETTINGS_AUTH_AUTH0_CLIENT_ID`, `API_SETTINGS_AUTH_AUTH0_CONNECTION`, `API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE`, `API_SETTINGS_AUTH_AUTH0_AUDIENCE`, `API_SETTINGS_AUTH_AZUREAD_AUTHORITY`, `API_SETTINGS_AUTH_AZUREAD_AUDIENCE`, `API_SETTINGS_AUTH_AZUREAD_CLIENT_ID`, `API_SETTINGS_AUTH_AZUREAD_TENANT_ID`, `API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN`
+  - Communication: `API_COMMUNICATION_AZURE_EMAIL_FROM`, `API_COMMUNICATION_AZURE_SMS_FROM`
+  - Bootstrap: `API_BOOTSTRAP_ENABLED`
+  - Feature flags: `API_FEATURE_BILLPAYMENTS_INVOICING_CREATE`, `API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE`, `API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT`, `API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS`, `API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS`, `API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT`
   - `API_APP_SETTINGS_JSON` (legacy bundle format)
   - `WORKER_APP_SETTINGS_JSON` (legacy bundle format)
 
@@ -49,4 +53,4 @@ JSON bundle variables remain supported for backward compatibility.
 
 ## Optional Combined Execution
 
-If image release is not required, run `.github/workflows/azure-release-and-deploy.yml` with `build_images=false` and set `image_version` explicitly.
+If image release is not required, run `.github/workflows/cd-pipeline.yml` with `build_images=false` and set `image_version` explicitly.

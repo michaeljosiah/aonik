@@ -1,6 +1,6 @@
 # Runbook: Build and Push Runtime Images
 
-Workflow: `.github/workflows/azure-image-release.yml`
+Workflow: `.github/workflows/cd-images.yml`
 
 ## Purpose
 Build and push `aonik-api`, `aonik-worker`, and `aonik-adminui` images to ACR using one cohesive release version.
@@ -35,4 +35,4 @@ If `VITE_AUTH_PROVIDER` is not set, the workflow defaults it to `azure-ad` for t
 
 ## Optional Combined Execution
 
-If you want one manual trigger for release + deploy, use `.github/workflows/azure-release-and-deploy.yml` with `build_images=true`.
+If you want one manual trigger for release + deploy, use `.github/workflows/cd-pipeline.yml` with `build_images=true`.

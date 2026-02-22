@@ -19,6 +19,14 @@ param adminUiImage string
 @description('SQL server administrator login password.')
 param sqlAdminPassword string
 
+@secure()
+@description('Azure Communication Services connection string. Passed to Key Vault via the data module.')
+param acsConnectionString string = ''
+
+@secure()
+@description('HMAC hash key for the verification service. Passed to Key Vault via the data module.')
+param verificationHashKey string = ''
+
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
@@ -32,6 +40,12 @@ param apiAppSettings object = {}
   'Premium'
 ])
 param containerRegistrySku string = 'Basic'
+
+@description('Enable CanNotDelete resource locks on data resources (recommended for prod).')
+param enableResourceLocks bool = false
+
+@description('Enable private endpoints for SQL and Key Vault. App Service VNet integration is not included in this profile.')
+param enableNetworkIsolation bool = false
 
 module common '../../modules/common.bicep' = {
   name: 'common-${environmentName}'
@@ -52,6 +66,11 @@ module data '../../modules/data.bicep' = {
     environmentName: environmentName
     tags: tags
     sqlAdminPassword: sqlAdminPassword
+    acsConnectionString: acsConnectionString
+    verificationHashKey: verificationHashKey
+    enableResourceLocks: enableResourceLocks
+    logAnalyticsWorkspaceId: common.outputs.logAnalyticsWorkspaceId
+    publicNetworkAccess: enableNetworkIsolation ? 'Disabled' : 'Enabled'
   }
 }
 
@@ -96,6 +115,14 @@ resource apiWebApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: common.outputs.appInsightsConnectionString
+        }
+        {
+          name: 'Communication__Azure__ConnectionString'
+          value: '@Microsoft.KeyVault(SecretUri=${data.outputs.acsConnectionStringSecretUri})'
+        }
+        {
+          name: 'Verification__HashKey'
+          value: '@Microsoft.KeyVault(SecretUri=${data.outputs.verificationHashKeySecretUri})'
         }
       ] ++ [for setting in items(apiAppSettings): {
         name: setting.key

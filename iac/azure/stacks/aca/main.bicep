@@ -25,6 +25,14 @@ param adminUiTargetPort int = 80
 @description('SQL server administrator login password.')
 param sqlAdminPassword string
 
+@secure()
+@description('Azure Communication Services connection string. Passed to Key Vault via the data module.')
+param acsConnectionString string = ''
+
+@secure()
+@description('HMAC hash key for the verification service. Passed to Key Vault via the data module.')
+param verificationHashKey string = ''
+
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
@@ -41,6 +49,12 @@ param workerAppSettings object = {}
   'Premium'
 ])
 param containerRegistrySku string = 'Basic'
+
+@description('Enable CanNotDelete resource locks on data resources (recommended for prod).')
+param enableResourceLocks bool = false
+
+@description('Enable VNet integration with private endpoints for SQL and Key Vault (recommended for prod).')
+param enableNetworkIsolation bool = false
 
 var namePrefix = toLower('${workloadName}-${environmentName}')
 var containerRegistryName = replace('${namePrefix}acr', '-', '')
@@ -74,6 +88,23 @@ module data '../../modules/data.bicep' = {
     environmentName: environmentName
     tags: tags
     sqlAdminPassword: sqlAdminPassword
+    acsConnectionString: acsConnectionString
+    verificationHashKey: verificationHashKey
+    enableResourceLocks: enableResourceLocks
+    logAnalyticsWorkspaceId: common.outputs.logAnalyticsWorkspaceId
+    publicNetworkAccess: enableNetworkIsolation ? 'Disabled' : 'Enabled'
+  }
+}
+
+module network '../../modules/network.bicep' = if (enableNetworkIsolation) {
+  name: 'network-${environmentName}'
+  params: {
+    location: location
+    workloadName: workloadName
+    environmentName: environmentName
+    tags: tags
+    sqlServerId: data.outputs.sqlServerId
+    keyVaultId: data.outputs.keyVaultId
   }
 }
 
@@ -82,6 +113,10 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
   location: location
   tags: tags
   properties: {
+    vnetConfiguration: enableNetworkIsolation ? {
+      infrastructureSubnetId: network.outputs.acaSubnetId
+      internal: false
+    } : null
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
@@ -148,6 +183,16 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'app-insights-connection-string'
           value: common.outputs.appInsightsConnectionString
         }
+        {
+          name: 'acs-connection-string'
+          keyVaultUrl: data.outputs.acsConnectionStringSecretUri
+          identity: 'system'
+        }
+        {
+          name: 'verification-hash-key'
+          keyVaultUrl: data.outputs.verificationHashKeySecretUri
+          identity: 'system'
+        }
       ]
     }
     template: {
@@ -167,6 +212,14 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               secretRef: 'app-insights-connection-string'
+            }
+            {
+              name: 'Communication__Azure__ConnectionString'
+              secretRef: 'acs-connection-string'
+            }
+            {
+              name: 'Verification__HashKey'
+              secretRef: 'verification-hash-key'
             }
           ] ++ apiAdditionalEnvVars
           resources: {
@@ -312,16 +365,6 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
 }
 
-resource acrPullRoleForApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerRegistryName, apiApp.name, 'AcrPull')
-  scope: containerRegistry
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
-    principalId: apiApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 resource acrPullRoleForApiPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(containerRegistryName, apiPullIdentity.name, 'AcrPull')
   scope: containerRegistry
@@ -335,16 +378,6 @@ resource acrPullRoleForApiPullIdentity 'Microsoft.Authorization/roleAssignments@
   }
 }
 
-resource acrPullRoleForWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerRegistryName, workerApp.name, 'AcrPull')
-  scope: containerRegistry
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
-    principalId: workerApp.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
 resource acrPullRoleForWorkerPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(containerRegistryName, workerPullIdentity.name, 'AcrPull')
   scope: containerRegistry
@@ -354,16 +387,6 @@ resource acrPullRoleForWorkerPullIdentity 'Microsoft.Authorization/roleAssignmen
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
     principalId: workerPullIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-resource acrPullRoleForAdminUi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(containerRegistryName, adminUiApp.name, 'AcrPull')
-  scope: containerRegistry
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
-    principalId: adminUiApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }

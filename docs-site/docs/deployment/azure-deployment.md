@@ -21,13 +21,13 @@ This guide provides a practical Azure deployment baseline for AONIK.
 
 ## Infrastructure as Code (Bicep)
 
-IaC assets live under `infra/`:
+IaC assets live under `iac/azure/`:
 
-- `infra/profiles/aca/main.bicep`
-- `infra/profiles/appservice/main.bicep`
-- `infra/environments/dev|staging|prod/*.parameters.json`
+- `iac/azure/stacks/aca/main.bicep`
+- `iac/azure/stacks/appservice/main.bicep`
+- `iac/azure/environments/dev|staging|prod/*.parameters.json`
 
-See `infra/README.md` for structure, deployment commands, and required parameter substitutions.
+See `iac/azure/README.md` for structure, deployment commands, and required parameter substitutions.
 
 ## Required Configuration
 
@@ -44,14 +44,13 @@ See `infra/README.md` for structure, deployment commands, and required parameter
 
 ## GitHub Actions CD (Step-by-Step)
 
-A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for manual, controlled infrastructure rollout.
+Three dedicated workflows handle infrastructure and runtime deployment:
 
-### What the workflow does
+1. `cd-infra.yml` provisions/updates infrastructure (what-if + deploy).
+2. `cd-images.yml` builds and pushes container images to ACR.
+3. `cd-deploy.yml` rolls out runtime using validated image references.
 
-- Supports both profiles: `aca` and `appservice`
-- Supports `what-if` mode for safe preview
-- Uses OIDC-based Azure authentication (`azure/login`)
-- Deploys using profile/environment parameter files in `infra/environments/*`
+All workflows support both `aca` and `appservice` profiles, OIDC-based Azure authentication, and `what-if` preview mode.
 
 ### 1) Prepare Azure once (OIDC for GitHub)
 
@@ -67,11 +66,11 @@ A dedicated workflow is available at `.github/workflows/azure-iac-cd.yml` for ma
 
 For each environment, update image placeholders before deployment:
 
-- ACA: `infra/environments/<env>/aca.parameters.json`
+- ACA: `iac/azure/environments/<env>/aca.parameters.json`
   - `apiImage`
   - `workerImage`
   - `adminUiImage`
-- App Service: `infra/environments/<env>/appservice.parameters.json`
+- App Service: `iac/azure/environments/<env>/appservice.parameters.json`
   - `apiImage`
   - `adminUiImage`
 
@@ -103,6 +102,8 @@ For each environment (`dev`, `staging`, `prod`), add:
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 - `SQL_ADMIN_PASSWORD`
+- `ACS_CONNECTION_STRING` (Azure Communication Services connection string; stored in Key Vault)
+- `VERIFICATION_HASH_KEY` (HMAC hash key for verification service; stored in Key Vault)
 
 Path in GitHub UI:
 

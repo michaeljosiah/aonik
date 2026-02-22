@@ -1,4 +1,4 @@
-name: Azure Platform Bootstrap
+name: "CD: Infrastructure"
 
 on:
   workflow_dispatch:
@@ -68,6 +68,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Bootstrap platform (${{ inputs.profile }} / ${{ inputs.environment }})
@@ -75,9 +79,9 @@ jobs:
     environment: ${{ inputs.environment }}
 
     env:
-      TEMPLATE_FILE: infra/profiles/${{ inputs.profile }}/main.bicep
-      PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
-      EFFECTIVE_PARAM_FILE: infra/environments/${{ inputs.environment }}/${{ inputs.profile }}.bootstrap.parameters.json
+      TEMPLATE_FILE: iac/azure/stacks/${{ inputs.profile }}/main.bicep
+      PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
+      EFFECTIVE_PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/${{ inputs.profile }}.bootstrap.parameters.json
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
@@ -111,60 +115,16 @@ jobs:
           test -f "$TEMPLATE_FILE"
           test -f "$PARAM_FILE"
 
-      - name: Build bootstrap parameter file (infra-only)
-        run: |
-          python - <<'PY'
-          import json
-          import pathlib
-
-          param_file = pathlib.Path(r"${{ env.PARAM_FILE }}")
-          effective_param_file = pathlib.Path(r"${{ env.EFFECTIVE_PARAM_FILE }}")
-          workload_name = r"${{ env.WORKLOAD_NAME }}".strip()
-          bootstrap_api_image = r"${{ env.BOOTSTRAP_API_IMAGE }}".strip()
-          bootstrap_worker_image = r"${{ env.BOOTSTRAP_WORKER_IMAGE }}".strip()
-          bootstrap_adminui_image = r"${{ env.BOOTSTRAP_ADMINUI_IMAGE }}".strip()
-          bootstrap_adminui_target_port = r"${{ env.BOOTSTRAP_ADMINUI_TARGET_PORT }}".strip()
-
-          document = json.loads(param_file.read_text())
-          params = document.get("parameters", {})
-
-          workload_wrapper = params.get("workloadName")
-          if not workload_name and isinstance(workload_wrapper, dict):
-              candidate = workload_wrapper.get("value")
-              if isinstance(candidate, str) and candidate.strip():
-                  workload_name = candidate.strip()
-
-          if not workload_name:
-              workload_name = "aonik"
-
-          if not isinstance(workload_wrapper, dict):
-              params["workloadName"] = {"value": workload_name}
-          else:
-              workload_wrapper["value"] = workload_name
-
-          bootstrap_images = {
-              "apiImage": bootstrap_api_image,
-              "workerImage": bootstrap_worker_image,
-              "adminUiImage": bootstrap_adminui_image,
-          }
-
-          admin_ui_target_port_wrapper = params.get("adminUiTargetPort")
-          if isinstance(admin_ui_target_port_wrapper, dict) and bootstrap_adminui_target_port:
-              admin_ui_target_port_wrapper["value"] = int(bootstrap_adminui_target_port)
-
-          for key, image_ref in bootstrap_images.items():
-              wrapper = params.get(key)
-              if isinstance(wrapper, dict) and image_ref:
-                  wrapper["value"] = image_ref
-
-          effective_param_file.write_text(json.dumps(document, indent=2) + "\n")
-          print(f"Using workload_name={workload_name}")
-          print(f"Using bootstrap_api_image={bootstrap_api_image}")
-          print(f"Using bootstrap_worker_image={bootstrap_worker_image}")
-          print(f"Using bootstrap_adminui_image={bootstrap_adminui_image}")
-          print(f"Using bootstrap_adminui_target_port={bootstrap_adminui_target_port}")
-          print(f"Wrote bootstrap parameter file to {effective_param_file}")
-          PY
+      - name: Build bootstrap parameter file
+        uses: ./.github/actions/resolve-params
+        with:
+          base_param_file: ${{ env.PARAM_FILE }}
+          output_param_file: ${{ env.EFFECTIVE_PARAM_FILE }}
+          mode: bootstrap
+          workload_name: ${{ env.WORKLOAD_NAME }}
+          bootstrap_images: >-
+            {"apiImage":"${{ env.BOOTSTRAP_API_IMAGE }}","workerImage":"${{ env.BOOTSTRAP_WORKER_IMAGE }}","adminUiImage":"${{ env.BOOTSTRAP_ADMINUI_IMAGE }}"}
+          admin_ui_target_port: ${{ env.BOOTSTRAP_ADMINUI_TARGET_PORT }}
 
       - name: Compile Bicep template
         run: az bicep build --file "$TEMPLATE_FILE"
@@ -179,6 +139,8 @@ jobs:
             --template-file "$TEMPLATE_FILE"
             --parameters "@$EFFECTIVE_PARAM_FILE"
             --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+            --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
+            --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
           )
 
           if [ -n "${{ inputs.location }}" ]; then
@@ -203,6 +165,8 @@ jobs:
               --template-file "$TEMPLATE_FILE"
               --parameters "@$EFFECTIVE_PARAM_FILE"
               --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+              --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
+              --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
             )
 
             if [ -n "${{ inputs.location }}" ]; then
@@ -218,17 +182,17 @@ jobs:
       - name: Deploy infrastructure baseline
         if: ${{ inputs.mode == 'deploy' }}
         run: |
+          deploy_args=(
+            --resource-group "$RESOURCE_GROUP"
+            --template-file "$TEMPLATE_FILE"
+            --parameters "@$EFFECTIVE_PARAM_FILE"
+            --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
+            --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
+            --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
+          )
+
           if [ -n "${{ inputs.location }}" ]; then
-            az deployment group create \
-              --resource-group "$RESOURCE_GROUP" \
-              --template-file "$TEMPLATE_FILE" \
-              --parameters "@$EFFECTIVE_PARAM_FILE" \
-              --parameters location="${{ inputs.location }}" \
-              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
-          else
-            az deployment group create \
-              --resource-group "$RESOURCE_GROUP" \
-              --template-file "$TEMPLATE_FILE" \
-              --parameters "@$EFFECTIVE_PARAM_FILE" \
-              --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}"
+            deploy_args+=(--parameters "location=${{ inputs.location }}")
           fi
+
+          az deployment group create "${deploy_args[@]}"

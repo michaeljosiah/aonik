@@ -1,4 +1,4 @@
-name: .NET CI
+name: CI
 
 on:
   pull_request:
@@ -31,3 +31,6 @@ jobs:
 
       - name: Build solution
         run: dotnet build Aonik.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test Aonik.sln --configuration Release --no-build --logger "console;verbosity=normal"

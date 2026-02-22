@@ -2,11 +2,11 @@
 
 This guide defines AONIK's Azure container delivery model with strict separation of concerns:
 
-1. **Platform Bootstrap** (`azure-platform-bootstrap.yml`) provisions/updates shared Azure infrastructure only.
-2. **Image Release** (`azure-image-release.yml`) builds and pushes a cohesive runtime image set.
-3. **Runtime Deploy** (`azure-runtime-deploy.yml`) deploys app runtimes using those exact image references.
+1. **Platform Bootstrap** (`cd-infra.yml`) provisions/updates shared Azure infrastructure only.
+2. **Image Release** (`cd-images.yml`) builds and pushes a cohesive runtime image set.
+3. **Runtime Deploy** (`cd-deploy.yml`) deploys app runtimes using those exact image references.
 
-> Legacy path: `.github/workflows/azure-iac-cd.yml` remains available during migration, but is now considered deprecated for day-to-day operations.
+
 
 ## Deployment Architecture
 
@@ -19,7 +19,7 @@ This guide defines AONIK's Azure container delivery model with strict separation
              │ outputs infra foundations (ACR, SQL, KV, ACA/AppService)
              ▼
 ┌──────────────────────────┐
-│ 2) Azure Image Release   │
+│ 2) CD: Container Images  │
 │    (build/tag/push)      │
 │    aonik-api             │
 │    aonik-worker          │
@@ -28,7 +28,7 @@ This guide defines AONIK's Azure container delivery model with strict separation
              │ emits release manifest + immutable refs
              ▼
 ┌──────────────────────────┐
-│ 3) Azure Runtime Deploy  │
+│ 3) CD: Deploy            │
 │    (rollout)             │
 │    fail-fast preflight   │
 │    no mixed versions     │
@@ -47,12 +47,12 @@ This removes first-run ambiguity; no skip flags are required for normal bootstra
 
 ## Normal Release Playbook
 
-1. Run **Azure Image Release** with:
+1. Run **CD: Container Images** with:
    - `environment`: target env credential scope
    - `image_tag`: optional override (default `github.sha`)
    - `semver_alias`: optional mutable alias (e.g. `v1.5.0`)
 2. Capture release artifact `image-release-<version>/image-release-manifest.json`.
-3. Run **Azure Runtime Deploy** with:
+3. Run **CD: Deploy** with:
    - same `environment`
    - same `profile`
    - `image_version=<version from image release>`
@@ -61,19 +61,19 @@ This removes first-run ambiguity; no skip flags are required for normal bootstra
 
 ### Optional Operator Orchestrator
 
-For teams that want a single entry point, use `azure-release-and-deploy.yml`:
+For teams that want a single entry point, use `cd-pipeline.yml`:
 
 - Set `build_images=true` to run image release first and automatically pass the resolved immutable `release_version` into runtime deployment.
 - Set `build_images=false` to skip image build/push and provide `image_version` explicitly (required).
 
 This preserves the standard split between build/release and deployment while reducing operator handoff errors.
 
-This orchestrator intentionally exposes a compact input set to satisfy GitHub's `workflow_dispatch` 10-input limit; use `azure-image-release.yml` or `azure-runtime-deploy.yml` directly for advanced overrides such as `semver_alias`, explicit `acr_name` / `acr_login_server`, or `location`.
+This orchestrator intentionally exposes a compact input set to satisfy GitHub's `workflow_dispatch` 10-input limit; use `cd-images.yml` or `cd-deploy.yml` directly for advanced overrides such as `semver_alias`, explicit `acr_name` / `acr_login_server`, or `location`.
 
 ## Rollback Playbook
 
 1. Identify a prior successful image release version.
-2. Re-run **Azure Runtime Deploy** with:
+2. Re-run **CD: Deploy** with:
    - `image_version=<previous immutable version>`
    - unchanged profile/environment
 3. Runtime deploy preflight validates that all required service images exist for that version before rollout.
@@ -99,6 +99,8 @@ Required environment secrets:
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 - `SQL_ADMIN_PASSWORD` (bootstrap/runtime deployment)
+- `ACS_CONNECTION_STRING` (Azure Communication Services; stored in Key Vault)
+- `VERIFICATION_HASH_KEY` (HMAC hash key for verification service; stored in Key Vault)
 - `AZURE_CLIENT_SECRET` (optional fallback)
 
 Required environment variables for Admin UI image build:
@@ -131,6 +133,38 @@ Optional environment variables for API/Worker runtime settings overrides:
 - `WORKER_BLOB_STORAGE_PROVIDER` → `BlobStorage__Provider`
 - `WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME` → `BlobStorage__Azure__AccountName`
 
+Settings (IdP Management API) — dots in key names are literal:
+
+- `API_SETTINGS_AUTH_PROVIDER` → `Settings__Auth.Provider`
+- `API_SETTINGS_AUTH_AUTH0_DOMAIN` → `Settings__Auth.Auth0.Domain`
+- `API_SETTINGS_AUTH_AUTH0_CLIENT_ID` → `Settings__Auth.Auth0.ClientId`
+- `API_SETTINGS_AUTH_AUTH0_CONNECTION` → `Settings__Auth.Auth0.Connection`
+- `API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE` → `Settings__Auth.Auth0.ManagementAudience`
+- `API_SETTINGS_AUTH_AUTH0_AUDIENCE` → `Settings__Auth.Auth0.Audience`
+- `API_SETTINGS_AUTH_AZUREAD_AUTHORITY` → `Settings__Auth.AzureAd.Authority`
+- `API_SETTINGS_AUTH_AZUREAD_AUDIENCE` → `Settings__Auth.AzureAd.Audience`
+- `API_SETTINGS_AUTH_AZUREAD_CLIENT_ID` → `Settings__Auth.AzureAd.ClientId`
+- `API_SETTINGS_AUTH_AZUREAD_TENANT_ID` → `Settings__Auth.AzureAd.TenantId`
+- `API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN` → `Settings__Auth.AzureAd.UserPrincipalNameDomain`
+
+Communication (connection string is a secret via `ACS_CONNECTION_STRING`):
+
+- `API_COMMUNICATION_AZURE_EMAIL_FROM` → `Communication__Azure__Email__FromAddress`
+- `API_COMMUNICATION_AZURE_SMS_FROM` → `Communication__Azure__Sms__FromPhoneNumber`
+
+Bootstrap:
+
+- `API_BOOTSTRAP_ENABLED` → `Bootstrap__Enabled`
+
+Feature Management (dots in flag names are literal):
+
+- `API_FEATURE_BILLPAYMENTS_INVOICING_CREATE` → `FeatureManagement__BillPayments.Invoicing.Create`
+- `API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE` → `FeatureManagement__BillPayments.Invoicing.Issue`
+- `API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT` → `FeatureManagement__BillPayments.Invoicing.Payment`
+- `API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS` → `FeatureManagement__BillPayments.Invoicing.Discounts`
+- `API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS` → `FeatureManagement__BillPayments.Invoicing.Allocations`
+- `API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT` → `FeatureManagement__BillPayments.CustomerAccounts.Management`
+
 Backward-compatible JSON bundle variables are still supported:
 
 - `API_APP_SETTINGS_JSON`
@@ -149,29 +183,14 @@ Recommended least-privilege role scoping:
 If runtime deploy fails with missing tags:
 
 1. Confirm `image_version` matches image release output.
-2. Re-run **Azure Image Release** for that version.
+2. Re-run **CD: Container Images** for that version.
 3. Verify all repositories exist in ACR:
    - `aonik-api`
    - `aonik-worker`
    - `aonik-adminui`
-4. Re-run **Azure Runtime Deploy**.
+4. Re-run **CD: Deploy**.
 
 Avoid mixing ad-hoc service tags. Runtime deploy intentionally blocks partial version sets.
-
-## Migration: old way → new way
-
-### Old way
-
-- Run one mixed workflow (`azure-iac-cd.yml`) for infra + image resolution/validation.
-- Optional fallback/skip behaviors created first-run and consistency friction.
-
-### New way
-
-- `azure-platform-bootstrap.yml` for infra baseline only.
-- `azure-image-release.yml` for image build/tag/push and release manifest publication.
-- `azure-runtime-deploy.yml` for deterministic runtime rollout using a single release version.
-
-During migration, legacy workflow remains available for manual users, but new environments should follow the 3-workflow architecture.
 
 ## Operations Runbooks
 

@@ -1,4 +1,4 @@
-name: Azure Release and Deploy
+name: "CD: Pipeline"
 
 on:
   workflow_dispatch:
@@ -68,6 +68,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   validate-inputs:
     name: Validate orchestrator inputs
@@ -89,7 +93,7 @@ jobs:
     name: Release runtime images
     needs: validate-inputs
     if: ${{ inputs.build_images }}
-    uses: ./.github/workflows/azure-image-release.yml
+    uses: ./.github/workflows/cd-images.yml
     with:
       environment: ${{ inputs.environment }}
       image_tag: ${{ inputs.image_tag }}
@@ -102,7 +106,7 @@ jobs:
       - validate-inputs
       - release-images
     if: ${{ always() && needs.validate-inputs.result == 'success' && (needs.release-images.result == 'success' || needs.release-images.result == 'skipped') }}
-    uses: ./.github/workflows/azure-runtime-deploy.yml
+    uses: ./.github/workflows/cd-deploy.yml
     with:
       profile: ${{ inputs.profile }}
       environment: ${{ inputs.environment }}

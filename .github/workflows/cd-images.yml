@@ -1,4 +1,4 @@
-name: Azure Image Release
+name: "CD: Container Images"
 
 on:
   workflow_dispatch:
@@ -154,7 +154,7 @@ jobs:
 
           acr_login_server=$(az acr show --name "$acr_name" --query loginServer -o tsv)
           if [ -z "$acr_login_server" ]; then
-            echo "Unable to resolve ACR login server for '$acr_name'. Run Azure Platform Bootstrap first." >&2
+            echo "Unable to resolve ACR login server for '$acr_name'. Run 'CD: Infrastructure' first." >&2
             exit 1
           fi
 
@@ -251,6 +251,33 @@ jobs:
             --build-arg "VITE_AUTH0_REDIRECT_URI=${VITE_AUTH0_REDIRECT_URI}" \
             --build-arg "VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}" \
             --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+
+      - name: Scan images for vulnerabilities
+        env:
+          ACR_LOGIN_SERVER: ${{ steps.metadata.outputs.acr_login_server }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          # Install Trivy
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+          scan_failed=0
+          for service in aonik-api aonik-worker aonik-adminui; do
+            image="${ACR_LOGIN_SERVER}/${service}:${RELEASE_VERSION}"
+            echo "Scanning ${image} ..."
+            trivy image --severity HIGH,CRITICAL --exit-code 0 --format table "$image"
+            # Fail on CRITICAL only; HIGH is informational
+            if ! trivy image --severity CRITICAL --exit-code 1 --quiet "$image"; then
+              echo "CRITICAL vulnerabilities found in ${service}" >&2
+              scan_failed=1
+            fi
+          done
+
+          if [ "$scan_failed" -ne 0 ]; then
+            echo "Image release blocked: one or more images have CRITICAL vulnerabilities." >&2
+            exit 1
+          fi
 
       - name: Generate image release manifest
         env:

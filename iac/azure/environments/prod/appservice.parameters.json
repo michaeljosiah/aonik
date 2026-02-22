@@ -23,6 +23,9 @@
         "environment": "prod",
         "product": "aonik"
       }
+    },
+    "enableResourceLocks": {
+      "value": true
     }
   }
 }

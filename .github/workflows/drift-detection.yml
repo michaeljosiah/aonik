@@ -1,0 +1,80 @@
+name: "Ops: Drift Detection"
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment to check for drift"
+        required: true
+        default: "prod"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  detect-drift:
+    strategy:
+      matrix:
+        environment: ${{ github.event_name == 'schedule' && fromJSON('["dev","staging","prod"]') || fromJSON(format('["{0}"]', inputs.environment)) }}
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}
+    name: Drift check (${{ matrix.environment }})
+
+    env:
+      TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+      PARAM_FILE: iac/azure/environments/${{ matrix.environment }}/aca.parameters.json
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (Service Principal Secret fallback)
+        if: ${{ env.AZURE_CLIENT_SECRET != '' }}
+        uses: azure/login@v2
+        with:
+          creds: >-
+            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ env.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
+
+      - name: Azure login (OIDC)
+        if: ${{ env.AZURE_CLIENT_SECRET == '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run what-if drift check
+        run: |
+          set -euo pipefail
+
+          echo "Checking drift for ${{ matrix.environment }}..."
+
+          what_if_output=$(az deployment group what-if \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file "$TEMPLATE_FILE" \
+            --parameters "@$PARAM_FILE" \
+            --parameters sqlAdminPassword="${{ secrets.SQL_ADMIN_PASSWORD }}" \
+            --parameters acsConnectionString="${{ secrets.ACS_CONNECTION_STRING }}" \
+            --parameters verificationHashKey="${{ secrets.VERIFICATION_HASH_KEY }}" \
+            --no-pretty-print 2>&1) || true
+
+          echo "$what_if_output"
+
+          # Check for actual resource changes (excluding NoChange)
+          if echo "$what_if_output" | grep -qE '"changeType":\s*"(Create|Delete|Modify|Deploy)"'; then
+            echo ""
+            echo "::warning::Drift detected in ${{ matrix.environment }} environment. Review the what-if output above."
+          else
+            echo ""
+            echo "No drift detected in ${{ matrix.environment }} environment."
+          fi

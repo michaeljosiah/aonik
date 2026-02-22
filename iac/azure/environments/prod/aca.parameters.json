@@ -29,6 +29,12 @@
         "environment": "prod",
         "product": "aonik"
       }
+    },
+    "enableResourceLocks": {
+      "value": true
+    },
+    "enableNetworkIsolation": {
+      "value": true
     }
   }
 }

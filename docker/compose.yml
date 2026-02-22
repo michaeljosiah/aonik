@@ -28,6 +28,8 @@ services:
     depends_on:
       sql:
         condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
 
   worker:
     build:
@@ -39,6 +41,8 @@ services:
     depends_on:
       sql:
         condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   sql-data:

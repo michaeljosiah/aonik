@@ -1,0 +1,55 @@
+name: Lint
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - 'iac/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint workflows
+        uses: docker://rhysd/actionlint:1.7.8
+        with:
+          args: -color
+
+  bicep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Lint and compile Bicep templates
+        run: |
+          set -euo pipefail
+          errors=0
+
+          for template in iac/azure/stacks/*/main.bicep; do
+            echo "::group::$template"
+
+            if ! az bicep build --file "$template" --stdout > /dev/null; then
+              echo "::error file=$template::Bicep compilation failed"
+              errors=$((errors + 1))
+            else
+              echo "OK"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors Bicep template(s) failed compilation."
+            exit 1
+          fi
+
+          echo "All Bicep templates compiled successfully."

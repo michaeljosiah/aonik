@@ -1,0 +1,89 @@
+name: Resolve Deployment Parameters
+description: >
+  Reads a base Bicep parameter file, resolves image references and app settings,
+  and writes an effective parameter file for az deployment group create.
+
+inputs:
+  base_param_file:
+    description: Path to the base .parameters.json file
+    required: true
+  output_param_file:
+    description: Path where the effective parameter file will be written
+    required: true
+  mode:
+    description: '"bootstrap" or "runtime"'
+    required: true
+    default: runtime
+  workload_name:
+    description: Workload name override (falls back to value in param file, then "aonik")
+    required: false
+    default: ""
+  environment_name:
+    description: Target environment (dev, staging, prod)
+    required: false
+    default: ""
+  release_version:
+    description: Immutable release version tag
+    required: false
+    default: ""
+  acr_override:
+    description: ACR login server or short name override
+    required: false
+    default: ""
+  use_digest_references:
+    description: Resolve image references to digests
+    required: false
+    default: "false"
+  skip_image_validation:
+    description: Skip preflight image validation (emergency only)
+    required: false
+    default: "false"
+  bootstrap_images:
+    description: 'JSON object mapping param keys to bootstrap image refs, e.g. {"apiImage":"mcr.microsoft.com/..."}'
+    required: false
+    default: ""
+  admin_ui_target_port:
+    description: Admin UI target port override for bootstrap
+    required: false
+    default: ""
+  app_settings:
+    description: 'JSON object with apiAppSettings and/or workerAppSettings keys'
+    required: false
+    default: ""
+  image_repos:
+    description: 'JSON object mapping param keys to repository names (overrides defaults)'
+    required: false
+    default: ""
+
+outputs:
+  acr_name:
+    description: Resolved ACR short name
+    value: ${{ steps.run.outputs.acr_name }}
+  acr_login_server:
+    description: Resolved ACR login server
+    value: ${{ steps.run.outputs.acr_login_server }}
+  release_version:
+    description: Release version used
+    value: ${{ steps.run.outputs.release_version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve parameters
+      id: run
+      shell: bash
+      env:
+        INPUT_BASE_PARAM_FILE: ${{ inputs.base_param_file }}
+        INPUT_OUTPUT_PARAM_FILE: ${{ inputs.output_param_file }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_WORKLOAD_NAME: ${{ inputs.workload_name }}
+        INPUT_ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+        INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
+        INPUT_ACR_OVERRIDE: ${{ inputs.acr_override }}
+        INPUT_USE_DIGEST_REFERENCES: ${{ inputs.use_digest_references }}
+        INPUT_SKIP_IMAGE_VALIDATION: ${{ inputs.skip_image_validation }}
+        INPUT_BOOTSTRAP_IMAGES: ${{ inputs.bootstrap_images }}
+        INPUT_ADMIN_UI_TARGET_PORT: ${{ inputs.admin_ui_target_port }}
+        INPUT_APP_SETTINGS: ${{ inputs.app_settings }}
+        INPUT_IMAGE_REPOS: ${{ inputs.image_repos }}
+      run: python "${{ github.action_path }}/resolve_params.py"
