@@ -179,8 +179,7 @@ def main() -> None:
             "workerImage": "aonik-worker",
             "adminUiImage": "aonik-adminui",
         }
-        if "appservice" in str(base_param_file):
-            repos.pop("workerImage", None)
+
 
     resolved: dict[str, str] = {}
     missing: list[tuple[str, str]] = []

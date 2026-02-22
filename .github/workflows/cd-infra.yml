@@ -3,14 +3,6 @@ name: "CD: Infrastructure"
 on:
   workflow_dispatch:
     inputs:
-      profile:
-        description: "Infrastructure profile to deploy"
-        required: true
-        default: "aca"
-        type: choice
-        options:
-          - aca
-          - appservice
       environment:
         description: "Target environment"
         required: true
@@ -74,15 +66,14 @@ concurrency:
 
 jobs:
   deploy:
-    name: Bootstrap platform (${{ inputs.profile }} / ${{ inputs.environment }})
+    name: Bootstrap platform (aca / ${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
     env:
-      TEMPLATE_FILE: iac/azure/stacks/${{ inputs.profile }}/main.bicep
-      PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
-      EFFECTIVE_PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/${{ inputs.profile }}.bootstrap.parameters.json
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+      PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/aca.parameters.json
+      EFFECTIVE_PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/aca.bootstrap.parameters.json
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       BOOTSTRAP_API_IMAGE: ${{ inputs.bootstrap_api_image }}
@@ -94,20 +85,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Azure login (Service Principal Secret fallback)
-        if: ${{ env.AZURE_CLIENT_SECRET != '' }}
-        uses: azure/login@v2
+      - name: Azure login
+        uses: ./.github/actions/azure-login
         with:
-          creds: >-
-            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ env.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
-
-      - name: Azure login (OIDC)
-        if: ${{ env.AZURE_CLIENT_SECRET == '' }}
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Validate required deployment settings
         run: |
@@ -126,73 +110,15 @@ jobs:
             {"apiImage":"${{ env.BOOTSTRAP_API_IMAGE }}","workerImage":"${{ env.BOOTSTRAP_WORKER_IMAGE }}","adminUiImage":"${{ env.BOOTSTRAP_ADMINUI_IMAGE }}"}
           admin_ui_target_port: ${{ env.BOOTSTRAP_ADMINUI_TARGET_PORT }}
 
-      - name: Compile Bicep template
-        run: az bicep build --file "$TEMPLATE_FILE"
-
-      - name: What-if deployment preview
-        if: ${{ inputs.mode == 'what-if' }}
-        run: |
-          set +e
-
-          what_if_args=(
-            --resource-group "$RESOURCE_GROUP"
-            --template-file "$TEMPLATE_FILE"
-            --parameters "@$EFFECTIVE_PARAM_FILE"
+      - name: Deploy
+        uses: ./.github/actions/bicep-deploy
+        with:
+          mode: ${{ inputs.mode }}
+          resource_group: ${{ env.RESOURCE_GROUP }}
+          template_file: ${{ env.TEMPLATE_FILE }}
+          param_file: ${{ env.EFFECTIVE_PARAM_FILE }}
+          extra_params: >-
             --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
             --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
             --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
-          )
-
-          if [ -n "${{ inputs.location }}" ]; then
-            what_if_args+=(--parameters "location=${{ inputs.location }}")
-          fi
-
-          what_if_output=$(az deployment group what-if "${what_if_args[@]}" 2>&1)
-          what_if_exit_code=$?
-
-          if [ $what_if_exit_code -eq 0 ]; then
-            echo "$what_if_output"
-            exit 0
-          fi
-
-          echo "$what_if_output"
-
-          if [[ "$what_if_output" == *"Microsoft.Resources/deployments/whatIf/action"* ]] || [[ "$what_if_output" == *"AuthorizationFailed"* ]]; then
-            echo "what-if permissions are missing. Falling back to template validation for this run."
-
-            validate_args=(
-              --resource-group "$RESOURCE_GROUP"
-              --template-file "$TEMPLATE_FILE"
-              --parameters "@$EFFECTIVE_PARAM_FILE"
-              --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
-              --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
-              --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
-            )
-
-            if [ -n "${{ inputs.location }}" ]; then
-              validate_args+=(--parameters "location=${{ inputs.location }}")
-            fi
-
-            az deployment group validate "${validate_args[@]}"
-            exit 0
-          fi
-
-          exit $what_if_exit_code
-
-      - name: Deploy infrastructure baseline
-        if: ${{ inputs.mode == 'deploy' }}
-        run: |
-          deploy_args=(
-            --resource-group "$RESOURCE_GROUP"
-            --template-file "$TEMPLATE_FILE"
-            --parameters "@$EFFECTIVE_PARAM_FILE"
-            --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
-            --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
-            --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
-          )
-
-          if [ -n "${{ inputs.location }}" ]; then
-            deploy_args+=(--parameters "location=${{ inputs.location }}")
-          fi
-
-          az deployment group create "${deploy_args[@]}"
+            ${{ inputs.location != '' && format('--parameters "location={0}"', inputs.location) || '' }}

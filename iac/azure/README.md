@@ -1,11 +1,6 @@
 # AONIK Azure IaC (Bicep)
 
-This folder provides an Azure-first Infrastructure as Code baseline for AONIK with two deployment profiles:
-
-- **ACA profile (primary)**: Azure Container Apps for `Aonik.Api`, `Aonik.Worker`, and `Aonik.AdminUi`
-- **App Service profile (fallback)**: App Service for `Aonik.Api` and `Aonik.AdminUi`
-
-AKS is intentionally excluded for now.
+This folder provides an Azure-first Infrastructure as Code baseline for AONIK using **Azure Container Apps** (ACA) for `Aonik.Api`, `Aonik.Worker`, and `Aonik.AdminUi`.
 
 ## Layout
 
@@ -13,8 +8,7 @@ AKS is intentionally excluded for now.
 - `modules/data.bicep`: Azure SQL + Key Vault + connection secret + locks + diagnostics
 - `modules/network.bicep`: VNet, subnets, private endpoints, private DNS zones (conditional)
 - `stacks/aca/main.bicep`: Container Apps-based runtime stack
-- `stacks/appservice/main.bicep`: App Service-based runtime stack
-- `environments/{dev|staging|prod}/*.parameters.json`: environment parameter templates
+- `environments/{dev|staging|prod}/aca.parameters.json`: environment parameter templates
 
 ## AONIK Architectural Alignment
 
@@ -22,6 +16,7 @@ AKS is intentionally excluded for now.
 - **Ledger and financial truth remain in SQL-backed domain state** (source-of-truth is still application + ledger model).
 - **Secrets are pulled from Key Vault via managed identity** to avoid embedding financial credentials in images.
 - **Observability is provisioned by default** through Log Analytics and Application Insights.
+- **Runtime configuration** (feature flags, communication, blob storage, platform admin, bootstrap) is managed via the **Settings module** (database-backed, editable from Admin UI) rather than GitHub environment variables.
 
 ## Prerequisites
 
@@ -30,22 +25,13 @@ AKS is intentionally excluded for now.
 
 > For first-run environments, bootstrap infrastructure first using `.github/workflows/cd-infra.yml`; runtime images are published afterward via `.github/workflows/cd-images.yml`.
 
-## Deploy ACA profile
+## Deploy
 
 ```bash
 az deployment group create \
   --resource-group <resource-group> \
---template-file iac/azure/stacks/aca/main.bicep \
+  --template-file iac/azure/stacks/aca/main.bicep \
   --parameters @iac/azure/environments/dev/aca.parameters.json
-```
-
-## Deploy App Service profile
-
-```bash
-az deployment group create \
-  --resource-group <resource-group> \
---template-file iac/azure/stacks/appservice/main.bicep \
-  --parameters @iac/azure/environments/dev/appservice.parameters.json
 ```
 
 ## Important Notes
@@ -83,121 +69,79 @@ When Log Analytics is provisioned (default), diagnostic settings are automatical
 
 A scheduled workflow (`.github/workflows/drift-detection.yml`) runs weekly and compares deployed state against Bicep templates using `what-if`. It can also be triggered manually for a specific environment.
 
-## GitHub Actions CD (Recommended)
+## GitHub Actions CD
 
 Use the separated workflow model:
 
-1. `.github/workflows/cd-infra.yml` (infra-only)
+1. `.github/workflows/cd-infra.yml` (infra-only bootstrap)
 2. `.github/workflows/cd-images.yml` (build/tag/push API/Worker/AdminUI images)
 3. `.github/workflows/cd-deploy.yml` (runtime rollout with fail-fast image checks)
-4. `.github/workflows/drift-detection.yml` (weekly drift checks)
+4. `.github/workflows/cd-pipeline.yml` (orchestrates images + deploy in one run)
+5. `.github/workflows/drift-detection.yml` (weekly drift checks)
 
+Reusable composite actions:
+- `.github/actions/azure-login` — OIDC + SP secret fallback authentication
+- `.github/actions/bicep-deploy` — compile, what-if (with AuthorizationFailed fallback), deploy
+- `.github/actions/resolve-params` — parameter file resolution for bootstrap and runtime modes
 
-
-### Required GitHub environment secrets
+### Required GitHub environment secrets (7)
 
 Configure these secrets per environment (`dev`, `staging`, `prod`):
 
-- `AZURE_CLIENT_ID`
-- `AZURE_TENANT_ID`
-- `AZURE_SUBSCRIPTION_ID`
-- `AZURE_CLIENT_SECRET` (optional; if set, workflow uses secret-based service principal auth instead of OIDC)
-- `SQL_ADMIN_PASSWORD`
-- `ACS_CONNECTION_STRING` (Azure Communication Services connection string; stored in Key Vault)
-- `VERIFICATION_HASH_KEY` (HMAC hash key for verification service; stored in Key Vault)
+| Secret | Description |
+|--------|-------------|
+| `AZURE_CLIENT_ID` | Azure AD application (client) ID |
+| `AZURE_TENANT_ID` | Azure AD directory (tenant) ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
+| `AZURE_CLIENT_SECRET` | Service principal secret (optional; enables SP fallback over OIDC) |
+| `SQL_ADMIN_PASSWORD` | SQL Server admin password |
+| `ACS_CONNECTION_STRING` | Azure Communication Services connection string (stored in Key Vault) |
+| `VERIFICATION_HASH_KEY` | HMAC hash key for verification service (stored in Key Vault) |
 
-### Required GitHub environment variables
+### Required GitHub environment variables (~12)
 
-Set these per environment (`dev`, `staging`, `prod`) so the Admin UI image is built with the correct public auth/API endpoints:
+| Variable | Used by | Description |
+|----------|---------|-------------|
+| `AZURE_RESOURCE_GROUP` | All workflows | Target Azure resource group |
+| `WORKLOAD_NAME` | All workflows | Workload name for naming convention and ACR derivation |
+| `VITE_AUTH_PROVIDER` | cd-images | Admin UI auth provider (`azure-ad`, `auth0`, `mock`) |
+| `VITE_API_BASE_URL` | cd-images | Admin UI API base URL |
+| `VITE_AZURE_AD_CLIENT_ID` | cd-images | Azure AD client ID (if `azure-ad`) |
+| `VITE_AZURE_AD_TENANT_ID` | cd-images | Azure AD tenant ID (if `azure-ad`) |
+| `VITE_AZURE_AD_REDIRECT_URI` | cd-images | Azure AD redirect URI (optional) |
+| `VITE_AZURE_AD_API_SCOPE` | cd-images | Azure AD API scope (optional) |
+| `VITE_AUTH0_DOMAIN` | cd-images | Auth0 domain (if `auth0`) |
+| `VITE_AUTH0_CLIENT_ID` | cd-images | Auth0 client ID (if `auth0`) |
+| `VITE_AUTH0_REDIRECT_URI` | cd-images | Auth0 redirect URI (optional) |
+| `VITE_AUTH0_AUDIENCE` | cd-images | Auth0 audience (optional) |
 
-- `VITE_AUTH_PROVIDER` (`azure-ad`, `auth0`, or `mock`)
-- `VITE_API_BASE_URL`
+### Optional API/Worker runtime configuration (2 JSON bundles)
 
-If `VITE_AUTH_PROVIDER` is unset, image release defaults it to `azure-ad` during Admin UI build.
+Runtime app settings for API and Worker containers are passed as **JSON bundle** GitHub environment variables. These are merged into ACA container app settings during deployment.
 
-If `VITE_AUTH_PROVIDER=azure-ad`:
+| Variable | Description |
+|----------|-------------|
+| `API_APP_SETTINGS_JSON` | JSON object of `"DotNet__Config__Key": "value"` pairs for the API container |
+| `WORKER_APP_SETTINGS_JSON` | JSON object of `"DotNet__Config__Key": "value"` pairs for the Worker container |
 
-- `VITE_AZURE_AD_CLIENT_ID`
-- `VITE_AZURE_AD_TENANT_ID`
+Example `API_APP_SETTINGS_JSON`:
+```json
+{
+  "Auth__Provider": "Auth0",
+  "Auth__Auth0__Authority": "https://yourtenant.auth0.com/"
+}
+```
 
-If `VITE_AUTH_PROVIDER=auth0`:
+### Settings managed via the database (not GitHub variables)
 
-- `VITE_AUTH0_DOMAIN`
-- `VITE_AUTH0_CLIENT_ID`
+The following settings are registered in `SettingDefinitions` and seeded as Global-scope defaults on startup. They can be edited at runtime via the Admin UI or Settings API without redeployment:
 
-Optional provider-specific overrides:
-
-- `VITE_AZURE_AD_REDIRECT_URI`
-- `VITE_AZURE_AD_API_SCOPE`
-- `VITE_AUTH0_REDIRECT_URI`
-- `VITE_AUTH0_AUDIENCE`
-
-### Optional API/Worker runtime configuration variables
-
-If you need to override API/Worker configuration from `appsettings` per environment without rebuilding images, set these explicit GitHub environment variables (mapped by deploy workflow to .NET keys):
-
-- `API_AUTH_PROVIDER` → `Auth__Provider`
-- `API_AUTH_TENANT_ROUTING` → `Auth__TenantRouting`
-- `API_AUTH_AUTH0_AUTHORITY` → `Auth__Auth0__Authority`
-- `API_AUTH_AUTH0_AUDIENCE` → `Auth__Auth0__Audience`
-- `API_AUTH_AZUREAD_AUTHORITY` → `Auth__AzureAd__Authority`
-- `API_AUTH_AZUREAD_AUDIENCE` → `Auth__AzureAd__Audience`
-- `API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE` → `PlatformAdmin__RoleClaimType`
-- `API_PLATFORM_ADMIN_ROLE_VALUE` → `PlatformAdmin__RoleValue`
-- `API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE` → `PlatformAdmin__ScopeClaimType`
-- `API_PLATFORM_ADMIN_ADMIN_EMAIL_0` → `PlatformAdmin__AdminEmails__0`
-- `API_BLOB_STORAGE_PROVIDER` → `BlobStorage__Provider`
-- `API_BLOB_STORAGE_AZURE_ACCOUNT_NAME` → `BlobStorage__Azure__AccountName`
-- `API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL` → `BlobStorage__ProfilePhotos__PublicBaseUrl`
-- `API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL` → `BlobStorage__ProductImages__PublicBaseUrl`
-- `API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL` → `BlobStorage__Documents__PublicBaseUrl`
-- `WORKER_BLOB_STORAGE_PROVIDER` → `BlobStorage__Provider`
-- `WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME` → `BlobStorage__Azure__AccountName`
-
-#### Settings (IdP Management API)
-
-The `Settings` section uses flat dot-notation keys. As environment variables, `__` replaces `:` but dots in key names are literal:
-
-- `API_SETTINGS_AUTH_PROVIDER` → `Settings__Auth.Provider`
-- `API_SETTINGS_AUTH_AUTH0_DOMAIN` → `Settings__Auth.Auth0.Domain`
-- `API_SETTINGS_AUTH_AUTH0_CLIENT_ID` → `Settings__Auth.Auth0.ClientId`
-- `API_SETTINGS_AUTH_AUTH0_CONNECTION` → `Settings__Auth.Auth0.Connection`
-- `API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE` → `Settings__Auth.Auth0.ManagementAudience`
-- `API_SETTINGS_AUTH_AUTH0_AUDIENCE` → `Settings__Auth.Auth0.Audience`
-- `API_SETTINGS_AUTH_AZUREAD_AUTHORITY` → `Settings__Auth.AzureAd.Authority`
-- `API_SETTINGS_AUTH_AZUREAD_AUDIENCE` → `Settings__Auth.AzureAd.Audience`
-- `API_SETTINGS_AUTH_AZUREAD_CLIENT_ID` → `Settings__Auth.AzureAd.ClientId`
-- `API_SETTINGS_AUTH_AZUREAD_TENANT_ID` → `Settings__Auth.AzureAd.TenantId`
-- `API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN` → `Settings__Auth.AzureAd.UserPrincipalNameDomain`
-
-#### Communication
-
-The ACS connection string is a **secret** (stored in Key Vault via `ACS_CONNECTION_STRING`). The remaining fields are variables:
-
-- `API_COMMUNICATION_AZURE_EMAIL_FROM` → `Communication__Azure__Email__FromAddress`
-- `API_COMMUNICATION_AZURE_SMS_FROM` → `Communication__Azure__Sms__FromPhoneNumber`
-
-#### Bootstrap
-
-- `API_BOOTSTRAP_ENABLED` → `Bootstrap__Enabled` (defaults to `false`; set to `true` only for first-run dev bootstrap)
-
-#### Feature Management
-
-Feature flag names contain dots (literal in environment variable values):
-
-- `API_FEATURE_BILLPAYMENTS_INVOICING_CREATE` → `FeatureManagement__BillPayments.Invoicing.Create`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE` → `FeatureManagement__BillPayments.Invoicing.Issue`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT` → `FeatureManagement__BillPayments.Invoicing.Payment`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS` → `FeatureManagement__BillPayments.Invoicing.Discounts`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS` → `FeatureManagement__BillPayments.Invoicing.Allocations`
-- `API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT` → `FeatureManagement__BillPayments.CustomerAccounts.Management`
-
-Backward-compatible JSON bundle variables are still supported:
-
-- `API_APP_SETTINGS_JSON`
-- `WORKER_APP_SETTINGS_JSON`
-
-If both explicit variables and JSON bundles are present, explicit variables override duplicate keys.
+- **Communication**: email from address, SMS from phone number
+- **Blob Storage**: provider, Azure account name, public base URLs for profile photos / product images / documents
+- **Platform Admin**: role claim type, role value, scope claim type, admin emails
+- **Bootstrap**: enabled flag
+- **Feature Flags**: all `BillPayments.*` feature flags
+- **Auth (IdP management)**: all Auth0/AzureAd settings for the Settings module cascade
 
 ### Quick run checklist
 
@@ -208,7 +152,7 @@ If both explicit variables and JSON bundles are present, explicit variables over
 
 ### Workflow behavior
 
-- Supports both `aca` and `appservice` profiles.
+- ACA is the only deployment target.
 - Uses `what-if` preview mode before deployment for bootstrap/runtime workflows.
 - Uses Azure login via OIDC (`azure/login`) by default, with service principal secret fallback (`AZURE_CLIENT_SECRET`) when required.
 - Runtime deploy enforces one cohesive image version across required services and blocks mixed/incomplete releases.

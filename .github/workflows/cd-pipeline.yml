@@ -3,14 +3,6 @@ name: "CD: Pipeline"
 on:
   workflow_dispatch:
     inputs:
-      profile:
-        description: "Deployment profile"
-        required: true
-        default: "aca"
-        type: choice
-        options:
-          - aca
-          - appservice
       environment:
         description: "Target environment"
         required: true
@@ -108,7 +100,6 @@ jobs:
     if: ${{ always() && needs.validate-inputs.result == 'success' && (needs.release-images.result == 'success' || needs.release-images.result == 'skipped') }}
     uses: ./.github/workflows/cd-deploy.yml
     with:
-      profile: ${{ inputs.profile }}
       environment: ${{ inputs.environment }}
       resource_group: ${{ inputs.resource_group }}
       workload_name: ${{ inputs.workload_name }}

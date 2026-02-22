@@ -3,14 +3,6 @@ name: "CD: Deploy"
 on:
   workflow_dispatch:
     inputs:
-      profile:
-        description: "Deployment profile"
-        required: true
-        default: "aca"
-        type: choice
-        options:
-          - aca
-          - appservice
       environment:
         description: "Target environment"
         required: true
@@ -65,9 +57,6 @@ on:
         type: boolean
   workflow_call:
     inputs:
-      profile:
-        required: true
-        type: string
       environment:
         required: true
         type: string
@@ -119,7 +108,6 @@ on:
       AZURE_CLIENT_SECRET:
         required: false
 
-
 permissions:
   id-token: write
   contents: read
@@ -130,80 +118,31 @@ concurrency:
 
 jobs:
   deploy:
-    name: Runtime deploy (${{ inputs.profile }} / ${{ inputs.environment }})
+    name: Runtime deploy (aca / ${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
     env:
-      TEMPLATE_FILE: iac/azure/stacks/${{ inputs.profile }}/main.bicep
-      PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/${{ inputs.profile }}.parameters.json
-      EFFECTIVE_PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/${{ inputs.profile }}.runtime.parameters.json
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+      PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/aca.parameters.json
+      EFFECTIVE_PARAM_FILE: iac/azure/environments/${{ inputs.environment }}/aca.runtime.parameters.json
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       ACR_LOGIN_SERVER_OVERRIDE: ${{ inputs.acr_login_server }}
       API_APP_SETTINGS_JSON: ${{ vars.API_APP_SETTINGS_JSON }}
       WORKER_APP_SETTINGS_JSON: ${{ vars.WORKER_APP_SETTINGS_JSON }}
-      API_AUTH_PROVIDER: ${{ vars.API_AUTH_PROVIDER }}
-      API_AUTH_TENANT_ROUTING: ${{ vars.API_AUTH_TENANT_ROUTING }}
-      API_AUTH_AUTH0_AUTHORITY: ${{ vars.API_AUTH_AUTH0_AUTHORITY }}
-      API_AUTH_AUTH0_AUDIENCE: ${{ vars.API_AUTH_AUTH0_AUDIENCE }}
-      API_AUTH_AZUREAD_AUTHORITY: ${{ vars.API_AUTH_AZUREAD_AUTHORITY }}
-      API_AUTH_AZUREAD_AUDIENCE: ${{ vars.API_AUTH_AZUREAD_AUDIENCE }}
-      API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE: ${{ vars.API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE }}
-      API_PLATFORM_ADMIN_ROLE_VALUE: ${{ vars.API_PLATFORM_ADMIN_ROLE_VALUE }}
-      API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE: ${{ vars.API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE }}
-      API_PLATFORM_ADMIN_ADMIN_EMAIL_0: ${{ vars.API_PLATFORM_ADMIN_ADMIN_EMAIL_0 }}
-      API_BLOB_STORAGE_PROVIDER: ${{ vars.API_BLOB_STORAGE_PROVIDER }}
-      API_BLOB_STORAGE_AZURE_ACCOUNT_NAME: ${{ vars.API_BLOB_STORAGE_AZURE_ACCOUNT_NAME }}
-      API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL: ${{ vars.API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL }}
-      API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL: ${{ vars.API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL }}
-      API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL: ${{ vars.API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL }}
-      WORKER_BLOB_STORAGE_PROVIDER: ${{ vars.WORKER_BLOB_STORAGE_PROVIDER }}
-      WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME: ${{ vars.WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME }}
-      # Settings (IdP Management API)
-      API_SETTINGS_AUTH_PROVIDER: ${{ vars.API_SETTINGS_AUTH_PROVIDER }}
-      API_SETTINGS_AUTH_AUTH0_DOMAIN: ${{ vars.API_SETTINGS_AUTH_AUTH0_DOMAIN }}
-      API_SETTINGS_AUTH_AUTH0_CLIENT_ID: ${{ vars.API_SETTINGS_AUTH_AUTH0_CLIENT_ID }}
-      API_SETTINGS_AUTH_AUTH0_CONNECTION: ${{ vars.API_SETTINGS_AUTH_AUTH0_CONNECTION }}
-      API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE: ${{ vars.API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE }}
-      API_SETTINGS_AUTH_AUTH0_AUDIENCE: ${{ vars.API_SETTINGS_AUTH_AUTH0_AUDIENCE }}
-      API_SETTINGS_AUTH_AZUREAD_AUTHORITY: ${{ vars.API_SETTINGS_AUTH_AZUREAD_AUTHORITY }}
-      API_SETTINGS_AUTH_AZUREAD_AUDIENCE: ${{ vars.API_SETTINGS_AUTH_AZUREAD_AUDIENCE }}
-      API_SETTINGS_AUTH_AZUREAD_CLIENT_ID: ${{ vars.API_SETTINGS_AUTH_AZUREAD_CLIENT_ID }}
-      API_SETTINGS_AUTH_AZUREAD_TENANT_ID: ${{ vars.API_SETTINGS_AUTH_AZUREAD_TENANT_ID }}
-      API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN: ${{ vars.API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN }}
-      # Communication
-      API_COMMUNICATION_AZURE_EMAIL_FROM: ${{ vars.API_COMMUNICATION_AZURE_EMAIL_FROM }}
-      API_COMMUNICATION_AZURE_SMS_FROM: ${{ vars.API_COMMUNICATION_AZURE_SMS_FROM }}
-      # Bootstrap
-      API_BOOTSTRAP_ENABLED: ${{ vars.API_BOOTSTRAP_ENABLED }}
-      # Feature Management
-      API_FEATURE_BILLPAYMENTS_INVOICING_CREATE: ${{ vars.API_FEATURE_BILLPAYMENTS_INVOICING_CREATE }}
-      API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE: ${{ vars.API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE }}
-      API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT: ${{ vars.API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT }}
-      API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS: ${{ vars.API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS }}
-      API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS: ${{ vars.API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS }}
-      API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT: ${{ vars.API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Azure login (Service Principal Secret fallback)
-        if: ${{ env.AZURE_CLIENT_SECRET != '' }}
-        uses: azure/login@v2
+      - name: Azure login
+        uses: ./.github/actions/azure-login
         with:
-          creds: >-
-            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ env.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
-
-      - name: Azure login (OIDC)
-        if: ${{ env.AZURE_CLIENT_SECRET == '' }}
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Validate deployment files
         run: |
@@ -215,79 +154,21 @@ jobs:
         id: app-settings
         shell: bash
         run: |
-          # Build the merged app settings object from environment variables.
-          # The composite action accepts a single JSON blob with
-          # "apiAppSettings" and "workerAppSettings" top-level keys.
           python - <<'PY'
           import json, os
 
           def env(name: str) -> str:
               return os.environ.get(name, "").strip()
 
-          # --- API app settings ---
           api = {}
           raw_api = env("API_APP_SETTINGS_JSON")
           if raw_api:
               api = json.loads(raw_api)
 
-          explicit_api = {
-              "Auth__Provider": env("API_AUTH_PROVIDER"),
-              "Auth__TenantRouting": env("API_AUTH_TENANT_ROUTING"),
-              "Auth__Auth0__Authority": env("API_AUTH_AUTH0_AUTHORITY"),
-              "Auth__Auth0__Audience": env("API_AUTH_AUTH0_AUDIENCE"),
-              "Auth__AzureAd__Authority": env("API_AUTH_AZUREAD_AUTHORITY"),
-              "Auth__AzureAd__Audience": env("API_AUTH_AZUREAD_AUDIENCE"),
-              "PlatformAdmin__RoleClaimType": env("API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE"),
-              "PlatformAdmin__RoleValue": env("API_PLATFORM_ADMIN_ROLE_VALUE"),
-              "PlatformAdmin__ScopeClaimType": env("API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE"),
-              "PlatformAdmin__AdminEmails__0": env("API_PLATFORM_ADMIN_ADMIN_EMAIL_0"),
-              "BlobStorage__Provider": env("API_BLOB_STORAGE_PROVIDER"),
-              "BlobStorage__Azure__AccountName": env("API_BLOB_STORAGE_AZURE_ACCOUNT_NAME"),
-              "BlobStorage__ProfilePhotos__PublicBaseUrl": env("API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL"),
-              "BlobStorage__ProductImages__PublicBaseUrl": env("API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL"),
-              "BlobStorage__Documents__PublicBaseUrl": env("API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL"),
-              # Settings (IdP Management API) — dots in key names are literal
-              "Settings__Auth.Provider": env("API_SETTINGS_AUTH_PROVIDER"),
-              "Settings__Auth.Auth0.Domain": env("API_SETTINGS_AUTH_AUTH0_DOMAIN"),
-              "Settings__Auth.Auth0.ClientId": env("API_SETTINGS_AUTH_AUTH0_CLIENT_ID"),
-              "Settings__Auth.Auth0.Connection": env("API_SETTINGS_AUTH_AUTH0_CONNECTION"),
-              "Settings__Auth.Auth0.ManagementAudience": env("API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE"),
-              "Settings__Auth.Auth0.Audience": env("API_SETTINGS_AUTH_AUTH0_AUDIENCE"),
-              "Settings__Auth.AzureAd.Authority": env("API_SETTINGS_AUTH_AZUREAD_AUTHORITY"),
-              "Settings__Auth.AzureAd.Audience": env("API_SETTINGS_AUTH_AZUREAD_AUDIENCE"),
-              "Settings__Auth.AzureAd.ClientId": env("API_SETTINGS_AUTH_AZUREAD_CLIENT_ID"),
-              "Settings__Auth.AzureAd.TenantId": env("API_SETTINGS_AUTH_AZUREAD_TENANT_ID"),
-              "Settings__Auth.AzureAd.UserPrincipalNameDomain": env("API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN"),
-              # Communication (non-secret fields; connection string is a Key Vault secret)
-              "Communication__Azure__Email__FromAddress": env("API_COMMUNICATION_AZURE_EMAIL_FROM"),
-              "Communication__Azure__Sms__FromPhoneNumber": env("API_COMMUNICATION_AZURE_SMS_FROM"),
-              # Bootstrap
-              "Bootstrap__Enabled": env("API_BOOTSTRAP_ENABLED"),
-              # Feature Management — dots in flag names are literal
-              "FeatureManagement__BillPayments.Invoicing.Create": env("API_FEATURE_BILLPAYMENTS_INVOICING_CREATE"),
-              "FeatureManagement__BillPayments.Invoicing.Issue": env("API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE"),
-              "FeatureManagement__BillPayments.Invoicing.Payment": env("API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT"),
-              "FeatureManagement__BillPayments.Invoicing.Discounts": env("API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS"),
-              "FeatureManagement__BillPayments.Invoicing.Allocations": env("API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS"),
-              "FeatureManagement__BillPayments.CustomerAccounts.Management": env("API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT"),
-          }
-          for k, v in explicit_api.items():
-              if v:
-                  api[k] = v
-
-          # --- Worker app settings ---
           worker = {}
           raw_worker = env("WORKER_APP_SETTINGS_JSON")
           if raw_worker:
               worker = json.loads(raw_worker)
-
-          explicit_worker = {
-              "BlobStorage__Provider": env("WORKER_BLOB_STORAGE_PROVIDER"),
-              "BlobStorage__Azure__AccountName": env("WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME"),
-          }
-          for k, v in explicit_worker.items():
-              if v:
-                  worker[k] = v
 
           merged = {}
           if api:
@@ -318,73 +199,15 @@ jobs:
           skip_image_validation: ${{ inputs.skip_image_validation }}
           app_settings: ${{ steps.app-settings.outputs.app_settings_json }}
 
-      - name: Compile Bicep template
-        run: az bicep build --file "$TEMPLATE_FILE"
-
-      - name: What-if deployment preview
-        if: ${{ inputs.mode == 'what-if' }}
-        run: |
-          set +e
-
-          what_if_args=(
-            --resource-group "$RESOURCE_GROUP"
-            --template-file "$TEMPLATE_FILE"
-            --parameters "@$EFFECTIVE_PARAM_FILE"
+      - name: Deploy
+        uses: ./.github/actions/bicep-deploy
+        with:
+          mode: ${{ inputs.mode }}
+          resource_group: ${{ env.RESOURCE_GROUP }}
+          template_file: ${{ env.TEMPLATE_FILE }}
+          param_file: ${{ env.EFFECTIVE_PARAM_FILE }}
+          extra_params: >-
             --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
             --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
             --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
-          )
-
-          if [ -n "${{ inputs.location }}" ]; then
-            what_if_args+=(--parameters "location=${{ inputs.location }}")
-          fi
-
-          what_if_output=$(az deployment group what-if "${what_if_args[@]}" 2>&1)
-          what_if_exit_code=$?
-
-          if [ $what_if_exit_code -eq 0 ]; then
-            echo "$what_if_output"
-            exit 0
-          fi
-
-          echo "$what_if_output"
-
-          if [[ "$what_if_output" == *"Microsoft.Resources/deployments/whatIf/action"* ]] || [[ "$what_if_output" == *"AuthorizationFailed"* ]]; then
-            echo "what-if permissions are missing. Falling back to template validation for this run."
-
-            validate_args=(
-              --resource-group "$RESOURCE_GROUP"
-              --template-file "$TEMPLATE_FILE"
-              --parameters "@$EFFECTIVE_PARAM_FILE"
-              --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
-              --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
-              --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
-            )
-
-            if [ -n "${{ inputs.location }}" ]; then
-              validate_args+=(--parameters "location=${{ inputs.location }}")
-            fi
-
-            az deployment group validate "${validate_args[@]}"
-            exit 0
-          fi
-
-          exit $what_if_exit_code
-
-      - name: Deploy runtime
-        if: ${{ inputs.mode == 'deploy' }}
-        run: |
-          deploy_args=(
-            --resource-group "$RESOURCE_GROUP"
-            --template-file "$TEMPLATE_FILE"
-            --parameters "@$EFFECTIVE_PARAM_FILE"
-            --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
-            --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
-            --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
-          )
-
-          if [ -n "${{ inputs.location }}" ]; then
-            deploy_args+=(--parameters "location=${{ inputs.location }}")
-          fi
-
-          az deployment group create "${deploy_args[@]}"
+            ${{ inputs.location != '' && format('--parameters "location={0}"', inputs.location) || '' }}

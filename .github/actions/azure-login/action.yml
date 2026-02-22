@@ -1,0 +1,37 @@
+name: Azure Login
+description: >
+  Authenticate to Azure using OIDC (preferred) or service principal secret fallback.
+  Encapsulates the dual-auth pattern used across all CD workflows.
+
+inputs:
+  client_id:
+    description: Azure AD application (client) ID
+    required: true
+  tenant_id:
+    description: Azure AD directory (tenant) ID
+    required: true
+  subscription_id:
+    description: Azure subscription ID
+    required: true
+  client_secret:
+    description: Service principal client secret (optional; if set, uses secret-based auth instead of OIDC)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Azure login (Service Principal Secret fallback)
+      if: ${{ inputs.client_secret != '' }}
+      uses: azure/login@v2
+      with:
+        creds: >-
+          {"clientId":"${{ inputs.client_id }}","clientSecret":"${{ inputs.client_secret }}","subscriptionId":"${{ inputs.subscription_id }}","tenantId":"${{ inputs.tenant_id }}"}
+
+    - name: Azure login (OIDC)
+      if: ${{ inputs.client_secret == '' }}
+      uses: azure/login@v2
+      with:
+        client-id: ${{ inputs.client_id }}
+        tenant-id: ${{ inputs.tenant_id }}
+        subscription-id: ${{ inputs.subscription_id }}

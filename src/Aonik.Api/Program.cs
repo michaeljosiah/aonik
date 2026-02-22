@@ -79,6 +79,10 @@ if (autoMigrateEnabled || seedDataEnabled)
             var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
             var catalogSeedService = new CatalogSeedService((IAonikDbContext)dbContext, catalogLogger);
             await catalogSeedService.SeedAsync();
+
+            var settingsLogger = scope.ServiceProvider.GetRequiredService<ILogger<SettingsSeedService>>();
+            var settingsSeedService = new SettingsSeedService((IAonikDbContext)dbContext, settingsLogger);
+            await settingsSeedService.SeedAsync();
         }
     }
     catch (Exception ex)

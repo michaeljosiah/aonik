@@ -88,7 +88,6 @@ jobs:
       acr_login_server: ${{ steps.metadata.outputs.acr_login_server }}
 
     env:
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       ACR_NAME_OVERRIDE: ${{ inputs.acr_name }}
       VITE_AUTH_PROVIDER: ${{ vars.VITE_AUTH_PROVIDER }}
@@ -106,20 +105,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Azure login (Service Principal Secret fallback)
-        if: ${{ env.AZURE_CLIENT_SECRET != '' }}
-        uses: azure/login@v2
+      - name: Azure login
+        uses: ./.github/actions/azure-login
         with:
-          creds: >-
-            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ env.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
-
-      - name: Azure login (OIDC)
-        if: ${{ env.AZURE_CLIENT_SECRET == '' }}
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Resolve release metadata
         id: metadata
