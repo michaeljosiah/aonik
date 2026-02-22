@@ -1,7 +1,7 @@
 # ADR-001: Custom AI Workflow Implementation vs Microsoft Agent Framework
 
 ## Status
-Accepted
+Superseded by [ADR-004: Adopt Microsoft Agent Framework](004-adopt-microsoft-agent-framework.md)
 
 ## Context
 The v0.1 requirements specified using **Microsoft Agent Framework (MAF)** for AI agents, prompts, and workflows. However, during implementation, we discovered that MAF is:

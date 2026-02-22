@@ -27,13 +27,15 @@ Each ADR includes:
 
 | ADR | Title | Date | Status |
 |-----|-------|------|--------|
-| [001](001-custom-ai-implementation-vs-maf.md) | Custom AI Implementation vs Microsoft AI Framework | 2024-01-01 | Accepted |
 | [002](002-anemic-domain-model.md) | Adopt Anemic Domain Model | 2026-01-08 | Accepted |
 | [003](003-no-generic-repository.md) | No Generic Repository Pattern Over EF Core | 2026-01-08 | Accepted |
+| [004](004-adopt-microsoft-agent-framework.md) | Adopt Microsoft Agent Framework (MAF) | 2026-02-22 | Accepted |
 
 ### Superseded/Deprecated
 
-_(None yet)_
+| ADR | Title | Date | Status |
+|-----|-------|------|--------|
+| [001](001-custom-ai-implementation-vs-maf.md) | Custom AI Implementation vs MAF | 2024-01-01 | Superseded by [004](004-adopt-microsoft-agent-framework.md) |
 
 ## Decision Categories
 
@@ -44,7 +46,8 @@ _(None yet)_
 - [ADR 003: No Generic Repository](003-no-generic-repository.md) - Direct EF Core usage without repository pattern
 
 ### AI & Integration
-- [ADR 001: Custom AI Implementation](001-custom-ai-implementation-vs-maf.md) - AI framework choice
+- [ADR 004: Adopt Microsoft Agent Framework](004-adopt-microsoft-agent-framework.md) - MAF for agents, tools, MCP servers
+- [ADR 001: Custom AI Implementation](001-custom-ai-implementation-vs-maf.md) - ~~Original AI framework choice~~ (superseded by 004)
 
 ## Creating New ADRs
 

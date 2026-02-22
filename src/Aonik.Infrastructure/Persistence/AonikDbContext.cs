@@ -20,9 +20,7 @@ using Aonik.Domain.Pricing.Entities;
 using Aonik.Domain.ReferenceData.Entities;
 using Aonik.Domain.Settings.Entities;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.SharedKernel.Primitives;
 using Microsoft.EntityFrameworkCore;
-using System.Linq.Expressions;
 using System.Reflection;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
 using PartyEntity = Aonik.Domain.Party.Entities.Party;
@@ -40,14 +38,8 @@ using BalanceSnapshot = Aonik.Domain.Ledger.Entities.BalanceSnapshot;
 
 namespace Aonik.Infrastructure.Persistence;
 
-public class AonikDbContext : DbContext, IAonikDbContext
+public class AonikDbContext : AonikDbContextBase, IAonikDbContext
 {
-    private readonly ITenantProvider? _tenantProvider;
-    private readonly ICurrentUserProvider? _currentUserProvider;
-    private readonly IClock? _clock;
-    private Guid? CurrentTenantId =>
-        _tenantProvider?.TryGetCurrentTenantId(out var tenantId) == true ? tenantId : null;
-
     // Identity
     public virtual DbSet<Tenant> Tenants { get; set; } = null!;
     public virtual DbSet<TenantCountry> TenantCountries { get; set; } = null!;
@@ -200,11 +192,8 @@ public class AonikDbContext : DbContext, IAonikDbContext
         ITenantProvider? tenantProvider = null,
         ICurrentUserProvider? currentUserProvider = null,
         IClock? clock = null)
-        : base(options)
+        : base(options, tenantProvider, currentUserProvider, clock)
     {
-        _tenantProvider = tenantProvider;
-        _currentUserProvider = currentUserProvider;
-        _clock = clock;
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -216,57 +205,25 @@ public class AonikDbContext : DbContext, IAonikDbContext
 
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);
+
+        // Apply nullable tenant filters for entities with optional TenantId
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
     }
 
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    protected override void OnBeforeSave()
     {
-        BeforeSave();
-        UpdateAuditFields();
-        return await base.SaveChangesAsync(cancellationToken);
-    }
-
-    private void BeforeSave()
-    {
-        var tenantEntries = ChangeTracker.Entries<ITenantScoped>()
-            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-            .ToList();
-
-        if (tenantEntries.Count == 0)
-            return;
-
-        if (_tenantProvider == null || !_tenantProvider.TryGetCurrentTenantId(out var currentTenantId))
-            throw new InvalidOperationException("Tenant context is required for tenant-scoped writes.");
-
-        foreach (var entry in tenantEntries)
-        {
-            var tenantIdProperty = entry.Property(nameof(ITenantScoped.TenantId));
-            var tenantId = (Guid)tenantIdProperty.CurrentValue!;
-
-            if (entry.State == EntityState.Added && tenantId == Guid.Empty)
-            {
-                if (entry.Entity is Role)
-                {
-                    continue;
-                }
-
-                tenantIdProperty.CurrentValue = currentTenantId;
-                continue;
-            }
-
-            if (entry.State is EntityState.Modified or EntityState.Deleted && tenantId != currentTenantId)
-            {
-                if (entry.Entity is Role && tenantId == Guid.Empty)
-                {
-                    continue;
-                }
-
-                throw new InvalidOperationException(
-                    $"Tenant mismatch detected for {entry.Metadata.ClrType.Name} ({tenantId}).");
-            }
-
-        }
-
         PopulateOrderCompatibilityColumns();
+    }
+
+    protected override bool IsGlobalEntity(object entity)
+    {
+        return entity is Role;
     }
 
     private void PopulateOrderCompatibilityColumns()
@@ -327,95 +284,5 @@ public class AonikDbContext : DbContext, IAonikDbContext
         var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         var token = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
         return $"ORD-{timestamp}-{token}";
-    }
-
-    private void UpdateAuditFields()
-    {
-        var userId = _currentUserProvider?.GetCurrentUserId();
-        var now = _clock?.UtcNow ?? DateTime.UtcNow;
-
-        foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
-        {
-            switch (entry.State)
-            {
-                case EntityState.Added:
-                    entry.Entity.CreatedAt = now;
-                    entry.Entity.CreatedBy = userId;
-                    break;
-
-                case EntityState.Modified:
-                    entry.Entity.UpdatedAt = now;
-                    entry.Entity.UpdatedBy = userId;
-                    break;
-
-                case EntityState.Deleted:
-                    // Implement soft delete
-                    entry.State = EntityState.Modified;
-                    entry.Entity.IsDeleted = true;
-                    entry.Entity.DeletedAt = now;
-                    entry.Entity.DeletedBy = userId;
-                    break;
-            }
-        }
-    }
-
-    private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
-    {
-        // Only apply filters if tenant provider is available
-        if (_tenantProvider == null)
-            return;
-
-        // Get all entity types that implement ITenantScoped
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            var clrType = entityType.ClrType;
-
-            // Check if entity implements ITenantScoped
-            if (typeof(ITenantScoped).IsAssignableFrom(clrType))
-            {
-                // Create filter expression: entity => CurrentTenantId == null || entity.TenantId == CurrentTenantId || entity.TenantId == Guid.Empty
-                var parameter = Expression.Parameter(clrType, "e");
-                var property = Expression.Property(parameter, nameof(ITenantScoped.TenantId));
-                var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
-                var noTenantContext = Expression.Equal(
-                    currentTenantId,
-                    Expression.Constant(null, typeof(Guid?)));
-                var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
-                var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
-                var equalsGlobal = Expression.Equal(property, Expression.Constant(Guid.Empty));
-                var filter = Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsGlobal));
-                var lambda = Expression.Lambda(filter, parameter);
-
-
-                // Apply the filter
-                modelBuilder.Entity(clrType).HasQueryFilter(lambda);
-            }
-        }
-
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
-    }
-
-    private void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType)
-    {
-        var parameter = Expression.Parameter(clrType, "e");
-        var property = Expression.Property(parameter, "TenantId");
-        var currentTenantId = Expression.Property(Expression.Constant(this), nameof(CurrentTenantId));
-        var noTenantContext = Expression.Equal(
-            currentTenantId,
-            Expression.Constant(null, typeof(Guid?)));
-        var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
-        var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
-        var equalsNull = Expression.Equal(property, Expression.Constant(null, property.Type));
-        var filter = Expression.Lambda(
-            Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsNull)),
-            parameter);
-
-        modelBuilder.Entity(clrType).HasQueryFilter(filter);
     }
 }
