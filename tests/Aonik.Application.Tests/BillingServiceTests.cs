@@ -1,9 +1,8 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Billing;
 using Aonik.Application.Services.Billing;
-using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Infrastructure.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.Infrastructure.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 

@@ -1,8 +1,8 @@
-using Aonik.Api.Contracts.Ledger;
-using Aonik.Application.Services.Ledger;
+using Aonik.Finance.Contracts.Api.Ledger;
+using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Ledger;
+namespace Aonik.Finance.Endpoints.Ledger;
 
 public class ListLedgerAccountsEndpoint : Endpoint<ListLedgerAccountsRequest, List<LedgerAccountResponse>>
 {
@@ -21,7 +21,7 @@ public class ListLedgerAccountsEndpoint : Endpoint<ListLedgerAccountsRequest, Li
 
     public override async Task HandleAsync(ListLedgerAccountsRequest req, CancellationToken ct)
     {
-        var appRequest = new Application.Models.Ledger.ListLedgerAccountsRequest(req.LedgerId);
+        var appRequest = new Contracts.Models.Ledger.ListLedgerAccountsRequest(req.LedgerId);
         var result = await _ledgerService.ListAccountsAsync(appRequest, ct);
         var response = result.Select(account => new LedgerAccountResponse(
             account.Id,

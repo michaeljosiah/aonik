@@ -21,8 +21,8 @@
 - [x] **PR 1.5** — Move Platform Services & Clean Up
 
 ### Phase 2: Extract Finance Module
-- [ ] **PR 2.1** — Scaffold Aonik.Finance Project
-- [ ] **PR 2.2** — Move Ledger Sub-Domain
+- [x] **PR 2.1** — Scaffold Aonik.Finance Project
+- [x] **PR 2.2** — Move Ledger Sub-Domain
 - [ ] **PR 2.3** — Move Payments Sub-Domain
 - [ ] **PR 2.4** — Move Billing, Orders, Pricing, Partners
 - [ ] **PR 2.5** — Finance Module Clean-Up & Integration Events

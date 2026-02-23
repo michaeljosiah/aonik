@@ -1,9 +1,8 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Ledger;
-using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Application.Services.Ledger;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Finance.Contracts.Models.Ledger;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.Finance.Services.Ledger;
+using Aonik.Finance.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,13 +49,13 @@ public class LedgerServiceTests
         }
     }
 
-    private static AonikDbContext CreateDbContext(Guid tenantId)
+    private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new AonikDbContext(options, new TestTenantProvider(tenantId));
+        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-using Aonik.Domain.Ledger.Entities;
+using Aonik.Finance.Entities.Ledger;
 using Aonik.Domain.Partners.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

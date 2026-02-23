@@ -27,7 +27,7 @@ public class CatalogServiceTests
         }
     }
 
-    private sealed class AllowAllPermissionService : Aonik.Platform.Contracts.Services.Identity.IPermissionService
+    private sealed class AllowAllPermissionService : Aonik.SharedKernel.Abstractions.IPermissionService
     {
         public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
             Task.FromResult(true);

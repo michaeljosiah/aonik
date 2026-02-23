@@ -23,12 +23,12 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
-using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
+using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
-using LedgerAccount = Aonik.Domain.Ledger.Entities.LedgerAccount;
-using JournalEntry = Aonik.Domain.Ledger.Entities.JournalEntry;
-using JournalEntryLine = Aonik.Domain.Ledger.Entities.JournalEntryLine;
-using BalanceSnapshot = Aonik.Domain.Ledger.Entities.BalanceSnapshot;
+using LedgerAccount = Aonik.Finance.Entities.Ledger.LedgerAccount;
+using JournalEntry = Aonik.Finance.Entities.Ledger.JournalEntry;
+using JournalEntryLine = Aonik.Finance.Entities.Ledger.JournalEntryLine;
+using BalanceSnapshot = Aonik.Finance.Entities.Ledger.BalanceSnapshot;
 
 namespace Aonik.Infrastructure.Persistence;
 
@@ -199,6 +199,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
 
         // Apply Identity configurations from Platform assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Tenant).Assembly);
+
+        // Apply Ledger configurations from Finance assembly
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(LedgerEntity).Assembly);
 
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);

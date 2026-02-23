@@ -38,7 +38,8 @@ public sealed class FinanceModule : IModule
         });
 
         // ── Finance Services ─────────────────────────────────────────
-        // Service registrations will be added as services are migrated in PRs 2.2–2.5
+        // Ledger
+        services.AddScoped<Contracts.Services.Ledger.ILedgerService, Services.Ledger.LedgerService>();
 
         return services;
     }

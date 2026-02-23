@@ -7,10 +7,9 @@ using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Models.Settings;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
-using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Infrastructure.Caching;
-using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Infrastructure.Settings;
 

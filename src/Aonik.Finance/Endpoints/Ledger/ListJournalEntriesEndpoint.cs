@@ -1,8 +1,8 @@
-using Aonik.Api.Contracts.Ledger;
-using Aonik.Application.Services.Ledger;
+using Aonik.Finance.Contracts.Api.Ledger;
+using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Ledger;
+namespace Aonik.Finance.Endpoints.Ledger;
 
 public class ListJournalEntriesEndpoint : Endpoint<ListJournalEntriesRequest, List<JournalEntryResponse>>
 {
@@ -21,7 +21,7 @@ public class ListJournalEntriesEndpoint : Endpoint<ListJournalEntriesRequest, Li
 
     public override async Task HandleAsync(ListJournalEntriesRequest req, CancellationToken ct)
     {
-        var appRequest = new Application.Models.Ledger.ListJournalEntriesRequest(req.LedgerId);
+        var appRequest = new Contracts.Models.Ledger.ListJournalEntriesRequest(req.LedgerId);
         var result = await _ledgerService.ListJournalEntriesAsync(appRequest, ct);
 
         var response = result.Select(entry => new JournalEntryResponse(

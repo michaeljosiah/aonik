@@ -9,10 +9,10 @@ using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Platform.Entities.Identity;
-using Aonik.Domain.Ledger.Entities;
+using Aonik.Finance.Entities.Ledger;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.SharedKernel.Abstractions;
-using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
+using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 
 namespace Aonik.Platform.Services.Identity;
 

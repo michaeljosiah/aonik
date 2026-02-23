@@ -1,4 +1,4 @@
-namespace Aonik.Platform.Contracts.Services.Identity;
+namespace Aonik.SharedKernel.Abstractions;
 
 public interface IPermissionService
 {

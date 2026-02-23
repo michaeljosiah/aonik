@@ -1,5 +1,5 @@
 using Aonik.Platform.Persistence;
-using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Platform.Services.Identity;

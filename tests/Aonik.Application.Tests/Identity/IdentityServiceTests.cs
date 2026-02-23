@@ -10,14 +10,13 @@ using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Contracts.Models.Settings;
 using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Contracts.Services.Compliance;
-using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Persistence;
 using Aonik.Infrastructure.Time;
-using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Tests.Identity;
 

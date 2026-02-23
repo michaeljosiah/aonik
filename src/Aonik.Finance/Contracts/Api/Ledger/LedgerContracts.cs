@@ -1,4 +1,4 @@
-namespace Aonik.Application.Models.Ledger;
+namespace Aonik.Finance.Contracts.Api.Ledger;
 
 public record CreateLedgerRequest(string BaseCurrency);
 

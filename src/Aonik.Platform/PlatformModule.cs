@@ -3,6 +3,7 @@ using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Features;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Contracts.Services.Notifications;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Party;
 using Aonik.Platform.Contracts.Services.Registration;

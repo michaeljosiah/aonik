@@ -8,10 +8,9 @@ using Aonik.Platform.Contracts.Models.Seeding;
 using Aonik.Application.Services;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
-using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Seeding;
 using Aonik.Infrastructure.Persistence.Seed;
-using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Entities.Identity;
 
 namespace Aonik.Infrastructure.Seeding;

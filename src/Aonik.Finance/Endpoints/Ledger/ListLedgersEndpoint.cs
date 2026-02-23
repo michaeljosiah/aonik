@@ -1,8 +1,8 @@
-using Aonik.Api.Contracts.Ledger;
-using Aonik.Application.Services.Ledger;
+using Aonik.Finance.Contracts.Api.Ledger;
+using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Ledger;
+namespace Aonik.Finance.Endpoints.Ledger;
 
 public class ListLedgersEndpoint : EndpointWithoutRequest<List<LedgerResponse>>
 {

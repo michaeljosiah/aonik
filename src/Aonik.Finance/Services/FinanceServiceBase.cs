@@ -1,18 +1,17 @@
 using Aonik.SharedKernel.Abstractions;
 
-namespace Aonik.Application.Services;
+namespace Aonik.Finance.Services;
 
 /// <summary>
-/// Base class for Application-layer admin services that require permission checks.
-/// Non-Platform services inherit from this during migration. When these services move
-/// to their own modules (Finance, AI, etc.), each module will have its own base class.
+/// Base class for Finance module services that require permission checks.
+/// Mirrors the AdminServiceBase pattern used in Platform and Application layers.
 /// </summary>
-public abstract class AdminServiceBase
+internal abstract class FinanceServiceBase
 {
     protected ICurrentUserProvider CurrentUserProvider { get; }
     protected IPermissionService PermissionService { get; }
 
-    protected AdminServiceBase(
+    protected FinanceServiceBase(
         ICurrentUserProvider currentUserProvider,
         IPermissionService permissionService)
     {

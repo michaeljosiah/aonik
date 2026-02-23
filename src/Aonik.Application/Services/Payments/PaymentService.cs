@@ -4,10 +4,9 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Payments;
 using Aonik.Application.Services;
-using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.Domain.Payments;
 using Aonik.Domain.Payments.Entities;
-using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Payments;
 

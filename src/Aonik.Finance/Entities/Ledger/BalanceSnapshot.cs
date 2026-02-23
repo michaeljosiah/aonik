@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Ledger.Entities;
+namespace Aonik.Finance.Entities.Ledger;
 
 public class BalanceSnapshot : AuditableEntity, ITenantScoped
 {

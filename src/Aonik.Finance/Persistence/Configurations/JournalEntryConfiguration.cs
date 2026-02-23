@@ -1,8 +1,8 @@
-using Aonik.Domain.Ledger.Entities;
+using Aonik.Finance.Entities.Ledger;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Infrastructure.Persistence.Configurations;
+namespace Aonik.Finance.Persistence.Configurations;
 
 public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>
 {

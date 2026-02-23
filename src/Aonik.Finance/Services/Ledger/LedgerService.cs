@@ -1,23 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Ledger;
-using Aonik.Application.Services;
-using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Domain.Ledger.Entities;
 using Aonik.SharedKernel.Abstractions;
-using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;
+using Aonik.Finance.Contracts.Models.Ledger;
+using Aonik.Finance.Contracts.Services.Ledger;
+using Aonik.Finance.Entities.Ledger;
+using Aonik.Finance.Persistence;
+using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 
-namespace Aonik.Application.Services.Ledger;
+namespace Aonik.Finance.Services.Ledger;
 
-public class LedgerService : AdminServiceBase, ILedgerService
+internal class LedgerService : FinanceServiceBase, ILedgerService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
 
     public LedgerService(
-        IAonikDbContext dbContext,
+        FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider)

@@ -2,7 +2,6 @@ using Aonik.Application.Abstractions.Ai;
 using Aonik.Application.Models.Ai;
 using Aonik.Application.Services;
 using Aonik.Application.Services.Ai.Workflows;
-using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Ai;

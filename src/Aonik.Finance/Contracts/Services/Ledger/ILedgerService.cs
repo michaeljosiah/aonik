@@ -1,6 +1,6 @@
-using Aonik.Application.Models.Ledger;
+using Aonik.Finance.Contracts.Models.Ledger;
 
-namespace Aonik.Application.Services.Ledger;
+namespace Aonik.Finance.Contracts.Services.Ledger;
 
 public interface ILedgerService
 {

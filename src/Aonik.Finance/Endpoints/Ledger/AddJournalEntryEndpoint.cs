@@ -1,8 +1,8 @@
-using Aonik.Api.Contracts.Ledger;
-using Aonik.Application.Services.Ledger;
+using Aonik.Finance.Contracts.Api.Ledger;
+using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Ledger;
+namespace Aonik.Finance.Endpoints.Ledger;
 
 public class AddJournalEntryEndpoint : Endpoint<AddJournalEntryRequest, JournalEntryResponse>
 {
@@ -21,11 +21,11 @@ public class AddJournalEntryEndpoint : Endpoint<AddJournalEntryRequest, JournalE
 
     public override async Task HandleAsync(AddJournalEntryRequest req, CancellationToken ct)
     {
-        var appRequest = new Application.Models.Ledger.AddJournalEntryRequest(
+        var appRequest = new Contracts.Models.Ledger.AddJournalEntryRequest(
             req.LedgerId,
             req.Reference,
             req.Description,
-            req.Lines.Select(line => new Application.Models.Ledger.AddJournalEntryLineRequest(
+            req.Lines.Select(line => new Contracts.Models.Ledger.AddJournalEntryLineRequest(
                 line.AccountId,
                 line.Direction,
                 line.Amount,

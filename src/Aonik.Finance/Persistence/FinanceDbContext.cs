@@ -1,3 +1,4 @@
+using Aonik.Finance.Entities.Ledger;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -15,7 +16,12 @@ namespace Aonik.Finance.Persistence;
 /// </summary>
 internal class FinanceDbContext : AonikDbContextBase
 {
-    // DbSets will be added as entities are migrated in PRs 2.2–2.4
+    // ── Ledger ─────────────────────────────────────────────────────
+    public DbSet<Ledger> Ledgers { get; set; } = null!;
+    public DbSet<LedgerAccount> LedgerAccounts { get; set; } = null!;
+    public DbSet<JournalEntry> JournalEntries { get; set; } = null!;
+    public DbSet<JournalEntryLine> JournalEntryLines { get; set; } = null!;
+    public DbSet<BalanceSnapshot> BalanceSnapshots { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -30,8 +36,17 @@ internal class FinanceDbContext : AonikDbContextBase
     {
         base.OnModelCreating(modelBuilder);
 
-        // All Finance entities use the 'finance' schema
+        // All Finance entities use the 'finance' schema by default
         modelBuilder.HasDefaultSchema(SchemaNames.Finance);
+
+        // ── Schema overrides for entities created in dbo by existing migrations ──
+        // Ledger entities were created in dbo schema before the Finance module existed.
+        // They must continue to use dbo to match the existing database.
+        modelBuilder.Entity<Ledger>().ToTable("Ledgers", SchemaNames.Default);
+        modelBuilder.Entity<LedgerAccount>().ToTable("LedgerAccounts", SchemaNames.Default);
+        modelBuilder.Entity<JournalEntry>().ToTable("JournalEntries", SchemaNames.Default);
+        modelBuilder.Entity<JournalEntryLine>().ToTable("JournalEntryLines", SchemaNames.Default);
+        modelBuilder.Entity<BalanceSnapshot>().ToTable("BalanceSnapshots", SchemaNames.Default);
 
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FinanceDbContext).Assembly);

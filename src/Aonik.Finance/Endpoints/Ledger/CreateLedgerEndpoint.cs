@@ -1,8 +1,8 @@
-using Aonik.Api.Contracts.Ledger;
-using Aonik.Application.Services.Ledger;
+using Aonik.Finance.Contracts.Api.Ledger;
+using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Ledger;
+namespace Aonik.Finance.Endpoints.Ledger;
 
 public class CreateLedgerEndpoint : Endpoint<CreateLedgerRequest, LedgerResponse>
 {
@@ -21,7 +21,7 @@ public class CreateLedgerEndpoint : Endpoint<CreateLedgerRequest, LedgerResponse
 
     public override async Task HandleAsync(CreateLedgerRequest req, CancellationToken ct)
     {
-        var appRequest = new Application.Models.Ledger.CreateLedgerRequest(req.BaseCurrency);
+        var appRequest = new Contracts.Models.Ledger.CreateLedgerRequest(req.BaseCurrency);
         var result = await _ledgerService.CreateLedgerAsync(appRequest, ct);
 
         var response = new LedgerResponse(result.Id, result.BaseCurrency, result.CreatedUtc);

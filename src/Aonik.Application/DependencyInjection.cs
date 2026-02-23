@@ -2,13 +2,11 @@ using Aonik.Application.Services.Ai;
 using Aonik.Application.Services.Ai.Workflows;
 using Aonik.Application.Services.Billing;
 using Aonik.Application.Services.Catalog;
-using Aonik.Application.Services.Ledger;
 using Aonik.Application.Services.Orders;
 using Aonik.Application.Services.Partners;
 using Aonik.Application.Services.Payments;
 using Aonik.Application.Services.PersonalFinance;
 using Aonik.Application.Services.Pricing;
-using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,8 +20,7 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Ledger & Billing
-        services.AddScoped<ILedgerService, LedgerService>();
+        // Billing (Ledger moved to FinanceModule)
         services.AddScoped<IBillingService, BillingService>();
 
         // Payments

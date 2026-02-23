@@ -8,10 +8,9 @@ using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Models.Partners;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
-using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Domain.Ledger.Entities;
-using Aonik.Domain.Partners.Entities;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.Finance.Entities.Ledger;
+using Aonik.Domain.Partners.Entities;
 
 namespace Aonik.Application.Services.Partners;
 
