@@ -10,11 +10,11 @@
 
 ADR-001 chose a custom AI abstraction layer (`IModelProvider`, `IPromptStore`, `IAgentRuntime`) for v0.1 because MAF was in early preview and the priority was running without API keys. That decision was correct for scaffolding, but the situation has changed:
 
-1. **MAF has matured** — `Microsoft.Agents.AI` and `Microsoft.Extensions.AI` packages now provide stable abstractions (`IChatClient`, `ChatClientAgent`, `AIFunctionFactory`)
+1. **MAF has reached RC** — `Microsoft.Agents.AI` 1.0.0-rc1 (released 2026-02-20) provides `ChatClientAgent`, `AIAgent`, and agent composition (`AsAIFunction()`). `Microsoft.Agents.AI.Workflows` 1.0.0-rc1 provides `AgentWorkflowBuilder`, sequential/concurrent/handoff patterns.
 2. **AONIK is restructuring** — the modular monolith migration (Phase 3) is the right time to adopt MAF, avoiding a second migration later
 3. **Multi-agent orchestration is needed** — the master orchestrator and domain agents require agent-as-tool composition, which MAF provides natively via `agent.AsAIFunction()`
 4. **MCP servers are a requirement** — MAF integrates with the official MCP C# SDK (`ModelContextProtocol` NuGet) for exposing agents as MCP tools
-5. **The proposal pattern maps to MAF middleware** — MAF's `IFunctionInvocationMiddleware` is a natural fit for intercepting high-risk tool calls and creating proposals
+5. **The proposal pattern maps to MAF middleware** — `DelegatingChatClient` from `Microsoft.Extensions.AI` composes into the `ChatClientAgent`'s pipeline, naturally supporting audit logging and proposal interception
 6. **Stub provider is still possible** — `IChatClient` is an interface; a `StubChatClient` implementation preserves the "runs without API keys" requirement
 
 ### Current Custom Abstractions (to be replaced)
@@ -34,28 +34,43 @@ public interface IAgentRuntime
 public class StubModelProvider : IModelProvider { ... }
 ```
 
-### MAF Replacements
+### MAF Replacements (Actual RC Packages)
 
 ```csharp
-// MAF's IChatClient (from Microsoft.Extensions.AI)
-public interface IChatClient
-{
-    Task<ChatResponse> GetResponseAsync(
-        IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken ct);
-}
+// NuGet packages:
+// Microsoft.Agents.AI 1.0.0-rc1
+// Microsoft.Agents.AI.Workflows 1.0.0-rc1
+// Microsoft.Extensions.AI 10.3.0 (transitive dep, also direct for middleware)
 
-// MAF's ChatClientAgent (from Microsoft.Agents.AI)
-var agent = new ChatClientAgent(
-    chatClient: chatClient,
+// MAF's AIAgent base type and ChatClientAgent (from Microsoft.Agents.AI)
+using Microsoft.Agents.AI;
+
+// IChatClient, DelegatingChatClient, AIFunctionFactory (from Microsoft.Extensions.AI)
+using Microsoft.Extensions.AI;
+
+// Create a domain agent via ChatClientAgent constructor
+AIAgent agent = new ChatClientAgent(
+    chatClient: chatClient,   // IChatClient with middleware pipeline
     name: "FinanceAgent",
-    instructions: "...",
-    tools: tools);
+    instructions: "You are the AONIK finance agent...",
+    tools: tools);             // List<AITool> from AIFunctionFactory.Create()
 
-// MAF's AIFunctionFactory for tools
+// Run the agent
+AgentResponse response = await agent.RunAsync("What invoices are overdue?");
+Console.WriteLine(response.Text);
+
+// Stream the agent
+await foreach (var update in agent.RunStreamingAsync("Summarize revenue"))
+    Console.Write(update.Text);
+
+// Tools via AIFunctionFactory
 var tool = AIFunctionFactory.Create(
     (Guid invoiceId, CancellationToken ct) => GetInvoiceAsync(invoiceId, ct),
     name: "get_invoice",
     description: "Get invoice details by ID");
+
+// Agent-as-tool composition for master orchestrator
+AITool financeTool = financeAgent.AsAIFunction();
 ```
 
 ## Decision
@@ -64,15 +79,15 @@ Adopt **Microsoft Agent Framework (MAF)** as the standard AI/agent framework for
 
 ### What We Adopt
 
-| MAF Component | Replaces | Used For |
-|--------------|----------|----------|
-| `IChatClient` | `IModelProvider` | LLM provider abstraction |
-| `ChatClientAgent` / `AIAgent` | `IAgentRuntime` | Domain agent execution |
-| `AIFunctionFactory.Create()` | Custom `IAgentTool` | Exposing service methods as agent tools |
-| `IFunctionInvocationMiddleware` | _(none)_ | Proposal pattern, audit logging, tenant context |
-| `agent.AsAIFunction()` | _(none)_ | Agent-as-tool composition for master orchestrator |
-| `McpServerTool.Create()` + MCP C# SDK | _(none)_ | Exposing agents as MCP servers |
-| MAF Workflows | `InvoiceInsightWorkflow` | Multi-step agent orchestration |
+| MAF Component | Package | Replaces | Used For |
+|--------------|---------|----------|----------|
+| `IChatClient` | `Microsoft.Extensions.AI` 10.3.0 | `IModelProvider` | LLM provider abstraction |
+| `ChatClientAgent` / `AIAgent` | `Microsoft.Agents.AI` 1.0.0-rc1 | `IAgentRuntime` + custom `AonikDomainAgent` | Domain agent execution |
+| `AIFunctionFactory.Create()` | `Microsoft.Extensions.AI` 10.3.0 | Custom `IAgentTool` | Exposing service methods as agent tools |
+| `DelegatingChatClient` | `Microsoft.Extensions.AI` 10.3.0 | _(none)_ | Proposal pattern, audit logging (middleware pipeline) |
+| `agent.AsAIFunction()` | `Microsoft.Agents.AI` 1.0.0-rc1 | _(none)_ | Agent-as-tool composition for master orchestrator |
+| `McpServerTool.Create()` + MCP C# SDK | `ModelContextProtocol` | _(none)_ | Exposing agents as MCP servers |
+| `AgentWorkflowBuilder` / `Workflow` | `Microsoft.Agents.AI.Workflows` 1.0.0-rc1 | `InvoiceInsightWorkflow` | Multi-step agent orchestration |
 
 ### What We Keep
 
@@ -100,35 +115,42 @@ internal class StubChatClient : IChatClient
 }
 ```
 
-### Proposal Pattern via MAF Middleware
+### Proposal Pattern via DelegatingChatClient Middleware
+
+The proposal pattern uses `DelegatingChatClient` from `Microsoft.Extensions.AI`, which
+composes into the `IChatClient` pipeline that `ChatClientAgent` wraps. This means middleware
+intercepts at the `IChatClient` level — before/after the LLM call — and works transparently
+with MAF agents.
 
 ```csharp
-internal class ProposalMiddleware : IFunctionInvocationMiddleware
+// DelegatingChatClient middleware (intercepts at IChatClient level)
+internal class ProposalMiddleware : DelegatingChatClient
 {
-    private readonly IProposalService _proposalService;
+    private readonly AgentsDbContext _dbContext;
 
-    public async Task InvokeAsync(
-        FunctionInvocationContext context,
-        Func<FunctionInvocationContext, Task> next)
+    public ProposalMiddleware(IChatClient innerClient, AgentsDbContext dbContext)
+        : base(innerClient) { _dbContext = dbContext; }
+
+    public override async Task<ChatResponse> GetResponseAsync(
+        IEnumerable<ChatMessage> messages,
+        ChatOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
-        var riskTier = GetRiskTier(context.Function);
-
-        if (riskTier == RiskTier.High)
-        {
-            // Block execution — create proposal for human approval
-            var proposal = await _proposalService.CreateAsync(
-                action: context.Function.Name,
-                parameters: context.Arguments);
-
-            context.Result = new FunctionResult(
-                $"Proposal {proposal.Id} created. Awaiting human approval.");
-            return;
-        }
-
-        // Low/medium risk: execute directly
-        await next(context);
+        // Pre-processing: log request, check policies
+        var response = await base.GetResponseAsync(messages, options, cancellationToken);
+        // Post-processing: inspect for function calls, create Proposal records,
+        // evaluate risk tier, gate execution on approval status
+        return response;
     }
 }
+
+// Pipeline composition: middleware wraps the inner client,
+// then ChatClientAgent wraps the middleware-enhanced client
+IChatClient pipeline = new ProposalMiddleware(
+    new AuditMiddleware(innerChatClient, auditLogger),
+    dbContext);
+
+AIAgent agent = new ChatClientAgent(pipeline, name: "finance-agent", instructions: "...");
 ```
 
 ### Agent-as-Tool Composition (Master Orchestrator)
@@ -167,7 +189,7 @@ var masterAgent = new ChatClientAgent(
 
 ### Trade-offs
 
-1. **Preview packages**: Some MAF packages are still prerelease — pin versions and test upgrades carefully
+1. **RC packages**: MAF is at 1.0.0-rc1 (not GA yet) — pin versions and test upgrades carefully. The RC status indicates API stability.
 2. **Learning curve**: Team needs to learn MAF patterns (agents, middleware, workflows)
 3. **Framework coupling**: Harder to switch away from MAF later (acceptable given Microsoft's investment)
 4. **Stub complexity**: `StubChatClient` must implement the full `IChatClient` interface (more surface than `IModelProvider`)
@@ -217,22 +239,24 @@ var masterAgent = new ChatClientAgent(
 
 This ADR is implemented across the modular restructuring plan:
 
-- **PR 3.1**: Scaffold `Aonik.Ai` module with MAF's `IChatClient`, replace `IModelProvider` with `StubChatClient`
-- **PR 3.2**: Scaffold `Aonik.Agents` module with MAF's `ChatClientAgent`, add middleware (proposal, audit, tenant)
+- **PR 3.1** (DONE): Scaffold `Aonik.Ai` module with MAF's `IChatClient`, replace `IModelProvider` with `StubChatClient`
+- **PR 3.2** (DONE): Scaffold `Aonik.Agents` module with MAF RC packages (`Microsoft.Agents.AI` 1.0.0-rc1, `Microsoft.Agents.AI.Workflows` 1.0.0-rc1). `AonikDomainAgent` builds `ChatClientAgent` instances. `DelegatingChatClient` middleware (ProposalMiddleware, AuditMiddleware) composes into the pipeline.
 - **PR 3.3**: Finance domain agent + tools via `AIFunctionFactory.Create()`
 - **PR 3.4**: Platform domain agent + real LLM provider wrappers
 - **PR 4.1-4.2**: MCP servers using MCP C# SDK + `McpServerTool.Create()`
-- **PR 5.1-5.2**: Master orchestrator + MAF Workflows
+- **PR 5.1-5.2**: Master orchestrator + MAF Workflows (`AgentWorkflowBuilder`)
 
 See [Modular Restructuring Plan](../modular-restructuring-plan.md) for detailed specifications per PR.
 
 ## References
 
 - [Microsoft Agent Framework Documentation](https://learn.microsoft.com/en-us/agent-framework/)
-- [MAF Tutorial — Run Agent](https://learn.microsoft.com/en-us/agent-framework/tutorials/agents/run-agent)
-- [MAF Tutorial — Agent Tools](https://learn.microsoft.com/en-us/agent-framework/tutorials/agents/agent-tools)
-- [MAF Tutorial — Agent as MCP Server](https://learn.microsoft.com/en-us/agent-framework/tutorials/mcp/agent-as-mcp-server)
-- [MAF Middleware](https://learn.microsoft.com/en-us/agent-framework/concepts/middleware)
+- [MAF — Running Agents](https://learn.microsoft.com/en-us/agent-framework/agents/running-agents)
+- [MAF — Function Tools](https://learn.microsoft.com/en-us/agent-framework/agents/tools/function-tools)
+- [MAF — Tools Overview](https://learn.microsoft.com/en-us/agent-framework/agents/tools/)
+- [NuGet: Microsoft.Agents.AI 1.0.0-rc1](https://www.nuget.org/packages/Microsoft.Agents.AI/1.0.0-rc1)
+- [NuGet: Microsoft.Agents.AI.Workflows 1.0.0-rc1](https://www.nuget.org/packages/Microsoft.Agents.AI.Workflows/1.0.0-rc1)
+- [MAF GitHub Repository](https://github.com/microsoft/agent-framework)
 - [MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk)
 - [ADR-001: Custom AI Implementation vs MAF](001-custom-ai-implementation-vs-maf.md) (superseded by this ADR)
 - [Modular Restructuring Plan](../modular-restructuring-plan.md)

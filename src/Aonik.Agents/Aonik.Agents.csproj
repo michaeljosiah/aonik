@@ -28,6 +28,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-rc1" />
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.0.0-rc1" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.3.0" />
   </ItemGroup>
 

@@ -1,21 +1,28 @@
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Framework;
 
 /// <summary>
-/// Base class for AONIK domain agents. Each domain agent defines its name,
-/// instructions (system prompt), and the tools it exposes. The agent uses
-/// an <see cref="IChatClient"/> (resolved via the AI module) to interact
-/// with an LLM.
-/// 
+/// Base class for AONIK domain agent definitions. Each domain agent defines its
+/// name, instructions (system prompt), and the tools it exposes. The <see cref="Build"/>
+/// method creates a MAF <see cref="ChatClientAgent"/> configured with the domain-specific
+/// tools and instructions.
+///
 /// Concrete agents (FinanceDomainAgent, PlatformDomainAgent, etc.) override
 /// the abstract members to provide domain-specific behaviour.
+///
+/// The returned <see cref="AIAgent"/> is invoked via <c>agent.RunAsync()</c> or
+/// <c>agent.RunStreamingAsync()</c> and can be composed as a tool for a master
+/// orchestrator via <c>agent.AsAIFunction()</c>.
 /// </summary>
 internal abstract class AonikDomainAgent
 {
     /// <summary>Agent display name (e.g. "finance-agent").</summary>
-    protected abstract string Name { get; }
+    public abstract string Name { get; }
+
+    /// <summary>Agent description for use in agent-as-tool composition.</summary>
+    public virtual string Description => $"AONIK {Name} domain agent";
 
     /// <summary>System prompt / instructions for the LLM.</summary>
     protected abstract string Instructions { get; }
@@ -28,37 +35,30 @@ internal abstract class AonikDomainAgent
     protected abstract IEnumerable<AITool> GetTools(IServiceProvider serviceProvider);
 
     /// <summary>
-    /// Sends a user message to the agent and returns the LLM response.
-    /// Tools are automatically invoked by the <see cref="IChatClient"/> pipeline
-    /// (when configured with function-calling support).
+    /// Builds a MAF <see cref="ChatClientAgent"/> configured with this agent's
+    /// name, instructions, and tools. The <paramref name="chatClient"/> should
+    /// already have any middleware (audit, proposal) applied in its pipeline.
     /// </summary>
-    public virtual async Task<ChatResponse> InvokeAsync(
-        IChatClient chatClient,
-        string userMessage,
-        IServiceProvider serviceProvider,
-        ILogger? logger = null,
-        CancellationToken cancellationToken = default)
+    /// <param name="chatClient">
+    /// The <see cref="IChatClient"/> resolved from the AI module (possibly with
+    /// <see cref="AuditMiddleware"/> and <see cref="ProposalMiddleware"/> in its pipeline).
+    /// </param>
+    /// <param name="serviceProvider">
+    /// Service provider used to resolve domain services for tool creation.
+    /// </param>
+    /// <returns>
+    /// A fully configured <see cref="AIAgent"/> ready to be invoked via
+    /// <c>RunAsync</c> / <c>RunStreamingAsync</c>, or composed as a tool
+    /// via <c>AsAIFunction()</c>.
+    /// </returns>
+    public virtual AIAgent Build(IChatClient chatClient, IServiceProvider serviceProvider)
     {
         var tools = GetTools(serviceProvider).ToList();
 
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, Instructions),
-            new(ChatRole.User, userMessage)
-        };
-
-        var options = new ChatOptions
-        {
-            Tools = tools
-        };
-
-        logger?.LogInformation("Agent '{AgentName}' invoking with {ToolCount} tools", Name, tools.Count);
-
-        var response = await chatClient.GetResponseAsync(messages, options, cancellationToken);
-
-        logger?.LogInformation("Agent '{AgentName}' completed. Response length: {Length}",
-            Name, response.Text?.Length ?? 0);
-
-        return response;
+        return new ChatClientAgent(
+            chatClient,
+            name: Name,
+            instructions: Instructions,
+            tools: tools);
     }
 }
