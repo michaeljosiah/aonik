@@ -32,6 +32,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["UseInMemoryDatabase"] = "true",
                 ["InMemoryDatabaseName"] = _databaseName,
                 ["Auth:TenantRouting"] = "Claim",
                 ["PlatformAdmin:AdminEmails:0"] = "bootstrap-admin@example.com",

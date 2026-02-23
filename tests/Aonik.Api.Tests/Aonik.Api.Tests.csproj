@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Aonik.Api\Aonik.Api.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Ai\Aonik.Ai.csproj" />
   </ItemGroup>
 
 </Project>

@@ -4,15 +4,16 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>Aonik.Platform</RootNamespace>
+    <RootNamespace>Aonik.Ai</RootNamespace>
   </PropertyGroup>
 
-  <!-- Boundary enforcement: only Api and test projects may access internals -->
+  <!-- Boundary enforcement: only Api, Infrastructure, and test projects may access internals -->
   <ItemGroup>
     <InternalsVisibleTo Include="Aonik.Api" />
-    <InternalsVisibleTo Include="Aonik.Platform.Tests" />
-    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Ai.Tests" />
     <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
   </ItemGroup>
 
@@ -20,7 +21,6 @@
     <ProjectReference Include="..\Aonik.SharedKernel\Aonik.SharedKernel.csproj" />
     <ProjectReference Include="..\Aonik.Domain\Aonik.Domain.csproj" />
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
-    <ProjectReference Include="..\Aonik.Ai\Aonik.Ai.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +31,13 @@
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Prompting\Templates\**\*.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

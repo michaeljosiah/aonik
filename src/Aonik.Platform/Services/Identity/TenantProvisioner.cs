@@ -7,7 +7,7 @@ using Aonik.Platform.Services;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Domain.Ai.Entities;
+using Aonik.Ai.Entities;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Pricing;

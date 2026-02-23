@@ -1,4 +1,4 @@
-using Aonik.Infrastructure.Ai.Prompting;
+using Aonik.Ai.Services;
 using FluentAssertions;
 
 namespace Aonik.Infrastructure.Tests.Ai;
@@ -10,7 +10,7 @@ public class FileBasedPromptStoreTests
         // Get the path to the Infrastructure project's prompt templates
         var currentDirectory = Directory.GetCurrentDirectory();
         var solutionRoot = Directory.GetParent(currentDirectory)!.Parent!.Parent!.Parent!.Parent!.FullName;
-        return Path.Combine(solutionRoot, "src", "Aonik.Infrastructure", "Ai", "Prompting", "Templates");
+        return Path.Combine(solutionRoot, "src", "Aonik.Ai", "Prompting", "Templates");
     }
 
     [Fact]

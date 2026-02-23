@@ -1,5 +1,3 @@
-using Aonik.Application.Services.Ai;
-using Aonik.Application.Services.Ai.Workflows;
 using Aonik.Application.Services.Catalog;
 using Aonik.Application.Services.PersonalFinance;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,10 +19,6 @@ public static class DependencyInjection
 
         // Personal Finance
         services.AddScoped<IHouseholdService, HouseholdService>();
-
-        // AI
-        services.AddScoped<IAiInsightsService, AiInsightsService>();
-        services.AddScoped<InvoiceInsightWorkflow>();
 
         return services;
     }

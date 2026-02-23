@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 // Cross-module entity imports (temporary — will be removed when Finance/AI modules are extracted)
-using Aonik.Domain.Ai.Entities;
+using Aonik.Ai.Entities;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Payments;

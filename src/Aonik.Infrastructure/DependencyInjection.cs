@@ -5,7 +5,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Aonik.Application.Abstractions;
-using Aonik.Application.Abstractions.Ai;
 using Aonik.Application.Abstractions.Autonumbering;
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Messaging;
@@ -29,8 +28,6 @@ using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.SharedKernel.Abstractions;
 
-using Aonik.Infrastructure.Ai.Prompting;
-using Aonik.Infrastructure.Ai.Providers;
 using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authentication.Account;
 using Aonik.Infrastructure.Authentication.Configuration;
@@ -171,15 +168,6 @@ public static class DependencyInjection
         services.AddSingleton<INotificationTemplateRenderer, ScribanNotificationTemplateRenderer>();
 
 
-
-        // AI
-        services.AddSingleton<IPromptStore>(sp =>
-        {
-            var promptPath = configuration["AI:PromptTemplatesPath"];
-            return new FileBasedPromptStore(promptPath);
-        });
-
-        services.AddScoped<IModelProvider, StubModelProvider>();
 
         // Background Jobs (Quartz)
         services.AddAonikBackgroundJobs();

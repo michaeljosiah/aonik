@@ -1,5 +1,4 @@
 using Aonik.Domain.Agents.Entities;
-using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Autonumbering.Entities;
 using Aonik.Domain.Cms.Entities;
 using Aonik.Domain.Catalog.Entities;
@@ -86,21 +85,6 @@ public interface IAonikDbContext
     DbSet<NotificationTemplate> NotificationTemplates { get; set; }
     DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; }
     DbSet<WebhookSubscription> WebhookSubscriptions { get; set; }
-
-    // AI
-    DbSet<AiProvider> AiProviders { get; set; }
-    DbSet<AiModel> AiModels { get; set; }
-    DbSet<AiRoutePolicy> AiRoutePolicies { get; set; }
-    DbSet<PromptSpec> PromptSpecs { get; set; }
-    DbSet<ToolSpec> ToolSpecs { get; set; }
-    DbSet<AiPolicy> AiPolicies { get; set; }
-    DbSet<AiRun> AiRuns { get; set; }
-    DbSet<AiTrace> AiTraces { get; set; }
-    DbSet<AiFeedback> AiFeedbacks { get; set; }
-    DbSet<EvalSuite> EvalSuites { get; set; }
-    DbSet<EvalRun> EvalRuns { get; set; }
-    DbSet<Insight> Insights { get; set; }
-    DbSet<Signal> Signals { get; set; }
 
     // Agents
     DbSet<Agent> Agents { get; set; }

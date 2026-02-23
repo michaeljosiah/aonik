@@ -1,7 +1,6 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Agents.Entities;
-using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Autonumbering.Entities;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Cms.Entities;
@@ -90,21 +89,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; } = null!;
     public virtual DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
 
-    // AI
-    public virtual DbSet<AiProvider> AiProviders { get; set; } = null!;
-    public virtual DbSet<AiModel> AiModels { get; set; } = null!;
-    public virtual DbSet<AiRoutePolicy> AiRoutePolicies { get; set; } = null!;
-    public virtual DbSet<PromptSpec> PromptSpecs { get; set; } = null!;
-    public virtual DbSet<ToolSpec> ToolSpecs { get; set; } = null!;
-    public virtual DbSet<AiPolicy> AiPolicies { get; set; } = null!;
-    public virtual DbSet<AiRun> AiRuns { get; set; } = null!;
-    public virtual DbSet<AiTrace> AiTraces { get; set; } = null!;
-    public virtual DbSet<AiFeedback> AiFeedbacks { get; set; } = null!;
-    public virtual DbSet<EvalSuite> EvalSuites { get; set; } = null!;
-    public virtual DbSet<EvalRun> EvalRuns { get; set; } = null!;
-    public virtual DbSet<Insight> Insights { get; set; } = null!;
-    public virtual DbSet<Signal> Signals { get; set; } = null!;
-
     // Agents
     public virtual DbSet<Agent> Agents { get; set; } = null!;
     public virtual DbSet<AgentRun> AgentRuns { get; set; } = null!;
@@ -146,13 +130,15 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         // Apply Finance configurations from Finance assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LedgerEntity).Assembly);
 
+        // Apply AI configurations from Ai assembly (required for EF migrations)
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Ai.Entities.AiProvider).Assembly);
+
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);
 
         // Apply nullable tenant filters for entities with optional TenantId
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
