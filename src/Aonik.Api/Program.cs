@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Persistence.Seed;
 using Aonik.Platform;
+using Aonik.Finance;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 // Add domain modules
 builder.Services.AddPlatformModule(builder.Configuration);
+builder.Services.AddFinanceModule(builder.Configuration);
 
 // Add CORS for development
 builder.Services.AddCors(options =>
