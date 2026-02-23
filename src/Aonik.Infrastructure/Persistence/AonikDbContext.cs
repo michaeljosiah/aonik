@@ -1,6 +1,5 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Autonumbering.Entities;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Cms.Entities;
@@ -89,12 +88,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; } = null!;
     public virtual DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
 
-    // Agents
-    public virtual DbSet<Agent> Agents { get; set; } = null!;
-    public virtual DbSet<AgentRun> AgentRuns { get; set; } = null!;
-    public virtual DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; } = null!;
-    public virtual DbSet<Proposal> Proposals { get; set; } = null!;
-
     // Personal Finance
     public virtual DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
     public virtual DbSet<Household> Households { get; set; } = null!;
@@ -133,12 +126,15 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         // Apply AI configurations from Ai assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Ai.Entities.AiProvider).Assembly);
 
+        // Apply Agents configurations from Agents assembly (required for EF migrations)
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Agents.Entities.Agent).Assembly);
+
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);
 
         // Apply nullable tenant filters for entities with optional TenantId
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent));
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Aonik.Agents.Entities.Agent));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Aonik.Agents.Entities.OrchestratorPolicy));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));

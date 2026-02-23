@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Agents.Entities;
+namespace Aonik.Agents.Entities;
 
 public class Agent : AuditableEntity
 {

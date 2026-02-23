@@ -11,6 +11,7 @@ using Aonik.Infrastructure.Persistence.Seed;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
+using Aonik.Agents;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +27,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
+builder.Services.AddAgentsModule(builder.Configuration);
 
 // Add CORS for development
 builder.Services.AddCors(options =>

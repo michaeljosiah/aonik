@@ -6,6 +6,7 @@ using Aonik.Infrastructure.Persistence.Seed;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
+using Aonik.Agents;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,7 @@ builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
+builder.Services.AddAgentsModule(builder.Configuration);
 
 using var host = builder.Build();
 

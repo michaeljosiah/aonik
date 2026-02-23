@@ -28,8 +28,8 @@
 - [x] **PR 2.5** — Finance Module Clean-Up & Integration Events
 
 ### Phase 3: AI & Agent Platform with MAF
-- [ ] **PR 3.1** — Scaffold Aonik.Ai Module + MAF Integration
-- [ ] **PR 3.2** — Scaffold Aonik.Agents Module + MAF Agent Base
+- [x] **PR 3.1** — Scaffold Aonik.Ai Module + MAF Integration
+- [x] **PR 3.2** — Scaffold Aonik.Agents Module + MAF Agent Base
 - [ ] **PR 3.3** — Finance Domain Agent + Tools
 - [ ] **PR 3.4** — Platform Domain Agent + AI Provider Wrappers
 

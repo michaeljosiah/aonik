@@ -1,4 +1,3 @@
-using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Autonumbering.Entities;
 using Aonik.Domain.Cms.Entities;
 using Aonik.Domain.Catalog.Entities;
@@ -85,12 +84,6 @@ public interface IAonikDbContext
     DbSet<NotificationTemplate> NotificationTemplates { get; set; }
     DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; }
     DbSet<WebhookSubscription> WebhookSubscriptions { get; set; }
-
-    // Agents
-    DbSet<Agent> Agents { get; set; }
-    DbSet<AgentRun> AgentRuns { get; set; }
-    DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; }
-    DbSet<Proposal> Proposals { get; set; }
 
     // Personal Finance
     DbSet<PersonalProfile> PersonalProfiles { get; set; }
