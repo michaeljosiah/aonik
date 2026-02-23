@@ -3,6 +3,8 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Persistence.Seed;
+using Aonik.Platform;
+using Aonik.Finance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +22,10 @@ builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
+
+// Register domain modules
+builder.Services.AddPlatformModule(builder.Configuration);
+builder.Services.AddFinanceModule(builder.Configuration);
 
 using var host = builder.Build();
 
