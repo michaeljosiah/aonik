@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Services.Identity;
 using Aonik.Api.Contracts.Identity;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;

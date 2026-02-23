@@ -3,9 +3,9 @@ using FastEndpoints;
 
 using Aonik.Api.Contracts.Onboarding;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Platform.Contracts.Models.Onboarding;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.SharedKernel.Abstractions;

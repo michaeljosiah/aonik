@@ -3,7 +3,7 @@ using System.Text.Json;
 
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Settings;
-using Aonik.Application.Settings;
+using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;
 
 namespace Aonik.Infrastructure.Authentication.Account;

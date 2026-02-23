@@ -1,4 +1,4 @@
-using Aonik.Application.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions.Observability;
 using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Infrastructure.Observability;

@@ -9,12 +9,11 @@ using Microsoft.Extensions.Options;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Contracts.Models.Onboarding;
-using Aonik.Application.Options;
-using Aonik.Application.Services.Onboarding;
+using Aonik.Platform.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Party;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Platform.Persistence;
 
 namespace Aonik.Application.Tests.Onboarding;
 
@@ -42,12 +41,12 @@ public class OnboardingPolicyEvaluatorTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var partyId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        using var context = new AonikDbContext(options, tenantProvider);
+        using var context = new PlatformDbContext(options, tenantProvider);
 
         context.Tenants.Add(new Tenant
         {
@@ -158,12 +157,12 @@ public class OnboardingPolicyEvaluatorTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var partyId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        using var context = new AonikDbContext(options, tenantProvider);
+        using var context = new PlatformDbContext(options, tenantProvider);
 
         context.Tenants.Add(new Tenant
         {
@@ -245,12 +244,12 @@ public class OnboardingPolicyEvaluatorTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var partyId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        using var context = new AonikDbContext(options, tenantProvider);
+        using var context = new PlatformDbContext(options, tenantProvider);
 
         context.Tenants.Add(new Tenant
         {

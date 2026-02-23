@@ -11,6 +11,9 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Aonik.Api" />
     <InternalsVisibleTo Include="Aonik.Platform.Tests" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
+    <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="Aonik.Api.Tests" />
   </ItemGroup>
 
   <ItemGroup>

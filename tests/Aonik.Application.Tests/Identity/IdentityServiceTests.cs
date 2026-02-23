@@ -3,19 +3,19 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Models.Authentication;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Contracts.Models.Settings;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Application.Settings;
+using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.Settings;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Platform.Persistence;
 using Aonik.Infrastructure.Time;
 using Aonik.SharedKernel.Abstractions;
 
@@ -338,14 +338,14 @@ public class IdentityServiceTests
         response.Roles.Should().ContainSingle("Customer");
     }
 
-    private static AonikDbContext CreateDbContext(Guid tenantId)
+    private static PlatformDbContext CreateDbContext(Guid tenantId)
     {
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"IdentityTestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        var dbContext = new AonikDbContext(options, tenantProvider);
+        var dbContext = new PlatformDbContext(options, tenantProvider);
 
         dbContext.Tenants.Add(new Tenant
         {

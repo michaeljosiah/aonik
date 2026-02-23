@@ -3,8 +3,8 @@ using FastEndpoints;
 
 using Aonik.Api.Contracts.Identity;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Observability;
-using Aonik.Application.Services.Compliance;
+using Aonik.SharedKernel.Abstractions.Observability;
+using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;

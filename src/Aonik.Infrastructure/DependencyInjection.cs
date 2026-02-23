@@ -11,28 +11,25 @@ using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Contracts.Services.Notifications;
-using Aonik.Application.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Contracts.Services.ReferenceData;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Abstractions.Storage;
-using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Application.Options;
+using Aonik.Platform.Contracts.Services.Storage;
+using Aonik.Platform.Services.Onboarding;
 using Aonik.Application.Services.Cms;
-using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Identity;
-using Aonik.Application.Services.Identity.Provisioning;
-using Aonik.Application.Services.Onboarding;
-using Aonik.Application.Services.Registration;
-using Aonik.Application.Services.Settings;
+using Aonik.Platform.Services.Compliance;
+using Aonik.Platform.Services.Identity;
+using Aonik.Platform.Services.Registration;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Application.Services.Autonumbering;
-using Aonik.Application.Services.Notifications;
+using Aonik.Platform.Services.Notifications;
 using Aonik.Platform.Contracts.Services.Registration;
-using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Services.Onboarding;
-using Aonik.Application.Services.Pricing;
+using Aonik.SharedKernel.Abstractions;
 
 using Aonik.Infrastructure.Ai.Prompting;
 using Aonik.Infrastructure.Ai.Providers;
@@ -61,7 +58,6 @@ using Aonik.Infrastructure.Caching;
 using Aonik.Infrastructure.Time;
 using Aonik.Infrastructure.Features;
 using Aonik.Infrastructure.Seeding;
-using Aonik.SharedKernel.Abstractions;
 using Microsoft.FeatureManagement;
 using ZiggyCreatures.Caching.Fusion;
 
@@ -81,16 +77,11 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
         services.AddScoped<ICorrelationContext, HttpContextCorrelationContext>();
         services.AddSingleton<IJsonSerializer, SystemTextJsonSerializer>();
-        services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
         services.Configure<PlatformAdminOptions>(configuration.GetSection("PlatformAdmin"));
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
-        services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
-        services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
         services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
         services.AddFusionCache();
         services.AddDataProtection();
-
-        services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
 
         services.AddSingleton<ICachePolicyProvider, CachePolicyProvider>();
         services.AddSingleton<ICacheSetRegistry, CacheSetRegistry>();
@@ -158,29 +149,13 @@ public static class DependencyInjection
 
         services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
 
-        // Application Services
-        services.AddScoped<ITenantService, TenantService>();
-        services.AddScoped<ITenantProvisioner, TenantProvisioner>();
-        services.AddScoped<IBootstrapTenantProvisioner, TenantProvisioner>();
-        services.AddScoped<IBootstrapService, BootstrapService>();
-        services.AddScoped<IAuditLogWriter, AuditLogWriter>();
+        // Infrastructure Services (implementations that wrap external systems)
         services.AddScoped<ISettingValueProtector, SettingValueProtector>();
         services.AddScoped<ISettingProvider, SettingService>();
         services.AddScoped<ISettingManager, SettingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IAutonumberingService, AutonumberingService>();
-        services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
-        services.AddScoped<IRegistrationService, RegistrationService>();
-        services.AddScoped<IIdentityService, IdentityService>();
-        services.AddScoped<IUserIdentityService, UserIdentityService>();
-        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
-        services.AddScoped<IUserProfileService, UserProfileService>();
-        services.AddScoped<IUserRoleService, UserRoleService>();
-        services.AddScoped<IPermissionService, PermissionService>();
-        services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<IContentBlockService, ContentBlockService>();
-        services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
-        services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
         services.AddHttpClient<Auth0AuthTokenService>();
@@ -220,12 +195,6 @@ public static class DependencyInjection
     {
         // Register authentication services
         services.AddScoped<ITenantResolver, TenantResolver>();
-        services.AddScoped<IUserIdentityService, UserIdentityService>();
-        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
-        services.AddScoped<IPermissionService, PermissionService>();
-        services.AddScoped<IUserRoleService, UserRoleService>();
-        services.AddScoped<IUserProfileService, UserProfileService>();
-        services.AddScoped<IVerificationService, VerificationService>();
 
         // Add authentication
         services.AddAonikAuthentication(configuration);

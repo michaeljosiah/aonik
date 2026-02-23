@@ -1,12 +1,6 @@
+using Aonik.SharedKernel.Abstractions;
+
 namespace Aonik.Application.Services.Pricing;
-
-public interface ICurrencyMetadataProvider
-{
-    bool TryGetCurrency(string currency, out CurrencyMetadata metadata);
-    CurrencyMetadata GetCurrency(string currency);
-}
-
-public record CurrencyMetadata(string Code, int DecimalPlaces);
 
 public class CurrencyMetadataProvider : ICurrencyMetadataProvider
 {

@@ -12,14 +12,14 @@ using MicrosoftOptions = Microsoft.Extensions.Options.Options;
 
 using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Observability;
-using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Identity;
+using Aonik.SharedKernel.Abstractions.Observability;
+using Aonik.Platform.Services.Compliance;
+using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
 
-using Aonik.Infrastructure.Persistence;
+using Aonik.Platform.Persistence;
 using Aonik.Infrastructure.Time;
 
 namespace Aonik.Application.Tests.Identity;
@@ -115,12 +115,12 @@ public class VerificationServiceTests
         // Arrange
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        using var context = new AonikDbContext(options, tenantProvider);
+        using var context = new PlatformDbContext(options, tenantProvider);
         context.Users.Add(new User
         {
             Id = userId,
@@ -178,12 +178,12 @@ public class VerificationServiceTests
         // Arrange
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        using var context = new AonikDbContext(options, tenantProvider);
+        using var context = new PlatformDbContext(options, tenantProvider);
         context.Users.Add(new User
         {
             Id = userId,
@@ -244,12 +244,12 @@ public class VerificationServiceTests
         // Arrange
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        using var context = new AonikDbContext(options, tenantProvider);
+        using var context = new PlatformDbContext(options, tenantProvider);
         context.Users.Add(new User
         {
             Id = userId,
@@ -309,12 +309,12 @@ public class VerificationServiceTests
         // Arrange
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
         var tenantProvider = new TestTenantProvider(tenantId);
-        using var context = new AonikDbContext(options, tenantProvider);
+        using var context = new PlatformDbContext(options, tenantProvider);
         context.Users.Add(new User
         {
             Id = userId,

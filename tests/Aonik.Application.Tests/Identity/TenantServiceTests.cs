@@ -2,16 +2,16 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions;
+using Aonik.Application.Services.Pricing;
 using Aonik.Platform.Contracts.Models.Identity;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Application.Services.Pricing;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Infrastructure.Multitenancy;
-using Aonik.Infrastructure.Persistence;
-using Aonik.SharedKernel.Abstractions;
+using Aonik.Platform.Persistence;
 
 namespace Aonik.Application.Tests.Identity;
 
@@ -103,11 +103,11 @@ public class TenantServiceTests
         var tenantContext = new TestTenantContext();
         var userId = Guid.NewGuid();
         var clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var dbContext = new AonikDbContext(
+        using var dbContext = new PlatformDbContext(
             options,
             new HttpContextTenantProvider(tenantContext),
             new TestCurrentUserProvider(userId),
@@ -170,11 +170,11 @@ public class TenantServiceTests
         var tenantContext = new TestTenantContext();
         var userId = Guid.NewGuid();
         var clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var dbContext = new AonikDbContext(
+        using var dbContext = new PlatformDbContext(
             options,
             new HttpContextTenantProvider(tenantContext),
             new TestCurrentUserProvider(userId),
@@ -226,11 +226,11 @@ public class TenantServiceTests
         var tenantContext = new TestTenantContext();
         var userId = Guid.NewGuid();
         var clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var dbContext = new AonikDbContext(
+        using var dbContext = new PlatformDbContext(
             options,
             new HttpContextTenantProvider(tenantContext),
             new TestCurrentUserProvider(userId),

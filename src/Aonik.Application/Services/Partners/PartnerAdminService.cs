@@ -6,7 +6,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Models.Partners;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Domain.Ledger.Entities;

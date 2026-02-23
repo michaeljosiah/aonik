@@ -6,7 +6,7 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Contracts.Models.Party;
 using Aonik.Application.Models.Orders;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Party;
 using Aonik.Domain.Orders;
