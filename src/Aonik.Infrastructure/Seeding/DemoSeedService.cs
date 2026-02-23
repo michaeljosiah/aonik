@@ -18,12 +18,13 @@ using Aonik.Finance.Entities.Partners;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Application.Models.Catalog;
 using Aonik.Finance.Contracts.Models.Pricing;
+using Aonik.Finance.Persistence;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace Aonik.Infrastructure.Seeding;
 
-public class DemoSeedService : IDemoSeedService
+internal class DemoSeedService : IDemoSeedService
 {
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> TenantSeedLocks = new();
 
@@ -35,6 +36,7 @@ public class DemoSeedService : IDemoSeedService
     private const string DemoSeedKey = "DemoSeed.BillPayment";
     private const string CrossBorderDemoSeedKey = "DemoSeed.CrossBorderPayments";
     private readonly IAonikDbContext _dbContext;
+    private readonly FinanceDbContext _financeDbContext;
     private readonly IClock _clock;
     private readonly ILoggerFactory _loggerFactory;
     private readonly IAuditLogWriter _auditLogWriter;
@@ -126,6 +128,7 @@ public class DemoSeedService : IDemoSeedService
 
     public DemoSeedService(
         IAonikDbContext dbContext,
+        FinanceDbContext financeDbContext,
         IClock clock,
         ILoggerFactory loggerFactory,
         IAuditLogWriter auditLogWriter,
@@ -135,6 +138,7 @@ public class DemoSeedService : IDemoSeedService
         ITenantContext tenantContext)
     {
         _dbContext = dbContext;
+        _financeDbContext = financeDbContext;
         _clock = clock;
         _loggerFactory = loggerFactory;
         _auditLogWriter = auditLogWriter;
@@ -180,12 +184,14 @@ public class DemoSeedService : IDemoSeedService
             ClearTrackingIfSupported(_dbContext);
             var billCollectionPartnerId = await EnsureBillCollectionPartnerAsync(tenantId, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
+            ClearFinanceTracking();
             var catalogIds = await SeedCatalogAsync(tenantId, billCollectionPartnerId, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
             var partyIds = await SeedPartiesAsync(tenantId, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
             var pricingIds = await SeedPricingAsync(tenantId, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
+            ClearFinanceTracking();
             await UpsertMarkerAsync(tenantId, catalogIds, partyIds, pricingIds, operations, cancellationToken);
             ClearTrackingIfSupported(_dbContext);
 
@@ -197,14 +203,17 @@ public class DemoSeedService : IDemoSeedService
                 ClearTrackingIfSupported(_dbContext);
                 var partnerNetwork = await SeedCrossBorderPartnerNetworkAsync(tenantId, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
+                ClearFinanceTracking();
                 var crossBorderCatalog = await SeedCrossBorderCatalogAsync(tenantId, partnerNetwork, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
                 var crossBorderParties = await SeedCrossBorderPartiesAsync(tenantId, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
                 var householdIds = await SeedHouseholdsAsync(tenantId, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
+                ClearFinanceTracking();
                 var crossBorderPricing = await SeedCrossBorderPricingAsync(tenantId, operations, cancellationToken);
                 ClearTrackingIfSupported(_dbContext);
+                ClearFinanceTracking();
 
                 await UpsertCrossBorderMarkerAsync(
                     tenantId,
@@ -296,7 +305,7 @@ public class DemoSeedService : IDemoSeedService
         var userId = _currentUserProvider.GetCurrentUserId();
         const string partnerName = "Gold Coast Bill Hub";
 
-        var partner = await _dbContext.Partners
+        var partner = await _financeDbContext.Partners
             .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Name == partnerName, cancellationToken);
 
         var capabilitiesJson = JsonSerializer.Serialize(new[] { "BILLPAY", "COLLECTIONS" });
@@ -321,7 +330,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedBy = userId
             };
 
-            _dbContext.Partners.Add(partner);
+            _financeDbContext.Partners.Add(partner);
         }
         else
         {
@@ -342,7 +351,7 @@ public class DemoSeedService : IDemoSeedService
             userId,
             cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
 
         operations.Add("Ensured BillCollection GH partner and prefund account");
         return partner.Id;
@@ -361,7 +370,7 @@ public class DemoSeedService : IDemoSeedService
         var normalizedCurrency = currencyCode.Trim().ToUpperInvariant();
         var ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
 
-        var fundingAccount = await _dbContext.PartnerFundingAccounts
+        var fundingAccount = await _financeDbContext.PartnerFundingAccounts
             .FirstOrDefaultAsync(account =>
                 account.TenantId == tenantId &&
                 account.PartnerId == partnerId &&
@@ -370,7 +379,7 @@ public class DemoSeedService : IDemoSeedService
                 cancellationToken);
 
         var accountCode = BuildPartnerPrefundAccountCode(partnerId, normalizedCurrency);
-        var ledgerAccount = await _dbContext.LedgerAccounts
+        var ledgerAccount = await _financeDbContext.LedgerAccounts
             .FirstOrDefaultAsync(account => account.TenantId == tenantId && account.Code == accountCode, cancellationToken);
 
         if (ledgerAccount == null)
@@ -393,7 +402,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedBy = userId
             };
 
-            _dbContext.LedgerAccounts.Add(ledgerAccount);
+            _financeDbContext.LedgerAccounts.Add(ledgerAccount);
         }
 
         if (fundingAccount == null)
@@ -411,7 +420,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedBy = userId
             };
 
-            _dbContext.PartnerFundingAccounts.Add(fundingAccount);
+            _financeDbContext.PartnerFundingAccounts.Add(fundingAccount);
         }
         else
         {
@@ -446,7 +455,7 @@ public class DemoSeedService : IDemoSeedService
             return;
         }
 
-        var hasSeedEntry = await _dbContext.JournalEntries
+        var hasSeedEntry = await _financeDbContext.JournalEntries
             .AsNoTracking()
             .AnyAsync(entry =>
                 entry.TenantId == tenantId &&
@@ -512,14 +521,14 @@ public class DemoSeedService : IDemoSeedService
             }
         };
 
-        _dbContext.JournalEntries.Add(entry);
+        _financeDbContext.JournalEntries.Add(entry);
     }
 
     private async Task<Guid> ResolveCashLedgerAccountIdAsync(
         Guid tenantId,
         CancellationToken cancellationToken)
     {
-        var cashAccountId = await _dbContext.LedgerAccounts
+        var cashAccountId = await _financeDbContext.LedgerAccounts
             .AsNoTracking()
             .Where(account => account.TenantId == tenantId && account.Code == "1000")
             .Select(account => (Guid?)account.Id)
@@ -530,7 +539,7 @@ public class DemoSeedService : IDemoSeedService
             return cashAccountId.Value;
         }
 
-        cashAccountId = await _dbContext.LedgerAccounts
+        cashAccountId = await _financeDbContext.LedgerAccounts
             .AsNoTracking()
             .Where(account => account.TenantId == tenantId && account.Name == "Cash")
             .Select(account => (Guid?)account.Id)
@@ -546,7 +555,7 @@ public class DemoSeedService : IDemoSeedService
 
     private async Task<Guid> GetTenantLedgerIdAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        var ledgerId = await _dbContext.Ledgers
+        var ledgerId = await _financeDbContext.Ledgers
             .AsNoTracking()
             .Where(ledger => ledger.TenantId == tenantId)
             .Select(ledger => (Guid?)ledger.Id)
@@ -1109,7 +1118,7 @@ public class DemoSeedService : IDemoSeedService
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
 
-        var fxQuote = await _dbContext.FxQuotes
+        var fxQuote = await _financeDbContext.FxQuotes
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.BaseCurrency == "NGN"
                                          && item.TargetCurrency == "GHS"
@@ -1132,7 +1141,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.FxQuotes.Add(fxQuote);
+            _financeDbContext.FxQuotes.Add(fxQuote);
             operations.Add("Seeded FX quote");
         }
         else
@@ -1164,7 +1173,7 @@ public class DemoSeedService : IDemoSeedService
                 new("FX_MARKUP", "FX markup", "FxMarkup")
             });
 
-        var feePolicy = await _dbContext.FeePolicies
+        var feePolicy = await _financeDbContext.FeePolicies
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.Name == "BillPay-NG-GH-Default",
                 cancellationToken);
@@ -1183,7 +1192,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.FeePolicies.Add(feePolicy);
+            _financeDbContext.FeePolicies.Add(feePolicy);
             operations.Add("Seeded fee policy");
         }
         else
@@ -1197,7 +1206,7 @@ public class DemoSeedService : IDemoSeedService
             feePolicy.UpdatedBy = userId;
         }
 
-        var limitsPolicy = await _dbContext.LimitsPolicies
+        var limitsPolicy = await _financeDbContext.LimitsPolicies
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.ScopeType == "Tenant"
                                          && item.ScopeId == tenantId
@@ -1220,7 +1229,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.LimitsPolicies.Add(limitsPolicy);
+            _financeDbContext.LimitsPolicies.Add(limitsPolicy);
             operations.Add("Seeded limits policy");
         }
         else
@@ -1235,7 +1244,7 @@ public class DemoSeedService : IDemoSeedService
             limitsPolicy.UpdatedBy = userId;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
         return (fxQuote.Id, feePolicy.Id, limitsPolicy.Id);
     }
 
@@ -1380,6 +1389,11 @@ public class DemoSeedService : IDemoSeedService
         {
             efDbContext.ChangeTracker.Clear();
         }
+    }
+
+    private void ClearFinanceTracking()
+    {
+        _financeDbContext.ChangeTracker.Clear();
     }
 
     private async Task<(IReadOnlyList<Guid> CountryIds, IReadOnlyList<Guid> CurrencyIds)> SeedCrossBorderTenantCoverageAsync(
@@ -1555,7 +1569,7 @@ public class DemoSeedService : IDemoSeedService
 
         foreach (var seed in seeds)
         {
-            var partner = await _dbContext.Partners
+            var partner = await _financeDbContext.Partners
                 .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Name == seed.PartnerName, cancellationToken);
 
             var capabilitiesJson = JsonSerializer.Serialize(new[] { "BILLPAY", "PAYOUT", "COLLECTIONS" });
@@ -1579,7 +1593,7 @@ public class DemoSeedService : IDemoSeedService
                     CreatedAt = now,
                     CreatedBy = userId
                 };
-                _dbContext.Partners.Add(partner);
+                _financeDbContext.Partners.Add(partner);
             }
             else
             {
@@ -1603,7 +1617,7 @@ public class DemoSeedService : IDemoSeedService
                 userId,
                 cancellationToken);
 
-            var branch = await _dbContext.PartnerBranches
+            var branch = await _financeDbContext.PartnerBranches
                 .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                              && item.PartnerId == partnerId
                                              && item.Name == seed.BranchName,
@@ -1630,7 +1644,7 @@ public class DemoSeedService : IDemoSeedService
                     CreatedAt = now,
                     CreatedBy = userId
                 };
-                _dbContext.PartnerBranches.Add(branch);
+                _financeDbContext.PartnerBranches.Add(branch);
             }
             else
             {
@@ -1642,7 +1656,7 @@ public class DemoSeedService : IDemoSeedService
                 branch.UpdatedBy = userId;
             }
 
-            var connector = await _dbContext.Connectors
+            var connector = await _financeDbContext.Connectors
                 .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                              && item.PartnerId == partnerId
                                              && item.ConnectorType == "API",
@@ -1669,7 +1683,7 @@ public class DemoSeedService : IDemoSeedService
                     CreatedAt = now,
                     CreatedBy = userId
                 };
-                _dbContext.Connectors.Add(connector);
+                _financeDbContext.Connectors.Add(connector);
             }
             else
             {
@@ -1683,7 +1697,7 @@ public class DemoSeedService : IDemoSeedService
 
             var connectorId = connector.Id;
 
-            var routingRule = await _dbContext.RoutingRules
+            var routingRule = await _financeDbContext.RoutingRules
                 .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Id == seed.RoutingRuleId, cancellationToken);
 
             var conditionsJson = JsonSerializer.Serialize(new
@@ -1707,7 +1721,7 @@ public class DemoSeedService : IDemoSeedService
                     CreatedAt = now,
                     CreatedBy = userId
                 };
-                _dbContext.RoutingRules.Add(routingRule);
+                _financeDbContext.RoutingRules.Add(routingRule);
             }
             else
             {
@@ -1724,7 +1738,7 @@ public class DemoSeedService : IDemoSeedService
             connectorIdsByCountry[seed.CountryCode] = connectorId;
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
         operations.Add("Seeded cross-border partner network and routing rules");
 
         return (partnerIdsByCountry, connectorIdsByCountry);
@@ -2736,7 +2750,7 @@ public class DemoSeedService : IDemoSeedService
             await UpsertLimitsPolicyAsync(tenantId, SouthAfricaLimitsPolicyId, "ZAR", 120000m, "Daily", now, userId, cancellationToken)
         };
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
         operations.Add("Seeded UK-to-Africa FX quotes and tiered cross-border charging policies");
 
         return (fxQuoteIds, feePolicyIds, limitsPolicyIds);
@@ -2754,7 +2768,7 @@ public class DemoSeedService : IDemoSeedService
         Guid? userId,
         CancellationToken cancellationToken)
     {
-        var fxQuote = await _dbContext.FxQuotes
+        var fxQuote = await _financeDbContext.FxQuotes
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.BaseCurrency == baseCurrency
                                          && item.TargetCurrency == targetCurrency
@@ -2776,7 +2790,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.FxQuotes.Add(fxQuote);
+            _financeDbContext.FxQuotes.Add(fxQuote);
         }
         else
         {
@@ -2804,7 +2818,7 @@ public class DemoSeedService : IDemoSeedService
         Guid? userId,
         CancellationToken cancellationToken)
     {
-        var feePolicy = await _dbContext.FeePolicies
+        var feePolicy = await _financeDbContext.FeePolicies
             .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Name == name, cancellationToken);
 
         var conditionsJson = JsonSerializer.Serialize(conditions);
@@ -2823,7 +2837,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.FeePolicies.Add(feePolicy);
+            _financeDbContext.FeePolicies.Add(feePolicy);
         }
         else
         {
@@ -2849,7 +2863,7 @@ public class DemoSeedService : IDemoSeedService
         Guid? userId,
         CancellationToken cancellationToken)
     {
-        var limitsPolicy = await _dbContext.LimitsPolicies
+        var limitsPolicy = await _financeDbContext.LimitsPolicies
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.ScopeType == "Tenant"
                                          && item.ScopeId == tenantId
@@ -2872,7 +2886,7 @@ public class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.LimitsPolicies.Add(limitsPolicy);
+            _financeDbContext.LimitsPolicies.Add(limitsPolicy);
         }
         else
         {

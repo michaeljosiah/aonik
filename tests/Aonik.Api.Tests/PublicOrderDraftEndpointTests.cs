@@ -8,7 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Entities.Identity;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Finance.Persistence;
+using Aonik.Platform.Persistence;
 
 namespace Aonik.Api.Tests;
 
@@ -62,7 +63,7 @@ public class PublicOrderDraftEndpointTests : IClassFixture<CustomWebApplicationF
         payload.Status.Should().Be("Draft");
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
         var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
         tenantContext.TenantId = tenantId;
 
@@ -124,7 +125,7 @@ public class PublicOrderDraftEndpointTests : IClassFixture<CustomWebApplicationF
     private async Task SeedTenantAsync(Guid tenantId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         var existingTenant = await dbContext.Tenants.FirstOrDefaultAsync(tenant => tenant.Id == tenantId);
         if (existingTenant != null)

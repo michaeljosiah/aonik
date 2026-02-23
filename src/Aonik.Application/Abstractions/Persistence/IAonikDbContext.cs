@@ -1,7 +1,6 @@
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Autonumbering.Entities;
-using Aonik.Finance.Entities.Billing;
 using Aonik.Domain.Cms.Entities;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Platform.Entities.Compliance;
@@ -9,21 +8,12 @@ using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
-using Aonik.Finance.Entities.Orders;
-using Aonik.Finance.Entities.Partners;
-using Aonik.Finance.Entities.Payments;
 using Aonik.Domain.PersonalFinance.Entities;
-using Aonik.Finance.Entities.Pricing;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.Party;
 using Microsoft.EntityFrameworkCore;
-using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
-using LedgerAccount = Aonik.Finance.Entities.Ledger.LedgerAccount;
-using JournalEntry = Aonik.Finance.Entities.Ledger.JournalEntry;
-using JournalEntryLine = Aonik.Finance.Entities.Ledger.JournalEntryLine;
-using BalanceSnapshot = Aonik.Finance.Entities.Ledger.BalanceSnapshot;
 
 namespace Aonik.Application.Abstractions.Persistence;
 
@@ -65,27 +55,6 @@ public interface IAonikDbContext
     DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; }
     DbSet<PartyRelationship> PartyRelationships { get; set; }
 
-    // Ledger
-    DbSet<LedgerEntity> Ledgers { get; set; }
-    DbSet<LedgerAccount> LedgerAccounts { get; set; }
-    DbSet<JournalEntry> JournalEntries { get; set; }
-    DbSet<JournalEntryLine> JournalEntryLines { get; set; }
-    DbSet<BalanceSnapshot> BalanceSnapshots { get; set; }
-
-    // Payments
-    DbSet<PaymentIntent> PaymentIntents { get; set; }
-    DbSet<Payment> Payments { get; set; }
-    DbSet<Payout> Payouts { get; set; }
-    DbSet<Refund> Refunds { get; set; }
-    DbSet<Chargeback> Chargebacks { get; set; }
-
-    // Billing
-    DbSet<Invoice> Invoices { get; set; }
-    DbSet<InvoiceLine> InvoiceLines { get; set; }
-    DbSet<CustomerAccount> CustomerAccounts { get; set; }
-    DbSet<InvoiceAllocation> InvoiceAllocations { get; set; }
-    DbSet<DunningPlan> DunningPlans { get; set; }
-
     // CMS
     DbSet<ContentBlock> ContentBlocks { get; set; }
     DbSet<ContentBlockMedia> ContentBlockMedia { get; set; }
@@ -94,24 +63,6 @@ public interface IAonikDbContext
     DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; }
     DbSet<CatalogBiller> CatalogBillers { get; set; }
     DbSet<CatalogBillerService> CatalogBillerServices { get; set; }
-
-    // Partners
-    DbSet<Partner> Partners { get; set; }
-    DbSet<PartnerBranch> PartnerBranches { get; set; }
-    DbSet<Connector> Connectors { get; set; }
-    DbSet<RoutingRule> RoutingRules { get; set; }
-    DbSet<PayoutSchema> PayoutSchemas { get; set; }
-    DbSet<Transmission> Transmissions { get; set; }
-    DbSet<PartnerFundingAccount> PartnerFundingAccounts { get; set; }
-
-    // Pricing
-    DbSet<FeePolicy> FeePolicies { get; set; }
-    DbSet<FxQuote> FxQuotes { get; set; }
-    DbSet<FxRateSource> FxRateSources { get; set; }
-    DbSet<FxRefreshSchedule> FxRefreshSchedules { get; set; }
-    DbSet<FxSpreadPolicy> FxSpreadPolicies { get; set; }
-    DbSet<LimitsPolicy> LimitsPolicies { get; set; }
-    DbSet<PricingQuote> PricingQuotes { get; set; }
 
     // Compliance
     DbSet<ScreeningCheck> ScreeningChecks { get; set; }
@@ -156,15 +107,6 @@ public interface IAonikDbContext
     DbSet<AgentRun> AgentRuns { get; set; }
     DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; }
     DbSet<Proposal> Proposals { get; set; }
-
-    // Orders
-    DbSet<Order> Orders { get; set; }
-    DbSet<OrderItem> OrderItems { get; set; }
-    DbSet<OrderPartyRole> OrderPartyRoles { get; set; }
-    DbSet<OrderFundingRef> OrderFundingRefs { get; set; }
-    DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; }
-    DbSet<OrderHistoryEvent> OrderHistoryEvents { get; set; }
-    DbSet<OrderNote> OrderNotes { get; set; }
 
     // Personal Finance
     DbSet<PersonalProfile> PersonalProfiles { get; set; }

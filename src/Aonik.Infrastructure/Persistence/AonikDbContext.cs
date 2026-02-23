@@ -3,7 +3,6 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Agents.Entities;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Domain.Autonumbering.Entities;
-using Aonik.Finance.Entities.Billing;
 using Aonik.Domain.Catalog.Entities;
 using Aonik.Domain.Cms.Entities;
 using Aonik.Platform.Entities.Compliance;
@@ -11,12 +10,8 @@ using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
-using Aonik.Finance.Entities.Orders;
-using Aonik.Finance.Entities.Partners;
-using Aonik.Finance.Entities.Payments;
 using Aonik.Platform.Entities.Party;
 using Aonik.Domain.PersonalFinance.Entities;
-using Aonik.Finance.Entities.Pricing;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
 using Aonik.SharedKernel.Abstractions;
@@ -25,10 +20,6 @@ using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
-using LedgerAccount = Aonik.Finance.Entities.Ledger.LedgerAccount;
-using JournalEntry = Aonik.Finance.Entities.Ledger.JournalEntry;
-using JournalEntryLine = Aonik.Finance.Entities.Ledger.JournalEntryLine;
-using BalanceSnapshot = Aonik.Finance.Entities.Ledger.BalanceSnapshot;
 
 namespace Aonik.Infrastructure.Persistence;
 
@@ -67,27 +58,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
     public virtual DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
 
-    // Ledger
-    public virtual DbSet<LedgerEntity> Ledgers { get; set; } = null!;
-    public virtual DbSet<LedgerAccount> LedgerAccounts { get; set; } = null!;
-    public virtual DbSet<JournalEntry> JournalEntries { get; set; } = null!;
-    public virtual DbSet<JournalEntryLine> JournalEntryLines { get; set; } = null!;
-    public virtual DbSet<BalanceSnapshot> BalanceSnapshots { get; set; } = null!;
-
-    // Payments
-    public virtual DbSet<PaymentIntent> PaymentIntents { get; set; } = null!;
-    public virtual DbSet<Payment> Payments { get; set; } = null!;
-    public virtual DbSet<Payout> Payouts { get; set; } = null!;
-    public virtual DbSet<Refund> Refunds { get; set; } = null!;
-    public virtual DbSet<Chargeback> Chargebacks { get; set; } = null!;
-
-    // Billing
-    public virtual DbSet<Invoice> Invoices { get; set; } = null!;
-    public virtual DbSet<InvoiceLine> InvoiceLines { get; set; } = null!;
-    public virtual DbSet<CustomerAccount> CustomerAccounts { get; set; } = null!;
-    public virtual DbSet<InvoiceAllocation> InvoiceAllocations { get; set; } = null!;
-    public virtual DbSet<DunningPlan> DunningPlans { get; set; } = null!;
-
     // CMS
     public virtual DbSet<ContentBlock> ContentBlocks { get; set; } = null!;
     public virtual DbSet<ContentBlockMedia> ContentBlockMedia { get; set; } = null!;
@@ -96,24 +66,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; } = null!;
     public virtual DbSet<CatalogBiller> CatalogBillers { get; set; } = null!;
     public virtual DbSet<CatalogBillerService> CatalogBillerServices { get; set; } = null!;
-
-    // Partners
-    public virtual DbSet<Partner> Partners { get; set; } = null!;
-    public virtual DbSet<PartnerBranch> PartnerBranches { get; set; } = null!;
-    public virtual DbSet<Connector> Connectors { get; set; } = null!;
-    public virtual DbSet<RoutingRule> RoutingRules { get; set; } = null!;
-    public virtual DbSet<PayoutSchema> PayoutSchemas { get; set; } = null!;
-    public virtual DbSet<Transmission> Transmissions { get; set; } = null!;
-    public virtual DbSet<PartnerFundingAccount> PartnerFundingAccounts { get; set; } = null!;
-
-    // Pricing
-    public virtual DbSet<FeePolicy> FeePolicies { get; set; } = null!;
-    public virtual DbSet<FxQuote> FxQuotes { get; set; } = null!;
-    public virtual DbSet<FxRateSource> FxRateSources { get; set; } = null!;
-    public virtual DbSet<FxRefreshSchedule> FxRefreshSchedules { get; set; } = null!;
-    public virtual DbSet<FxSpreadPolicy> FxSpreadPolicies { get; set; } = null!;
-    public virtual DbSet<LimitsPolicy> LimitsPolicies { get; set; } = null!;
-    public virtual DbSet<PricingQuote> PricingQuotes { get; set; } = null!;
 
     // Compliance
     public virtual DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
@@ -159,15 +111,6 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; } = null!;
     public virtual DbSet<Proposal> Proposals { get; set; } = null!;
 
-    // Orders
-    public virtual DbSet<Order> Orders { get; set; } = null!;
-    public virtual DbSet<OrderItem> OrderItems { get; set; } = null!;
-    public virtual DbSet<OrderPartyRole> OrderPartyRoles { get; set; } = null!;
-    public virtual DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
-    public virtual DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; } = null!;
-    public virtual DbSet<OrderHistoryEvent> OrderHistoryEvents { get; set; } = null!;
-    public virtual DbSet<OrderNote> OrderNotes { get; set; } = null!;
-
     // Personal Finance
     public virtual DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
     public virtual DbSet<Household> Households { get; set; } = null!;
@@ -200,7 +143,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         // Apply Identity configurations from Platform assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Tenant).Assembly);
 
-        // Apply Ledger configurations from Finance assembly
+        // Apply Finance configurations from Finance assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(LedgerEntity).Assembly);
 
         // Apply tenant query filters
@@ -216,73 +159,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
     }
 
-    protected override void OnBeforeSave()
-    {
-        PopulateOrderCompatibilityColumns();
-    }
-
     protected override bool IsGlobalEntity(object entity)
     {
         return entity is Role;
-    }
-
-    private void PopulateOrderCompatibilityColumns()
-    {
-        var orderEntries = ChangeTracker.Entries<Order>()
-            .Where(entry => entry.State == EntityState.Added)
-            .ToList();
-
-        if (orderEntries.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var entry in orderEntries)
-        {
-            if (entry.Metadata.FindProperty("OrderNumber") != null)
-            {
-                var orderNumber = entry.Property("OrderNumber").CurrentValue as string;
-                if (string.IsNullOrWhiteSpace(orderNumber))
-                {
-                    entry.Property("OrderNumber").CurrentValue = GenerateOrderNumber();
-                }
-            }
-
-            if (entry.Metadata.FindProperty("ServiceCode") != null)
-            {
-                var serviceCode = entry.Property("ServiceCode").CurrentValue as string;
-                if (string.IsNullOrWhiteSpace(serviceCode))
-                {
-                    entry.Property("ServiceCode").CurrentValue = string.IsNullOrWhiteSpace(entry.Entity.OrderType)
-                        ? "UNKNOWN"
-                        : entry.Entity.OrderType.Trim().ToUpperInvariant();
-                }
-            }
-
-            if (entry.Metadata.FindProperty("MetadataJson") != null)
-            {
-                var metadataJson = entry.Property("MetadataJson").CurrentValue as string;
-                if (string.IsNullOrWhiteSpace(metadataJson))
-                {
-                    entry.Property("MetadataJson").CurrentValue = "{}";
-                }
-            }
-
-            if (entry.Metadata.FindProperty("OrderDetailsJson") != null)
-            {
-                var detailsJson = entry.Property("OrderDetailsJson").CurrentValue as string;
-                if (string.IsNullOrWhiteSpace(detailsJson))
-                {
-                    entry.Property("OrderDetailsJson").CurrentValue = "{}";
-                }
-            }
-        }
-    }
-
-    private static string GenerateOrderNumber()
-    {
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
-        var token = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-        return $"ORD-{timestamp}-{token}";
     }
 }

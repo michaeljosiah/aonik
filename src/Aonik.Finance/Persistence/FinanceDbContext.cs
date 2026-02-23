@@ -164,4 +164,72 @@ internal class FinanceDbContext : AonikDbContextBase
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
     }
+
+    protected override void OnBeforeSave()
+    {
+        PopulateOrderCompatibilityColumns();
+    }
+
+    /// <summary>
+    /// Populates shadow / compatibility columns on new Order entities.
+    /// These columns (OrderNumber, ServiceCode, MetadataJson, OrderDetailsJson) are
+    /// defined in migration-managed configurations and may not map to CLR properties.
+    /// </summary>
+    private void PopulateOrderCompatibilityColumns()
+    {
+        var orderEntries = ChangeTracker.Entries<Order>()
+            .Where(entry => entry.State == EntityState.Added)
+            .ToList();
+
+        if (orderEntries.Count == 0)
+            return;
+
+        foreach (var entry in orderEntries)
+        {
+            if (entry.Metadata.FindProperty("OrderNumber") != null)
+            {
+                var orderNumber = entry.Property("OrderNumber").CurrentValue as string;
+                if (string.IsNullOrWhiteSpace(orderNumber))
+                {
+                    entry.Property("OrderNumber").CurrentValue = GenerateOrderNumber();
+                }
+            }
+
+            if (entry.Metadata.FindProperty("ServiceCode") != null)
+            {
+                var serviceCode = entry.Property("ServiceCode").CurrentValue as string;
+                if (string.IsNullOrWhiteSpace(serviceCode))
+                {
+                    entry.Property("ServiceCode").CurrentValue = string.IsNullOrWhiteSpace(entry.Entity.OrderType)
+                        ? "UNKNOWN"
+                        : entry.Entity.OrderType.Trim().ToUpperInvariant();
+                }
+            }
+
+            if (entry.Metadata.FindProperty("MetadataJson") != null)
+            {
+                var metadataJson = entry.Property("MetadataJson").CurrentValue as string;
+                if (string.IsNullOrWhiteSpace(metadataJson))
+                {
+                    entry.Property("MetadataJson").CurrentValue = "{}";
+                }
+            }
+
+            if (entry.Metadata.FindProperty("OrderDetailsJson") != null)
+            {
+                var detailsJson = entry.Property("OrderDetailsJson").CurrentValue as string;
+                if (string.IsNullOrWhiteSpace(detailsJson))
+                {
+                    entry.Property("OrderDetailsJson").CurrentValue = "{}";
+                }
+            }
+        }
+    }
+
+    private static string GenerateOrderNumber()
+    {
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
+        var token = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        return $"ORD-{timestamp}-{token}";
+    }
 }
