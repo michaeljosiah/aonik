@@ -41,6 +41,11 @@ public sealed class FinanceModule : IModule
         // Ledger
         services.AddScoped<Contracts.Services.Ledger.ILedgerService, Services.Ledger.LedgerService>();
 
+        // Payments
+        services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();
+        services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
+        services.AddSingleton<Contracts.Services.Payments.IPaymentProviderGateway, Services.Payments.StripeSimulatedPaymentProviderGateway>();
+
         return services;
     }
 }

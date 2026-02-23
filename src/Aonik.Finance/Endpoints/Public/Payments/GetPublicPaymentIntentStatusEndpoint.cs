@@ -1,11 +1,11 @@
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-using Aonik.Api.Contracts.Payments;
-using Aonik.Application.Models.Payments;
-using Aonik.Application.Services.Payments;
+using Aonik.Finance.Contracts.Api.Payments;
+using Aonik.Finance.Contracts.Models.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
 
-namespace Aonik.Api.Endpoints.Public.Payments;
+namespace Aonik.Finance.Endpoints.Public.Payments;
 
 public class GetPublicPaymentIntentStatusEndpoint : EndpointWithoutRequest<PublicPaymentIntentStatusResponse>
 {

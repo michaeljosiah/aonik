@@ -1,4 +1,4 @@
-namespace Aonik.Api.Contracts.Payments;
+namespace Aonik.Finance.Contracts.Api.Payments;
 
 public record CreatePaymentIntentRequest(
     decimal Amount,

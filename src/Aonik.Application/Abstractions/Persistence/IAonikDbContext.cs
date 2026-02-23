@@ -11,7 +11,7 @@ using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Domain.Orders.Entities;
 using Aonik.Domain.Partners.Entities;
-using Aonik.Domain.Payments.Entities;
+using Aonik.Finance.Entities.Payments;
 using Aonik.Domain.PersonalFinance.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.Platform.Entities.ReferenceData;

@@ -4,7 +4,6 @@ using Aonik.Application.Services.Billing;
 using Aonik.Application.Services.Catalog;
 using Aonik.Application.Services.Orders;
 using Aonik.Application.Services.Partners;
-using Aonik.Application.Services.Payments;
 using Aonik.Application.Services.PersonalFinance;
 using Aonik.Application.Services.Pricing;
 using Aonik.SharedKernel.Abstractions;
@@ -23,10 +22,7 @@ public static class DependencyInjection
         // Billing (Ledger moved to FinanceModule)
         services.AddScoped<IBillingService, BillingService>();
 
-        // Payments
-        services.AddScoped<IPaymentService, PaymentService>();
-        services.AddScoped<IPublicPaymentService, PublicPaymentService>();
-        services.AddSingleton<IPaymentProviderGateway, StripeSimulatedPaymentProviderGateway>();
+        // Payments — moved to FinanceModule
 
         // Orders
         services.AddScoped<IOrderService, OrderService>();

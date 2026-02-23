@@ -1,10 +1,10 @@
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-using Aonik.Api.Contracts.Payments;
-using Aonik.Application.Services.Payments;
+using Aonik.Finance.Contracts.Api.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
 
-namespace Aonik.Api.Endpoints.Public.Payments;
+namespace Aonik.Finance.Endpoints.Public.Payments;
 
 public class CreatePublicPaymentIntentEndpoint : Endpoint<CreatePublicPaymentIntentRequest, PublicPaymentIntentResponse>
 {
@@ -46,7 +46,7 @@ public class CreatePublicPaymentIntentEndpoint : Endpoint<CreatePublicPaymentInt
         }
 
         var result = await _publicPaymentService.CreateGuestPaymentIntentAsync(
-            new Application.Models.Payments.CreateGuestPaymentIntentRequest(
+            new Finance.Contracts.Models.Payments.CreateGuestPaymentIntentRequest(
                 req.OrderId,
                 req.Provider,
                 req.PaymentMethodType,

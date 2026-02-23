@@ -1,6 +1,6 @@
-using Aonik.Domain.Payments;
+using Aonik.Finance.Entities.Payments;
 
-namespace Aonik.Application.Models.Payments;
+namespace Aonik.Finance.Contracts.Models.Payments;
 
 public record PaymentIntentResponse(
     Guid Id,

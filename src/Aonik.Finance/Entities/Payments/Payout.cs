@@ -1,13 +1,13 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Payments.Entities;
+namespace Aonik.Finance.Entities.Payments;
 
-public class Chargeback : AuditableEntity, ITenantScoped
+public class Payout : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
-    public Guid PaymentId { get; set; }
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
+    public Guid? DestinationExternalAccountId { get; set; }
+    public Guid? PartnerId { get; set; }
     public string Status { get; set; } = string.Empty;
-    public string? ProviderReference { get; set; }
 }

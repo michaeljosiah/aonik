@@ -1,13 +1,16 @@
-using Aonik.Domain.Payments.Entities;
+using Aonik.Finance.Entities.Payments;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Infrastructure.Persistence.Configurations;
+namespace Aonik.Finance.Persistence.Configurations;
 
 public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent>
 {
     public void Configure(EntityTypeBuilder<PaymentIntent> builder)
     {
+        builder.ToTable("PaymentIntents", SchemaNames.Default);
+
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Amount)

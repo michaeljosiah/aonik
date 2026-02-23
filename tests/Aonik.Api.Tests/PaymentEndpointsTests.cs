@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 
-using Aonik.Api.Contracts.Payments;
+using Aonik.Finance.Contracts.Api.Payments;
 
 namespace Aonik.Api.Tests;
 

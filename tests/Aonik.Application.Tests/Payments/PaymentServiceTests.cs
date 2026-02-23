@@ -1,9 +1,10 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Payments;
+using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.Application.Services.Payments;
-using Aonik.Domain.Payments;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Entities.Payments;
+using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Payments;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,13 +51,13 @@ public class PaymentServiceTests
         }
     }
 
-    private static AonikDbContext CreateDbContext(Guid tenantId)
+    private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new AonikDbContext(options, new TestTenantProvider(tenantId));
+        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     [Fact]

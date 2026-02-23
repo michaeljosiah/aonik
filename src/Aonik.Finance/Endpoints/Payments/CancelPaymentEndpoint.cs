@@ -1,21 +1,21 @@
-using Aonik.Api.Contracts.Payments;
-using Aonik.Application.Services.Payments;
+using Aonik.Finance.Contracts.Api.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Payments;
+namespace Aonik.Finance.Endpoints.Payments;
 
-public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentResponse>
+public class CancelPaymentEndpoint : EndpointWithoutRequest<PaymentIntentResponse>
 {
     private readonly IPaymentService _paymentService;
 
-    public CapturePaymentEndpoint(IPaymentService paymentService)
+    public CancelPaymentEndpoint(IPaymentService paymentService)
     {
         _paymentService = paymentService;
     }
 
     public override void Configure()
     {
-        Post("/payments/intents/{id}/capture");
+        Post("/payments/intents/{id}/cancel");
         Policies("AdminUserPolicy");
     }
 
@@ -25,7 +25,7 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
 
         try
         {
-            var result = await _paymentService.CapturePaymentAsync(id, ct);
+            var result = await _paymentService.CancelPaymentAsync(id, ct);
 
             var response = new PaymentIntentResponse(
                 result.Id,

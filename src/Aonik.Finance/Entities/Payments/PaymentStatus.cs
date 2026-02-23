@@ -1,4 +1,4 @@
-namespace Aonik.Domain.Payments;
+namespace Aonik.Finance.Entities.Payments;
 
 public enum PaymentStatus
 {

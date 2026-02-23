@@ -1,4 +1,4 @@
-namespace Aonik.Application.Services.Payments;
+namespace Aonik.Finance.Contracts.Services.Payments;
 
 public interface IPaymentProviderGateway
 {

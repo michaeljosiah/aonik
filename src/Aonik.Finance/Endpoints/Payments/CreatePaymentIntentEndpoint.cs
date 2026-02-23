@@ -1,8 +1,8 @@
-using Aonik.Api.Contracts.Payments;
-using Aonik.Application.Services.Payments;
+using Aonik.Finance.Contracts.Api.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Payments;
+namespace Aonik.Finance.Endpoints.Payments;
 
 public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, PaymentIntentResponse>
 {
@@ -21,7 +21,7 @@ public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, 
 
     public override async Task HandleAsync(CreatePaymentIntentRequest req, CancellationToken ct)
     {
-        var appRequest = new Application.Models.Payments.CreatePaymentIntentRequest(
+        var appRequest = new Finance.Contracts.Models.Payments.CreatePaymentIntentRequest(
             req.Amount,
             req.Currency,
             req.Reference,

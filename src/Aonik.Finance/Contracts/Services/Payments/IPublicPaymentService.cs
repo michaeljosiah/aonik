@@ -1,6 +1,6 @@
-using Aonik.Application.Models.Payments;
+using Aonik.Finance.Contracts.Models.Payments;
 
-namespace Aonik.Application.Services.Payments;
+namespace Aonik.Finance.Contracts.Services.Payments;
 
 public interface IPublicPaymentService
 {

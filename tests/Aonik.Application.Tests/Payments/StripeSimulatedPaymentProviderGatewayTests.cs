@@ -1,6 +1,7 @@
 using FluentAssertions;
 
-using Aonik.Application.Services.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Services.Payments;
 
 namespace Aonik.Application.Tests.Payments;
 

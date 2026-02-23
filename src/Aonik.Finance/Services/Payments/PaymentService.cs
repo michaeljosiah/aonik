@@ -1,22 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Payments;
-using Aonik.Application.Services;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.Domain.Payments;
-using Aonik.Domain.Payments.Entities;
+using Aonik.Finance.Contracts.Models.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Entities.Payments;
+using Aonik.Finance.Persistence;
 
-namespace Aonik.Application.Services.Payments;
+namespace Aonik.Finance.Services.Payments;
 
-public class PaymentService : AdminServiceBase, IPaymentService
+internal class PaymentService : FinanceServiceBase, IPaymentService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
 
     public PaymentService(
-        IAonikDbContext dbContext,
+        FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider)
@@ -137,5 +136,4 @@ public class PaymentService : AdminServiceBase, IPaymentService
             paymentIntent.PaymentMethodRef ?? string.Empty,
             paymentIntent.CreatedAt);
     }
-
 }

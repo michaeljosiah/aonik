@@ -16,7 +16,7 @@ using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Domain.Orders.Entities;
-using Aonik.Domain.Payments.Entities;
+using Aonik.Finance.Entities.Payments;
 using Aonik.Domain.Pricing.Entities;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 

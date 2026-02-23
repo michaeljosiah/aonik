@@ -1,6 +1,8 @@
-namespace Aonik.Application.Services.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
 
-public class StripeSimulatedPaymentProviderGateway : IPaymentProviderGateway
+namespace Aonik.Finance.Services.Payments;
+
+internal class StripeSimulatedPaymentProviderGateway : IPaymentProviderGateway
 {
     public string ProviderCode => "Stripe";
 

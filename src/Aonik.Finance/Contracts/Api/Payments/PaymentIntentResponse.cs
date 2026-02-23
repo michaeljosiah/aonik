@@ -1,13 +1,16 @@
-namespace Aonik.Application.Models.Payments;
+namespace Aonik.Finance.Contracts.Api.Payments;
 
-public record CreateGuestPaymentIntentRequest(
+public record PaymentIntentResponse(
+    Guid Id,
     Guid OrderId,
-    string Provider,
-    string PaymentMethodType,
-    string? ReturnUrl,
-    string? CancelUrl);
+    Guid? InvoiceId,
+    decimal Amount,
+    string Currency,
+    string Status,
+    string Reference,
+    DateTime CreatedUtc);
 
-public record GuestPaymentIntentResponse(
+public record PublicPaymentIntentResponse(
     Guid PaymentIntentId,
     Guid OrderId,
     decimal Amount,
@@ -20,12 +23,7 @@ public record GuestPaymentIntentResponse(
     DateTime CreatedAt);
 
 
-public record GetGuestPaymentIntentStatusRequest(
-    Guid OrderId,
-    Guid? PaymentIntentId,
-    string? ProviderReference);
-
-public record GuestPaymentIntentStatusResponse(
+public record PublicPaymentIntentStatusResponse(
     Guid PaymentIntentId,
     Guid OrderId,
     decimal Amount,

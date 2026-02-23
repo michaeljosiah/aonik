@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Payments.Entities;
+namespace Aonik.Finance.Entities.Payments;
 
 public class Payment : AuditableEntity, ITenantScoped
 {

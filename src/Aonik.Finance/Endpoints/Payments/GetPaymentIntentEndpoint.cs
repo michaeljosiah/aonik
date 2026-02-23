@@ -1,8 +1,8 @@
-using Aonik.Api.Contracts.Payments;
-using Aonik.Application.Services.Payments;
+using Aonik.Finance.Contracts.Api.Payments;
+using Aonik.Finance.Contracts.Services.Payments;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Payments;
+namespace Aonik.Finance.Endpoints.Payments;
 
 public class GetPaymentIntentEndpoint : EndpointWithoutRequest<PaymentIntentResponse>
 {
