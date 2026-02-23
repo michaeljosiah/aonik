@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Compliance.Entities;
+namespace Aonik.Platform.Entities.Compliance;
 
 public class DocumentVerification : AuditableEntity, ITenantScoped
 {

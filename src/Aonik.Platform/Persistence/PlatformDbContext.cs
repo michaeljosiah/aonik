@@ -1,4 +1,7 @@
+using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Entities.Notifications;
+using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
@@ -41,6 +44,26 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
     public DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
 
+    // Compliance
+    public DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
+    public DbSet<ComplianceCase> ComplianceCases { get; set; } = null!;
+    public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+    public DbSet<Document> Documents { get; set; } = null!;
+    public DbSet<DocumentFile> DocumentFiles { get; set; } = null!;
+    public DbSet<DocumentUsage> DocumentUsages { get; set; } = null!;
+    public DbSet<DocumentVerification> DocumentVerifications { get; set; } = null!;
+    public DbSet<DocumentVersion> DocumentVersions { get; set; } = null!;
+
+    // Notifications
+    public DbSet<Notification> Notifications { get; set; } = null!;
+    public DbSet<NotificationTemplate> NotificationTemplates { get; set; } = null!;
+    public DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; } = null!;
+    public DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
+
+    // Operations
+    public DbSet<WorkItem> WorkItems { get; set; } = null!;
+    public DbSet<Job> Jobs { get; set; } = null!;
+
     public PlatformDbContext(
         DbContextOptions<PlatformDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -62,6 +85,9 @@ internal class PlatformDbContext : AonikDbContextBase
 
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
+
+        // NotificationTemplate has nullable TenantId (shared + tenant-specific templates)
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
     }
 
     protected override bool IsGlobalEntity(object entity)

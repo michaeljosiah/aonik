@@ -3,7 +3,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Notifications;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Notifications;
-using Aonik.Domain.Notifications.Entities;
+using Aonik.Platform.Entities.Notifications;
 
 namespace Aonik.Application.Services.Notifications;
 

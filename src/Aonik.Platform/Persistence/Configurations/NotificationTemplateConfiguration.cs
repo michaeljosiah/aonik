@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Aonik.Domain.Notifications.Entities;
+using Aonik.Platform.Entities.Notifications;
 
-namespace Aonik.Infrastructure.Persistence.Configurations;
+namespace Aonik.Platform.Persistence.Configurations;
 
 public class NotificationTemplateConfiguration : IEntityTypeConfiguration<NotificationTemplate>
 {

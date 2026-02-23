@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Notifications.Entities;
+namespace Aonik.Platform.Entities.Notifications;
 
 public class NotificationTemplateBinding : AuditableEntity, ITenantScoped
 {

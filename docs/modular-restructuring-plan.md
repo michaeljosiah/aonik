@@ -17,7 +17,7 @@
 - [x] **PR 1.1** — Scaffold Aonik.Platform Project
 - [x] **PR 1.2** — Move Identity & Tenancy Entities
 - [x] **PR 1.3** — Move Party & Profile Entities
-- [ ] **PR 1.4** — Move Compliance, Notifications, Operations
+- [x] **PR 1.4** — Move Compliance, Notifications, Operations
 - [ ] **PR 1.5** — Move Platform Services & Clean Up
 
 ### Phase 2: Extract Finance Module

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Compliance;
-using Aonik.Domain.Compliance.Entities;
+using Aonik.Platform.Entities.Compliance;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Compliance;

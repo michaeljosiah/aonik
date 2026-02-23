@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Compliance.Entities;
+namespace Aonik.Platform.Entities.Compliance;
 
 public class AuditLog : AuditableEntity, ITenantScoped
 {
@@ -14,4 +14,3 @@ public class AuditLog : AuditableEntity, ITenantScoped
     public string DetailsJson { get; set; } = string.Empty;
     public string CorrelationId { get; set; } = string.Empty;
 }
-

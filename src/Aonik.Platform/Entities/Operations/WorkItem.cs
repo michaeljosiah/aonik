@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Operations.Entities;
+namespace Aonik.Platform.Entities.Operations;
 
 public class WorkItem : AuditableEntity, ITenantScoped
 {
