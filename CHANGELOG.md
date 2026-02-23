@@ -4,6 +4,9 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Architecture (Phase 1 Complete)**: Completed extraction of the Platform module (`Aonik.Platform`). All Platform domain entities (Identity, Party, Compliance, Notifications, Operations, Settings, Features, ReferenceData), 49 service interfaces, 28 service implementations, 38 FastEndpoints, 16 API contract files, and 7 settings constants files now live in `Aonik.Platform` with `PlatformDbContext` as the module-scoped DbContext. Phase 1 spans PRs 1.1–1.5 (commits `028fae7`–`07abb4c`). Build: 0 errors, 0 warnings. Tests: 107/107 passing.
+
 ### Added
 - **Infrastructure (Runtime Config Completeness)**: Closed variable/secret gaps between `appsettings.json` and deployed containers by adding Key Vault secrets for `ACS_CONNECTION_STRING` and `VERIFICATION_HASH_KEY`, and environment variable mappings for Settings (IdP Management API, 11 keys), Communication (2 keys), Bootstrap (1 key), and Feature Management (6 flags) across Bicep modules, deployment workflows, drift detection, and all documentation.
 - **Infrastructure (Runtime Config Overrides)**: Added optional runtime app-settings injection for deployment workflows via explicit GitHub environment variables for key API/Worker settings (auth, platform-admin, blob storage), with backward-compatible JSON bundle support (`API_APP_SETTINGS_JSON`, `WORKER_APP_SETTINGS_JSON`), allowing per-environment API/Worker configuration overrides without rebuilding images.
