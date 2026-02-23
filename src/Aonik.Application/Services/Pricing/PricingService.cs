@@ -4,6 +4,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Pricing;
 using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
 using Microsoft.EntityFrameworkCore;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Domain.Pricing.Entities;

@@ -1,4 +1,4 @@
-using Aonik.Application.Abstractions.Storage;
+using Aonik.Platform.Contracts.Services.Storage;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;

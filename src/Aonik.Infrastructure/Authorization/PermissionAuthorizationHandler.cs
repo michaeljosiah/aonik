@@ -1,4 +1,4 @@
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;

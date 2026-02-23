@@ -1,4 +1,4 @@
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Models.Partners;
 using Aonik.Application.Services.Partners;
 using FastEndpoints;

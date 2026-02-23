@@ -1,7 +1,6 @@
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Settings;
-using Aonik.Domain.Settings;
-using Aonik.Domain.Settings.Entities;
+using Aonik.Platform.Entities.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 

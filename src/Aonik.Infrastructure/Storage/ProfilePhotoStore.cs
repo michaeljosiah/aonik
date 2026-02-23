@@ -2,6 +2,8 @@ using FluentStorage;
 using FluentStorage.Blobs;
 using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions.Storage;
+using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
+using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Application.Options;
 
 namespace Aonik.Infrastructure.Storage;
@@ -17,7 +19,7 @@ public class ProfilePhotoStore : IProfilePhotoStore
     private readonly IImageProcessingService _imageProcessingService;
 
     public ProfilePhotoStore(
-        Aonik.Application.Abstractions.Storage.IBlobStorageFactory blobStorageFactory,
+        IBlobStorageFactory blobStorageFactory,
         IOptions<BlobStorageOptions> storageOptions,
         IImageProcessingService imageProcessingService)
     {

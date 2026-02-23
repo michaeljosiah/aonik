@@ -3,8 +3,10 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Party;
+using Aonik.Platform.Contracts.Models.Party;
 using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Party;
 using Aonik.Platform.Entities.Party;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.SharedKernel.Abstractions;

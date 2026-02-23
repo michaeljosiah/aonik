@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Notifications;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Notifications;
+using Aonik.Platform.Contracts.Models.Notifications;
 using Aonik.Platform.Entities.Notifications;
 
 namespace Aonik.Application.Services.Notifications;

@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Messaging;
+using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Infrastructure.Persistence;

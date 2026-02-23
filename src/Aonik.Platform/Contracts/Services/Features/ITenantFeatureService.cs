@@ -1,0 +1,9 @@
+using Aonik.Platform.Contracts.Models.Features;
+
+namespace Aonik.Platform.Contracts.Services.Features;
+
+public interface ITenantFeatureService
+{
+    Task<TenantFeatureList> GetTenantFeaturesAsync(Guid tenantId, CancellationToken cancellationToken = default);
+    Task<TenantFeatureList> UpsertTenantFeaturesAsync(Guid tenantId, IReadOnlyList<TenantFeatureToggle> toggles, CancellationToken cancellationToken = default);
+}

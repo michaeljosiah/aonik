@@ -6,12 +6,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using Aonik.Application.Abstractions.Messaging;
+using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
 

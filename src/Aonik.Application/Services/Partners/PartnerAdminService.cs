@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Models.Partners;
 using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Domain.Ledger.Entities;
 using Aonik.Domain.Partners.Entities;
 using Aonik.SharedKernel.Abstractions;

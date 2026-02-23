@@ -1,7 +1,7 @@
 using FastEndpoints;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 using ApiCustomerProfileResponse = Aonik.Api.Contracts.Identity.CustomerProfileResponse;
@@ -52,7 +52,7 @@ public class UpdateCustomerEmailEndpoint : Endpoint<ApiUpdateCustomerEmailReques
             var result = await _userProfileService.UpdateCustomerEmailAsync(
                 userId,
                 tenantId,
-                new Aonik.Application.Models.Identity.UpdateCustomerEmailRequest(
+                new Aonik.Platform.Contracts.Models.Identity.UpdateCustomerEmailRequest(
                     req.CurrentEmail,
                     req.NewEmail,
                     req.Password),
@@ -78,7 +78,7 @@ public class UpdateCustomerEmailEndpoint : Endpoint<ApiUpdateCustomerEmailReques
         }
     }
 
-    private static ApiCustomerProfileResponse MapResponse(Aonik.Application.Models.Identity.CustomerProfileResponse profile)
+    private static ApiCustomerProfileResponse MapResponse(Aonik.Platform.Contracts.Models.Identity.CustomerProfileResponse profile)
     {
         return new ApiCustomerProfileResponse(
             profile.PartyId,

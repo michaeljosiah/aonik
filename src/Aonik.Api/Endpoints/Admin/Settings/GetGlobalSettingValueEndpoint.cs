@@ -1,7 +1,7 @@
 using Aonik.Api.Contracts.Settings;
-using Aonik.Application.Abstractions.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Settings;
-using Aonik.Domain.Settings;
+using Aonik.Platform.Entities.Settings;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Admin.Settings;

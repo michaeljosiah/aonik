@@ -6,7 +6,7 @@ using Aonik.Domain.Catalog.Entities;
 using Aonik.Infrastructure.Persistence;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Aonik.Domain.ReferenceData.Entities;
+using Aonik.Platform.Entities.ReferenceData;
 
 namespace Aonik.Application.Tests;
 
@@ -27,7 +27,7 @@ public class CatalogServiceTests
         }
     }
 
-    private sealed class AllowAllPermissionService : Aonik.Application.Services.Identity.IPermissionService
+    private sealed class AllowAllPermissionService : Aonik.Platform.Contracts.Services.Identity.IPermissionService
     {
         public Task<bool> HasPermissionAsync(Guid userId, string permissionKey, CancellationToken ct = default) =>
             Task.FromResult(true);

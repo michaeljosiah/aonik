@@ -2,10 +2,11 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Domain.Ledger.Entities;

@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using Aonik.Application.Abstractions.Authentication;
-using Aonik.Application.Abstractions.Settings;
+using Aonik.Platform.Contracts.Services.Authentication;
+using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Settings;
 using Aonik.Platform.Entities.Identity;
 

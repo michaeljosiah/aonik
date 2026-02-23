@@ -1,4 +1,4 @@
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;

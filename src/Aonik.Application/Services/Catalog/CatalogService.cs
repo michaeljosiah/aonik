@@ -2,10 +2,10 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Abstractions.ReferenceData;
+using Aonik.Platform.Contracts.Services.ReferenceData;
 using Aonik.Application.Models.Catalog;
 using Aonik.Application.Services;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Catalog;

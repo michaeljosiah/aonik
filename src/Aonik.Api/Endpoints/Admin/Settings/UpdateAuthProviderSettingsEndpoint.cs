@@ -1,6 +1,6 @@
 using Aonik.Api.Contracts.Settings;
-using Aonik.Application.Models.Settings;
-using Aonik.Application.Services.Settings;
+using Aonik.Platform.Contracts.Models.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Admin.Settings;

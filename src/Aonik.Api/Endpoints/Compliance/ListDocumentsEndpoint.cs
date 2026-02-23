@@ -1,6 +1,6 @@
-using Aonik.Application.Models.Compliance;
-using Aonik.Application.Models.Identity;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Models.Compliance;
+using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;

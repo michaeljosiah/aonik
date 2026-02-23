@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Onboarding;
+using Aonik.Platform.Contracts.Models.Onboarding;
+using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Application.Options;
 using Aonik.Platform.Entities.Identity;
 

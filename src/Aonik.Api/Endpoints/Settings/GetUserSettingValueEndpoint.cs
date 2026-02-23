@@ -1,8 +1,8 @@
 using Aonik.Api.Contracts.Settings;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Settings;
-using Aonik.Domain.Settings;
+using Aonik.Platform.Entities.Settings;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
 

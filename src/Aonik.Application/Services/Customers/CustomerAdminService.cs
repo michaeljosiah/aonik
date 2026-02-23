@@ -3,11 +3,13 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Customers;
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Customers;
+using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Customers;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Domain.Orders;
 using Aonik.Domain.Payments;
 using Aonik.Platform.Entities.Party;

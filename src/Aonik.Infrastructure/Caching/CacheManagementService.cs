@@ -1,5 +1,5 @@
-using Aonik.Application.Abstractions.Settings;
-using Aonik.Application.Models.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
+using Aonik.Platform.Contracts.Models.Settings;
 
 namespace Aonik.Infrastructure.Caching;
 

@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Compliance;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;
@@ -23,7 +23,7 @@ public class AddDocumentVerificationEndpoint : Endpoint<AddDocumentVerificationR
     {
         var usageId = Route<Guid>("id");
         var result = await _documentService.AddDocumentVerificationAsync(
-            new Application.Models.Compliance.AddDocumentVerificationRequest(
+            new Aonik.Platform.Contracts.Models.Compliance.AddDocumentVerificationRequest(
                 usageId,
                 req.Decision,
                 req.DecisionReasonCode,
@@ -37,7 +37,7 @@ public class AddDocumentVerificationEndpoint : Endpoint<AddDocumentVerificationR
     }
 
     private static DocumentVerificationResponse MapVerification(
-        Application.Models.Compliance.DocumentVerificationResponse response)
+        Aonik.Platform.Contracts.Models.Compliance.DocumentVerificationResponse response)
     {
         return new DocumentVerificationResponse(
             response.DocumentVerificationId,

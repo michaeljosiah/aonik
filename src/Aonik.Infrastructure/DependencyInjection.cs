@@ -7,25 +7,31 @@ using Microsoft.Extensions.Hosting;
 using Aonik.Application.Abstractions;
 using Aonik.Application.Abstractions.Ai;
 using Aonik.Application.Abstractions.Autonumbering;
-using Aonik.Application.Abstractions.Authentication;
-using Aonik.Application.Abstractions.Messaging;
+using Aonik.Platform.Contracts.Services.Authentication;
+using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Notifications;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Abstractions.ReferenceData;
-using Aonik.Application.Abstractions.Settings;
+using Aonik.Platform.Contracts.Services.ReferenceData;
+using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Abstractions.Storage;
+using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Application.Options;
 using Aonik.Application.Services.Cms;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Services.Identity.Provisioning;
-using Aonik.Application.Services.Autonumbering;
-using Aonik.Application.Services.Notifications;
+using Aonik.Application.Services.Onboarding;
 using Aonik.Application.Services.Registration;
 using Aonik.Application.Services.Settings;
-using Aonik.Application.Services.Onboarding;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Application.Services.Autonumbering;
+using Aonik.Application.Services.Notifications;
+using Aonik.Platform.Contracts.Services.Registration;
+using Aonik.Platform.Contracts.Services.Settings;
+using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Application.Services.Pricing;
 
 using Aonik.Infrastructure.Ai.Prompting;
@@ -98,8 +104,8 @@ public static class DependencyInjection
             .AddFeatureFilter<TenantFeatureFilter>();
 
         services.AddScoped<IFeatureManager, DatabaseFeatureManager>();
-        services.AddScoped<Aonik.Application.Services.Seeding.IDemoSeedService, DemoSeedService>();
-        services.AddScoped<Aonik.Application.Services.Seeding.IPermissionSeedService, PermissionSeedService>();
+        services.AddScoped<Aonik.Platform.Contracts.Services.Seeding.IDemoSeedService, DemoSeedService>();
+        services.AddScoped<Aonik.Platform.Contracts.Services.Seeding.IPermissionSeedService, PermissionSeedService>();
 
         // Blob Storage factory (shared provider, content-type aware)
         services.AddSingleton<IBlobStorageFactory, BlobStorageFactoryService>();

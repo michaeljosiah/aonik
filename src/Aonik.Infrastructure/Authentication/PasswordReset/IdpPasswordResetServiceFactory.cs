@@ -1,4 +1,4 @@
-using Aonik.Application.Abstractions.Authentication;
+using Aonik.Platform.Contracts.Services.Authentication;
 
 namespace Aonik.Infrastructure.Authentication.PasswordReset;
 

@@ -1,5 +1,5 @@
 using Aonik.Application.Models.Orders;
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
 
 namespace Aonik.Application.Services.Orders;
 

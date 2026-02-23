@@ -1,7 +1,7 @@
 using FastEndpoints;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 using ApiCustomerPhotoUploadResponse = Aonik.Api.Contracts.Identity.CustomerPhotoUploadResponse;

@@ -1,7 +1,7 @@
 using FastEndpoints;
 
 using Aonik.Api.Contracts.Host;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 
 namespace Aonik.Api.Endpoints.Host.Tenants;
 

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.DataProtection;
 
-using Aonik.Application.Abstractions.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 
 namespace Aonik.Infrastructure.Settings;
 

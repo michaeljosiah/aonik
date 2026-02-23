@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Compliance;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;
@@ -33,7 +33,7 @@ public class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDetailsRespons
         await Send.OkAsync(MapDetails(result), ct);
     }
 
-    private static DocumentDetailsResponse MapDetails(Application.Models.Compliance.DocumentDetailsResponse response)
+    private static DocumentDetailsResponse MapDetails(Aonik.Platform.Contracts.Models.Compliance.DocumentDetailsResponse response)
     {
         return new DocumentDetailsResponse(
             MapDocument(response.Document),
@@ -42,7 +42,7 @@ public class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDetailsRespons
             response.Versions.Select(MapVersion).ToList());
     }
 
-    private static DocumentResponse MapDocument(Application.Models.Compliance.DocumentResponse response)
+    private static DocumentResponse MapDocument(Aonik.Platform.Contracts.Models.Compliance.DocumentResponse response)
     {
         return new DocumentResponse(
             response.DocumentId,
@@ -60,7 +60,7 @@ public class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDetailsRespons
             response.UpdatedAt);
     }
 
-    private static DocumentFileResponse MapFile(Application.Models.Compliance.DocumentFileResponse response)
+    private static DocumentFileResponse MapFile(Aonik.Platform.Contracts.Models.Compliance.DocumentFileResponse response)
     {
         return new DocumentFileResponse(
             response.DocumentFileId,
@@ -80,7 +80,7 @@ public class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDetailsRespons
             response.CreatedAt);
     }
 
-    private static DocumentUsageResponse MapUsage(Application.Models.Compliance.DocumentUsageResponse response)
+    private static DocumentUsageResponse MapUsage(Aonik.Platform.Contracts.Models.Compliance.DocumentUsageResponse response)
     {
         return new DocumentUsageResponse(
             response.DocumentUsageId,
@@ -98,7 +98,7 @@ public class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDetailsRespons
             response.UpdatedAt);
     }
 
-    private static DocumentVerificationResponse MapVerification(Application.Models.Compliance.DocumentVerificationResponse response)
+    private static DocumentVerificationResponse MapVerification(Aonik.Platform.Contracts.Models.Compliance.DocumentVerificationResponse response)
     {
         return new DocumentVerificationResponse(
             response.DocumentVerificationId,
@@ -112,7 +112,7 @@ public class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDetailsRespons
             response.CreatedAt);
     }
 
-    private static DocumentVersionResponse MapVersion(Application.Models.Compliance.DocumentVersionResponse response)
+    private static DocumentVersionResponse MapVersion(Aonik.Platform.Contracts.Models.Compliance.DocumentVersionResponse response)
     {
         return new DocumentVersionResponse(
             response.DocumentVersionId,

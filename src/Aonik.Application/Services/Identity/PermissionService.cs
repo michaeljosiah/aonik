@@ -1,4 +1,5 @@
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Platform.Contracts.Services.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Application.Services.Identity;

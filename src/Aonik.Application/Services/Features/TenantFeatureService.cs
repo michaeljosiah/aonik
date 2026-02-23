@@ -3,11 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Features;
+using Aonik.Platform.Contracts.Models.Features;
 using Aonik.Application.Services;
 using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Identity;
-using Aonik.Domain.Features.Entities;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Features;
+using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Entities.Features;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Features;

@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Identity;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Tenant.Settings;

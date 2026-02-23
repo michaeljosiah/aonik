@@ -2,9 +2,9 @@ using Azure;
 using Azure.Communication.Email;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Aonik.Application.Abstractions.Messaging;
+using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.Infrastructure.Communication.Configuration;
-using EmailMessage = Aonik.Application.Abstractions.Messaging.EmailMessage;
+using EmailMessage = Aonik.Platform.Contracts.Services.Messaging.EmailMessage;
 
 
 namespace Aonik.Infrastructure.Communication;

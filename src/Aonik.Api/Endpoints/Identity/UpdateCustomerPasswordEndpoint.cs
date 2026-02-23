@@ -1,7 +1,7 @@
 using FastEndpoints;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 using ApiUpdateCustomerPasswordRequest = Aonik.Api.Contracts.Identity.UpdateCustomerPasswordRequest;
@@ -52,7 +52,7 @@ public class UpdateCustomerPasswordEndpoint : Endpoint<ApiUpdateCustomerPassword
             var result = await _userProfileService.UpdateCustomerPasswordAsync(
                 userId,
                 tenantId,
-                new Aonik.Application.Models.Identity.UpdateCustomerPasswordRequest(
+                new Aonik.Platform.Contracts.Models.Identity.UpdateCustomerPasswordRequest(
                     req.CurrentPassword,
                     req.NewPassword),
                 ct);

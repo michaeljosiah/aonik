@@ -2,7 +2,7 @@ using System.Linq;
 
 using Scriban;
 using Scriban.Runtime;
-using Aonik.Application.Abstractions.Notifications;
+using Aonik.Platform.Contracts.Services.Notifications;
 
 namespace Aonik.Infrastructure.Notifications;
 

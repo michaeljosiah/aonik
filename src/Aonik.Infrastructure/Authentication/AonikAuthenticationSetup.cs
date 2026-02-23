@@ -12,11 +12,11 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 
-using Aonik.Application.Abstractions.Authentication;
+using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Abstractions.Settings;
-using Aonik.Application.Services.Identity.Provisioning;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Settings;
+using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Application.Settings;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Identity;

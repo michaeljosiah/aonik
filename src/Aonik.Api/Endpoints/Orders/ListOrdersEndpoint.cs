@@ -1,5 +1,5 @@
 using ApiContracts = Aonik.Api.Contracts.Orders;
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
 using AppModels = Aonik.Application.Models.Orders;
 using Aonik.Application.Services.Orders;
 using FastEndpoints;

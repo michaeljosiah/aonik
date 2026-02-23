@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Features;
-using Aonik.Application.Services.Features;
+using Aonik.Platform.Contracts.Services.Features;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Admin.Tenants;

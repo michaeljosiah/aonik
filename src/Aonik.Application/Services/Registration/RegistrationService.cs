@@ -1,10 +1,11 @@
-using Aonik.Application.Abstractions.Authentication;
-using Aonik.Application.Abstractions.Settings;
-using Aonik.Application.Models.Authentication;
-using Aonik.Application.Models.Identity;
-using Aonik.Application.Models.Registration;
-using Aonik.Application.Services.Identity;
-using Aonik.Application.Services.Onboarding;
+using Aonik.Platform.Contracts.Services.Authentication;
+using Aonik.Platform.Contracts.Services.Settings;
+using Aonik.Platform.Contracts.Models.Authentication;
+using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.Platform.Contracts.Models.Registration;
+using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Contracts.Services.Onboarding;
+using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Application.Settings;
 
 namespace Aonik.Application.Services.Registration;

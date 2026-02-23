@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 
-using Aonik.Application.Abstractions.Authentication;
-using Aonik.Application.Abstractions.Settings;
+using Aonik.Platform.Contracts.Services.Authentication;
+using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Settings;
 
 namespace Aonik.Infrastructure.Authentication.PasswordReset;

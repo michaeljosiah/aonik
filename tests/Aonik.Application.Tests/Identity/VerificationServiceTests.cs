@@ -10,11 +10,13 @@ using Microsoft.Extensions.Options;
 using MicrosoftOptions = Microsoft.Extensions.Options.Options;
 
 
-using Aonik.Application.Abstractions.Messaging;
+using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
 
 using Aonik.Infrastructure.Persistence;

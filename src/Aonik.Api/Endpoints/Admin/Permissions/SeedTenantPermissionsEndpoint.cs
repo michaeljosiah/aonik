@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Seeding;
-using Aonik.Application.Services.Seeding;
+using Aonik.Platform.Contracts.Services.Seeding;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Admin.Permissions;

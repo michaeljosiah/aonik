@@ -3,10 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.Platform.Contracts.Models.Party;
 using Aonik.Application.Models.Orders;
 using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Parties;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Party;
 using Aonik.Domain.Orders;
 using Aonik.Domain.Orders.Entities;
 using Aonik.Domain.Pricing.Entities;
@@ -618,7 +620,7 @@ public class OrderService : IOrderService
         }
 
         var created = await _partyService.CreatePartyAsync(
-            new Models.Party.CreatePartyRequest(
+            new CreatePartyRequest(
                 request.NewReceiver.DisplayName,
                 request.NewReceiver.PartyType,
                 request.NewReceiver.FirstName,
@@ -633,7 +635,7 @@ public class OrderService : IOrderService
         if (order.PayerPartyId.HasValue && !string.IsNullOrWhiteSpace(request.RelationshipTypeCode))
         {
             await _partyService.CreateRelationshipAsync(
-                new Models.Party.CreatePartyRelationshipRequest(
+                new CreatePartyRelationshipRequest(
                     order.PayerPartyId.Value,
                     created.PartyId,
                     request.RelationshipTypeCode!,

@@ -6,6 +6,8 @@ using Microsoft.Extensions.Logging;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
 
 namespace Aonik.Application.Services.Identity;

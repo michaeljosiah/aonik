@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Identity;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Tenant.Users;
@@ -28,7 +28,7 @@ public class GetUserRolesEndpoint : EndpointWithoutRequest<UserRoleResponse>
         await Send.OkAsync(MapResponse(result), ct);
     }
 
-    private static UserRoleResponse MapResponse(Application.Models.Identity.UserRoleResponse result)
+    private static UserRoleResponse MapResponse(Aonik.Platform.Contracts.Models.Identity.UserRoleResponse result)
     {
         return new UserRoleResponse(
             result.UserId,

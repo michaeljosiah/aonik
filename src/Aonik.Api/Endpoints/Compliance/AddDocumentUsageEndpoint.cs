@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Compliance;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;
@@ -23,7 +23,7 @@ public class AddDocumentUsageEndpoint : Endpoint<AddDocumentUsageRequest, Docume
     {
         var documentId = Route<Guid>("id");
         var result = await _documentService.AddDocumentUsageAsync(
-            new Application.Models.Compliance.AddDocumentUsageRequest(
+            new Aonik.Platform.Contracts.Models.Compliance.AddDocumentUsageRequest(
                 documentId,
                 req.OwnerPartyId,
                 req.Purpose,
@@ -36,7 +36,7 @@ public class AddDocumentUsageEndpoint : Endpoint<AddDocumentUsageRequest, Docume
         await Send.OkAsync(MapUsage(result), ct);
     }
 
-    private static DocumentUsageResponse MapUsage(Application.Models.Compliance.DocumentUsageResponse response)
+    private static DocumentUsageResponse MapUsage(Aonik.Platform.Contracts.Models.Compliance.DocumentUsageResponse response)
     {
         return new DocumentUsageResponse(
             response.DocumentUsageId,
@@ -55,7 +55,7 @@ public class AddDocumentUsageEndpoint : Endpoint<AddDocumentUsageRequest, Docume
     }
 
     private static DocumentVerificationResponse MapVerification(
-        Application.Models.Compliance.DocumentVerificationResponse response)
+        Aonik.Platform.Contracts.Models.Compliance.DocumentVerificationResponse response)
     {
         return new DocumentVerificationResponse(
             response.DocumentVerificationId,

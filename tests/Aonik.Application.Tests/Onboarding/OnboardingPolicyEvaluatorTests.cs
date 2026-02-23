@@ -8,9 +8,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Onboarding;
+using Aonik.Platform.Contracts.Models.Onboarding;
 using Aonik.Application.Options;
 using Aonik.Application.Services.Onboarding;
+using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Party;
 using Aonik.Infrastructure.Persistence;

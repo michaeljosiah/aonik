@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Settings;
-using Aonik.Application.Services.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Settings;
@@ -25,7 +25,7 @@ public class GetPublicAuthProviderSettingsEndpoint : EndpointWithoutRequest<Publ
         await Send.OkAsync(MapResponse(snapshot), ct);
     }
 
-    private static PublicAuthProviderSettingsResponse MapResponse(Application.Models.Settings.AuthProviderSettingsSnapshot snapshot)
+    private static PublicAuthProviderSettingsResponse MapResponse(Aonik.Platform.Contracts.Models.Settings.AuthProviderSettingsSnapshot snapshot)
     {
         return new PublicAuthProviderSettingsResponse(
             snapshot.ActiveProvider,

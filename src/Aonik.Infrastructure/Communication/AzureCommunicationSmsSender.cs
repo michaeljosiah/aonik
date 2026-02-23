@@ -1,7 +1,7 @@
 using Azure.Communication.Sms;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Aonik.Application.Abstractions.Messaging;
+using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.Infrastructure.Communication.Configuration;
 
 namespace Aonik.Infrastructure.Communication;

@@ -1,8 +1,11 @@
 using Aonik.Platform.Entities.Compliance;
+using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Entities.Party;
+using Aonik.Platform.Entities.ReferenceData;
+using Aonik.Platform.Entities.Settings;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
@@ -64,6 +67,18 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<WorkItem> WorkItems { get; set; } = null!;
     public DbSet<Job> Jobs { get; set; } = null!;
 
+    // Settings
+    public DbSet<Setting> Settings { get; set; } = null!;
+
+    // Features
+    public DbSet<TenantFeature> TenantFeatures { get; set; } = null!;
+
+    // Reference Data
+    public DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
+    public DbSet<Country> Countries { get; set; } = null!;
+    public DbSet<Currency> Currencies { get; set; } = null!;
+    public DbSet<CountryCurrency> CountryCurrencies { get; set; } = null!;
+
     public PlatformDbContext(
         DbContextOptions<PlatformDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -88,6 +103,11 @@ internal class PlatformDbContext : AonikDbContextBase
 
         // NotificationTemplate has nullable TenantId (shared + tenant-specific templates)
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
+
+        // ReferenceData entities have nullable TenantId (global + tenant-specific)
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
     }
 
     protected override bool IsGlobalEntity(object entity)

@@ -5,6 +5,8 @@ using FluentStorage.Blobs;
 using Microsoft.Extensions.Options;
 
 using Aonik.Application.Abstractions.Storage;
+using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
+using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Application.Options;
 
 namespace Aonik.Infrastructure.Storage;
@@ -16,7 +18,7 @@ public class DocumentFileStore : IDocumentFileStore
     private readonly string _provider;
 
     public DocumentFileStore(
-        Aonik.Application.Abstractions.Storage.IBlobStorageFactory blobStorageFactory,
+        IBlobStorageFactory blobStorageFactory,
         IOptions<BlobStorageOptions> options)
     {
         var storageOptions = options.Value;

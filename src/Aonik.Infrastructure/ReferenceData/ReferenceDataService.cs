@@ -1,8 +1,8 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Abstractions.ReferenceData;
-using Aonik.Application.Models.ReferenceData;
-using Aonik.Domain.ReferenceData.Entities;
+using Aonik.Platform.Contracts.Services.ReferenceData;
+using Aonik.Platform.Contracts.Models.ReferenceData;
+using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Infrastructure.Caching;
 using Microsoft.EntityFrameworkCore;
 

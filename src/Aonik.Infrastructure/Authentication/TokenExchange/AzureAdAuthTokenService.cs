@@ -1,9 +1,9 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 
-using Aonik.Application.Abstractions.Authentication;
-using Aonik.Application.Abstractions.Settings;
-using Aonik.Application.Models.Authentication;
+using Aonik.Platform.Contracts.Services.Authentication;
+using Aonik.Platform.Contracts.Services.Settings;
+using Aonik.Platform.Contracts.Models.Authentication;
 using Aonik.Application.Settings;
 
 namespace Aonik.Infrastructure.Authentication.TokenExchange;

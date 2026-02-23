@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Compliance;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;
@@ -23,7 +23,7 @@ public class AddDocumentFileEndpoint : Endpoint<AddDocumentFileRequest, Document
     {
         var documentId = Route<Guid>("id");
         var result = await _documentService.AddDocumentFileAsync(
-            new Application.Models.Compliance.AddDocumentFileRequest(
+            new Aonik.Platform.Contracts.Models.Compliance.AddDocumentFileRequest(
                 documentId,
                 req.StorageProvider,
                 req.StorageContainer,
@@ -42,7 +42,7 @@ public class AddDocumentFileEndpoint : Endpoint<AddDocumentFileRequest, Document
         await Send.OkAsync(MapFile(result), ct);
     }
 
-    private static DocumentFileResponse MapFile(Application.Models.Compliance.DocumentFileResponse response)
+    private static DocumentFileResponse MapFile(Aonik.Platform.Contracts.Models.Compliance.DocumentFileResponse response)
     {
         return new DocumentFileResponse(
             response.DocumentFileId,

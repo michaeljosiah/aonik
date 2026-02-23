@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.ReferenceData;
-using Aonik.Application.Abstractions.ReferenceData;
+using Aonik.Platform.Contracts.Services.ReferenceData;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.ReferenceData;

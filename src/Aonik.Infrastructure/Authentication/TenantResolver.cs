@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-using Aonik.Application.Abstractions.Authentication;
+using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure.Authentication.Configuration;
 

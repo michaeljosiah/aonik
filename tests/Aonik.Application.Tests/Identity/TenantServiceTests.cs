@@ -3,12 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
-using Aonik.Application.Models.Identity;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Application.Services.Identity;
-using Aonik.Application.Services.Identity.Provisioning;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Application.Services.Pricing;
-using Aonik.Domain.ReferenceData.Entities;
+using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Infrastructure.Multitenancy;
 using Aonik.Infrastructure.Persistence;
 using Aonik.SharedKernel.Abstractions;
@@ -150,7 +150,7 @@ public class TenantServiceTests
 
         // Act
         var response = await service.CreateTenantAsync(
-            new Aonik.Application.Models.Identity.CreateTenantRequest(
+            new Aonik.Platform.Contracts.Models.Identity.CreateTenantRequest(
                 Name: "Tenant NG",
                 Environment: "Dev",
                 DefaultCurrency: "ngn",
@@ -207,7 +207,7 @@ public class TenantServiceTests
         // Act
         var act = async () =>
             await service.CreateTenantAsync(
-                new Aonik.Application.Models.Identity.CreateTenantRequest(
+                new Aonik.Platform.Contracts.Models.Identity.CreateTenantRequest(
                     Name: "Tenant Bad Country",
                     Environment: "Dev",
                     DefaultCurrency: "USD",
@@ -262,7 +262,7 @@ public class TenantServiceTests
         // Act
         var act = async () =>
             await service.CreateTenantAsync(
-                new Aonik.Application.Models.Identity.CreateTenantRequest(
+                new Aonik.Platform.Contracts.Models.Identity.CreateTenantRequest(
                     Name: "Tenant No Currency Ref",
                     Environment: "Dev",
                     DefaultCurrency: "USD",

@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Settings;
-using Aonik.Application.Abstractions.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Settings;
 using FastEndpoints;
 

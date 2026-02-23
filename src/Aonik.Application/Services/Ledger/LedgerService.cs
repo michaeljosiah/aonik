@@ -4,7 +4,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Ledger;
 using Aonik.Application.Services;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Domain.Ledger.Entities;
 using Aonik.SharedKernel.Abstractions;
 using LedgerEntity = Aonik.Domain.Ledger.Entities.Ledger;

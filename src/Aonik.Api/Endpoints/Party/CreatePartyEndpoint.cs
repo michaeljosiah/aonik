@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Party;
-using Aonik.Application.Services.Parties;
+using Aonik.Platform.Contracts.Services.Party;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Party;
@@ -21,7 +21,7 @@ public class CreatePartyEndpoint : Endpoint<CreatePartyRequest, PartyResponse>
 
     public override async Task HandleAsync(CreatePartyRequest req, CancellationToken ct)
     {
-        var request = new Application.Models.Party.CreatePartyRequest(
+        var request = new Aonik.Platform.Contracts.Models.Party.CreatePartyRequest(
             req.DisplayName,
             req.PartyType,
             req.FirstName,

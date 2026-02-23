@@ -3,12 +3,11 @@ using Microsoft.Extensions.Configuration;
 
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Settings;
-using Aonik.Application.Models.Settings;
+using Aonik.Platform.Contracts.Services.Settings;
+using Aonik.Platform.Contracts.Models.Settings;
 using Aonik.Application.Settings;
-using Aonik.Application.Services.Identity;
-using Aonik.Domain.Settings;
-using Aonik.Domain.Settings.Entities;
+using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Entities.Settings;
 using Aonik.Infrastructure.Caching;
 using Aonik.SharedKernel.Abstractions;
 

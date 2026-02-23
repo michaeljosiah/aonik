@@ -1,8 +1,8 @@
 using ApiCreateDocumentRequest = Aonik.Api.Contracts.Compliance.CreateDocumentRequest;
 using ApiDocumentResponse = Aonik.Api.Contracts.Compliance.DocumentResponse;
-using AppCreateDocumentRequest = Aonik.Application.Models.Compliance.CreateDocumentRequest;
-using AppDocumentResponse = Aonik.Application.Models.Compliance.DocumentResponse;
-using Aonik.Application.Services.Compliance;
+using AppCreateDocumentRequest = Aonik.Platform.Contracts.Models.Compliance.CreateDocumentRequest;
+using AppDocumentResponse = Aonik.Platform.Contracts.Models.Compliance.DocumentResponse;
+using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;

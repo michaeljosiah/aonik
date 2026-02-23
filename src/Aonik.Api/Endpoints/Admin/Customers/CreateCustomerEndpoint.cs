@@ -1,5 +1,5 @@
-using Aonik.Application.Models.Customers;
-using Aonik.Application.Services.Customers;
+using Aonik.Platform.Contracts.Models.Customers;
+using Aonik.Platform.Contracts.Services.Customers;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Admin.Customers;

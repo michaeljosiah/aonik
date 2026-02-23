@@ -5,6 +5,8 @@ using FluentStorage.Blobs;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
+using Aonik.Application.Abstractions.Storage;
+using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
 using Aonik.Application.Options;
 
 namespace Aonik.Infrastructure.Storage;
@@ -15,7 +17,7 @@ public class ProfilePhotoStorageInitializer : IHostedService
     private readonly BlobStorageOptions _options;
 
     public ProfilePhotoStorageInitializer(
-        Aonik.Application.Abstractions.Storage.IBlobStorageFactory blobStorageFactory,
+        IBlobStorageFactory blobStorageFactory,
         IOptions<BlobStorageOptions> options)
     {
         _options = options.Value;

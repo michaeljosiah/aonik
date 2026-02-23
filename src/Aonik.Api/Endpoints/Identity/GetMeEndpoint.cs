@@ -5,7 +5,8 @@ using Aonik.Api.Contracts.Identity;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Observability;
 using Aonik.Application.Services.Compliance;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Api.Endpoints.Identity;
@@ -75,7 +76,7 @@ public class GetMeEndpoint : EndpointWithoutRequest<CurrentUserResponse>
         await Send.OkAsync(MapResponse(result), ct);
     }
 
-    private static CurrentUserResponse MapResponse(Application.Models.Identity.CurrentUserSnapshot snapshot)
+    private static CurrentUserResponse MapResponse(Aonik.Platform.Contracts.Models.Identity.CurrentUserSnapshot snapshot)
     {
         return new CurrentUserResponse(
             snapshot.UserId,

@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Models.Pricing;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Application.Services.Pricing;
 using Aonik.Platform.Entities.Party;
 using Aonik.Domain.Pricing.Entities;

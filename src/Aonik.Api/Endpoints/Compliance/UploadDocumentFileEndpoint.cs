@@ -1,5 +1,5 @@
 using Aonik.Api.Contracts.Compliance;
-using Aonik.Application.Services.Compliance;
+using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
 
 namespace Aonik.Api.Endpoints.Compliance;
@@ -52,7 +52,7 @@ public class UploadDocumentFileEndpoint : EndpointWithoutRequest<DocumentFileRes
             return;
         }
 
-        var request = new Application.Models.Compliance.UploadDocumentFileRequest(
+        var request = new Aonik.Platform.Contracts.Models.Compliance.UploadDocumentFileRequest(
             documentId,
             file.FileName,
             string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
@@ -118,7 +118,7 @@ public class UploadDocumentFileEndpoint : EndpointWithoutRequest<DocumentFileRes
         await HttpContext.Response.WriteAsJsonAsync(new { error = message }, ct);
     }
 
-    private static DocumentFileResponse MapFile(Application.Models.Compliance.DocumentFileResponse response)
+    private static DocumentFileResponse MapFile(Aonik.Platform.Contracts.Models.Compliance.DocumentFileResponse response)
     {
         return new DocumentFileResponse(
             response.DocumentFileId,

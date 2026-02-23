@@ -1,8 +1,8 @@
 using FastEndpoints;
 using Aonik.Api.Contracts.Identity;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Identity;
-using Aonik.Application.Services.Identity;
+using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Api.Endpoints.Identity;
