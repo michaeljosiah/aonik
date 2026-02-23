@@ -24,7 +24,7 @@
 - [x] **PR 2.1** — Scaffold Aonik.Finance Project
 - [x] **PR 2.2** — Move Ledger Sub-Domain
 - [x] **PR 2.3** — Move Payments Sub-Domain
-- [ ] **PR 2.4** — Move Billing, Orders, Pricing, Partners
+- [x] **PR 2.4** — Move Billing, Orders, Pricing, Partners
 - [ ] **PR 2.5** — Finance Module Clean-Up & Integration Events
 
 ### Phase 3: AI & Agent Platform with MAF

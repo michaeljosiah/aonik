@@ -1,4 +1,5 @@
 using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Platform.Contracts.Services.Identity;
 

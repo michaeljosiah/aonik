@@ -10,7 +10,7 @@ using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Domain.Ai.Entities;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Finance.Entities.Ledger;
-using Aonik.Domain.Pricing.Entities;
+using Aonik.Finance.Entities.Pricing;
 using Aonik.SharedKernel.Abstractions;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 

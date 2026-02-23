@@ -1,5 +1,6 @@
 using Aonik.Platform.Contracts.Models.Compliance;
 using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Platform.Contracts.Services.Compliance;
 

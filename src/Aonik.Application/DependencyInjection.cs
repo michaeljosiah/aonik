@@ -1,12 +1,7 @@
 using Aonik.Application.Services.Ai;
 using Aonik.Application.Services.Ai.Workflows;
-using Aonik.Application.Services.Billing;
 using Aonik.Application.Services.Catalog;
-using Aonik.Application.Services.Orders;
-using Aonik.Application.Services.Partners;
 using Aonik.Application.Services.PersonalFinance;
-using Aonik.Application.Services.Pricing;
-using Aonik.SharedKernel.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Application;
@@ -14,33 +9,15 @@ namespace Aonik.Application;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers non-Platform Application services.
+    /// Registers non-Platform, non-Finance Application services.
     /// Platform services are registered by <see cref="Aonik.Platform.PlatformModule"/>.
+    /// Finance services are registered by <see cref="Aonik.Finance.FinanceModule"/>.
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Billing (Ledger moved to FinanceModule)
-        services.AddScoped<IBillingService, BillingService>();
-
-        // Payments — moved to FinanceModule
-
-        // Orders
-        services.AddScoped<IOrderService, OrderService>();
-        services.AddScoped<IPublicOrderService, PublicOrderService>();
-
         // Catalog
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<IPublicCatalogService, PublicCatalogService>();
-
-        // Pricing
-        services.AddScoped<IPricingService, PricingService>();
-        services.AddScoped<IPricingPolicyService, PricingPolicyService>();
-        services.AddScoped<IFxRateService, FxRateService>();
-        services.AddScoped<IFxQuoteService, FxQuoteService>();
-        services.AddSingleton<ICurrencyMetadataProvider, CurrencyMetadataProvider>();
-
-        // Partners
-        services.AddScoped<IPartnerAdminService, PartnerAdminService>();
 
         // Personal Finance
         services.AddScoped<IHouseholdService, HouseholdService>();

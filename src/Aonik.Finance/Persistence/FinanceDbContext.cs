@@ -1,6 +1,11 @@
-using Aonik.Domain.Orders.Entities;
+using Aonik.Domain.Catalog.Entities;
+using Aonik.Finance.Entities;
+using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.Ledger;
+using Aonik.Finance.Entities.Orders;
+using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
+using Aonik.Finance.Entities.Pricing;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -32,8 +37,53 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Refund> Refunds { get; set; } = null!;
     public DbSet<Chargeback> Chargebacks { get; set; } = null!;
 
-    // ── TEMPORARY: Cross-module DbSets (will be removed when Orders move to Finance) ──
+    // ── Billing ─────────────────────────────────────────────────────
+    public DbSet<Invoice> Invoices { get; set; } = null!;
+    public DbSet<InvoiceLine> InvoiceLines { get; set; } = null!;
+    public DbSet<InvoiceAllocation> InvoiceAllocations { get; set; } = null!;
+    public DbSet<CustomerAccount> CustomerAccounts { get; set; } = null!;
+    public DbSet<DunningPlan> DunningPlans { get; set; } = null!;
+
+    // ── Orders ─────────────────────────────────────────────────────
     public DbSet<Order> Orders { get; set; } = null!;
+    public DbSet<OrderItem> OrderItems { get; set; } = null!;
+    public DbSet<OrderPartyRole> OrderPartyRoles { get; set; } = null!;
+    public DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
+    public DbSet<OrderFulfilmentRef> OrderFulfilmentRefs { get; set; } = null!;
+    public DbSet<OrderHistoryEvent> OrderHistoryEvents { get; set; } = null!;
+    public DbSet<OrderNote> OrderNotes { get; set; } = null!;
+
+    // ── Pricing ─────────────────────────────────────────────────────
+    public DbSet<FeePolicy> FeePolicies { get; set; } = null!;
+    public DbSet<FxQuote> FxQuotes { get; set; } = null!;
+    public DbSet<FxRateSource> FxRateSources { get; set; } = null!;
+    public DbSet<FxRefreshSchedule> FxRefreshSchedules { get; set; } = null!;
+    public DbSet<FxSpreadPolicy> FxSpreadPolicies { get; set; } = null!;
+    public DbSet<LimitsPolicy> LimitsPolicies { get; set; } = null!;
+    public DbSet<PricingQuote> PricingQuotes { get; set; } = null!;
+
+    // ── Partners ─────────────────────────────────────────────────────
+    public DbSet<Partner> Partners { get; set; } = null!;
+    public DbSet<PartnerBranch> PartnerBranches { get; set; } = null!;
+    public DbSet<PartnerFundingAccount> PartnerFundingAccounts { get; set; } = null!;
+    public DbSet<Connector> Connectors { get; set; } = null!;
+    public DbSet<RoutingRule> RoutingRules { get; set; } = null!;
+    public DbSet<PayoutSchema> PayoutSchemas { get; set; } = null!;
+    public DbSet<Transmission> Transmissions { get; set; } = null!;
+
+    // ── Temporary Cross-Module DbSets ──────────────────────────────
+    // These entities belong to other modules but are queried by Finance
+    // services during the migration period. They will be replaced by
+    // inter-module service contracts in a future PR.
+
+    /// <summary>Read-only projection of Party (authoritative entity in Platform module)</summary>
+    public DbSet<PartyReadModel> Parties { get; set; } = null!;
+
+    /// <summary>Catalog biller (authoritative entity in Domain, future Catalog module)</summary>
+    public DbSet<CatalogBiller> CatalogBillers { get; set; } = null!;
+
+    /// <summary>Catalog biller service (authoritative entity in Domain, future Catalog module)</summary>
+    public DbSet<CatalogBillerService> CatalogBillerServices { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -52,40 +102,61 @@ internal class FinanceDbContext : AonikDbContextBase
         modelBuilder.HasDefaultSchema(SchemaNames.Finance);
 
         // ── Schema overrides for entities created in dbo by existing migrations ──
-        // Ledger entities were created in dbo schema before the Finance module existed.
+        // All these entities were created in dbo schema before the Finance module existed.
         // They must continue to use dbo to match the existing database.
+
+        // Ledger
         modelBuilder.Entity<Ledger>().ToTable("Ledgers", SchemaNames.Default);
         modelBuilder.Entity<LedgerAccount>().ToTable("LedgerAccounts", SchemaNames.Default);
         modelBuilder.Entity<JournalEntry>().ToTable("JournalEntries", SchemaNames.Default);
         modelBuilder.Entity<JournalEntryLine>().ToTable("JournalEntryLines", SchemaNames.Default);
         modelBuilder.Entity<BalanceSnapshot>().ToTable("BalanceSnapshots", SchemaNames.Default);
 
-        // Payment entities were also created in dbo schema before the Finance module existed.
+        // Payments
         modelBuilder.Entity<PaymentIntent>().ToTable("PaymentIntents", SchemaNames.Default);
         modelBuilder.Entity<Payment>().ToTable("Payments", SchemaNames.Default);
         modelBuilder.Entity<Payout>().ToTable("Payouts", SchemaNames.Default);
         modelBuilder.Entity<Refund>().ToTable("Refunds", SchemaNames.Default);
         modelBuilder.Entity<Chargeback>().ToTable("Chargebacks", SchemaNames.Default);
 
-        // TEMPORARY: Cross-module entity schema overrides
-        // Order is configured to match AonikDbContext's OrderConfiguration so that
-        // InMemory provider can read Order data written by either context.
-        // Navigation properties are ignored (their configs live in Infrastructure).
-        // Shadow properties must be declared to match the same model shape.
-        modelBuilder.Entity<Order>(entity =>
-        {
-            entity.ToTable("Orders", SchemaNames.Default);
-            entity.HasKey(x => x.Id);
-            entity.Ignore(x => x.Items);
-            entity.Ignore(x => x.PartyRoles);
-            entity.Ignore(x => x.HistoryEvents);
+        // Billing
+        modelBuilder.Entity<Invoice>().ToTable("Invoices", SchemaNames.Default);
+        modelBuilder.Entity<InvoiceLine>().ToTable("InvoiceLines", SchemaNames.Default);
+        modelBuilder.Entity<InvoiceAllocation>().ToTable("InvoiceAllocations", SchemaNames.Default);
+        modelBuilder.Entity<CustomerAccount>().ToTable("CustomerAccounts", SchemaNames.Default);
+        modelBuilder.Entity<DunningPlan>().ToTable("DunningPlans", SchemaNames.Default);
 
-            // Shadow properties that exist in AonikDbContext's OrderConfiguration
-            entity.Property<string>("OrderNumber").HasMaxLength(64).IsRequired(false);
-            entity.Property<string>("ServiceCode").HasMaxLength(50).IsRequired(false);
-            entity.Property<string>("MetadataJson").IsRequired(false);
-            entity.Property<string>("OrderDetailsJson").IsRequired(false);
-        });
+        // Orders
+        modelBuilder.Entity<Order>().ToTable("Orders", SchemaNames.Default);
+        modelBuilder.Entity<OrderItem>().ToTable("OrderItems", SchemaNames.Default);
+        modelBuilder.Entity<OrderPartyRole>().ToTable("OrderPartyRoles", SchemaNames.Default);
+        modelBuilder.Entity<OrderFundingRef>().ToTable("OrderFundingRefs", SchemaNames.Default);
+        modelBuilder.Entity<OrderFulfilmentRef>().ToTable("OrderFulfilmentRefs", SchemaNames.Default);
+        modelBuilder.Entity<OrderHistoryEvent>().ToTable("OrderHistoryEvents", SchemaNames.Default);
+        modelBuilder.Entity<OrderNote>().ToTable("OrderNotes", SchemaNames.Default);
+
+        // Pricing
+        modelBuilder.Entity<FeePolicy>().ToTable("FeePolicies", SchemaNames.Default);
+        modelBuilder.Entity<FxQuote>().ToTable("FxQuotes", SchemaNames.Default);
+        modelBuilder.Entity<FxRateSource>().ToTable("FxRateSources", SchemaNames.Default);
+        modelBuilder.Entity<FxRefreshSchedule>().ToTable("FxRefreshSchedules", SchemaNames.Default);
+        modelBuilder.Entity<FxSpreadPolicy>().ToTable("FxSpreadPolicies", SchemaNames.Default);
+        modelBuilder.Entity<LimitsPolicy>().ToTable("LimitsPolicies", SchemaNames.Default);
+        modelBuilder.Entity<PricingQuote>().ToTable("PricingQuotes", SchemaNames.Default);
+
+        // Partners
+        modelBuilder.Entity<Partner>().ToTable("Partners", SchemaNames.Default);
+        modelBuilder.Entity<PartnerBranch>().ToTable("PartnerBranches", SchemaNames.Default);
+        // PartnerFundingAccount table name is set in PartnerFundingAccountConfiguration
+        modelBuilder.Entity<Connector>().ToTable("Connectors", SchemaNames.Default);
+        modelBuilder.Entity<RoutingRule>().ToTable("RoutingRules", SchemaNames.Default);
+        modelBuilder.Entity<PayoutSchema>().ToTable("PayoutSchemas", SchemaNames.Default);
+        modelBuilder.Entity<Transmission>().ToTable("Transmissions", SchemaNames.Default);
+
+        // Temporary cross-module entities
+        modelBuilder.Entity<PartyReadModel>().ToTable("Parties", SchemaNames.Default);
+        modelBuilder.Entity<CatalogBiller>().ToTable("CatalogBillers", SchemaNames.Default);
+        modelBuilder.Entity<CatalogBillerService>().ToTable("CatalogBillerServices", SchemaNames.Default);
 
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FinanceDbContext).Assembly);

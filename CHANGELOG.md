@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Architecture (PR 2.4 — Move Billing, Orders, Pricing, Partners to Finance)**: Moved all four remaining Finance sub-domains into `Aonik.Finance`. This includes 30 entity files, 9 EF configurations, 8 DTO files, 8 service interfaces, 9 service implementations, 4 API contract files, and 24 endpoint files. Created `ITenantCurrencyProvider` cross-module interface in SharedKernel with Platform implementation to decouple Finance from Platform DbContext. Moved cross-cutting types (`PagedResult<T>`, `IAuditLogWriter`, `AuditEventNames`, `IPartyService`, `IComplianceService` + DTOs) to SharedKernel to eliminate Finance→Platform circular dependency. Created `PartyReadModel` as temporary read-only projection in Finance for cross-module Party queries. Updated DI registrations in `FinanceModule`. Build: 0 errors, 0 warnings. Tests: 107/107 passing.
 - **Architecture (Phase 1 Complete)**: Completed extraction of the Platform module (`Aonik.Platform`). All Platform domain entities (Identity, Party, Compliance, Notifications, Operations, Settings, Features, ReferenceData), 49 service interfaces, 28 service implementations, 38 FastEndpoints, 16 API contract files, and 7 settings constants files now live in `Aonik.Platform` with `PlatformDbContext` as the module-scoped DbContext. Phase 1 spans PRs 1.1–1.5 (commits `028fae7`–`07abb4c`). Build: 0 errors, 0 warnings. Tests: 107/107 passing.
 
 ### Added

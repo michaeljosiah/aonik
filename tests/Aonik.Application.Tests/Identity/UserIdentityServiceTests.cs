@@ -6,9 +6,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Services.Identity;
-using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Persistence;

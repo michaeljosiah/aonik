@@ -1,4 +1,5 @@
 using Aonik.Platform.Contracts.Models.Identity;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Identity;
 using FastEndpoints;
 

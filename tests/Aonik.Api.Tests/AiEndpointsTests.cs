@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 
 using Aonik.Api.Contracts.Ai;
-using Aonik.Api.Contracts.Billing;
+using Aonik.Finance.Contracts.Api.Billing;
 
 namespace Aonik.Api.Tests;
 

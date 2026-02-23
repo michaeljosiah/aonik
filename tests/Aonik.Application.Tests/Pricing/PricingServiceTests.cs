@@ -1,11 +1,11 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.Application.Models.Pricing;
-using Aonik.Application.Services.Pricing;
-using Aonik.Platform.Contracts.Services.Compliance;
-using Aonik.Platform.Entities.Party;
-using Aonik.Domain.Pricing.Entities;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Finance.Contracts.Models.Pricing;
+using Aonik.Finance.Contracts.Services.Pricing;
+using Aonik.Finance.Entities;
+using Aonik.Finance.Entities.Pricing;
+using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Pricing;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,13 +49,13 @@ public class PricingServiceTests
         }
     }
 
-    private static AonikDbContext CreateDbContext(Guid tenantId, IClock clock)
+    private static FinanceDbContext CreateDbContext(Guid tenantId, IClock clock)
     {
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new AonikDbContext(options, new TestTenantProvider(tenantId), clock: clock);
+        return new FinanceDbContext(options, new TestTenantProvider(tenantId), clock: clock);
     }
 
     [Fact]
@@ -355,11 +355,10 @@ public class PricingServiceTests
             IsActive = true
         });
 
-        context.Parties.Add(new Party
+        context.Parties.Add(new PartyReadModel
         {
             Id = customerId,
             TenantId = tenantId,
-            PartyType = "Person",
             DisplayName = "SMB Customer",
             Status = "Active",
             CustomerTierCode = "SMB"

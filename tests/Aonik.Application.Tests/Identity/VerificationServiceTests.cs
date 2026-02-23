@@ -15,7 +15,6 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Services.Identity;
-using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Entities.Identity;
 

@@ -1,8 +1,9 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.Application.Services.Pricing;
-using Aonik.Domain.Pricing.Entities;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Finance.Contracts.Services.Pricing;
+using Aonik.Finance.Entities.Pricing;
+using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Pricing;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,13 +26,13 @@ public class PricingPolicyServiceTests
         }
     }
 
-    private static AonikDbContext CreateDbContext(Guid tenantId)
+    private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        return new AonikDbContext(options, new TestTenantProvider(tenantId));
+        return new FinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
     [Fact]

@@ -1,8 +1,9 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Billing;
-using Aonik.Application.Services.Billing;
+using Aonik.Finance.Contracts.Models.Billing;
+using Aonik.Finance.Contracts.Services.Billing;
 using Aonik.SharedKernel.Abstractions;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Billing;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,11 +55,11 @@ public class BillingServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
         var tenantProvider = new TestTenantProvider(tenantId);
         var service = new BillingService(
             context,
@@ -94,11 +95,11 @@ public class BillingServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
         var tenantProvider = new TestTenantProvider(tenantId);
         var service = new BillingService(
             context,
@@ -132,11 +133,11 @@ public class BillingServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
         var tenantProvider = new TestTenantProvider(tenantId);
         var service = new BillingService(
             context,

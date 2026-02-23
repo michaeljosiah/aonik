@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Compliance;

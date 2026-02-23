@@ -10,7 +10,7 @@ using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Domain.Orders;
+using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;

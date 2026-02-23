@@ -9,7 +9,6 @@ using Aonik.Platform.Contracts.Models.Authentication;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Contracts.Models.Settings;
 using Aonik.Platform.Services.Identity;
-using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;

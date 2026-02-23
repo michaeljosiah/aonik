@@ -15,9 +15,9 @@ using PartyEntity = Aonik.Platform.Entities.Party.Party;
 // Cross-module entity imports (temporary — will be removed when Finance/AI modules are extracted)
 using Aonik.Domain.Ai.Entities;
 using Aonik.Finance.Entities.Ledger;
-using Aonik.Domain.Orders.Entities;
+using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Payments;
-using Aonik.Domain.Pricing.Entities;
+using Aonik.Finance.Entities.Pricing;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 
 namespace Aonik.Platform.Persistence;

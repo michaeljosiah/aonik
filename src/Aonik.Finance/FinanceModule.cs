@@ -46,6 +46,23 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
         services.AddSingleton<Contracts.Services.Payments.IPaymentProviderGateway, Services.Payments.StripeSimulatedPaymentProviderGateway>();
 
+        // Billing
+        services.AddScoped<Contracts.Services.Billing.IBillingService, Services.Billing.BillingService>();
+
+        // Orders
+        services.AddScoped<Contracts.Services.Orders.IOrderService, Services.Orders.OrderService>();
+        services.AddScoped<Contracts.Services.Orders.IPublicOrderService, Services.Orders.PublicOrderService>();
+
+        // Pricing
+        services.AddScoped<Contracts.Services.Pricing.IPricingService, Services.Pricing.PricingService>();
+        services.AddScoped<Contracts.Services.Pricing.IPricingPolicyService, Services.Pricing.PricingPolicyService>();
+        services.AddScoped<Contracts.Services.Pricing.IFxRateService, Services.Pricing.FxRateService>();
+        services.AddScoped<Contracts.Services.Pricing.IFxQuoteService, Services.Pricing.FxQuoteService>();
+        services.AddSingleton<SharedKernel.Abstractions.ICurrencyMetadataProvider, Services.Pricing.CurrencyMetadataProvider>();
+
+        // Partners
+        services.AddScoped<Contracts.Services.Partners.IPartnerAdminService, Services.Partners.PartnerAdminService>();
+
         return services;
     }
 }

@@ -1,6 +1,6 @@
 using ApiContracts = Aonik.Platform.Contracts.Api.Party;
-using AppModels = Aonik.Platform.Contracts.Models.Party;
-using Aonik.Platform.Contracts.Services.Party;
+using AppModels = Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
 
 namespace Aonik.Platform.Endpoints.Party;

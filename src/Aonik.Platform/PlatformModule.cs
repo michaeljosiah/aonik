@@ -5,7 +5,6 @@ using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Onboarding;
-using Aonik.Platform.Contracts.Services.Party;
 using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Persistence;
@@ -84,6 +83,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
         services.AddScoped<IAccessManagementService, AccessManagementService>();
+        services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
 
         return services;
     }
