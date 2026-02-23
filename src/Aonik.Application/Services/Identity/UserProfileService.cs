@@ -13,7 +13,7 @@ using Aonik.Application.Models.Identity;
 using Aonik.Application.Services.Compliance;
 using Aonik.Application.Settings;
 using Aonik.Platform.Entities.Identity;
-using Aonik.Domain.Party.Entities;
+using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Identity;

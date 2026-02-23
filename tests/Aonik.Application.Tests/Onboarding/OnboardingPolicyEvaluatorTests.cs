@@ -12,7 +12,7 @@ using Aonik.Application.Models.Onboarding;
 using Aonik.Application.Options;
 using Aonik.Application.Services.Onboarding;
 using Aonik.Platform.Entities.Identity;
-using Aonik.Domain.Party.Entities;
+using Aonik.Platform.Entities.Party;
 using Aonik.Infrastructure.Persistence;
 
 namespace Aonik.Application.Tests.Onboarding;

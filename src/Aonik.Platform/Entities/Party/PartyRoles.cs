@@ -1,4 +1,4 @@
-namespace Aonik.Domain.Party;
+namespace Aonik.Platform.Entities.Party;
 
 /// <summary>
 /// Defines party relationship roles that describe "who this party is to us".

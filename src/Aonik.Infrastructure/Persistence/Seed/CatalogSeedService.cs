@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Catalog.Entities;
-using Aonik.Domain.Party;
+using Aonik.Platform.Entities.Party;
 using Aonik.Domain.ReferenceData.Entities;
 
 namespace Aonik.Infrastructure.Persistence.Seed;

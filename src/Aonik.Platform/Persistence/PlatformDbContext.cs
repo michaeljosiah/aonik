@@ -1,8 +1,10 @@
 using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
+using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 namespace Aonik.Platform.Persistence;
 
@@ -27,6 +29,17 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<RolePermission> RolePermissions { get; set; } = null!;
     public DbSet<UserParty> UserParties { get; set; } = null!;
     public DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
+
+    // Party
+    public DbSet<PartyEntity> Parties { get; set; } = null!;
+    public DbSet<PartyAddress> PartyAddresses { get; set; } = null!;
+    public DbSet<PartyContact> PartyContacts { get; set; } = null!;
+    public DbSet<PartyConsent> PartyConsents { get; set; } = null!;
+    public DbSet<PersonProfile> PersonProfiles { get; set; } = null!;
+    public DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
+    public DbSet<ExternalAccount> ExternalAccounts { get; set; } = null!;
+    public DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
+    public DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
 
     public PlatformDbContext(
         DbContextOptions<PlatformDbContext> options,

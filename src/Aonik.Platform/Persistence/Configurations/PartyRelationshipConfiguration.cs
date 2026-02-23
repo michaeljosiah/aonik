@@ -1,8 +1,8 @@
-using Aonik.Domain.Party.Entities;
+using Aonik.Platform.Entities.Party;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Infrastructure.Persistence.Configurations;
+namespace Aonik.Platform.Persistence.Configurations;
 
 public class PartyRelationshipConfiguration : IEntityTypeConfiguration<PartyRelationship>
 {

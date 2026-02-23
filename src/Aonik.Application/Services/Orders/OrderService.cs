@@ -11,7 +11,7 @@ using Aonik.Domain.Orders;
 using Aonik.Domain.Orders.Entities;
 using Aonik.Domain.Pricing.Entities;
 using Aonik.SharedKernel.Abstractions;
-using PartyEntity = Aonik.Domain.Party.Entities.Party;
+using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 namespace Aonik.Application.Services.Orders;
 

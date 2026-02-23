@@ -12,7 +12,7 @@ using Aonik.Application.Services.Compliance;
 using Aonik.Application.Services.Identity;
 using Aonik.Application.Settings;
 using Aonik.Platform.Entities.Identity;
-using Aonik.Domain.Party.Entities;
+using Aonik.Platform.Entities.Party;
 using Aonik.Domain.Settings;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Infrastructure.Time;

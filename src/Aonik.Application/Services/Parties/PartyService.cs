@@ -5,9 +5,8 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Application.Models.Party;
 using Aonik.Application.Services.Compliance;
-using Aonik.Domain.Party;
-using Aonik.Domain.Party.Entities;
-using PartyEntity = Aonik.Domain.Party.Entities.Party;
+using Aonik.Platform.Entities.Party;
+using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Services.Parties;

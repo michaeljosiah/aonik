@@ -525,7 +525,7 @@ public class AccessManagementService : AdminServiceBase, IAccessManagementServic
         if (personProfile == null)
         {
             // Create person profile if it doesn't exist
-            personProfile = new Domain.Party.Entities.PersonProfile
+            personProfile = new Platform.Entities.Party.PersonProfile
             {
                 PartyId = party.Id,
                 IdvStatus = "Pending",

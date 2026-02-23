@@ -1,4 +1,4 @@
-namespace Aonik.Domain.Party;
+namespace Aonik.Platform.Entities.Party;
 
 public static class PartyRelationshipTypes
 {

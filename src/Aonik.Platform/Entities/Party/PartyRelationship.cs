@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Party.Entities;
+namespace Aonik.Platform.Entities.Party;
 
 public class PartyRelationship : AuditableEntity, ITenantScoped
 {
