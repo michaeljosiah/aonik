@@ -1,4 +1,5 @@
 using Aonik.Application.Abstractions.Persistence;
+using Aonik.Platform.Contracts.Api.Bootstrap;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;

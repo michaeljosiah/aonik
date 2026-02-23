@@ -1,4 +1,4 @@
-using Aonik.Api.Contracts.Settings;
+using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Contracts.Models.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;

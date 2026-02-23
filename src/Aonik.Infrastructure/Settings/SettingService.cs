@@ -6,7 +6,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Models.Settings;
 using Aonik.Platform.Services.Settings;
-using Aonik.Application.Settings;
+using Aonik.Platform.Settings;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Infrastructure.Caching;

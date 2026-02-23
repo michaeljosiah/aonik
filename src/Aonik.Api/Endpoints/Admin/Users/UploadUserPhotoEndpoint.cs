@@ -1,7 +1,7 @@
 using FastEndpoints;
 
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Api.Contracts.Identity;
+using Aonik.Platform.Contracts.Api.Identity;
 
 namespace Aonik.Api.Endpoints.Admin.Users;
 

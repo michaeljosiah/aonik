@@ -1,4 +1,4 @@
-using Aonik.Api.Contracts.Onboarding;
+using Aonik.Platform.Contracts.Api.Onboarding;
 using Aonik.Api.Contracts.Registrations;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;

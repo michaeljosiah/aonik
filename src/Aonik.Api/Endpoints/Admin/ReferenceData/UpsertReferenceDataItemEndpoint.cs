@@ -1,4 +1,4 @@
-using Aonik.Api.Contracts.ReferenceData;
+using Aonik.Platform.Contracts.Api.ReferenceData;
 using Aonik.Platform.Contracts.Services.ReferenceData;
 using Aonik.Platform.Contracts.Models.ReferenceData;
 using FastEndpoints;

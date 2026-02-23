@@ -1,0 +1,33 @@
+using Aonik.Platform.Contracts.Api.ReferenceData;
+using Aonik.Platform.Contracts.Services.ReferenceData;
+using FastEndpoints;
+
+namespace Aonik.Platform.Endpoints.ReferenceData;
+
+public class GetReferenceDataEndpoint : EndpointWithoutRequest<List<ReferenceDataItemResponse>>
+{
+    private readonly IReferenceDataService _referenceDataService;
+
+    public GetReferenceDataEndpoint(IReferenceDataService referenceDataService)
+    {
+        _referenceDataService = referenceDataService;
+    }
+
+    public override void Configure()
+    {
+        Get("/reference-data/{type}");
+        AllowAnonymous();
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var type = Route<string>("type") ?? string.Empty;
+        var items = await _referenceDataService.GetAsync(type, cancellationToken: ct);
+
+        var response = items
+            .Select(item => new ReferenceDataItemResponse(item.Code, item.DisplayName, item.SortOrder))
+            .ToList();
+
+        await Send.OkAsync(response, ct);
+    }
+}

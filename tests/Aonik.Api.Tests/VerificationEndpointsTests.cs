@@ -11,7 +11,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 
 using Aonik.Platform.Services.Identity;
-using Aonik.Api.Contracts.Identity;
+using Aonik.Platform.Contracts.Api.Identity;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Infrastructure.Persistence;

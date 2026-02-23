@@ -1,4 +1,4 @@
-using Aonik.Api.Contracts.Onboarding;
+using Aonik.Platform.Contracts.Api.Onboarding;
 
 namespace Aonik.Api.Contracts.Registrations;
 
