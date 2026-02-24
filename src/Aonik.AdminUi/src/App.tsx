@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, createElement } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Sidebar, Header } from '@/components/layout';
@@ -6,49 +6,15 @@ import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
   MySpacePage,
-  AnalyticsPage,
   LoginPage,
   SetupWizardPage,
   SetupJourneyPage,
   SetupGuidePage,
   SetupGuidesLandingPage,
   TenantSetupWizardPage,
-  TenantsListPage,
-  CreateTenantPage,
-  TenantDetailPage,
-  CatalogLandingPage,
-  CatalogCountriesPage,
-  CatalogCategoriesPage,
-  CatalogBillersPage,
-  CatalogBillerDetailPage,
-  CatalogBillerServicesPage,
-  CatalogBillerServiceDetailPage,
-  CatalogPartnersPage,
-  CatalogPartnerDetailPage,
-  AccessUsersPage,
-  AccessRolesPage,
-  AccessPermissionsPage,
-  UserDetailPage,
-  BillPaymentOrderFormPage,
-  OrdersLandingPage,
-  OrdersListPage,
-  ContentBlocksListPage,
-  ContentBlockEditPage,
-  MediaLibraryPage,
-  AutonumberingPage,
-  SystemToolsPage,
-  FxRatesPage,
-  CustomersListPage,
-  CustomerDetailPage,
-  LedgerOverviewPage,
-  LedgerAccountsPage,
-  LedgerJournalEntriesPage,
   WorkspacePage,
-  ComplianceLandingPage,
-  DocumentsListPage,
-  DocumentDetailPage,
-  DocumentCreatePage,
 } from '@/pages';
+import { useModules } from '@/modules';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -115,6 +81,9 @@ function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const previousSidebarCollapsed = useRef<boolean | null>(null);
   const preFullscreenSidebarState = useRef<boolean | null>(null);
+
+  // Module system: aggregated routes and breadcrumbs
+  const { routes, getBreadcrumb } = useModules();
 
   const agents = useRef<AiAgentSelectorItem[]>([
     {
@@ -187,27 +156,6 @@ function AppLayout() {
     }
   };
 
-  // Determine breadcrumb based on current route (simplified)
-  const getBreadcrumb = () => {
-    const path = window.location.pathname;
-    if (path === '/') return ['Dashboard'];
-    if (path.startsWith('/analytics')) return ['Analytics'];
-    if (path.startsWith('/customers')) return ['Customers'];
-    if (path.startsWith('/billing')) return ['Billing'];
-    if (path.startsWith('/orders/bill-payments')) return ['Orders', 'Bill Payments'];
-    if (path.startsWith('/payments')) return ['Payments'];
-    if (path.startsWith('/orders')) return ['Orders'];
-    if (path.startsWith('/ledger')) return ['Ledger'];
-    if (path.startsWith('/ai')) return ['AI & Agents'];
-    if (path.startsWith('/workspace')) return ['Workspace'];
-    if (path.startsWith('/access')) return ['Users & Access'];
-    if (path.startsWith('/catalog')) return ['Catalog'];
-    if (path.startsWith('/compliance')) return ['Compliance'];
-    if (path.startsWith('/tenants')) return ['Tenants'];
-    if (path.startsWith('/settings')) return ['Settings'];
-    return ['Dashboard'];
-  };
-
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
       <Sidebar
@@ -216,7 +164,7 @@ function AppLayout() {
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header
-          breadcrumb={getBreadcrumb()}
+          breadcrumb={getBreadcrumb(window.location.pathname)}
           isWorkspace={isWorkspace}
           leftSlot={
             isAiChat ? (
@@ -236,56 +184,19 @@ function AppLayout() {
         />
         <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
           <Routes>
+            {/* Dashboard — always present */}
             <Route path="/" element={<DashboardHome />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
+            {/* Workspace — always present */}
             <Route path="/workspace" element={<WorkspacePage />} />
-            {/* Customers */}
-            <Route path="/customers" element={<CustomersListPage />} />
-            <Route path="/customers/:partyId" element={<CustomerDetailPage />} />
-            {/* Orders */}
-            <Route path="/orders" element={<OrdersLandingPage />} />
-            <Route path="/orders/activity" element={<OrdersListPage />} />
-            <Route path="/orders/bill-payments/new" element={<BillPaymentOrderFormPage />} />
-            <Route path="/orders/bill-payments/:orderId" element={<BillPaymentOrderFormPage />} />
-            {/* Ledger */}
-            <Route path="/ledger" element={<LedgerOverviewPage />} />
-            <Route path="/ledger/accounts" element={<LedgerAccountsPage />} />
-            <Route path="/ledger/journal-entries" element={<LedgerJournalEntriesPage />} />
-            {/* Users & Access */}
-            <Route path="/access/users" element={<AccessUsersPage />} />
-            <Route path="/access/users/:userId" element={<UserDetailPage />} />
-            <Route path="/access/roles" element={<AccessRolesPage />} />
-            <Route path="/access/permissions" element={<AccessPermissionsPage />} />
-            {/* Catalog */}
-            <Route path="/catalog" element={<CatalogLandingPage />} />
-            <Route path="/catalog/countries" element={<CatalogCountriesPage />} />
-            <Route path="/catalog/categories" element={<CatalogCategoriesPage />} />
-            <Route path="/catalog/billers" element={<CatalogBillersPage />} />
-            <Route path="/catalog/billers/:billerId" element={<CatalogBillerDetailPage />} />
-            <Route path="/catalog/billers/:billerId/services" element={<CatalogBillerServicesPage />} />
-            <Route path="/catalog/billers/:billerId/services/:serviceId" element={<CatalogBillerServiceDetailPage />} />
-            <Route path="/catalog/partners" element={<CatalogPartnersPage />} />
-            <Route path="/catalog/partners/:partnerId" element={<CatalogPartnerDetailPage />} />
-            {/* Compliance */}
-            <Route path="/compliance" element={<ComplianceLandingPage />} />
-            <Route path="/compliance/documents" element={<DocumentsListPage />} />
-            <Route path="/compliance/documents/new" element={<DocumentCreatePage />} />
-            <Route path="/compliance/documents/:documentId" element={<DocumentDetailPage />} />
-            {/* Tenants */}
-            <Route path="/tenants" element={<TenantsListPage />} />
-            <Route path="/tenants/new" element={<CreateTenantPage />} />
-            <Route path="/tenants/:id" element={<TenantDetailPage />} />
-            {/* Settings */}
-            <Route path="/settings/autonumbering" element={<AutonumberingPage />} />
-            <Route path="/settings/fx-rates" element={<FxRatesPage />} />
-            <Route path="/settings/system-tools" element={<SystemToolsPage />} />
-            
-            {/* CMS */}
-            <Route path="/cms/content-blocks" element={<ContentBlocksListPage />} />
-            <Route path="/cms/content-blocks/new" element={<ContentBlockEditPage />} />
-            <Route path="/cms/content-blocks/:id" element={<ContentBlockEditPage />} />
-            <Route path="/cms/media" element={<MediaLibraryPage />} />
-            
+            {/* Module-contributed routes */}
+            {routes.map((route) => (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={createElement(route.element)}
+              />
+            ))}
+            {/* Setup routes */}
             <Route path="/setup/journey" element={<SetupJourneyPage />} />
             <Route path="/setup/tenant" element={<TenantSetupWizardPage />} />
             <Route path="/setup-guides" element={<SetupGuidesLandingPage />} />

@@ -62,7 +62,7 @@ import {
 } from 'lucide-react';
 import type { NavItem, NavItemGroup, NavigationSection } from '@/types';
 import { identityService } from '@/services/identityService';
-import { navigationSections } from '@/data/mockData';
+import { useModules } from '@/modules';
 import { getWorkspacePanelForRoute } from '@/workspace/registry';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 import { isPortalAdmin as resolvePortalAdmin } from '@/lib/roleUtils';
@@ -753,7 +753,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   const isPortalAdmin = resolvePortalAdmin(navRoles);
 
-  const visibleSections = navigationSections.filter((section) => {
+  // Module-sourced navigation (replaces static mockData.navigationSections)
+  const { navigation: moduleNavigation } = useModules();
+
+  const visibleSections = moduleNavigation.filter((section) => {
     if (section.audience === 'host') {
       return isPortalAdmin;
     }
