@@ -1,6 +1,6 @@
-using Aonik.Application.Models.Autonumbering;
+using Aonik.Platform.Contracts.Models.Autonumbering;
 
-namespace Aonik.Application.Abstractions.Autonumbering;
+namespace Aonik.Platform.Contracts.Services.Autonumbering;
 
 public interface IAutonumberingService
 {

@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Domain.Autonumbering.Entities;
+using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;

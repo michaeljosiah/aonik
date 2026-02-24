@@ -2,10 +2,10 @@ using System;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Autonumbering;
-using Aonik.Application.Services.Autonumbering;
-using Aonik.Domain.Autonumbering.Entities;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Platform.Contracts.Models.Autonumbering;
+using Aonik.Platform.Services.Autonumbering;
+using Aonik.Platform.Entities.Autonumbering;
+using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Application.Tests.Autonumbering;
@@ -41,12 +41,12 @@ public class AutonumberingServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
         var clock = new TestClock(new DateTime(2026, 1, 15, 10, 0, 0, DateTimeKind.Utc));
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new PlatformDbContext(options, new TestTenantProvider(tenantId));
         context.AutonumberProfiles.Add(new AutonumberProfile
         {
             Id = Guid.NewGuid(),
@@ -79,12 +79,12 @@ public class AutonumberingServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
         var clock = new TestClock(new DateTime(2026, 2, 1, 8, 0, 0, DateTimeKind.Utc));
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new PlatformDbContext(options, new TestTenantProvider(tenantId));
         context.AutonumberProfiles.Add(new AutonumberProfile
         {
             Id = Guid.NewGuid(),

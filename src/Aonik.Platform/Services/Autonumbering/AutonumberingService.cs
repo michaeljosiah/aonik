@@ -1,22 +1,22 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
-using Aonik.Application.Abstractions.Autonumbering;
-using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Autonumbering;
-using Aonik.Domain.Autonumbering.Entities;
+using Aonik.Platform.Contracts.Models.Autonumbering;
+using Aonik.Platform.Contracts.Services.Autonumbering;
+using Aonik.Platform.Entities.Autonumbering;
+using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 
-namespace Aonik.Application.Services.Autonumbering;
+namespace Aonik.Platform.Services.Autonumbering;
 
-public class AutonumberingService : IAutonumberingService
+internal class AutonumberingService : IAutonumberingService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly PlatformDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
 
     public AutonumberingService(
-        IAonikDbContext dbContext,
+        PlatformDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock)
     {

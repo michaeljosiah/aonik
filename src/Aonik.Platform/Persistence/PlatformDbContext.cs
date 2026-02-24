@@ -1,3 +1,4 @@
+using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Features;
@@ -91,6 +92,10 @@ internal class PlatformDbContext : AonikDbContextBase
     // CMS
     public DbSet<ContentBlock> ContentBlocks { get; set; } = null!;
     public DbSet<ContentBlockMedia> ContentBlockMedia { get; set; } = null!;
+
+    // Autonumbering
+    public DbSet<AutonumberProfile> AutonumberProfiles { get; set; } = null!;
+    public DbSet<AutonumberReservation> AutonumberReservations { get; set; } = null!;
 
     // Cross-module DbSets (temporary — used by TenantProvisioner and CustomerAdminService
     // during migration. Will be removed when Finance/AI modules are extracted and these

@@ -1,4 +1,4 @@
-namespace Aonik.Domain.Autonumbering.Entities;
+namespace Aonik.Platform.Entities.Autonumbering;
 
 public enum AutonumberResetPolicy
 {

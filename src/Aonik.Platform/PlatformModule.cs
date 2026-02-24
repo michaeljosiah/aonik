@@ -1,5 +1,6 @@
 using Aonik.Agents.Framework;
 using Aonik.Platform.Agents;
+using Aonik.Platform.Contracts.Services.Autonumbering;
 using Aonik.Platform.Contracts.Services.Cms;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Customers;
@@ -11,6 +12,7 @@ using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Autonumbering;
 using Aonik.Platform.Services.Cms;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Services.Customers;
@@ -91,6 +93,9 @@ public sealed class PlatformModule : IModule
 
         // ── CMS Services ─────────────────────────────────────────────
         services.AddScoped<IContentBlockService, ContentBlockService>();
+
+        // ── Autonumbering Services ───────────────────────────────────
+        services.AddScoped<IAutonumberingService, AutonumberingService>();
 
         // ── Platform Domain Agent ────────────────────────────────────
         services.AddSingleton<AonikDomainAgent, PlatformDomainAgent>();

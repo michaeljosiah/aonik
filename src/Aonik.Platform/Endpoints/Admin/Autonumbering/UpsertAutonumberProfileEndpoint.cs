@@ -1,10 +1,10 @@
-using Aonik.Application.Abstractions.Autonumbering;
-using Aonik.Application.Models.Autonumbering;
+using Aonik.Platform.Contracts.Models.Autonumbering;
+using Aonik.Platform.Contracts.Services.Autonumbering;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Admin.Autonumbering;
+namespace Aonik.Platform.Endpoints.Admin.Autonumbering;
 
-public class UpsertAutonumberProfileEndpoint : Endpoint<AutonumberProfileUpsert, AutonumberProfileSnapshot>
+internal class UpsertAutonumberProfileEndpoint : Endpoint<AutonumberProfileUpsert, AutonumberProfileSnapshot>
 {
     private readonly IAutonumberingService _autonumberingService;
 

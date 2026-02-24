@@ -1,4 +1,4 @@
-using Aonik.Domain.Autonumbering.Entities;
+using Aonik.Platform.Entities.Autonumbering;
 using Aonik.Platform.Entities.Cms;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Compliance;

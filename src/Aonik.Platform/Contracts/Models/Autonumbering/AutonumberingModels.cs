@@ -1,6 +1,6 @@
-using Aonik.Domain.Autonumbering.Entities;
+using Aonik.Platform.Entities.Autonumbering;
 
-namespace Aonik.Application.Models.Autonumbering;
+namespace Aonik.Platform.Contracts.Models.Autonumbering;
 
 public record AutonumberProfileSnapshot(
     Guid Id,

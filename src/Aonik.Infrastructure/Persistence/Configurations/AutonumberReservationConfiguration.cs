@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Aonik.Domain.Autonumbering.Entities;
+using Aonik.Platform.Entities.Autonumbering;
 
 namespace Aonik.Infrastructure.Persistence.Configurations;
 

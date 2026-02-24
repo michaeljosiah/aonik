@@ -5,7 +5,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Aonik.Application.Abstractions;
-using Aonik.Application.Abstractions.Autonumbering;
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -22,7 +21,7 @@ using Aonik.Platform.Services.Onboarding;
 using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Services.Registration;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Application.Services.Autonumbering;
+
 using Aonik.Platform.Services.Notifications;
 using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Contracts.Services.Onboarding;
@@ -149,7 +148,6 @@ public static class DependencyInjection
         services.AddScoped<ISettingProvider, SettingService>();
         services.AddScoped<ISettingManager, SettingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
-        services.AddScoped<IAutonumberingService, AutonumberingService>();
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
         services.AddHttpClient<Auth0AuthTokenService>();
