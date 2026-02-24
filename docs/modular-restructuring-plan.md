@@ -34,7 +34,7 @@
 - [x] **PR 3.4** — Platform Domain Agent + AI Provider Wrappers
 
 ### Phase 4: MCP Server Infrastructure
-- [ ] **PR 4.1** — Finance MCP Server
+- [x] **PR 4.1** — Finance MCP Server
 - [ ] **PR 4.2** — Platform MCP Server + MCP Client in Master Agent
 
 ### Phase 5: Master Orchestrator & Admin UI
