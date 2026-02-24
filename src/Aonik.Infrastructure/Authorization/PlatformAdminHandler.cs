@@ -1,5 +1,5 @@
-using Aonik.Infrastructure.Authentication;
-using Aonik.Infrastructure.Authentication.Configuration;
+using Aonik.Platform.Contracts.Models.Configuration;
+using Aonik.Platform.Contracts.Services.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;

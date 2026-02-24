@@ -1,3 +1,5 @@
+using Aonik.Platform.Contracts.Models.Configuration;
+
 namespace Aonik.Infrastructure.Authentication.Configuration;
 
 public class AuthOptions
@@ -6,13 +8,6 @@ public class AuthOptions
     public TenantRoutingMode TenantRouting { get; set; } = TenantRoutingMode.Claim;
     public AzureAdOptions AzureAd { get; set; } = new();
     public Auth0Options Auth0 { get; set; } = new();
-}
-
-public enum TenantRoutingMode
-{
-    Claim,          // Read 'aonik_tenant_id' from JWT (production)
-    Subdomain,      // Extract from Host (requires forwarded headers setup)
-    Header          // X-Tenant-Id (explicitly enabled via configuration)
 }
 
 public class AzureAdOptions

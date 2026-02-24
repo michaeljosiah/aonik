@@ -27,6 +27,7 @@ using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.SharedKernel.Abstractions;
 
+using Aonik.Platform.Contracts.Models.Configuration;
 using Aonik.Infrastructure.Authentication;
 using Aonik.Infrastructure.Authentication.Account;
 using Aonik.Infrastructure.Authentication.Configuration;
