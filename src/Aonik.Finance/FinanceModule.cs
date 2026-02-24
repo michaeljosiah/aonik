@@ -1,3 +1,5 @@
+using Aonik.Agents.Framework;
+using Aonik.Finance.Agents;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
@@ -62,6 +64,9 @@ public sealed class FinanceModule : IModule
 
         // Partners
         services.AddScoped<Contracts.Services.Partners.IPartnerAdminService, Services.Partners.PartnerAdminService>();
+
+        // ── Finance Domain Agent ─────────────────────────────────────
+        services.AddSingleton<AonikDomainAgent, FinanceDomainAgent>();
 
         return services;
     }

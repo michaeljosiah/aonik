@@ -16,7 +16,7 @@ namespace Aonik.Agents.Framework;
 /// <c>agent.RunStreamingAsync()</c> and can be composed as a tool for a master
 /// orchestrator via <c>agent.AsAIFunction()</c>.
 /// </summary>
-internal abstract class AonikDomainAgent
+public abstract class AonikDomainAgent
 {
     /// <summary>Agent display name (e.g. "finance-agent").</summary>
     public abstract string Name { get; }
