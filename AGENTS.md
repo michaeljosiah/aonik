@@ -118,7 +118,7 @@ Never bypass this flow.
 ## 📋 Quick Reference
 
 - **Target Framework:** .NET 10 (`net10.0`)
-- **Architecture:** Clean Architecture with Anemic Domain Model
+- **Architecture:** Module-first modular monolith with anemic domain entities
 - **Testing Framework:** xUnit with FluentAssertions
 - **API Framework:** FastEndpoints
 - **ORM:** Entity Framework Core 10
@@ -193,23 +193,25 @@ dotnet run --project src/Aonik.Api
 
 ## 📐 Architecture & Project Structure
 
-### Clean Architecture Layers
+### Module-First Architecture
 
-- **SharedKernel**: Common primitives (Entity, Result<T>, Money, Guard)
-- **Domain**: Business entities and logic (Invoice, LedgerAccount, PaymentIntent)
-- **Application**: Services, DTOs, abstractions, AI workflows
-- **Infrastructure**: EF Core, external services, AI providers
-- **Api**: FastEndpoints HTTP endpoints
-- **Worker**: Background jobs and scheduled tasks
+- **SharedKernel**: Cross-cutting primitives, interfaces, events, multi-tenancy abstractions
+- **Platform Module** (`Aonik.Platform`): Identity, tenancy, party/profile, settings, reference data, compliance, notifications
+- **Finance Module** (`Aonik.Finance`): Ledger, payments, orders, billing/invoicing, pricing, partners, personal finance
+- **AI Module** (`Aonik.Ai`): AI routing/policies, prompt and model abstractions, AI execution records
+- **Agents Module** (`Aonik.Agents`): Domain agents, orchestration, workflows, proposal pattern scaffolding
+- **Infrastructure**: External adapters and composition support
+- **Api / Worker / Migrator**: Composition roots and runtime hosts
 
 ### Module Organization
 
-Code is organized by **business modules** (Ledger, Billing, Payments, AI) with vertical slices:
+Code is organized by **module-owned vertical slices** (entity + service + endpoint + persistence in each module project):
 
 ```
-src/Aonik.Domain/Billing/Entities/Invoice.cs
-src/Aonik.Application/Services/Billing/BillingService.cs
-src/Aonik.Api/Endpoints/Billing/CreateInvoiceEndpoint.cs
+src/Aonik.Finance/Entities/Billing/Invoice.cs
+src/Aonik.Finance/Services/Billing/BillingService.cs
+src/Aonik.Finance/Endpoints/Billing/CreateInvoiceEndpoint.cs
+src/Aonik.Finance/Persistence/Configurations/Billing/InvoiceConfiguration.cs
 ```
 
 ---

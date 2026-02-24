@@ -72,26 +72,28 @@ AONIK is intended to power a wide range of products and services, including:
 
 ## 🧱 Core Modules
 
-The AONIK platform is organized around a set of core modules that can be composed into full products:
+The AONIK platform is now implemented as a **module-first modular monolith** with clear domain boundaries:
 
-- **Payments**: money movement rails, orchestration, and settlement
-- **Remittances**: cross-border flows, routing, and payout execution
-- **Personal Finance**: budgeting, goals, subscriptions, and insights
-- **Agentic Core**: governed AI agents, audit trails, and policy-driven automation
+- **Platform (`Aonik.Platform`)**: identity, tenancy, party/profile, settings, compliance, notifications, onboarding
+- **Finance (`Aonik.Finance`)**: ledger, payments, orders, billing/invoicing, pricing, partners, personal finance
+- **AI (`Aonik.Ai`)**: model routing policies, prompts, AI execution records (`AiRun`), AI services
+- **Agents (`Aonik.Agents`)**: domain agents, orchestration, proposal flow, workflow composition
+- **Infrastructure (`Aonik.Infrastructure`)**: external adapters and cross-cutting runtime integrations
 
 ---
 
-## 🛠️ Tech Direction (Subject to Change)
+## 🛠️ Current Architecture
 
-The project is expected to evolve around:
+Current architecture and implementation choices:
 
-- Modular, domain-driven design
-- Clear separation between core primitives and agents
-- API-first architecture
-- Pluggable AI model providers
-- Strong testability and observability
+- Modular monolith with module-scoped DbContexts over a shared SQL database
+- Anemic domain entities with application-service business logic
+- FastEndpoints-based HTTP API with module-owned endpoint slices
+- Microsoft Agent Framework (MAF) for AI/agent orchestration
+- MCP servers per domain module for tool interoperability
+- In-process integration events and module contracts for inter-module collaboration
 
-Concrete implementation details will mature as the project evolves.
+See `docs/modular-restructuring-plan.md` for restructuring details and milestones.
 
 ---
 
@@ -126,7 +128,7 @@ The API will start on `https://localhost:5001` with Swagger UI available at `htt
 
 The solution currently builds successfully with:
 - ✅ All projects compile without errors
-- ⚠️ Some tests may fail due to ongoing development
+- ✅ 106/106 tests passing (`Aonik.SharedKernel.Tests`, `Aonik.Infrastructure.Tests`, `Aonik.Application.Tests`, `Aonik.Api.Tests`)
 - 📦 All NuGet packages resolved correctly
 
 ### Running Tests

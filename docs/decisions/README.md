@@ -30,6 +30,7 @@ Each ADR includes:
 | [002](002-anemic-domain-model.md) | Adopt Anemic Domain Model | 2026-01-08 | Accepted |
 | [003](003-no-generic-repository.md) | No Generic Repository Pattern Over EF Core | 2026-01-08 | Accepted |
 | [004](004-adopt-microsoft-agent-framework.md) | Adopt Microsoft Agent Framework (MAF) | 2026-02-22 | Accepted |
+| [005](005-adopt-module-first-modular-monolith.md) | Adopt Module-First Modular Monolith | 2026-02-24 | Accepted |
 
 ### Superseded/Deprecated
 
@@ -41,6 +42,7 @@ Each ADR includes:
 
 ### Domain & Architecture
 - [ADR 002: Anemic Domain Model](002-anemic-domain-model.md) - Domain entity design philosophy
+- [ADR 005: Module-First Modular Monolith](005-adopt-module-first-modular-monolith.md) - Canonical module architecture and boundaries
 
 ### Data Access & Persistence
 - [ADR 003: No Generic Repository](003-no-generic-repository.md) - Direct EF Core usage without repository pattern
