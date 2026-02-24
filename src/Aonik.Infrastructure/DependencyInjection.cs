@@ -52,7 +52,6 @@ using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Infrastructure.Caching;
 using Aonik.Infrastructure.Time;
 using Aonik.Infrastructure.Features;
-using Aonik.Infrastructure.Seeding;
 using Microsoft.FeatureManagement;
 using ZiggyCreatures.Caching.Fusion;
 
@@ -90,8 +89,6 @@ public static class DependencyInjection
             .AddFeatureFilter<TenantFeatureFilter>();
 
         services.AddScoped<IFeatureManager, DatabaseFeatureManager>();
-        services.AddScoped<Aonik.Platform.Contracts.Services.Seeding.IDemoSeedService, DemoSeedService>();
-        services.AddScoped<Aonik.Platform.Contracts.Services.Seeding.IPermissionSeedService, PermissionSeedService>();
 
         // Blob Storage factory (shared provider, content-type aware)
         services.AddSingleton<IBlobStorageFactory, BlobStorageFactoryService>();

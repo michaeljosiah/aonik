@@ -7,10 +7,13 @@
     <RootNamespace>Aonik.Finance</RootNamespace>
   </PropertyGroup>
 
-  <!-- Boundary enforcement: only Api and test projects may access internals -->
+  <!-- Boundary enforcement: only Api, Platform, and test projects may access internals -->
   <ItemGroup>
     <InternalsVisibleTo Include="Aonik.Api" />
     <InternalsVisibleTo Include="Aonik.Infrastructure" />
+    <InternalsVisibleTo Include="Aonik.Platform" />
+    <InternalsVisibleTo Include="Aonik.Worker" />
+    <InternalsVisibleTo Include="Aonik.Migrator" />
     <InternalsVisibleTo Include="Aonik.Finance.Tests" />
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />

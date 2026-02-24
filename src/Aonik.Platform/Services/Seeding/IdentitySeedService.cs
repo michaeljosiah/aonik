@@ -1,9 +1,9 @@
-using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace Aonik.Infrastructure.Persistence.Seed;
+namespace Aonik.Platform.Services.Seeding;
 
 /// <summary>
 /// Seeds global permissions for the AONIK platform.
@@ -11,12 +11,12 @@ namespace Aonik.Infrastructure.Persistence.Seed;
 /// Roles are tenant-specific and are created manually per tenant.
 /// Users are provisioned via JIT (Just-In-Time) authentication.
 /// </summary>
-public class IdentitySeedService
+internal class IdentitySeedService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly PlatformDbContext _dbContext;
     private readonly ILogger<IdentitySeedService> _logger;
 
-    public IdentitySeedService(IAonikDbContext dbContext, ILogger<IdentitySeedService> logger)
+    public IdentitySeedService(PlatformDbContext dbContext, ILogger<IdentitySeedService> logger)
     {
         _dbContext = dbContext;
         _logger = logger;

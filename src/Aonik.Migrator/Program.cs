@@ -1,8 +1,9 @@
 using Aonik.Application;
-using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.Persistence;
-using Aonik.Infrastructure.Persistence.Seed;
+using Aonik.Platform.Services.Seeding;
+using Aonik.Platform.Persistence;
+using Aonik.Finance.Persistence;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
@@ -81,14 +82,15 @@ try
     {
         logger.LogInformation("Running seed routines...");
 
-        var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
 
         var identityLogger = loggerFactory.CreateLogger<IdentitySeedService>();
-        var identitySeed = new IdentitySeedService((IAonikDbContext)dbContext, identityLogger);
+        var identitySeed = new IdentitySeedService(platformDbContext, identityLogger);
         await identitySeed.SeedAsync();
 
         var catalogLogger = loggerFactory.CreateLogger<CatalogSeedService>();
-        var catalogSeed = new CatalogSeedService((IAonikDbContext)dbContext, catalogLogger);
+        var catalogSeed = new CatalogSeedService(platformDbContext, financeDbContext, catalogLogger);
         await catalogSeed.SeedAsync();
     }
 

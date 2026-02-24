@@ -1,11 +1,11 @@
-using Aonik.Application.Abstractions.Persistence;
+using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
 using Aonik.Platform.Entities.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace Aonik.Infrastructure.Persistence.Seed;
+namespace Aonik.Platform.Services.Seeding;
 
 /// <summary>
 /// Seeds Global-scope setting defaults from <see cref="SettingDefinitions"/>.
@@ -13,12 +13,12 @@ namespace Aonik.Infrastructure.Persistence.Seed;
 /// admin-edited values are never overwritten. Idempotent and safe to call on
 /// every startup.
 /// </summary>
-public class SettingsSeedService
+internal class SettingsSeedService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly PlatformDbContext _dbContext;
     private readonly ILogger<SettingsSeedService> _logger;
 
-    public SettingsSeedService(IAonikDbContext dbContext, ILogger<SettingsSeedService> logger)
+    public SettingsSeedService(PlatformDbContext dbContext, ILogger<SettingsSeedService> logger)
     {
         _dbContext = dbContext;
         _logger = logger;

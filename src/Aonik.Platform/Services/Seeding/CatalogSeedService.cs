@@ -4,14 +4,15 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-using Aonik.Application.Abstractions.Persistence;
 using Aonik.Finance.Entities.Catalog;
+using Aonik.Finance.Persistence;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.ReferenceData;
+using Aonik.Platform.Persistence;
 
-namespace Aonik.Infrastructure.Persistence.Seed;
+namespace Aonik.Platform.Services.Seeding;
 
-public class CatalogSeedService
+internal class CatalogSeedService
 {
     private static readonly Guid UtilitiesCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid TelecomCategoryId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -20,12 +21,14 @@ public class CatalogSeedService
     private static readonly Guid GovernmentCategoryId = Guid.Parse("55555555-5555-5555-5555-555555555555");
     private static readonly Guid CableCategoryId = Guid.Parse("66666666-6666-6666-6666-666666666666");
 
-    private readonly IAonikDbContext _dbContext;
+    private readonly PlatformDbContext _platformDbContext;
+    private readonly FinanceDbContext _financeDbContext;
     private readonly ILogger<CatalogSeedService> _logger;
 
-    public CatalogSeedService(IAonikDbContext dbContext, ILogger<CatalogSeedService> logger)
+    public CatalogSeedService(PlatformDbContext platformDbContext, FinanceDbContext financeDbContext, ILogger<CatalogSeedService> logger)
     {
-        _dbContext = dbContext;
+        _platformDbContext = platformDbContext;
+        _financeDbContext = financeDbContext;
         _logger = logger;
     }
 
@@ -44,9 +47,9 @@ public class CatalogSeedService
 
     private async Task SeedCountriesAsync(CancellationToken cancellationToken)
     {
-        var records = ReadEmbeddedJson<List<CountrySeedRecord>>("Aonik.Infrastructure.Persistence.Seed.Data.countries.derived.world-countries-json.json");
+        var records = ReadEmbeddedJson<List<CountrySeedRecord>>("Aonik.Platform.Persistence.Seed.Data.countries.derived.world-countries-json.json");
 
-        var existing = await _dbContext.Countries
+        var existing = await _platformDbContext.Countries
             .Where(x => x.TenantId == null)
             .ToListAsync(cancellationToken);
 
@@ -123,17 +126,17 @@ public class CatalogSeedService
             return;
 
         if (toAdd.Count > 0)
-            await _dbContext.Countries.AddRangeAsync(toAdd, cancellationToken);
+            await _platformDbContext.Countries.AddRangeAsync(toAdd, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _platformDbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} countries (added {Added}, updated {Updated})", toAdd.Count + updated, toAdd.Count, updated);
     }
 
     private async Task SeedCurrenciesAsync(CancellationToken cancellationToken)
     {
-        var records = ReadEmbeddedJson<List<CurrencySeedRecord>>("Aonik.Infrastructure.Persistence.Seed.Data.currencies.iso4217.canonical.json");
+        var records = ReadEmbeddedJson<List<CurrencySeedRecord>>("Aonik.Platform.Persistence.Seed.Data.currencies.iso4217.canonical.json");
 
-        var existing = await _dbContext.Currencies
+        var existing = await _platformDbContext.Currencies
             .Where(x => x.TenantId == null)
             .ToListAsync(cancellationToken);
 
@@ -218,19 +221,19 @@ public class CatalogSeedService
             return;
 
         if (toAdd.Count > 0)
-            await _dbContext.Currencies.AddRangeAsync(toAdd, cancellationToken);
+            await _platformDbContext.Currencies.AddRangeAsync(toAdd, cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _platformDbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} currencies (added {Added}, updated {Updated})", toAdd.Count + updated, toAdd.Count, updated);
     }
 
     private async Task SeedCountryCurrenciesAsync(CancellationToken cancellationToken)
     {
-        var countries = await _dbContext.Countries
+        var countries = await _platformDbContext.Countries
             .Where(x => x.TenantId == null)
             .ToListAsync(cancellationToken);
 
-        var existingMappings = await _dbContext.CountryCurrencies
+        var existingMappings = await _platformDbContext.CountryCurrencies
             .ToListAsync(cancellationToken);
 
         var countryIdByCode = countries.ToDictionary(x => x.IsoAlpha2, x => x.Id, StringComparer.OrdinalIgnoreCase);
@@ -321,8 +324,8 @@ public class CatalogSeedService
         if (toAdd.Count == 0)
             return;
 
-        await _dbContext.CountryCurrencies.AddRangeAsync(toAdd, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _platformDbContext.CountryCurrencies.AddRangeAsync(toAdd, cancellationToken);
+        await _platformDbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} country-currency mappings", toAdd.Count);
     }
 
@@ -398,7 +401,7 @@ public class CatalogSeedService
             }
         };
 
-        var existingIds = await _dbContext.CatalogBillerCategories
+        var existingIds = await _financeDbContext.CatalogBillerCategories
             .Select(category => category.Id)
             .ToListAsync(cancellationToken);
 
@@ -410,8 +413,8 @@ public class CatalogSeedService
             return;
         }
 
-        await _dbContext.CatalogBillerCategories.AddRangeAsync(toAdd, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.CatalogBillerCategories.AddRangeAsync(toAdd, cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} biller categories", toAdd.Count);
     }
 
@@ -448,7 +451,7 @@ public class CatalogSeedService
             }
         };
 
-        var existingKeys = await _dbContext.ReferenceDataItems
+        var existingKeys = await _platformDbContext.ReferenceDataItems
             .Where(item => item.Type == "CustomerTier")
             .Select(item => item.Code)
             .ToListAsync(cancellationToken);
@@ -461,8 +464,8 @@ public class CatalogSeedService
             return;
         }
 
-        await _dbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _platformDbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
+        await _platformDbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} customer tiers", toAdd.Count);
     }
 
@@ -540,7 +543,7 @@ public class CatalogSeedService
         string type,
         CancellationToken cancellationToken)
     {
-        var existingKeys = await _dbContext.ReferenceDataItems
+        var existingKeys = await _platformDbContext.ReferenceDataItems
             .Where(item => item.Type == type)
             .Select(item => item.Code)
             .ToListAsync(cancellationToken);
@@ -553,8 +556,8 @@ public class CatalogSeedService
             return;
         }
 
-        await _dbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _platformDbContext.ReferenceDataItems.AddRangeAsync(toAdd, cancellationToken);
+        await _platformDbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} {Type} reference data items", toAdd.Count, type);
     }
 

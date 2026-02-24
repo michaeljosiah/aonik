@@ -7,9 +7,11 @@
     <RootNamespace>Aonik.Platform</RootNamespace>
   </PropertyGroup>
 
-  <!-- Boundary enforcement: only Api and test projects may access internals -->
+  <!-- Boundary enforcement: only Api, Worker, Migrator, and test projects may access internals -->
   <ItemGroup>
     <InternalsVisibleTo Include="Aonik.Api" />
+    <InternalsVisibleTo Include="Aonik.Worker" />
+    <InternalsVisibleTo Include="Aonik.Migrator" />
     <InternalsVisibleTo Include="Aonik.Platform.Tests" />
     <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />
@@ -31,6 +33,10 @@
     <PackageReference Include="FastEndpoints" Version="7.1.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Persistence\Seed\Data\*.json" />
   </ItemGroup>
 
 </Project>

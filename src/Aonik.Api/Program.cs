@@ -7,7 +7,9 @@ using FastEndpoints;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Aonik.Infrastructure.Persistence;
-using Aonik.Infrastructure.Persistence.Seed;
+using Aonik.Platform.Services.Seeding;
+using Aonik.Platform.Persistence;
+using Aonik.Finance.Persistence;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
@@ -68,6 +70,8 @@ if (autoMigrateEnabled || seedDataEnabled)
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+    var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+    var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
 
     var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
@@ -83,15 +87,15 @@ if (autoMigrateEnabled || seedDataEnabled)
         if (seedDataEnabled)
         {
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IdentitySeedService>>();
-            var seedService = new IdentitySeedService((IAonikDbContext)dbContext, logger);
+            var seedService = new IdentitySeedService(platformDbContext, logger);
             await seedService.SeedAsync();
 
             var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
-            var catalogSeedService = new CatalogSeedService((IAonikDbContext)dbContext, catalogLogger);
+            var catalogSeedService = new CatalogSeedService(platformDbContext, financeDbContext, catalogLogger);
             await catalogSeedService.SeedAsync();
 
             var settingsLogger = scope.ServiceProvider.GetRequiredService<ILogger<SettingsSeedService>>();
-            var settingsSeedService = new SettingsSeedService((IAonikDbContext)dbContext, settingsLogger);
+            var settingsSeedService = new SettingsSeedService(platformDbContext, settingsLogger);
             await settingsSeedService.SeedAsync();
         }
     }

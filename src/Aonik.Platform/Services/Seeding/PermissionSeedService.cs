@@ -3,19 +3,17 @@ using Microsoft.Extensions.Logging;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
-using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Contracts.Models.Seeding;
-using Aonik.Application.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Seeding;
-using Aonik.Infrastructure.Persistence.Seed;
 using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Persistence;
 
-namespace Aonik.Infrastructure.Seeding;
+namespace Aonik.Platform.Services.Seeding;
 
-public class PermissionSeedService : AdminServiceBase, IPermissionSeedService
+internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly PlatformDbContext _dbContext;
     private readonly IClock _clock;
     private readonly ILoggerFactory _loggerFactory;
     private readonly IAuditLogWriter _auditLogWriter;
@@ -23,7 +21,7 @@ public class PermissionSeedService : AdminServiceBase, IPermissionSeedService
     private readonly ITenantContext _tenantContext;
 
     public PermissionSeedService(
-        IAonikDbContext dbContext,
+        PlatformDbContext dbContext,
         IClock clock,
         ILoggerFactory loggerFactory,
         IAuditLogWriter auditLogWriter,
@@ -56,7 +54,7 @@ public class PermissionSeedService : AdminServiceBase, IPermissionSeedService
 
         var operations = new List<string>();
 
-        var identitySeed = new IdentitySeedService((IAonikDbContext)_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());
+        var identitySeed = new IdentitySeedService(_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());
         await identitySeed.SeedAsync(cancellationToken);
         operations.Add("IdentitySeed");
 

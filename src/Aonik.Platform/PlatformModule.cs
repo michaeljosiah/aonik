@@ -7,6 +7,7 @@ using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Features;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Contracts.Services.Notifications;
+using Aonik.Platform.Contracts.Services.Seeding;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Registration;
@@ -22,6 +23,7 @@ using Aonik.Platform.Services.Notifications;
 using Aonik.Platform.Services.Onboarding;
 using Aonik.Platform.Services.Party;
 using Aonik.Platform.Services.Registration;
+using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Services.Settings;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
@@ -96,6 +98,10 @@ public sealed class PlatformModule : IModule
 
         // ── Autonumbering Services ───────────────────────────────────
         services.AddScoped<IAutonumberingService, AutonumberingService>();
+
+        // ── Seed Services ────────────────────────────────────────────
+        services.AddScoped<IDemoSeedService, DemoSeedService>();
+        services.AddScoped<IPermissionSeedService, PermissionSeedService>();
 
         // ── Platform Domain Agent ────────────────────────────────────
         services.AddSingleton<AonikDomainAgent, PlatformDomainAgent>();

@@ -40,9 +40,5 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Persistence\Seed\Data\*.json" />
-  </ItemGroup>
-
 
 </Project>

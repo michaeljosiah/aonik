@@ -3,14 +3,14 @@ using Microsoft.Extensions.Logging;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
-using Aonik.Application.Abstractions.Persistence;
+using Aonik.Platform.Persistence;
 using Aonik.Platform.Contracts.Models.Seeding;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Seeding;
-using Aonik.Infrastructure.Persistence.Seed;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Finance.Entities.Pricing;
 using Aonik.Platform.Entities.Party;
+using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Finance.Entities.Ledger;
@@ -22,7 +22,7 @@ using Aonik.Finance.Persistence;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
-namespace Aonik.Infrastructure.Seeding;
+namespace Aonik.Platform.Services.Seeding;
 
 internal class DemoSeedService : IDemoSeedService
 {
@@ -35,7 +35,7 @@ internal class DemoSeedService : IDemoSeedService
 
     private const string DemoSeedKey = "DemoSeed.BillPayment";
     private const string CrossBorderDemoSeedKey = "DemoSeed.CrossBorderPayments";
-    private readonly IAonikDbContext _dbContext;
+    private readonly PlatformDbContext _dbContext;
     private readonly FinanceDbContext _financeDbContext;
     private readonly IClock _clock;
     private readonly ILoggerFactory _loggerFactory;
@@ -127,7 +127,7 @@ internal class DemoSeedService : IDemoSeedService
     private static readonly Guid SouthAfricaLimitsPolicyId = Guid.Parse("bade6de0-6272-4e5d-9b3b-7f6f42fec4c3");
 
     public DemoSeedService(
-        IAonikDbContext dbContext,
+        PlatformDbContext dbContext,
         FinanceDbContext financeDbContext,
         IClock clock,
         ILoggerFactory loggerFactory,
@@ -170,12 +170,12 @@ internal class DemoSeedService : IDemoSeedService
 
             var operations = new List<string>();
 
-            var identitySeed = new IdentitySeedService((IAonikDbContext)_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());
+            var identitySeed = new IdentitySeedService(_dbContext, _loggerFactory.CreateLogger<IdentitySeedService>());
             await identitySeed.SeedAsync(cancellationToken);
             operations.Add("IdentitySeed");
             ClearTrackingIfSupported(_dbContext);
 
-            var catalogSeed = new CatalogSeedService((IAonikDbContext)_dbContext, _loggerFactory.CreateLogger<CatalogSeedService>());
+            var catalogSeed = new CatalogSeedService(_dbContext, _financeDbContext, _loggerFactory.CreateLogger<CatalogSeedService>());
             await catalogSeed.SeedAsync(cancellationToken);
             operations.Add("CatalogSeed");
             ClearTrackingIfSupported(_dbContext);
@@ -584,7 +584,7 @@ internal class DemoSeedService : IDemoSeedService
         var now = _clock.UtcNow;
         var userId = _currentUserProvider.GetCurrentUserId();
 
-        var category = await _dbContext.CatalogBillerCategories
+        var category = await _financeDbContext.CatalogBillerCategories
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.CountryCode == "GH"
                                          && item.Name == "Utilities",
@@ -604,7 +604,7 @@ internal class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.CatalogBillerCategories.Add(category);
+            _financeDbContext.CatalogBillerCategories.Add(category);
             operations.Add("Catalog category seeded");
         }
         else
@@ -730,7 +730,7 @@ internal class DemoSeedService : IDemoSeedService
             operations,
             cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
         return (categoryId, ecgBillerId, waterBillerId, ecgServiceId, waterServiceId);
     }
 
@@ -747,7 +747,7 @@ internal class DemoSeedService : IDemoSeedService
         Guid correspondentPartnerId,
         string countryCode = "GH")
     {
-        var biller = await _dbContext.CatalogBillers
+        var biller = await _financeDbContext.CatalogBillers
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.CountryCode == countryCode
                                          && item.Name == name,
@@ -772,7 +772,7 @@ internal class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.CatalogBillers.Add(biller);
+            _financeDbContext.CatalogBillers.Add(biller);
             operations.Add($"Catalog biller seeded: {name}");
         }
         else
@@ -807,7 +807,7 @@ internal class DemoSeedService : IDemoSeedService
         List<string> operations,
         CancellationToken cancellationToken)
     {
-        var service = await _dbContext.CatalogBillerServices
+        var service = await _financeDbContext.CatalogBillerServices
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.ServiceCode == serviceCode,
                 cancellationToken);
@@ -837,7 +837,7 @@ internal class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.CatalogBillerServices.Add(service);
+            _financeDbContext.CatalogBillerServices.Add(service);
             operations.Add($"Catalog service seeded: {name}");
         }
         else
@@ -894,7 +894,7 @@ internal class DemoSeedService : IDemoSeedService
 
         if (payerParty == null)
         {
-            payerParty = new Party
+            payerParty = new PartyEntity
             {
                 Id = DemoPayerPartyId,
                 TenantId = tenantId,
@@ -937,7 +937,7 @@ internal class DemoSeedService : IDemoSeedService
 
         if (receiverParty == null)
         {
-            receiverParty = new Party
+            receiverParty = new PartyEntity
             {
                 Id = DemoReceiverPartyId,
                 TenantId = tenantId,
@@ -992,7 +992,7 @@ internal class DemoSeedService : IDemoSeedService
         return (payerParty.Id, receiverParty.Id, relationshipId);
     }
 
-    private Task UpsertPartyContactsAsync(Party party, DateTime now, string email = "kwame.mensah@mailinator.com", string phone = "+234800000000")
+    private Task UpsertPartyContactsAsync(PartyEntity party, DateTime now, string email = "kwame.mensah@mailinator.com", string phone = "+234800000000")
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var existingEmail = party.Contacts.FirstOrDefault(contact =>
@@ -1383,12 +1383,9 @@ internal class DemoSeedService : IDemoSeedService
         }
     }
 
-    private static void ClearTrackingIfSupported(IAonikDbContext dbContext)
+    private static void ClearTrackingIfSupported(PlatformDbContext dbContext)
     {
-        if (dbContext is DbContext efDbContext)
-        {
-            efDbContext.ChangeTracker.Clear();
-        }
+        dbContext.ChangeTracker.Clear();
     }
 
     private void ClearFinanceTracking()
@@ -1500,7 +1497,7 @@ internal class DemoSeedService : IDemoSeedService
         List<string> operations,
         CancellationToken cancellationToken)
     {
-        var category = await _dbContext.CatalogBillerCategories
+        var category = await _financeDbContext.CatalogBillerCategories
             .FirstOrDefaultAsync(item => item.TenantId == tenantId
                                          && item.CountryCode == countryCode
                                          && item.Name == name,
@@ -1520,7 +1517,7 @@ internal class DemoSeedService : IDemoSeedService
                 CreatedAt = now,
                 CreatedBy = userId
             };
-            _dbContext.CatalogBillerCategories.Add(category);
+            _financeDbContext.CatalogBillerCategories.Add(category);
             operations.Add($"Catalog category seeded: {countryCode} {name}");
         }
         else
@@ -2123,7 +2120,7 @@ internal class DemoSeedService : IDemoSeedService
             operations,
             cancellationToken);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
         operations.Add("Extended catalog for NG, GH, KE, and ZA bill collection corridors");
 
         return (
@@ -2313,7 +2310,7 @@ internal class DemoSeedService : IDemoSeedService
 
         if (party == null)
         {
-            party = new Party
+            party = new PartyEntity
             {
                 Id = seed.PartyId,
                 TenantId = tenantId,
@@ -2388,7 +2385,7 @@ internal class DemoSeedService : IDemoSeedService
 
         if (party == null)
         {
-            party = new Party
+            party = new PartyEntity
             {
                 Id = seed.PartyId,
                 TenantId = tenantId,
@@ -2469,7 +2466,7 @@ internal class DemoSeedService : IDemoSeedService
     }
 
     private async Task UpsertPartyAddressAsync(
-        Party party,
+        PartyEntity party,
         string type,
         string line1,
         string city,
@@ -2598,7 +2595,7 @@ internal class DemoSeedService : IDemoSeedService
 
         foreach (var seed in households)
         {
-            var household = await _dbContext.Households
+            var household = await _financeDbContext.Households
                 .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Name == seed.Name, cancellationToken);
 
             if (household == null)
@@ -2611,7 +2608,7 @@ internal class DemoSeedService : IDemoSeedService
                     CreatedAt = now,
                     CreatedBy = userId
                 };
-                _dbContext.Households.Add(household);
+                _financeDbContext.Households.Add(household);
             }
             else
             {
@@ -2627,7 +2624,7 @@ internal class DemoSeedService : IDemoSeedService
                 continue;
             }
 
-            var existingMember = await _dbContext.HouseholdMembers
+            var existingMember = await _financeDbContext.HouseholdMembers
                 .FirstOrDefaultAsync(item => item.HouseholdId == household.Id && item.UserId == userId.Value, cancellationToken);
 
             if (existingMember == null)
@@ -2642,7 +2639,7 @@ internal class DemoSeedService : IDemoSeedService
                     CreatedAt = now,
                     CreatedBy = userId
                 };
-                _dbContext.HouseholdMembers.Add(existingMember);
+                _financeDbContext.HouseholdMembers.Add(existingMember);
             }
             else
             {
@@ -2655,7 +2652,7 @@ internal class DemoSeedService : IDemoSeedService
             householdMemberIds.Add(existingMember.Id);
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
         operations.Add("Seeded household groups for personal finance demos");
 
         return (householdIds, householdMemberIds);
