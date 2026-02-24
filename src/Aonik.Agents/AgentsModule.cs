@@ -1,3 +1,5 @@
+using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Framework;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
@@ -39,8 +41,10 @@ public sealed class AgentsModule : IModule
             }
         });
 
-        // Future: register agent services, proposal services, orchestrator services
-        // These will be added in PR 3.3+ as domain agents are implemented.
+        // MCP tool provider — connects to MCP servers and exposes their tools as AITool
+        // instances for use by agents. Registered as singleton since it manages long-lived
+        // stdio connections to MCP server processes.
+        services.AddSingleton<IMcpToolProvider, McpToolProvider>();
 
         return services;
     }
