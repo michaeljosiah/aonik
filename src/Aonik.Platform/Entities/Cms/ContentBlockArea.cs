@@ -1,4 +1,4 @@
-namespace Aonik.Domain.Cms.Entities;
+namespace Aonik.Platform.Entities.Cms;
 
 public enum ContentBlockArea
 {

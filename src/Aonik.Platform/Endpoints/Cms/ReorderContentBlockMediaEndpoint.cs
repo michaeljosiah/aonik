@@ -1,9 +1,10 @@
-using Aonik.Application.Services.Cms;
+using Aonik.Platform.Contracts.Models.Cms;
+using Aonik.Platform.Contracts.Services.Cms;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Cms;
+namespace Aonik.Platform.Endpoints.Cms;
 
-public class ReorderContentBlockMediaEndpoint : Endpoint<Contracts.Cms.ReorderContentBlockMediaRequest>
+internal class ReorderContentBlockMediaEndpoint : Endpoint<ReorderContentBlockMediaRequest>
 {
     private readonly IContentBlockService _contentBlockService;
 
@@ -18,7 +19,7 @@ public class ReorderContentBlockMediaEndpoint : Endpoint<Contracts.Cms.ReorderCo
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(Contracts.Cms.ReorderContentBlockMediaRequest req, CancellationToken ct)
+    public override async Task HandleAsync(ReorderContentBlockMediaRequest req, CancellationToken ct)
     {
         var contentBlockId = Route<Guid>("id");
         await _contentBlockService.ReorderMediaAsync(contentBlockId, req.MediaIds, ct);

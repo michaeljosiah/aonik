@@ -1,14 +1,15 @@
 using Aonik.Platform.Entities.Cms;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Infrastructure.Persistence.Configurations;
+namespace Aonik.Platform.Persistence.Configurations.Cms;
 
-public class ContentBlockConfiguration : IEntityTypeConfiguration<ContentBlock>
+internal class ContentBlockConfiguration : IEntityTypeConfiguration<ContentBlock>
 {
     public void Configure(EntityTypeBuilder<ContentBlock> builder)
     {
-        builder.ToTable("ContentBlocks");
+        builder.ToTable("ContentBlocks", SchemaNames.Default);
         
         builder.HasKey(x => x.Id);
 

@@ -1,9 +1,9 @@
-using Aonik.Application.Services.Cms;
+using Aonik.Platform.Contracts.Services.Cms;
 using FastEndpoints;
 
-namespace Aonik.Api.Endpoints.Cms;
+namespace Aonik.Platform.Endpoints.Cms;
 
-public class DeleteContentBlockEndpoint : EndpointWithoutRequest
+internal class DeleteContentBlockEndpoint : EndpointWithoutRequest
 {
     private readonly IContentBlockService _contentBlockService;
 

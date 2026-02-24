@@ -18,7 +18,7 @@ using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Options;
 using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Platform.Services.Onboarding;
-using Aonik.Application.Services.Cms;
+
 using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Services.Registration;
 using Aonik.Platform.Contracts.Services.Identity;
@@ -150,7 +150,6 @@ public static class DependencyInjection
         services.AddScoped<ISettingManager, SettingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.AddScoped<IAutonumberingService, AutonumberingService>();
-        services.AddScoped<IContentBlockService, ContentBlockService>();
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
         services.AddHttpClient<Auth0AuthTokenService>();

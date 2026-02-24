@@ -1,6 +1,6 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Domain.Cms.Entities;
+namespace Aonik.Platform.Entities.Cms;
 
 public class ContentBlockMedia : Entity
 {

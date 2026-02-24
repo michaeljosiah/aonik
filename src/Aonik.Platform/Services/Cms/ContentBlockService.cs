@@ -1,18 +1,19 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Persistence;
-using Aonik.Application.Models.Cms;
-using Aonik.Domain.Cms.Entities;
+using Aonik.Platform.Contracts.Models.Cms;
+using Aonik.Platform.Contracts.Services.Cms;
+using Aonik.Platform.Entities.Cms;
+using Aonik.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace Aonik.Application.Services.Cms;
+namespace Aonik.Platform.Services.Cms;
 
-public class ContentBlockService : IContentBlockService
+internal class ContentBlockService : IContentBlockService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly PlatformDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
 
     public ContentBlockService(
-        IAonikDbContext dbContext,
+        PlatformDbContext dbContext,
         ITenantProvider tenantProvider)
     {
         _dbContext = dbContext;
@@ -246,7 +247,6 @@ public class ContentBlockService : IContentBlockService
         string locale,
         CancellationToken cancellationToken = default)
     {
-        // For anonymous/public endpoints, tenant context may not be available
         if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
         {
             return new List<ContentBlockResponse>();

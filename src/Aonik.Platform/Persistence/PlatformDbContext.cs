@@ -1,3 +1,4 @@
+using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
@@ -86,6 +87,10 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<Country> Countries { get; set; } = null!;
     public DbSet<Currency> Currencies { get; set; } = null!;
     public DbSet<CountryCurrency> CountryCurrencies { get; set; } = null!;
+
+    // CMS
+    public DbSet<ContentBlock> ContentBlocks { get; set; } = null!;
+    public DbSet<ContentBlockMedia> ContentBlockMedia { get; set; } = null!;
 
     // Cross-module DbSets (temporary — used by TenantProvisioner and CustomerAdminService
     // during migration. Will be removed when Finance/AI modules are extracted and these

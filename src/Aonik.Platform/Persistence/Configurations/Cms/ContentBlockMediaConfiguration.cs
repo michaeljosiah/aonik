@@ -1,14 +1,15 @@
 using Aonik.Platform.Entities.Cms;
+using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Infrastructure.Persistence.Configurations;
+namespace Aonik.Platform.Persistence.Configurations.Cms;
 
-public class ContentBlockMediaConfiguration : IEntityTypeConfiguration<ContentBlockMedia>
+internal class ContentBlockMediaConfiguration : IEntityTypeConfiguration<ContentBlockMedia>
 {
     public void Configure(EntityTypeBuilder<ContentBlockMedia> builder)
     {
-        builder.ToTable("ContentBlockMedia");
+        builder.ToTable("ContentBlockMedia", SchemaNames.Default);
         
         builder.HasKey(x => x.Id);
 

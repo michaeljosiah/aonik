@@ -1,36 +1,38 @@
-namespace Aonik.Application.Services.Cms;
+using Aonik.Platform.Contracts.Models.Cms;
+
+namespace Aonik.Platform.Contracts.Services.Cms;
 
 public interface IContentBlockService
 {
-    Task<Models.Cms.ContentBlockResponse> CreateContentBlockAsync(
-        Models.Cms.CreateContentBlockRequest request,
+    Task<ContentBlockResponse> CreateContentBlockAsync(
+        CreateContentBlockRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<Models.Cms.ContentBlockResponse?> GetContentBlockAsync(
+    Task<ContentBlockResponse?> GetContentBlockAsync(
         Guid id,
         CancellationToken cancellationToken = default);
 
-    Task<Models.Cms.ContentBlockResponse?> GetContentBlockByKeyAsync(
+    Task<ContentBlockResponse?> GetContentBlockByKeyAsync(
         string contentKey,
         string locale,
         CancellationToken cancellationToken = default);
 
-    Task<List<Models.Cms.ContentBlockResponse>> ListContentBlocksAsync(
-        Models.Cms.ContentBlockListRequest request,
+    Task<List<ContentBlockResponse>> ListContentBlocksAsync(
+        ContentBlockListRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<Models.Cms.ContentBlockResponse> UpdateContentBlockAsync(
+    Task<ContentBlockResponse> UpdateContentBlockAsync(
         Guid id,
-        Models.Cms.UpdateContentBlockRequest request,
+        UpdateContentBlockRequest request,
         CancellationToken cancellationToken = default);
 
     Task DeleteContentBlockAsync(
         Guid id,
         CancellationToken cancellationToken = default);
 
-    Task<Models.Cms.ContentBlockMediaResponse> AddMediaAsync(
+    Task<ContentBlockMediaResponse> AddMediaAsync(
         Guid contentBlockId,
-        Models.Cms.AddContentBlockMediaRequest request,
+        AddContentBlockMediaRequest request,
         CancellationToken cancellationToken = default);
 
     Task RemoveMediaAsync(
@@ -43,7 +45,7 @@ public interface IContentBlockService
         List<Guid> mediaIdsInOrder,
         CancellationToken cancellationToken = default);
 
-    Task<List<Models.Cms.ContentBlockResponse>> GetActiveContentBlocksAsync(
+    Task<List<ContentBlockResponse>> GetActiveContentBlocksAsync(
         string area,
         string locale,
         CancellationToken cancellationToken = default);

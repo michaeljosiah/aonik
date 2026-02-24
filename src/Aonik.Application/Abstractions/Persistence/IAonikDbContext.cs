@@ -1,5 +1,5 @@
 using Aonik.Domain.Autonumbering.Entities;
-using Aonik.Domain.Cms.Entities;
+using Aonik.Platform.Entities.Cms;
 using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Features;

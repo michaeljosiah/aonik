@@ -1,5 +1,6 @@
 using Aonik.Agents.Framework;
 using Aonik.Platform.Agents;
+using Aonik.Platform.Contracts.Services.Cms;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Features;
@@ -10,6 +11,7 @@ using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Cms;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Services.Customers;
 using Aonik.Platform.Services.Features;
@@ -86,6 +88,9 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
+
+        // ── CMS Services ─────────────────────────────────────────────
+        services.AddScoped<IContentBlockService, ContentBlockService>();
 
         // ── Platform Domain Agent ────────────────────────────────────
         services.AddSingleton<AonikDomainAgent, PlatformDomainAgent>();

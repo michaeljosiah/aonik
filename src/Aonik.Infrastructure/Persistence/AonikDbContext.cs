@@ -2,7 +2,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Domain.Autonumbering.Entities;
 using Aonik.Finance.Entities.Catalog;
-using Aonik.Domain.Cms.Entities;
+using Aonik.Platform.Entities.Cms;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Features;
 using Aonik.Platform.Entities.Identity;
