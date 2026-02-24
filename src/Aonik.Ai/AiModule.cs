@@ -49,8 +49,12 @@ public sealed class AiModule : IModule
             return new FileBasedPromptStore(promptPath);
         });
 
-        // Chat client (stub — will be replaced with real LLM provider)
-        services.AddScoped<IChatClient, StubChatClient>();
+        // Chat client factory — config-driven provider selection (AI:Provider = Stub | OpenAI | AzureOpenAI)
+        services.AddSingleton<IChatClientFactory, ConfigDrivenChatClientFactory>();
+
+        // IChatClient — resolved from the factory per scope
+        services.AddScoped<IChatClient>(sp =>
+            sp.GetRequiredService<IChatClientFactory>().CreateClient());
 
         // ── AI Services ──────────────────────────────────────────────
         services.AddScoped<IAiInsightsService, AiInsightsService>();

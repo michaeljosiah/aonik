@@ -1,3 +1,5 @@
+using Aonik.Agents.Framework;
+using Aonik.Platform.Agents;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Features;
@@ -84,6 +86,9 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
+
+        // ── Platform Domain Agent ────────────────────────────────────
+        services.AddSingleton<AonikDomainAgent, PlatformDomainAgent>();
 
         return services;
     }
