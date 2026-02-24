@@ -46,6 +46,10 @@ public sealed class AgentsModule : IModule
         // stdio connections to MCP server processes.
         services.AddSingleton<IMcpToolProvider, McpToolProvider>();
 
+        // Master orchestrator — routes user messages to domain agents via agent-as-tool pattern.
+        // Scoped because it depends on IChatClient (scoped from AiModule).
+        services.AddScoped<IMasterOrchestratorService, MasterOrchestratorService>();
+
         return services;
     }
 }
