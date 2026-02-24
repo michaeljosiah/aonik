@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.Application\Aonik.Application.csproj" />
-    <ProjectReference Include="..\Aonik.Domain\Aonik.Domain.csproj" />
     <ProjectReference Include="..\Aonik.Platform\Aonik.Platform.csproj" />
     <ProjectReference Include="..\Aonik.Finance\Aonik.Finance.csproj" />
     <ProjectReference Include="..\Aonik.Ai\Aonik.Ai.csproj" />
