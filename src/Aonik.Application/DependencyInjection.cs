@@ -1,4 +1,3 @@
-using Aonik.Application.Services.PersonalFinance;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Application;
@@ -12,9 +11,6 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Personal Finance
-        services.AddScoped<IHouseholdService, HouseholdService>();
-
         return services;
     }
 }

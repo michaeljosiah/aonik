@@ -15,7 +15,7 @@ using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Partners;
-using Aonik.Domain.PersonalFinance.Entities;
+using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Contracts.Models.Pricing;
 using Aonik.Finance.Persistence;

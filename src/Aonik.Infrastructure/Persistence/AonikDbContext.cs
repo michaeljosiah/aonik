@@ -9,7 +9,7 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Entities.Party;
-using Aonik.Domain.PersonalFinance.Entities;
+using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
 using Aonik.SharedKernel.Abstractions;

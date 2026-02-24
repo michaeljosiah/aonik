@@ -5,6 +5,7 @@ using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
+using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Entities.Pricing;
 using Aonik.Finance.Entities.ReferenceData;
 using Aonik.SharedKernel.Abstractions;
@@ -80,6 +81,9 @@ internal class FinanceDbContext : AonikDbContextBase
     /// <summary>Read-only projection of Party (authoritative entity in Platform module)</summary>
     public DbSet<PartyReadModel> Parties { get; set; } = null!;
 
+    /// <summary>Read-only projection of User (authoritative entity in Platform module)</summary>
+    public DbSet<UserReadModel> Users { get; set; } = null!;
+
     // ── Catalog ─────────────────────────────────────────────────────
     public DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; } = null!;
     public DbSet<CatalogBiller> CatalogBillers { get; set; } = null!;
@@ -91,6 +95,19 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<CountryReadModel> Countries { get; set; } = null!;
     public DbSet<CurrencyReadModel> Currencies { get; set; } = null!;
     public DbSet<CountryCurrencyReadModel> CountryCurrencies { get; set; } = null!;
+
+    // ── PersonalFinance ─────────────────────────────────────────────
+    public DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
+    public DbSet<Household> Households { get; set; } = null!;
+    public DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
+    public DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
+    public DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
+    public DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
+    public DbSet<BudgetLine> BudgetLines { get; set; } = null!;
+    public DbSet<Bill> Bills { get; set; } = null!;
+    public DbSet<Subscription> Subscriptions { get; set; } = null!;
+    public DbSet<Goal> Goals { get; set; } = null!;
+    public DbSet<Budget> Budgets { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -162,6 +179,7 @@ internal class FinanceDbContext : AonikDbContextBase
 
         // Temporary cross-module entities
         modelBuilder.Entity<PartyReadModel>().ToTable("Parties", SchemaNames.Default);
+        modelBuilder.Entity<UserReadModel>().ToTable("Users", SchemaNames.Default);
         modelBuilder.Entity<CatalogBillerCategory>().ToTable("CatalogBillerCategories", SchemaNames.Default);
         modelBuilder.Entity<CatalogBiller>().ToTable("CatalogBillers", SchemaNames.Default);
         modelBuilder.Entity<CatalogBillerService>().ToTable("CatalogBillerServices", SchemaNames.Default);
@@ -170,6 +188,19 @@ internal class FinanceDbContext : AonikDbContextBase
         modelBuilder.Entity<CountryReadModel>().ToTable("Countries", SchemaNames.Default);
         modelBuilder.Entity<CurrencyReadModel>().ToTable("Currencies", SchemaNames.Default);
         modelBuilder.Entity<CountryCurrencyReadModel>().ToTable("CountryCurrencies", SchemaNames.Default);
+
+        // PersonalFinance
+        modelBuilder.Entity<PersonalProfile>().ToTable("PersonalProfiles", SchemaNames.Default);
+        modelBuilder.Entity<Household>().ToTable("Households", SchemaNames.Default);
+        modelBuilder.Entity<HouseholdMember>().ToTable("HouseholdMembers", SchemaNames.Default);
+        modelBuilder.Entity<PersonalAccount>().ToTable("PersonalAccounts", SchemaNames.Default);
+        modelBuilder.Entity<PersonalTransaction>().ToTable("PersonalTransactions", SchemaNames.Default);
+        modelBuilder.Entity<CategorisationRule>().ToTable("CategorisationRules", SchemaNames.Default);
+        modelBuilder.Entity<BudgetLine>().ToTable("BudgetLines", SchemaNames.Default);
+        modelBuilder.Entity<Bill>().ToTable("Bills", SchemaNames.Default);
+        modelBuilder.Entity<Subscription>().ToTable("Subscriptions", SchemaNames.Default);
+        modelBuilder.Entity<Goal>().ToTable("Goals", SchemaNames.Default);
+        modelBuilder.Entity<Budget>().ToTable("Budgets", SchemaNames.Default);
 
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FinanceDbContext).Assembly);

@@ -3,7 +3,6 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Abstractions.Persistence;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
@@ -22,18 +21,15 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
     private const string OwnerRole = "Owner";
 
     private readonly FinanceDbContext _financeDbContext;
-    private readonly IAonikDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
 
     public HouseholdService(
         FinanceDbContext financeDbContext,
-        IAonikDbContext dbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider)
     {
         _financeDbContext = financeDbContext;
-        _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
     }
@@ -144,7 +140,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
 
         await EnsurePersonalProfileAsync(request.UserId, tenantId, cancellationToken);
 
-        var userExists = await _dbContext.Users
+        var userExists = await _financeDbContext.Users
             .AnyAsync(user => user.Id == request.UserId && user.TenantId == tenantId, cancellationToken);
 
         if (!userExists)

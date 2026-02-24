@@ -1,4 +1,4 @@
-using Aonik.Domain.PersonalFinance.Entities;
+using Aonik.Finance.Entities.PersonalFinance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
