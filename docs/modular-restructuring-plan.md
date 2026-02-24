@@ -43,7 +43,7 @@
 - [x] **PR 5.3** — Admin UI Module Extension System
 
 ### Phase 6: Clean-Up & Finalization
-- [ ] **PR 6.1** — Delete Legacy Layers
+- [x] **PR 6.1** — Delete Legacy Layers
 - [ ] **PR 6.2** — Documentation & ADR Updates
 
 ---
