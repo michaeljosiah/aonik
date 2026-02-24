@@ -65,6 +65,10 @@ public sealed class FinanceModule : IModule
         // Partners
         services.AddScoped<Contracts.Services.Partners.IPartnerAdminService, Services.Partners.PartnerAdminService>();
 
+        // Catalog
+        services.AddScoped<Contracts.Services.Catalog.ICatalogService, Services.Catalog.CatalogService>();
+        services.AddScoped<Contracts.Services.Catalog.IPublicCatalogService, Services.Catalog.PublicCatalogService>();
+
         // ── Finance Domain Agent ─────────────────────────────────────
         services.AddSingleton<AonikDomainAgent, FinanceDomainAgent>();
 

@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Contracts.Services.Catalog;
+using Aonik.Finance.Entities.Catalog;
+using Aonik.Finance.Entities.ReferenceData;
 using Aonik.Finance.Persistence;
 
 namespace Aonik.Finance.Services.Catalog;

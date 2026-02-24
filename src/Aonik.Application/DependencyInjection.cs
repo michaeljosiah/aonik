@@ -1,4 +1,3 @@
-using Aonik.Application.Services.Catalog;
 using Aonik.Application.Services.PersonalFinance;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,10 +12,6 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        // Catalog
-        services.AddScoped<ICatalogService, CatalogService>();
-        services.AddScoped<IPublicCatalogService, PublicCatalogService>();
-
         // Personal Finance
         services.AddScoped<IHouseholdService, HouseholdService>();
 

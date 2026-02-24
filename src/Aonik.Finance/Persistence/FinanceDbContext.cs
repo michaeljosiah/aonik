@@ -1,11 +1,12 @@
-using Aonik.Domain.Catalog.Entities;
 using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Billing;
+using Aonik.Finance.Entities.Catalog;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Entities.Pricing;
+using Aonik.Finance.Entities.ReferenceData;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -79,11 +80,17 @@ internal class FinanceDbContext : AonikDbContextBase
     /// <summary>Read-only projection of Party (authoritative entity in Platform module)</summary>
     public DbSet<PartyReadModel> Parties { get; set; } = null!;
 
-    /// <summary>Catalog biller (authoritative entity in Domain, future Catalog module)</summary>
+    // ── Catalog ─────────────────────────────────────────────────────
+    public DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; } = null!;
     public DbSet<CatalogBiller> CatalogBillers { get; set; } = null!;
-
-    /// <summary>Catalog biller service (authoritative entity in Domain, future Catalog module)</summary>
     public DbSet<CatalogBillerService> CatalogBillerServices { get; set; } = null!;
+
+    // ── Reference Data Read Models ──────────────────────────────────
+    // These are read-only projections of Platform reference data entities.
+    // TEMPORARY: Will be replaced by inter-module service contracts.
+    public DbSet<CountryReadModel> Countries { get; set; } = null!;
+    public DbSet<CurrencyReadModel> Currencies { get; set; } = null!;
+    public DbSet<CountryCurrencyReadModel> CountryCurrencies { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -155,8 +162,14 @@ internal class FinanceDbContext : AonikDbContextBase
 
         // Temporary cross-module entities
         modelBuilder.Entity<PartyReadModel>().ToTable("Parties", SchemaNames.Default);
+        modelBuilder.Entity<CatalogBillerCategory>().ToTable("CatalogBillerCategories", SchemaNames.Default);
         modelBuilder.Entity<CatalogBiller>().ToTable("CatalogBillers", SchemaNames.Default);
         modelBuilder.Entity<CatalogBillerService>().ToTable("CatalogBillerServices", SchemaNames.Default);
+
+        // Reference data read models (read-only projections of Platform entities)
+        modelBuilder.Entity<CountryReadModel>().ToTable("Countries", SchemaNames.Default);
+        modelBuilder.Entity<CurrencyReadModel>().ToTable("Currencies", SchemaNames.Default);
+        modelBuilder.Entity<CountryCurrencyReadModel>().ToTable("CountryCurrencies", SchemaNames.Default);
 
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FinanceDbContext).Assembly);

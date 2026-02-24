@@ -1,4 +1,4 @@
-using Aonik.Domain.Catalog.Entities;
+using Aonik.Finance.Entities.Catalog;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

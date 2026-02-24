@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 using Aonik.Application.Abstractions.Persistence;
-using Aonik.Domain.Catalog.Entities;
+using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.ReferenceData;
 

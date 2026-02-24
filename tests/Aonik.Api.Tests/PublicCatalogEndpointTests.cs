@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Domain.Catalog.Entities;
+using Aonik.Finance.Entities.Catalog;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Infrastructure.Persistence;
 

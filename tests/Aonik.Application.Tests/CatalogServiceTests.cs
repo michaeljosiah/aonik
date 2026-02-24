@@ -1,12 +1,12 @@
 using System.Text.Json;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.Application.Models.Catalog;
-using Aonik.Application.Services.Catalog;
-using Aonik.Domain.Catalog.Entities;
-using Aonik.Infrastructure.Persistence;
+using Aonik.Finance.Contracts.Models.Catalog;
+using Aonik.Finance.Entities.Catalog;
+using Aonik.Finance.Entities.ReferenceData;
+using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.Catalog;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Aonik.Platform.Entities.ReferenceData;
 
 namespace Aonik.Application.Tests;
 
@@ -56,13 +56,13 @@ public class CatalogServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
         context.Countries.AddRange(
-            new Country
+            new CountryReadModel
             {
                 Id = Guid.NewGuid(),
                 IsoAlpha2 = "GH",
@@ -72,7 +72,7 @@ public class CatalogServiceTests
                 SortOrder = 1,
                 IsActive = true
             },
-            new Country
+            new CountryReadModel
             {
                 Id = Guid.NewGuid(),
                 IsoAlpha2 = "KE",
@@ -127,13 +127,13 @@ public class CatalogServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
         context.Currencies.AddRange(
-            new Currency
+            new CurrencyReadModel
             {
                 Id = Guid.NewGuid(),
                 TenantId = null,
@@ -142,7 +142,7 @@ public class CatalogServiceTests
                 SortOrder = 1,
                 IsActive = true
             },
-            new Currency
+            new CurrencyReadModel
             {
                 Id = Guid.NewGuid(),
                 TenantId = null,
@@ -171,11 +171,11 @@ public class CatalogServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
 
         var categoryId = Guid.NewGuid();
         var correspondentId = Guid.NewGuid();
@@ -226,11 +226,11 @@ public class CatalogServiceTests
     {
         // Arrange
         var tenantId = Guid.NewGuid();
-        var options = new DbContextOptionsBuilder<AonikDbContext>()
+        var options = new DbContextOptionsBuilder<FinanceDbContext>()
             .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
             .Options;
 
-        using var context = new AonikDbContext(options, new TestTenantProvider(tenantId));
+        using var context = new FinanceDbContext(options, new TestTenantProvider(tenantId));
         var billerId = Guid.NewGuid();
         var serviceId = Guid.NewGuid();
 
