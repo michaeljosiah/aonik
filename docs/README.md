@@ -31,9 +31,10 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 - [AI Integration](features/ai-integration.md) - AI workflows
 
 ### 🏗️ Architecture
-- [Clean Architecture](architecture/clean-architecture.md) - Layered architecture
-- [Module Organization](architecture/module-organization.md) - Modular monolith
+- [Architecture Overview](architecture/overview.md) - Modular monolith design
+- [Module Organization](architecture/module-organization.md) - Module anatomy and boundaries
 - [Data Flow](architecture/data-flow.md) - Request/response flow
+- [Technology Stack](architecture/technology-stack.md) - Technologies used
 
 ### 🔧 Patterns & Best Practices
 - [Service Layer Patterns](patterns/service-layer.md)
@@ -51,9 +52,11 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 
 ### 📋 Architecture Decisions
 - [Decision Records Index](decisions/README.md)
-- [ADR-001: Custom AI Implementation](decisions/001-custom-ai-implementation-vs-maf.md)
+- [ADR-001: Custom AI → MAF Adoption](decisions/001-custom-ai-implementation-vs-maf.md)
 - [ADR-002: Anemic Domain Model](decisions/002-anemic-domain-model.md)
 - [ADR-003: No Generic Repository](decisions/003-no-generic-repository.md)
+- [ADR-004: Module-Scoped DbContexts](decisions/004-module-scoped-dbcontexts.md)
+- [ADR-005: Modular Monolith Restructuring](decisions/005-modular-monolith-restructuring.md)
 
 ### 🚢 Deployment
 - [Local Development](deployment/local-development.md)
@@ -73,16 +76,15 @@ docs/
 ├── guides/           # How-to guides for developers
 ├── features/         # Feature-specific documentation
 ├── patterns/         # Common patterns and best practices
-├── reference/        # API and permissions reference
-├── api/              # API documentation
+├── reference/        # Permissions reference
 ├── database/         # Database design and schema
 ├── decisions/        # Architecture Decision Records (ADRs)
 ├── deployment/       # Deployment and operations
-└── contributing/     # Contribution guidelines
+├── contributing/     # Contribution guidelines
+└── runbooks/         # Operational runbooks
 ```
 
 ## Need Help?
 
 - Check [AGENTS.md](../AGENTS.md) for AI agent coding guidelines
-- Review [Architecture.md](Architecture.md) for legacy architecture docs (being migrated)
 - See [decisions/](decisions/) for architectural decision rationale

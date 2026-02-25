@@ -4,8 +4,8 @@ AONIK keeps transport models and persistence models separate.
 
 ## Guidelines
 
-- API contracts belong in `src/Aonik.Api/Contracts`.
-- Application DTOs belong in `src/Aonik.Application`.
-- Domain entities belong in `src/Aonik.Domain`.
+- API request/response contracts are co-located with endpoints in each module project (e.g., `src/Aonik.Finance/Endpoints/Billing/`).
+- Application-level DTOs live near their services in the module project.
+- Domain entities live in the module's `Entities/` directory.
 
-Endpoints map API contracts → application DTOs and return DTOs.
+Endpoints map API contracts to internal DTOs and return DTOs. Services map entities to DTOs in private static methods.

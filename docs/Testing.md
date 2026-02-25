@@ -27,14 +27,14 @@ AONIK follows these testing principles:
 
 ## Test Structure
 
-The test projects mirror the main project structure:
+The test projects mirror the module-first architecture:
 
 ```
 tests/
-├── Aonik.Domain.Tests/          # Domain entity tests (minimal due to anemic model)
-├── Aonik.Application.Tests/     # Service layer tests (most business logic)
+├── Aonik.SharedKernel.Tests/    # SharedKernel unit tests
+├── Aonik.Application.Tests/     # Service layer tests (business logic)
 ├── Aonik.Infrastructure.Tests/  # Infrastructure and persistence tests
-└── Aonik.Api.Tests/            # API endpoint integration tests
+└── Aonik.Api.Tests/             # API endpoint integration tests
 ```
 
 ---

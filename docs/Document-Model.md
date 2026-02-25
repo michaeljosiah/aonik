@@ -150,12 +150,11 @@ A DocumentVerification captures the decisioning record for a usage/purpose.
 - Keep **audit logs** for uploads, updates, and verification decisions.
 - Consider **retention policies** and `ExpiresOn` for regulatory compliance.
 
-## Clean Architecture Placement (Suggestion)
+## Module Placement (Suggestion)
 
-- **Domain**: `Document`, `DocumentFile`, `DocumentUsage`, `DocumentVerification`, `DocumentVersion` entities.
-- **Application**: services for upload, linking usages, verification decisions.
-- **Infrastructure**: storage provider integration (Azure Blob/S3), OCR/verification vendors.
-- **API**: endpoints for upload, status, and usage linking.
+- **Platform module** (`Aonik.Platform`): `Document`, `DocumentFile`, `DocumentUsage`, `DocumentVerification`, `DocumentVersion` entities, plus services for upload, linking usages, and verification decisions.
+- **Infrastructure**: Storage provider integration (Azure Blob/S3), OCR/verification vendors.
+- **API endpoints**: In Platform module endpoints for upload, status, and usage linking.
 
 ## Notes on Extensions
 

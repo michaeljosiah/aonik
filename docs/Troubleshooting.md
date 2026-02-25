@@ -67,8 +67,8 @@ error CS1061: 'Invoice' does not contain a definition for 'InvoiceNumber'
 **Solution:**
 This occurs when EF Core configurations reference properties that don't exist on the entity. 
 
-1. Check the actual entity definition in `src/Aonik.Domain/`
-2. Update the corresponding configuration in `src/Aonik.Infrastructure/Persistence/Configurations/`
+1. Check the actual entity definition in the owning module (e.g., `src/Aonik.Finance/Entities/Billing/`)
+2. Update the corresponding configuration in the module's `Persistence/Configurations/` directory
 3. Ensure property names match exactly
 
 Example: If the entity has `CustomerAccountId` but the configuration references `CustomerId`, update the configuration:

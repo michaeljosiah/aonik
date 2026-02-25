@@ -2,8 +2,11 @@
 
 This document is derived from the EF Core model snapshot, with simple explanations and examples for each table.
 
-- DbContext: `src/Aonik.Infrastructure/Persistence/AonikDbContext.cs`
+- Migrations DbContext: `src/Aonik.Infrastructure/Persistence/AonikDbContext.cs`
+- Module DbContexts: `PlatformDbContext`, `FinanceDbContext`, `AiDbContext`, `AgentsDbContext` (in their respective module projects)
 - Authoritative schema snapshot: `src/Aonik.Infrastructure/Persistence/Migrations/AonikDbContextModelSnapshot.cs`
+
+> **Note:** Entity namespace references below (e.g., `Aonik.Domain.Billing.Entities.Invoice`) reflect the CLR type names stored in migration history. The actual source files now live in module projects (e.g., `src/Aonik.Finance/Entities/Billing/Invoice.cs`).
 
 ## Notes
 

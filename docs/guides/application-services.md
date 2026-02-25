@@ -4,6 +4,8 @@
 
 In AONIK, **Application Services** contain all business logic and orchestrate domain operations. Since we use an **anemic domain model**, entities are simple data containers, and services handle all state transitions, validations, and business rules.
 
+Services live within their owning module project (e.g., `src/Aonik.Finance/Services/Billing/`).
+
 ## Service Structure
 
 ### Basic Pattern
@@ -18,9 +20,9 @@ public interface IBillingService
 
 public class BillingService : IBillingService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly FinanceDbContext _dbContext;
 
-    public BillingService(IAonikDbContext dbContext)
+    public BillingService(FinanceDbContext dbContext)
     {
         _dbContext = dbContext;
     }
@@ -58,7 +60,7 @@ public async Task IssueInvoiceAsync(Guid invoiceId, CancellationToken cancellati
 
 ### 2. **Direct DbContext Usage (No Generic Repository)**
 
-Services use `IAonikDbContext` directly:
+Services use the module-scoped DbContext directly:
 
 ```csharp
 // ✅ Good - Direct DbContext usage
@@ -147,163 +149,38 @@ public async Task<InvoiceResponse> CreateInvoiceAsync(
 
 ### What Services SHOULD Do
 
-✅ **Validate business rules**
-```csharp
-if (invoice.Status == "Paid")
-    throw new InvalidOperationException("Paid invoices cannot be cancelled");
-```
-
-✅ **Orchestrate domain operations**
-```csharp
-// Create invoice
-var invoice = new Invoice { /* properties */ };
-
-// Add lines
-foreach (var lineRequest in request.LineItems)
-{
-    var line = new InvoiceLine { /* properties */ };
-    invoice.Lines.Add(line);
-}
-
-// Recalculate totals
-RecalculateInvoiceTotals(invoice);
-```
-
-✅ **Coordinate transactions**
-```csharp
-// All operations in one transaction (implicit via SaveChangesAsync)
-_dbContext.Invoices.Add(invoice);
-_dbContext.Ledger.Add(journalEntry);
-await _dbContext.SaveChangesAsync(cancellationToken);
-```
-
-✅ **Map between entities and DTOs**
-```csharp
-private static InvoiceResponse MapToResponse(Invoice invoice)
-{
-    // Mapping logic
-}
-```
+- Validate business rules
+- Orchestrate domain operations
+- Coordinate transactions (implicit via `SaveChangesAsync`)
+- Map between entities and DTOs
 
 ### What Services SHOULD NOT Do
 
-❌ **Direct HTTP concerns** (that's for endpoints)
-❌ **Infrastructure details** (that's for Infrastructure layer)
-❌ **UI logic** (that's for clients)
-❌ **Entity construction with complex logic** (entities are data bags)
+- Direct HTTP concerns (that's for endpoints)
+- Infrastructure details (that's for external adapters)
+- UI logic (that's for clients)
+- Entity construction with complex logic (entities are data bags)
 
-## Common Patterns
+## Location
 
-### Pattern 1: Create Entity
+Services are organized by subdomain within their owning module:
 
-```csharp
-public async Task<InvoiceResponse> CreateInvoiceAsync(
-    CreateInvoiceRequest request, 
-    CancellationToken cancellationToken = default)
-{
-    // 1. Create entity using object initializer
-    var invoice = new Invoice
-    {
-        Id = Guid.NewGuid(),
-        InvoiceId = Guid.NewGuid(),
-        TenantId = Guid.Empty, // Get from context
-        CustomerAccountId = request.CustomerId,
-        Currency = request.Currency,
-        DueDate = request.DueDate,
-        Status = "Draft",
-        Subtotal = 0,
-        Total = 0,
-        Lines = new List<InvoiceLine>()
-    };
-
-    // 2. Add child entities
-    foreach (var lineRequest in request.LineItems)
-    {
-        var line = new InvoiceLine
-        {
-            Id = Guid.NewGuid(),
-            InvoiceId = invoice.Id,
-            Description = lineRequest.Description,
-            Quantity = lineRequest.Quantity,
-            UnitPrice = lineRequest.UnitPrice,
-            LineTotal = lineRequest.Quantity * lineRequest.UnitPrice
-        };
-        invoice.Lines.Add(line);
-    }
-
-    // 3. Perform calculations
-    RecalculateInvoiceTotals(invoice);
-
-    // 4. Save
-    _dbContext.Invoices.Add(invoice);
-    await _dbContext.SaveChangesAsync(cancellationToken);
-
-    // 5. Return DTO
-    return MapToResponse(invoice);
-}
 ```
+src/Aonik.Finance/Services/
+├── Billing/
+│   ├── IBillingService.cs
+│   └── BillingService.cs
+├── Payments/
+│   ├── IPaymentService.cs
+│   └── PaymentService.cs
+└── Ledger/
+    ├── ILedgerService.cs
+    └── LedgerService.cs
 
-### Pattern 2: Update Entity
-
-```csharp
-public async Task UpdateInvoiceAsync(
-    Guid invoiceId, 
-    UpdateInvoiceRequest request, 
-    CancellationToken cancellationToken = default)
-{
-    // 1. Load entity
-    var invoice = await _dbContext.Invoices
-        .Include(i => i.Lines)
-        .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
-
-    if (invoice == null)
-        throw new InvalidOperationException($"Invoice {invoiceId} not found");
-
-    // 2. Validate business rules
-    if (invoice.Status != "Draft")
-        throw new InvalidOperationException("Only draft invoices can be updated");
-
-    // 3. Update properties directly
-    invoice.DueDate = request.DueDate;
-    invoice.Currency = request.Currency;
-
-    // 4. Save (EF tracks changes automatically)
-    await _dbContext.SaveChangesAsync(cancellationToken);
-}
-```
-
-### Pattern 3: State Transition
-
-```csharp
-public async Task IssueInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
-{
-    var invoice = await _dbContext.Invoices
-        .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
-
-    if (invoice == null)
-        throw new InvalidOperationException($"Invoice {invoiceId} not found");
-
-    // Validate state transition
-    if (invoice.Status != "Draft")
-        throw new InvalidOperationException("Only draft invoices can be issued");
-
-    // Change state
-    invoice.Status = "Issued";
-    invoice.IssueDate = DateTime.UtcNow;
-
-    await _dbContext.SaveChangesAsync(cancellationToken);
-}
-```
-
-### Pattern 4: Complex Calculations
-
-```csharp
-private static void RecalculateInvoiceTotals(Invoice invoice)
-{
-    invoice.Subtotal = invoice.Lines.Sum(x => x.LineTotal);
-    invoice.TaxTotal = invoice.Lines.Sum(x => x.LineTotal * x.TaxRate);
-    invoice.Total = invoice.Subtotal + invoice.TaxTotal - invoice.DiscountTotal;
-}
+src/Aonik.Platform/Services/
+├── Identity/
+├── Party/
+└── Settings/
 ```
 
 ## Error Handling
@@ -333,71 +210,13 @@ public async Task<InvoiceResponse?> GetInvoiceAsync(Guid invoiceId, Cancellation
 
 ## Testing Services
 
-Services should be testable with in-memory database:
-
-```csharp
-[Fact]
-public async Task CreateInvoiceAsync_ShouldCreateInvoiceWithLines()
-{
-    // Arrange
-    var options = new DbContextOptionsBuilder<AonikDbContext>()
-        .UseInMemoryDatabase($"TestDb_{Guid.NewGuid()}")
-        .Options;
-    
-    using var context = new AonikDbContext(options);
-    var service = new BillingService(context);
-
-    var request = new CreateInvoiceRequest(
-        CustomerId: Guid.NewGuid(),
-        Currency: "USD",
-        DueDate: DateTime.UtcNow.AddDays(30),
-        LineItems: new List<CreateInvoiceLineItemRequest>
-        {
-            new("Item 1", 2, 100.00m),
-            new("Item 2", 1, 50.00m)
-        });
-
-    // Act
-    var response = await service.CreateInvoiceAsync(request);
-
-    // Assert
-    response.Should().NotBeNull();
-    response.Total.Should().Be(250.00m);
-    response.LineItems.Should().HaveCount(2);
-}
-```
-
-## Location
-
-Services should be organized by business module:
-
-```
-src/Aonik.Application/Services/
-├── Billing/
-│   ├── IBillingService.cs
-│   └── BillingService.cs
-├── Payments/
-│   ├── IPaymentService.cs
-│   └── PaymentService.cs
-└── Ledger/
-    ├── ILedgerService.cs
-    └── LedgerService.cs
-```
+Services should be testable with in-memory database. See [Testing Guide](../Testing.md) for patterns and examples.
 
 ## Summary
 
-✅ **DO:**
 - Put all business logic in services
-- Use DbContext directly (no generic repository)
+- Use the module-scoped DbContext directly (no generic repository)
 - Return DTOs, not entities
 - Use async/await with CancellationToken
 - Validate business rules and throw exceptions
 - Map entities to DTOs in private methods
-
-❌ **DON'T:**
-- Put business logic in entities (anemic model)
-- Use generic repositories
-- Return entities from services
-- Use blocking I/O
-- Silently fail validation
-- Mix service logic with HTTP concerns

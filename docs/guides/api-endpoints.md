@@ -4,8 +4,12 @@ AONIK uses **FastEndpoints** for HTTP endpoints.
 
 ## Structure
 
-- Endpoints live under `src/Aonik.Api/Endpoints/{Module}`.
-- Endpoints call Application services and return DTOs.
+Endpoints live within their owning domain module project:
+
+- `src/Aonik.Platform/Endpoints/` — Identity, Party, Settings, etc.
+- `src/Aonik.Finance/Endpoints/` — Billing, Payments, Orders, Pricing, Catalog, etc.
+
+Endpoints call module services and return DTOs. API contracts (request/response records) are co-located with their endpoints in the module project.
 
 ## Conventions
 
@@ -23,7 +27,7 @@ Avoid using `SendAsync()` directly.
 
 ## Mapping
 
-- Map API contracts (API layer) to DTOs (Application layer) inside the endpoint.
+- Map API request/response contracts to internal DTOs inside the endpoint when needed.
 
 ## Catalog Countries Endpoint
 

@@ -60,7 +60,7 @@ public class Invoice : AuditableEntity, ITenantScoped
 EF Core automatically filters all queries by the current tenant:
 
 ```csharp
-// In AonikDbContext
+// In AonikDbContextBase (shared base for all module DbContexts)
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
@@ -92,7 +92,7 @@ entity => entity.TenantId == currentTenantId || entity.TenantId == null
 
 ### 4. Write-time tenant safeguards
 
-`AonikDbContext.SaveChangesAsync` enforces tenant safety for writes:
+`AonikDbContextBase.SaveChangesAsync` enforces tenant safety for writes:
 
 - **Added** tenant-scoped entities with `TenantId == Guid.Empty` are assigned the current tenant.
 - **Modified/Deleted** tenant-scoped entities must match the current tenant, otherwise an exception is thrown.
@@ -138,9 +138,9 @@ Services automatically get tenant-filtered data:
 ```csharp
 public class BillingService : IBillingService
 {
-    private readonly IAonikDbContext _dbContext;
+    private readonly FinanceDbContext _dbContext;
 
-    public BillingService(IAonikDbContext dbContext)
+    public BillingService(FinanceDbContext dbContext)
     {
         _dbContext = dbContext;
     }
@@ -370,4 +370,4 @@ public partial class AddTenantSupport : Migration
 
 - [DbContext Configuration](../database/schema-overview.md)
 - [Entity Guidelines](../guides/domain-entities.md)
-- [ADR: Tenant Isolation Strategy](../decisions/004-tenant-isolation-strategy.md) (TODO)
+- [Module Organization](../architecture/module-organization.md)

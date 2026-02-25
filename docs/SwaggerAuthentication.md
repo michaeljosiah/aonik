@@ -157,7 +157,7 @@ X-Tenant-Id: {your-tenant-guid}
 
 ### Components
 
-1. **SwaggerConfiguration.cs** (`src/Aonik.Api/Configuration/SwaggerConfiguration.cs`)
+1. **SwaggerConfiguration.cs** (`src/Aonik.Api/Configuration/`)
    - Configures OAuth2 security scheme
    - Sets up authorization endpoints based on provider
    - Injects OAuth2 initialization into Swagger UI

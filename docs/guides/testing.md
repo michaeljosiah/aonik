@@ -1,10 +1,10 @@
 # Testing
 
-This guide points to the canonical testing documentation.
+See the canonical testing documentation: [Testing Guide](../Testing.md).
 
-- Primary reference: `docs/Testing.md`
+## Quick reference
 
-## Notes
-
-- API integration tests use the `Testing` environment and InMemory database configuration.
-- Service tests often use EF Core InMemory with unique database names per test.
+- API integration tests use `CustomWebApplicationFactory` with InMemory database configuration.
+- Service tests use EF Core InMemory with unique database names per test.
+- All tests use xUnit with FluentAssertions.
+- Run all tests: `dotnet test Aonik.sln`

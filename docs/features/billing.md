@@ -1,6 +1,6 @@
 # Billing
 
-The Billing module provides invoicing primitives and related workflows.
+The Billing subdomain (within the Finance module) provides invoicing primitives and related workflows.
 
 ## Scope
 
@@ -10,11 +10,12 @@ The Billing module provides invoicing primitives and related workflows.
 
 ## Where to look
 
-- Domain: `src/Aonik.Domain/Billing/`
-- Application: `src/Aonik.Application/Services/Billing/`
-- API: `src/Aonik.Api/Endpoints/Billing/`
+- Entities: `src/Aonik.Finance/Entities/Billing/`
+- Services: `src/Aonik.Finance/Services/Billing/`
+- Endpoints: `src/Aonik.Finance/Endpoints/Billing/`
+- EF Configurations: `src/Aonik.Finance/Persistence/Configurations/Billing/`
 
 ## Testing
 
-- Unit tests: `tests/Aonik.Application.Tests`
-- API tests: `tests/Aonik.Api.Tests`
+- Service tests: `tests/Aonik.Application.Tests`
+- API integration tests: `tests/Aonik.Api.Tests`

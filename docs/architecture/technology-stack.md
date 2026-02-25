@@ -2,28 +2,54 @@
 
 ## Runtime
 
-- **.NET**: `net10.0`
-- **C#**: latest language features (nullable enabled)
+- **.NET 10** (`net10.0`)
+- **C#** latest language features (nullable reference types enabled globally)
 
 ## API
 
-- **FastEndpoints**: endpoint framework
-- **Swagger/OpenAPI**: interactive docs (development)
+- **FastEndpoints 7.1.1** — high-performance endpoint framework
+- **Swagger/OpenAPI** — interactive docs (development)
 
 ## Persistence
 
-- **Entity Framework Core 10**
-- **SQL Server** in production
-- **InMemory provider** for tests (and optional dev)
+- **Entity Framework Core 10.0.1** — ORM with module-scoped DbContexts
+- **SQL Server** — production database
+- **InMemory provider** — for tests and optional local development
 
-## Observability (Aspire)
+## AI & Agents
 
-- **.NET Aspire** service defaults for telemetry, health, service discovery
-- Optional OTLP exporter via `OTEL_EXPORTER_OTLP_ENDPOINT`
+- **Microsoft Agent Framework (MAF)** — agent orchestration, `ChatClientAgent`, `AIFunctionFactory`
+- **Microsoft.Extensions.AI** — `IChatClient` abstraction for LLM providers
+- **Model Context Protocol (MCP)** — domain MCP servers per module
+
+## Orchestration
+
+- **.NET Aspire** — service defaults, telemetry, health, service discovery
+- **Quartz** — background job scheduling (Worker project)
+
+## Admin UI
+
+- **React 19** — UI framework
+- **Vite** — build tool
+- **Tailwind CSS** — utility-first styling
+- **Dockview** — workspace panel management
 
 ## Testing
 
-- **xUnit**
-- **FluentAssertions**
+- **xUnit** — test framework
+- **FluentAssertions** — assertion library
+- **WebApplicationFactory** — API integration testing
 
-See `AGENTS.md` for commands and patterns.
+## Key NuGet Packages
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| FastEndpoints | 7.1.1 | HTTP endpoints |
+| Microsoft.EntityFrameworkCore | 10.0.1 | ORM |
+| Microsoft.Agents.AI | RC | MAF agent framework |
+| Microsoft.Extensions.AI | latest | AI abstractions |
+| ModelContextProtocol | latest | MCP server/client |
+| Quartz | latest | Job scheduling |
+| FluentAssertions | 8.8.0 | Test assertions |
+
+See [AGENTS.md](../../AGENTS.md) for build commands and coding patterns.

@@ -1,9 +1,17 @@
 # Ledger
 
-The Ledger module models double-entry accounting concepts.
+The Ledger subdomain (within the Finance module) models double-entry accounting concepts.
+
+## Scope
+
+- Ledgers (accounting boundaries per tenant)
+- Ledger accounts (chart of accounts)
+- Journal entries and journal entry lines (debit/credit postings)
+- Balance snapshots (precomputed balances for reporting)
 
 ## Where to look
 
-- Domain: `src/Aonik.Domain/Ledger/`
-- Application: `src/Aonik.Application/Services/Ledger/`
-- API: `src/Aonik.Api/Endpoints/Ledger/`
+- Entities: `src/Aonik.Finance/Entities/Ledger/`
+- Services: `src/Aonik.Finance/Services/Ledger/`
+- Endpoints: `src/Aonik.Finance/Endpoints/Ledger/`
+- EF Configurations: `src/Aonik.Finance/Persistence/Configurations/`
