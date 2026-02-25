@@ -72,6 +72,10 @@ public sealed class FinanceModule : IModule
         // PersonalFinance
         services.AddScoped<Contracts.Services.PersonalFinance.IHouseholdService, Services.PersonalFinance.HouseholdService>();
 
+        // ── Finance AI Insights ──────────────────────────────────────
+        services.AddScoped<Services.Ai.InvoiceInsightWorkflow>();
+        services.AddScoped<Contracts.Services.Ai.IFinanceInsightsService, Services.Ai.FinanceInsightsService>();
+
         // ── Finance Domain Agent ─────────────────────────────────────
         services.AddSingleton<AonikDomainAgent, FinanceDomainAgent>();
 

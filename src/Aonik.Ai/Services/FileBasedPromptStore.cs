@@ -1,4 +1,4 @@
-using Aonik.Ai.Contracts.Services;
+using Aonik.SharedKernel.Abstractions.Ai;
 
 namespace Aonik.Ai.Services;
 

@@ -1,7 +1,7 @@
-using Aonik.Ai.Contracts.Services;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Providers;
 using Aonik.Ai.Services;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -13,6 +13,7 @@ namespace Aonik.Ai;
 /// <summary>
 /// AI module registration. Owns AI Platform entities (providers, models, policies,
 /// prompts, tools, runs, traces, feedback, evals, insights, signals).
+/// Provides horizontal AI infrastructure consumed by domain modules.
 /// </summary>
 public sealed class AiModule : IModule
 {
@@ -57,8 +58,8 @@ public sealed class AiModule : IModule
             sp.GetRequiredService<IChatClientFactory>().CreateClient());
 
         // ── AI Services ──────────────────────────────────────────────
-        services.AddScoped<IAiInsightsService, AiInsightsService>();
-        services.AddScoped<InvoiceInsightWorkflow>();
+        // Insight persistence — consumed by domain modules via IInsightWriter contract
+        services.AddScoped<IInsightWriter, InsightWriter>();
 
         return services;
     }

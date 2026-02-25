@@ -1,16 +1,16 @@
-using Aonik.Ai.Contracts.Models;
-using Aonik.Ai.Contracts.Services;
+using Aonik.Finance.Contracts.Services.Ai;
+using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 
-namespace Aonik.Ai.Endpoints;
+namespace Aonik.Finance.Endpoints.Ai;
 
 internal sealed class GenerateInvoiceInsightEndpoint : EndpointWithoutRequest<InsightResponse>
 {
-    private readonly IAiInsightsService _aiInsightsService;
+    private readonly IFinanceInsightsService _financeInsightsService;
 
-    public GenerateInvoiceInsightEndpoint(IAiInsightsService aiInsightsService)
+    public GenerateInvoiceInsightEndpoint(IFinanceInsightsService financeInsightsService)
     {
-        _aiInsightsService = aiInsightsService;
+        _financeInsightsService = financeInsightsService;
     }
 
     public override void Configure()
@@ -25,7 +25,7 @@ internal sealed class GenerateInvoiceInsightEndpoint : EndpointWithoutRequest<In
 
         try
         {
-            var result = await _aiInsightsService.GenerateInvoiceInsightAsync(id, ct);
+            var result = await _financeInsightsService.GenerateInvoiceInsightAsync(id, ct);
             await Send.OkAsync(result, ct);
         }
         catch (InvalidOperationException)
