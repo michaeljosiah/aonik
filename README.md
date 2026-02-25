@@ -1,214 +1,229 @@
-<!-- Hero Banner -->
 <p align="center">
-  <img src="docs/images/hero-banner.png" alt="AONIK - AI-Native Financial Infrastructure Platform" width="100%">
+  <img src="docs/images/hero-banner.png" alt="AONIK" width="100%">
 </p>
 
-# AONIK
+<h1 align="center">AONIK</h1>
 
-**AONIK** is an **AI-native financial infrastructure platform** designed to power modern payments, remittances, personal finance, and financial intelligence. Built from the ground up with AI in mind, AONIK provides core financial primitives alongside intelligent agents that assist with reconciliation, forecasting, anomaly detection, and insights.
+<p align="center">
+  <strong>AI-native financial infrastructure.</strong><br>
+  Ledger. Payments. Agents. One platform.
+</p>
 
-The project serves as a foundational layer for both consumer and business financial products, built to be globally applicable and adaptable across regions and use cases.
+<p align="center">
+  <code>.NET 10</code> &middot; <code>SQL Server</code> &middot; <code>FastEndpoints</code> &middot; <code>EF Core 10</code> &middot; <code>Microsoft Agent Framework</code>
+</p>
 
----
-
-## 🚧 Project Status
-
-⚠️ **Early Development**
-
-AONIK is currently in **active early development**. APIs, data models, and architectural components are evolving, and **breaking changes should be expected**.
-
-This is the ideal stage for contributors who want to help shape the core design of an AI-first financial platform.
-
----
-
-## ✨ Key Principles
-
-AONIK is built around the following design principles:
-
-- **AI-native by design**  
-  Financial primitives are structured to support intelligence, automation, and explainability from day one.
-
-- **Composable primitives**  
-  Transactions, ledgers, invoices, customers, and accounts are first-class building blocks.
-
-- **Agent-oriented architecture**  
-  AI agents operate directly on core primitives rather than being bolted on as chatbots.
-
-- **Explainable & auditable**  
-  AI assists and recommends, while humans remain in control — critical for financial trust.
-
-- **Open by default**  
-  Open-source core with a strong focus on transparency, extensibility, and community collaboration.
+<p align="center">
+  <em>Early development &mdash; APIs and data models are evolving. Breaking changes expected.</em>
+</p>
 
 ---
 
-## 🧠 AI-Native Capabilities
+## What is AONIK?
 
-AONIK is designed to support intelligent behaviour across financial systems, including:
+AONIK is an open-source financial operating system designed to power payments, remittances, billing, and personal finance — with AI embedded at the infrastructure level, not bolted on.
 
-- Transaction classification and enrichment
-- Automated reconciliation
-- Anomaly and fraud signal detection
-- Cash flow forecasting
-- Budgeting and spend insights
-- Financial data summarisation and explanation
+It provides three things traditional fintech platforms don't:
 
-These capabilities are implemented through **built-in agents** that work directly with AONIK’s core data models.
+1. **A double-entry ledger as the source of truth.** Every financial state change is an immutable, auditable journal entry. Not an afterthought — the foundation.
 
----
+2. **AI agents that operate on financial primitives directly.** Agents read ledger data, classify transactions, detect anomalies, and generate insights — but they never mutate financial state on their own.
 
-## 🧩 What Can Be Built on AONIK?
+3. **A proposal-based control model.** Agents propose. Domain services apply. Humans approve what matters. Every AI action is recorded, policy-governed, and auditable.
 
-AONIK is intended to power a wide range of products and services, including:
+AONIK is the platform layer. Products are built on top:
 
-- Personal finance assistants
-- Cross-border remittance platforms
-- Billing and invoicing systems
-- Subscription and recurring payment services
-- SME and enterprise finance tools
-- AI-driven financial insights and analytics
+| Product | Domain |
+|---|---|
+| **Payabo** | B2C personal finance — budgets, bills, subscriptions, goals |
+| **MyBillAfrica** | B2B billing and collections |
+| **RemitExchange** | Cross-border remittance |
 
 ---
 
-## 🧱 Core Modules
+## Architecture
 
-The AONIK platform is now implemented as a **module-first modular monolith** with clear domain boundaries:
+AONIK is a **module-first modular monolith** — not microservices, not a monolith pretending to be modular. Each domain module owns its entities, services, endpoints, and persistence configuration as vertical slices.
 
-- **Platform (`Aonik.Platform`)**: identity, tenancy, party/profile, settings, compliance, notifications, onboarding
-- **Finance (`Aonik.Finance`)**: ledger, payments, orders, billing/invoicing, pricing, partners, personal finance
-- **AI (`Aonik.Ai`)**: model routing policies, prompts, AI execution records (`AiRun`), AI services
-- **Agents (`Aonik.Agents`)**: domain agents, orchestration, proposal flow, workflow composition
-- **Infrastructure (`Aonik.Infrastructure`)**: external adapters and cross-cutting runtime integrations
+```
+src/
+  Aonik.Platform/       Identity, tenancy, party/profile, compliance, notifications
+  Aonik.Finance/        Ledger, payments, orders, billing, pricing, partners
+  Aonik.Ai/             Model routing, prompts, AI execution records
+  Aonik.Agents/         Domain agents, orchestration, proposal workflows
+  Aonik.SharedKernel/   Cross-cutting primitives, interfaces, events
+  Aonik.Infrastructure/  External adapters, EF migrations, composition support
+  Aonik.Api/            HTTP API (FastEndpoints)
+  Aonik.Worker/         Background jobs (Quartz)
+  Aonik.Migrator/       Database migration host
+  Aonik.AppHost/        .NET Aspire orchestration
+  Aonik.AdminUi/        Admin interface (React 19, Vite, Tailwind)
+  Aonik.Finance.Mcp/    Finance MCP server
+  Aonik.Platform.Mcp/   Platform MCP server
+
+tests/
+  Aonik.SharedKernel.Tests/
+  Aonik.Application.Tests/
+  Aonik.Infrastructure.Tests/
+  Aonik.Api.Tests/
+```
+
+Each module has its own scoped DbContext (`PlatformDbContext`, `FinanceDbContext`, `AiDbContext`, `AgentsDbContext`) over a shared physical SQL Server database. Modules communicate through in-process integration events and shared contracts in SharedKernel.
 
 ---
 
-## 🛠️ Current Architecture
+## Core Design Principles
 
-Current architecture and implementation choices:
+These are non-negotiable. Code that violates them gets rejected.
 
-- Modular monolith with module-scoped DbContexts over a shared SQL database
-- Anemic domain entities with application-service business logic
-- FastEndpoints-based HTTP API with module-owned endpoint slices
-- Microsoft Agent Framework (MAF) for AI/agent orchestration
-- MCP servers per domain module for tool interoperability
-- In-process integration events and module contracts for inter-module collaboration
-
-See `docs/modular-restructuring-plan.md` for restructuring details and milestones.
+- **Ledger is the source of financial truth.** Double-entry, immutable.
+- **Orders represent business intent.** They are not payments. They capture *why* money moves, link parties, and reference both funding and fulfilment.
+- **Payments execute intent; ledger proves it.**
+- **Agents propose; systems execute.** All material actions follow: Propose → Approve → Apply.
+- **Every AI action is auditable and policy-governed.** Every AI execution is recorded as an `AiRun`. Financially material outputs reference an `AiRunId`.
+- **Risk tier determines AI autonomy.** Human approval is explicit for high-risk actions.
 
 ---
 
-## 🚀 Getting Started
+## AI and Agent Architecture
+
+AONIK's AI layer is not a chatbot wrapper. It is structured infrastructure:
+
+**AI Platform (`Aonik.Ai`)**
+- Multiple LLM providers and models — no hard-coded model usage
+- All calls resolve through `AiRoutePolicy` for routing and governance
+- Prompts and tools are versioned; prompts are immutable once published
+- Every execution is recorded as an `AiRun`
+
+**Agent Framework (`Aonik.Agents`)**
+- Built on Microsoft Agent Framework (MAF)
+- Agents are constrained, domain-specific actors — they reason, plan, and use tools
+- Agents never directly mutate financial state
+- MCP servers per domain module expose tools safely to agents
+
+**The Proposal Pattern** (mandatory for all material actions):
+```
+Agent creates Proposal → Human or policy approves → Domain service applies
+```
+This flow is never bypassed.
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later
-- SQL Server LocalDB (included with Visual Studio or SQL Server Express)
-- Git for version control
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- SQL Server (LocalDB, Express, or full instance)
+- Git
 
-### Running the API
+### Build and Run
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/aonik.git
+git clone https://github.com/anomalyco/aonik.git
 cd aonik
 
-# Restore dependencies and build
+# Build
 dotnet build Aonik.sln
 
-# Apply database migrations (when available)
+# Apply database migrations
 dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 
 # Run the API
 dotnet run --project src/Aonik.Api
 ```
 
-The API will start on `https://localhost:5001` with Swagger UI available at `https://localhost:5001/swagger`
+API starts on `https://localhost:5001` with Swagger at `/swagger`.
 
-### Build Status
-
-The solution currently builds successfully with:
-- ✅ All projects compile without errors
-- ✅ 106/106 tests passing (`Aonik.SharedKernel.Tests`, `Aonik.Infrastructure.Tests`, `Aonik.Application.Tests`, `Aonik.Api.Tests`)
-- 📦 All NuGet packages resolved correctly
-
-### Running Tests
+### Run Tests
 
 ```bash
-# Run all tests
-dotnet test
+# All tests
+dotnet test Aonik.sln
 
-# Run tests with detailed output
-dotnet test --logger "console;verbosity=detailed"
-
-# Run tests for a specific project
+# Specific project
 dotnet test tests/Aonik.Application.Tests
-```
 
-### Quick Commands
-
-```bash
-# Build the entire solution
-dotnet build Aonik.sln
-
-# Clean and rebuild
-dotnet clean Aonik.sln && dotnet build Aonik.sln
-
-# Run specific test by filter
+# Specific test
 dotnet test --filter "DisplayName~CreateInvoice"
-
-# Create a new migration
-dotnet ef migrations add <MigrationName> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
-
-# Remove last migration
-dotnet ef migrations remove --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 ```
 
-### Documentation
-
-For detailed technical information, see:
-- **[AGENTS.md](AGENTS.md)** - Coding standards, build commands, and architectural patterns for AI agents
-- **[docs/Troubleshooting.md](docs/Troubleshooting.md)** - Common issues and solutions
-- **[docs/Testing.md](docs/Testing.md)** - Testing guidelines and patterns
-- **[Local API usage](docs/features/authentication-authorization.md#local-api-usage)** - Sample claims and curl for local auth
-- **[Securing an endpoint](docs/features/authentication-authorization.md#securing-an-endpoint)** - FastEndpoints checklist
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history and recent changes
+106 tests across 4 test projects. All passing.
 
 ---
 
-## 🤝 Contributing
+## Technology
 
-Contributions are welcome and encouraged.
-
-If you are interested in:
-- Financial systems
-- AI agents
-- Open-source infrastructure
-- Building global financial platforms
-
-…this project is for you.
-
-Please note:
-- The project is evolving rapidly
-- Expect refactors and breaking changes
-- Discussions and proposals are encouraged early
-
-(Contribution guidelines will be added as the project stabilises.)
+| Layer | Stack |
+|---|---|
+| Runtime | .NET 10 |
+| API | FastEndpoints |
+| ORM | Entity Framework Core 10 |
+| Database | SQL Server |
+| AI/Agents | Microsoft Agent Framework, MCP |
+| Background Jobs | Quartz.NET |
+| Orchestration | .NET Aspire |
+| Caching | FusionCache |
+| Admin UI | React 19, Vite, Tailwind CSS, Dockview |
+| Testing | xUnit, FluentAssertions |
+| IaC | Bicep (Azure Container Apps + App Service) |
+| CI/CD | GitHub Actions |
 
 ---
 
-## 📜 License
+## Project Status
 
-AONIK is licensed under the **Apache License, Version 2.0**.
+AONIK is in active early development. The platform core is functional:
 
-You are free to use, modify, and distribute this software in compliance with the license.  
-See the `LICENSE` file for full details.
+- Double-entry ledger with journal entries and account management
+- Payment intents, payment processing, and order orchestration
+- Multi-tenant billing and invoicing with line items
+- Party/profile management with KYC/KYB scaffolding
+- AI model routing, prompt versioning, and execution recording
+- Agent proposal framework with policy-governed approval
+- Admin UI with module extension system
+- Azure IaC with ACA and App Service deployment profiles
+- Containerized deployment (API, Worker, Admin UI)
+
+What is not built yet is clearly not claimed. The roadmap lives in the code, not in promises.
 
 ---
 
-## 🌍 Vision
+## Documentation
 
-AONIK aims to become a **trusted, intelligent foundation for financial systems**, enabling developers and businesses to build adaptive, transparent, and AI-assisted finance products for a global audience.
+| Document | Description |
+|---|---|
+| [AGENTS.md](AGENTS.md) | Coding standards, architecture rules, and build commands |
+| [Architecture Overview](docs/architecture/overview.md) | System design and module boundaries |
+| [Module Organization](docs/architecture/module-organization.md) | How code is structured within modules |
+| [Technology Stack](docs/architecture/technology-stack.md) | Detailed technology choices and rationale |
+| [Testing Guide](docs/Testing.md) | Testing patterns, conventions, and examples |
+| [Troubleshooting](docs/Troubleshooting.md) | Common issues and solutions |
+| [API Authentication](docs/features/authentication-authorization.md) | Auth setup, local usage, and endpoint security |
+| [CHANGELOG](CHANGELOG.md) | Version history |
 
 ---
 
-*This project is just getting started. The foundations you help build today will shape what AONIK becomes tomorrow.*
+## Contributing
+
+AONIK is open to contributions. The project is evolving — expect refactors and breaking changes.
+
+Before submitting code:
+1. `dotnet build Aonik.sln` must succeed with 0 errors
+2. `dotnet test Aonik.sln` must pass
+3. Follow the standards in [AGENTS.md](AGENTS.md)
+4. Update [CHANGELOG.md](CHANGELOG.md) with your changes
+
+See [Contributing Guide](docs/contributing/) for more detail.
+
+---
+
+## License
+
+Apache License, Version 2.0. See [LICENSE](LICENSE).
+
+---
+
+<p align="center">
+  <strong>Agents propose. Systems apply. Humans stay in control.</strong>
+</p>

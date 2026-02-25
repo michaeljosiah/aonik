@@ -216,20 +216,28 @@ This update focused on resolving all compilation errors and making the solution 
 ```
 aonik/
 ├── src/
-│   ├── Aonik.SharedKernel/     # Common primitives and abstractions
-│   ├── Aonik.Domain/            # Domain entities (anemic model)
-│   ├── Aonik.Application/       # Business logic and services
-│   ├── Aonik.Infrastructure/    # EF Core, external services, AI providers
-│   ├── Aonik.Api/              # FastEndpoints HTTP API
-│   └── Aonik.Worker/           # Background jobs
+│   ├── Aonik.SharedKernel/      # Cross-cutting primitives, interfaces, events
+│   ├── Aonik.Platform/          # Identity, tenancy, party/profile, compliance
+│   ├── Aonik.Finance/           # Ledger, payments, orders, billing, pricing
+│   ├── Aonik.Ai/                # AI routing, prompts, execution records
+│   ├── Aonik.Agents/            # Domain agents, orchestration, proposals
+│   ├── Aonik.Application/       # Shared application services
+│   ├── Aonik.Infrastructure/    # EF migrations, external adapters
+│   ├── Aonik.Api/               # FastEndpoints HTTP API
+│   ├── Aonik.Worker/            # Background jobs (Quartz)
+│   ├── Aonik.Migrator/          # Database migration host
+│   ├── Aonik.AppHost/           # .NET Aspire orchestration
+│   ├── Aonik.AdminUi/           # Admin interface (React 19)
+│   ├── Aonik.Finance.Mcp/       # Finance MCP server
+│   └── Aonik.Platform.Mcp/      # Platform MCP server
 ├── tests/
-│   ├── Aonik.Domain.Tests/
+│   ├── Aonik.SharedKernel.Tests/
 │   ├── Aonik.Application.Tests/
 │   ├── Aonik.Infrastructure.Tests/
 │   └── Aonik.Api.Tests/
-├── AGENTS.md                    # Coding guidelines for AI agents
-├── CHANGELOG.md                 # This file
-└── README.md                    # Project overview
+├── AGENTS.md                     # Coding standards for AI agents
+├── CHANGELOG.md                  # This file
+└── README.md                     # Project overview
 ```
 
 ---
