@@ -30,4 +30,3 @@ export { ContentBlockEditPage } from './ContentBlockEditPage';
 export { MediaLibraryPage } from './MediaLibraryPage';
 export { AutonumberingPage, SystemToolsPage } from './settings';
 export { FxRatesPage } from './FxRatesPage';
-export { WorkspacePage } from '../workspace/WorkspacePage';

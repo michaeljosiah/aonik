@@ -1,10 +1,7 @@
 import type { AdminModule } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig } from '@/workspace/types';
-import {
-  MySpacePage,
-  AnalyticsPage,
-} from '@/pages';
+import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { AnalyticsPanel } from '@/workspace/apps/AnalyticsPanel';
 import { PlaceholderPanel } from '@/workspace/apps/PlaceholderPanel';
 

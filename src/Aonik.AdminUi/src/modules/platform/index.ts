@@ -6,14 +6,16 @@ import {
   AccessRolesPage,
   AccessPermissionsPage,
   UserDetailPage,
+} from '@/pages/access';
+import {
   TenantsListPage,
   CreateTenantPage,
   TenantDetailPage,
-  SystemToolsPage,
-  ContentBlocksListPage,
-  ContentBlockEditPage,
-  MediaLibraryPage,
-} from '@/pages';
+} from '@/pages/tenants';
+import { SystemToolsPage } from '@/pages/settings';
+import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
+import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
+import { MediaLibraryPage } from '@/pages/MediaLibraryPage';
 import { wrapPage } from '../utils';
 
 // ---------------------------------------------------------------------------

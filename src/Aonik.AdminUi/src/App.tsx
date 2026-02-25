@@ -12,8 +12,8 @@ import {
   SetupGuidePage,
   SetupGuidesLandingPage,
   TenantSetupWizardPage,
-  WorkspacePage,
 } from '@/pages';
+import { WorkspacePage } from '@/workspace/WorkspacePage';
 import { useModules } from '@/modules';
 import { AuthProvider, useAuth } from '@/auth';
 import { ThemeProvider } from '@/contexts';
