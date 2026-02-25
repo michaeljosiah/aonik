@@ -14,14 +14,6 @@ using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
-// Cross-module entity imports (temporary — will be removed when Finance/AI modules are extracted)
-using Aonik.Ai.Entities;
-using Aonik.Finance.Entities.Ledger;
-using Aonik.Finance.Entities.Orders;
-using Aonik.Finance.Entities.Payments;
-using Aonik.Finance.Entities.Pricing;
-using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
-
 namespace Aonik.Platform.Persistence;
 
 /// <summary>
@@ -97,18 +89,6 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<AutonumberProfile> AutonumberProfiles { get; set; } = null!;
     public DbSet<AutonumberReservation> AutonumberReservations { get; set; } = null!;
 
-    // Cross-module DbSets (temporary — used by TenantProvisioner and CustomerAdminService
-    // during migration. Will be removed when Finance/AI modules are extracted and these
-    // services are refactored to use cross-module contracts instead of direct DB access.)
-    public DbSet<AiRoutePolicy> AiRoutePolicies { get; set; } = null!;
-    public DbSet<FeePolicy> FeePolicies { get; set; } = null!;
-    public DbSet<LimitsPolicy> LimitsPolicies { get; set; } = null!;
-    public DbSet<Order> Orders { get; set; } = null!;
-    public DbSet<OrderPartyRole> OrderPartyRoles { get; set; } = null!;
-    public DbSet<PaymentIntent> PaymentIntents { get; set; } = null!;
-    public DbSet<LedgerEntity> Ledgers { get; set; } = null!;
-    public DbSet<LedgerAccount> LedgerAccounts { get; set; } = null!;
-
     public PlatformDbContext(
         DbContextOptions<PlatformDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -128,18 +108,6 @@ internal class PlatformDbContext : AonikDbContextBase
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PlatformDbContext).Assembly);
 
-        // Cross-module entities use default schema (not platform) — they are owned by
-        // other modules and only temporarily registered here for direct DB access.
-        // No EF configurations are applied; they use convention-based mapping only.
-        modelBuilder.Entity<AiRoutePolicy>().ToTable("AiRoutePolicies", SchemaNames.Default);
-        modelBuilder.Entity<FeePolicy>().ToTable("FeePolicies", SchemaNames.Default);
-        modelBuilder.Entity<LimitsPolicy>().ToTable("LimitsPolicies", SchemaNames.Default);
-        modelBuilder.Entity<Order>().ToTable("Orders", SchemaNames.Default);
-        modelBuilder.Entity<OrderPartyRole>().ToTable("OrderPartyRoles", SchemaNames.Default);
-        modelBuilder.Entity<PaymentIntent>().ToTable("PaymentIntents", SchemaNames.Default);
-        modelBuilder.Entity<LedgerEntity>().ToTable("Ledgers", SchemaNames.Default);
-        modelBuilder.Entity<LedgerAccount>().ToTable("LedgerAccounts", SchemaNames.Default);
-
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
 
@@ -150,9 +118,6 @@ internal class PlatformDbContext : AonikDbContextBase
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(ReferenceDataItem));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
-
-        // AiRoutePolicy has nullable TenantId
-        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
     }
 
     protected override bool IsGlobalEntity(object entity)
