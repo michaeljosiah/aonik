@@ -60,6 +60,9 @@ public sealed class FinanceModule : IModule
         // Cross-module provisioning contributor
         services.AddScoped<SharedKernel.Abstractions.ITenantProvisioningContributor, Services.Provisioning.FinanceTenantProvisioningContributor>();
 
+        // Cross-module demo-seed contributor
+        services.AddScoped<SharedKernel.Abstractions.IDemoSeedContributor, Services.Seeding.FinanceDemoSeedContributor>();
+
         // Pricing
         services.AddScoped<Contracts.Services.Pricing.IPricingService, Services.Pricing.PricingService>();
         services.AddScoped<Contracts.Services.Pricing.IPricingPolicyService, Services.Pricing.PricingPolicyService>();

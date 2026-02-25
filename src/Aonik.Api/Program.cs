@@ -71,7 +71,6 @@ if (autoMigrateEnabled || seedDataEnabled)
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
     var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-    var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
 
     var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
@@ -91,7 +90,7 @@ if (autoMigrateEnabled || seedDataEnabled)
             await seedService.SeedAsync();
 
             var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
-            var catalogSeedService = new CatalogSeedService(platformDbContext, financeDbContext, catalogLogger);
+            var catalogSeedService = new CatalogSeedService(platformDbContext, catalogLogger);
             await catalogSeedService.SeedAsync();
 
             var settingsLogger = scope.ServiceProvider.GetRequiredService<ILogger<SettingsSeedService>>();

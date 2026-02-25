@@ -4,8 +4,6 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-using Aonik.Finance.Entities.Catalog;
-using Aonik.Finance.Persistence;
 using Aonik.Platform.Entities.Party;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Persistence;
@@ -14,21 +12,12 @@ namespace Aonik.Platform.Services.Seeding;
 
 internal class CatalogSeedService
 {
-    private static readonly Guid UtilitiesCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid TelecomCategoryId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    private static readonly Guid InternetCategoryId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    private static readonly Guid EducationCategoryId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-    private static readonly Guid GovernmentCategoryId = Guid.Parse("55555555-5555-5555-5555-555555555555");
-    private static readonly Guid CableCategoryId = Guid.Parse("66666666-6666-6666-6666-666666666666");
-
     private readonly PlatformDbContext _platformDbContext;
-    private readonly FinanceDbContext _financeDbContext;
     private readonly ILogger<CatalogSeedService> _logger;
 
-    public CatalogSeedService(PlatformDbContext platformDbContext, FinanceDbContext financeDbContext, ILogger<CatalogSeedService> logger)
+    public CatalogSeedService(PlatformDbContext platformDbContext, ILogger<CatalogSeedService> logger)
     {
         _platformDbContext = platformDbContext;
-        _financeDbContext = financeDbContext;
         _logger = logger;
     }
 
@@ -38,7 +27,6 @@ internal class CatalogSeedService
         await SeedCurrenciesAsync(cancellationToken);
         await SeedCountryCurrenciesAsync(cancellationToken);
         await SeedCustomerTiersAsync(cancellationToken);
-        await SeedCategoriesAsync(cancellationToken);
         await SeedRelationshipTypesAsync(cancellationToken);
         await SeedOrderStatusesAsync(cancellationToken);
         await SeedOrderItemStatusesAsync(cancellationToken);
@@ -327,95 +315,6 @@ internal class CatalogSeedService
         await _platformDbContext.CountryCurrencies.AddRangeAsync(toAdd, cancellationToken);
         await _platformDbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Seeded {Count} country-currency mappings", toAdd.Count);
-    }
-
-    private async Task SeedCategoriesAsync(CancellationToken cancellationToken)
-    {
-        var categories = new List<CatalogBillerCategory>
-        {
-            new()
-            {
-                Id = UtilitiesCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "GH",
-                Name = "Utilities",
-                Description = "Electricity and water",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/utilities.png",
-                SortOrder = 1,
-                IsActive = true
-            },
-            new()
-            {
-                Id = TelecomCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "GH",
-                Name = "Telecom",
-                Description = "Mobile and fixed line",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/telecom.png",
-                SortOrder = 2,
-                IsActive = true
-            },
-            new()
-            {
-                Id = InternetCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "NG",
-                Name = "Internet",
-                Description = "ISPs and broadband",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/internet.png",
-                SortOrder = 3,
-                IsActive = true
-            },
-            new()
-            {
-                Id = EducationCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "NG",
-                Name = "Education",
-                Description = "Tuition and school fees",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/education.png",
-                SortOrder = 4,
-                IsActive = true
-            },
-            new()
-            {
-                Id = GovernmentCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "KE",
-                Name = "Government",
-                Description = "Taxes and fees",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/government.png",
-                SortOrder = 5,
-                IsActive = true
-            },
-            new()
-            {
-                Id = CableCategoryId,
-                TenantId = Guid.Empty,
-                CountryCode = "KE",
-                Name = "Cable",
-                Description = "TV subscriptions",
-                IconUrl = "https://cdn.aonik.io/catalog/icons/cable.png",
-                SortOrder = 6,
-                IsActive = true
-            }
-        };
-
-        var existingIds = await _financeDbContext.CatalogBillerCategories
-            .Select(category => category.Id)
-            .ToListAsync(cancellationToken);
-
-        var existingSet = new HashSet<Guid>(existingIds);
-        var toAdd = categories.Where(category => !existingSet.Contains(category.Id)).ToList();
-
-        if (toAdd.Count == 0)
-        {
-            return;
-        }
-
-        await _financeDbContext.CatalogBillerCategories.AddRangeAsync(toAdd, cancellationToken);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Seeded {Count} biller categories", toAdd.Count);
     }
 
     private async Task SeedCustomerTiersAsync(CancellationToken cancellationToken)

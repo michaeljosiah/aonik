@@ -83,14 +83,13 @@ try
         logger.LogInformation("Running seed routines...");
 
         var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-        var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
 
         var identityLogger = loggerFactory.CreateLogger<IdentitySeedService>();
         var identitySeed = new IdentitySeedService(platformDbContext, identityLogger);
         await identitySeed.SeedAsync();
 
         var catalogLogger = loggerFactory.CreateLogger<CatalogSeedService>();
-        var catalogSeed = new CatalogSeedService(platformDbContext, financeDbContext, catalogLogger);
+        var catalogSeed = new CatalogSeedService(platformDbContext, catalogLogger);
         await catalogSeed.SeedAsync();
     }
 
