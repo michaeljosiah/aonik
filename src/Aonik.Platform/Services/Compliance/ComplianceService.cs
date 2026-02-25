@@ -21,17 +21,20 @@ internal class ComplianceService : IComplianceService
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
+    private readonly IOrderExistenceChecker _orderExistenceChecker;
 
     public ComplianceService(
         PlatformDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        IOrderExistenceChecker orderExistenceChecker)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _auditLogWriter = auditLogWriter;
+        _orderExistenceChecker = orderExistenceChecker;
     }
 
     public async Task<ScreeningResult> ScreenPartyAsync(
@@ -93,9 +96,7 @@ internal class ComplianceService : IComplianceService
         Guid orderId,
         CancellationToken cancellationToken = default)
     {
-        var orderExists = await _dbContext.Orders
-            .AsNoTracking()
-            .AnyAsync(order => order.Id == orderId, cancellationToken);
+        var orderExists = await _orderExistenceChecker.OrderExistsAsync(orderId, cancellationToken);
 
         if (!orderExists)
         {

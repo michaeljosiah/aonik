@@ -1,0 +1,227 @@
+using Aonik.Finance.Entities.Ledger;
+using Aonik.Finance.Entities.Pricing;
+using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Abstractions;
+using Microsoft.EntityFrameworkCore;
+using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
+
+namespace Aonik.Finance.Services.Provisioning;
+
+/// <summary>
+/// Finance module's contribution to tenant provisioning.
+/// Creates Ledger, chart of accounts, fee policy, and limits policy.
+/// </summary>
+internal class FinanceTenantProvisioningContributor : ITenantProvisioningContributor
+{
+    private readonly FinanceDbContext _dbContext;
+
+    public FinanceTenantProvisioningContributor(FinanceDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public string ModuleName => "Finance";
+
+    public async Task<TenantProvisioningContribution> ContributeProvisioningAsync(
+        TenantProvisioningContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var actions = new List<string>();
+        var ledgerCreated = false;
+        var chartOfAccountsCount = 0;
+        var policiesCreated = 0;
+
+        // Create Ledger + Chart of Accounts
+        var existingLedger = await _dbContext.Ledgers
+            .FirstOrDefaultAsync(l => l.TenantId == context.TenantId, cancellationToken);
+
+        if (existingLedger == null)
+        {
+            var ledgerId = Guid.NewGuid();
+            var ledger = new LedgerEntity
+            {
+                Id = ledgerId,
+                TenantId = context.TenantId,
+                BaseCurrency = context.DefaultCurrency,
+                CreatedAt = context.Now,
+                CreatedBy = context.UserId
+            };
+            _dbContext.Ledgers.Add(ledger);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            ledgerCreated = true;
+            actions.Add($"Created ledger {ledger.Id} with base currency {context.DefaultCurrency}");
+
+            var accounts = CreateDefaultChartOfAccounts(context.TenantId, ledgerId, context.UserId, context.Now);
+            _dbContext.LedgerAccounts.AddRange(accounts);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            chartOfAccountsCount = accounts.Count;
+            actions.Add($"Created {chartOfAccountsCount} default accounts");
+        }
+        else
+        {
+            actions.Add("Ledger already exists - skipped");
+        }
+
+        // Provision Fee Policy
+        var existingFeePolicies = await _dbContext.FeePolicies
+            .Where(p => p.TenantId == context.TenantId)
+            .ToListAsync(cancellationToken);
+
+        if (!existingFeePolicies.Any())
+        {
+            var feePolicy = new FeePolicy
+            {
+                Id = Guid.NewGuid(),
+                TenantId = context.TenantId,
+                Name = "Default Fee Policy",
+                FixedFee = 0.00m,
+                PercentageFee = 0.00m,
+                ConditionsJson = "{}",
+                IsActive = true,
+                CreatedAt = context.Now,
+                CreatedBy = context.UserId
+            };
+
+            _dbContext.FeePolicies.Add(feePolicy);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            actions.Add("Created default fee policy");
+            policiesCreated++;
+        }
+        else
+        {
+            actions.Add("Fee policies already exist - skipped");
+        }
+
+        // Provision Limits Policy
+        var existingLimitsPolicies = await _dbContext.LimitsPolicies
+            .Where(p => p.TenantId == context.TenantId)
+            .ToListAsync(cancellationToken);
+
+        if (!existingLimitsPolicies.Any())
+        {
+            var limitsPolicy = new LimitsPolicy
+            {
+                Id = Guid.NewGuid(),
+                TenantId = context.TenantId,
+                ScopeType = "Tenant",
+                ScopeId = context.TenantId,
+                MaxAmount = 100000.00m,
+                Period = "Monthly",
+                Currency = "USD",
+                IsActive = true,
+                CreatedAt = context.Now,
+                CreatedBy = context.UserId
+            };
+
+            _dbContext.LimitsPolicies.Add(limitsPolicy);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            actions.Add("Created default limits policy");
+            policiesCreated++;
+        }
+        else
+        {
+            actions.Add("Limits policies already exist - skipped");
+        }
+
+        return new TenantProvisioningContribution(actions, ledgerCreated, chartOfAccountsCount, policiesCreated);
+    }
+
+    public async Task ContributeHealthCheckAsync(
+        Guid tenantId,
+        List<string> issues,
+        CancellationToken cancellationToken = default)
+    {
+        var hasLedger = await _dbContext.Ledgers
+            .AnyAsync(l => l.TenantId == tenantId, cancellationToken);
+
+        if (!hasLedger)
+            issues.Add("Tenant does not have a ledger");
+
+        var hasChartOfAccounts = await _dbContext.LedgerAccounts
+            .AnyAsync(a => a.TenantId == tenantId, cancellationToken);
+
+        if (!hasChartOfAccounts)
+            issues.Add("Tenant does not have any ledger accounts");
+    }
+
+    private static List<LedgerAccount> CreateDefaultChartOfAccounts(Guid tenantId, Guid ledgerId, Guid? userId, DateTime now)
+    {
+        return
+        [
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                LedgerId = ledgerId,
+                AccountType = "Asset",
+                Name = "Cash",
+                Code = "1000",
+                DimensionsJson = "{}",
+                CreatedAt = now,
+                CreatedBy = userId
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                LedgerId = ledgerId,
+                AccountType = "Asset",
+                Name = "Accounts Receivable",
+                Code = "1100",
+                DimensionsJson = "{}",
+                CreatedAt = now,
+                CreatedBy = userId
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                LedgerId = ledgerId,
+                AccountType = "Liability",
+                Name = "Accounts Payable",
+                Code = "2000",
+                DimensionsJson = "{}",
+                CreatedAt = now,
+                CreatedBy = userId
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                LedgerId = ledgerId,
+                AccountType = "Equity",
+                Name = "Retained Earnings",
+                Code = "3000",
+                DimensionsJson = "{}",
+                CreatedAt = now,
+                CreatedBy = userId
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                LedgerId = ledgerId,
+                AccountType = "Revenue",
+                Name = "Operating Revenue",
+                Code = "4000",
+                DimensionsJson = "{}",
+                CreatedAt = now,
+                CreatedBy = userId
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                LedgerId = ledgerId,
+                AccountType = "Expense",
+                Name = "Operating Expenses",
+                Code = "5000",
+                DimensionsJson = "{}",
+                CreatedAt = now,
+                CreatedBy = userId
+            }
+        ];
+    }
+}

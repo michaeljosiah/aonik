@@ -54,6 +54,11 @@ public sealed class FinanceModule : IModule
         // Orders
         services.AddScoped<Contracts.Services.Orders.IOrderService, Services.Orders.OrderService>();
         services.AddScoped<Contracts.Services.Orders.IPublicOrderService, Services.Orders.PublicOrderService>();
+        services.AddScoped<SharedKernel.Abstractions.IOrderExistenceChecker, Services.Orders.OrderExistenceChecker>();
+        services.AddScoped<SharedKernel.Abstractions.ICustomerFinanceStatsProvider, Services.Orders.CustomerFinanceStatsProvider>();
+
+        // Cross-module provisioning contributor
+        services.AddScoped<SharedKernel.Abstractions.ITenantProvisioningContributor, Services.Provisioning.FinanceTenantProvisioningContributor>();
 
         // Pricing
         services.AddScoped<Contracts.Services.Pricing.IPricingService, Services.Pricing.PricingService>();

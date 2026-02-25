@@ -10,8 +10,6 @@ using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Finance.Entities.Orders;
-using Aonik.Finance.Entities.Payments;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
@@ -29,6 +27,7 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
+    private readonly ICustomerFinanceStatsProvider _financeStatsProvider;
 
     public CustomerAdminService(
         PlatformDbContext dbContext,
@@ -36,13 +35,15 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
         IClock clock,
         IAuditLogWriter auditLogWriter,
         ICurrentUserProvider currentUserProvider,
-        IPermissionService permissionService)
+        IPermissionService permissionService,
+        ICustomerFinanceStatsProvider financeStatsProvider)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _auditLogWriter = auditLogWriter;
+        _financeStatsProvider = financeStatsProvider;
     }
 
     public async Task<PagedResult<CustomerListItem>> ListCustomersAsync(
@@ -369,77 +370,22 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
             return null;
         }
 
-        var orders = await _dbContext.Orders
-            .AsNoTracking()
-            .Where(order => order.TenantId == tenantId)
-            .Where(order =>
-                order.PayerPartyId == partyId ||
-                _dbContext.OrderPartyRoles.Any(role =>
-                    role.TenantId == tenantId && role.PartyId == partyId && role.OrderId == order.Id))
-            .Select(order => new
-            {
-                order.Id,
-                order.AmountIn,
-                order.CurrencyIn,
-                order.Status,
-                order.CreatedAt,
-                order.UpdatedAt
-            })
-            .ToListAsync(cancellationToken);
+        var stats = await _financeStatsProvider.GetStatsAsync(tenantId, partyId, cancellationToken);
 
-        var totalOrders = orders.Select(order => order.Id).Distinct().Count();
-
-        var terminalStatuses = new[]
-        {
-            OrderStatuses.Complete,
-            OrderStatuses.Cancelled,
-            OrderStatuses.Failed,
-            OrderStatuses.Expired
-        };
-
-        var outstandingByCurrency = orders
-            .Where(order => !terminalStatuses.Contains(order.Status))
-            .GroupBy(order => order.CurrencyIn)
-            .Select(group => new CurrencyAmount(group.Key, group.Sum(order => order.AmountIn)))
+        var totalPaidByCurrency = stats.TotalPaidByCurrency
+            .Select(c => new CurrencyAmount(c.Currency, c.Amount))
             .ToList();
 
-        var capturedPayments = await _dbContext.PaymentIntents
-            .AsNoTracking()
-            .Where(intent => intent.TenantId == tenantId)
-            .Where(intent => intent.PayerPartyId == partyId && intent.Status == PaymentStatus.Captured.ToString())
-            .Select(intent => new
-            {
-                intent.Amount,
-                intent.Currency
-            })
-            .ToListAsync(cancellationToken);
-
-        var totalPaidByCurrency = capturedPayments
-            .GroupBy(payment => payment.Currency)
-            .Select(group => new CurrencyAmount(group.Key, group.Sum(payment => payment.Amount)))
+        var outstandingByCurrency = stats.OutstandingByCurrency
+            .Select(c => new CurrencyAmount(c.Currency, c.Amount))
             .ToList();
-
-        var orderActivityAt = orders.Count == 0
-            ? (DateTime?)null
-            : orders.Max(order => order.UpdatedAt ?? order.CreatedAt);
-
-        var paymentActivityAt = await _dbContext.PaymentIntents
-            .AsNoTracking()
-            .Where(intent => intent.TenantId == tenantId && intent.PayerPartyId == partyId)
-            .MaxAsync(intent => (DateTime?)intent.CreatedAt, cancellationToken);
-
-        var lastActivityAt = orderActivityAt;
-        if (paymentActivityAt.HasValue && (!lastActivityAt.HasValue || paymentActivityAt > lastActivityAt))
-        {
-            lastActivityAt = paymentActivityAt;
-        }
 
         return new CustomerStats(
             partyId,
-            totalOrders,
+            stats.TotalOrders,
             totalPaidByCurrency,
             outstandingByCurrency,
-            lastActivityAt);
+            stats.LastActivityAt);
     }
 
     public async Task<CreateCustomerResponse> CreateCustomerAsync(

@@ -7,12 +7,8 @@ using Aonik.Platform.Services;
 using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Ai.Entities;
 using Aonik.Platform.Entities.Identity;
-using Aonik.Finance.Entities.Ledger;
-using Aonik.Finance.Entities.Pricing;
 using Aonik.SharedKernel.Abstractions;
-using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 
 namespace Aonik.Platform.Services.Identity;
 
@@ -22,6 +18,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IClock _clock;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IEnumerable<ITenantProvisioningContributor> _contributors;
 
     public TenantProvisioner(
         PlatformDbContext dbContext,
@@ -29,13 +26,15 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         IClock clock,
         ICurrentUserProvider currentUserProvider,
         ICorrelationContext correlationContext,
-        IPermissionService permissionService)
+        IPermissionService permissionService,
+        IEnumerable<ITenantProvisioningContributor> contributors)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _auditLogWriter = auditLogWriter;
         _clock = clock;
         _correlationContext = correlationContext;
+        _contributors = contributors;
     }
 
     public async Task<ProvisionTenantResult> ProvisionTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
@@ -60,43 +59,21 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         var userId = CurrentUserProvider.GetCurrentUserId();
         var now = _clock.UtcNow;
 
-        // Check if already provisioned
-        var existingLedger = await _dbContext.Ledgers
-            .FirstOrDefaultAsync(l => l.TenantId == tenantId, cancellationToken);
-
+        // Delegate to module contributors (Finance creates Ledger/Accounts/Pricing, AI creates policies)
+        var context = new TenantProvisioningContext(tenantId, tenant.DefaultCurrency, userId, now);
         var ledgerCreated = false;
         var chartOfAccountsCount = 0;
+        var policiesCreated = 0;
 
-        if (existingLedger == null)
+        foreach (var contributor in _contributors)
         {
-            // Create Ledger
-            var ledgerId = Guid.NewGuid();
-            var ledger = new LedgerEntity
-            {
-                Id = ledgerId,
-                TenantId = tenantId,
-                BaseCurrency = tenant.DefaultCurrency,
-                CreatedAt = now,
-                CreatedBy = userId
-            };
-            _dbContext.Ledgers.Add(ledger);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            var contribution = await contributor.ContributeProvisioningAsync(context, cancellationToken);
+            actionsPerformed.AddRange(contribution.ActionsPerformed);
 
-            ledgerCreated = true;
-            actionsPerformed.Add($"Created ledger {ledger.Id} with base currency {tenant.DefaultCurrency}");
-
-
-            // Create Chart of Accounts
-            var accounts = CreateDefaultChartOfAccounts(tenantId, ledgerId, userId, now);
-            _dbContext.LedgerAccounts.AddRange(accounts);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-
-            chartOfAccountsCount = accounts.Count;
-            actionsPerformed.Add($"Created {chartOfAccountsCount} default accounts");
-        }
-        else
-        {
-            actionsPerformed.Add("Ledger already exists - skipped");
+            if (contribution.LedgerCreated)
+                ledgerCreated = true;
+            chartOfAccountsCount += contribution.ChartOfAccountsCount;
+            policiesCreated += contribution.PoliciesCreated;
         }
 
         // Provision Roles
@@ -111,13 +88,6 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         {
             actionsPerformed.Add($"Ensured default role permissions ({rolePermissionsCreated})");
         }
-
-        // Provision AI Route Policy (placeholder)
-
-        var policiesCreated = await ProvisionAiPoliciesAsync(tenantId, userId, now, actionsPerformed, cancellationToken);
-
-        // Provision Fee and Limits Policies (placeholder)
-        await ProvisionPricingPoliciesAsync(tenantId, userId, now, actionsPerformed, cancellationToken);
 
         // Log provisioning completion
         await _auditLogWriter.LogAsync(
@@ -144,27 +114,22 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         await EnsurePermissionAsync("Tenants.Read", cancellationToken);
         var issues = new List<string>();
 
-        // Check ledger exists
-        var hasLedger = await _dbContext.Ledgers
-            .AnyAsync(l => l.TenantId == tenantId, cancellationToken);
+        // Delegate module-specific health checks to contributors
+        foreach (var contributor in _contributors)
+        {
+            await contributor.ContributeHealthCheckAsync(tenantId, issues, cancellationToken);
+        }
 
-        if (!hasLedger)
-            issues.Add("Tenant does not have a ledger");
-
-        // Check chart of accounts
-        var hasChartOfAccounts = await _dbContext.LedgerAccounts
-            .AnyAsync(a => a.TenantId == tenantId, cancellationToken);
-
-        if (!hasChartOfAccounts)
-            issues.Add("Tenant does not have any ledger accounts");
-
-        // Check roles exist
+        // Check roles exist (Platform-owned)
         var hasRoles = await _dbContext.Roles
             .AnyAsync(r => r.TenantId == tenantId, cancellationToken);
 
         if (!hasRoles)
             issues.Add("Tenant does not have any roles");
 
+        // Derive health flags from issues
+        var hasLedger = !issues.Any(i => i.Contains("ledger", StringComparison.OrdinalIgnoreCase));
+        var hasChartOfAccounts = !issues.Any(i => i.Contains("ledger accounts", StringComparison.OrdinalIgnoreCase));
         var isHealthy = issues.Count == 0;
 
         return new TenantHealthResult(
@@ -174,87 +139,6 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
             hasChartOfAccounts,
             issues
         );
-    }
-
-    private static List<LedgerAccount> CreateDefaultChartOfAccounts(Guid tenantId, Guid ledgerId, Guid? userId, DateTime now)
-    {
-        var accounts = new List<LedgerAccount>
-        {
-            new()
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                LedgerId = ledgerId,
-                AccountType = "Asset",
-                Name = "Cash",
-                Code = "1000",
-                DimensionsJson = "{}",
-                CreatedAt = now,
-                CreatedBy = userId
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                LedgerId = ledgerId,
-                AccountType = "Asset",
-                Name = "Accounts Receivable",
-                Code = "1100",
-                DimensionsJson = "{}",
-                CreatedAt = now,
-                CreatedBy = userId
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                LedgerId = ledgerId,
-                AccountType = "Liability",
-                Name = "Accounts Payable",
-                Code = "2000",
-                DimensionsJson = "{}",
-                CreatedAt = now,
-                CreatedBy = userId
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                LedgerId = ledgerId,
-                AccountType = "Equity",
-                Name = "Retained Earnings",
-                Code = "3000",
-                DimensionsJson = "{}",
-                CreatedAt = now,
-                CreatedBy = userId
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                LedgerId = ledgerId,
-                AccountType = "Revenue",
-                Name = "Operating Revenue",
-                Code = "4000",
-                DimensionsJson = "{}",
-                CreatedAt = now,
-                CreatedBy = userId
-            },
-            new()
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                LedgerId = ledgerId,
-                AccountType = "Expense",
-                Name = "Operating Expenses",
-                Code = "5000",
-                DimensionsJson = "{}",
-                CreatedAt = now,
-                CreatedBy = userId
-            }
-        };
-
-        return accounts;
     }
 
     private async Task<int> ProvisionRolesAsync(Guid tenantId, Guid? userId, DateTime now, List<string> actionsPerformed, CancellationToken cancellationToken)
@@ -566,100 +450,5 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return newRolePermissions.Count;
-    }
-
-    private async Task<int> ProvisionAiPoliciesAsync(Guid tenantId, Guid? userId, DateTime now, List<string> actionsPerformed, CancellationToken cancellationToken)
-
-    {
-        var existingPolicies = await _dbContext.AiRoutePolicies
-            .Where(p => p.TenantId == tenantId)
-            .ToListAsync(cancellationToken);
-
-        if (existingPolicies.Any())
-        {
-            actionsPerformed.Add("AI policies already exist - skipped");
-            return 0;
-        }
-
-        var defaultPolicy = new AiRoutePolicy
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            UseCase = "Default",
-            RiskTier = "Low",
-            DataSensitivity = "Public",
-            CostCeiling = 1000.00m,
-            PrimaryModelId = Guid.Empty, // TODO: Set actual model ID
-            FallbackModelIdsJson = "[]",
-            IsActive = true,
-            CreatedAt = now,
-            CreatedBy = userId
-        };
-
-        _dbContext.AiRoutePolicies.Add(defaultPolicy);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        actionsPerformed.Add("Created default AI route policy");
-        return 1;
-    }
-
-    private async Task ProvisionPricingPoliciesAsync(Guid tenantId, Guid? userId, DateTime now, List<string> actionsPerformed, CancellationToken cancellationToken)
-    {
-        var existingFeePolicies = await _dbContext.FeePolicies
-            .Where(p => p.TenantId == tenantId)
-            .ToListAsync(cancellationToken);
-
-        if (!existingFeePolicies.Any())
-        {
-            var feePolicy = new FeePolicy
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                Name = "Default Fee Policy",
-                FixedFee = 0.00m,
-                PercentageFee = 0.00m,
-                ConditionsJson = "{}",
-                IsActive = true,
-                CreatedAt = now,
-                CreatedBy = userId
-            };
-
-            _dbContext.FeePolicies.Add(feePolicy);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            actionsPerformed.Add("Created default fee policy");
-        }
-        else
-        {
-            actionsPerformed.Add("Fee policies already exist - skipped");
-        }
-
-        var existingLimitsPolicies = await _dbContext.LimitsPolicies
-            .Where(p => p.TenantId == tenantId)
-            .ToListAsync(cancellationToken);
-
-        if (!existingLimitsPolicies.Any())
-        {
-            var limitsPolicy = new LimitsPolicy
-            {
-                Id = Guid.NewGuid(),
-                TenantId = tenantId,
-                ScopeType = "Tenant",
-                ScopeId = tenantId,
-                MaxAmount = 100000.00m,
-                Period = "Monthly",
-                Currency = "USD",
-                IsActive = true,
-                CreatedAt = now,
-                CreatedBy = userId
-            };
-
-            _dbContext.LimitsPolicies.Add(limitsPolicy);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            actionsPerformed.Add("Created default limits policy");
-        }
-        else
-        {
-            actionsPerformed.Add("Limits policies already exist - skipped");
-        }
     }
 }
