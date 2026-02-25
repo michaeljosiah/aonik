@@ -5,8 +5,8 @@
 <h1 align="center">AONIK</h1>
 
 <p align="center">
-  <strong>AI-native financial infrastructure.</strong><br>
-  Ledger. Payments. Agents. One platform.
+  <strong>A modular platform for building AI-powered domain systems.</strong><br>
+  Identity. Compliance. Agents. Ledger. Payments. One foundation.
 </p>
 
 <p align="center">
@@ -21,17 +21,53 @@
 
 ## What is AONIK?
 
-AONIK is an open-source financial operating system designed to power payments, remittances, billing, and personal finance — with AI embedded at the infrastructure level, not bolted on.
+AONIK is an open-source, AI-native platform for building intelligent domain systems. It provides the foundational infrastructure that every serious vertical application needs — identity, tenancy, compliance, agents, workflows — so that domain modules can focus on their actual problem space.
 
-It provides three things traditional fintech platforms don't:
+The platform is **modular by design**. Each capability is a self-contained module with its own entities, services, endpoints, and persistence. Modules communicate through contracts and integration events, not direct coupling. New verticals plug in without touching the core.
 
-1. **A double-entry ledger as the source of truth.** Every financial state change is an immutable, auditable journal entry. Not an afterthought — the foundation.
+**Finance is the first vertical module.** It implements double-entry ledger, payments, billing, orders, and pricing as a fully-featured domain module built on the platform. But AONIK is not a fintech platform — it is the infrastructure layer that a fintech product (or any other intelligent domain system) is built on.
 
-2. **AI agents that operate on financial primitives directly.** Agents read ledger data, classify transactions, detect anomalies, and generate insights — but they never mutate financial state on their own.
+---
 
-3. **A proposal-based control model.** Agents propose. Domain services apply. Humans approve what matters. Every AI action is recorded, policy-governed, and auditable.
+## Platform Core
 
-AONIK is the platform layer. Products are built on top:
+The platform provides horizontal capabilities that any domain module can consume:
+
+**Identity and Access** — Multi-tenant identity with users, roles, permissions, and tenant isolation. Every request is scoped to a tenant. Every entity is tenant-aware.
+
+**Party and Profile** — Unified party model for people and businesses. KYC/KYB scaffolding, address/contact management, relationship tracking, and external account linking.
+
+**Compliance and Risk** — Screening checks, compliance cases, audit logging, document management with verification workflows. Policy-governed and auditable.
+
+**AI Platform** — Multi-provider LLM routing with model selection policies. Prompts and tools are versioned. Every AI execution is recorded as an `AiRun` with cost tracking and feedback loops.
+
+**Agent Framework** — Domain-specific agents built on Microsoft Agent Framework. Agents reason, plan, and use tools — but they never directly mutate state. All material actions follow the proposal pattern:
+
+```
+Agent creates Proposal  -->  Human or policy approves  -->  Domain service applies
+```
+
+This flow is never bypassed. Agents propose. Systems apply. Humans stay in control.
+
+**Operations** — Background jobs, work items, notifications, webhook subscriptions, and content management. The runtime plumbing that domain modules need but shouldn't have to build.
+
+---
+
+## First Vertical: Finance
+
+The Finance module (`Aonik.Finance`) is the first domain vertical built on the platform. It demonstrates the full module pattern and provides production-grade financial primitives:
+
+- **Ledger** — Double-entry, immutable. The source of financial truth. Journal entries, chart of accounts, balance snapshots.
+- **Payments** — Payment intents, payment processing, payouts, refunds, chargebacks. Provider-abstracted.
+- **Orders** — Business intent hub. Orders capture *why* money moves, link parties, reference funding and fulfilment. They are not payments.
+- **Billing** — Invoices, line items, allocations, customer accounts, dunning plans.
+- **Pricing** — Fee policies, FX rate sources, spread policies, limits, pricing quotes.
+- **Partners** — Correspondent network with connectors, routing rules, payout schemas, transmissions.
+- **Personal Finance** — Budgets, goals, bills, subscriptions, categorisation, household management.
+
+The Finance module has its own domain agent (`FinanceDomainAgent`) and MCP server (`Aonik.Finance.Mcp`) for tool interoperability with the agent framework.
+
+Products built on AONIK Finance:
 
 | Product | Domain |
 |---|---|
@@ -43,23 +79,24 @@ AONIK is the platform layer. Products are built on top:
 
 ## Architecture
 
-AONIK is a **module-first modular monolith** — not microservices, not a monolith pretending to be modular. Each domain module owns its entities, services, endpoints, and persistence configuration as vertical slices.
+AONIK is a **module-first modular monolith**. Each domain module owns its vertical slice — entities, services, endpoints, persistence configuration — with a module-scoped DbContext over a shared physical database.
 
 ```
 src/
-  Aonik.Platform/       Identity, tenancy, party/profile, compliance, notifications
-  Aonik.Finance/        Ledger, payments, orders, billing, pricing, partners
-  Aonik.Ai/             Model routing, prompts, AI execution records
-  Aonik.Agents/         Domain agents, orchestration, proposal workflows
-  Aonik.SharedKernel/   Cross-cutting primitives, interfaces, events
-  Aonik.Infrastructure/  External adapters, EF migrations, composition support
-  Aonik.Api/            HTTP API (FastEndpoints)
-  Aonik.Worker/         Background jobs (Quartz)
-  Aonik.Migrator/       Database migration host
-  Aonik.AppHost/        .NET Aspire orchestration
-  Aonik.AdminUi/        Admin interface (React 19, Vite, Tailwind)
-  Aonik.Finance.Mcp/    Finance MCP server
-  Aonik.Platform.Mcp/   Platform MCP server
+  Aonik.SharedKernel/       Cross-cutting primitives, interfaces, integration events
+  Aonik.Platform/           Identity, tenancy, party/profile, compliance, notifications
+  Aonik.Finance/            Ledger, payments, orders, billing, pricing, partners
+  Aonik.Ai/                 Model routing, prompts, AI execution records
+  Aonik.Agents/             Domain agents, orchestration, proposal workflows
+  Aonik.Application/        Shared application abstractions
+  Aonik.Infrastructure/     EF migrations, external adapters, composition support
+  Aonik.Api/                HTTP API composition root (FastEndpoints)
+  Aonik.Worker/             Background jobs (Quartz)
+  Aonik.Migrator/           Database migration host
+  Aonik.AppHost/            .NET Aspire orchestration
+  Aonik.AdminUi/            Admin interface (React 19, Vite, Tailwind, Dockview)
+  Aonik.Finance.Mcp/        Finance MCP server
+  Aonik.Platform.Mcp/       Platform MCP server
 
 tests/
   Aonik.SharedKernel.Tests/
@@ -68,44 +105,31 @@ tests/
   Aonik.Api.Tests/
 ```
 
-Each module has its own scoped DbContext (`PlatformDbContext`, `FinanceDbContext`, `AiDbContext`, `AgentsDbContext`) over a shared physical SQL Server database. Modules communicate through in-process integration events and shared contracts in SharedKernel.
+### Module Boundaries
 
----
+Modules depend on `SharedKernel` for primitives, contracts, and integration events. They do not reference each other directly. Cross-module communication uses:
 
-## Core Design Principles
+- **SharedKernel contracts** — Interfaces like `IPartyService`, `IComplianceService` that one module implements and another consumes via DI.
+- **Integration events** — `TenantProvisionedEvent`, `OrderCreatedEvent`, `PaymentCompletedEvent`, etc. Published by one module, subscribed to by others.
+- **Read models** — Lightweight projections for cross-module queries where eventual consistency is acceptable.
 
-These are non-negotiable. Code that violates them gets rejected.
+Each module registers itself in the API composition root:
+
+```csharp
+services.AddPlatformModule(configuration);
+services.AddFinanceModule(configuration);
+services.AddAiModule(configuration);
+services.AddAgentsModule(configuration);
+```
+
+### Design Principles
 
 - **Ledger is the source of financial truth.** Double-entry, immutable.
-- **Orders represent business intent.** They are not payments. They capture *why* money moves, link parties, and reference both funding and fulfilment.
-- **Payments execute intent; ledger proves it.**
-- **Agents propose; systems execute.** All material actions follow: Propose → Approve → Apply.
-- **Every AI action is auditable and policy-governed.** Every AI execution is recorded as an `AiRun`. Financially material outputs reference an `AiRunId`.
+- **Orders represent business intent.** They are not payments.
+- **Agents propose; systems execute.** Every material action follows Propose, Approve, Apply.
+- **Every AI action is auditable.** Every execution is an `AiRun`. Financially material outputs reference an `AiRunId`.
 - **Risk tier determines AI autonomy.** Human approval is explicit for high-risk actions.
-
----
-
-## AI and Agent Architecture
-
-AONIK's AI layer is not a chatbot wrapper. It is structured infrastructure:
-
-**AI Platform (`Aonik.Ai`)**
-- Multiple LLM providers and models — no hard-coded model usage
-- All calls resolve through `AiRoutePolicy` for routing and governance
-- Prompts and tools are versioned; prompts are immutable once published
-- Every execution is recorded as an `AiRun`
-
-**Agent Framework (`Aonik.Agents`)**
-- Built on Microsoft Agent Framework (MAF)
-- Agents are constrained, domain-specific actors — they reason, plan, and use tools
-- Agents never directly mutate financial state
-- MCP servers per domain module expose tools safely to agents
-
-**The Proposal Pattern** (mandatory for all material actions):
-```
-Agent creates Proposal → Human or policy approves → Domain service applies
-```
-This flow is never bypassed.
+- **Modules own their boundaries.** No cross-module project references. Contracts and events only.
 
 ---
 
@@ -168,24 +192,6 @@ dotnet test --filter "DisplayName~CreateInvoice"
 | Testing | xUnit, FluentAssertions |
 | IaC | Bicep (Azure Container Apps + App Service) |
 | CI/CD | GitHub Actions |
-
----
-
-## Project Status
-
-AONIK is in active early development. The platform core is functional:
-
-- Double-entry ledger with journal entries and account management
-- Payment intents, payment processing, and order orchestration
-- Multi-tenant billing and invoicing with line items
-- Party/profile management with KYC/KYB scaffolding
-- AI model routing, prompt versioning, and execution recording
-- Agent proposal framework with policy-governed approval
-- Admin UI with module extension system
-- Azure IaC with ACA and App Service deployment profiles
-- Containerized deployment (API, Worker, Admin UI)
-
-What is not built yet is clearly not claimed. The roadmap lives in the code, not in promises.
 
 ---
 
