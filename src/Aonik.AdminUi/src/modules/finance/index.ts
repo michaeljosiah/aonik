@@ -4,18 +4,24 @@ import type { WorkspacePanelConfig } from '@/workspace/types';
 import {
   CustomersListPage,
   CustomerDetailPage,
+} from '@/pages/customers';
+import {
   OrdersLandingPage,
   OrdersListPage,
   BillPaymentOrderFormPage,
+} from '@/pages/orders';
+import {
   LedgerOverviewPage,
   LedgerAccountsPage,
   LedgerJournalEntriesPage,
+} from '@/pages/ledger';
+import {
   ComplianceLandingPage,
   DocumentsListPage,
   DocumentDetailPage,
   DocumentCreatePage,
-  FxRatesPage,
-  AutonumberingPage,
+} from '@/pages/compliance';
+import {
   CatalogLandingPage,
   CatalogCountriesPage,
   CatalogCategoriesPage,
@@ -25,7 +31,9 @@ import {
   CatalogBillerServiceDetailPage,
   CatalogPartnersPage,
   CatalogPartnerDetailPage,
-} from '@/pages';
+} from '@/pages/catalog';
+import { AutonumberingPage } from '@/pages/settings';
+import { FxRatesPage } from '@/pages/FxRatesPage';
 import { InvoiceManagerPanel } from '@/workspace/apps/InvoiceManagerPanel';
 import { ReconciliationHubPanel } from '@/workspace/apps/ReconciliationHubPanel';
 import { CashFlowForecasterPanel } from '@/workspace/apps/CashFlowForecasterPanel';
