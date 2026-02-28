@@ -341,13 +341,19 @@ export interface BootstrapTenantResult {
   tenantCreated: boolean;
   userId: string;
   userCreated: boolean;
-  tenantAdminAssigned: boolean;
+  platformAdminAssigned: boolean;
 }
 
 export interface BootstrapStatusResponse {
   platformAdminEmailsConfigured: boolean;
   isCurrentUserAllowed: boolean;
   tenantCount: number;
+  canBootstrap?: boolean;
+  resolvedUserEmail?: string | null;
+  isAuthenticated?: boolean;
+  authorizationHeaderPresent?: boolean;
+  bearerTokenLooksJwt?: boolean;
+  authFailureReason?: string | null;
 }
 
 export interface CatalogCountryItem {

@@ -14,9 +14,10 @@ This guide walks through a fast local setup with clear steps for Auth0 or Azure 
 ## Quick Start Flow
 
 1. Choose Auth0 or Azure AD configuration.
-2. Configure `PlatformAdmin` and `Bootstrap`.
-3. Run the API (or AppHost).
-4. Call the bootstrap endpoint to create the initial tenant/admin.
+2. Configure `PlatformAdmin` and `Bootstrap` defaults.
+3. Initialize the database (migrations + base seed data).
+4. Run the API (or AppHost).
+5. Sign in and call the bootstrap endpoint once to create the initial tenant/admin.
 
 ## Required Configuration
 
@@ -89,6 +90,16 @@ Notes:
 - The platform allows bootstrap when no tenants exist.
 - In production, platform admin is typically granted via claims rather than email.
 
+## Initialize Database (Fresh Install)
+
+Run the migrator before first API start:
+
+```bash
+dotnet run --project src/Aonik.Migrator
+```
+
+This applies migrations and seeds global base data used by all modules.
+
 ## Run With Aspire (Recommended)
 
 Runs API + Worker + SQL Server via the AppHost:
@@ -109,13 +120,12 @@ Development uses `src/Aonik.Api/appsettings.Development.json` for the connection
 
 ## Create the Initial Tenant and Admin User
 
-The first authenticated user to call the bootstrap endpoint becomes the initial tenant admin.
+The first authenticated user to call the bootstrap endpoint becomes the initial platform admin.
 
 Requirements:
 - No tenants exist yet
-- There are no tenants yet in the database
 - The user is authenticated
-- In non-Development environments, the user must be a PlatformAdmin
+- In non-Development environments, the user must satisfy `PlatformAdmin` policy
 
 Steps:
 1. Sign in via your identity provider and obtain a JWT.
@@ -135,13 +145,17 @@ curl -X GET "https://localhost:5001/billing/invoices" \
 ```
 
 What happens during bootstrap:
-- A tenant is created (or reused if one already exists)
+- A tenant is created
 - A user record is created from the external identity
-- The user is assigned the `TenantAdmin` role
+- The user is assigned the `PlatformAdmin` role
+
+Bootstrap is one-time for fresh install. If a tenant already exists, `/bootstrap` returns `409 Conflict`.
 
 ## Adding More Users
 
 Additional users are created automatically on first login but receive no roles by default. A tenant admin must assign roles before they can access protected endpoints.
+
+To add additional tenants after bootstrap, use the tenant admin endpoints (`/admin/tenants`) instead of `/bootstrap`.
 
 ## Next Steps
 

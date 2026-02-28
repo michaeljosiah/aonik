@@ -93,10 +93,10 @@ $env:InMemoryDatabaseName = "AonikDevInMemory"
 dotnet run --project src/Aonik.Api
 ```
 
-## Bootstrap The First Tenant (Development Only)
+## Bootstrap The First Tenant
 
 When running locally with no tenants in the database, you can use the dev-only bootstrap endpoint
-to create the initial tenant and assign the current user the **TenantAdmin** role.
+to create the initial tenant and assign the current user the **PlatformAdmin** role.
 
 1. Run the API (`dotnet run --project src/Aonik.Api`).
 2. Send a POST request to `/bootstrap` with a valid access token.
@@ -111,20 +111,33 @@ curl -X POST https://localhost:5001/bootstrap \
 
 Notes:
 - The endpoint is available when no tenants exist.
-- In non-Development environments, the caller must have the `PlatformAdmin` claim.
+- In non-Development environments, the caller must satisfy `PlatformAdmin` policy.
+- Bootstrap is one-time. If a tenant already exists, `/bootstrap` returns `409 Conflict`.
 - The created tenant uses the default values in the `Bootstrap` configuration section.
 
 
 ## Migrations
 
-AONIK uses EF Core migrations from the Infrastructure project.
+AONIK supports both migrator-first and direct EF workflows.
 
 ```bash
-# Add a migration
+# Recommended: run all migrations + base seeding
+dotnet run --project src/Aonik.Migrator
+
+# Optional: run migrations only
+dotnet run --project src/Aonik.Migrator -- --migrate-only
+
+# Optional: run seed only
+dotnet run --project src/Aonik.Migrator -- --seed-only
+```
+
+```bash
+# Create a new migration
 dotnet ef migrations add <MigrationName> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 
-# Apply migrations
+# Manual apply (fallback)
 dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+dotnet ef database update --project src/Aonik.Platform --startup-project src/Aonik.Api --context PlatformDbContext
 ```
 
 Note: InMemory does not use migrations.

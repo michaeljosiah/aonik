@@ -18,6 +18,7 @@ using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Services.Settings;
+using Aonik.Platform.Settings;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Identity;
 using Aonik.SharedKernel.Abstractions;
@@ -26,6 +27,8 @@ namespace Aonik.Infrastructure.Authentication;
 
 public static class AonikAuthenticationSetup
 {
+    public const string AuthFailureReasonItemKey = "AonikAuthFailureReason";
+
     public static IServiceCollection AddAonikAuthentication(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -111,6 +114,7 @@ public static class AonikAuthenticationSetup
                     var logger = context.HttpContext.RequestServices
                         .GetRequiredService<ILogger<JwtBearerEvents>>();
                     logger.LogError(ex, "Error during token validation");
+                    context.HttpContext.Items[AuthFailureReasonItemKey] = ex.Message;
                     context.Fail("Authentication failed");
                 }
             },
@@ -123,6 +127,8 @@ public static class AonikAuthenticationSetup
                 logger.LogWarning("Authentication failed for {Path}: {Error}",
                     context.HttpContext.Request.Path,
                     context.Exception.Message);
+
+                context.HttpContext.Items[AuthFailureReasonItemKey] = context.Exception.Message;
 
                 return Task.CompletedTask;
             }
@@ -165,7 +171,13 @@ public static class AonikAuthenticationSetup
         if (string.IsNullOrEmpty(iss) || string.IsNullOrEmpty(sub))
         {
             logger.LogWarning("Missing required claims: iss={Iss}, sub/oid={Sub}", iss, sub);
+            context.HttpContext.Items[AuthFailureReasonItemKey] = "Missing required claims";
             context.Fail("Missing required claims");
+            return;
+        }
+
+        if (await TryHandleBootstrapAsync(context, iss, sub))
+        {
             return;
         }
 
@@ -175,12 +187,8 @@ public static class AonikAuthenticationSetup
         {
             logger.LogWarning("Token issuer provider {IssuerProvider} does not match active provider {ActiveProvider}",
                 issuerProvider, activeProvider);
+            context.HttpContext.Items[AuthFailureReasonItemKey] = "Token issuer not allowed for active provider";
             context.Fail("Token issuer not allowed for active provider");
-            return;
-        }
-
-        if (await TryHandleBootstrapAsync(context, iss, sub))
-        {
             return;
         }
 
@@ -202,6 +210,7 @@ public static class AonikAuthenticationSetup
         if (tenantId == null)
         {
             logger.LogWarning("Failed to resolve tenant for user {Sub}", sub);
+            context.HttpContext.Items[AuthFailureReasonItemKey] = "Tenant could not be resolved";
             context.Fail("Tenant could not be resolved");
             return;
         }
@@ -247,6 +256,7 @@ public static class AonikAuthenticationSetup
         if (user.Status != "Active")
         {
             logger.LogWarning("User {UserId} attempted login with status {Status}", user.Id, user.Status);
+            context.HttpContext.Items[AuthFailureReasonItemKey] = $"User account is {user.Status}";
             context.Fail($"User account is {user.Status}");
             return;
         }
@@ -303,7 +313,20 @@ public static class AonikAuthenticationSetup
     {
         var settingProvider = context.HttpContext.RequestServices.GetRequiredService<ISettingProvider>();
         var provider = await settingProvider.GetAsync(AuthSettingNames.Provider, context.HttpContext.RequestAborted);
-        return string.IsNullOrWhiteSpace(provider) ? authOptions.Provider : provider;
+        if (string.IsNullOrWhiteSpace(provider))
+        {
+            return authOptions.Provider;
+        }
+
+        var defaultProvider = SettingDefinitions.Get(AuthSettingNames.Provider)?.DefaultValue;
+        if (!string.IsNullOrWhiteSpace(defaultProvider)
+            && string.Equals(provider, defaultProvider, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(authOptions.Provider, defaultProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            return authOptions.Provider;
+        }
+
+        return provider;
     }
 
     private static string GetProviderForIssuer(string issuer, AuthOptions authOptions)
@@ -383,15 +406,11 @@ public static class AonikAuthenticationSetup
                     claim.Type == platformAdminOptions.RoleClaimType &&
                     claim.Value == platformAdminOptions.RoleValue) == true;
 
-            if (!isPlatformAdmin && platformAdminOptions.AdminEmails.Length > 0)
+            if (!isPlatformAdmin)
             {
-                var userEmail = ClaimsEmailResolver.GetEmail(context.Principal);
-
-                if (!string.IsNullOrEmpty(userEmail))
-                {
-                    isPlatformAdmin = platformAdminOptions.AdminEmails.Any(adminEmail =>
-                        string.Equals(adminEmail, userEmail, StringComparison.OrdinalIgnoreCase));
-                }
+                isPlatformAdmin = context.Principal?.Claims.Any(claim =>
+                    claim.Type == platformAdminOptions.ScopeClaimType &&
+                    string.Equals(claim.Value, "true", StringComparison.OrdinalIgnoreCase)) == true;
             }
 
             if (!isPlatformAdmin)

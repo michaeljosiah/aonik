@@ -69,7 +69,6 @@ var seedDataEnabled = app.Environment.IsDevelopment()
 if (autoMigrateEnabled || seedDataEnabled)
 {
     using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
     var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
     var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -79,7 +78,27 @@ if (autoMigrateEnabled || seedDataEnabled)
         if (autoMigrateEnabled)
         {
             startupLogger.LogInformation("Running database migrations...");
-            await dbContext.Database.MigrateAsync();
+
+            var dbContextTypes = GetRegisteredDbContextTypes(scope.ServiceProvider);
+            foreach (var dbContextType in dbContextTypes)
+            {
+                var dbContext = (DbContext)scope.ServiceProvider.GetRequiredService(dbContextType);
+                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+
+                if (!pendingMigrations.Any())
+                {
+                    startupLogger.LogInformation("No pending migrations for {DbContext}.", dbContextType.Name);
+                    continue;
+                }
+
+                startupLogger.LogInformation(
+                    "Applying {Count} pending migration(s) for {DbContext}...",
+                    pendingMigrations.Count(),
+                    dbContextType.Name);
+                await dbContext.Database.MigrateAsync();
+                startupLogger.LogInformation("Migrations for {DbContext} completed successfully.", dbContextType.Name);
+            }
+
             startupLogger.LogInformation("Database migrations completed successfully.");
         }
 
@@ -96,6 +115,8 @@ if (autoMigrateEnabled || seedDataEnabled)
             var settingsLogger = scope.ServiceProvider.GetRequiredService<ILogger<SettingsSeedService>>();
             var settingsSeedService = new SettingsSeedService(platformDbContext, settingsLogger);
             await settingsSeedService.SeedAsync();
+
+            startupLogger.LogInformation("Database seed routines completed successfully.");
         }
     }
     catch (Exception ex)
@@ -164,6 +185,22 @@ app.UseTenantValidation();
 app.UseFastEndpoints();
 
 app.Run();
+
+static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
+{
+    var result = new List<Type>
+    {
+        typeof(AonikDbContext)
+    };
+
+    if (serviceProvider.GetService(typeof(PlatformDbContext)) != null)
+        result.Add(typeof(PlatformDbContext));
+
+    if (serviceProvider.GetService(typeof(FinanceDbContext)) != null)
+        result.Add(typeof(FinanceDbContext));
+
+    return result;
+}
 
 // Make the Program class accessible for testing
 public partial class Program { }

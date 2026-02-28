@@ -62,13 +62,18 @@ internal class BootstrapService : IBootstrapService
             throw new InvalidOperationException("External subject is required for bootstrap.");
 
         var now = _clock.UtcNow;
-        var tenantResult = await ResolveOrCreateTenantAsync(now, cancellationToken);
+        var tenantResult = await CreateTenantAsync(now, cancellationToken);
         var tenant = tenantResult.Tenant;
 
         _tenantContext.TenantId = tenant.Id;
         _tenantContext.ResolutionSource = "Bootstrap";
 
         await _tenantProvisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
+
+        tenant.Status = TenantStatus.Active;
+        tenant.UpdatedAt = _clock.UtcNow;
+        tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var userResult = await ResolveOrCreateUserAsync(tenant, userContext, cancellationToken);
         var platformAdminAssigned = await EnsurePlatformAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
@@ -82,17 +87,14 @@ internal class BootstrapService : IBootstrapService
             platformAdminAssigned);
     }
 
-    private async Task<(Tenant Tenant, bool TenantCreated)> ResolveOrCreateTenantAsync(
+    private async Task<(Tenant Tenant, bool TenantCreated)> CreateTenantAsync(
         DateTime now,
         CancellationToken cancellationToken)
     {
-        var tenant = await _dbContext.Tenants
-            .OrderBy(t => t.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (tenant != null)
+        var hasTenants = await _dbContext.Tenants.AnyAsync(cancellationToken);
+        if (hasTenants)
         {
-            return (tenant, false);
+            throw new InvalidOperationException("Bootstrap has already completed because at least one tenant exists.");
         }
 
         var currentUserId = _currentUserProvider.GetCurrentUserId();
@@ -103,7 +105,7 @@ internal class BootstrapService : IBootstrapService
             ? _options.SupportedCountries
             : ["US"];
 
-        tenant = new Tenant
+        var tenant = new Tenant
         {
             Id = Guid.NewGuid(),
             Name = tenantName,
@@ -130,13 +132,6 @@ internal class BootstrapService : IBootstrapService
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new { tenant.Id, tenant.Name, tenant.Environment }),
             cancellationToken);
-
-        await _tenantProvisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
-
-        tenant.Status = TenantStatus.Active;
-        tenant.UpdatedAt = _clock.UtcNow;
-        tenant.UpdatedBy = currentUserId;
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return (tenant, true);
     }

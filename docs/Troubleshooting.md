@@ -205,7 +205,13 @@ Unable to create an object of type 'AonikDbContext'
 ```
 
 **Solution:**
-Ensure you specify both the project and startup project:
+Prefer the migrator for first-install migration + seed:
+
+```bash
+dotnet run --project src/Aonik.Migrator
+```
+
+If you need direct EF commands, specify both project and startup project:
 
 ```bash
 dotnet ef migrations add MigrationName \

@@ -24,6 +24,9 @@ dotnet run --project src/Aonik.AppHost
 # Run API directly
 dotnet run --project src/Aonik.Api
 
+# Initialize database (migrations + base seed)
+dotnet run --project src/Aonik.Migrator
+
 # Create migration
 dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 ```

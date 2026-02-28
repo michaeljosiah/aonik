@@ -4,10 +4,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using FastEndpoints;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Contracts.Services.Identity;
-using Aonik.Platform.Contracts.Models.Configuration;
+using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
 
 
@@ -19,20 +19,20 @@ internal class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantR
     private readonly IWebHostEnvironment _environment;
     private readonly IAuthorizationService _authorizationService;
     private readonly ICurrentUserContext _currentUserContext;
-    private readonly PlatformAdminOptions _platformAdminOptions;
+    private readonly PlatformDbContext _dbContext;
 
     public BootstrapTenantEndpoint(
         IBootstrapService bootstrapService,
         IWebHostEnvironment environment,
         IAuthorizationService authorizationService,
         ICurrentUserContext currentUserContext,
-        IOptions<PlatformAdminOptions> platformAdminOptions)
+        PlatformDbContext dbContext)
     {
         _bootstrapService = bootstrapService;
         _environment = environment;
         _authorizationService = authorizationService;
         _currentUserContext = currentUserContext;
-        _platformAdminOptions = platformAdminOptions.Value;
+        _dbContext = dbContext;
     }
 
 
@@ -44,7 +44,17 @@ internal class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantR
     public override async Task HandleAsync(CancellationToken ct)
     {
 
-        if (!_environment.IsDevelopment() && _platformAdminOptions.AdminEmails.Length > 0)
+        if (await _dbContext.Tenants.AnyAsync(ct))
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+            await HttpContext.Response.WriteAsJsonAsync(new
+            {
+                error = "Bootstrap has already completed. Use the tenant administration endpoints for additional tenant setup."
+            }, ct);
+            return;
+        }
+
+        if (!_environment.IsDevelopment())
         {
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, null, "PlatformAdmin");
             if (!authorizationResult.Succeeded)
@@ -75,14 +85,26 @@ internal class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantR
         var email = ClaimsEmailResolver.GetEmail(User);
         var externalTenantId = User.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
 
-        var result = await _bootstrapService.BootstrapAsync(
-            new BootstrapUserContext(
-                externalIssuer,
-                externalSubject,
-                externalTenantId,
-                email),
-            ct);
+        try
+        {
+            var result = await _bootstrapService.BootstrapAsync(
+                new BootstrapUserContext(
+                    externalIssuer,
+                    externalSubject,
+                    externalTenantId,
+                    email),
+                ct);
 
-        await Send.OkAsync(result, ct);
+            await Send.OkAsync(result, ct);
+        }
+        catch (InvalidOperationException ex) when (
+            ex.Message.StartsWith("Bootstrap has already completed", StringComparison.OrdinalIgnoreCase))
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+            await HttpContext.Response.WriteAsJsonAsync(new
+            {
+                error = "Bootstrap has already completed. Use the tenant administration endpoints for additional tenant setup."
+            }, ct);
+        }
     }
 }

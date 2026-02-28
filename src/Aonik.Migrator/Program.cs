@@ -63,16 +63,22 @@ try
 {
     if (runMigrations)
     {
-        // Migrate all registered DbContexts that derive from AonikDbContextBase.
-        // During the transition period only AonikDbContext exists; as module-scoped
-        // DbContexts are introduced (PlatformDbContext, FinanceDbContext, etc.)
-        // they will be picked up automatically when registered in DI.
         var dbContextTypes = GetRegisteredDbContextTypes(scope.ServiceProvider);
 
         foreach (var dbContextType in dbContextTypes)
         {
             var dbContext = (DbContext)scope.ServiceProvider.GetRequiredService(dbContextType);
-            logger.LogInformation("Running migrations for {DbContext}...", dbContextType.Name);
+            var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+            if (!pendingMigrations.Any())
+            {
+                logger.LogInformation("No pending migrations for {DbContext}.", dbContextType.Name);
+                continue;
+            }
+
+            logger.LogInformation(
+                "Running {Count} pending migration(s) for {DbContext}...",
+                pendingMigrations.Count(),
+                dbContextType.Name);
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("Migrations for {DbContext} completed successfully.", dbContextType.Name);
         }
@@ -91,6 +97,10 @@ try
         var catalogLogger = loggerFactory.CreateLogger<CatalogSeedService>();
         var catalogSeed = new CatalogSeedService(platformDbContext, catalogLogger);
         await catalogSeed.SeedAsync();
+
+        var settingsLogger = loggerFactory.CreateLogger<SettingsSeedService>();
+        var settingsSeed = new SettingsSeedService(platformDbContext, settingsLogger);
+        await settingsSeed.SeedAsync();
     }
 
     logger.LogInformation("Migrator completed successfully.");
@@ -101,26 +111,18 @@ catch (Exception ex)
     Environment.ExitCode = 1;
 }
 
-/// <summary>
-/// Discovers all DbContext types registered in the DI container that derive from
-/// <see cref="AonikDbContextBase"/>. Falls back to just AonikDbContext if none found.
-/// Ordering: AonikDbContext (monolith) runs first, then module contexts alphabetically.
-/// </summary>
 static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
 {
-    var result = new List<Type>();
+    var result = new List<Type>
+    {
+        typeof(AonikDbContext)
+    };
 
-    // Always include AonikDbContext first (it owns existing migrations)
-    result.Add(typeof(AonikDbContext));
+    if (serviceProvider.GetService(typeof(PlatformDbContext)) != null)
+        result.Add(typeof(PlatformDbContext));
 
-    // Discover any additional module DbContexts registered in DI
-    // These will be added as we create PlatformDbContext, FinanceDbContext, etc.
-    // For now this is a placeholder that checks for known types in the service collection.
-    // When a module DbContext is registered via services.AddDbContext<T>(), it becomes
-    // resolvable and will be picked up here.
-
-    // Future: iterate registered DbContext types from DI descriptors
-    // For now, the monolithic AonikDbContext is the only one.
+    if (serviceProvider.GetService(typeof(FinanceDbContext)) != null)
+        result.Add(typeof(FinanceDbContext));
 
     return result;
 }
