@@ -119,7 +119,8 @@ public static class DependencyInjection
         }
         else
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? configuration.GetConnectionString("AonikDb");
 
             if (string.IsNullOrWhiteSpace(connectionString))
             {
@@ -129,7 +130,7 @@ public static class DependencyInjection
                 }
                 else
                 {
-                    throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required for SQL Server.");
+                    throw new InvalidOperationException("ConnectionStrings:DefaultConnection or ConnectionStrings:AonikDb is required for SQL Server.");
                 }
             }
 
@@ -166,7 +167,7 @@ public static class DependencyInjection
 
         // Background Jobs (Quartz)
         services.AddAonikBackgroundJobs();
-
+        
         return services;
     }
 

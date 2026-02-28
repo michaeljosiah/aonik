@@ -215,6 +215,12 @@ dotnet ef migrations add MigrationName \
 dotnet ef database update \
   --project src/Aonik.Infrastructure \
   --startup-project src/Aonik.Api
+
+# Then apply platform module migrations
+dotnet ef database update \
+  --project src/Aonik.Platform \
+  --startup-project src/Aonik.Api \
+  --context PlatformDbContext
 ```
 
 ---

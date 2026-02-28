@@ -150,14 +150,20 @@ cd aonik
 # Build
 dotnet build Aonik.sln
 
-# Apply database migrations
+# Apply migrations manually (recommended order)
+# 1) Apply the shared/aggregated migrations first
 dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+
+# 2) Apply platform module migrations (schema moves, platform-specific updates)
+dotnet ef database update --project src/Aonik.Platform --startup-project src/Aonik.Api --context PlatformDbContext
 
 # Run the API
 dotnet run --project src/Aonik.Api
 ```
 
 API starts on `https://localhost:5001` with Swagger at `/swagger`.
+
+This manual migration flow keeps setup simple and ensures required tables for platform and module initialization are in place before startup routines execute.
 
 ### Run Tests
 
