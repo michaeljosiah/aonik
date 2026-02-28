@@ -6,19 +6,25 @@ let statusCache: { data: BootstrapStatusResponse; timestamp: number } | null = n
 const CACHE_TTL_MS = 30000; // 30 seconds
 
 export const bootstrapService = {
-  bootstrap: async (): Promise<BootstrapTenantResult> => {
+  bootstrap: async (accessToken?: string | null): Promise<BootstrapTenantResult> => {
     // Clear cache after bootstrap
     statusCache = null;
-    return api.post<BootstrapTenantResult>('/bootstrap');
+    const config = accessToken
+      ? { headers: { Authorization: `Bearer ${accessToken}` } }
+      : undefined;
+    return api.post<BootstrapTenantResult>('/bootstrap', undefined, config);
   },
-  status: async (): Promise<BootstrapStatusResponse> => {
+  status: async (forceRefresh = false, accessToken?: string | null): Promise<BootstrapStatusResponse> => {
     // Return cached data if valid
-    if (statusCache && Date.now() - statusCache.timestamp < CACHE_TTL_MS) {
+    if (!forceRefresh && statusCache && Date.now() - statusCache.timestamp < CACHE_TTL_MS) {
       return statusCache.data;
     }
 
     // Fetch fresh data
-    const data = await api.get<BootstrapStatusResponse>('/bootstrap/status');
+    const config = accessToken
+      ? { headers: { Authorization: `Bearer ${accessToken}` } }
+      : undefined;
+    const data = await api.get<BootstrapStatusResponse>('/bootstrap/status', config);
     
     // Update cache
     statusCache = { data, timestamp: Date.now() };

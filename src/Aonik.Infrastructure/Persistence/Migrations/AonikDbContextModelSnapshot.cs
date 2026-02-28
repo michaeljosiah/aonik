@@ -92,7 +92,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Agents");
+                    b.ToTable("Agents", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Agents.Entities.AgentRun", b =>
@@ -158,7 +158,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AgentRuns");
+                    b.ToTable("AgentRuns", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Agents.Entities.OrchestratorPolicy", b =>
@@ -212,7 +212,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OrchestratorPolicies");
+                    b.ToTable("OrchestratorPolicies", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Agents.Entities.Proposal", b =>
@@ -283,7 +283,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Proposals");
+                    b.ToTable("Proposals", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.AiFeedback", b =>
@@ -331,7 +331,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiFeedbacks");
+                    b.ToTable("AiFeedbacks", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.AiModel", b =>
@@ -394,7 +394,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AiProviderId");
 
-                    b.ToTable("AiModels");
+                    b.ToTable("AiModels", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.AiPolicy", b =>
@@ -453,7 +453,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiPolicies");
+                    b.ToTable("AiPolicies", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.AiProvider", b =>
@@ -503,7 +503,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiProviders");
+                    b.ToTable("AiProviders", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.AiRoutePolicy", b =>
@@ -567,7 +567,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiRoutePolicies");
+                    b.ToTable("AiRoutePolicies", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.AiRun", b =>
@@ -642,7 +642,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiRuns");
+                    b.ToTable("AiRuns", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.AiTrace", b =>
@@ -692,7 +692,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AiTraces");
+                    b.ToTable("AiTraces", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.EvalRun", b =>
@@ -747,7 +747,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("EvalRuns");
+                    b.ToTable("EvalRuns", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.EvalSuite", b =>
@@ -802,7 +802,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("EvalSuites");
+                    b.ToTable("EvalSuites", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.Insight", b =>
@@ -837,7 +837,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SubjectType", "SubjectId");
 
-                    b.ToTable("Insights");
+                    b.ToTable("Insights", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.PromptSpec", b =>
@@ -903,7 +903,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PromptSpecs");
+                    b.ToTable("PromptSpecs", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.Signal", b =>
@@ -938,7 +938,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Type");
 
-                    b.ToTable("Signals");
+                    b.ToTable("Signals", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ai.Entities.ToolSpec", b =>
@@ -996,7 +996,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ToolSpecs");
+                    b.ToTable("ToolSpecs", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Autonumbering.Entities.AutonumberProfile", b =>
@@ -1077,7 +1077,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "EntityType")
                         .IsUnique();
 
-                    b.ToTable("AutonumberProfiles");
+                    b.ToTable("AutonumberProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Autonumbering.Entities.AutonumberReservation", b =>
@@ -1144,7 +1144,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasIndex("AutonumberProfileId", "SequenceValue")
                         .IsUnique();
 
-                    b.ToTable("AutonumberReservations");
+                    b.ToTable("AutonumberReservations", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Billing.Entities.CustomerAccount", b =>
@@ -1197,7 +1197,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("CustomerAccounts");
+                    b.ToTable("CustomerAccounts", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Billing.Entities.DunningPlan", b =>
@@ -1246,7 +1246,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DunningPlans");
+                    b.ToTable("DunningPlans", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Billing.Entities.Invoice", b =>
@@ -1335,7 +1335,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Invoices");
+                    b.ToTable("Invoices", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Billing.Entities.InvoiceAllocation", b =>
@@ -1386,7 +1386,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InvoiceAllocations");
+                    b.ToTable("InvoiceAllocations", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Billing.Entities.InvoiceLine", b =>
@@ -1454,7 +1454,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("InvoiceLines");
+                    b.ToTable("InvoiceLines", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Catalog.Entities.CatalogBiller", b =>
@@ -1997,7 +1997,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ComplianceCases");
+                    b.ToTable("ComplianceCases", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Compliance.Entities.Document", b =>
@@ -2455,7 +2455,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ScreeningChecks");
+                    b.ToTable("ScreeningChecks", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Features.Entities.TenantFeature", b =>
@@ -2792,7 +2792,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_Tenant_Subdomain")
                         .HasFilter("[Subdomain] IS NOT NULL");
 
-                    b.ToTable("Tenants");
+                    b.ToTable("Tenants", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Identity.Entities.TenantCountry", b =>
@@ -3194,7 +3194,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BalanceSnapshots");
+                    b.ToTable("BalanceSnapshots", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ledger.Entities.JournalEntry", b =>
@@ -3258,7 +3258,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Timestamp");
 
-                    b.ToTable("JournalEntries");
+                    b.ToTable("JournalEntries", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ledger.Entities.JournalEntryLine", b =>
@@ -3323,7 +3323,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("JournalEntryId");
 
-                    b.ToTable("JournalEntryLines");
+                    b.ToTable("JournalEntryLines", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ledger.Entities.Ledger", b =>
@@ -3366,7 +3366,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Ledgers");
+                    b.ToTable("Ledgers", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Ledger.Entities.LedgerAccount", b =>
@@ -3433,7 +3433,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Name");
 
-                    b.ToTable("LedgerAccounts");
+                    b.ToTable("LedgerAccounts", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Notifications.Entities.Notification", b =>
@@ -3495,7 +3495,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Notifications.Entities.NotificationTemplate", b =>
@@ -3567,7 +3567,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_NotificationTemplate_Tenant_Name_Channel");
 
-                    b.ToTable("NotificationTemplates");
+                    b.ToTable("NotificationTemplates", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Notifications.Entities.NotificationTemplateBinding", b =>
@@ -3633,7 +3633,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_NotificationTemplateBinding_Tenant_Name_Channel");
 
-                    b.ToTable("NotificationTemplateBindings");
+                    b.ToTable("NotificationTemplateBindings", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Notifications.Entities.WebhookSubscription", b =>
@@ -3690,7 +3690,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WebhookSubscriptions");
+                    b.ToTable("WebhookSubscriptions", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Operations.Entities.Job", b =>
@@ -3747,7 +3747,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Jobs");
+                    b.ToTable("Jobs", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Operations.Entities.WorkItem", b =>
@@ -3815,7 +3815,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkItems");
+                    b.ToTable("WorkItems", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.Order", b =>
@@ -3919,7 +3919,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.OrderFulfilmentRef", b =>
@@ -3964,7 +3964,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OrderFulfilmentRefs");
+                    b.ToTable("OrderFulfilmentRefs", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.OrderFundingRef", b =>
@@ -4009,7 +4009,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OrderFundingRefs");
+                    b.ToTable("OrderFundingRefs", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.OrderHistoryEvent", b =>
@@ -4071,7 +4071,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderHistoryEvents");
+                    b.ToTable("OrderHistoryEvents", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.OrderItem", b =>
@@ -4166,7 +4166,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrderId", "ItemIndex");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.OrderNote", b =>
@@ -4215,7 +4215,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OrderNotes");
+                    b.ToTable("OrderNotes", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.OrderPartyRole", b =>
@@ -4270,7 +4270,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderPartyRoles");
+                    b.ToTable("OrderPartyRoles", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Partners.Entities.Connector", b =>
@@ -4327,7 +4327,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Connectors");
+                    b.ToTable("Connectors", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Partners.Entities.Partner", b =>
@@ -4382,7 +4382,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Partners");
+                    b.ToTable("Partners", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Partners.Entities.PartnerBranch", b =>
@@ -4442,7 +4442,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PartnerId");
 
-                    b.ToTable("PartnerBranches");
+                    b.ToTable("PartnerBranches", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Partners.Entities.PartnerFundingAccount", b =>
@@ -4562,7 +4562,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PayoutSchemas");
+                    b.ToTable("PayoutSchemas", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Partners.Entities.RoutingRule", b =>
@@ -4617,7 +4617,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RoutingRules");
+                    b.ToTable("RoutingRules", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Partners.Entities.Transmission", b =>
@@ -4676,7 +4676,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Transmissions");
+                    b.ToTable("Transmissions", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.BusinessProfile", b =>
@@ -4730,7 +4730,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PartyId");
 
-                    b.ToTable("BusinessProfiles");
+                    b.ToTable("BusinessProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.ExternalAccount", b =>
@@ -4791,7 +4791,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ExternalAccounts");
+                    b.ToTable("ExternalAccounts", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.Party", b =>
@@ -4845,7 +4845,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Parties");
+                    b.ToTable("Parties", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.PartyAddress", b =>
@@ -4915,7 +4915,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PartyId");
 
-                    b.ToTable("PartyAddresses");
+                    b.ToTable("PartyAddresses", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.PartyConsent", b =>
@@ -4966,7 +4966,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PartyId");
 
-                    b.ToTable("PartyConsents");
+                    b.ToTable("PartyConsents", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.PartyContact", b =>
@@ -5018,7 +5018,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PartyId");
 
-                    b.ToTable("PartyContacts");
+                    b.ToTable("PartyContacts", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.PartyRelationship", b =>
@@ -5083,7 +5083,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ToPartyId");
 
-                    b.ToTable("PartyRelationships");
+                    b.ToTable("PartyRelationships", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.PartyRoleAssignment", b =>
@@ -5136,7 +5136,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PartyRoleAssignments");
+                    b.ToTable("PartyRoleAssignments", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Party.Entities.PersonProfile", b =>
@@ -5214,7 +5214,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PartyId");
 
-                    b.ToTable("PersonProfiles");
+                    b.ToTable("PersonProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Payments.Entities.Chargeback", b =>
@@ -5270,7 +5270,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Chargebacks");
+                    b.ToTable("Chargebacks", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Payments.Entities.Payment", b =>
@@ -5330,7 +5330,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Payments.Entities.PaymentIntent", b =>
@@ -5422,7 +5422,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("PaymentIntents");
+                    b.ToTable("PaymentIntents", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Payments.Entities.Payout", b =>
@@ -5478,7 +5478,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Payouts");
+                    b.ToTable("Payouts", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Payments.Entities.Refund", b =>
@@ -5534,7 +5534,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Refunds");
+                    b.ToTable("Refunds", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.Bill", b =>
@@ -5607,7 +5607,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Bills");
+                    b.ToTable("Bills", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.Budget", b =>
@@ -5664,7 +5664,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Budgets");
+                    b.ToTable("Budgets", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.BudgetLine", b =>
@@ -5719,7 +5719,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BudgetId");
 
-                    b.ToTable("BudgetLines");
+                    b.ToTable("BudgetLines", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.CategorisationRule", b =>
@@ -5775,7 +5775,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("CategorisationRules");
+                    b.ToTable("CategorisationRules", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.Goal", b =>
@@ -5838,7 +5838,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Goals");
+                    b.ToTable("Goals", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.Household", b =>
@@ -5881,7 +5881,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Households");
+                    b.ToTable("Households", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.HouseholdMember", b =>
@@ -5933,7 +5933,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("HouseholdId");
 
-                    b.ToTable("HouseholdMembers");
+                    b.ToTable("HouseholdMembers", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.PersonalProfile", b =>
@@ -5981,86 +5981,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PersonalProfiles");
-                });
-
-            modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.PersonalAccount", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AccountType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ExternalReference")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<Guid?>("HouseholdId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("InstitutionName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExternalReference");
-
-                    b.HasIndex("HouseholdId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("PersonalAccounts");
+                    b.ToTable("PersonalProfiles", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.PersonalTransaction", b =>
@@ -6109,9 +6030,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("OccurredAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("PersonalAccountId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<byte[]>("RowVersion")
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
@@ -6141,7 +6059,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PersonalTransactions");
+                    b.ToTable("PersonalTransactions", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.PersonalFinance.Entities.Subscription", b =>
@@ -6205,7 +6123,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Subscriptions");
+                    b.ToTable("Subscriptions", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Pricing.Entities.FeePolicy", b =>
@@ -6261,7 +6179,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("FeePolicies");
+                    b.ToTable("FeePolicies", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Pricing.Entities.FxQuote", b =>
@@ -6321,7 +6239,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("FxQuotes");
+                    b.ToTable("FxQuotes", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Pricing.Entities.FxRateSource", b =>
@@ -6398,7 +6316,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Name")
                         .IsUnique();
 
-                    b.ToTable("FxRateSources");
+                    b.ToTable("FxRateSources", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Pricing.Entities.FxRefreshSchedule", b =>
@@ -6472,7 +6390,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Name")
                         .IsUnique();
 
-                    b.ToTable("FxRefreshSchedules");
+                    b.ToTable("FxRefreshSchedules", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Pricing.Entities.FxSpreadPolicy", b =>
@@ -6555,7 +6473,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "BaseCurrency", "TargetCurrency", "CustomerTier");
 
-                    b.ToTable("FxSpreadPolicies");
+                    b.ToTable("FxSpreadPolicies", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Pricing.Entities.LimitsPolicy", b =>
@@ -6615,7 +6533,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("LimitsPolicies");
+                    b.ToTable("LimitsPolicies", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Pricing.Entities.PricingQuote", b =>
@@ -6752,7 +6670,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ServiceCode");
 
-                    b.ToTable("PricingQuotes");
+                    b.ToTable("PricingQuotes", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Domain.ReferenceData.Entities.Country", b =>
@@ -7070,7 +6988,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[TenantId] IS NOT NULL AND [UserId] IS NOT NULL");
 
-                    b.ToTable("Settings");
+                    b.ToTable("Settings", (string)null);
                 });
 
             modelBuilder.Entity("Aonik.Infrastructure.BackgroundJobs.Entities.BackgroundJobRecord", b =>
@@ -7209,19 +7127,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Aonik.Domain.Notifications.Entities.NotificationTemplateBinding", b =>
-                {
-                    b.HasOne("Aonik.Domain.Notifications.Entities.NotificationTemplate", null)
-                        .WithMany()
-                        .HasForeignKey("BaseTemplateId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Aonik.Domain.Notifications.Entities.NotificationTemplate", null)
-                        .WithMany()
-                        .HasForeignKey("OverrideTemplateId")
-                        .OnDelete(DeleteBehavior.Restrict);
-                });
-
             modelBuilder.Entity("Aonik.Domain.Compliance.Entities.DocumentFile", b =>
                 {
                     b.HasOne("Aonik.Domain.Compliance.Entities.Document", "Document")
@@ -7320,6 +7225,19 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .HasForeignKey("LedgerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Aonik.Domain.Notifications.Entities.NotificationTemplateBinding", b =>
+                {
+                    b.HasOne("Aonik.Domain.Notifications.Entities.NotificationTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("BaseTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Aonik.Domain.Notifications.Entities.NotificationTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("OverrideTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Aonik.Domain.Orders.Entities.OrderHistoryEvent", b =>

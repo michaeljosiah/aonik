@@ -23,9 +23,9 @@ export function setAccessTokenGetter(getter: () => Promise<string | null>) {
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     // Attach tenant context header for tenant-scoped routes.
-    // (/host/* bypasses tenant middleware; avoid sending there to reduce confusion.)
+    // (/host/* and /bootstrap/* bypass tenant middleware; avoid sending there to reduce confusion.)
     const url = config.url ?? '';
-    if (!url.startsWith('/host')) {
+    if (!url.startsWith('/host') && !url.startsWith('/bootstrap')) {
       const selectedTenant = getSelectedTenant();
       if (selectedTenant?.tenantId) {
         config.headers['X-Tenant-Id'] = config.headers['X-Tenant-Id'] ?? selectedTenant.tenantId;

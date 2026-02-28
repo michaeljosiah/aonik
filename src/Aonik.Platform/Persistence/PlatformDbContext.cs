@@ -102,7 +102,11 @@ internal class PlatformDbContext : AonikDbContextBase
     {
         base.OnModelCreating(modelBuilder);
 
-        // All Platform entities use the 'platform' schema
+        // From now on PlatformDbContext targets the platform schema. A dedicated
+        // migration moves the existing tables from the default schema (dbo)
+        // into the 'platform' schema. Ensure the migration named
+        // "MovePlatformTablesToPlatformSchema" has been applied in the database
+        // before deploying this change to production.
         modelBuilder.HasDefaultSchema(SchemaNames.Platform);
 
         // Apply EF configurations from this assembly

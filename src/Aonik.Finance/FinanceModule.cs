@@ -34,6 +34,7 @@ public sealed class FinanceModule : IModule
             else
             {
                 var connectionString = configuration.GetConnectionString("DefaultConnection")
+                    ?? configuration.GetConnectionString("AonikDb")
                     ?? "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
                 options.UseSqlServer(connectionString);
             }

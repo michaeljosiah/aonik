@@ -69,6 +69,9 @@ export const validateAuthConfig = (): ConfigValidationResult => {
     if (!import.meta.env.VITE_AUTH0_CLIENT_ID) {
       missingFields.push('VITE_AUTH0_CLIENT_ID');
     }
+    if (!import.meta.env.VITE_AUTH0_AUDIENCE) {
+      missingFields.push('VITE_AUTH0_AUDIENCE');
+    }
   }
 
   return {
@@ -138,12 +141,14 @@ export const msalApiTokenRequest = {
 };
 
 // Auth0 Configuration
+const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+
 export const auth0Config = {
   domain: import.meta.env.VITE_AUTH0_DOMAIN || '',
   clientId: import.meta.env.VITE_AUTH0_CLIENT_ID || '',
   authorizationParams: {
     redirect_uri: import.meta.env.VITE_AUTH0_REDIRECT_URI || window.location.origin,
-    audience: import.meta.env.VITE_AUTH0_AUDIENCE || '',
+    ...(auth0Audience ? { audience: auth0Audience } : {}),
     scope: 'openid profile email offline_access',
   },
   cacheLocation: 'localstorage' as const,
@@ -153,5 +158,5 @@ export const auth0Config = {
 
 // API Configuration
 export const apiConfig = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || 'https://localhost:5001',
+  baseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
 };

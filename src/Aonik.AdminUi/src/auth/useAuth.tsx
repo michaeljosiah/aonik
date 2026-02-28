@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { useMsal, useIsAuthenticated as useMsalIsAuthenticated } from '@azure/msal-react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { InteractionStatus } from '@azure/msal-browser';
-import { msalLoginRequest, msalApiTokenRequest, type AuthProvider } from './authConfig';
+import { msalLoginRequest, msalApiTokenRequest, auth0Config, type AuthProvider } from './authConfig';
 
 // Unified user type
 export interface AuthUser {
@@ -218,7 +218,7 @@ function useAuth0Auth(): AuthContextType {
 
   const login = useCallback(async () => {
     try {
-      await loginWithRedirect();
+      await loginWithRedirect({ authorizationParams: auth0Config.authorizationParams });
     } catch (error) {
       console.error('Auth0 login error:', error);
       throw error;
@@ -243,7 +243,7 @@ function useAuth0Auth(): AuthContextType {
       return null;
     }
     try {
-      const token = await getAccessTokenSilently();
+      const token = await getAccessTokenSilently({ authorizationParams: auth0Config.authorizationParams });
       setAccessToken(token);
       return token;
     } catch (error) {
@@ -252,7 +252,12 @@ function useAuth0Auth(): AuthContextType {
         try {
           if (!sessionStorage.getItem(loginPromptKey)) {
             sessionStorage.setItem(loginPromptKey, 'true');
-            await loginWithRedirect({ authorizationParams: { prompt: 'login' } });
+            await loginWithRedirect({
+              authorizationParams: {
+                ...auth0Config.authorizationParams,
+                prompt: 'login',
+              },
+            });
           }
         } catch (loginError) {
           console.error('Auth0 login redirect error:', loginError);
@@ -263,7 +268,12 @@ function useAuth0Auth(): AuthContextType {
         try {
           if (!sessionStorage.getItem(consentPromptKey)) {
             sessionStorage.setItem(consentPromptKey, 'true');
-            await loginWithRedirect({ authorizationParams: { prompt: 'consent' } });
+            await loginWithRedirect({
+              authorizationParams: {
+                ...auth0Config.authorizationParams,
+                prompt: 'consent',
+              },
+            });
           }
         } catch (consentError) {
           console.error('Auth0 consent redirect error:', consentError);

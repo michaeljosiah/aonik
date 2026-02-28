@@ -2,7 +2,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 // Add SQL Server with a database
 var sql = builder.AddSqlServer("sql")
-    .WithLifetime(ContainerLifetime.Persistent);
+    .WithDataVolume("aonik-sql-data")
+    .WithLifetime(ContainerLifetime.Session);
 
 var sqlServer = sql.AddDatabase("AonikDb");
 
@@ -31,6 +32,7 @@ var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
     {
         endpoint.Port = 5173;
     })
+    .WithEnvironment("VITE_API_BASE_URL", "/api")
     .WithReference(api)
     .WaitFor(api)
     .WithExternalHttpEndpoints();

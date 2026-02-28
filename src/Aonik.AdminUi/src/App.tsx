@@ -286,7 +286,7 @@ function AuthenticatedApp() {
       setAccessTokenGetter(getAccessToken);
 
       try {
-        const status = await bootstrapService.status();
+        const status = await bootstrapService.status(true);
         setNeedsSetup(status.tenantCount === 0);
         
         // Only check tenant setup if user is authenticated
