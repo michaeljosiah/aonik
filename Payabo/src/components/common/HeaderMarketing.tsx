@@ -7,11 +7,13 @@ import {
   setSelectedOriginCountryCode,
   type OriginCountry
 } from "../../app/originCountry";
+import { useAuth } from "../../app/auth/AuthContext";
 
 export const HeaderMarketing = () => {
   const location = useLocation();
   const isSubHeader = location.pathname === "/features-page";
   const headerClassName = isSubHeader ? "header-sub cd-morph-dropdown" : "header cd-morph-dropdown";
+  const { isAuthenticated } = useAuth();
   const [selectedOriginCountry, setSelectedOriginCountry] = useState<OriginCountry>(() => getSelectedOriginCountry());
 
   useEffect(() => {
@@ -81,16 +83,26 @@ export const HeaderMarketing = () => {
               </li>
             </ul>
             <ul className="navbar-nav navbar-btn">
-              <li>
-                <NavLink className="btn btn-secondary btn-sm" to="/login" target="_blank">
-                  LOGIN
-                </NavLink>
-              </li>
-              <li>
-                <NavLink className="btn btn-primary btn-sm" to="/register" target="_blank">
-                  REGISTER
-                </NavLink>
-              </li>
+              {isAuthenticated ? (
+                <li>
+                  <NavLink className="btn btn-primary btn-sm" to="/logout">
+                    LOGOUT
+                  </NavLink>
+                </li>
+              ) : (
+                <>
+                  <li>
+                    <NavLink className="btn btn-secondary btn-sm" to="/login" target="_blank">
+                      LOGIN
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink className="btn btn-primary btn-sm" to="/register" target="_blank">
+                      REGISTER
+                    </NavLink>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
         </div>
@@ -221,16 +233,26 @@ export const HeaderMarketing = () => {
                 </a>
               ))}
             </li>
-            <li>
-              <NavLink className="label btn btn-secondary w-100" to="/login" target="_blank">
-                LOGIN
-              </NavLink>
-            </li>
-            <li>
-              <NavLink className="label btn btn-primary w-100" to="/register" target="_blank">
-                REGISTER
-              </NavLink>
-            </li>
+            {isAuthenticated ? (
+              <li>
+                <NavLink className="label btn btn-primary w-100" to="/logout">
+                  LOGOUT
+                </NavLink>
+              </li>
+            ) : (
+              <>
+                <li>
+                  <NavLink className="label btn btn-secondary w-100" to="/login" target="_blank">
+                    LOGIN
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink className="label btn btn-primary w-100" to="/register" target="_blank">
+                    REGISTER
+                  </NavLink>
+                </li>
+              </>
+            )}
           </ul>
           <div className="bg-layer" aria-hidden="true"></div>
         </div>
