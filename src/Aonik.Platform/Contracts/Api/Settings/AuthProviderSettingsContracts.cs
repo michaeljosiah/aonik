@@ -9,7 +9,8 @@ public record Auth0SettingsResponse(
     string? Domain,
     string? Audience,
     string? ClientId,
-    bool HasClientSecret,
+    string? ManagementClientId,
+    bool HasManagementClientSecret,
     string? Connection,
     string? ManagementAudience);
 
@@ -30,7 +31,8 @@ public record Auth0SettingsUpdateRequest(
     string? Domain,
     string? Audience,
     string? ClientId,
-    string? ClientSecret,
+    string? ManagementClientId,
+    string? ManagementClientSecret,
     string? Connection,
     string? ManagementAudience);
 

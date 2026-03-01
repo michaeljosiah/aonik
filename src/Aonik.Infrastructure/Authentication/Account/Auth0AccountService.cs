@@ -23,7 +23,6 @@ public class Auth0AccountService : IIdpAccountService
     {
         var domain = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0Domain, cancellationToken);
         var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientId, cancellationToken);
-        var clientSecret = await _settingProvider.GetAsync(AuthSettingNames.Auth0ClientSecret, cancellationToken);
         var audience = await _settingProvider.GetAsync(AuthSettingNames.Auth0Audience, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(user.Email))
@@ -35,7 +34,6 @@ public class Auth0AccountService : IIdpAccountService
         {
             ["grant_type"] = "password",
             ["client_id"] = clientId,
-            ["client_secret"] = clientSecret,
             ["username"] = user.Email,
             ["password"] = password,
             ["scope"] = "openid",
@@ -102,8 +100,8 @@ public class Auth0AccountService : IIdpAccountService
 
     private async Task<string> GetManagementTokenAsync(string baseUrl, CancellationToken cancellationToken)
     {
-        var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientId, cancellationToken);
-        var clientSecret = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientSecret, cancellationToken);
+        var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ManagementClientId, cancellationToken);
+        var clientSecret = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ManagementClientSecret, cancellationToken);
         var managementAudience = await _settingProvider.GetAsync(AuthSettingNames.Auth0ManagementAudience, cancellationToken);
 
         var audience = string.IsNullOrWhiteSpace(managementAudience)

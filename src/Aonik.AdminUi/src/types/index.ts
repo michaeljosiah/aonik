@@ -1048,6 +1048,58 @@ export interface InvalidateCacheSetResponse {
   invalidatedAtUtc: string;
 }
 
+export type AuthProviderType = 'AzureAd' | 'Auth0';
+
+export interface Auth0SettingsResponse {
+  domain?: string | null;
+  audience?: string | null;
+  clientId?: string | null;
+  managementClientId?: string | null;
+  hasManagementClientSecret: boolean;
+  connection?: string | null;
+  managementAudience?: string | null;
+}
+
+export interface AzureAdSettingsResponse {
+  authority?: string | null;
+  audience?: string | null;
+  clientId?: string | null;
+  hasClientSecret: boolean;
+  tenantId?: string | null;
+  userPrincipalNameDomain?: string | null;
+}
+
+export interface AuthProviderSettingsResponse {
+  activeProvider: AuthProviderType;
+  auth0: Auth0SettingsResponse;
+  azureAd: AzureAdSettingsResponse;
+}
+
+export interface Auth0SettingsUpdateRequest {
+  domain?: string | null;
+  audience?: string | null;
+  clientId?: string | null;
+  managementClientId?: string | null;
+  managementClientSecret?: string | null;
+  connection?: string | null;
+  managementAudience?: string | null;
+}
+
+export interface AzureAdSettingsUpdateRequest {
+  authority?: string | null;
+  audience?: string | null;
+  clientId?: string | null;
+  clientSecret?: string | null;
+  tenantId?: string | null;
+  userPrincipalNameDomain?: string | null;
+}
+
+export interface AuthProviderSettingsUpdateRequest {
+  activeProvider: AuthProviderType;
+  auth0?: Auth0SettingsUpdateRequest | null;
+  azureAd?: AzureAdSettingsUpdateRequest | null;
+}
+
 // Ledger Types
 export interface LedgerSummary {
   id: string;

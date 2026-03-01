@@ -6,14 +6,11 @@ namespace Aonik.Platform.Services.Settings;
 internal class AuthProviderSettingsService : IAuthProviderSettingsService
 {
     private readonly ISettingProvider _settingProvider;
-    private readonly ISettingManager _settingManager;
 
     public AuthProviderSettingsService(
-        ISettingProvider settingProvider,
-        ISettingManager settingManager)
+        ISettingProvider settingProvider)
     {
         _settingProvider = settingProvider;
-        _settingManager = settingManager;
     }
 
     public async Task<AuthProviderSettingsSnapshot> GetAsync(CancellationToken cancellationToken = default)
@@ -21,7 +18,7 @@ internal class AuthProviderSettingsService : IAuthProviderSettingsService
         var activeProvider = await _settingProvider.GetAsync(AuthSettingNames.Provider, cancellationToken)
                              ?? "AzureAd";
 
-        var auth0ClientSecret = await _settingProvider.GetAsync(AuthSettingNames.Auth0ClientSecret, cancellationToken);
+        var auth0ManagementClientSecret = await _settingProvider.GetAsync(AuthSettingNames.Auth0ManagementClientSecret, cancellationToken);
         var azureClientSecret = await _settingProvider.GetAsync(AuthSettingNames.AzureAdClientSecret, cancellationToken);
 
         return new AuthProviderSettingsSnapshot(
@@ -30,7 +27,8 @@ internal class AuthProviderSettingsService : IAuthProviderSettingsService
                 await _settingProvider.GetAsync(AuthSettingNames.Auth0Domain, cancellationToken),
                 await _settingProvider.GetAsync(AuthSettingNames.Auth0Audience, cancellationToken),
                 await _settingProvider.GetAsync(AuthSettingNames.Auth0ClientId, cancellationToken),
-                !string.IsNullOrWhiteSpace(auth0ClientSecret),
+                await _settingProvider.GetAsync(AuthSettingNames.Auth0ManagementClientId, cancellationToken),
+                !string.IsNullOrWhiteSpace(auth0ManagementClientSecret),
                 await _settingProvider.GetAsync(AuthSettingNames.Auth0Connection, cancellationToken),
                 await _settingProvider.GetAsync(AuthSettingNames.Auth0ManagementAudience, cancellationToken)),
             new AzureAdSettingsSnapshot(
@@ -46,44 +44,7 @@ internal class AuthProviderSettingsService : IAuthProviderSettingsService
         AuthProviderSettingsUpdate update,
         CancellationToken cancellationToken = default)
     {
-        if (!string.Equals(update.ActiveProvider, "AzureAd", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(update.ActiveProvider, "Auth0", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("ActiveProvider must be either 'AzureAd' or 'Auth0'.");
-        }
-
-        await _settingManager.SetAsync(AuthSettingNames.Provider, update.ActiveProvider, cancellationToken);
-
-        if (update.Auth0 != null)
-        {
-            await SetIfNotNullAsync(AuthSettingNames.Auth0Domain, update.Auth0.Domain, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.Auth0Audience, update.Auth0.Audience, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.Auth0ClientId, update.Auth0.ClientId, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.Auth0ClientSecret, update.Auth0.ClientSecret, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.Auth0Connection, update.Auth0.Connection, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.Auth0ManagementAudience, update.Auth0.ManagementAudience, cancellationToken);
-        }
-
-        if (update.AzureAd != null)
-        {
-            await SetIfNotNullAsync(AuthSettingNames.AzureAdAuthority, update.AzureAd.Authority, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.AzureAdAudience, update.AzureAd.Audience, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.AzureAdClientId, update.AzureAd.ClientId, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.AzureAdClientSecret, update.AzureAd.ClientSecret, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.AzureAdTenantId, update.AzureAd.TenantId, cancellationToken);
-            await SetIfNotNullAsync(AuthSettingNames.AzureAdUpnDomain, update.AzureAd.UserPrincipalNameDomain, cancellationToken);
-        }
-
-        return await GetAsync(cancellationToken);
-    }
-
-    private async Task SetIfNotNullAsync(string key, string? value, CancellationToken cancellationToken)
-    {
-        if (value == null)
-        {
-            return;
-        }
-
-        await _settingManager.SetAsync(key, value, cancellationToken);
+        throw new InvalidOperationException(
+            "Authentication provider settings are configuration-managed. Update appsettings/environment variables and redeploy.");
     }
 }

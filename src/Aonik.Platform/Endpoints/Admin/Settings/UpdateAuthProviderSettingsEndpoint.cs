@@ -22,28 +22,37 @@ internal class UpdateAuthProviderSettingsEndpoint : Endpoint<AuthProviderSetting
 
     public override async Task HandleAsync(AuthProviderSettingsUpdateRequest req, CancellationToken ct)
     {
-        var update = new AuthProviderSettingsUpdate(
-            req.ActiveProvider,
-            req.Auth0 == null
-                ? null
-                : new Auth0SettingsUpdate(
-                    req.Auth0.Domain,
-                    req.Auth0.Audience,
-                    req.Auth0.ClientId,
-                    req.Auth0.ClientSecret,
-                    req.Auth0.Connection,
-                    req.Auth0.ManagementAudience),
-            req.AzureAd == null
-                ? null
-                : new AzureAdSettingsUpdate(
-                    req.AzureAd.Authority,
-                    req.AzureAd.Audience,
-                    req.AzureAd.ClientId,
-                    req.AzureAd.ClientSecret,
-                    req.AzureAd.TenantId,
-                    req.AzureAd.UserPrincipalNameDomain));
+        try
+        {
+            var update = new AuthProviderSettingsUpdate(
+                req.ActiveProvider,
+                req.Auth0 == null
+                    ? null
+                    : new Auth0SettingsUpdate(
+                        req.Auth0.Domain,
+                        req.Auth0.Audience,
+                        req.Auth0.ClientId,
+                        req.Auth0.ManagementClientId,
+                        req.Auth0.ManagementClientSecret,
+                        req.Auth0.Connection,
+                        req.Auth0.ManagementAudience),
+                req.AzureAd == null
+                    ? null
+                    : new AzureAdSettingsUpdate(
+                        req.AzureAd.Authority,
+                        req.AzureAd.Audience,
+                        req.AzureAd.ClientId,
+                        req.AzureAd.ClientSecret,
+                        req.AzureAd.TenantId,
+                        req.AzureAd.UserPrincipalNameDomain));
 
-        var snapshot = await _service.UpdateAsync(update, ct);
-        await Send.OkAsync(GetAuthProviderSettingsEndpoint.MapResponse(snapshot), ct);
+            var snapshot = await _service.UpdateAsync(update, ct);
+            await Send.OkAsync(GetAuthProviderSettingsEndpoint.MapResponse(snapshot), ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            AddError(ex.Message);
+            await Send.ErrorsAsync(400, ct);
+        }
     }
 }

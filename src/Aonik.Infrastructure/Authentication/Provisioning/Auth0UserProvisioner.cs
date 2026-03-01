@@ -24,8 +24,8 @@ public class Auth0UserProvisioner : IIdpUserProvisioner
         CancellationToken cancellationToken = default)
     {
         var domain = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0Domain, cancellationToken);
-        var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientId, cancellationToken);
-        var clientSecret = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientSecret, cancellationToken);
+        var managementClientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ManagementClientId, cancellationToken);
+        var managementClientSecret = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ManagementClientSecret, cancellationToken);
         var connection = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0Connection, cancellationToken);
         var managementAudience = await _settingProvider.GetAsync(AuthSettingNames.Auth0ManagementAudience, cancellationToken);
 
@@ -34,7 +34,7 @@ public class Auth0UserProvisioner : IIdpUserProvisioner
             ? $"{baseUrl}/api/v2/"
             : managementAudience.Trim();
 
-        var accessToken = await GetManagementTokenAsync(baseUrl, clientId, clientSecret, audience, cancellationToken);
+        var accessToken = await GetManagementTokenAsync(baseUrl, managementClientId, managementClientSecret, audience, cancellationToken);
         var request = new
         {
             email = registration.Email,

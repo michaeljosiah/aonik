@@ -47,7 +47,7 @@ public class SettingService : ISettingProvider, ISettingManager
 
     public Task<string?> GetAsync(string key, CancellationToken cancellationToken = default)
     {
-        return GetForScopeAsync(key, SettingScope.Global, cancellationToken: cancellationToken);
+        return GetGlobalWithFallbackAsync(key, cancellationToken);
     }
 
     public async Task<string> GetRequiredAsync(string key, CancellationToken cancellationToken = default)
@@ -61,6 +61,34 @@ public class SettingService : ISettingProvider, ISettingManager
         return value;
     }
 
+    private async Task<string?> GetGlobalWithFallbackAsync(string key, CancellationToken cancellationToken)
+    {
+        if (IsConfigurationManagedKey(key))
+        {
+            var configManagedValue = GetFromConfiguration(key);
+            if (!string.IsNullOrWhiteSpace(configManagedValue))
+            {
+                return configManagedValue;
+            }
+
+            return SettingDefinitions.Get(key)?.DefaultValue;
+        }
+
+        var globalValue = await GetForScopeAsync(key, SettingScope.Global, cancellationToken: cancellationToken);
+        if (!string.IsNullOrWhiteSpace(globalValue))
+        {
+            return globalValue;
+        }
+
+        var configValue = GetFromConfiguration(key);
+        if (!string.IsNullOrWhiteSpace(configValue))
+        {
+            return configValue;
+        }
+
+        return SettingDefinitions.Get(key)?.DefaultValue;
+    }
+
     public async Task<string?> GetForScopeAsync(
         string key,
         SettingScope scope,
@@ -68,6 +96,22 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        if (IsConfigurationManagedKey(key))
+        {
+            if (scope != SettingScope.Global)
+            {
+                return null;
+            }
+
+            var configManagedValue = GetFromConfiguration(key);
+            if (!string.IsNullOrWhiteSpace(configManagedValue))
+            {
+                return configManagedValue;
+            }
+
+            return SettingDefinitions.Get(key)?.DefaultValue;
+        }
+
         await EnsureSettingsReadPermissionAsync(scope, cancellationToken);
         var cacheKey = GetCacheKey(scope, key, tenantId, userId);
 
@@ -112,6 +156,18 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        if (IsConfigurationManagedKey(key))
+        {
+            var configManagedValue = GetFromConfiguration(key);
+            if (configManagedValue != null)
+            {
+                return new SettingResolution(key, configManagedValue, "Configuration");
+            }
+
+            var configManagedDefault = SettingDefinitions.Get(key)?.DefaultValue;
+            return new SettingResolution(key, configManagedDefault, configManagedDefault == null ? "None" : "Default");
+        }
+
         await EnsureSettingsReadPermissionAsync(SettingScope.User, cancellationToken);
         tenantId ??= _tenantProvider.TryGetCurrentTenantId(out var resolvedTenantId) ? resolvedTenantId : null;
         userId ??= _currentUserProvider.TryGetCurrentUserId(out var resolvedUserId) ? resolvedUserId : null;
@@ -163,6 +219,12 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        if (IsConfigurationManagedKey(key))
+        {
+            throw new InvalidOperationException(
+                $"Setting '{key}' is managed through application configuration and cannot be changed via settings APIs.");
+        }
+
         await EnsureSettingsWritePermissionAsync(scope, cancellationToken);
         ValidateScope(scope, tenantId, userId);
 
@@ -226,6 +288,11 @@ public class SettingService : ISettingProvider, ISettingManager
         Guid? userId = null,
         CancellationToken cancellationToken = default)
     {
+        if (IsConfigurationManagedKey(key))
+        {
+            return false;
+        }
+
         ValidateScope(scope, tenantId, userId);
 
         return await _dbContext.Settings
@@ -242,6 +309,11 @@ public class SettingService : ISettingProvider, ISettingManager
     {
         var configKey = key.Replace('.', ':');
         return _configuration[$"Settings:{key}"] ?? _configuration[configKey];
+    }
+
+    private static bool IsConfigurationManagedKey(string key)
+    {
+        return key.StartsWith("Auth.", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetCacheKey(SettingScope scope, string key, Guid? tenantId, Guid? userId)

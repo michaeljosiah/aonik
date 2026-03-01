@@ -12,7 +12,14 @@ import {
   CreateTenantPage,
   TenantDetailPage,
 } from '@/pages/tenants';
-import { SystemToolsPage } from '@/pages/settings';
+import {
+  SettingsLandingPage,
+  SettingsGeneralPage,
+  SettingsWebhooksPage,
+  SettingsApiKeysPage,
+  SettingsAuditLogsPage,
+  SystemToolsPage,
+} from '@/pages/settings';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
 import { MediaLibraryPage } from '@/pages/MediaLibraryPage';
@@ -63,10 +70,23 @@ const navigation: NavigationSection[] = [
         href: '/tenants',
       },
       {
-        id: 'system-tools',
-        label: 'System Tools',
-        icon: 'Wrench',
-        href: '/settings/system-tools',
+        id: 'settings',
+        label: 'Settings',
+        icon: 'Cog',
+        viewAllHref: '/settings',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Workspace',
+            items: [
+              { id: 'settings-general', label: 'General', icon: 'Cog', href: '/settings/general' },
+              { id: 'settings-webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
+              { id: 'settings-api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
+              { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
+              { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
+            ],
+          },
+        ],
       },
       {
         id: 'catalog',
@@ -114,6 +134,11 @@ const routes = [
   { path: '/tenants', element: TenantsListPage },
   { path: '/tenants/new', element: CreateTenantPage },
   { path: '/tenants/:id', element: TenantDetailPage, isDynamic: true },
+  { path: '/settings', element: SettingsLandingPage },
+  { path: '/settings/general', element: SettingsGeneralPage },
+  { path: '/settings/webhooks', element: SettingsWebhooksPage },
+  { path: '/settings/api-keys', element: SettingsApiKeysPage },
+  { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   { path: '/settings/system-tools', element: SystemToolsPage },
   { path: '/cms/content-blocks', element: ContentBlocksListPage },
   { path: '/cms/content-blocks/new', element: ContentBlockEditPage },
@@ -129,11 +154,12 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'access-roles', title: 'Roles', type: 'internal', componentKey: 'access-roles', route: '/access/roles' },
   { id: 'access-permissions', title: 'Permissions', type: 'internal', componentKey: 'access-permissions', route: '/access/permissions' },
   { id: 'tenants', title: 'Tenants', type: 'internal', componentKey: 'tenants', route: '/tenants' },
-  { id: 'settings', title: 'Settings', type: 'internal', componentKey: 'placeholder', route: '/settings' },
-  { id: 'settings-general', title: 'General', type: 'internal', componentKey: 'placeholder', route: '/settings/general' },
-  { id: 'settings-webhooks', title: 'Webhooks', type: 'internal', componentKey: 'placeholder', route: '/settings/webhooks' },
-  { id: 'settings-api-keys', title: 'API Keys', type: 'internal', componentKey: 'placeholder', route: '/settings/api-keys' },
-  { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', componentKey: 'placeholder', route: '/settings/audit-logs' },
+  { id: 'settings', title: 'Settings', type: 'internal', componentKey: 'settings-home', route: '/settings' },
+  { id: 'settings-general', title: 'General', type: 'internal', componentKey: 'settings-general', route: '/settings/general' },
+  { id: 'settings-webhooks', title: 'Webhooks', type: 'internal', componentKey: 'settings-webhooks', route: '/settings/webhooks' },
+  { id: 'settings-api-keys', title: 'API Keys', type: 'internal', componentKey: 'settings-api-keys', route: '/settings/api-keys' },
+  { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
+  { id: 'settings-system-tools', title: 'System Tools', type: 'internal', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
   { id: 'cms', title: 'Content', type: 'internal', componentKey: 'placeholder', route: '/cms' },
   { id: 'cms-content-blocks', title: 'Content Blocks', type: 'internal', componentKey: 'content-blocks', route: '/cms/content-blocks' },
   { id: 'cms-media', title: 'Media Library', type: 'internal', componentKey: 'media-library', route: '/cms/media' },
@@ -144,6 +170,12 @@ const panelComponents = {
   'access-roles': wrapPage(AccessRolesPage),
   'access-permissions': wrapPage(AccessPermissionsPage),
   tenants: wrapPage(TenantsListPage),
+  'settings-home': wrapPage(SettingsLandingPage),
+  'settings-general': wrapPage(SettingsGeneralPage),
+  'settings-webhooks': wrapPage(SettingsWebhooksPage),
+  'settings-api-keys': wrapPage(SettingsApiKeysPage),
+  'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
+  'settings-system-tools': wrapPage(SystemToolsPage),
   'content-blocks': wrapPage(ContentBlocksListPage),
   'media-library': wrapPage(MediaLibraryPage),
 };

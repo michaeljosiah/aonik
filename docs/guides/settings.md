@@ -26,8 +26,10 @@ Settings are defined in `SettingDefinitions` and described by `SettingDefinition
 The registration flow uses these keys:
 
 - `Auth.Provider` (`AzureAd` or `Auth0`)
-- `Auth.Auth0.Domain`, `Auth.Auth0.Audience`, `Auth.Auth0.ClientId`, `Auth.Auth0.ClientSecret`, `Auth.Auth0.Connection`, `Auth.Auth0.ManagementAudience`
+- `Auth.Auth0.Domain`, `Auth.Auth0.Audience`, `Auth.Auth0.ClientId`, `Auth.Auth0.ManagementClientId`, `Auth.Auth0.ManagementClientSecret`, `Auth.Auth0.Connection`, `Auth.Auth0.ManagementAudience`
 - `Auth.AzureAd.Authority`, `Auth.AzureAd.Audience`, `Auth.AzureAd.ClientId`, `Auth.AzureAd.ClientSecret`, `Auth.AzureAd.TenantId`, `Auth.AzureAd.UserPrincipalNameDomain`
+
+Auth keys are **configuration-managed**. They are read from application configuration (`appsettings*.json`, environment variables, secret stores) and are not writable via settings APIs.
 
 Public clients can read `Auth.Provider` and the non‑secret Auth0/Azure AD values via `GET /v1/settings/public`.
 

@@ -33,7 +33,8 @@ internal class GetAuthProviderSettingsEndpoint : EndpointWithoutRequest<AuthProv
                 snapshot.Auth0.Domain,
                 snapshot.Auth0.Audience,
                 snapshot.Auth0.ClientId,
-                snapshot.Auth0.HasClientSecret,
+                snapshot.Auth0.ManagementClientId,
+                snapshot.Auth0.HasManagementClientSecret,
                 snapshot.Auth0.Connection,
                 snapshot.Auth0.ManagementAudience),
             new AzureAdSettingsResponse(

@@ -14,7 +14,8 @@ public static class SettingDefinitions
             [AuthSettingNames.Auth0Domain] = new SettingDefinition(AuthSettingNames.Auth0Domain, IsVisibleToClients: true),
             [AuthSettingNames.Auth0Audience] = new SettingDefinition(AuthSettingNames.Auth0Audience, IsVisibleToClients: true),
             [AuthSettingNames.Auth0ClientId] = new SettingDefinition(AuthSettingNames.Auth0ClientId, IsVisibleToClients: true),
-            [AuthSettingNames.Auth0ClientSecret] = new SettingDefinition(AuthSettingNames.Auth0ClientSecret, IsEncrypted: true),
+            [AuthSettingNames.Auth0ManagementClientId] = new SettingDefinition(AuthSettingNames.Auth0ManagementClientId, IsVisibleToClients: true),
+            [AuthSettingNames.Auth0ManagementClientSecret] = new SettingDefinition(AuthSettingNames.Auth0ManagementClientSecret, IsEncrypted: true),
             [AuthSettingNames.Auth0Connection] = new SettingDefinition(AuthSettingNames.Auth0Connection, "Username-Password-Authentication", IsVisibleToClients: true),
             [AuthSettingNames.Auth0ManagementAudience] = new SettingDefinition(AuthSettingNames.Auth0ManagementAudience),
 
