@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth, getAuthProvider } from '@/auth';
 import { bootstrapService } from '@/services/bootstrapService';
-import { clearSelectedTenant } from '@/lib/tenantContext';
+import { clearSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
 import type { BootstrapTenantResult } from '@/types';
 
 interface SetupState {
@@ -115,7 +115,12 @@ export function SetupWizardPage() {
       const token = accessToken ?? (isAuthenticated ? await getAccessToken() : null);
       const result = await bootstrapService.bootstrap(token);
       setBootstrapResult(result);
-      await loadSetupState();
+      setSelectedTenant({
+        tenantId: result.tenantId,
+        name: result.tenantName,
+      });
+
+      window.location.replace('/setup/tenant');
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'userMessage' in err
         ? String((err as { userMessage?: string }).userMessage ?? '')
