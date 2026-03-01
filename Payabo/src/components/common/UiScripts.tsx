@@ -501,14 +501,43 @@ export const UiScripts = () => {
     });
 
     const telInputElement = document.querySelector<HTMLInputElement>("#phone");
+    const registrationCountryElement = document.querySelector<HTMLSelectElement>("#RegistrationCountries");
     let telInputInstance: ReturnType<typeof intlTelInput> | null = null;
+
+    const syncPhoneCountryFromRegistration = () => {
+      if (!telInputInstance || !registrationCountryElement) {
+        return;
+      }
+
+      const selectedCountry = registrationCountryElement.value.trim().toLowerCase();
+      if (!selectedCountry) {
+        return;
+      }
+
+      try {
+        telInputInstance.setCountry(selectedCountry);
+      } catch {
+        // ignore invalid/unsupported country selections
+      }
+    };
+
     if (telInputElement) {
       telInputInstance = intlTelInput(telInputElement, {
         excludeCountries: ["us"],
         separateDialCode: true,
         utilsScript: intlTelInputUtilsUrl
       });
+
+      syncPhoneCountryFromRegistration();
     }
+
+    if (registrationCountryElement) {
+      registrationCountryElement.addEventListener("change", syncPhoneCountryFromRegistration);
+      cleanupCallbacks.push(() => {
+        registrationCountryElement.removeEventListener("change", syncPhoneCountryFromRegistration);
+      });
+    }
+
     cleanupCallbacks.push(() => {
       telInputInstance?.destroy();
     });

@@ -90,17 +90,17 @@ export const Register = () => {
   );
 
   const [personalCountry, setPersonalCountry] = useState<string>("");
-  const [personalFirstName, setPersonalFirstName] = useState<string>("John");
-  const [personalLastName, setPersonalLastName] = useState<string>("Doe");
-  const [personalEmail, setPersonalEmail] = useState<string>("john.doe@example.com");
+  const [personalFirstName, setPersonalFirstName] = useState<string>("");
+  const [personalLastName, setPersonalLastName] = useState<string>("");
+  const [personalEmail, setPersonalEmail] = useState<string>("");
   const [personalPhone, setPersonalPhone] = useState<string>("");
-  const [personalPassword, setPersonalPassword] = useState<string>("password");
+  const [personalPassword, setPersonalPassword] = useState<string>("");
 
   const [businessCountry, setBusinessCountry] = useState<string>("");
-  const [businessFirstName, setBusinessFirstName] = useState<string>("John");
-  const [businessLastName, setBusinessLastName] = useState<string>("Doe");
-  const [businessEmail, setBusinessEmail] = useState<string>("john.doe@example.com");
-  const [businessPassword, setBusinessPassword] = useState<string>("password");
+  const [businessFirstName, setBusinessFirstName] = useState<string>("");
+  const [businessLastName, setBusinessLastName] = useState<string>("");
+  const [businessEmail, setBusinessEmail] = useState<string>("");
+  const [businessPassword, setBusinessPassword] = useState<string>("");
 
   const handleTabClick = (tab: TabKey, event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -114,21 +114,40 @@ export const Register = () => {
 
     try {
       if (activeTab === "personal") {
+        const firstName = personalFirstName.trim();
+        const lastName = personalLastName.trim();
+        const email = personalEmail.trim();
+        const phone = personalPhone.trim();
+
+        if (!firstName || !lastName || !email || !personalPassword) {
+          setErrorMessage("Please complete all required fields.");
+          return;
+        }
+
         await register({
-          firstName: personalFirstName.trim() || "John",
-          lastName: personalLastName.trim() || "Doe",
-          email: personalEmail,
-          phone: personalPhone || undefined,
+          firstName,
+          lastName,
+          email,
+          phone: phone || undefined,
           password: personalPassword,
           registrationCountry: personalCountry || undefined
         });
         return;
       }
 
+      const firstName = businessFirstName.trim();
+      const lastName = businessLastName.trim();
+      const email = businessEmail.trim();
+
+      if (!firstName || !lastName || !email || !businessPassword) {
+        setErrorMessage("Please complete all required fields.");
+        return;
+      }
+
       await register({
-        firstName: businessFirstName.trim() || "John",
-        lastName: businessLastName.trim() || "Doe",
-        email: businessEmail,
+        firstName,
+        lastName,
+        email,
         password: businessPassword,
         registrationCountry: businessCountry || undefined
       });
