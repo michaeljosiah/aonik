@@ -9,6 +9,11 @@ type LocationState = {
   from?: string;
 };
 
+type RegisterSuccessState = {
+  email: string;
+  returnTo: string;
+};
+
 type RegistrationCountry = {
   code: string;
   name: string;
@@ -22,6 +27,7 @@ export const Register = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const from = (location.state as LocationState | null)?.from;
+  const returnTo = from && from.startsWith("/") ? from : "/dashboard";
 
   const [activeTab, setActiveTab] = useState<TabKey>("personal");
 
@@ -132,6 +138,15 @@ export const Register = () => {
           password: personalPassword,
           registrationCountry: personalCountry || undefined
         });
+
+        navigate("/register/success", {
+          replace: true,
+          state: {
+            email,
+            returnTo
+          } satisfies RegisterSuccessState
+        });
+
         return;
       }
 
@@ -150,6 +165,14 @@ export const Register = () => {
         email,
         password: businessPassword,
         registrationCountry: businessCountry || undefined
+      });
+
+      navigate("/register/success", {
+        replace: true,
+        state: {
+          email,
+          returnTo
+        } satisfies RegisterSuccessState
       });
     } catch {
       setErrorMessage("Unable to register at the moment. Please try again.");

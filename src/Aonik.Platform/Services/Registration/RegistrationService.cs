@@ -6,8 +6,11 @@ using Aonik.Platform.Contracts.Models.Registration;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Registration;
+using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Settings;
 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Aonik.Platform.Services.Registration;
@@ -20,6 +23,7 @@ internal class RegistrationService : IRegistrationService
     private readonly IUserProfileService _userProfileService;
     private readonly IVerificationService _verificationService;
     private readonly IOnboardingPolicyEvaluator _onboardingPolicyEvaluator;
+    private readonly PlatformDbContext _dbContext;
     private readonly ILogger<RegistrationService> _logger;
 
     public RegistrationService(
@@ -29,6 +33,7 @@ internal class RegistrationService : IRegistrationService
         IUserProfileService userProfileService,
         IVerificationService verificationService,
         IOnboardingPolicyEvaluator onboardingPolicyEvaluator,
+        PlatformDbContext dbContext,
         ILogger<RegistrationService> logger)
     {
         _settingProvider = settingProvider;
@@ -37,6 +42,7 @@ internal class RegistrationService : IRegistrationService
         _userProfileService = userProfileService;
         _verificationService = verificationService;
         _onboardingPolicyEvaluator = onboardingPolicyEvaluator;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
@@ -69,6 +75,7 @@ internal class RegistrationService : IRegistrationService
             request.Email);
 
         var provisioningResult = await _userProvisioningService.EnsureUserAndCustomerAsync(identity, cancellationToken);
+        await EnsurePersonalUserRoleAssignmentAsync(request.TenantId.Value, provisioningResult.UserId, cancellationToken);
 
         await _userProfileService.UpdateCustomerProfileForRegistrationAsync(
             provisioningResult.UserId,
@@ -126,6 +133,46 @@ internal class RegistrationService : IRegistrationService
             provisioningResult.UserId,
             provisioningResult.PartyId,
             onboarding);
+    }
+
+    private async Task EnsurePersonalUserRoleAssignmentAsync(
+        Guid tenantId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var personalUserRole = await _dbContext.Roles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                role => role.TenantId == tenantId && role.Name == "PersonalUser",
+                cancellationToken);
+
+        if (personalUserRole == null)
+        {
+            _logger.LogWarning(
+                "Registration user {UserId} in tenant {TenantId} has no 'PersonalUser' role available for assignment.",
+                userId,
+                tenantId);
+            return;
+        }
+
+        var hasRole = await _dbContext.UserRoles
+            .AnyAsync(
+                userRole => userRole.UserId == userId && userRole.RoleId == personalUserRole.Id,
+                cancellationToken);
+
+        if (hasRole)
+        {
+            return;
+        }
+
+        _dbContext.UserRoles.Add(new UserRole
+        {
+            UserId = userId,
+            RoleId = personalUserRole.Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private sealed record RegistrationExternalIdentity(

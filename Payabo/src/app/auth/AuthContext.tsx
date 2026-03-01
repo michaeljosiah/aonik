@@ -37,6 +37,7 @@ type RegisterPayload = {
 type LoginOptions = {
   returnTo?: string;
   loginHint?: string;
+  prompt?: "login";
 };
 
 type AuthContextValue = {
@@ -93,7 +94,11 @@ const resolveUserFromAccessToken = (accessToken: string): AuthUser | null => {
   try {
     const payload = JSON.parse(payloadJson) as Record<string, unknown>;
     const subject = typeof payload.sub === "string" ? payload.sub : null;
-    const email = typeof payload.email === "string" ? payload.email : null;
+    const emailClaim = typeof payload.email === "string" ? payload.email : null;
+    const namespacedEmailClaim = typeof payload["https://aonik.app/email"] === "string"
+      ? (payload["https://aonik.app/email"] as string)
+      : null;
+    const email = emailClaim ?? namespacedEmailClaim;
 
     if (!subject || !email) {
       return null;
@@ -294,6 +299,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         authorizeUrl.searchParams.set("login_hint", loginHint);
       }
 
+      const prompt = options?.prompt;
+      if (prompt) {
+        authorizeUrl.searchParams.set("prompt", prompt);
+      }
+
       window.location.assign(authorizeUrl.toString());
     };
 
@@ -323,7 +333,6 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
 
     const register = async (payload: RegisterPayload) => {
       await registerIndividual(payload);
-      await login({ loginHint: payload.email });
     };
 
     const logout = () => {

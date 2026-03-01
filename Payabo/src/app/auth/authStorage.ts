@@ -79,11 +79,12 @@ export const clearStoredAuthUser = () => writeStoredAuthUser(null);
 export const writePkceTransaction = (transaction: PkceTransaction | null) => {
   try {
     if (!transaction) {
+      localStorage.removeItem(authPkceStorageKey);
       sessionStorage.removeItem(authPkceStorageKey);
       return;
     }
 
-    sessionStorage.setItem(authPkceStorageKey, JSON.stringify(transaction));
+    localStorage.setItem(authPkceStorageKey, JSON.stringify(transaction));
   } catch {
     // ignore
   }
@@ -91,7 +92,7 @@ export const writePkceTransaction = (transaction: PkceTransaction | null) => {
 
 export const readPkceTransaction = (): PkceTransaction | null => {
   try {
-    const raw = sessionStorage.getItem(authPkceStorageKey);
+    const raw = localStorage.getItem(authPkceStorageKey) ?? sessionStorage.getItem(authPkceStorageKey);
     if (!raw) {
       return null;
     }
@@ -104,14 +105,18 @@ export const readPkceTransaction = (): PkceTransaction | null => {
       || typeof parsed.returnTo !== "string"
       || typeof parsed.createdAt !== "number"
     ) {
+      localStorage.removeItem(authPkceStorageKey);
       sessionStorage.removeItem(authPkceStorageKey);
       return null;
     }
 
     if (Date.now() - parsed.createdAt > pkceTransactionTtlMs) {
+      localStorage.removeItem(authPkceStorageKey);
       sessionStorage.removeItem(authPkceStorageKey);
       return null;
     }
+
+    localStorage.setItem(authPkceStorageKey, JSON.stringify(parsed));
 
     return {
       codeVerifier: parsed.codeVerifier,

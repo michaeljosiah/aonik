@@ -57,6 +57,8 @@ internal class UserIdentityService : IUserIdentityService
                 _logger.LogInformation("Updated email for user {UserId}", existingUser.Id);
             }
 
+            await EnsureDefaultPersonalUserRoleAsync(existingUser.Id, aonikTenantId, ct);
+
             return existingUser;
         }
 
@@ -131,6 +133,8 @@ internal class UserIdentityService : IUserIdentityService
         _dbContext.Users.Add(newUser);
         await _dbContext.SaveChangesAsync(ct);
 
+        await EnsureDefaultPersonalUserRoleAsync(newUser.Id, aonikTenantId, ct);
+
         _logger.LogInformation("Created new user {UserId} via JIT provisioning (Issuer: {Issuer}, Subject: {Subject})",
             newUser.Id, externalIssuer, externalSubject);
 
@@ -152,6 +156,45 @@ internal class UserIdentityService : IUserIdentityService
             ct);
 
         return newUser;
+    }
+
+    private async Task EnsureDefaultPersonalUserRoleAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken ct)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            return;
+        }
+
+        var hasAnyRole = await _dbContext.UserRoles
+            .AnyAsync(userRole => userRole.UserId == userId, ct);
+
+        if (hasAnyRole)
+        {
+            return;
+        }
+
+        var personalUserRole = await _dbContext.Roles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                role => role.TenantId == tenantId && role.Name == "PersonalUser",
+                ct);
+
+        if (personalUserRole == null)
+        {
+            return;
+        }
+
+        _dbContext.UserRoles.Add(new UserRole
+        {
+            UserId = userId,
+            RoleId = personalUserRole.Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync(ct);
     }
 
     public async Task<IReadOnlyCollection<string>> GetRoleNamesAsync(

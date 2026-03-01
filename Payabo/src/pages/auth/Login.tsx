@@ -14,7 +14,7 @@ export const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [email, setEmail] = useState("michael.josiah@mailinator.com");
+  const [email, setEmail] = useState("");
   const from = (location.state as LocationState | null)?.from;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -25,7 +25,8 @@ export const Login = () => {
     try {
       await login({
         returnTo: from,
-        loginHint: email
+        loginHint: email,
+        prompt: "login"
       });
     } catch {
       setErrorMessage("Unable to start secure sign in. Please try again.");

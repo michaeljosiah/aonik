@@ -3,6 +3,22 @@ import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../app/auth/AuthContext";
 
+const pkceCompletions = new Map<string, Promise<string>>();
+
+const getOrCreatePkceCompletion = (state: string, run: () => Promise<string>) => {
+  const existing = pkceCompletions.get(state);
+  if (existing) {
+    return existing;
+  }
+
+  const created = run().finally(() => {
+    pkceCompletions.delete(state);
+  });
+
+  pkceCompletions.set(state, created);
+  return created;
+};
+
 export const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -33,7 +49,10 @@ export const AuthCallback = () => {
 
     const completeLogin = async () => {
       try {
-        const returnTo = await completePkceLogin(authorizationCode, state);
+        const returnTo = await getOrCreatePkceCompletion(
+          state,
+          () => completePkceLogin(authorizationCode, state)
+        );
         if (cancelled) {
           return;
         }

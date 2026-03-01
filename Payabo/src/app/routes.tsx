@@ -35,6 +35,7 @@ import { StatusPaymentSent } from "../pages/payments/StatusPaymentSent";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
 import { AuthCallback } from "../pages/auth/AuthCallback";
+import { RegisterSuccess } from "../pages/auth/RegisterSuccess";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
 import { Dashboard } from "../pages/dashboard/Dashboard";
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
           { path: "/login", element: <Login /> },
           { path: "/auth/callback", element: <AuthCallback /> },
           { path: "/register", element: <Register /> },
+          { path: "/register/success", element: <RegisterSuccess /> },
           { path: "/logout", element: <Logout /> }
         ]
       },

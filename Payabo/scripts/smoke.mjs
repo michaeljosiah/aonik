@@ -9,6 +9,7 @@ const transactionsPageSource = fs.readFileSync(new URL("../src/pages/dashboard/T
 
 const requiredRoutes = [
   'path: "/auth/callback"',
+  'path: "/register/success"',
   'path: "/payments/providers"',
   'path: "/payments/service/:id"',
   'path: "/payments/selection"',

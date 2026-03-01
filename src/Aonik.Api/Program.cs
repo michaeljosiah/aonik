@@ -201,6 +201,14 @@ static void LogResolvedDatabaseConnection(IServiceProvider serviceProvider, ILog
         return;
     }
 
+    if (!dbContext.Database.IsRelational())
+    {
+        logger.LogInformation(
+            "Resolved Aonik database provider: {ProviderName} (non-relational)",
+            dbContext.Database.ProviderName ?? "unknown");
+        return;
+    }
+
     var connectionString = dbContext.Database.GetConnectionString();
     if (string.IsNullOrWhiteSpace(connectionString))
     {

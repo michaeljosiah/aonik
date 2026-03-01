@@ -139,6 +139,34 @@ public class SettingServiceTests
     [Fact]
     public async Task GetAsync_Should_PreferDatabaseValue_OverConfigurationValue()
     {
+        const string settingKey = "Platform.Tests.SampleKey";
+
+        // Arrange
+        using var dbContext = CreateDbContext();
+        dbContext.Settings.Add(new Setting
+        {
+            Key = settingKey,
+            Value = "value-from-db",
+            Scope = SettingScope.Global,
+        });
+        await dbContext.SaveChangesAsync();
+
+        var configuration = BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["Settings:Platform.Tests.SampleKey"] = "value-from-config"
+        });
+        var service = CreateService(dbContext, configuration);
+
+        // Act
+        var value = await service.GetAsync(settingKey);
+
+        // Assert
+        value.Should().Be("value-from-db");
+    }
+
+    [Fact]
+    public async Task GetAsync_Should_PreferConfigurationValue_ForAuthKeys_WhenDatabaseValueExists()
+    {
         // Arrange
         using var dbContext = CreateDbContext();
         dbContext.Settings.Add(new Setting
@@ -159,7 +187,7 @@ public class SettingServiceTests
         var value = await service.GetAsync(AuthSettingNames.AzureAdTenantId);
 
         // Assert
-        value.Should().Be("tenant-from-db");
+        value.Should().Be("tenant-from-config");
     }
 
     [Fact]

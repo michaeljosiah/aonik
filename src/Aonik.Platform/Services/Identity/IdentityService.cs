@@ -11,6 +11,7 @@ using Aonik.Platform.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Services.Settings;
+using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Platform.Services.Identity;
@@ -67,6 +68,12 @@ internal class IdentityService : IIdentityService
         var tenantId = _currentUserContext.TenantId.Value;
 
         var hasPermission = await _permissionService.HasPermissionAsync(userId, "UserInfo.Read", cancellationToken);
+        if (!hasPermission)
+        {
+            await EnsurePersonalUserRoleAssignmentAsync(userId, tenantId, cancellationToken);
+            hasPermission = await _permissionService.HasPermissionAsync(userId, "UserInfo.Read", cancellationToken);
+        }
+
         if (!hasPermission)
         {
             throw new InvalidOperationException("Permission UserInfo.Read is required.");
@@ -182,6 +189,40 @@ internal class IdentityService : IIdentityService
     }
 
     private sealed record NameResult(string? FirstName, string? LastName);
+
+    private async Task EnsurePersonalUserRoleAssignmentAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var hasAnyRole = await _dbContext.UserRoles
+            .AnyAsync(userRole => userRole.UserId == userId, cancellationToken);
+
+        if (hasAnyRole)
+        {
+            return;
+        }
+
+        var personalUserRole = await _dbContext.Roles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                role => role.TenantId == tenantId && role.Name == "PersonalUser",
+                cancellationToken);
+
+        if (personalUserRole == null)
+        {
+            return;
+        }
+
+        _dbContext.UserRoles.Add(new UserRole
+        {
+            UserId = userId,
+            RoleId = personalUserRole.Id,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
 
     private sealed record UserInfoExternalIdentity(
         Guid TenantId,
