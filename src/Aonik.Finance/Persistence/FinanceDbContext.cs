@@ -122,91 +122,96 @@ internal class FinanceDbContext : AonikDbContextBase
     {
         base.OnModelCreating(modelBuilder);
 
-        // All Finance entities use the 'finance' schema by default
-        modelBuilder.HasDefaultSchema(SchemaNames.Finance);
-
-        // ── Schema overrides for entities created in dbo by existing migrations ──
-        // All these entities were created in dbo schema before the Finance module existed.
-        // They must continue to use dbo to match the existing database.
-
-        // Ledger
-        modelBuilder.Entity<Ledger>().ToTable("Ledgers", SchemaNames.Default);
-        modelBuilder.Entity<LedgerAccount>().ToTable("LedgerAccounts", SchemaNames.Default);
-        modelBuilder.Entity<JournalEntry>().ToTable("JournalEntries", SchemaNames.Default);
-        modelBuilder.Entity<JournalEntryLine>().ToTable("JournalEntryLines", SchemaNames.Default);
-        modelBuilder.Entity<BalanceSnapshot>().ToTable("BalanceSnapshots", SchemaNames.Default);
-
-        // Payments
-        modelBuilder.Entity<PaymentIntent>().ToTable("PaymentIntents", SchemaNames.Default);
-        modelBuilder.Entity<Payment>().ToTable("Payments", SchemaNames.Default);
-        modelBuilder.Entity<Payout>().ToTable("Payouts", SchemaNames.Default);
-        modelBuilder.Entity<Refund>().ToTable("Refunds", SchemaNames.Default);
-        modelBuilder.Entity<Chargeback>().ToTable("Chargebacks", SchemaNames.Default);
-
-        // Billing
-        modelBuilder.Entity<Invoice>().ToTable("Invoices", SchemaNames.Default);
-        modelBuilder.Entity<InvoiceLine>().ToTable("InvoiceLines", SchemaNames.Default);
-        modelBuilder.Entity<InvoiceAllocation>().ToTable("InvoiceAllocations", SchemaNames.Default);
-        modelBuilder.Entity<CustomerAccount>().ToTable("CustomerAccounts", SchemaNames.Default);
-        modelBuilder.Entity<DunningPlan>().ToTable("DunningPlans", SchemaNames.Default);
-
-        // Orders
-        modelBuilder.Entity<Order>().ToTable("Orders", SchemaNames.Default);
-        modelBuilder.Entity<OrderItem>().ToTable("OrderItems", SchemaNames.Default);
-        modelBuilder.Entity<OrderPartyRole>().ToTable("OrderPartyRoles", SchemaNames.Default);
-        modelBuilder.Entity<OrderFundingRef>().ToTable("OrderFundingRefs", SchemaNames.Default);
-        modelBuilder.Entity<OrderFulfilmentRef>().ToTable("OrderFulfilmentRefs", SchemaNames.Default);
-        modelBuilder.Entity<OrderHistoryEvent>().ToTable("OrderHistoryEvents", SchemaNames.Default);
-        modelBuilder.Entity<OrderNote>().ToTable("OrderNotes", SchemaNames.Default);
-
-        // Pricing
-        modelBuilder.Entity<FeePolicy>().ToTable("FeePolicies", SchemaNames.Default);
-        modelBuilder.Entity<FxQuote>().ToTable("FxQuotes", SchemaNames.Default);
-        modelBuilder.Entity<FxRateSource>().ToTable("FxRateSources", SchemaNames.Default);
-        modelBuilder.Entity<FxRefreshSchedule>().ToTable("FxRefreshSchedules", SchemaNames.Default);
-        modelBuilder.Entity<FxSpreadPolicy>().ToTable("FxSpreadPolicies", SchemaNames.Default);
-        modelBuilder.Entity<LimitsPolicy>().ToTable("LimitsPolicies", SchemaNames.Default);
-        modelBuilder.Entity<PricingQuote>().ToTable("PricingQuotes", SchemaNames.Default);
-
-        // Partners
-        modelBuilder.Entity<Partner>().ToTable("Partners", SchemaNames.Default);
-        modelBuilder.Entity<PartnerBranch>().ToTable("PartnerBranches", SchemaNames.Default);
-        // PartnerFundingAccount table name is set in PartnerFundingAccountConfiguration
-        modelBuilder.Entity<Connector>().ToTable("Connectors", SchemaNames.Default);
-        modelBuilder.Entity<RoutingRule>().ToTable("RoutingRules", SchemaNames.Default);
-        modelBuilder.Entity<PayoutSchema>().ToTable("PayoutSchemas", SchemaNames.Default);
-        modelBuilder.Entity<Transmission>().ToTable("Transmissions", SchemaNames.Default);
-
-        // Temporary cross-module entities
-        modelBuilder.Entity<PartyReadModel>().ToTable("Parties", SchemaNames.Default);
-        modelBuilder.Entity<UserReadModel>().ToTable("Users", SchemaNames.Default);
-        modelBuilder.Entity<CatalogBillerCategory>().ToTable("CatalogBillerCategories", SchemaNames.Default);
-        modelBuilder.Entity<CatalogBiller>().ToTable("CatalogBillers", SchemaNames.Default);
-        modelBuilder.Entity<CatalogBillerService>().ToTable("CatalogBillerServices", SchemaNames.Default);
-
-        // Reference data read models (read-only projections of Platform entities)
-        modelBuilder.Entity<CountryReadModel>().ToTable("Countries", SchemaNames.Default);
-        modelBuilder.Entity<CurrencyReadModel>().ToTable("Currencies", SchemaNames.Default);
-        modelBuilder.Entity<CountryCurrencyReadModel>().ToTable("CountryCurrencies", SchemaNames.Default);
-
-        // PersonalFinance
-        modelBuilder.Entity<PersonalProfile>().ToTable("PersonalProfiles", SchemaNames.Default);
-        modelBuilder.Entity<Household>().ToTable("Households", SchemaNames.Default);
-        modelBuilder.Entity<HouseholdMember>().ToTable("HouseholdMembers", SchemaNames.Default);
-        modelBuilder.Entity<PersonalAccount>().ToTable("PersonalAccounts", SchemaNames.Default);
-        modelBuilder.Entity<PersonalTransaction>().ToTable("PersonalTransactions", SchemaNames.Default);
-        modelBuilder.Entity<CategorisationRule>().ToTable("CategorisationRules", SchemaNames.Default);
-        modelBuilder.Entity<BudgetLine>().ToTable("BudgetLines", SchemaNames.Default);
-        modelBuilder.Entity<Bill>().ToTable("Bills", SchemaNames.Default);
-        modelBuilder.Entity<Subscription>().ToTable("Subscriptions", SchemaNames.Default);
-        modelBuilder.Entity<Goal>().ToTable("Goals", SchemaNames.Default);
-        modelBuilder.Entity<Budget>().ToTable("Budgets", SchemaNames.Default);
+        modelBuilder.HasDefaultSchema(SchemaNames.Default);
 
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(FinanceDbContext).Assembly);
 
+        ApplyDboPrefixedTableNames(modelBuilder);
+
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
+    }
+
+    private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
+    {
+        MapTable<Ledger>(modelBuilder, "Ledgers");
+        MapTable<LedgerAccount>(modelBuilder, "LedgerAccounts");
+        MapTable<JournalEntry>(modelBuilder, "JournalEntries");
+        MapTable<JournalEntryLine>(modelBuilder, "JournalEntryLines");
+        MapTable<BalanceSnapshot>(modelBuilder, "BalanceSnapshots");
+
+        MapTable<PaymentIntent>(modelBuilder, "PaymentIntents");
+        MapTable<Payment>(modelBuilder, "Payments");
+        MapTable<Payout>(modelBuilder, "Payouts");
+        MapTable<Refund>(modelBuilder, "Refunds");
+        MapTable<Chargeback>(modelBuilder, "Chargebacks");
+
+        MapTable<Invoice>(modelBuilder, "Invoices");
+        MapTable<InvoiceLine>(modelBuilder, "InvoiceLines");
+        MapTable<InvoiceAllocation>(modelBuilder, "InvoiceAllocations");
+        MapTable<CustomerAccount>(modelBuilder, "CustomerAccounts");
+        MapTable<DunningPlan>(modelBuilder, "DunningPlans");
+
+        MapTable<Order>(modelBuilder, "Orders");
+        MapTable<OrderItem>(modelBuilder, "OrderItems");
+        MapTable<OrderPartyRole>(modelBuilder, "OrderPartyRoles");
+        MapTable<OrderFundingRef>(modelBuilder, "OrderFundingRefs");
+        MapTable<OrderFulfilmentRef>(modelBuilder, "OrderFulfilmentRefs");
+        MapTable<OrderHistoryEvent>(modelBuilder, "OrderHistoryEvents");
+        MapTable<OrderNote>(modelBuilder, "OrderNotes");
+
+        MapTable<FeePolicy>(modelBuilder, "FeePolicies");
+        MapTable<FxQuote>(modelBuilder, "FxQuotes");
+        MapTable<FxRateSource>(modelBuilder, "FxRateSources");
+        MapTable<FxRefreshSchedule>(modelBuilder, "FxRefreshSchedules");
+        MapTable<FxSpreadPolicy>(modelBuilder, "FxSpreadPolicies");
+        MapTable<LimitsPolicy>(modelBuilder, "LimitsPolicies");
+        MapTable<PricingQuote>(modelBuilder, "PricingQuotes");
+
+        MapTable<Partner>(modelBuilder, "Partners");
+        MapTable<PartnerBranch>(modelBuilder, "PartnerBranches");
+        MapTable<PartnerFundingAccount>(modelBuilder, "PartnerFundingAccounts");
+        MapTable<Connector>(modelBuilder, "Connectors");
+        MapTable<RoutingRule>(modelBuilder, "RoutingRules");
+        MapTable<PayoutSchema>(modelBuilder, "PayoutSchemas");
+        MapTable<Transmission>(modelBuilder, "Transmissions");
+
+        MapTable<CatalogBillerCategory>(modelBuilder, "CatalogBillerCategories");
+        MapTable<CatalogBiller>(modelBuilder, "CatalogBillers");
+        MapTable<CatalogBillerService>(modelBuilder, "CatalogBillerServices");
+
+        MapTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
+        MapTable<Household>(modelBuilder, "Households");
+        MapTable<HouseholdMember>(modelBuilder, "HouseholdMembers");
+        MapTable<PersonalAccount>(modelBuilder, "PersonalAccounts");
+        MapTable<PersonalTransaction>(modelBuilder, "PersonalTransactions");
+        MapTable<CategorisationRule>(modelBuilder, "CategorisationRules");
+        MapTable<BudgetLine>(modelBuilder, "BudgetLines");
+        MapTable<Bill>(modelBuilder, "Bills");
+        MapTable<Subscription>(modelBuilder, "Subscriptions");
+        MapTable<Goal>(modelBuilder, "Goals");
+        MapTable<Budget>(modelBuilder, "Budgets");
+
+        MapPlatformTable<PartyReadModel>(modelBuilder, "Parties");
+        MapPlatformTable<UserReadModel>(modelBuilder, "Users");
+        MapPlatformTable<CountryReadModel>(modelBuilder, "Countries");
+        MapPlatformTable<CurrencyReadModel>(modelBuilder, "Currencies");
+        MapPlatformTable<CountryCurrencyReadModel>(modelBuilder, "CountryCurrencies");
+    }
+
+    private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Finance}{tableName}", SchemaNames.Default);
+    }
+
+    private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
     }
 
     protected override void OnBeforeSave()

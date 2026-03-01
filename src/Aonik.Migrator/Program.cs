@@ -3,7 +3,6 @@ using Aonik.Infrastructure;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Persistence;
-using Aonik.Finance.Persistence;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
@@ -113,16 +112,12 @@ catch (Exception ex)
 
 static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
 {
-    var result = new List<Type>
+    // Canonical EF migration stream lives in AonikDbContext.
+    // Module-scoped DbContexts share this physical database but do not maintain
+    // independent migration histories.
+    _ = serviceProvider;
+    return new List<Type>
     {
         typeof(AonikDbContext)
     };
-
-    if (serviceProvider.GetService(typeof(PlatformDbContext)) != null)
-        result.Add(typeof(PlatformDbContext));
-
-    if (serviceProvider.GetService(typeof(FinanceDbContext)) != null)
-        result.Add(typeof(FinanceDbContext));
-
-    return result;
 }

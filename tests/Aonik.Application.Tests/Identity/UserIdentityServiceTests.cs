@@ -215,4 +215,61 @@ public class UserIdentityServiceTests
         document.RootElement.GetProperty("Email").GetString()
             .Should().Be(AuditLogMasking.MaskEmail("first@login.test"));
     }
+
+    [Fact]
+    public async Task GetRoleNamesAsync_ShouldReturnDistinctSortedRoleNames()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        using var context = new PlatformDbContext(options, tenantProvider);
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = "test-issuer",
+            ExternalSubject = "test-subject",
+            Email = "role-test@login.test",
+            Status = "Active"
+        };
+
+        var platformAdminRole = new Role
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "PlatformAdmin"
+        };
+
+        var viewerRole = new Role
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "Viewer"
+        };
+
+        context.Users.Add(user);
+        context.Roles.AddRange(platformAdminRole, viewerRole);
+        context.UserRoles.AddRange(
+            new UserRole { Id = Guid.NewGuid(), UserId = user.Id, RoleId = platformAdminRole.Id },
+            new UserRole { Id = Guid.NewGuid(), UserId = user.Id, RoleId = viewerRole.Id },
+            new UserRole { Id = Guid.NewGuid(), UserId = user.Id, RoleId = platformAdminRole.Id });
+        await context.SaveChangesAsync();
+
+        var service = new UserIdentityService(
+            context,
+            NullLogger<UserIdentityService>.Instance,
+            new TestAuditLogWriter(),
+            new TestCorrelationContext("corr-roles"));
+
+        // Act
+        var roleNames = await service.GetRoleNamesAsync(user.Id, CancellationToken.None);
+
+        // Assert
+        roleNames.Should().Equal("PlatformAdmin", "Viewer");
+    }
 }

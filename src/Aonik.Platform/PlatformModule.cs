@@ -45,8 +45,8 @@ public sealed class PlatformModule : IModule
         IConfiguration configuration)
     {
         // Register PlatformDbContext
-        // Shares the same physical database as the monolithic AonikDbContext.
-        // Uses the 'platform' schema for logical isolation.
+        // Shares the same physical database as the monolithic AonikDbContext
+        // using dbo schema + module table prefixes.
         services.AddDbContext<PlatformDbContext>((sp, options) =>
         {
             if (configuration.GetValue<bool>("UseInMemoryDatabase"))

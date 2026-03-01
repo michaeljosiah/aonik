@@ -9,9 +9,17 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Entities.Party;
+using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.Finance.Entities.Ledger;
+using Aonik.Finance.Entities.Orders;
+using Aonik.Finance.Entities.Partners;
+using Aonik.Finance.Entities.Payments;
+using Aonik.Finance.Entities.Pricing;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
+using Aonik.Ai.Entities;
+using Aonik.Agents.Entities;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -114,6 +122,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasDefaultSchema(SchemaNames.Default);
+
         // Apply all configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
@@ -139,10 +149,170 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
+
+        ApplyDboPrefixedTableNames(modelBuilder);
     }
 
     protected override bool IsGlobalEntity(object entity)
     {
         return entity is Role;
+    }
+
+    private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
+    {
+        MapPlatformTable<Tenant>(modelBuilder, "Tenants");
+        MapPlatformTable<TenantCountry>(modelBuilder, "TenantCountries");
+        MapPlatformTable<TenantCurrency>(modelBuilder, "TenantCurrencies");
+        MapPlatformTable<User>(modelBuilder, "Users");
+        MapPlatformTable<Role>(modelBuilder, "Roles");
+        MapPlatformTable<Permission>(modelBuilder, "Permissions");
+        MapPlatformTable<UserRole>(modelBuilder, "UserRoles");
+        MapPlatformTable<RolePermission>(modelBuilder, "RolePermissions");
+        MapPlatformTable<UserParty>(modelBuilder, "UserParties");
+        MapPlatformTable<VerificationChallenge>(modelBuilder, "VerificationChallenges");
+
+        MapPlatformTable<AutonumberProfile>(modelBuilder, "AutonumberProfiles");
+        MapPlatformTable<AutonumberReservation>(modelBuilder, "AutonumberReservations");
+
+        MapPlatformTable<Setting>(modelBuilder, "Settings");
+        MapPlatformTable<ReferenceDataItem>(modelBuilder, "ReferenceData");
+        MapPlatformTable<Country>(modelBuilder, "Countries");
+        MapPlatformTable<Currency>(modelBuilder, "Currencies");
+        MapPlatformTable<CountryCurrency>(modelBuilder, "CountryCurrencies");
+
+        MapPlatformTable<PartyEntity>(modelBuilder, "Parties");
+        MapPlatformTable<PartyAddress>(modelBuilder, "PartyAddresses");
+        MapPlatformTable<PartyContact>(modelBuilder, "PartyContacts");
+        MapPlatformTable<PartyConsent>(modelBuilder, "PartyConsents");
+        MapPlatformTable<PersonProfile>(modelBuilder, "PersonProfiles");
+        MapPlatformTable<BusinessProfile>(modelBuilder, "BusinessProfiles");
+        MapPlatformTable<ExternalAccount>(modelBuilder, "ExternalAccounts");
+        MapPlatformTable<PartyRoleAssignment>(modelBuilder, "PartyRoleAssignments");
+        MapPlatformTable<PartyRelationship>(modelBuilder, "PartyRelationships");
+
+        MapPlatformTable<ContentBlock>(modelBuilder, "ContentBlocks");
+        MapPlatformTable<ContentBlockMedia>(modelBuilder, "ContentBlockMedia");
+
+        MapPlatformTable<ScreeningCheck>(modelBuilder, "ScreeningChecks");
+        MapPlatformTable<ComplianceCase>(modelBuilder, "ComplianceCases");
+        MapPlatformTable<AuditLog>(modelBuilder, "AuditLogs");
+        MapPlatformTable<Document>(modelBuilder, "Documents");
+        MapPlatformTable<DocumentFile>(modelBuilder, "DocumentFiles");
+        MapPlatformTable<DocumentUsage>(modelBuilder, "DocumentUsages");
+        MapPlatformTable<DocumentVerification>(modelBuilder, "DocumentVerifications");
+        MapPlatformTable<DocumentVersion>(modelBuilder, "DocumentVersions");
+
+        MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
+        MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
+        MapPlatformTable<Job>(modelBuilder, "Jobs");
+        MapPlatformTable<Notification>(modelBuilder, "Notifications");
+        MapPlatformTable<NotificationTemplate>(modelBuilder, "NotificationTemplates");
+        MapPlatformTable<NotificationTemplateBinding>(modelBuilder, "NotificationTemplateBindings");
+        MapPlatformTable<WebhookSubscription>(modelBuilder, "WebhookSubscriptions");
+
+        MapFinanceTable<LedgerEntity>(modelBuilder, "Ledgers");
+        MapFinanceTable<LedgerAccount>(modelBuilder, "LedgerAccounts");
+        MapFinanceTable<JournalEntry>(modelBuilder, "JournalEntries");
+        MapFinanceTable<JournalEntryLine>(modelBuilder, "JournalEntryLines");
+        MapFinanceTable<BalanceSnapshot>(modelBuilder, "BalanceSnapshots");
+
+        MapFinanceTable<PaymentIntent>(modelBuilder, "PaymentIntents");
+        MapFinanceTable<Payment>(modelBuilder, "Payments");
+        MapFinanceTable<Payout>(modelBuilder, "Payouts");
+        MapFinanceTable<Refund>(modelBuilder, "Refunds");
+        MapFinanceTable<Chargeback>(modelBuilder, "Chargebacks");
+
+        MapFinanceTable<Invoice>(modelBuilder, "Invoices");
+        MapFinanceTable<InvoiceLine>(modelBuilder, "InvoiceLines");
+        MapFinanceTable<InvoiceAllocation>(modelBuilder, "InvoiceAllocations");
+        MapFinanceTable<CustomerAccount>(modelBuilder, "CustomerAccounts");
+        MapFinanceTable<DunningPlan>(modelBuilder, "DunningPlans");
+
+        MapFinanceTable<Order>(modelBuilder, "Orders");
+        MapFinanceTable<OrderItem>(modelBuilder, "OrderItems");
+        MapFinanceTable<OrderPartyRole>(modelBuilder, "OrderPartyRoles");
+        MapFinanceTable<OrderFundingRef>(modelBuilder, "OrderFundingRefs");
+        MapFinanceTable<OrderFulfilmentRef>(modelBuilder, "OrderFulfilmentRefs");
+        MapFinanceTable<OrderHistoryEvent>(modelBuilder, "OrderHistoryEvents");
+        MapFinanceTable<OrderNote>(modelBuilder, "OrderNotes");
+
+        MapFinanceTable<FeePolicy>(modelBuilder, "FeePolicies");
+        MapFinanceTable<FxQuote>(modelBuilder, "FxQuotes");
+        MapFinanceTable<FxRateSource>(modelBuilder, "FxRateSources");
+        MapFinanceTable<FxRefreshSchedule>(modelBuilder, "FxRefreshSchedules");
+        MapFinanceTable<FxSpreadPolicy>(modelBuilder, "FxSpreadPolicies");
+        MapFinanceTable<LimitsPolicy>(modelBuilder, "LimitsPolicies");
+        MapFinanceTable<PricingQuote>(modelBuilder, "PricingQuotes");
+
+        MapFinanceTable<Partner>(modelBuilder, "Partners");
+        MapFinanceTable<PartnerBranch>(modelBuilder, "PartnerBranches");
+        MapFinanceTable<PartnerFundingAccount>(modelBuilder, "PartnerFundingAccounts");
+        MapFinanceTable<Connector>(modelBuilder, "Connectors");
+        MapFinanceTable<RoutingRule>(modelBuilder, "RoutingRules");
+        MapFinanceTable<PayoutSchema>(modelBuilder, "PayoutSchemas");
+        MapFinanceTable<Transmission>(modelBuilder, "Transmissions");
+
+        MapFinanceTable<CatalogBillerCategory>(modelBuilder, "CatalogBillerCategories");
+        MapFinanceTable<CatalogBiller>(modelBuilder, "CatalogBillers");
+        MapFinanceTable<CatalogBillerService>(modelBuilder, "CatalogBillerServices");
+
+        MapFinanceTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
+        MapFinanceTable<Household>(modelBuilder, "Households");
+        MapFinanceTable<HouseholdMember>(modelBuilder, "HouseholdMembers");
+        MapFinanceTable<PersonalAccount>(modelBuilder, "PersonalAccounts");
+        MapFinanceTable<PersonalTransaction>(modelBuilder, "PersonalTransactions");
+        MapFinanceTable<CategorisationRule>(modelBuilder, "CategorisationRules");
+        MapFinanceTable<BudgetLine>(modelBuilder, "BudgetLines");
+        MapFinanceTable<Bill>(modelBuilder, "Bills");
+        MapFinanceTable<Subscription>(modelBuilder, "Subscriptions");
+        MapFinanceTable<Goal>(modelBuilder, "Goals");
+        MapFinanceTable<Budget>(modelBuilder, "Budgets");
+
+        MapAiTable<AiProvider>(modelBuilder, "AiProviders");
+        MapAiTable<AiModel>(modelBuilder, "AiModels");
+        MapAiTable<AiRoutePolicy>(modelBuilder, "AiRoutePolicies");
+        MapAiTable<PromptSpec>(modelBuilder, "PromptSpecs");
+        MapAiTable<ToolSpec>(modelBuilder, "ToolSpecs");
+        MapAiTable<AiPolicy>(modelBuilder, "AiPolicies");
+        MapAiTable<AiRun>(modelBuilder, "AiRuns");
+        MapAiTable<AiTrace>(modelBuilder, "AiTraces");
+        MapAiTable<AiFeedback>(modelBuilder, "AiFeedbacks");
+        MapAiTable<EvalSuite>(modelBuilder, "EvalSuites");
+        MapAiTable<EvalRun>(modelBuilder, "EvalRuns");
+        MapAiTable<Insight>(modelBuilder, "Insights");
+        MapAiTable<Signal>(modelBuilder, "Signals");
+
+        MapAgentsTable<Agent>(modelBuilder, "Agents");
+        MapAgentsTable<AgentRun>(modelBuilder, "AgentRuns");
+        MapAgentsTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
+        MapAgentsTable<Proposal>(modelBuilder, "Proposals");
+    }
+
+    private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
+    }
+
+    private static void MapFinanceTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Finance}{tableName}", SchemaNames.Default);
+    }
+
+    private static void MapAiTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Ai}{tableName}", SchemaNames.Default);
+    }
+
+    private static void MapAgentsTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Agents}{tableName}", SchemaNames.Default);
     }
 }

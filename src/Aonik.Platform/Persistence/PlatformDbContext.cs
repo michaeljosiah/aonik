@@ -102,15 +102,12 @@ internal class PlatformDbContext : AonikDbContextBase
     {
         base.OnModelCreating(modelBuilder);
 
-        // From now on PlatformDbContext targets the platform schema. A dedicated
-        // migration moves the existing tables from the default schema (dbo)
-        // into the 'platform' schema. Ensure the migration named
-        // "MovePlatformTablesToPlatformSchema" has been applied in the database
-        // before deploying this change to production.
-        modelBuilder.HasDefaultSchema(SchemaNames.Platform);
+        modelBuilder.HasDefaultSchema(SchemaNames.Default);
 
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PlatformDbContext).Assembly);
+
+        ApplyDboPrefixedTableNames(modelBuilder);
 
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
@@ -127,5 +124,67 @@ internal class PlatformDbContext : AonikDbContextBase
     protected override bool IsGlobalEntity(object entity)
     {
         return entity is Role;
+    }
+
+    private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
+    {
+        MapTable<Tenant>(modelBuilder, "Tenants");
+        MapTable<TenantCountry>(modelBuilder, "TenantCountries");
+        MapTable<TenantCurrency>(modelBuilder, "TenantCurrencies");
+        MapTable<User>(modelBuilder, "Users");
+        MapTable<Role>(modelBuilder, "Roles");
+        MapTable<Permission>(modelBuilder, "Permissions");
+        MapTable<UserRole>(modelBuilder, "UserRoles");
+        MapTable<RolePermission>(modelBuilder, "RolePermissions");
+        MapTable<UserParty>(modelBuilder, "UserParties");
+        MapTable<VerificationChallenge>(modelBuilder, "VerificationChallenges");
+
+        MapTable<PartyEntity>(modelBuilder, "Parties");
+        MapTable<PartyAddress>(modelBuilder, "PartyAddresses");
+        MapTable<PartyContact>(modelBuilder, "PartyContacts");
+        MapTable<PartyConsent>(modelBuilder, "PartyConsents");
+        MapTable<PersonProfile>(modelBuilder, "PersonProfiles");
+        MapTable<BusinessProfile>(modelBuilder, "BusinessProfiles");
+        MapTable<ExternalAccount>(modelBuilder, "ExternalAccounts");
+        MapTable<PartyRoleAssignment>(modelBuilder, "PartyRoleAssignments");
+        MapTable<PartyRelationship>(modelBuilder, "PartyRelationships");
+
+        MapTable<ScreeningCheck>(modelBuilder, "ScreeningChecks");
+        MapTable<ComplianceCase>(modelBuilder, "ComplianceCases");
+        MapTable<AuditLog>(modelBuilder, "AuditLogs");
+        MapTable<Document>(modelBuilder, "Documents");
+        MapTable<DocumentFile>(modelBuilder, "DocumentFiles");
+        MapTable<DocumentUsage>(modelBuilder, "DocumentUsages");
+        MapTable<DocumentVerification>(modelBuilder, "DocumentVerifications");
+        MapTable<DocumentVersion>(modelBuilder, "DocumentVersions");
+
+        MapTable<Notification>(modelBuilder, "Notifications");
+        MapTable<NotificationTemplate>(modelBuilder, "NotificationTemplates");
+        MapTable<NotificationTemplateBinding>(modelBuilder, "NotificationTemplateBindings");
+        MapTable<WebhookSubscription>(modelBuilder, "WebhookSubscriptions");
+
+        MapTable<WorkItem>(modelBuilder, "WorkItems");
+        MapTable<Job>(modelBuilder, "Jobs");
+
+        MapTable<Setting>(modelBuilder, "Settings");
+        MapTable<TenantFeature>(modelBuilder, "TenantFeatures");
+
+        MapTable<ReferenceDataItem>(modelBuilder, "ReferenceData");
+        MapTable<Country>(modelBuilder, "Countries");
+        MapTable<Currency>(modelBuilder, "Currencies");
+        MapTable<CountryCurrency>(modelBuilder, "CountryCurrencies");
+
+        MapTable<ContentBlock>(modelBuilder, "ContentBlocks");
+        MapTable<ContentBlockMedia>(modelBuilder, "ContentBlockMedia");
+
+        MapTable<AutonumberProfile>(modelBuilder, "AutonumberProfiles");
+        MapTable<AutonumberReservation>(modelBuilder, "AutonumberReservations");
+    }
+
+    private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
     }
 }

@@ -21,8 +21,8 @@ public sealed class FinanceModule : IModule
         IConfiguration configuration)
     {
         // Register FinanceDbContext
-        // Shares the same physical database as AonikDbContext and PlatformDbContext.
-        // Uses the 'finance' schema for logical isolation.
+        // Shares the same physical database as AonikDbContext and PlatformDbContext
+        // using dbo schema + module table prefixes.
         services.AddDbContext<FinanceDbContext>((sp, options) =>
         {
             if (configuration.GetValue<bool>("UseInMemoryDatabase"))

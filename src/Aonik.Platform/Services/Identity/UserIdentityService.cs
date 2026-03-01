@@ -153,4 +153,18 @@ internal class UserIdentityService : IUserIdentityService
 
         return newUser;
     }
+
+    public async Task<IReadOnlyCollection<string>> GetRoleNamesAsync(
+        Guid userId,
+        CancellationToken ct = default)
+    {
+        var roleNames = await _dbContext.UserRoles
+            .Where(userRole => userRole.UserId == userId)
+            .Select(userRole => userRole.Role.Name)
+            .Distinct()
+            .OrderBy(roleName => roleName)
+            .ToListAsync(ct);
+
+        return roleNames;
+    }
 }

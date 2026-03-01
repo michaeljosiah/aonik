@@ -53,33 +53,41 @@ internal class AiDbContext : AonikDbContextBase
     {
         base.OnModelCreating(modelBuilder);
 
-        // All AI entities use the 'ai' schema by default
-        modelBuilder.HasDefaultSchema(SchemaNames.Ai);
-
-        // ── Schema overrides for entities created in dbo by existing migrations ──
-        // All these entities were created in dbo schema before the Ai module existed.
-        // They must continue to use dbo to match the existing database.
-        modelBuilder.Entity<AiProvider>().ToTable("AiProviders", SchemaNames.Default);
-        modelBuilder.Entity<AiModel>().ToTable("AiModels", SchemaNames.Default);
-        modelBuilder.Entity<AiRoutePolicy>().ToTable("AiRoutePolicies", SchemaNames.Default);
-        modelBuilder.Entity<PromptSpec>().ToTable("PromptSpecs", SchemaNames.Default);
-        modelBuilder.Entity<ToolSpec>().ToTable("ToolSpecs", SchemaNames.Default);
-        modelBuilder.Entity<AiPolicy>().ToTable("AiPolicies", SchemaNames.Default);
-        modelBuilder.Entity<AiRun>().ToTable("AiRuns", SchemaNames.Default);
-        modelBuilder.Entity<AiTrace>().ToTable("AiTraces", SchemaNames.Default);
-        modelBuilder.Entity<AiFeedback>().ToTable("AiFeedbacks", SchemaNames.Default);
-        modelBuilder.Entity<EvalSuite>().ToTable("EvalSuites", SchemaNames.Default);
-        modelBuilder.Entity<EvalRun>().ToTable("EvalRuns", SchemaNames.Default);
-        modelBuilder.Entity<Insight>().ToTable("Insights", SchemaNames.Default);
-        modelBuilder.Entity<Signal>().ToTable("Signals", SchemaNames.Default);
+        modelBuilder.HasDefaultSchema(SchemaNames.Default);
 
         // Apply EF configurations from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AiDbContext).Assembly);
+
+        ApplyDboPrefixedTableNames(modelBuilder);
 
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
 
         // AiRoutePolicy has nullable TenantId (global + tenant-specific policies)
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
+    }
+
+    private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
+    {
+        MapTable<AiProvider>(modelBuilder, "AiProviders");
+        MapTable<AiModel>(modelBuilder, "AiModels");
+        MapTable<AiRoutePolicy>(modelBuilder, "AiRoutePolicies");
+        MapTable<PromptSpec>(modelBuilder, "PromptSpecs");
+        MapTable<ToolSpec>(modelBuilder, "ToolSpecs");
+        MapTable<AiPolicy>(modelBuilder, "AiPolicies");
+        MapTable<AiRun>(modelBuilder, "AiRuns");
+        MapTable<AiTrace>(modelBuilder, "AiTraces");
+        MapTable<AiFeedback>(modelBuilder, "AiFeedbacks");
+        MapTable<EvalSuite>(modelBuilder, "EvalSuites");
+        MapTable<EvalRun>(modelBuilder, "EvalRuns");
+        MapTable<Insight>(modelBuilder, "Insights");
+        MapTable<Signal>(modelBuilder, "Signals");
+    }
+
+    private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Ai}{tableName}", SchemaNames.Default);
     }
 }

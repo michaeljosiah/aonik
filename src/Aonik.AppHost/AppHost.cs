@@ -1,30 +1,26 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Add SQL Server with a database
-var sql = builder.AddSqlServer("sql")
-    .WithDataVolume("aonik-sql-data")
-    .WithLifetime(ContainerLifetime.Session);
+const string LocalDbConnectionString = @"Server=(localdb)\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
 
-var sqlServer = sql.AddDatabase("AonikDb");
-
-// Add API project with SQL Server reference
+// Add API project with LocalDB connection
 var api = builder.AddProject<Projects.Aonik_Api>("api")
-     .WithEndpoint("https", endpoint =>
-     {
-         endpoint.Port = 5001;
-     })
-     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
-     .WithEnvironment("DOTNET_ENVIRONMENT", "Development")
-     .WithEnvironment("Database__AutoMigrate", "true")
-     .WithEnvironment("Database__SeedData", "true")
-     .WithReference(sqlServer)
-     .WaitFor(sqlServer)
-     .WithExternalHttpEndpoints();
+    .WithEndpoint("https", endpoint =>
+    {
+        endpoint.Port = 5001;
+    })
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
+    .WithEnvironment("DOTNET_ENVIRONMENT", "Development")
+    .WithEnvironment("UseInMemoryDatabase", "false")
+    .WithEnvironment("ConnectionStrings__DefaultConnection", LocalDbConnectionString)
+    .WithEnvironment("ConnectionStrings__AonikDb", LocalDbConnectionString)
+    .WithEnvironment("Database__AutoMigrate", "true")
+    .WithEnvironment("Database__SeedData", "true")
+    .WithExternalHttpEndpoints();
 
-// Add Worker project with SQL Server reference
+// Add Worker project with LocalDB connection
 var worker = builder.AddProject<Projects.Aonik_Worker>("worker")
-    .WithReference(sqlServer)
-    .WaitFor(sqlServer);
+    .WithEnvironment("ConnectionStrings__DefaultConnection", LocalDbConnectionString)
+    .WithEnvironment("ConnectionStrings__AonikDb", LocalDbConnectionString);
 
 // Add Admin UI (React/Vite frontend)
 var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")

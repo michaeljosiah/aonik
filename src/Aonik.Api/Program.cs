@@ -4,12 +4,12 @@ using Aonik.Application;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Infrastructure;
 using FastEndpoints;
+using System.Data.Common;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Persistence;
-using Aonik.Finance.Persistence;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
@@ -59,6 +59,12 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddAonikSwagger(builder.Configuration);
 
 var app = builder.Build();
+
+using (var startupScope = app.Services.CreateScope())
+{
+    var startupLogger = startupScope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    LogResolvedDatabaseConnection(startupScope.ServiceProvider, startupLogger);
+}
 
 // Auto-migrate and seed database in Development or when enabled via config
 var autoMigrateEnabled = app.Environment.IsDevelopment()
@@ -186,20 +192,81 @@ app.UseFastEndpoints();
 
 app.Run();
 
+static void LogResolvedDatabaseConnection(IServiceProvider serviceProvider, ILogger logger)
+{
+    var dbContext = serviceProvider.GetService<AonikDbContext>();
+    if (dbContext is null)
+    {
+        logger.LogWarning("AonikDbContext is not registered; skipping database connection diagnostics.");
+        return;
+    }
+
+    var connectionString = dbContext.Database.GetConnectionString();
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        logger.LogWarning("No database connection string resolved for AonikDbContext.");
+        return;
+    }
+
+    var (server, database, authentication) = ParseConnectionInfo(connectionString);
+    logger.LogInformation(
+        "Resolved Aonik SQL connection: server={Server}; database={Database}; auth={Authentication}",
+        server,
+        database,
+        authentication);
+}
+
+static (string Server, string Database, string Authentication) ParseConnectionInfo(string connectionString)
+{
+    var builder = new DbConnectionStringBuilder { ConnectionString = connectionString };
+
+    var server = GetConnectionValue(builder, "Data Source", "Server", "Address", "Addr", "Network Address")
+        ?? "(unknown)";
+    var database = GetConnectionValue(builder, "Initial Catalog", "Database")
+        ?? "(unknown)";
+
+    var integratedSecurityValue = GetConnectionValue(builder, "Integrated Security", "Trusted_Connection");
+    var isIntegratedSecurity = IsTrue(integratedSecurityValue)
+        || string.Equals(integratedSecurityValue, "SSPI", StringComparison.OrdinalIgnoreCase);
+
+    var authentication = isIntegratedSecurity
+        ? "IntegratedSecurity"
+        : "SqlAuth";
+
+    return (server, database, authentication);
+}
+
+static string? GetConnectionValue(DbConnectionStringBuilder builder, params string[] keys)
+{
+    foreach (var key in keys)
+    {
+        if (builder.TryGetValue(key, out var value) && value is not null)
+        {
+            return Convert.ToString(value);
+        }
+    }
+
+    return null;
+}
+
+static bool IsTrue(string? value)
+{
+    return value is not null
+           && (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase));
+}
+
 static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
 {
-    var result = new List<Type>
+    // Canonical EF migration stream lives in AonikDbContext.
+    // Module-scoped DbContexts share this physical database but do not maintain
+    // independent migration histories.
+    _ = serviceProvider;
+    return new List<Type>
     {
         typeof(AonikDbContext)
     };
-
-    if (serviceProvider.GetService(typeof(PlatformDbContext)) != null)
-        result.Add(typeof(PlatformDbContext));
-
-    if (serviceProvider.GetService(typeof(FinanceDbContext)) != null)
-        result.Add(typeof(FinanceDbContext));
-
-    return result;
 }
 
 // Make the Program class accessible for testing

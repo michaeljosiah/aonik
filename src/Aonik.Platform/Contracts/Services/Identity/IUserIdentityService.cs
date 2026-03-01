@@ -11,4 +11,8 @@ public interface IUserIdentityService
         string? email,
         Guid aonikTenantId,
         CancellationToken ct = default);
+
+    Task<IReadOnlyCollection<string>> GetRoleNamesAsync(
+        Guid userId,
+        CancellationToken ct = default);
 }

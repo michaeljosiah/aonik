@@ -2,8 +2,8 @@ namespace Aonik.SharedKernel.Persistence;
 
 /// <summary>
 /// Canonical SQL schema names used by module-scoped DbContexts.
-/// All modules share a single physical database but use separate schemas
-/// for logical isolation and ownership clarity.
+/// All modules share a single physical database. The canonical runtime schema
+/// is dbo; module-specific schema constants remain for migration compatibility.
 /// </summary>
 public static class SchemaNames
 {

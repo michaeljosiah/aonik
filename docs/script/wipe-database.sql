@@ -1,210 +1,309 @@
 -- =============================================================================
--- AONIK Database Wipe Script
+-- AONIK Database Wipe Script (Schema-Aware by Table Name)
 -- =============================================================================
--- Purpose: Completely wipe the database for a fresh install
--- WARNING: This script will DELETE ALL DATA. Use with caution!
--- 
--- Execute this script in the target database to drop all tables and reset
--- the database to a clean state before running migrations.
+-- Purpose: Wipe AONIK tables for a fresh install while keeping an explicit
+-- table list and drop order.
+-- WARNING: This script will DELETE ALL DATA in listed tables.
+--
+-- How schema resolution works:
+-- - For each table name below, the script resolves schema from sys.tables.
+-- - If exactly one match exists, it drops [schema].[table].
+-- - If no match exists, it skips.
+-- - If multiple schemas contain the same table name, it throws so you can
+--   disambiguate explicitly.
 -- =============================================================================
 
--- Disable foreign key constraints temporarily to allow dropping tables
--- with dependencies
-EXEC sp_MSforeachtable "ALTER TABLE ? NOCHECK CONSTRAINT all";
-GO
+SET NOCOUNT ON;
+
+DECLARE @Tables TABLE
+(
+    OrderNo int IDENTITY(1, 1) PRIMARY KEY,
+    TableName sysname NOT NULL
+);
 
 -- =============================================================================
 -- AI DOMAIN (drop child tables first)
 -- =============================================================================
-DROP TABLE IF EXISTS [AiFeedbacks];
-DROP TABLE IF EXISTS [AiTraces];
-DROP TABLE IF EXISTS [AiRuns];
-DROP TABLE IF EXISTS [EvalRuns];
-DROP TABLE IF EXISTS [EvalSuites];
-DROP TABLE IF EXISTS [AiRoutePolicies];
-DROP TABLE IF EXISTS [AiModels];
-DROP TABLE IF EXISTS [AiProviders];
-DROP TABLE IF EXISTS [PromptSpecs];
-DROP TABLE IF EXISTS [ToolSpecs];
-DROP TABLE IF EXISTS [AiPolicies];
-DROP TABLE IF EXISTS [Insights];
-DROP TABLE IF EXISTS [Signals];
+INSERT INTO @Tables (TableName) VALUES
+(N'AiFeedbacks'),
+(N'AiTraces'),
+(N'AiRuns'),
+(N'EvalRuns'),
+(N'EvalSuites'),
+(N'AiRoutePolicies'),
+(N'AiModels'),
+(N'AiProviders'),
+(N'PromptSpecs'),
+(N'ToolSpecs'),
+(N'AiPolicies'),
+(N'Insights'),
+(N'Signals');
 
 -- =============================================================================
 -- AGENTS DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [Proposals];
-DROP TABLE IF EXISTS [AgentRuns];
-DROP TABLE IF EXISTS [Agents];
-DROP TABLE IF EXISTS [OrchestratorPolicies];
+INSERT INTO @Tables (TableName) VALUES
+(N'Proposals'),
+(N'AgentRuns'),
+(N'Agents'),
+(N'OrchestratorPolicies');
 
 -- =============================================================================
 -- ORDERS DOMAIN (highly relational - drop child tables first)
 -- =============================================================================
-DROP TABLE IF EXISTS [OrderNotes];
-DROP TABLE IF EXISTS [OrderHistoryEvents];
-DROP TABLE IF EXISTS [OrderFulfilmentRefs];
-DROP TABLE IF EXISTS [OrderFundingRefs];
-DROP TABLE IF EXISTS [OrderPartyRoles];
-DROP TABLE IF EXISTS [OrderItems];
-DROP TABLE IF EXISTS [Orders];
+INSERT INTO @Tables (TableName) VALUES
+(N'OrderNotes'),
+(N'OrderHistoryEvents'),
+(N'OrderFulfilmentRefs'),
+(N'OrderFundingRefs'),
+(N'OrderPartyRoles'),
+(N'OrderItems'),
+(N'Orders');
+
+-- =============================================================================
+-- CROSS-DOMAIN DEPENDENCIES
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'PartnerFundingAccounts');
 
 -- =============================================================================
 -- LEDGER DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [BalanceSnapshots];
-DROP TABLE IF EXISTS [JournalEntryLines];
-DROP TABLE IF EXISTS [JournalEntries];
-DROP TABLE IF EXISTS [LedgerAccounts];
-DROP TABLE IF EXISTS [Ledgers];
+INSERT INTO @Tables (TableName) VALUES
+(N'BalanceSnapshots'),
+(N'JournalEntryLines'),
+(N'JournalEntries'),
+(N'LedgerAccounts'),
+(N'Ledgers');
 
 -- =============================================================================
 -- PAYMENTS DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [Chargebacks];
-DROP TABLE IF EXISTS [Refunds];
-DROP TABLE IF EXISTS [Payouts];
-DROP TABLE IF EXISTS [Payments];
-DROP TABLE IF EXISTS [PaymentIntents];
+INSERT INTO @Tables (TableName) VALUES
+(N'Chargebacks'),
+(N'Refunds'),
+(N'Payouts'),
+(N'Payments'),
+(N'PaymentIntents');
 
 -- =============================================================================
 -- BILLING DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [InvoiceAllocations];
-DROP TABLE IF EXISTS [InvoiceLines];
-DROP TABLE IF EXISTS [Invoices];
-DROP TABLE IF EXISTS [CustomerAccounts];
-DROP TABLE IF EXISTS [DunningPlans];
+INSERT INTO @Tables (TableName) VALUES
+(N'InvoiceAllocations'),
+(N'InvoiceLines'),
+(N'Invoices'),
+(N'CustomerAccounts'),
+(N'DunningPlans');
 
 -- =============================================================================
 -- PERSONAL FINANCE DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [BudgetLines];
-DROP TABLE IF EXISTS [Budgets];
-DROP TABLE IF EXISTS [Goals];
-DROP TABLE IF EXISTS [Subscriptions];
-DROP TABLE IF EXISTS [Bills];
-DROP TABLE IF EXISTS [PersonalTransactions];
-DROP TABLE IF EXISTS [CategorisationRules];
-DROP TABLE IF EXISTS [HouseholdMembers];
-DROP TABLE IF EXISTS [Households];
-DROP TABLE IF EXISTS [PersonalProfiles];
+INSERT INTO @Tables (TableName) VALUES
+(N'BudgetLines'),
+(N'Budgets'),
+(N'Goals'),
+(N'Subscriptions'),
+(N'Bills'),
+(N'PersonalTransactions'),
+(N'CategorisationRules'),
+(N'HouseholdMembers'),
+(N'Households'),
+(N'PersonalProfiles');
 
 -- =============================================================================
 -- PARTY DOMAIN (highly relational)
 -- =============================================================================
-DROP TABLE IF EXISTS [PartyRelationships];
-DROP TABLE IF EXISTS [PartyRoleAssignments];
-DROP TABLE IF EXISTS [ExternalAccounts];
-DROP TABLE IF EXISTS [PartyConsents];
-DROP TABLE IF EXISTS [PartyContacts];
-DROP TABLE IF EXISTS [PartyAddresses];
-DROP TABLE IF EXISTS [BusinessProfiles];
-DROP TABLE IF EXISTS [PersonProfiles];
-DROP TABLE IF EXISTS [Parties];
-
--- =============================================================================
--- PARTNERS DOMAIN
--- =============================================================================
-DROP TABLE IF EXISTS [Transmissions];
-DROP TABLE IF EXISTS [RoutingRules];
-DROP TABLE IF EXISTS [Connectors];
-DROP TABLE IF EXISTS [PayoutSchemas];
-DROP TABLE IF EXISTS [PartnerBranches];
-DROP TABLE IF EXISTS [Partners];
-
--- =============================================================================
--- PRICING DOMAIN
--- =============================================================================
-DROP TABLE IF EXISTS [PricingQuotes];
-DROP TABLE IF EXISTS [LimitsPolicies];
-DROP TABLE IF EXISTS [FxSpreadPolicies];
-DROP TABLE IF EXISTS [FxRefreshSchedules];
-DROP TABLE IF EXISTS [FxQuotes];
-DROP TABLE IF EXISTS [FxRateSources];
-DROP TABLE IF EXISTS [FeePolicies];
-
--- =============================================================================
--- COMPLIANCE DOMAIN
--- =============================================================================
-DROP TABLE IF EXISTS [AuditLogs];
-DROP TABLE IF EXISTS [ScreeningChecks];
-DROP TABLE IF EXISTS [ComplianceCases];
-
--- =============================================================================
--- IDENTITY & ACCESS DOMAIN
--- =============================================================================
-DROP TABLE IF EXISTS [VerificationChallenges];
-DROP TABLE IF EXISTS [UserParties];
-DROP TABLE IF EXISTS [UserRoles];
-DROP TABLE IF EXISTS [RolePermissions];
-DROP TABLE IF EXISTS [Permissions];
-DROP TABLE IF EXISTS [Roles];
-DROP TABLE IF EXISTS [Users];
-DROP TABLE IF EXISTS [TenantCurrencies];
-DROP TABLE IF EXISTS [TenantCountries];
-DROP TABLE IF EXISTS [Tenants];
-
--- =============================================================================
--- AUTONUMBERING DOMAIN
--- =============================================================================
-DROP TABLE IF EXISTS [AutonumberReservations];
-DROP TABLE IF EXISTS [AutonumberProfiles];
-
--- =============================================================================
--- REFERENCE DATA & SETTINGS
--- =============================================================================
-DROP TABLE IF EXISTS [CountryCurrencies];
-DROP TABLE IF EXISTS [Settings];
-DROP TABLE IF EXISTS [ReferenceData];
-DROP TABLE IF EXISTS [Currencies];
-DROP TABLE IF EXISTS [Countries];
-
--- =============================================================================
--- CMS DOMAIN
--- =============================================================================
-DROP TABLE IF EXISTS [ContentBlockMedia];
-DROP TABLE IF EXISTS [ContentBlocks];
+INSERT INTO @Tables (TableName) VALUES
+(N'PartyRelationships'),
+(N'PartyRoleAssignments'),
+(N'ExternalAccounts'),
+(N'PartyConsents'),
+(N'PartyContacts'),
+(N'PartyAddresses'),
+(N'BusinessProfiles'),
+(N'PersonProfiles'),
+(N'Parties');
 
 -- =============================================================================
 -- CATALOG DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [CatalogBillerServices];
-DROP TABLE IF EXISTS [CatalogBillers];
-DROP TABLE IF EXISTS [CatalogBillerCategories];
+INSERT INTO @Tables (TableName) VALUES
+(N'CatalogBillerServices'),
+(N'CatalogBillers'),
+(N'CatalogBillerCategories');
+
+-- =============================================================================
+-- PARTNERS DOMAIN
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'Transmissions'),
+(N'RoutingRules'),
+(N'Connectors'),
+(N'PayoutSchemas'),
+(N'PartnerBranches'),
+(N'Partners');
+
+-- =============================================================================
+-- PRICING DOMAIN
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'PricingQuotes'),
+(N'LimitsPolicies'),
+(N'FxSpreadPolicies'),
+(N'FxRefreshSchedules'),
+(N'FxQuotes'),
+(N'FxRateSources'),
+(N'FeePolicies');
+
+-- =============================================================================
+-- COMPLIANCE DOMAIN
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'DocumentVerifications'),
+(N'DocumentUsages'),
+(N'DocumentFiles'),
+(N'DocumentVersions'),
+(N'Documents'),
+(N'AuditLogs'),
+(N'ScreeningChecks'),
+(N'ComplianceCases');
+
+-- =============================================================================
+-- IDENTITY & ACCESS DOMAIN
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'VerificationChallenges'),
+(N'UserParties'),
+(N'UserRoles'),
+(N'RolePermissions'),
+(N'Permissions'),
+(N'Roles'),
+(N'Users'),
+(N'TenantCurrencies'),
+(N'TenantCountries'),
+(N'Tenants');
+
+-- =============================================================================
+-- AUTONUMBERING DOMAIN
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'AutonumberReservations'),
+(N'AutonumberProfiles');
+
+-- =============================================================================
+-- REFERENCE DATA & SETTINGS
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'CountryCurrencies'),
+(N'Settings'),
+(N'ReferenceData'),
+(N'Currencies'),
+(N'Countries');
+
+-- =============================================================================
+-- CMS DOMAIN
+-- =============================================================================
+INSERT INTO @Tables (TableName) VALUES
+(N'ContentBlockMedia'),
+(N'ContentBlocks');
 
 -- =============================================================================
 -- FEATURES DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [TenantFeatures];
+INSERT INTO @Tables (TableName) VALUES
+(N'TenantFeatures');
 
 -- =============================================================================
 -- OPERATIONS DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [AonikBackgroundJobRecords];
-DROP TABLE IF EXISTS [WorkItems];
-DROP TABLE IF EXISTS [Jobs];
+INSERT INTO @Tables (TableName) VALUES
+(N'AonikBackgroundJobRecords'),
+(N'WorkItems'),
+(N'Jobs');
 
 -- =============================================================================
 -- NOTIFICATIONS DOMAIN
 -- =============================================================================
-DROP TABLE IF EXISTS [WebhookSubscriptions];
-DROP TABLE IF EXISTS [Notifications];
+INSERT INTO @Tables (TableName) VALUES
+(N'NotificationTemplateBindings'),
+(N'NotificationTemplates'),
+(N'WebhookSubscriptions'),
+(N'Notifications');
 
 -- =============================================================================
 -- ENTITY FRAMEWORK MIGRATIONS HISTORY
 -- =============================================================================
--- This table tracks applied migrations and must be dropped last
-DROP TABLE IF EXISTS [__EFMigrationsHistory];
+-- This table tracks applied migrations and should be dropped last.
+INSERT INTO @Tables (TableName) VALUES
+(N'__EFMigrationsHistory');
 
--- Re-enable foreign key constraints (though all tables are now dropped)
-EXEC sp_MSforeachtable "ALTER TABLE ? CHECK CONSTRAINT all";
-GO
+DECLARE @CurrentOrder int = 1;
+DECLARE @MaxOrder int = (SELECT MAX(OrderNo) FROM @Tables);
+DECLARE @TableName sysname;
+DECLARE @MatchCount int;
+DECLARE @SchemaName sysname;
+DECLARE @SchemaList nvarchar(max);
+DECLARE @DropSql nvarchar(1000);
+DECLARE @ErrorMessage nvarchar(2048);
+DECLARE @ResolvedTableName sysname;
 
--- =============================================================================
--- RESET COMPLETE
--- =============================================================================
--- The database is now completely wiped and ready for fresh migrations.
--- Run the following command to recreate the schema:
---   dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
--- =============================================================================
+WHILE @CurrentOrder <= @MaxOrder
+BEGIN
+    SELECT @TableName = TableName
+    FROM @Tables
+    WHERE OrderNo = @CurrentOrder;
+
+    SET @ResolvedTableName = @TableName;
+
+    SELECT
+        @MatchCount = COUNT(*),
+        @SchemaName = MIN(s.name),
+        @SchemaList = STRING_AGG(QUOTENAME(s.name), N', ')
+    FROM sys.tables t
+    INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+    WHERE t.name = @TableName
+      AND t.is_ms_shipped = 0;
+
+    -- Fallback for dbo + prefix naming (current: Ank; legacy: Plt/Fin/Ai/Agt)
+    IF @MatchCount = 0
+    BEGIN
+        SELECT
+            @MatchCount = COUNT(*),
+            @SchemaName = MIN(s.name),
+            @SchemaList = STRING_AGG(QUOTENAME(s.name) + N'.' + QUOTENAME(t.name), N', '),
+            @ResolvedTableName = MIN(t.name)
+        FROM sys.tables t
+        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+        WHERE t.name IN (
+              N'Ank' + @TableName,
+              N'Plt' + @TableName,
+              N'Fin' + @TableName,
+              N'Ai' + @TableName,
+              N'Agt' + @TableName)
+          AND t.is_ms_shipped = 0;
+    END
+
+    IF @MatchCount = 0
+    BEGIN
+        PRINT N'Skipping ' + QUOTENAME(@TableName) + N' (not found).';
+    END
+    ELSE IF @MatchCount > 1
+    BEGIN
+        SET @ErrorMessage = N'Ambiguous table name ' + QUOTENAME(@TableName)
+            + N' found in multiple schemas: ' + COALESCE(@SchemaList, N'(unknown)')
+            + N'. Use schema-qualified drops for this table.';
+        THROW 50001, @ErrorMessage, 1;
+    END
+    ELSE
+    BEGIN
+        SET @DropSql = N'DROP TABLE ' + QUOTENAME(@SchemaName) + N'.' + QUOTENAME(@ResolvedTableName) + N';';
+        EXEC sp_executesql @DropSql;
+        PRINT N'Dropped ' + QUOTENAME(@SchemaName) + N'.' + QUOTENAME(@ResolvedTableName) + N'.';
+    END
+
+    SET @CurrentOrder += 1;
+END
+
+PRINT N'Reset complete.';
+PRINT N'Run: dotnet ef database update --project src/Aonik.Infrastructure --startup-project src/Aonik.Api';

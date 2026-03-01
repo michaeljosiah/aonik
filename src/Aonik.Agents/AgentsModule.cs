@@ -23,8 +23,7 @@ public sealed class AgentsModule : IModule
     {
         // Register AgentsDbContext
         // Shares the same physical database as AonikDbContext, PlatformDbContext,
-        // FinanceDbContext, and AiDbContext.
-        // Uses the 'agents' schema for logical isolation.
+        // FinanceDbContext, and AiDbContext using dbo schema + module table prefixes.
         services.AddDbContext<AgentsDbContext>((sp, options) =>
         {
             if (configuration.GetValue<bool>("UseInMemoryDatabase"))

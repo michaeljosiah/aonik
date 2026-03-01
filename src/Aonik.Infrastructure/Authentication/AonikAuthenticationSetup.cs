@@ -226,14 +226,14 @@ public static class AonikAuthenticationSetup
             tenantId.Value,
             context.HttpContext.RequestAborted);
 
-        var roles = ClaimsRoleMapper.ExtractRoles(context.Principal);
-        if (roles.Count == 0)
+        var roles = new HashSet<string>(
+            ClaimsRoleMapper.ExtractRoles(context.Principal),
+            StringComparer.OrdinalIgnoreCase);
+
+        var persistedRoles = await userIdentityService.GetRoleNamesAsync(user.Id, context.HttpContext.RequestAborted);
+        foreach (var persistedRole in persistedRoles)
         {
-            roles = await dbContext.UserRoles
-                .Where(ur => ur.UserId == user.Id)
-                .Select(ur => ur.Role.Name)
-                .Distinct()
-                .ToListAsync(context.HttpContext.RequestAborted);
+            roles.Add(persistedRole);
         }
 
         var currentUserContext = context.HttpContext.RequestServices
@@ -243,7 +243,9 @@ public static class AonikAuthenticationSetup
         currentUserContext.TenantId = tenantId.Value;
         currentUserContext.ExternalIssuer = iss;
         currentUserContext.ExternalSubject = sub;
-        currentUserContext.Roles = roles;
+        currentUserContext.Roles = roles.Count == 0
+            ? Array.Empty<string>()
+            : roles.ToArray();
         currentUserContext.IsAuthenticated = context.Principal?.Identity?.IsAuthenticated == true;
 
         context.HttpContext.Items["AonikUserId"] = user.Id;

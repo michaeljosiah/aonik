@@ -9,8 +9,8 @@ namespace Aonik.Agents.Persistence;
 /// <summary>
 /// Module-scoped DbContext for the Agents domain.
 /// Owns: Agent, AgentRun, OrchestratorPolicy, Proposal.
-/// Shares the same physical database as AonikDbContext but uses the 'agents' schema
-/// for logical isolation.
+/// Shares the same physical database as AonikDbContext using dbo schema
+/// with module table prefixes for logical isolation.
 /// </summary>
 internal class AgentsDbContext : AonikDbContextBase
 {
@@ -32,15 +32,9 @@ internal class AgentsDbContext : AonikDbContextBase
     {
         base.OnModelCreating(modelBuilder);
 
-        // Default schema for this module
-        modelBuilder.HasDefaultSchema(SchemaNames.Agents);
+        modelBuilder.HasDefaultSchema(SchemaNames.Default);
 
-        // All agent entities were created in dbo schema by existing migrations.
-        // Map them explicitly to dbo to avoid schema mismatch.
-        modelBuilder.Entity<Agent>().ToTable("Agents", SchemaNames.Default);
-        modelBuilder.Entity<AgentRun>().ToTable("AgentRuns", SchemaNames.Default);
-        modelBuilder.Entity<OrchestratorPolicy>().ToTable("OrchestratorPolicies", SchemaNames.Default);
-        modelBuilder.Entity<Proposal>().ToTable("Proposals", SchemaNames.Default);
+        ApplyDboPrefixedTableNames(modelBuilder);
 
         // Apply tenant query filters for ITenantScoped entities (AgentRun, Proposal)
         ApplyTenantQueryFilters(modelBuilder);
@@ -48,5 +42,20 @@ internal class AgentsDbContext : AonikDbContextBase
         // Apply nullable tenant filters for entities with optional TenantId (Agent, OrchestratorPolicy)
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Agent));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(OrchestratorPolicy));
+    }
+
+    private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
+    {
+        MapTable<Agent>(modelBuilder, "Agents");
+        MapTable<AgentRun>(modelBuilder, "AgentRuns");
+        MapTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
+        MapTable<Proposal>(modelBuilder, "Proposals");
+    }
+
+    private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : class
+    {
+        modelBuilder.Entity<TEntity>()
+            .ToTable($"{ModuleTablePrefixes.Agents}{tableName}", SchemaNames.Default);
     }
 }

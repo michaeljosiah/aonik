@@ -24,8 +24,8 @@ public sealed class AiModule : IModule
         IConfiguration configuration)
     {
         // Register AiDbContext
-        // Shares the same physical database as AonikDbContext, PlatformDbContext, and FinanceDbContext.
-        // Uses the 'ai' schema for logical isolation.
+        // Shares the same physical database as AonikDbContext, PlatformDbContext, and FinanceDbContext
+        // using dbo schema + module table prefixes.
         services.AddDbContext<AiDbContext>((sp, options) =>
         {
             if (configuration.GetValue<bool>("UseInMemoryDatabase"))
