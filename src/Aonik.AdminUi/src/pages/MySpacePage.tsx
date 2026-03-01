@@ -11,8 +11,6 @@ import {
   MyAgentsHeader,
 } from '@/components/dashboard';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowUpRight } from 'lucide-react';
 import {
   activityFeed,
   quickLinks,
@@ -25,19 +23,12 @@ import { getWorkspacePanelForApp } from '@/workspace/registry';
 
 export function MySpacePage() {
   const navigate = useNavigate();
-  const [showResumeSetup, setShowResumeSetup] = useState(false);
   const [bannerImages, setBannerImages] = useState<Array<{ src: string; alt: string }>>([]);
   const defaultBannerImages = [
     { src: '/images/banners/myspace-default-01.png', alt: 'Aonik platform overview' },
     { src: '/images/banners/myspace-default-02.png', alt: 'Billing and payments workflows' },
     { src: '/images/banners/myspace-default-03.png', alt: 'AI-powered finance operations' },
   ];
-
-  useEffect(() => {
-    const skipped = localStorage.getItem('aonik:onboarding:skip');
-    const complete = localStorage.getItem('aonik:onboarding:complete');
-    setShowResumeSetup(Boolean(skipped) && !complete);
-  }, []);
 
   useEffect(() => {
     async function loadBanner() {
@@ -83,34 +74,6 @@ export function MySpacePage() {
             View and access your personal space with quick links, recent activity, and key resources in one place.
           </p>
         </div>
-
-        {showResumeSetup && (
-          <div className="mb-6">
-            <Card className="border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary-light)]/40">
-              <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">Resume tenant setup</p>
-                  <p className="text-sm text-[var(--color-text-secondary)]">
-                    Pick up where you left off in the setup journey and finish the required steps.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="secondary" onClick={() => (window.location.href = '/setup/journey')}
-                    className="inline-flex items-center">
-                    Continue setup
-                    <ArrowUpRight className="ml-2 h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowResumeSetup(false)}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {/* Top Section: Activity Feed, Banner, Quick Links */}
         <div className="grid grid-cols-12 gap-5 mb-6">
