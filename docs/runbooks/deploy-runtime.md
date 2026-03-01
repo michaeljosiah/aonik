@@ -3,10 +3,9 @@
 Workflow: `.github/workflows/cd-deploy.yml`
 
 ## Purpose
-Deploy ACA/AppService runtime updates using one explicit image release version.
+Deploy ACA runtime updates using one explicit image release version.
 
 ## Inputs
-- `profile`: `aca` or `appservice`
 - `environment`: `dev|staging|prod`
 - `resource_group` (optional override)
 - `workload_name` (optional override)
@@ -18,25 +17,38 @@ Deploy ACA/AppService runtime updates using one explicit image release version.
 - `skip_image_validation` (advanced/emergency only)
 
 ## Required GitHub Environment Secrets/Vars
-- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `SQL_ADMIN_PASSWORD`, `ACS_CONNECTION_STRING`, `VERIFICATION_HASH_KEY`
-- Optional secret fallback: `AZURE_CLIENT_SECRET`
-- Variable: `AZURE_RESOURCE_GROUP`
-- Optional variables:
-  - `API_AUTH_PROVIDER`, `API_AUTH_TENANT_ROUTING`
-  - `API_AUTH_AUTH0_AUTHORITY`, `API_AUTH_AUTH0_AUDIENCE`
-  - `API_AUTH_AZUREAD_AUTHORITY`, `API_AUTH_AZUREAD_AUDIENCE`
-  - `API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE`, `API_PLATFORM_ADMIN_ROLE_VALUE`, `API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE`, `API_PLATFORM_ADMIN_ADMIN_EMAIL_0`
-  - `API_BLOB_STORAGE_PROVIDER`, `API_BLOB_STORAGE_AZURE_ACCOUNT_NAME`, `API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL`, `API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL`, `API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL`
-  - `WORKER_BLOB_STORAGE_PROVIDER`, `WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME`
-  - Settings (IdP): `API_SETTINGS_AUTH_PROVIDER`, `API_SETTINGS_AUTH_AUTH0_DOMAIN`, `API_SETTINGS_AUTH_AUTH0_CLIENT_ID`, `API_SETTINGS_AUTH_AUTH0_CONNECTION`, `API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE`, `API_SETTINGS_AUTH_AUTH0_AUDIENCE`, `API_SETTINGS_AUTH_AZUREAD_AUTHORITY`, `API_SETTINGS_AUTH_AZUREAD_AUDIENCE`, `API_SETTINGS_AUTH_AZUREAD_CLIENT_ID`, `API_SETTINGS_AUTH_AZUREAD_TENANT_ID`, `API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN`
-  - Communication: `API_COMMUNICATION_AZURE_EMAIL_FROM`, `API_COMMUNICATION_AZURE_SMS_FROM`
-  - Bootstrap: `API_BOOTSTRAP_ENABLED`
-  - Feature flags: `API_FEATURE_BILLPAYMENTS_INVOICING_CREATE`, `API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE`, `API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT`, `API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS`, `API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS`, `API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT`
-  - `API_APP_SETTINGS_JSON` (legacy bundle format)
-  - `WORKER_APP_SETTINGS_JSON` (legacy bundle format)
+- Required secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `SQL_ADMIN_PASSWORD`
+- Optional secrets: `ACS_CONNECTION_STRING`, `VERIFICATION_HASH_KEY`, `AZURE_CLIENT_SECRET`
+- Required variable: `AZURE_RESOURCE_GROUP`
+- Optional variable: `WORKLOAD_NAME`
 
-Preferred approach is the explicit per-setting variable list above; the workflow maps those variables to the corresponding .NET configuration keys.
-JSON bundle variables remain supported for backward compatibility.
+### Runtime app settings payload
+
+The runtime workflow reads optional app settings from:
+
+- `API_APP_SETTINGS_JSON`
+- `WORKER_APP_SETTINGS_JSON`
+
+These can be provided as either GitHub Environment **Secrets** (preferred when they include credentials) or **Variables**. The workflow gives precedence to secrets when both are set.
+
+Use JSON objects where keys are final .NET configuration environment variable names (for example, `Settings__Auth.Provider`).
+
+Auth0 example for `API_APP_SETTINGS_JSON`:
+
+```json
+{
+  "Settings__Auth.Provider": "Auth0",
+  "Settings__Auth.Auth0.Domain": "aonik.uk.auth0.com",
+  "Settings__Auth.Auth0.Audience": "https://api.aonik.com",
+  "Settings__Auth.Auth0.ClientId": "<spa-client-id>",
+  "Settings__Auth.Auth0.ManagementClientId": "<m2m-client-id>",
+  "Settings__Auth.Auth0.ManagementClientSecret": "<m2m-client-secret>",
+  "Settings__Auth.Auth0.Connection": "Username-Password-Authentication",
+  "Settings__Auth.Auth0.ManagementAudience": "https://aonik.uk.auth0.com/api/v2/"
+}
+```
+
+If these JSON payloads are omitted, runtime uses image/application defaults and any environment values already defined in the host platform.
 
 ## Steps
 1. Set `image_version` to a known image release version.

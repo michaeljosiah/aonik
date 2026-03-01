@@ -3,10 +3,9 @@
 Workflow: `.github/workflows/cd-infra.yml`
 
 ## Purpose
-Provision/update Azure platform foundations (ACR, SQL, Key Vault, observability, ACA/AppService baseline) without requiring pre-existing runtime images.
+Provision/update Azure platform foundations (ACR, SQL, Key Vault, observability, ACA baseline) without requiring pre-existing runtime images.
 
 ## Inputs
-- `profile`: `aca` or `appservice`
 - `environment`: `dev|staging|prod`
 - `resource_group` (optional override)
 - `workload_name` (optional override)

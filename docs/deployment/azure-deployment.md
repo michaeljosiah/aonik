@@ -16,7 +16,7 @@ This guide defines AONIK's Azure container delivery model with strict separation
 │    Bootstrap             │
 │    (infra only)          │
 └────────────┬─────────────┘
-             │ outputs infra foundations (ACR, SQL, KV, ACA/AppService)
+             │ outputs infra foundations (ACR, SQL, KV, ACA)
              ▼
 ┌──────────────────────────┐
 │ 2) CD: Container Images  │
@@ -39,7 +39,7 @@ This guide defines AONIK's Azure container delivery model with strict separation
 
 Run order for a fresh environment:
 
-1. **Platform bootstrap** (`mode=deploy`) for `profile=aca|appservice` and target `environment`.
+1. **Platform bootstrap** (`mode=deploy`) for target `environment`.
 2. **Image release** with default tag (`git SHA`) or explicit immutable tag.
 3. **Runtime deploy** using the same image version.
 
@@ -54,7 +54,6 @@ This removes first-run ambiguity; no skip flags are required for normal bootstra
 2. Capture release artifact `image-release-<version>/image-release-manifest.json`.
 3. Run **CD: Deploy** with:
    - same `environment`
-   - same `profile`
    - `image_version=<version from image release>`
    - `use_digest_references=true` (recommended)
 
@@ -75,14 +74,14 @@ This orchestrator intentionally exposes a compact input set to satisfy GitHub's 
 1. Identify a prior successful image release version.
 2. Re-run **CD: Deploy** with:
    - `image_version=<previous immutable version>`
-   - unchanged profile/environment
+   - unchanged environment
 3. Runtime deploy preflight validates that all required service images exist for that version before rollout.
 
 ## Runtime Consistency Rules
 
 - Default release tag is **git SHA**.
 - Optional semver alias is supported for operator convenience.
-- Deployment always resolves one cohesive version set across `aonik-api`, `aonik-worker`, and `aonik-adminui` (or API/AdminUI for `appservice`).
+- Deployment always resolves one cohesive version set across `aonik-api`, `aonik-worker`, and `aonik-adminui`.
 - If any required image is missing, runtime deploy fails with actionable guidance.
 - `skip_image_validation` exists only as an advanced/emergency bypass.
 
@@ -99,8 +98,8 @@ Required environment secrets:
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 - `SQL_ADMIN_PASSWORD` (bootstrap/runtime deployment)
-- `ACS_CONNECTION_STRING` (Azure Communication Services; stored in Key Vault)
-- `VERIFICATION_HASH_KEY` (HMAC hash key for verification service; stored in Key Vault)
+- `ACS_CONNECTION_STRING` (optional; required for ACS email/SMS dispatch)
+- `VERIFICATION_HASH_KEY` (optional; required for verification hash protection)
 - `AZURE_CLIENT_SECRET` (optional fallback)
 
 Required environment variables for Admin UI image build:
@@ -113,64 +112,31 @@ If `VITE_AUTH_PROVIDER` is omitted, image release defaults it to `azure-ad` duri
 - If provider is `auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
 - Optional overrides: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`
 
-Optional environment variables for API/Worker runtime settings overrides:
-
-- `API_AUTH_PROVIDER` → `Auth__Provider`
-- `API_AUTH_TENANT_ROUTING` → `Auth__TenantRouting`
-- `API_AUTH_AUTH0_AUTHORITY` → `Auth__Auth0__Authority`
-- `API_AUTH_AUTH0_AUDIENCE` → `Auth__Auth0__Audience`
-- `API_AUTH_AZUREAD_AUTHORITY` → `Auth__AzureAd__Authority`
-- `API_AUTH_AZUREAD_AUDIENCE` → `Auth__AzureAd__Audience`
-- `API_PLATFORM_ADMIN_ROLE_CLAIM_TYPE` → `PlatformAdmin__RoleClaimType`
-- `API_PLATFORM_ADMIN_ROLE_VALUE` → `PlatformAdmin__RoleValue`
-- `API_PLATFORM_ADMIN_SCOPE_CLAIM_TYPE` → `PlatformAdmin__ScopeClaimType`
-- `API_PLATFORM_ADMIN_ADMIN_EMAIL_0` → `PlatformAdmin__AdminEmails__0`
-- `API_BLOB_STORAGE_PROVIDER` → `BlobStorage__Provider`
-- `API_BLOB_STORAGE_AZURE_ACCOUNT_NAME` → `BlobStorage__Azure__AccountName`
-- `API_BLOB_STORAGE_PROFILE_PHOTOS_PUBLIC_BASE_URL` → `BlobStorage__ProfilePhotos__PublicBaseUrl`
-- `API_BLOB_STORAGE_PRODUCT_IMAGES_PUBLIC_BASE_URL` → `BlobStorage__ProductImages__PublicBaseUrl`
-- `API_BLOB_STORAGE_DOCUMENTS_PUBLIC_BASE_URL` → `BlobStorage__Documents__PublicBaseUrl`
-- `WORKER_BLOB_STORAGE_PROVIDER` → `BlobStorage__Provider`
-- `WORKER_BLOB_STORAGE_AZURE_ACCOUNT_NAME` → `BlobStorage__Azure__AccountName`
-
-Settings (IdP Management API) — dots in key names are literal:
-
-- `API_SETTINGS_AUTH_PROVIDER` → `Settings__Auth.Provider`
-- `API_SETTINGS_AUTH_AUTH0_DOMAIN` → `Settings__Auth.Auth0.Domain`
-- `API_SETTINGS_AUTH_AUTH0_CLIENT_ID` → `Settings__Auth.Auth0.ClientId`
-- `API_SETTINGS_AUTH_AUTH0_CONNECTION` → `Settings__Auth.Auth0.Connection`
-- `API_SETTINGS_AUTH_AUTH0_MANAGEMENT_AUDIENCE` → `Settings__Auth.Auth0.ManagementAudience`
-- `API_SETTINGS_AUTH_AUTH0_AUDIENCE` → `Settings__Auth.Auth0.Audience`
-- `API_SETTINGS_AUTH_AZUREAD_AUTHORITY` → `Settings__Auth.AzureAd.Authority`
-- `API_SETTINGS_AUTH_AZUREAD_AUDIENCE` → `Settings__Auth.AzureAd.Audience`
-- `API_SETTINGS_AUTH_AZUREAD_CLIENT_ID` → `Settings__Auth.AzureAd.ClientId`
-- `API_SETTINGS_AUTH_AZUREAD_TENANT_ID` → `Settings__Auth.AzureAd.TenantId`
-- `API_SETTINGS_AUTH_AZUREAD_UPN_DOMAIN` → `Settings__Auth.AzureAd.UserPrincipalNameDomain`
-
-Communication (connection string is a secret via `ACS_CONNECTION_STRING`):
-
-- `API_COMMUNICATION_AZURE_EMAIL_FROM` → `Communication__Azure__Email__FromAddress`
-- `API_COMMUNICATION_AZURE_SMS_FROM` → `Communication__Azure__Sms__FromPhoneNumber`
-
-Bootstrap:
-
-- `API_BOOTSTRAP_ENABLED` → `Bootstrap__Enabled`
-
-Feature Management (dots in flag names are literal):
-
-- `API_FEATURE_BILLPAYMENTS_INVOICING_CREATE` → `FeatureManagement__BillPayments.Invoicing.Create`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_ISSUE` → `FeatureManagement__BillPayments.Invoicing.Issue`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_PAYMENT` → `FeatureManagement__BillPayments.Invoicing.Payment`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_DISCOUNTS` → `FeatureManagement__BillPayments.Invoicing.Discounts`
-- `API_FEATURE_BILLPAYMENTS_INVOICING_ALLOCATIONS` → `FeatureManagement__BillPayments.Invoicing.Allocations`
-- `API_FEATURE_BILLPAYMENTS_CUSTOMER_ACCOUNTS_MANAGEMENT` → `FeatureManagement__BillPayments.CustomerAccounts.Management`
-
-Backward-compatible JSON bundle variables are still supported:
+Runtime app settings are injected through JSON payloads:
 
 - `API_APP_SETTINGS_JSON`
 - `WORKER_APP_SETTINGS_JSON`
 
-If both explicit variables and JSON bundles are present, explicit variables take precedence for duplicate keys.
+You can define these as GitHub Environment **Secrets** (recommended when they include credentials) or **Variables**. The deploy workflow prefers secrets when both are set.
+
+Each payload must be a JSON object where keys are final .NET configuration environment variable names.
+
+Auth0 example (`API_APP_SETTINGS_JSON`):
+
+```json
+{
+  "Settings__Auth.Provider": "Auth0",
+  "Settings__Auth.Auth0.Domain": "aonik.uk.auth0.com",
+  "Settings__Auth.Auth0.Audience": "https://api.aonik.com",
+  "Settings__Auth.Auth0.ClientId": "<spa-client-id>",
+  "Settings__Auth.Auth0.ManagementClientId": "<m2m-client-id>",
+  "Settings__Auth.Auth0.ManagementClientSecret": "<m2m-client-secret>",
+  "Settings__Auth.Auth0.Connection": "Username-Password-Authentication",
+  "Settings__Auth.Auth0.ManagementAudience": "https://aonik.uk.auth0.com/api/v2/"
+}
+```
+
+You can include any other runtime settings in the same payload (for example `PlatformAdmin__*`, `BlobStorage__*`, `Communication__Azure__Email__FromAddress`, `FeatureManagement__*`).
 
 Recommended least-privilege role scoping:
 

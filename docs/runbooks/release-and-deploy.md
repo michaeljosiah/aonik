@@ -8,7 +8,6 @@ Provide a single operator entry point that can either:
 - deploy an existing image version without rebuilding (`build_images=false`).
 
 ## Inputs
-- `profile`: `aca` or `appservice`
 - `environment`: `dev|staging|prod`
 - `build_images`: `true|false`
 - `image_version`: required when `build_images=false`
@@ -28,5 +27,6 @@ Provide a single operator entry point that can either:
 ## Notes
 - Recommended default: keep `build_images=true` for normal release operations.
 - Use `build_images=false` for controlled rollback or environment promotion with a known image version.
+- Runtime variable/secret requirements are documented in `docs/runbooks/deploy-runtime.md`.
 
 - Advanced overrides (`semver_alias`, `acr_name`, `acr_login_server`, `location`) are intentionally excluded from this orchestrator to keep `workflow_dispatch` within GitHub's 10-input limit; use the underlying workflows directly when those overrides are needed.

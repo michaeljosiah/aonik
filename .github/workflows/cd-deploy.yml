@@ -107,6 +107,10 @@ on:
         required: false
       AZURE_CLIENT_SECRET:
         required: false
+      API_APP_SETTINGS_JSON:
+        required: false
+      WORKER_APP_SETTINGS_JSON:
+        required: false
 
 permissions:
   id-token: write
@@ -129,8 +133,8 @@ jobs:
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       ACR_LOGIN_SERVER_OVERRIDE: ${{ inputs.acr_login_server }}
-      API_APP_SETTINGS_JSON: ${{ vars.API_APP_SETTINGS_JSON }}
-      WORKER_APP_SETTINGS_JSON: ${{ vars.WORKER_APP_SETTINGS_JSON }}
+      API_APP_SETTINGS_JSON: ${{ secrets.API_APP_SETTINGS_JSON != '' && secrets.API_APP_SETTINGS_JSON || vars.API_APP_SETTINGS_JSON }}
+      WORKER_APP_SETTINGS_JSON: ${{ secrets.WORKER_APP_SETTINGS_JSON != '' && secrets.WORKER_APP_SETTINGS_JSON || vars.WORKER_APP_SETTINGS_JSON }}
 
     steps:
       - name: Checkout repository

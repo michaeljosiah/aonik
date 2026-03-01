@@ -24,7 +24,6 @@ This is the safest approach — it uses the same deployment pipeline as normal r
 1. Go to **Actions > CD: Deploy** (`cd-deploy.yml`).
 2. Click **Run workflow**.
 3. Set inputs:
-   - `profile`: same as original (e.g. `aca`)
    - `environment`: the affected environment
    - `image_version`: the **previous stable version** (e.g. `abc1234`)
    - `mode`: `what-if` first, then `deploy`
