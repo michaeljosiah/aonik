@@ -24,7 +24,7 @@ export const Transactions = () => {
       setErrorMessage(null);
 
       try {
-        const result = await getRecentTransactions(user.id);
+        const result = await getRecentTransactions();
         if (cancelled) {
           return;
         }

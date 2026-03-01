@@ -1,10 +1,20 @@
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 
-import { getUserInfo, loginWithPassword, registerIndividual } from "../../api/auth";
+import { exchangeAuthorizationCode, getUserInfo, registerIndividual } from "../../api/auth";
 import {
+  PAYABO_AUTH_AUDIENCE,
+  PAYABO_AUTH_CLIENT_ID,
+  PAYABO_AUTH_DOMAIN,
+  PAYABO_AUTH_SCOPE,
+  getPayaboAuthRedirectUri
+} from "../../config/auth";
+import {
+  clearPkceTransaction,
   clearAccessToken,
   clearStoredAuthUser,
+  readPkceTransaction,
   readAccessToken,
+  writePkceTransaction,
   writeAccessToken,
   writeStoredAuthUser
 } from "./authStorage";
@@ -24,11 +34,17 @@ type RegisterPayload = {
   registrationCountry?: string;
 };
 
+type LoginOptions = {
+  returnTo?: string;
+  loginHint?: string;
+};
+
 type AuthContextValue = {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: AuthUser | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (options?: LoginOptions) => Promise<void>;
+  completePkceLogin: (authorizationCode: string, state: string) => Promise<string>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => void;
 };
@@ -97,6 +113,42 @@ const resolveUserFromAccessToken = (accessToken: string): AuthUser | null => {
   } catch {
     return null;
   }
+};
+
+const toBase64Url = (value: Uint8Array): string => {
+  let binary = "";
+  value.forEach((item) => {
+    binary += String.fromCharCode(item);
+  });
+
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+};
+
+const generateRandomString = (length: number): string => {
+  const allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+  const random = new Uint8Array(length);
+  crypto.getRandomValues(random);
+
+  return Array.from(random, (value) => allowed[value % allowed.length]).join("");
+};
+
+const createPkceCodeVerifier = () => generateRandomString(64);
+const createPkceState = () => generateRandomString(48);
+
+const createPkceCodeChallenge = async (codeVerifier: string): Promise<string> => {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
+  return toBase64Url(new Uint8Array(digest));
+};
+
+const resolveReturnToPath = (candidate?: string): string => {
+  if (!candidate) {
+    return "/dashboard";
+  }
+
+  return candidate.startsWith("/") ? candidate : "/dashboard";
 };
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
@@ -179,9 +231,8 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   }, [bootstrapRetryCount]);
 
   const value = useMemo<AuthContextValue>(() => {
-    const login = async (email: string, password: string) => {
-      const token = await loginWithPassword({ email, password });
-      writeAccessToken(token.accessToken);
+    const hydrateSessionFromAccessToken = async (accessToken: string) => {
+      writeAccessToken(accessToken);
 
       try {
         const info = await getUserInfo();
@@ -203,10 +254,11 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
           throw error;
         }
 
-        const fallbackUser = resolveUserFromAccessToken(token.accessToken);
+        const fallbackUser = resolveUserFromAccessToken(accessToken);
         if (fallbackUser) {
           setUser(fallbackUser);
           writeStoredAuthUser(fallbackUser);
+          setIsLoading(false);
           return;
         }
 
@@ -214,12 +266,68 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       }
     };
 
+    const login = async (options?: LoginOptions) => {
+      const codeVerifier = createPkceCodeVerifier();
+      const codeChallenge = await createPkceCodeChallenge(codeVerifier);
+      const state = createPkceState();
+      const returnTo = resolveReturnToPath(options?.returnTo);
+
+      writePkceTransaction({
+        codeVerifier,
+        state,
+        returnTo,
+        createdAt: Date.now()
+      });
+
+      const authorizeUrl = new URL(`https://${PAYABO_AUTH_DOMAIN}/authorize`);
+      authorizeUrl.searchParams.set("response_type", "code");
+      authorizeUrl.searchParams.set("client_id", PAYABO_AUTH_CLIENT_ID);
+      authorizeUrl.searchParams.set("redirect_uri", getPayaboAuthRedirectUri());
+      authorizeUrl.searchParams.set("scope", PAYABO_AUTH_SCOPE);
+      authorizeUrl.searchParams.set("audience", PAYABO_AUTH_AUDIENCE);
+      authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+      authorizeUrl.searchParams.set("code_challenge_method", "S256");
+      authorizeUrl.searchParams.set("state", state);
+
+      const loginHint = options?.loginHint?.trim();
+      if (loginHint) {
+        authorizeUrl.searchParams.set("login_hint", loginHint);
+      }
+
+      window.location.assign(authorizeUrl.toString());
+    };
+
+    const completePkceLogin = async (authorizationCode: string, state: string): Promise<string> => {
+      const transaction = readPkceTransaction();
+      if (!transaction) {
+        throw new Error("Sign-in session expired. Please try again.");
+      }
+
+      if (transaction.state !== state) {
+        clearPkceTransaction();
+        throw new Error("Invalid sign-in state. Please try again.");
+      }
+
+      clearPkceTransaction();
+
+      const token = await exchangeAuthorizationCode({
+        clientId: PAYABO_AUTH_CLIENT_ID,
+        redirectUri: getPayaboAuthRedirectUri(),
+        codeVerifier: transaction.codeVerifier,
+        authorizationCode
+      });
+
+      await hydrateSessionFromAccessToken(token.accessToken);
+      return resolveReturnToPath(transaction.returnTo);
+    };
+
     const register = async (payload: RegisterPayload) => {
       await registerIndividual(payload);
-      await login(payload.email, payload.password);
+      await login({ loginHint: payload.email });
     };
 
     const logout = () => {
+      clearPkceTransaction();
       clearAccessToken();
       clearStoredAuthUser();
       setUser(null);
@@ -230,6 +338,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       isLoading,
       user,
       login,
+      completePkceLogin,
       register,
       logout
     };

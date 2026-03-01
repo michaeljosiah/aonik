@@ -122,7 +122,6 @@ export const Register = () => {
           password: personalPassword,
           registrationCountry: personalCountry || undefined
         });
-        navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
         return;
       }
 
@@ -133,7 +132,6 @@ export const Register = () => {
         password: businessPassword,
         registrationCountry: businessCountry || undefined
       });
-      navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
     } catch {
       setErrorMessage("Unable to register at the moment. Please try again.");
     } finally {

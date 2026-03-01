@@ -25,7 +25,7 @@ export const TransactionDetails = () => {
       setIsLoading(true);
 
       try {
-        const response = await getRecentTransactionById(user.id, transactionId);
+        const response = await getRecentTransactionById(transactionId);
         if (!cancelled) {
           setTransaction(response);
         }

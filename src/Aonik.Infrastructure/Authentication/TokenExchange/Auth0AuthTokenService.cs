@@ -26,11 +26,18 @@ public class Auth0AuthTokenService : IAuthTokenService
         var clientSecret = await _settingProvider.GetAsync(AuthSettingNames.Auth0ClientSecret, cancellationToken);
         var audience = await _settingProvider.GetAsync(AuthSettingNames.Auth0Audience, cancellationToken);
 
+        var effectiveClientId = string.IsNullOrWhiteSpace(request.ClientId)
+            ? clientId
+            : request.ClientId;
+
+        var shouldSendClientSecret = !string.IsNullOrWhiteSpace(clientSecret)
+            && string.Equals(effectiveClientId, clientId, StringComparison.Ordinal);
+
         var payload = new Dictionary<string, string?>
         {
             ["grant_type"] = request.GrantType,
-            ["client_id"] = string.IsNullOrWhiteSpace(request.ClientId) ? clientId : request.ClientId,
-            ["client_secret"] = string.IsNullOrWhiteSpace(clientSecret) ? null : clientSecret,
+            ["client_id"] = effectiveClientId,
+            ["client_secret"] = shouldSendClientSecret ? clientSecret : null,
             ["username"] = request.Username,
             ["password"] = request.Password,
             ["scope"] = request.Scope,

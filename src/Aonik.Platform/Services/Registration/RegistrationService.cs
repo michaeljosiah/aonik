@@ -8,6 +8,8 @@ using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Services.Settings;
 
+using Microsoft.Extensions.Logging;
+
 namespace Aonik.Platform.Services.Registration;
 
 internal class RegistrationService : IRegistrationService
@@ -18,6 +20,7 @@ internal class RegistrationService : IRegistrationService
     private readonly IUserProfileService _userProfileService;
     private readonly IVerificationService _verificationService;
     private readonly IOnboardingPolicyEvaluator _onboardingPolicyEvaluator;
+    private readonly ILogger<RegistrationService> _logger;
 
     public RegistrationService(
         ISettingProvider settingProvider,
@@ -25,7 +28,8 @@ internal class RegistrationService : IRegistrationService
         IUserProvisioningService userProvisioningService,
         IUserProfileService userProfileService,
         IVerificationService verificationService,
-        IOnboardingPolicyEvaluator onboardingPolicyEvaluator)
+        IOnboardingPolicyEvaluator onboardingPolicyEvaluator,
+        ILogger<RegistrationService> logger)
     {
         _settingProvider = settingProvider;
         _idpUserProvisionerFactory = idpUserProvisionerFactory;
@@ -33,6 +37,7 @@ internal class RegistrationService : IRegistrationService
         _userProfileService = userProfileService;
         _verificationService = verificationService;
         _onboardingPolicyEvaluator = onboardingPolicyEvaluator;
+        _logger = logger;
     }
 
     public async Task<IndividualRegistrationResult> RegisterIndividualAsync(
@@ -65,7 +70,7 @@ internal class RegistrationService : IRegistrationService
 
         var provisioningResult = await _userProvisioningService.EnsureUserAndCustomerAsync(identity, cancellationToken);
 
-        await _userProfileService.UpdateCustomerProfileAsync(
+        await _userProfileService.UpdateCustomerProfileForRegistrationAsync(
             provisioningResult.UserId,
             request.TenantId.Value,
             new UpdateCustomerProfileRequest(
@@ -79,18 +84,38 @@ internal class RegistrationService : IRegistrationService
 
         if (!string.IsNullOrWhiteSpace(request.Email))
         {
-            await _verificationService.StartEmailVerificationAsync(
-                provisioningResult.UserId,
-                request.Email,
-                cancellationToken);
+            try
+            {
+                await _verificationService.StartEmailVerificationForRegistrationAsync(
+                    provisioningResult.UserId,
+                    request.Email,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Registration completed but email verification challenge could not start for user {UserId}.",
+                    provisioningResult.UserId);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(request.Phone))
         {
-            await _verificationService.StartPhoneVerificationAsync(
-                provisioningResult.UserId,
-                request.Phone,
-                cancellationToken);
+            try
+            {
+                await _verificationService.StartPhoneVerificationForRegistrationAsync(
+                    provisioningResult.UserId,
+                    request.Phone,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Registration completed but phone verification challenge could not start for user {UserId}.",
+                    provisioningResult.UserId);
+            }
         }
 
         var onboarding = await _onboardingPolicyEvaluator.EvaluateAsync(

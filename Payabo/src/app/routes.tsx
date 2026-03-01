@@ -34,6 +34,7 @@ import { StatusOrderReceived } from "../pages/payments/StatusOrderReceived";
 import { StatusPaymentSent } from "../pages/payments/StatusPaymentSent";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
+import { AuthCallback } from "../pages/auth/AuthCallback";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
 import { Dashboard } from "../pages/dashboard/Dashboard";
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
         element: <AuthLayout />,
         children: [
           { path: "/login", element: <Login /> },
+          { path: "/auth/callback", element: <AuthCallback /> },
           { path: "/register", element: <Register /> },
           { path: "/logout", element: <Logout /> }
         ]

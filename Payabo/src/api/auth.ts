@@ -31,6 +31,22 @@ export const loginWithPassword = async (request: { email: string; password: stri
   });
 };
 
+export const exchangeAuthorizationCode = async (request: {
+  clientId: string;
+  redirectUri: string;
+  codeVerifier: string;
+  authorizationCode: string;
+}): Promise<TokenResponse> => {
+  return await apiPost<TokenResponse>("/auth/token", {
+    grantType: "authorization_code",
+    clientId: request.clientId,
+    redirectUri: request.redirectUri,
+    codeVerifier: request.codeVerifier,
+    authorizationCode: request.authorizationCode,
+    scope: "openid profile email"
+  });
+};
+
 export const registerIndividual = async (request: {
   firstName: string;
   lastName: string;

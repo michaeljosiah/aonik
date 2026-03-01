@@ -25,6 +25,7 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 ### 🎯 Features
 - [Tenant Management](features/tenant-management.md) - Multi-tenancy implementation
 - [Authentication & Authorization](features/authentication-authorization.md) - Identity and access management
+- [Individual Registration](features/individual-registration.md) - Signup orchestration and table mutations
 - [Billing](features/billing.md) - Invoicing and billing
 - [Payments](features/payments.md) - Payment processing
 - [Ledger](features/ledger.md) - Double-entry accounting

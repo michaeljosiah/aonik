@@ -68,12 +68,36 @@ internal class VerificationService : IVerificationService
             cancellationToken);
     }
 
+    public Task<VerificationChallengeResult> StartEmailVerificationForRegistrationAsync(
+        Guid userId,
+        string email,
+        CancellationToken cancellationToken = default)
+    {
+        return StartVerificationAsync(
+            userId,
+            VerificationChannel.Email,
+            NormalizeEmail(email),
+            cancellationToken);
+    }
+
     public Task<VerificationChallengeResult> StartPhoneVerificationAsync(
         Guid userId,
         string phone,
         CancellationToken cancellationToken = default)
     {
         return StartVerificationWithPermissionAsync(
+            userId,
+            VerificationChannel.Sms,
+            NormalizePhone(phone),
+            cancellationToken);
+    }
+
+    public Task<VerificationChallengeResult> StartPhoneVerificationForRegistrationAsync(
+        Guid userId,
+        string phone,
+        CancellationToken cancellationToken = default)
+    {
+        return StartVerificationAsync(
             userId,
             VerificationChannel.Sms,
             NormalizePhone(phone),

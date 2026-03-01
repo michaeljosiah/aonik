@@ -14,8 +14,7 @@ export const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [email, setEmail] = useState("john.doe@example.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("michael.josiah@mailinator.com");
   const from = (location.state as LocationState | null)?.from;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -24,10 +23,12 @@ export const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(email, password);
-      navigate(from && from.startsWith("/") ? from : "/dashboard", { replace: true });
+      await login({
+        returnTo: from,
+        loginHint: email
+      });
     } catch {
-      setErrorMessage("Unable to sign in. Please check your credentials and try again.");
+      setErrorMessage("Unable to start secure sign in. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -84,35 +85,10 @@ export const Login = () => {
                     required
                   />
                 </div>
-                <div className="form-group">
-                  <label htmlFor="password-login">Password</label>
-                  <div className="input-group">
-                    <input
-                      type="password"
-                      className="form-control"
-                      id="password-login"
-                      name="LoginPassword"
-                      placeholder="Your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <div className="input-group-append">
-                      <span className="input-group-text">
-                        <i className="toggle-password icon-eye"></i>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="form-check form-check-inline mt-3">
-                  <input type="checkbox" className="form-check-input" id="loginCheck" name="example1" />
-                  <label className="form-check-label mb-0" htmlFor="loginCheck">
-                    Remember my login
-                  </label>
-                </div>
+                <p className="small text-muted">Continue to secure Auth0 sign in.</p>
                 <div className="py-4">
                   <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
-                    {isSubmitting ? "SIGNING IN..." : "LOGIN"}
+                    {isSubmitting ? "REDIRECTING..." : "LOGIN"}
                   </button>
                 </div>
                 <div className="text-center">

@@ -118,48 +118,26 @@ internal class UserProfileService : IUserProfileService
         UpdateCustomerProfileRequest request,
         CancellationToken cancellationToken = default)
     {
-        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(
-                u => u.Id == userId && u.TenantId == tenantId,
-                cancellationToken);
-
-        if (user == null)
-        {
-            return null;
-        }
-
-        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken, includeDetails: true);
-        if (party == null)
-        {
-            return null;
-        }
-
-        var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
-        ApplyProfileUpdates(user, party, profile, request);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        await _auditLogWriter.LogAsync(
-            AuditEventNames.CustomerProfileUpdated,
-            "Party",
-            party.Id,
-            tenantId,
+        return await UpdateCustomerProfileCoreAsync(
             userId,
-            _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new
-            {
-                user.Id,
-                PartyId = party.Id,
-                request.FirstName,
-                request.LastName,
-                request.Title,
-                request.CountryCode,
-                Phone = AuditLogMasking.MaskPhone(request.Phone)
-            }),
+            tenantId,
+            request,
+            enforcePermission: true,
             cancellationToken);
+    }
 
-        return MapProfile(user, party, profile);
+    public async Task<CustomerProfileResponse?> UpdateCustomerProfileForRegistrationAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateCustomerProfileRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        return await UpdateCustomerProfileCoreAsync(
+            userId,
+            tenantId,
+            request,
+            enforcePermission: false,
+            cancellationToken);
     }
 
     public async Task<CustomerProfileResponse?> UpdateCustomerEmailAsync(
@@ -404,6 +382,62 @@ internal class UserProfileService : IUserProfileService
 
         return await query
             .FirstOrDefaultAsync(party => party.Id == partyId.Value && party.TenantId == tenantId, cancellationToken);
+    }
+
+    private async Task<CustomerProfileResponse?> UpdateCustomerProfileCoreAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateCustomerProfileRequest request,
+        bool enforcePermission,
+        CancellationToken cancellationToken = default)
+    {
+        if (enforcePermission)
+        {
+            await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(
+                u => u.Id == userId && u.TenantId == tenantId,
+                cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken, includeDetails: true);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var profile = await GetOrCreatePersonProfileAsync(party.Id, cancellationToken);
+        ApplyProfileUpdates(user, party, profile, request);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerProfileUpdated,
+            "Party",
+            party.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new
+            {
+                user.Id,
+                PartyId = party.Id,
+                request.FirstName,
+                request.LastName,
+                request.Title,
+                request.CountryCode,
+                Phone = AuditLogMasking.MaskPhone(request.Phone),
+                Source = enforcePermission ? "UserAction" : "Registration"
+            }),
+            cancellationToken);
+
+        return MapProfile(user, party, profile);
     }
 
     private async Task<PersonProfile> GetOrCreatePersonProfileAsync(Guid partyId, CancellationToken cancellationToken)

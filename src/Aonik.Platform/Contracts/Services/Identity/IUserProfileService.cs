@@ -20,6 +20,12 @@ public interface IUserProfileService
         UpdateCustomerProfileRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<CustomerProfileResponse?> UpdateCustomerProfileForRegistrationAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateCustomerProfileRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<CustomerProfileResponse?> UpdateCustomerEmailAsync(
         Guid userId,
         Guid tenantId,

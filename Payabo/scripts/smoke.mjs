@@ -8,6 +8,7 @@ const dashboardPageSource = fs.readFileSync(new URL("../src/pages/dashboard/Dash
 const transactionsPageSource = fs.readFileSync(new URL("../src/pages/dashboard/Transactions.tsx", import.meta.url), "utf8");
 
 const requiredRoutes = [
+  'path: "/auth/callback"',
   'path: "/payments/providers"',
   'path: "/payments/service/:id"',
   'path: "/payments/selection"',
@@ -30,8 +31,22 @@ if (!paymentsApiSource.includes('/public/payments/intents')) {
   throw new Error("Missing payment intent API integration");
 }
 
-if (!dashboardApiSource.includes('/public/dashboard/summary')) {
-  throw new Error("Missing dashboard summary API integration");
+const authApiSource = fs.readFileSync(new URL("../src/api/auth.ts", import.meta.url), "utf8");
+
+if (!authApiSource.includes('grantType: "authorization_code"')) {
+  throw new Error("Missing PKCE authorization code token exchange integration");
+}
+
+if (!dashboardApiSource.includes('/orders?')) {
+  throw new Error("Missing orders list API integration for dashboard summary");
+}
+
+if (!dashboardApiSource.includes('/orders/${order.orderId}')) {
+  throw new Error("Missing order detail API integration for dashboard summary");
+}
+
+if (dashboardApiSource.includes('/public/dashboard/summary')) {
+  throw new Error("Dashboard summary must not depend on removed /public/dashboard/summary endpoint");
 }
 
 if (dashboardApiSource.includes('paymentHistory') || dashboardApiSource.includes('draftIntent')) {
@@ -50,4 +65,4 @@ if (!transactionsPageSource.includes("getRecentTransactions")) {
   throw new Error("Transactions page must load data from dashboard API contract");
 }
 
-console.log("Smoke checks passed: dashboard/api/profile route and integration guardrails are in place.");
+console.log("Smoke checks passed: dashboard/profile route and API integration guardrails are in place.");

@@ -37,7 +37,7 @@ export const useDashboardData = (userId: string | null | undefined): UseDashboar
     setErrorMessage(null);
 
     try {
-      const summary = await getDashboardSummary(userId);
+      const summary = await getDashboardSummary();
       if (currentRequest !== requestSequence.current) {
         return;
       }

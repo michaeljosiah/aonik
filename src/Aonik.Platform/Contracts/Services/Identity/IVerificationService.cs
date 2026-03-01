@@ -9,6 +9,11 @@ public interface IVerificationService
         string email,
         CancellationToken cancellationToken = default);
 
+    Task<VerificationChallengeResult> StartEmailVerificationForRegistrationAsync(
+        Guid userId,
+        string email,
+        CancellationToken cancellationToken = default);
+
     Task<bool> ConfirmEmailVerificationAsync(
         Guid userId,
         string email,
@@ -16,6 +21,11 @@ public interface IVerificationService
         CancellationToken cancellationToken = default);
 
     Task<VerificationChallengeResult> StartPhoneVerificationAsync(
+        Guid userId,
+        string phone,
+        CancellationToken cancellationToken = default);
+
+    Task<VerificationChallengeResult> StartPhoneVerificationForRegistrationAsync(
         Guid userId,
         string phone,
         CancellationToken cancellationToken = default);
