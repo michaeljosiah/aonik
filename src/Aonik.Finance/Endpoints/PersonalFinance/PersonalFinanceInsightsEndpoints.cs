@@ -29,9 +29,16 @@ internal sealed class GetSpendingSummaryEndpoint : Endpoint<SpendingInsightsRequ
 
     public override async Task HandleAsync(SpendingInsightsRequest req, CancellationToken ct)
     {
-        var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
-        var response = await _insightsService.GetSpendingSummaryAsync(periodStart, periodEnd, req.PersonalAccountId, ct);
-        await Send.OkAsync(response, ct);
+        try
+        {
+            var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
+            var response = await _insightsService.GetSpendingSummaryAsync(periodStart, periodEnd, req.PersonalAccountId, ct);
+            await Send.OkAsync(response, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
     }
 
     private static (DateTime PeriodStart, DateTime PeriodEnd) ResolvePeriod(DateTime? requestedStart, DateTime? requestedEnd)
@@ -60,9 +67,16 @@ internal sealed class GetCategoryBreakdownEndpoint : Endpoint<SpendingInsightsRe
 
     public override async Task HandleAsync(SpendingInsightsRequest req, CancellationToken ct)
     {
-        var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
-        var response = await _insightsService.GetCategoryBreakdownAsync(periodStart, periodEnd, req.PersonalAccountId, ct);
-        await Send.OkAsync(response, ct);
+        try
+        {
+            var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
+            var response = await _insightsService.GetCategoryBreakdownAsync(periodStart, periodEnd, req.PersonalAccountId, ct);
+            await Send.OkAsync(response, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
     }
 
     private static (DateTime PeriodStart, DateTime PeriodEnd) ResolvePeriod(DateTime? requestedStart, DateTime? requestedEnd)
@@ -91,9 +105,16 @@ internal sealed class GetMerchantBreakdownEndpoint : Endpoint<SpendingInsightsRe
 
     public override async Task HandleAsync(SpendingInsightsRequest req, CancellationToken ct)
     {
-        var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
-        var response = await _insightsService.GetMerchantBreakdownAsync(periodStart, periodEnd, req.PersonalAccountId, req.Top, ct);
-        await Send.OkAsync(response, ct);
+        try
+        {
+            var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
+            var response = await _insightsService.GetMerchantBreakdownAsync(periodStart, periodEnd, req.PersonalAccountId, req.Top, ct);
+            await Send.OkAsync(response, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
     }
 
     private static (DateTime PeriodStart, DateTime PeriodEnd) ResolvePeriod(DateTime? requestedStart, DateTime? requestedEnd)
@@ -122,9 +143,16 @@ internal sealed class GetAccountBreakdownEndpoint : Endpoint<SpendingInsightsReq
 
     public override async Task HandleAsync(SpendingInsightsRequest req, CancellationToken ct)
     {
-        var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
-        var response = await _insightsService.GetAccountBreakdownAsync(periodStart, periodEnd, ct);
-        await Send.OkAsync(response, ct);
+        try
+        {
+            var (periodStart, periodEnd) = ResolvePeriod(req.PeriodStart, req.PeriodEnd);
+            var response = await _insightsService.GetAccountBreakdownAsync(periodStart, periodEnd, ct);
+            await Send.OkAsync(response, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
     }
 
     private static (DateTime PeriodStart, DateTime PeriodEnd) ResolvePeriod(DateTime? requestedStart, DateTime? requestedEnd)

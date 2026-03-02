@@ -251,6 +251,34 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task InsightsEndpoints_ReturnValidationError_WhenPeriodRangeIsInvalid()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+        var start = DateTime.UtcNow;
+        var end = start.AddDays(-2);
+        var query = $"?periodStart={Uri.EscapeDataString(start.ToString("O"))}&periodEnd={Uri.EscapeDataString(end.ToString("O"))}";
+
+        var endpoints = new[]
+        {
+            "/personal-finance/insights/spending-summary",
+            "/personal-finance/insights/category-breakdown",
+            "/personal-finance/insights/merchant-breakdown",
+            "/personal-finance/insights/account-breakdown"
+        };
+
+        // Act
+        var responses = new List<HttpResponseMessage>();
+        foreach (var endpoint in endpoints)
+        {
+            responses.Add(await client.GetAsync($"{endpoint}{query}"));
+        }
+
+        // Assert
+        responses.Should().OnlyContain(response => response.StatusCode == (HttpStatusCode)422);
+    }
+
+    [Fact]
     public async Task NarrativeInsightsEndpoint_ReturnsInsightWithAiRunReference()
     {
         // Arrange
