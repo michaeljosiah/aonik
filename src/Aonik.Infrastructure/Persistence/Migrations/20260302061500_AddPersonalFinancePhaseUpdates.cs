@@ -12,6 +12,65 @@ public partial class AddPersonalFinancePhaseUpdates : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
+        migrationBuilder.Sql(
+            """
+            IF OBJECT_ID(N'[dbo].[AnkPersonalAccounts]', N'U') IS NULL
+               AND OBJECT_ID(N'[dbo].[FinPersonalAccounts]', N'U') IS NOT NULL
+            BEGIN
+                EXEC sp_rename N'[dbo].[FinPersonalAccounts]', N'AnkPersonalAccounts';
+            END
+
+            IF OBJECT_ID(N'[dbo].[AnkPersonalAccounts]', N'U') IS NULL
+               AND OBJECT_ID(N'[dbo].[PersonalAccounts]', N'U') IS NOT NULL
+            BEGIN
+                EXEC sp_rename N'[dbo].[PersonalAccounts]', N'AnkPersonalAccounts';
+            END
+
+            IF OBJECT_ID(N'[dbo].[AnkPersonalTransactions]', N'U') IS NULL
+               AND OBJECT_ID(N'[dbo].[FinPersonalTransactions]', N'U') IS NOT NULL
+            BEGIN
+                EXEC sp_rename N'[dbo].[FinPersonalTransactions]', N'AnkPersonalTransactions';
+            END
+
+            IF OBJECT_ID(N'[dbo].[AnkCategorisationRules]', N'U') IS NULL
+               AND OBJECT_ID(N'[dbo].[FinCategorisationRules]', N'U') IS NOT NULL
+            BEGIN
+                EXEC sp_rename N'[dbo].[FinCategorisationRules]', N'AnkCategorisationRules';
+            END
+
+            IF OBJECT_ID(N'[dbo].[AnkPersonalAccounts]', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dbo].[AnkPersonalAccounts]
+                (
+                    [Id] uniqueidentifier NOT NULL,
+                    [TenantId] uniqueidentifier NOT NULL,
+                    [UserId] uniqueidentifier NOT NULL,
+                    [HouseholdId] uniqueidentifier NULL,
+                    [Name] nvarchar(200) NOT NULL,
+                    [AccountType] nvarchar(50) NOT NULL,
+                    [Currency] nvarchar(3) NOT NULL,
+                    [InstitutionName] nvarchar(200) NULL,
+                    [ExternalReference] nvarchar(200) NULL,
+                    [Status] nvarchar(50) NOT NULL,
+                    [CreatedAt] datetime2 NOT NULL,
+                    [CreatedBy] uniqueidentifier NULL,
+                    [UpdatedAt] datetime2 NULL,
+                    [UpdatedBy] uniqueidentifier NULL,
+                    [RowVersion] varbinary(max) NOT NULL,
+                    [IsDeleted] bit NOT NULL,
+                    [DeletedAt] datetime2 NULL,
+                    [DeletedBy] uniqueidentifier NULL,
+                    CONSTRAINT [PK_AnkPersonalAccounts] PRIMARY KEY ([Id])
+                );
+            END
+
+            IF COL_LENGTH(N'[dbo].[AnkPersonalTransactions]', N'PersonalAccountId') IS NULL
+            BEGIN
+                ALTER TABLE [dbo].[AnkPersonalTransactions]
+                ADD [PersonalAccountId] uniqueidentifier NULL;
+            END
+            """);
+
         migrationBuilder.AddColumn<string>(
             name: "AccountSubtype",
             schema: "dbo",
@@ -174,6 +233,17 @@ public partial class AddPersonalFinancePhaseUpdates : Migration
             maxLength: 50,
             nullable: false,
             defaultValue: "User");
+
+        migrationBuilder.AlterColumn<string>(
+            name: "Category",
+            schema: "dbo",
+            table: "AnkPersonalTransactions",
+            type: "nvarchar(100)",
+            maxLength: 100,
+            nullable: true,
+            oldClrType: typeof(string),
+            oldType: "nvarchar(max)",
+            oldNullable: true);
 
         migrationBuilder.CreateTable(
             name: "AnkStatementImports",
