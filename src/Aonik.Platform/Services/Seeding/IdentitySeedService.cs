@@ -92,7 +92,18 @@ internal class IdentitySeedService
 
             // Customers permissions
             new Permission { Key = "Customers.Read", Description = "View customers" },
-            new Permission { Key = "Customers.Create", Description = "Create customers" }
+            new Permission { Key = "Customers.Create", Description = "Create customers" },
+
+            // Personal Finance permissions
+            new Permission { Key = "PersonalFinance.Accounts.Read", Description = "View personal finance accounts" },
+            new Permission { Key = "PersonalFinance.Accounts.Write", Description = "Create and manage personal finance accounts" },
+            new Permission { Key = "PersonalFinance.Transactions.Read", Description = "View personal finance transactions" },
+            new Permission { Key = "PersonalFinance.Transactions.Write", Description = "Create and update personal finance transactions" },
+            new Permission { Key = "PersonalFinance.Imports.Create", Description = "Create personal finance statement imports" },
+            new Permission { Key = "PersonalFinance.Imports.Read", Description = "View personal finance statement imports" },
+            new Permission { Key = "PersonalFinance.Classification.Run", Description = "Run personal finance transaction classification" },
+            new Permission { Key = "PersonalFinance.Classification.Review", Description = "Review and override personal finance transaction classification" },
+            new Permission { Key = "PersonalFinance.Insights.Read", Description = "View personal finance insights" }
         };
 
         var existingKeys = await _dbContext.Permissions

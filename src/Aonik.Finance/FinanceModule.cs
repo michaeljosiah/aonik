@@ -80,6 +80,12 @@ public sealed class FinanceModule : IModule
 
         // PersonalFinance
         services.AddScoped<Contracts.Services.PersonalFinance.IHouseholdService, Services.PersonalFinance.HouseholdService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalAccountService, Services.PersonalFinance.PersonalAccountService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalTransactionService, Services.PersonalFinance.PersonalTransactionService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IStatementImportService, Services.PersonalFinance.StatementImportService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.ITransactionClassificationService, Services.PersonalFinance.TransactionClassificationService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceInsightsService, Services.PersonalFinance.PersonalFinanceInsightsService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceNarrativeInsightsService, Services.PersonalFinance.PersonalFinanceNarrativeInsightsService>();
 
         // ── Finance AI Insights ──────────────────────────────────────
         services.AddScoped<Services.Ai.InvoiceInsightWorkflow>();

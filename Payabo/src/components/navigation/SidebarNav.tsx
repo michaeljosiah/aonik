@@ -80,7 +80,16 @@ export const SidebarNav = () => {
                 <NavLink to="/transactions">All transactions</NavLink>
               </li>
               <li>
-                <a href="#">Donations</a>
+                <NavLink to="/transactions/manual/new">Add transaction</NavLink>
+              </li>
+              <li>
+                <NavLink to="/transactions/import">Import statement</NavLink>
+              </li>
+              <li>
+                <NavLink to="/transactions/review">Review queue</NavLink>
+              </li>
+              <li>
+                <NavLink to="/insights/spending">Spending insights</NavLink>
               </li>
             </ul>
           </div>
@@ -105,7 +114,7 @@ export const SidebarNav = () => {
           <div className={`collapse ${openSection === "wallet" ? "show" : ""}`} id="nav-list-03">
             <ul className="list-sub-nav">
               <li>
-                <a href="#">Budgeting</a>
+                <NavLink to="/wallet/accounts">Accounts</NavLink>
               </li>
               <li>
                 <NavLink to="/manage-cards">My cards</NavLink>

@@ -13,4 +13,9 @@ public class PersonalAccount : AuditableEntity, ITenantScoped
     public string? InstitutionName { get; set; }
     public string? ExternalReference { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string? AccountSubtype { get; set; }
+    public string? Last4 { get; set; }
+    public bool IsArchived { get; set; }
+    public DateTime? OpenedAt { get; set; }
+    public DateTime? ClosedAt { get; set; }
 }

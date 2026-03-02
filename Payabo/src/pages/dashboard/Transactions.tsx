@@ -2,11 +2,43 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../../app/auth/AuthContext";
-import { getRecentTransactions, type DashboardRecentTransaction } from "../../api/dashboard";
+import {
+  listPersonalAccounts,
+  listPersonalTransactions,
+  type PersonalAccount,
+  type PersonalTransaction
+} from "../../api/personalFinance";
+
+const formatDateLabel = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "N/A";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(parsed);
+};
+
+const formatAmountLabel = (amount: number, currency: string) => {
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency.toUpperCase()}`;
+  }
+};
 
 export const Transactions = () => {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState<DashboardRecentTransaction[]>([]);
+  const [transactions, setTransactions] = useState<PersonalTransaction[]>([]);
+  const [accounts, setAccounts] = useState<Record<string, PersonalAccount>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -24,12 +56,22 @@ export const Transactions = () => {
       setErrorMessage(null);
 
       try {
-        const result = await getRecentTransactions();
+        const [transactionResult, accountResult] = await Promise.all([
+          listPersonalTransactions(),
+          listPersonalAccounts()
+        ]);
+
         if (cancelled) {
           return;
         }
 
-        setTransactions(result);
+        setTransactions(transactionResult);
+        setAccounts(
+          accountResult.reduce<Record<string, PersonalAccount>>((acc, account) => {
+            acc[account.personalAccountId] = account;
+            return acc;
+          }, {})
+        );
       } catch {
         if (cancelled) {
           return;
@@ -61,30 +103,34 @@ export const Transactions = () => {
         {isLoading ? (
           <div className="alert alert-secondary">Loading transactions...</div>
         ) : transactions.length === 0 ? (
-          <div className="alert alert-info">No transactions yet. Complete a checkout to populate your history.</div>
+          <div className="alert alert-info">No transactions yet. Add one manually or import a statement to get started.</div>
         ) : (
           <div className="table-responsive">
             <table className="table table-card">
               <thead>
                 <tr>
-                  <th>Service</th>
-                  <th>Biller</th>
                   <th>Date</th>
-                  <th>Status</th>
+                  <th>Merchant</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Account</th>
+                  <th>Logged</th>
                   <th className="text-end">Amount</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.serviceName}</td>
-                    <td>{item.billerName}</td>
-                    <td>{item.dateLabel}</td>
-                    <td>{item.status}</td>
-                    <td className="text-end">{item.amountLabel}</td>
+                  <tr key={item.personalTransactionId}>
+                    <td>{formatDateLabel(item.occurredAt)}</td>
+                    <td>{item.merchant ?? "-"}</td>
+                    <td>{item.description ?? "-"}</td>
+                    <td>{item.category ?? "Pending"}</td>
+                    <td>{item.personalAccountId ? accounts[item.personalAccountId]?.name ?? "Account" : "Unassigned"}</td>
+                    <td>{formatDateLabel(item.createdAt)}</td>
+                    <td className="text-end">{formatAmountLabel(item.amount, item.currency)}</td>
                     <td>
-                      <Link to={`/payments/transaction-details?id=${encodeURIComponent(item.id)}`}>Details</Link>
+                      <Link to="/transactions/review">Review</Link>
                     </td>
                   </tr>
                 ))}
@@ -92,6 +138,12 @@ export const Transactions = () => {
             </table>
           </div>
         )}
+
+        <div className="d-flex gap-2 mt-3">
+          <Link className="btn btn-primary" to="/transactions/manual/new">Add transaction</Link>
+          <Link className="btn btn-outline-primary" to="/transactions/import">Import statement</Link>
+          <Link className="btn btn-outline-secondary" to="/insights/spending">View insights</Link>
+        </div>
       </div>
     </main>
   );

@@ -108,6 +108,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<Subscription> Subscriptions { get; set; } = null!;
     public virtual DbSet<Goal> Goals { get; set; } = null!;
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
+    public virtual DbSet<StatementImport> StatementImports { get; set; } = null!;
+    public virtual DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
 
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,
@@ -267,6 +269,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapFinanceTable<Subscription>(modelBuilder, "Subscriptions");
         MapFinanceTable<Goal>(modelBuilder, "Goals");
         MapFinanceTable<Budget>(modelBuilder, "Budgets");
+        MapFinanceTable<StatementImport>(modelBuilder, "StatementImports");
+        MapFinanceTable<StatementImportRow>(modelBuilder, "StatementImportRows");
 
         MapAiTable<AiProvider>(modelBuilder, "AiProviders");
         MapAiTable<AiModel>(modelBuilder, "AiModels");

@@ -193,6 +193,33 @@ Used for managing roles within a tenant.
 
 ---
 
+### 💼 Personal Finance Permissions
+
+Used for Payabo personal finance operations (accounts, transactions, imports, classification, and insights).
+
+| Permission | Description | Usage |
+|------------|-------------|-------|
+| `PersonalFinance.Accounts.Read` | View personal finance accounts | List and view source accounts (bank accounts, cards, wallets) |
+| `PersonalFinance.Accounts.Write` | Create/manage personal finance accounts | Create, update, and archive source accounts |
+| `PersonalFinance.Transactions.Read` | View personal finance transactions | Read manual and imported transactions |
+| `PersonalFinance.Transactions.Write` | Create/update personal finance transactions | Create manual transactions and apply edits |
+| `PersonalFinance.Imports.Create` | Create statement imports | Upload bank/card statement files for ingestion |
+| `PersonalFinance.Imports.Read` | View statement imports | View import status, rows, and parsing outcomes |
+| `PersonalFinance.Classification.Run` | Run transaction classification | Execute deterministic/AI classification routines |
+| `PersonalFinance.Classification.Review` | Review/override classifications | Accept or override low-confidence/pending classifications |
+| `PersonalFinance.Insights.Read` | View spending insights | Access summary/category/merchant/account insights |
+
+**Typical Role Assignments:**
+- **ConsumerUser:** `PersonalFinance.Accounts.Read`, `PersonalFinance.Accounts.Write`, `PersonalFinance.Transactions.Read`, `PersonalFinance.Transactions.Write`, `PersonalFinance.Imports.Create`, `PersonalFinance.Imports.Read`, `PersonalFinance.Classification.Review`, `PersonalFinance.Insights.Read`
+- **Operations/Support:** Read-focused subset (`PersonalFinance.*.Read`) and optional `PersonalFinance.Classification.Review`
+
+**Security Notes:**
+- Classification overrides should be auditable (actor, timestamp, prior category, final category).
+- Keep import and classification actions scoped to tenant and user-owned accounts.
+- For future shared/global rules, require explicit approval before apply.
+
+---
+
 ## Permission Categories
 
 ### Business Operations Permissions
@@ -225,7 +252,7 @@ Special permissions for AONIK system operators:
 
 Permissions are automatically seeded when the API starts in Development mode.
 
-**File:** `src/Aonik.Infrastructure/Persistence/Seed/IdentitySeedService.cs`
+**File:** `src/Aonik.Platform/Services/Seeding/IdentitySeedService.cs`
 
 **When:** Application startup (Development environment only)
 
@@ -426,7 +453,7 @@ Typical permissions:
 
 **A:** Not through the UI. Permissions are seeded from code. To add new permissions:
 
-1. Edit `src/Aonik.Infrastructure/Persistence/Seed/IdentitySeedService.cs`
+1. Edit `src/Aonik.Platform/Services/Seeding/IdentitySeedService.cs`
 2. Add your permission to the array
 3. Restart the API (in Development, permissions auto-seed)
 4. Create/update roles to include the new permission
@@ -501,4 +528,4 @@ Policies("InvoiceManager");
 ---
 
 **Last Updated:** January 9, 2025  
-**Total Permissions:** 24
+**Total Permissions:** 41
