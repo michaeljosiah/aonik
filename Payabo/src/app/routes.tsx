@@ -44,6 +44,11 @@ import { Transactions } from "../pages/dashboard/Transactions";
 import { TransactionsCalendar } from "../pages/dashboard/TransactionsCalendar";
 import { ManageCards } from "../pages/dashboard/ManageCards";
 import { CardDetails } from "../pages/dashboard/CardDetails";
+import { TransactionManualCreate } from "../pages/dashboard/TransactionManualCreate";
+import { TransactionsImport } from "../pages/dashboard/TransactionsImport";
+import { TransactionsReview } from "../pages/dashboard/TransactionsReview";
+import { SpendingInsights } from "../pages/dashboard/SpendingInsights";
+import { WalletAccounts } from "../pages/dashboard/WalletAccounts";
 import { TransactionDetails } from "../pages/payments/TransactionDetails";
 import { PersonalDetails } from "../pages/profile/PersonalDetails";
 import { PersonalDetailsEditName } from "../pages/profile/PersonalDetailsEditName";
@@ -99,6 +104,11 @@ export const router = createBrowserRouter([
           { path: "/dashboard-raw", element: <Navigate to="/dashboard" replace /> },
           { path: "/dashboard-empty", element: <DashboardEmpty /> },
           { path: "/transactions", element: <Transactions /> },
+          { path: "/transactions/manual/new", element: <TransactionManualCreate /> },
+          { path: "/transactions/import", element: <TransactionsImport /> },
+          { path: "/transactions/review", element: <TransactionsReview /> },
+          { path: "/insights/spending", element: <SpendingInsights /> },
+          { path: "/wallet/accounts", element: <WalletAccounts /> },
           { path: "/transactions/calendar", element: <TransactionsCalendar /> },
           { path: "/dashboard-transactions-raw", element: <Navigate to="/transactions" replace /> },
           { path: "/dashboard-transactions-rsample", element: <Navigate to="/transactions" replace /> },

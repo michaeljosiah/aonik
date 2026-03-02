@@ -61,6 +61,7 @@ public sealed class AiModule : IModule
         // ── AI Services ──────────────────────────────────────────────
         // Insight persistence — consumed by domain modules via IInsightWriter contract
         services.AddScoped<IInsightWriter, InsightWriter>();
+        services.AddScoped<IAiRunWriter, AiRunWriter>();
 
         // Cross-module provisioning contributor
         services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.AiTenantProvisioningContributor>();

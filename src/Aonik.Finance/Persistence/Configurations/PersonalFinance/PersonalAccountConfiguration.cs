@@ -35,8 +35,18 @@ internal class PersonalAccountConfiguration : IEntityTypeConfiguration<PersonalA
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(x => x.AccountSubtype)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.Last4)
+            .HasMaxLength(4);
+
+        builder.Property(x => x.IsArchived)
+            .HasDefaultValue(false);
+
         builder.HasIndex(x => x.UserId);
         builder.HasIndex(x => x.HouseholdId);
         builder.HasIndex(x => x.ExternalReference);
+        builder.HasIndex(x => new { x.TenantId, x.UserId, x.IsArchived });
     }
 }

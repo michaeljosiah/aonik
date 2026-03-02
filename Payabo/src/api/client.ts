@@ -85,6 +85,14 @@ export const apiPut = async <T>(path: string, body: unknown, init?: RequestInit)
   }, "json");
 };
 
+export const apiPatch = async <T>(path: string, body: unknown, init?: RequestInit): Promise<T> => {
+  return apiRequest<T>(path, {
+    ...init,
+    method: "PATCH",
+    body: JSON.stringify(body)
+  }, "json");
+};
+
 export const apiDelete = async <T>(path: string, init?: RequestInit): Promise<T> => {
   return apiRequest<T>(path, {
     ...init,

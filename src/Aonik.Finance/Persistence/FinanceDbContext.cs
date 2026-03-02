@@ -108,6 +108,8 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
     public DbSet<Goal> Goals { get; set; } = null!;
     public DbSet<Budget> Budgets { get; set; } = null!;
+    public DbSet<StatementImport> StatementImports { get; set; } = null!;
+    public DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -192,6 +194,8 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<Subscription>(modelBuilder, "Subscriptions");
         MapTable<Goal>(modelBuilder, "Goals");
         MapTable<Budget>(modelBuilder, "Budgets");
+        MapTable<StatementImport>(modelBuilder, "StatementImports");
+        MapTable<StatementImportRow>(modelBuilder, "StatementImportRows");
 
         MapPlatformTable<PartyReadModel>(modelBuilder, "Parties");
         MapPlatformTable<UserReadModel>(modelBuilder, "Users");
