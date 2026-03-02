@@ -74,6 +74,7 @@ internal sealed class StatementImportService : IStatementImportService
 
         using var reader = new StreamReader(fileStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
         var csvContent = await reader.ReadToEndAsync(cancellationToken);
+        var importFingerprintScope = ComputeImportFingerprintScope(csvContent);
 
         var statementImport = new StatementImport
         {
@@ -92,7 +93,7 @@ internal sealed class StatementImportService : IStatementImportService
 
         try
         {
-            var parsedRows = ParseCsvRows(csvContent, account.Currency, request.PersonalAccountId);
+            var parsedRows = ParseCsvRows(csvContent, account.Currency, request.PersonalAccountId, importFingerprintScope);
             await MarkUploadDuplicatesAsync(parsedRows, tenantId, userId, cancellationToken);
 
             var rows = parsedRows.Select(row => new StatementImportRow
@@ -398,7 +399,8 @@ internal sealed class StatementImportService : IStatementImportService
     private static List<ParsedStatementImportRow> ParseCsvRows(
         string csvContent,
         string? accountCurrency,
-        Guid personalAccountId)
+        Guid personalAccountId,
+        string importFingerprintScope)
     {
         if (string.IsNullOrWhiteSpace(csvContent))
         {
@@ -487,7 +489,7 @@ internal sealed class StatementImportService : IStatementImportService
                     merchantRaw);
 
                 var occurrence = NextOccurrence(fingerprintOccurrences, baseFingerprintKey);
-                fingerprint = ComputeFingerprint(baseFingerprintKey, occurrence);
+                fingerprint = ComputeFingerprint(baseFingerprintKey, importFingerprintScope, occurrence);
             }
 
             rows.Add(new ParsedStatementImportRow
@@ -679,14 +681,29 @@ internal sealed class StatementImportService : IStatementImportService
         return next;
     }
 
-    private static string ComputeFingerprint(string baseFingerprintKey, int occurrence)
+    private static string ComputeFingerprint(string baseFingerprintKey, string importFingerprintScope, int occurrence)
     {
         var normalized = string.Join(
             "|",
+            importFingerprintScope,
             baseFingerprintKey,
             occurrence.ToString("D6", CultureInfo.InvariantCulture));
 
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static string ComputeImportFingerprintScope(string csvContent)
+    {
+        var normalizedContent = string.Join(
+            "\n",
+            csvContent
+                .Replace("\r\n", "\n")
+                .Replace('\r', '\n')
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim()));
+
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedContent));
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 

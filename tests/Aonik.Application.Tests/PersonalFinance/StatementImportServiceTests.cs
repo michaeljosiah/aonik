@@ -80,7 +80,9 @@ public class StatementImportServiceTests
         context.PersonalAccounts.Add(account);
         await context.SaveChangesAsync();
 
-        var fingerprint = ComputeFingerprint(account.Id, new DateTime(2026, 1, 10), -12.50m, "Coffee", "Starbucks", 1);
+        var csv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\n";
+        var importFingerprintScope = ComputeImportFingerprintScope(csv);
+        var fingerprint = ComputeFingerprint(account.Id, new DateTime(2026, 1, 10), -12.50m, "Coffee", "Starbucks", 1, importFingerprintScope);
         context.PersonalTransactions.Add(new PersonalTransaction
         {
             TenantId = tenantId,
@@ -104,7 +106,6 @@ public class StatementImportServiceTests
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId));
 
-        var csv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\n";
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
 
         // Act
@@ -227,13 +228,75 @@ public class StatementImportServiceTests
         transactions[1].Amount.Should().Be(-12.50m);
     }
 
+    [Fact]
+    public async Task ApplyImportAsync_ShouldImportMatchingRowsFromDifferentStatementFiles()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var account = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Main Account",
+            AccountType = "Bank",
+            Currency = "USD",
+            Status = "Active"
+        };
+
+        context.PersonalAccounts.Add(account);
+        await context.SaveChangesAsync();
+
+        var service = new StatementImportService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        var firstCsv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\n2026-01-11,-5.00,Snack,Store,USD\n";
+        using var firstUploadStream = new MemoryStream(Encoding.UTF8.GetBytes(firstCsv));
+
+        var firstUpload = await service.UploadStatementAsync(
+            new UploadStatementImportRequest(account.Id, "statement-a.csv", "text/csv"),
+            firstUploadStream);
+
+        await service.ApplyImportAsync(firstUpload.StatementImportId);
+
+        var secondCsv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\n2026-01-12,-3.25,Parking,City,USD\n";
+        using var secondUploadStream = new MemoryStream(Encoding.UTF8.GetBytes(secondCsv));
+
+        // Act
+        var secondUpload = await service.UploadStatementAsync(
+            new UploadStatementImportRequest(account.Id, "statement-b.csv", "text/csv"),
+            secondUploadStream);
+
+        var secondApply = await service.ApplyImportAsync(secondUpload.StatementImportId);
+
+        // Assert
+        secondUpload.RowsDuplicate.Should().Be(0);
+        secondApply.RowsImported.Should().Be(2);
+
+        var coffeeTransactions = await context.PersonalTransactions
+            .Where(item =>
+                item.TenantId == tenantId
+                && item.UserId == userId
+                && item.SourceType == "statement_import"
+                && item.Description == "Coffee"
+                && item.Amount == -12.50m)
+            .ToListAsync();
+
+        coffeeTransactions.Should().HaveCount(2);
+    }
+
     private static string ComputeFingerprint(
         Guid personalAccountId,
         DateTime occurredAt,
         decimal amount,
         string description,
         string merchant,
-        int occurrence)
+        int occurrence,
+        string importFingerprintScope)
     {
         var baseKey = string.Join(
             "|",
@@ -245,10 +308,25 @@ public class StatementImportServiceTests
 
         var normalized = string.Join(
             "|",
+            importFingerprintScope,
             baseKey,
             occurrence.ToString("D6", CultureInfo.InvariantCulture));
 
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static string ComputeImportFingerprintScope(string csvContent)
+    {
+        var normalizedContent = string.Join(
+            "\n",
+            csvContent
+                .Replace("\r\n", "\n")
+                .Replace('\r', '\n')
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim()));
+
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedContent));
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }
