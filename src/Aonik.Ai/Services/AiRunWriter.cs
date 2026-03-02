@@ -29,6 +29,32 @@ internal sealed class AiRunWriter : IAiRunWriter
         string outcome,
         CancellationToken cancellationToken = default)
     {
+        var aiRunId = await StartRunAsync(useCase, inputRefsJson, cancellationToken);
+
+        var normalizedOutcome = string.IsNullOrWhiteSpace(outcome)
+            ? "Completed"
+            : outcome.Trim();
+
+        if (string.Equals(normalizedOutcome, "Started", StringComparison.OrdinalIgnoreCase))
+        {
+            return aiRunId;
+        }
+
+        if (string.Equals(normalizedOutcome, "Completed", StringComparison.OrdinalIgnoreCase))
+        {
+            await MarkRunCompletedAsync(aiRunId, cancellationToken: cancellationToken);
+            return aiRunId;
+        }
+
+        await UpdateRunOutcomeAsync(aiRunId, normalizedOutcome, null, cancellationToken);
+        return aiRunId;
+    }
+
+    public async Task<Guid> StartRunAsync(
+        string useCase,
+        string inputRefsJson,
+        CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(useCase))
         {
             throw new ArgumentException("useCase is required.", nameof(useCase));
@@ -49,13 +75,54 @@ internal sealed class AiRunWriter : IAiRunWriter
             TokensUsed = 0,
             CostEstimate = 0,
             LatencyMs = 0,
-            Outcome = string.IsNullOrWhiteSpace(outcome) ? "Completed" : outcome.Trim()
+            Outcome = "Started"
         };
 
         _dbContext.AiRuns.Add(run);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return run.Id;
+    }
+
+    public async Task MarkRunCompletedAsync(
+        Guid aiRunId,
+        string? outputRef = null,
+        CancellationToken cancellationToken = default)
+    {
+        await UpdateRunOutcomeAsync(aiRunId, "Completed", outputRef, cancellationToken);
+    }
+
+    public async Task MarkRunFailedAsync(
+        Guid aiRunId,
+        string failureReason,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedReason = string.IsNullOrWhiteSpace(failureReason)
+            ? "Unknown error"
+            : failureReason.Trim();
+
+        if (normalizedReason.Length > 200)
+        {
+            normalizedReason = normalizedReason[..200];
+        }
+
+        await UpdateRunOutcomeAsync(aiRunId, "Failed", normalizedReason, cancellationToken);
+    }
+
+    private async Task UpdateRunOutcomeAsync(
+        Guid aiRunId,
+        string outcome,
+        string? outputRef,
+        CancellationToken cancellationToken)
+    {
+        var run = await _dbContext.AiRuns
+            .FirstOrDefaultAsync(item => item.Id == aiRunId, cancellationToken)
+            ?? throw new InvalidOperationException($"AiRun {aiRunId} not found.");
+
+        run.Outcome = outcome;
+        run.OutputRef = string.IsNullOrWhiteSpace(outputRef) ? null : outputRef.Trim();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<AiModel> EnsureDefaultModelAsync(CancellationToken cancellationToken)

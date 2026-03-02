@@ -6,6 +6,21 @@ namespace Aonik.SharedKernel.Abstractions.Ai;
 /// </summary>
 public interface IAiRunWriter
 {
+    Task<Guid> StartRunAsync(
+        string useCase,
+        string inputRefsJson,
+        CancellationToken cancellationToken = default);
+
+    Task MarkRunCompletedAsync(
+        Guid aiRunId,
+        string? outputRef = null,
+        CancellationToken cancellationToken = default);
+
+    Task MarkRunFailedAsync(
+        Guid aiRunId,
+        string failureReason,
+        CancellationToken cancellationToken = default);
+
     Task<Guid> SaveRunAsync(
         string useCase,
         string inputRefsJson,

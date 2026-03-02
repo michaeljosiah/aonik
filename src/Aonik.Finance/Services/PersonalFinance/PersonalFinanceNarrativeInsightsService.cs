@@ -94,9 +94,6 @@ internal sealed class PersonalFinanceNarrativeInsightsService : IPersonalFinance
             new(ChatRole.User, userPrompt)
         };
 
-        var chatResponse = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
-        var narrative = chatResponse.Text ?? string.Empty;
-
         var inputRefsJson = JsonSerializer.Serialize(new
         {
             request.PeriodStart,
@@ -104,27 +101,53 @@ internal sealed class PersonalFinanceNarrativeInsightsService : IPersonalFinance
             request.PersonalAccountId
         });
 
-        var aiRunId = await _aiRunWriter.SaveRunAsync(
+        var aiRunId = await _aiRunWriter.StartRunAsync(
             "personal_finance_spending_narrative",
             inputRefsJson,
-            "Completed",
             cancellationToken);
 
-        var subjectId = Guid.NewGuid();
-        var insight = await _insightWriter.SaveInsightAsync(
-            "PersonalSpendPeriod",
-            subjectId,
-            "Spending Narrative Insight",
-            narrative,
-            cancellationToken);
+        try
+        {
+            var chatResponse = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+            var narrative = chatResponse.Text ?? string.Empty;
 
-        return new PersonalSpendingNarrativeInsightResponse(
-            insight.Id,
-            aiRunId,
-            insight.SubjectType,
-            insight.SubjectId,
-            insight.Title,
-            insight.Summary,
-            insight.CreatedUtc);
+            var subjectId = Guid.NewGuid();
+            var insight = await _insightWriter.SaveInsightAsync(
+                "PersonalSpendPeriod",
+                subjectId,
+                "Spending Narrative Insight",
+                narrative,
+                cancellationToken);
+
+            await _aiRunWriter.MarkRunCompletedAsync(
+                aiRunId,
+                $"insight:{insight.Id}",
+                cancellationToken);
+
+            return new PersonalSpendingNarrativeInsightResponse(
+                insight.Id,
+                aiRunId,
+                insight.SubjectType,
+                insight.SubjectId,
+                insight.Title,
+                insight.Summary,
+                insight.CreatedUtc);
+        }
+        catch (Exception ex)
+        {
+            await TryMarkRunFailedAsync(aiRunId, ex.Message);
+            throw;
+        }
+    }
+
+    private async Task TryMarkRunFailedAsync(Guid aiRunId, string failureReason)
+    {
+        try
+        {
+            await _aiRunWriter.MarkRunFailedAsync(aiRunId, failureReason, CancellationToken.None);
+        }
+        catch
+        {
+        }
     }
 }
