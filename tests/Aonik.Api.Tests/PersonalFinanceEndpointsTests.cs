@@ -148,6 +148,48 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task ClassificationReview_OverrideWithNullRuleMatchType_ReturnsValidationError()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+        var account = await CreateAccountAsync(client, "Validation Account");
+
+        var transactionResponse = await client.PostAsJsonAsync("/personal-finance/transactions", new CreateManualPersonalTransactionRequest(
+            account.PersonalAccountId,
+            DateTime.UtcNow,
+            -30m,
+            "USD",
+            "Corner Shop",
+            "Snacks",
+            null,
+            null,
+            null));
+
+        var transaction = await transactionResponse.Content.ReadFromJsonAsync<PersonalTransactionResponse>();
+
+        var payload = """
+        {
+          "category": "Groceries",
+          "notes": null,
+          "createRuleFromCorrection": true,
+          "rulePattern": "Corner Shop",
+          "rulePriority": 100,
+          "ruleMatchType": null
+        }
+        """;
+
+        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+        // Act
+        var response = await client.PostAsync(
+            $"/personal-finance/classification/review/{transaction!.PersonalTransactionId}/override",
+            content);
+
+        // Assert
+        response.StatusCode.Should().Be((HttpStatusCode)422);
+    }
+
+    [Fact]
     public async Task InsightsEndpoints_ReturnSummaryAndBreakdowns()
     {
         // Arrange

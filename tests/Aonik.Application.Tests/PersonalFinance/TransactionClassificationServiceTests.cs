@@ -105,4 +105,51 @@ public class TransactionClassificationServiceTests
         savedRule.Pattern.Should().Be("Market One");
         savedRule.CreatedFromUserCorrection.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task OverrideClassificationAsync_ShouldThrowArgumentException_WhenRuleMatchTypeIsNull()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var transaction = new PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow,
+            Amount = -42m,
+            Currency = "USD",
+            Merchant = "Store",
+            Description = "Test transaction",
+            ReviewStatus = "Pending",
+            TagsJson = "[]"
+        };
+
+        context.PersonalTransactions.Add(transaction);
+        await context.SaveChangesAsync();
+
+        var service = new TransactionClassificationService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        Func<Task> action = () => service.OverrideClassificationAsync(
+            transaction.Id,
+            new OverrideTransactionClassificationRequest(
+                "Groceries",
+                null,
+                true,
+                "Store",
+                100,
+                null!));
+
+        // Assert
+        var exception = await action.Should().ThrowAsync<ArgumentException>();
+        exception.Which.ParamName.Should().Be(nameof(OverrideTransactionClassificationRequest.RuleMatchType));
+    }
 }

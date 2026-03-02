@@ -49,7 +49,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             Category = request.Category.Trim(),
             Priority = request.Priority,
             IsActive = true,
-            MatchType = request.MatchType.Trim().ToLowerInvariant(),
+            MatchType = NormalizeMatchType(request.MatchType, nameof(request.MatchType)),
             CaseSensitive = request.CaseSensitive,
             MinAmount = request.MinAmount,
             MaxAmount = request.MaxAmount,
@@ -106,7 +106,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         rule.Category = request.Category.Trim();
         rule.Priority = request.Priority;
         rule.IsActive = request.IsActive;
-        rule.MatchType = request.MatchType.Trim().ToLowerInvariant();
+        rule.MatchType = NormalizeMatchType(request.MatchType, nameof(request.MatchType));
         rule.CaseSensitive = request.CaseSensitive;
         rule.MinAmount = request.MinAmount;
         rule.MaxAmount = request.MaxAmount;
@@ -218,6 +218,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         if (request.CreateRuleFromCorrection)
         {
             var rulePattern = ResolveRulePattern(request.RulePattern, transaction);
+            var matchType = NormalizeMatchType(request.RuleMatchType, nameof(request.RuleMatchType));
 
             var rule = new CategorisationRule
             {
@@ -227,7 +228,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
                 Category = transaction.Category,
                 Priority = request.RulePriority,
                 IsActive = true,
-                MatchType = request.RuleMatchType.Trim().ToLowerInvariant(),
+                MatchType = matchType,
                 CaseSensitive = false,
                 MinAmount = null,
                 MaxAmount = null,
@@ -398,6 +399,13 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         {
             throw new ArgumentException($"{fieldName} is required.", fieldName);
         }
+    }
+
+    private static string NormalizeMatchType(string? value, string fieldName)
+    {
+        var normalized = value?.Trim();
+        ValidateRequiredText(normalized, fieldName);
+        return normalized!.ToLowerInvariant();
     }
 
     private static CategorisationRuleResponse MapRule(CategorisationRule rule)
