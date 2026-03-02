@@ -80,7 +80,7 @@ public class StatementImportServiceTests
         context.PersonalAccounts.Add(account);
         await context.SaveChangesAsync();
 
-        var fingerprint = ComputeFingerprint(account.Id, new DateTime(2026, 1, 10), -12.50m, "Coffee", "Starbucks");
+        var fingerprint = ComputeFingerprint(account.Id, new DateTime(2026, 1, 10), -12.50m, "Coffee", "Starbucks", 1);
         context.PersonalTransactions.Add(new PersonalTransaction
         {
             TenantId = tenantId,
@@ -169,20 +169,84 @@ public class StatementImportServiceTests
         transactions[0].Description.Should().Be("Coffee");
     }
 
+    [Fact]
+    public async Task ApplyImportAsync_ShouldImportRepeatedSameDayRows_WhenValuesAreIdentical()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var account = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Main Account",
+            AccountType = "Bank",
+            Currency = "USD",
+            Status = "Active"
+        };
+
+        context.PersonalAccounts.Add(account);
+        await context.SaveChangesAsync();
+
+        var service = new StatementImportService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        var csv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\n2026-01-10,-12.50,Coffee,Starbucks,USD\n";
+        using var uploadStream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+
+        var uploaded = await service.UploadStatementAsync(
+            new UploadStatementImportRequest(account.Id, "repeat-statement.csv", "text/csv"),
+            uploadStream);
+
+        // Act
+        var applied = await service.ApplyImportAsync(uploaded.StatementImportId);
+
+        // Assert
+        uploaded.RowsTotal.Should().Be(2);
+        uploaded.RowsDuplicate.Should().Be(0);
+        uploaded.RowsParsed.Should().Be(2);
+
+        applied.RowsImported.Should().Be(2);
+        applied.RowsDuplicate.Should().Be(0);
+        applied.RowsFailed.Should().Be(0);
+
+        var transactions = await context.PersonalTransactions
+            .Where(item => item.SourceType == "statement_import")
+            .OrderBy(item => item.CreatedAt)
+            .ToListAsync();
+
+        transactions.Should().HaveCount(2);
+        transactions[0].ImportFingerprint.Should().NotBeNullOrWhiteSpace();
+        transactions[1].ImportFingerprint.Should().NotBeNullOrWhiteSpace();
+        transactions[0].ImportFingerprint.Should().NotBe(transactions[1].ImportFingerprint);
+        transactions[0].Amount.Should().Be(-12.50m);
+        transactions[1].Amount.Should().Be(-12.50m);
+    }
+
     private static string ComputeFingerprint(
         Guid personalAccountId,
         DateTime occurredAt,
         decimal amount,
         string description,
-        string merchant)
+        string merchant,
+        int occurrence)
     {
-        var normalized = string.Join(
+        var baseKey = string.Join(
             "|",
             personalAccountId.ToString("N"),
-            occurredAt.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            occurredAt.ToString("yyyy-MM-ddTHH:mm:ss.fffffff", CultureInfo.InvariantCulture),
             decimal.Round(amount, 2).ToString("0.00", CultureInfo.InvariantCulture),
             description.Trim().ToLowerInvariant(),
             merchant.Trim().ToLowerInvariant());
+
+        var normalized = string.Join(
+            "|",
+            baseKey,
+            occurrence.ToString("D6", CultureInfo.InvariantCulture));
 
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
         return Convert.ToHexString(hash).ToLowerInvariant();

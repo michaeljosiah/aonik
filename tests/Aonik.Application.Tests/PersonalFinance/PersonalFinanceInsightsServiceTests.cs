@@ -202,4 +202,51 @@ public class PersonalFinanceInsightsServiceTests
         result.Should().Contain(item => item.PersonalAccountId == accountB.Id && item.TotalAmount == 50m && item.TransactionCount == 1);
         result.Should().Contain(item => item.PersonalAccountId == null && item.TotalAmount == 20m && item.TransactionCount == 1);
     }
+
+    [Fact]
+    public async Task GetSpendingSummaryAsync_ShouldThrowArgumentException_WhenPeriodContainsMultipleCurrencies()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        context.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-2),
+                Amount = -120m,
+                Currency = "USD",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-1),
+                Amount = -80m,
+                Currency = "EUR",
+                TagsJson = "[]"
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = new PersonalFinanceInsightsService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        Func<Task> action = () => service.GetSpendingSummaryAsync(DateTime.UtcNow.AddDays(-10), DateTime.UtcNow);
+
+        // Assert
+        var exception = await action.Should().ThrowAsync<ArgumentException>();
+        exception.Which.Message.Should().Contain("multiple currencies");
+    }
 }

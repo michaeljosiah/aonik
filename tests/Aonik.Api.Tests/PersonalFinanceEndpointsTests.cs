@@ -306,6 +306,58 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task SpendingSummaryEndpoint_ReturnsValidationError_WhenPeriodContainsMultipleCurrencies()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+        var usdAccount = await CreateAccountAsync(client, "USD Account");
+
+        var eurAccountResponse = await client.PostAsJsonAsync("/personal-finance/accounts", new CreatePersonalAccountRequest(
+            "EUR Account",
+            "Bank",
+            "EUR",
+            "Acme Bank",
+            null,
+            "Current",
+            "2222"));
+        eurAccountResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var eurAccount = await eurAccountResponse.Content.ReadFromJsonAsync<PersonalAccountResponse>();
+        eurAccount.Should().NotBeNull();
+
+        var now = DateTime.UtcNow;
+
+        await client.PostAsJsonAsync("/personal-finance/transactions", new CreateManualPersonalTransactionRequest(
+            usdAccount.PersonalAccountId,
+            now.AddDays(-2),
+            -120m,
+            "USD",
+            "Fresh Foods",
+            "Groceries",
+            "Groceries",
+            null,
+            null));
+
+        await client.PostAsJsonAsync("/personal-finance/transactions", new CreateManualPersonalTransactionRequest(
+            eurAccount!.PersonalAccountId,
+            now.AddDays(-1),
+            -80m,
+            "EUR",
+            "Metro",
+            "Transit",
+            "Transport",
+            null,
+            null));
+
+        var query = $"?periodStart={Uri.EscapeDataString(now.AddDays(-10).ToString("O"))}&periodEnd={Uri.EscapeDataString(now.ToString("O"))}";
+
+        // Act
+        var response = await client.GetAsync($"/personal-finance/insights/spending-summary{query}");
+
+        // Assert
+        response.StatusCode.Should().Be((HttpStatusCode)422);
+    }
+
+    [Fact]
     public async Task NarrativeInsightsEndpoint_ReturnsInsightWithAiRunReference()
     {
         // Arrange

@@ -428,6 +428,7 @@ internal sealed class StatementImportService : IStatementImportService
         }
 
         var rows = new List<ParsedStatementImportRow>();
+        var fingerprintOccurrences = new Dictionary<string, int>(StringComparer.Ordinal);
         var lineNumber = 1;
         string? line;
         while ((line = reader.ReadLine()) != null)
@@ -474,14 +475,20 @@ internal sealed class StatementImportService : IStatementImportService
             }
 
             var parseStatus = errors.Count == 0 ? RowStatusParsed : RowStatusFailed;
-            var fingerprint = parseStatus == RowStatusParsed
-                ? ComputeFingerprint(
+            string? fingerprint = null;
+
+            if (parseStatus == RowStatusParsed)
+            {
+                var baseFingerprintKey = BuildFingerprintBaseKey(
                     personalAccountId,
                     normalizedOccurredAt!.Value,
                     normalizedAmount!.Value,
                     normalizedDescription!,
-                    merchantRaw)
-                : null;
+                    merchantRaw);
+
+                var occurrence = NextOccurrence(fingerprintOccurrences, baseFingerprintKey);
+                fingerprint = ComputeFingerprint(baseFingerprintKey, occurrence);
+            }
 
             rows.Add(new ParsedStatementImportRow
             {
@@ -643,20 +650,41 @@ internal sealed class StatementImportService : IStatementImportService
         return value?.ToUpperInvariant();
     }
 
-    private static string ComputeFingerprint(
+    private static string BuildFingerprintBaseKey(
         Guid personalAccountId,
         DateTime occurredAt,
         decimal amount,
         string description,
         string? merchant)
     {
-        var normalized = string.Join(
+        return string.Join(
             "|",
             personalAccountId.ToString("N"),
-            occurredAt.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            occurredAt.ToString("yyyy-MM-ddTHH:mm:ss.fffffff", CultureInfo.InvariantCulture),
             decimal.Round(amount, 2).ToString("0.00", CultureInfo.InvariantCulture),
             NormalizeFingerprintToken(description),
             NormalizeFingerprintToken(merchant));
+    }
+
+    private static int NextOccurrence(IDictionary<string, int> occurrences, string baseFingerprintKey)
+    {
+        if (!occurrences.TryGetValue(baseFingerprintKey, out var current))
+        {
+            occurrences[baseFingerprintKey] = 1;
+            return 1;
+        }
+
+        var next = current + 1;
+        occurrences[baseFingerprintKey] = next;
+        return next;
+    }
+
+    private static string ComputeFingerprint(string baseFingerprintKey, int occurrence)
+    {
+        var normalized = string.Join(
+            "|",
+            baseFingerprintKey,
+            occurrence.ToString("D6", CultureInfo.InvariantCulture));
 
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
         return Convert.ToHexString(bytes).ToLowerInvariant();

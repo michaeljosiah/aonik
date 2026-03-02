@@ -34,7 +34,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         ValidatePeriod(periodStart, periodEnd);
 
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
-        var currency = ResolveCurrency(transactions);
+        var currency = EnsureSingleCurrency(transactions);
 
         var totalIncome = transactions.Where(item => item.Amount > 0).Sum(item => item.Amount);
         var totalExpense = Math.Abs(transactions.Where(item => item.Amount < 0).Sum(item => item.Amount));
@@ -58,6 +58,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         ValidatePeriod(periodStart, periodEnd);
 
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
+        _ = EnsureSingleCurrency(transactions);
 
         var expenseRows = transactions.Where(item => item.Amount < 0).ToList();
         var expenseTotal = Math.Abs(expenseRows.Sum(item => item.Amount));
@@ -95,6 +96,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
 
         var limit = top <= 0 ? 10 : Math.Min(top, 100);
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
+        _ = EnsureSingleCurrency(transactions);
 
         return transactions
             .Where(item => item.Amount < 0)
@@ -116,6 +118,8 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         ValidatePeriod(periodStart, periodEnd);
 
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, null, cancellationToken);
+        _ = EnsureSingleCurrency(transactions);
+
         var expenseRows = transactions.Where(item => item.Amount < 0).ToList();
 
         if (expenseRows.Count == 0)
@@ -191,13 +195,21 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         return await query.ToListAsync(cancellationToken);
     }
 
-    private static string ResolveCurrency(IReadOnlyList<PersonalTransaction> transactions)
+    private static string EnsureSingleCurrency(IReadOnlyList<PersonalTransaction> transactions)
     {
-        var currency = transactions
+        var currencies = transactions
             .Select(item => item.Currency)
-            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
-        return currency ?? "USD";
+        if (currencies.Count > 1)
+        {
+            throw new ArgumentException("Insights cannot aggregate multiple currencies. Filter by a single account or currency-scoped period.");
+        }
+
+        return currencies.FirstOrDefault() ?? "USD";
     }
 
     private static void ValidatePeriod(DateTime periodStart, DateTime periodEnd)
