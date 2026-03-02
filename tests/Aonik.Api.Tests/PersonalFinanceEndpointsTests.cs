@@ -190,6 +190,30 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task ClassificationRules_CreateWithInvalidRegexPattern_ReturnsValidationError()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+
+        var request = new CreateCategorisationRuleRequest(
+            "(",
+            "Groceries",
+            100,
+            "regex",
+            false,
+            null,
+            null,
+            null,
+            "User");
+
+        // Act
+        var response = await client.PostAsJsonAsync("/personal-finance/classification/rules", request);
+
+        // Assert
+        response.StatusCode.Should().Be((HttpStatusCode)422);
+    }
+
+    [Fact]
     public async Task InsightsEndpoints_ReturnSummaryAndBreakdowns()
     {
         // Arrange
@@ -247,7 +271,10 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
         accountResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var accounts = await accountResponse.Content.ReadFromJsonAsync<List<AccountSpendingItemResponse>>();
         accounts.Should().NotBeNull();
-        accounts!.Should().Contain(item => item.PersonalAccountId == account.PersonalAccountId);
+        accounts!.Should().Contain(item =>
+            item.PersonalAccountId == account.PersonalAccountId
+            && item.TotalAmount == 120m
+            && item.TransactionCount == 1);
     }
 
     [Fact]

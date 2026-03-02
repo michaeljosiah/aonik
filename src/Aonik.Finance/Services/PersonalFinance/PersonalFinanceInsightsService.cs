@@ -116,7 +116,14 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         ValidatePeriod(periodStart, periodEnd);
 
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, null, cancellationToken);
-        var accountIds = transactions
+        var expenseRows = transactions.Where(item => item.Amount < 0).ToList();
+
+        if (expenseRows.Count == 0)
+        {
+            return Array.Empty<AccountSpendingItemResponse>();
+        }
+
+        var accountIds = expenseRows
             .Where(item => item.PersonalAccountId.HasValue)
             .Select(item => item.PersonalAccountId!.Value)
             .Distinct()
@@ -127,7 +134,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
             .Where(account => accountIds.Contains(account.Id))
             .ToDictionaryAsync(account => account.Id, account => account.Name, cancellationToken);
 
-        return transactions
+        return expenseRows
             .GroupBy(item => item.PersonalAccountId)
             .Select(group =>
             {
@@ -142,10 +149,10 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
                 return new AccountSpendingItemResponse(
                     accountId,
                     accountName,
-                    group.Sum(item => item.Amount),
+                    Math.Abs(group.Sum(item => item.Amount)),
                     group.Count());
             })
-            .OrderByDescending(item => Math.Abs(item.TotalAmount))
+            .OrderByDescending(item => item.TotalAmount)
             .ToList();
     }
 

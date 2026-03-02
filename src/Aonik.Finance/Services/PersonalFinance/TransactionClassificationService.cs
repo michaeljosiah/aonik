@@ -13,6 +13,8 @@ namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class TransactionClassificationService : ITransactionClassificationService
 {
+    private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromMilliseconds(250);
+
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -33,8 +35,10 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
     {
         ValidateRequiredText(request.Pattern, nameof(request.Pattern));
         ValidateRequiredText(request.Category, nameof(request.Category));
-        ValidateRequiredText(request.MatchType, nameof(request.MatchType));
         ValidateRequiredText(request.Scope, nameof(request.Scope));
+
+        var matchType = NormalizeMatchType(request.MatchType, nameof(request.MatchType));
+        ValidateRulePatternForMatchType(request.Pattern, matchType, nameof(request.Pattern));
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
@@ -49,7 +53,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             Category = request.Category.Trim(),
             Priority = request.Priority,
             IsActive = true,
-            MatchType = NormalizeMatchType(request.MatchType, nameof(request.MatchType)),
+            MatchType = matchType,
             CaseSensitive = request.CaseSensitive,
             MinAmount = request.MinAmount,
             MaxAmount = request.MaxAmount,
@@ -87,9 +91,11 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
     {
         ValidateRequiredText(request.Pattern, nameof(request.Pattern));
         ValidateRequiredText(request.Category, nameof(request.Category));
-        ValidateRequiredText(request.MatchType, nameof(request.MatchType));
         ValidateRequiredText(request.Scope, nameof(request.Scope));
         ValidateRequiredText(request.ApprovalStatus, nameof(request.ApprovalStatus));
+
+        var matchType = NormalizeMatchType(request.MatchType, nameof(request.MatchType));
+        ValidateRulePatternForMatchType(request.Pattern, matchType, nameof(request.Pattern));
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
@@ -106,7 +112,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         rule.Category = request.Category.Trim();
         rule.Priority = request.Priority;
         rule.IsActive = request.IsActive;
-        rule.MatchType = NormalizeMatchType(request.MatchType, nameof(request.MatchType));
+        rule.MatchType = matchType;
         rule.CaseSensitive = request.CaseSensitive;
         rule.MinAmount = request.MinAmount;
         rule.MaxAmount = request.MaxAmount;
@@ -219,6 +225,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         {
             var rulePattern = ResolveRulePattern(request.RulePattern, transaction);
             var matchType = NormalizeMatchType(request.RuleMatchType, nameof(request.RuleMatchType));
+            ValidateRulePatternForMatchType(rulePattern, matchType, nameof(request.RulePattern));
 
             var rule = new CategorisationRule
             {
@@ -334,8 +341,8 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             return false;
         }
 
-        var sourceText = ResolveSourceText(transaction);
-        if (string.IsNullOrWhiteSpace(sourceText))
+        var sourceTexts = ResolveSourceTexts(transaction);
+        if (sourceTexts.Count == 0)
         {
             return false;
         }
@@ -349,29 +356,53 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
 
         return matchType switch
         {
-            "contains" => sourceText.Contains(pattern, comparison),
-            "exact" => string.Equals(sourceText, pattern, comparison),
-            "startswith" => sourceText.StartsWith(pattern, comparison),
-            "endswith" => sourceText.EndsWith(pattern, comparison),
-            "regex" => Regex.IsMatch(sourceText, pattern, rule.CaseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase),
+            "contains" => sourceTexts.Any(sourceText => sourceText.Contains(pattern, comparison)),
+            "exact" => sourceTexts.Any(sourceText => string.Equals(sourceText, pattern, comparison)),
+            "startswith" => sourceTexts.Any(sourceText => sourceText.StartsWith(pattern, comparison)),
+            "endswith" => sourceTexts.Any(sourceText => sourceText.EndsWith(pattern, comparison)),
+            "regex" => sourceTexts.Any(sourceText => IsRegexMatch(sourceText, pattern, rule.CaseSensitive)),
             "amount_range" => true,
-            _ => sourceText.Contains(pattern, comparison)
+            _ => sourceTexts.Any(sourceText => sourceText.Contains(pattern, comparison))
         };
     }
 
-    private static string ResolveSourceText(PersonalTransaction transaction)
+    private static bool IsRegexMatch(string sourceText, string pattern, bool caseSensitive)
     {
+        try
+        {
+            var options = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
+            return Regex.IsMatch(sourceText, pattern, options, RegexMatchTimeout);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<string> ResolveSourceTexts(PersonalTransaction transaction)
+    {
+        var sourceTexts = new List<string>();
+
         if (!string.IsNullOrWhiteSpace(transaction.Description))
         {
-            return transaction.Description;
+            sourceTexts.Add(transaction.Description.Trim());
         }
 
         if (!string.IsNullOrWhiteSpace(transaction.Merchant))
         {
-            return transaction.Merchant;
+            sourceTexts.Add(transaction.Merchant.Trim());
         }
 
-        return transaction.Notes ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(transaction.Notes))
+        {
+            sourceTexts.Add(transaction.Notes.Trim());
+        }
+
+        return sourceTexts;
     }
 
     private static string ResolveRulePattern(string? requestedPattern, PersonalTransaction transaction)
@@ -406,6 +437,23 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         var normalized = value?.Trim();
         ValidateRequiredText(normalized, fieldName);
         return normalized!.ToLowerInvariant();
+    }
+
+    private static void ValidateRulePatternForMatchType(string pattern, string matchType, string fieldName)
+    {
+        if (!string.Equals(matchType, "regex", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        try
+        {
+            _ = new Regex(pattern, RegexOptions.None, RegexMatchTimeout);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new ArgumentException("Pattern is not a valid regular expression.", fieldName, ex);
+        }
     }
 
     private static CategorisationRuleResponse MapRule(CategorisationRule rule)

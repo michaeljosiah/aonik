@@ -104,4 +104,102 @@ public class PersonalFinanceInsightsServiceTests
         result.NetAmount.Should().Be(1650m);
         result.TransactionCount.Should().Be(2);
     }
+
+    [Fact]
+    public async Task GetAccountBreakdownAsync_ShouldIncludeOnlyExpenseTotalsPerAccount()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var accountA = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Main Account",
+            AccountType = "Bank",
+            Currency = "USD",
+            Status = "Active"
+        };
+
+        var accountB = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Card Account",
+            AccountType = "CreditCard",
+            Currency = "USD",
+            Status = "Active"
+        };
+
+        context.PersonalAccounts.AddRange(accountA, accountB);
+        await context.SaveChangesAsync();
+
+        context.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                PersonalAccountId = accountA.Id,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-3),
+                Amount = -100m,
+                Currency = "USD",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                PersonalAccountId = accountA.Id,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-2),
+                Amount = 300m,
+                Currency = "USD",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                PersonalAccountId = accountB.Id,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-1),
+                Amount = -50m,
+                Currency = "USD",
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                PersonalAccountId = null,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddHours(-12),
+                Amount = -20m,
+                Currency = "USD",
+                TagsJson = "[]"
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = new PersonalFinanceInsightsService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.GetAccountBreakdownAsync(DateTime.UtcNow.AddDays(-10), DateTime.UtcNow);
+
+        // Assert
+        result.Should().HaveCount(3);
+        result.Should().Contain(item => item.PersonalAccountId == accountA.Id && item.TotalAmount == 100m && item.TransactionCount == 1);
+        result.Should().Contain(item => item.PersonalAccountId == accountB.Id && item.TotalAmount == 50m && item.TransactionCount == 1);
+        result.Should().Contain(item => item.PersonalAccountId == null && item.TotalAmount == 20m && item.TransactionCount == 1);
+    }
 }

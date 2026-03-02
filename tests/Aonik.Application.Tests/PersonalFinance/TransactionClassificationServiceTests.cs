@@ -152,4 +152,147 @@ public class TransactionClassificationServiceTests
         var exception = await action.Should().ThrowAsync<ArgumentException>();
         exception.Which.ParamName.Should().Be(nameof(OverrideTransactionClassificationRequest.RuleMatchType));
     }
+
+    [Fact]
+    public async Task AcceptClassificationAsync_ShouldMatchMerchantRule_WhenDescriptionAlsoExists()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var transaction = new PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow,
+            Amount = -80m,
+            Currency = "USD",
+            Merchant = "SuperMart",
+            Description = "POS REF 8891",
+            ReviewStatus = "Pending",
+            TagsJson = "[]"
+        };
+
+        var rule = new CategorisationRule
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Pattern = "SuperMart",
+            Category = "Groceries",
+            Priority = 200,
+            IsActive = true,
+            MatchType = "contains",
+            CaseSensitive = false,
+            Scope = "User",
+            ApprovalStatus = "Approved"
+        };
+
+        context.PersonalTransactions.Add(transaction);
+        context.CategorisationRules.Add(rule);
+        await context.SaveChangesAsync();
+
+        var service = new TransactionClassificationService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.AcceptClassificationAsync(transaction.Id);
+
+        // Assert
+        result.Category.Should().Be("Groceries");
+        result.CategorisedBy.Should().Be("rule");
+        result.ClassificationMethod.Should().Be("rule_engine");
+        result.ReviewStatus.Should().Be("Reviewed");
+    }
+
+    [Fact]
+    public async Task CreateRuleAsync_ShouldThrowArgumentException_WhenRegexPatternIsInvalid()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var service = new TransactionClassificationService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        Func<Task> action = () => service.CreateRuleAsync(
+            new CreateCategorisationRuleRequest(
+                "(",
+                "Groceries",
+                100,
+                "regex",
+                false,
+                null,
+                null,
+                null,
+                "User"));
+
+        // Assert
+        var exception = await action.Should().ThrowAsync<ArgumentException>();
+        exception.Which.ParamName.Should().Be(nameof(CreateCategorisationRuleRequest.Pattern));
+    }
+
+    [Fact]
+    public async Task AcceptClassificationAsync_ShouldNotThrow_WhenStoredRegexPatternIsInvalid()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var transaction = new PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow,
+            Amount = -15m,
+            Currency = "USD",
+            Merchant = "Corner Store",
+            Description = "POS TXN",
+            ReviewStatus = "Pending",
+            TagsJson = "[]"
+        };
+
+        var malformedRule = new CategorisationRule
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Pattern = "(",
+            Category = "Groceries",
+            Priority = 100,
+            IsActive = true,
+            MatchType = "regex",
+            CaseSensitive = false,
+            Scope = "User",
+            ApprovalStatus = "Approved"
+        };
+
+        context.PersonalTransactions.Add(transaction);
+        context.CategorisationRules.Add(malformedRule);
+        await context.SaveChangesAsync();
+
+        var service = new TransactionClassificationService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Act
+        var result = await service.AcceptClassificationAsync(transaction.Id);
+
+        // Assert
+        result.Category.Should().Be("Uncategorized");
+        result.CategorisedBy.Should().Be("manual");
+        result.ClassificationMethod.Should().Be("manual_fallback");
+        result.ReviewStatus.Should().Be("Reviewed");
+    }
 }
