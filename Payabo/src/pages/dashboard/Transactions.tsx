@@ -297,11 +297,8 @@ export const Transactions = () => {
                     </svg>
                     Back to dashboard
                   </Link>
-                  <h3 className="alt mt-4">My Transactions</h3>
-                  <p>
-                    Search, filter, and review your transaction history with the same structure as the classic MyBillAfrica
-                    transaction workspace.
-                  </p>
+                  <h3 className="alt mt-4">Personal finance transactions</h3>
+                  <p>Search, filter, and review your personal finance activity across imported and manual entries.</p>
                 </div>
               </div>
 
@@ -311,7 +308,7 @@ export const Transactions = () => {
                 <div className="col-xl-5">
                   <form onSubmit={(event) => event.preventDefault()}>
                     <div className="form-group">
-                      <label className="mb-2">Search by biller, service or reference</label>
+                      <label className="mb-2">Search by merchant, account or reference</label>
                       <div className="input-group search-box">
                         <span className="input-group-text">
                           <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -323,7 +320,7 @@ export const Transactions = () => {
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="Search for a transaction (biller or reference)"
+                          placeholder="Search for a transaction (merchant, account or reference)"
                           value={searchQuery}
                           onChange={(event) => setSearchQuery(event.target.value)}
                         />

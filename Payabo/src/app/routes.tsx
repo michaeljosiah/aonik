@@ -40,6 +40,7 @@ import { RequireAuth } from "./auth/RequireAuth";
 import { Logout } from "../pages/auth/Logout";
 import { Dashboard } from "../pages/dashboard/Dashboard";
 import { DashboardEmpty } from "../pages/dashboard/DashboardEmpty";
+import { BillTransactions } from "../pages/dashboard/BillTransactions";
 import { Transactions } from "../pages/dashboard/Transactions";
 import { TransactionsCalendar } from "../pages/dashboard/TransactionsCalendar";
 import { ManageCards } from "../pages/dashboard/ManageCards";
@@ -103,11 +104,25 @@ export const router = createBrowserRouter([
           { path: "/dashboard-sample", element: <Navigate to="/dashboard" replace /> },
           { path: "/dashboard-raw", element: <Navigate to="/dashboard" replace /> },
           { path: "/dashboard-empty", element: <DashboardEmpty /> },
-          { path: "/transactions", element: <Transactions /> },
-          { path: "/transactions/manual/new", element: <TransactionManualCreate /> },
-          { path: "/transactions/import", element: <TransactionsImport /> },
-          { path: "/transactions/review", element: <TransactionsReview /> },
-          { path: "/insights/spending", element: <SpendingInsights /> },
+          { path: "/transactions", element: <BillTransactions /> },
+          {
+            path: "/transactions/manual/new",
+            element: <Navigate to="/personal-finance/transactions/manual/new" replace />
+          },
+          {
+            path: "/transactions/import",
+            element: <Navigate to="/personal-finance/transactions/import" replace />
+          },
+          {
+            path: "/transactions/review",
+            element: <Navigate to="/personal-finance/transactions/review" replace />
+          },
+          { path: "/insights/spending", element: <Navigate to="/personal-finance/insights/spending" replace /> },
+          { path: "/personal-finance/transactions", element: <Transactions /> },
+          { path: "/personal-finance/transactions/manual/new", element: <TransactionManualCreate /> },
+          { path: "/personal-finance/transactions/import", element: <TransactionsImport /> },
+          { path: "/personal-finance/transactions/review", element: <TransactionsReview /> },
+          { path: "/personal-finance/insights/spending", element: <SpendingInsights /> },
           { path: "/wallet/accounts", element: <WalletAccounts /> },
           { path: "/transactions/calendar", element: <TransactionsCalendar /> },
           { path: "/dashboard-transactions-raw", element: <Navigate to="/transactions" replace /> },

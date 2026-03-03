@@ -1,7 +1,7 @@
-import { type ReactNode, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { type ReactNode, useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 
-type NavSection = "bills" | "transactions" | "wallet" | "payAssist" | null;
+type NavSection = "billPayments" | "personalFinance" | "wallet" | "payAssist" | null;
 
 type SidebarIconProps = {
   viewBox: string;
@@ -15,7 +15,29 @@ const SidebarIcon = ({ viewBox, children }: SidebarIconProps) => (
 );
 
 export const SidebarNav = () => {
-  const [openSection, setOpenSection] = useState<NavSection>("bills");
+  const location = useLocation();
+
+  const getSectionForPath = (pathname: string): NavSection => {
+    if (pathname.startsWith("/personal-finance/")) {
+      return "personalFinance";
+    }
+
+    if (pathname.startsWith("/wallet/") || pathname.startsWith("/manage-cards") || pathname.startsWith("/cards/")) {
+      return "wallet";
+    }
+
+    if (pathname.startsWith("/transactions") || pathname.startsWith("/payments/")) {
+      return "billPayments";
+    }
+
+    return "billPayments";
+  };
+
+  const [openSection, setOpenSection] = useState<NavSection>(() => getSectionForPath(location.pathname));
+
+  useEffect(() => {
+    setOpenSection(getSectionForPath(location.pathname));
+  }, [location.pathname]);
 
   const toggleSection = (section: NavSection) => {
     setOpenSection((current) => (current === section ? null : section));
@@ -39,10 +61,10 @@ export const SidebarNav = () => {
 
           <a
             href="#nav-list-01"
-            className={`list-nav-item icon-collapsed d-flex align-items-center ${openSection === "bills" ? "" : "collapsed"}`}
+            className={`list-nav-item icon-collapsed d-flex align-items-center ${openSection === "billPayments" ? "" : "collapsed"}`}
             onClick={(event) => {
               event.preventDefault();
-              toggleSection("bills");
+              toggleSection("billPayments");
             }}
           >
             <span className="list-nav-icon">
@@ -53,12 +75,15 @@ export const SidebarNav = () => {
                 />
               </SidebarIcon>
             </span>
-            Bills
+            Bill payments
           </a>
-          <div className={`collapse ${openSection === "bills" ? "show" : ""}`} id="nav-list-01">
+          <div className={`collapse ${openSection === "billPayments" ? "show" : ""}`} id="nav-list-01">
             <ul className="list-sub-nav">
               <li>
                 <NavLink to="/payments/providers">Pay a bill</NavLink>
+              </li>
+              <li>
+                <NavLink to="/transactions">Transactions</NavLink>
               </li>
               <li>
                 <a href="#">Outstanding bills</a>
@@ -71,10 +96,10 @@ export const SidebarNav = () => {
 
           <a
             href="#nav-list-02"
-            className={`list-nav-item icon-collapsed d-flex align-items-center ${openSection === "transactions" ? "" : "collapsed"}`}
+            className={`list-nav-item icon-collapsed d-flex align-items-center ${openSection === "personalFinance" ? "" : "collapsed"}`}
             onClick={(event) => {
               event.preventDefault();
-              toggleSection("transactions");
+              toggleSection("personalFinance");
             }}
           >
             <span className="list-nav-icon">
@@ -85,24 +110,24 @@ export const SidebarNav = () => {
                 />
               </SidebarIcon>
             </span>
-            Transactions
+            Personal finance
           </a>
-          <div className={`collapse ${openSection === "transactions" ? "show" : ""}`} id="nav-list-02">
+          <div className={`collapse ${openSection === "personalFinance" ? "show" : ""}`} id="nav-list-02">
             <ul className="list-sub-nav">
               <li>
-                <NavLink to="/transactions">All transactions</NavLink>
+                <NavLink to="/personal-finance/transactions">All transactions</NavLink>
               </li>
               <li>
-                <NavLink to="/transactions/manual/new">Add transaction</NavLink>
+                <NavLink to="/personal-finance/transactions/manual/new">Add transaction</NavLink>
               </li>
               <li>
-                <NavLink to="/transactions/import">Import statement</NavLink>
+                <NavLink to="/personal-finance/transactions/import">Import statement</NavLink>
               </li>
               <li>
-                <NavLink to="/transactions/review">Review queue</NavLink>
+                <NavLink to="/personal-finance/transactions/review">Review queue</NavLink>
               </li>
               <li>
-                <NavLink to="/insights/spending">Spending insights</NavLink>
+                <NavLink to="/personal-finance/insights/spending">Spending insights</NavLink>
               </li>
             </ul>
           </div>

@@ -7,6 +7,7 @@ import {
   overrideClassification,
   type ClassificationReviewItem
 } from "../../api/personalFinance";
+import { SidebarNav } from "../../components/navigation/SidebarNav";
 
 export const TransactionsReview = () => {
   const [items, setItems] = useState<ClassificationReviewItem[]>([]);
@@ -74,76 +75,92 @@ export const TransactionsReview = () => {
   };
 
   return (
-    <main className="main-wrapper overflow-hidden">
-      <div className="container py-4">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h3 className="alt mb-0">Classification review</h3>
-          <Link className="btn btn-outline-secondary" to="/transactions">Back to transactions</Link>
-        </div>
-
-        {errorMessage ? <div className="alert alert-warning">{errorMessage}</div> : null}
-
-        {items.length === 0 ? (
-          <div className="alert alert-success">Review queue is empty. Nice work.</div>
-        ) : (
-          <div className="card card-tbox">
-            <div className="card-body">
-              <div className="table-responsive">
-                <table className="table table-card mb-0">
-                  <thead>
-                    <tr>
-                      <th>Merchant</th>
-                      <th>Description</th>
-                      <th>Amount</th>
-                      <th>Confidence</th>
-                      <th>Category</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item) => (
-                      <tr key={item.personalTransactionId}>
-                        <td>{item.merchant ?? "-"}</td>
-                        <td>{item.description ?? "-"}</td>
-                        <td>{item.amount.toFixed(2)} {item.currency}</td>
-                        <td>{Math.round(item.confidence * 100)}%</td>
-                        <td style={{ minWidth: 200 }}>
-                          <input
-                            className="form-control form-control-sm"
-                            value={categoryDrafts[item.personalTransactionId] ?? ""}
-                            onChange={(event) => {
-                              const value = event.target.value;
-                              setCategoryDrafts((current) => ({ ...current, [item.personalTransactionId]: value }));
-                            }}
-                            placeholder="Category"
-                          />
-                        </td>
-                        <td className="text-end">
-                          <div className="d-flex gap-2 justify-content-end">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-secondary"
-                              onClick={() => void handleAccept(item.personalTransactionId)}
-                            >
-                              Accept
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-primary"
-                              onClick={() => void handleOverride(item.personalTransactionId)}
-                            >
-                              Override
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+    <main className="bg-secondary overflow-hidden">
+      <div className="container">
+        <div className="row">
+          <div className="col-lg-4 col-xl-3">
+            <SidebarNav />
+          </div>
+          <div className="col-lg-8 col-xl-9">
+            <div className="wrapper-content">
+              <div className="row align-items-end mb-md-2">
+                <div className="col-xl-8">
+                  <Link className="back-left-arrow" to="/personal-finance/transactions">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M-7.69392e-05 8.00008L8 0L9.60002 1.60002L3.19995 8.00008L9.60002 14.4001L8 16.0002L-7.69392e-05 8.00008Z" fill="currentColor" />
+                    </svg>
+                    Back to transactions
+                  </Link>
+                  <h3 className="alt mt-4">Classification review</h3>
+                </div>
               </div>
+
+              {errorMessage ? <div className="alert alert-warning">{errorMessage}</div> : null}
+
+              {items.length === 0 ? (
+                <div className="alert alert-success">Review queue is empty. Nice work.</div>
+              ) : (
+                <div className="card card-tbox">
+                  <div className="card-body">
+                    <div className="table-responsive">
+                      <table className="table table-card mb-0">
+                        <thead>
+                          <tr>
+                            <th>Merchant</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Confidence</th>
+                            <th>Category</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((item) => (
+                            <tr key={item.personalTransactionId}>
+                              <td>{item.merchant ?? "-"}</td>
+                              <td>{item.description ?? "-"}</td>
+                              <td>{item.amount.toFixed(2)} {item.currency}</td>
+                              <td>{Math.round(item.confidence * 100)}%</td>
+                              <td style={{ minWidth: 200 }}>
+                                <input
+                                  className="form-control form-control-sm"
+                                  value={categoryDrafts[item.personalTransactionId] ?? ""}
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    setCategoryDrafts((current) => ({ ...current, [item.personalTransactionId]: value }));
+                                  }}
+                                  placeholder="Category"
+                                />
+                              </td>
+                              <td className="text-end">
+                                <div className="d-flex gap-2 justify-content-end">
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary"
+                                    onClick={() => void handleAccept(item.personalTransactionId)}
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-primary"
+                                    onClick={() => void handleOverride(item.personalTransactionId)}
+                                  >
+                                    Override
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </main>
   );

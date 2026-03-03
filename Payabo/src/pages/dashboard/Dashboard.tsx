@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
+import { getPublicCatalogCountries, type CatalogCountry } from "../../api/catalog";
 import { useAuth } from "../../app/auth/AuthContext";
 import { SidebarNav } from "../../components/navigation/SidebarNav";
 import { useDashboardData } from "../../hooks/useDashboardData";
@@ -9,10 +10,78 @@ type BillTab = "search" | "invoice";
 
 const showOptionalPanels = (import.meta.env.VITE_PAYABO_SHOW_OPTIONAL_DASHBOARD_PANELS ?? "false") === "true";
 
+const buildProvidersPath = (countryCode: string) => {
+  const normalizedCountryCode = countryCode.trim().toUpperCase();
+  if (!normalizedCountryCode) {
+    return "/payments/providers";
+  }
+
+  const params = new URLSearchParams({ countryCode: normalizedCountryCode });
+  return `/payments/providers?${params.toString()}`;
+};
+
 export const Dashboard = () => {
+  const navigate = useNavigate();
+  const countriesSelectRef = useRef<HTMLSelectElement | null>(null);
   const [activeTab, setActiveTab] = useState<BillTab>("invoice");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [countries, setCountries] = useState<CatalogCountry[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>("");
+  const [countriesError, setCountriesError] = useState<string | null>(null);
+  const [isLoadingCountries, setIsLoadingCountries] = useState<boolean>(true);
+
   const { user } = useAuth();
   const { upcomingBills, recentTransactions, isLoading, errorMessage, refresh } = useDashboardData(user?.id);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCountries = async () => {
+      setIsLoadingCountries(true);
+      setCountriesError(null);
+
+      try {
+        const result = await getPublicCatalogCountries();
+        if (cancelled) {
+          return;
+        }
+
+        setCountries(result);
+        setSelectedCountry((current) => current || result[0]?.code || "");
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(new Event("payabo:refresh-selects"));
+        });
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setCountries([]);
+        setSelectedCountry("");
+        setCountriesError("We couldn't load countries right now. Please try again.");
+      } finally {
+        if (!cancelled) {
+          setIsLoadingCountries(false);
+        }
+      }
+    };
+
+    void loadCountries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "search") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("payabo:refresh-selects"));
+    });
+  }, [activeTab]);
 
   return (
     <main className="bg-secondary overflow-hidden">
@@ -87,33 +156,105 @@ export const Dashboard = () => {
                 <div className="col-xl-4 mb-4">
                   <div className="card card-tbox h-100">
                     <div className="card-body">
-                      <h4 className="mb-3">Pay a bill</h4>
-                      <div className="btn-group mb-3" role="group" aria-label="Bill mode tabs">
-                        <button
-                          type="button"
-                          className={`btn ${activeTab === "invoice" ? "btn-primary" : "btn-outline-primary"}`}
-                          onClick={() => setActiveTab("invoice")}
-                        >
-                          Invoice number
-                        </button>
-                        <button
-                          type="button"
-                          className={`btn ${activeTab === "search" ? "btn-primary" : "btn-outline-primary"}`}
-                          onClick={() => setActiveTab("search")}
-                        >
-                          Search provider
-                        </button>
+                      <div className="d-flex justify-content-between align-items-center mb-4">
+                        <h4 className="mb-0">Pay a bill</h4>
                       </div>
-
-                      <p className="text-gray">
-                        {activeTab === "invoice"
-                          ? "Use your invoice/service details to continue with payment."
-                          : "Select a provider and service from the live catalog."}
-                      </p>
-
-                      <Link className="btn btn-primary" to="/payments/providers">
-                        Continue to providers
-                      </Link>
+                      <nav>
+                        <div className="nav-tabs nav nav-fill">
+                          <a
+                            className={`nav-link ${activeTab === "search" ? "active" : ""}`}
+                            data-bs-toggle="tab"
+                            href="#tab-1"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              setActiveTab("search");
+                            }}
+                          >
+                            SEARCH BILL
+                          </a>
+                          <a
+                            className={`nav-link ${activeTab === "invoice" ? "active" : ""}`}
+                            data-bs-toggle="tab"
+                            href="#tab-2"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              setActiveTab("invoice");
+                            }}
+                          >
+                            PAY INVOICE
+                          </a>
+                        </div>
+                      </nav>
+                      <div className="tab-content">
+                        <div className={`tab-pane fade ${activeTab === "search" ? "show active" : ""}`} id="tab-1">
+                          <form
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              const selectedCountryCode = (countriesSelectRef.current?.value ?? selectedCountry)
+                                .trim()
+                                .toUpperCase();
+                              setSelectedCountry(selectedCountryCode);
+                              navigate(buildProvidersPath(selectedCountryCode));
+                            }}
+                          >
+                            <label htmlFor="dashboard-countries" className="form-label">Destination country</label>
+                            <div className="select mb-3">
+                              <select
+                                ref={countriesSelectRef}
+                                className="form-control countries"
+                                id="dashboard-countries"
+                                value={selectedCountry}
+                                onChange={(event) => setSelectedCountry(event.target.value)}
+                                disabled={isLoadingCountries || countries.length === 0}
+                              >
+                                {isLoadingCountries && <option value="">Loading countries...</option>}
+                                {!isLoadingCountries && countries.length === 0 && <option value="">No countries available</option>}
+                                {countries.map((country) => (
+                                  <option key={country.code} value={country.code}>
+                                    {country.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {countriesError && <p className="text-danger small mb-3">{countriesError}</p>}
+                            <p className="text-md mb-4">Note: Start by selecting the country you wish to pay a bill from.</p>
+                            <div className="text-center">
+                              <button
+                                type="submit"
+                                className="btn btn-primary btn-sm"
+                                disabled={isLoadingCountries || countries.length === 0}
+                              >
+                                GET STARTED
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                        <div className={`tab-pane fade ${activeTab === "invoice" ? "show active" : ""}`} id="tab-2">
+                          <form
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              navigate("/payments/providers");
+                            }}
+                          >
+                            <label htmlFor="invoice" className="form-label">Invoice number</label>
+                            <div className="mb-3">
+                              <input
+                                type="text"
+                                className="form-control"
+                                name="InvoiceNumber"
+                                id="invoice"
+                                placeholder="Enter MBA invoice number"
+                                value={invoiceNumber}
+                                onChange={(event) => setInvoiceNumber(event.target.value)}
+                              />
+                            </div>
+                            <p className="text-md mb-3">Note: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.</p>
+                            <div className="text-center">
+                              <button type="submit" className="btn btn-primary btn-sm">GET STARTED</button>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

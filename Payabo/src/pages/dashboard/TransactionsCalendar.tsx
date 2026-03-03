@@ -1,5 +1,5 @@
-import { Transactions } from "./Transactions";
+import { BillTransactions } from "./BillTransactions";
 
 export const TransactionsCalendar = () => {
-  return <Transactions />;
+  return <BillTransactions />;
 };

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>MyBillAfrica</title>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<link rel="shortcut icon" href="images/favicon.ico">
+	<link rel="stylesheet" href="css/bootstrap.min.css">
+	<link rel="stylesheet" href="css/select2.min.css">
+	<link rel="stylesheet" href="css/slick.css">
+	<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+	<div class="wrapper d-flex flex-column">
+		<div class="py-4 border-bottom">
+			<div class="container">
+				<div class="row align-items-center">
+					<div class="col">
+						<a href="profile.html">
+							<svg width="13" height="20" viewBox="0 0 13 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+								<path d="M9.89968 19.7993L12.021 17.678L2.12151 7.77848L0.000185311 9.8998L9.89968 19.7993Z" fill="#F37920"/>
+								<path d="M12.0203 2.12132L9.899 0L-0.000494123 9.89949L2.12083 12.0208L12.0203 2.12132Z" fill="#F37920"/>
+							</svg>
+						</a>
+					</div>
+					<div class="col-auto text-center">
+						<span class="title-top">Select card</span>
+					</div>
+					<div class="col text-end">
+						<a href="#"><img src="images/icon-close.svg" alt="x"></a>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="mb-auto">
+			<div class="list-line-container">
+				<div class="container">
+					<a class="row list-link-card align-items-center" href="#">
+						<div class="col">
+							<div class="d-flex align-items-center ps-2">
+								<div class="card-line-img">
+									<img src="images/credit-card-logo.jpg" alt="">
+								</div>
+								<div class="card-content">
+									<strong class="heading-td">Card type</strong> <span class="dot-info">Ending in 4567</span>
+									<p class="card-dec mt-1">Valid until 12/24</p>
+								</div>
+							</div>
+						</div>
+						<div class="col-auto text-end">
+							<img class="pe-2" src="images/icon-arrow.svg" alt="">
+						</div>
+					</a>
+				</div>
+			</div>
+			<div class="list-line-container">
+				<div class="container">
+					<a class="row list-link-card align-items-center" href="#">
+						<div class="col">
+							<div class="d-flex align-items-center ps-2">
+								<div class="card-line-img">
+									<img src="images/credit-card-logo.jpg" alt="">
+								</div>
+								<div class="card-content">
+									<strong class="heading-td">Card type</strong> <span class="dot-info">Ending in 4567</span>
+									<p class="card-dec mt-1">Valid until 12/24</p>
+								</div>
+							</div>
+						</div>
+						<div class="col-auto text-end">
+							<img class="pe-2" src="images/icon-arrow.svg" alt="">
+						</div>
+					</a>
+				</div>
+			</div>
+		</div>
+		<div class="container">
+			<div class="form-group">
+				<button class="btn btn-secondary btn-md w-100" data-bs-toggle="modal" data-bs-target="#confirm-card">USE ANOTHER CARD</button>
+			</div>
+		</div>
+	</div>
+	
+	<div class="modal-radius modal fade px-0" id="confirm-card" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="listcontactlabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered align-items-end mb-0">
+			<div class="modal-content">
+					<div class="heading-close d-flex justify-content-between align-items-center">
+						<h2>Confirm the card</h2>
+						<button class="btn-close" data-bs-dismiss="modal"></button>
+					</div>
+				<div class="modal-body">
+					<p class="mb-4">Please, insert the security code (CVC) of the card to use.</p>
+					<div class="form-group">
+						<label for="card-number">Card number</label>
+						<input type="tel" class="form-control" id="card-number" placeholder="Enter your card number" disabled>
+					</div>
+					<div class="row">
+						<div class="col-md-6 form-group">
+							<label for="valid-until">Valid until</label>
+							<input type="text" class="form-control" id="valid-until" placeholder="MM / YY" disabled>
+						</div>
+						<div class="col-md-6 form-group">
+							<label for="security-code">Security code</label>
+							<input type="text" class="form-control" id="security-code" placeholder="CVC">
+						</div>
+					</div>
+					<img class="my-4" src="images/powered-by-stripe.png" alt="powered by stripe">
+					<div class="form-group mt-4">
+						<button class="btn btn-primary btn-md w-100">GO TO CHECKOUT</button>
+					</div>
+				</div>
+			</div>
+		</div>	
+	</div>	
+	
+	<!-- jQuery and Bootstrap Bundle (includes Popper) -->
+	<script src="js/jquery-3.5.1.min.js"></script>
+	<script src="js/bootstrap.bundle.min.js"></script>
+	<script src="js/jquery.validate.min.js"></script>
+	<script src="js/select2.min.js"></script>
+	<script src="js/slick.min.js"></script>
+	<script src="js/script.js"></script>
+</body>
+</html>
