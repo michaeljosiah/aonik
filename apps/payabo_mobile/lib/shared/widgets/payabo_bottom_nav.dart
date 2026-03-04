@@ -96,7 +96,7 @@ class PayaboBottomNav extends StatelessWidget {
     return InkWell(
       onTap: () => onTap(index),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.sm),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
@@ -110,7 +110,7 @@ class PayaboBottomNav extends StatelessWidget {
               item.label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: selected ? PayaboColors.primary : PayaboColors.muted,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
             ),
           ],

@@ -255,11 +255,9 @@ class PaymentFlowState {
 }
 
 class PaymentFlowController extends StateNotifier<PaymentFlowState> {
-  PaymentFlowController(this._ref) : super(PaymentFlowState.initial()) {
+  PaymentFlowController(Ref _) : super(PaymentFlowState.initial()) {
     _restoreState();
   }
-
-  final Ref _ref;
 
   static const String _storageKey = 'payabo.payment_flow_state.v1';
 
@@ -364,8 +362,9 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
-      relationship:
-          relationship.trim().isEmpty ? 'Other relationship' : relationship.trim(),
+      relationship: relationship.trim().isEmpty
+          ? 'Other relationship'
+          : relationship.trim(),
       isFavorite: saveAsFavorite,
     );
 
@@ -414,7 +413,8 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
     );
   }
 
-  Future<PaymentResult?> refreshPaymentStatus(PaymentRepository repository) async {
+  Future<PaymentResult?> refreshPaymentStatus(
+      PaymentRepository repository) async {
     if (state.paymentIntentId.isEmpty) {
       return state.paymentResult;
     }
@@ -470,8 +470,8 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
             decoded['contactReference'] as String? ?? state.contactReference,
         amount: decoded['amount'] as String? ?? state.amount,
         recurringBill: decoded['recurringBill'] as bool? ?? state.recurringBill,
-        recurringFrequency:
-            decoded['recurringFrequency'] as String? ?? state.recurringFrequency,
+        recurringFrequency: decoded['recurringFrequency'] as String? ??
+            state.recurringFrequency,
         recurringStartsOn: decoded['recurringStartsOn'] == null
             ? null
             : DateTime.tryParse(decoded['recurringStartsOn'] as String),
@@ -484,11 +484,13 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
         paymentMethod: PaymentMethodType.values[
             (decoded['paymentMethod'] as int? ?? state.paymentMethod.index)
                 .clamp(0, PaymentMethodType.values.length - 1)],
-        selectedCardId: decoded['selectedCardId'] as String? ?? state.selectedCardId,
+        selectedCardId:
+            decoded['selectedCardId'] as String? ?? state.selectedCardId,
         saveCard: decoded['saveCard'] as bool? ?? state.saveCard,
         selectedFriendId:
             decoded['selectedFriendId'] as String? ?? state.selectedFriendId,
-        friendMessage: decoded['friendMessage'] as String? ?? state.friendMessage,
+        friendMessage:
+            decoded['friendMessage'] as String? ?? state.friendMessage,
         orderId: decoded['orderId'] as String? ?? state.orderId,
         paymentIntentId:
             decoded['paymentIntentId'] as String? ?? state.paymentIntentId,
@@ -519,7 +521,8 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       'recurringFrequency': state.recurringFrequency,
       'recurringStartsOn': state.recurringStartsOn?.toIso8601String(),
       'recurringEndsOn': state.recurringEndsOn?.toIso8601String(),
-      'useSamePaymentMethodForRecurring': state.useSamePaymentMethodForRecurring,
+      'useSamePaymentMethodForRecurring':
+          state.useSamePaymentMethodForRecurring,
       'paymentMethod': state.paymentMethod.index,
       'selectedCardId': state.selectedCardId,
       'saveCard': state.saveCard,
@@ -574,7 +577,7 @@ const _copySentinel = Object();
 final StateNotifierProvider<PaymentFlowController, PaymentFlowState>
     paymentFlowControllerProvider =
     StateNotifierProvider<PaymentFlowController, PaymentFlowState>(
-  (Ref ref) => PaymentFlowController(ref),
+  PaymentFlowController.new,
 );
 
 final FutureProvider<List<CatalogCountry>> paymentCountriesProvider =

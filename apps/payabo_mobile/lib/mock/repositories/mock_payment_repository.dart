@@ -1,15 +1,18 @@
 import '../../data/repositories/payment_repository.dart';
+import '../mock_behavior.dart';
 
 class MockPaymentRepository implements PaymentRepository {
+  static int _counter = 1;
   final Map<String, PaymentResult> _intentStatus = <String, PaymentResult>{};
   final Map<String, int> _statusChecks = <String, int>{};
 
   @override
   Future<PaymentIntent> createPaymentIntent({required String orderId}) async {
-    await Future<void>.delayed(const Duration(milliseconds: 420));
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('payments.createIntent');
 
-    final String paymentIntentId =
-        'pi_${DateTime.now().millisecondsSinceEpoch}';
+    final String paymentIntentId = 'pi_${_counter.toString().padLeft(6, '0')}';
+    _counter += 1;
     final String providerReference = 'mock_ref_${paymentIntentId.substring(3)}';
 
     _intentStatus[paymentIntentId] = PaymentResult.pending;
@@ -26,7 +29,8 @@ class MockPaymentRepository implements PaymentRepository {
   @override
   Future<PaymentResult> getPaymentStatus(
       {required String paymentIntentId}) async {
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('payments.getStatus');
 
     final PaymentResult current =
         _intentStatus[paymentIntentId] ?? PaymentResult.pending;

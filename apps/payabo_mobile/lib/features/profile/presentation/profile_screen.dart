@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/auth/mock_auth_controller.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
@@ -81,13 +82,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onTap: () => context.go('/profile/marketing'),
           ),
           const SizedBox(height: PayaboSpacing.lg),
-          const PayaboCard(
+          PayaboCard(
             child: Column(
               children: <Widget>[
-                Text('LOG OUT', style: TextStyle(fontWeight: FontWeight.w700)),
-                SizedBox(height: 8),
-                Text('Version 22.0001.01',
-                    style: TextStyle(color: PayaboColors.muted)),
+                TextButton(
+                  onPressed: () {
+                    ref.read(mockAuthProvider.notifier).signOut();
+                    context.go('/intro');
+                  },
+                  child: const Text(
+                    'LOG OUT',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Version 22.0001.01',
+                  style: TextStyle(color: PayaboColors.muted),
+                ),
               ],
             ),
           ),

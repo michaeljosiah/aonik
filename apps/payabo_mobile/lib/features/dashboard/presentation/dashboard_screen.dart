@@ -577,7 +577,7 @@ class _BudgetCarousel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 180,
+      height: 196,
       child: PageView(
         controller: PageController(viewportFraction: 0.88),
         children: const <Widget>[
@@ -660,7 +660,7 @@ class _AssistRequestCarousel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 170,
+      height: 186,
       child: PageView(
         controller: PageController(viewportFraction: 0.88),
         children: const <Widget>[

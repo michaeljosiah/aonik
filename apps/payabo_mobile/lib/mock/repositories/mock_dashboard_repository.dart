@@ -1,9 +1,11 @@
 import '../../data/repositories/dashboard_repository.dart';
+import '../mock_behavior.dart';
 
 class MockDashboardRepository implements DashboardRepository {
   @override
   Future<DashboardSummary> getSummary() async {
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('dashboard.getSummary');
 
     return const DashboardSummary(
       upcomingBills: <DashboardUpcomingBill>[

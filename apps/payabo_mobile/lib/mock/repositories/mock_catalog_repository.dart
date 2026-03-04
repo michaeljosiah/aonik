@@ -1,4 +1,5 @@
 import '../../data/repositories/catalog_repository.dart';
+import '../mock_behavior.dart';
 
 class MockCatalogRepository implements CatalogRepository {
   static const List<CatalogCountry> _countries = <CatalogCountry>[
@@ -16,14 +17,16 @@ class MockCatalogRepository implements CatalogRepository {
 
   @override
   Future<List<CatalogCountry>> getCountries() async {
-    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('catalog.getCountries');
     return _countries;
   }
 
   @override
   Future<List<CatalogProvider>> getProviders(
       {required String countryCode}) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('catalog.getProviders');
     return _providers
         .where((CatalogProvider provider) =>
             provider.countryCode == countryCode.toUpperCase())

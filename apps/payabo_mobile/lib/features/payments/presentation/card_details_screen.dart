@@ -32,6 +32,27 @@ class _CardDetailsScreenState extends ConsumerState<CardDetailsScreen> {
   Widget build(BuildContext context) {
     final flowState = ref.watch(paymentFlowControllerProvider);
 
+    if (flowState.orderId.isEmpty) {
+      return PaymentFlowScaffold(
+        title: 'Enter your card details',
+        onBack: () => context.go('/payments/service-details'),
+        onClose: () => context.go('/dashboard'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'No draft order found. Please complete service details first.',
+            ),
+            const SizedBox(height: PayaboSpacing.lg),
+            PayaboButton(
+              label: 'Back to service details',
+              onPressed: () => context.go('/payments/service-details'),
+            ),
+          ],
+        ),
+      );
+    }
+
     final canCheckout = _cardNumberController.text.trim().length >= 12 &&
         _expiryController.text.trim().isNotEmpty &&
         _cvcController.text.trim().length >= 3;

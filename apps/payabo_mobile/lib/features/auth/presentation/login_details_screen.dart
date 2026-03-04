@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/auth/mock_auth_controller.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -118,7 +119,12 @@ class _LoginDetailsScreenState extends ConsumerState<LoginDetailsScreen> {
           const SizedBox(height: PayaboSpacing.xl),
           PayaboButton(
             label: 'Register Account',
-            onPressed: canSubmit ? () => context.go('/dashboard') : null,
+            onPressed: canSubmit
+                ? () {
+                    ref.read(mockAuthProvider.notifier).signIn();
+                    context.go('/dashboard');
+                  }
+                : null,
           ),
         ],
       ),

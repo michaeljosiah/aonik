@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/auth/mock_auth_controller.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
 import 'auth_flow_scaffold.dart';
 import 'onboarding_flow_state.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
@@ -65,7 +67,12 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: PayaboSpacing.xl),
           PayaboButton(
             label: 'Login',
-            onPressed: canSubmit ? () => context.go('/dashboard') : null,
+            onPressed: canSubmit
+                ? () {
+                    ref.read(mockAuthProvider.notifier).signIn();
+                    context.go('/dashboard');
+                  }
+                : null,
           ),
           const SizedBox(height: PayaboSpacing.lg),
           TextButton(

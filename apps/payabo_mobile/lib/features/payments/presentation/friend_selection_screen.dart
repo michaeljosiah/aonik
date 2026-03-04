@@ -29,6 +29,28 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(paymentFlowControllerProvider);
+
+    if (state.orderId.isEmpty) {
+      return PaymentFlowScaffold(
+        title: 'Request help with payment',
+        onBack: () => context.go('/payments/service-details'),
+        onClose: () => context.go('/dashboard'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'No draft order found. Please complete service details first.',
+            ),
+            const SizedBox(height: PayaboSpacing.lg),
+            PayaboButton(
+              label: 'Back to service details',
+              onPressed: () => context.go('/payments/service-details'),
+            ),
+          ],
+        ),
+      );
+    }
+
     final query = _searchController.text.trim().toLowerCase();
     final friends = state.friends.where((friend) {
       final haystack =

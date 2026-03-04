@@ -1,6 +1,8 @@
 import '../../data/repositories/order_repository.dart';
+import '../mock_behavior.dart';
 
 class MockOrderRepository implements OrderRepository {
+  static int _counter = 1;
   final Map<String, DraftOrder> _ordersById = <String, DraftOrder>{};
 
   @override
@@ -11,9 +13,11 @@ class MockOrderRepository implements OrderRepository {
     required double amount,
     required String currency,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('orders.createDraft');
 
-    final String orderId = 'ord_${DateTime.now().millisecondsSinceEpoch}';
+    final String orderId = 'ord_${_counter.toString().padLeft(6, '0')}';
+    _counter += 1;
     final DraftOrder order = DraftOrder(
       orderId: orderId,
       billerName: billerName,
@@ -29,7 +33,7 @@ class MockOrderRepository implements OrderRepository {
 
   @override
   Future<DraftOrder?> getDraftOrder(String orderId) async {
-    await Future<void>.delayed(const Duration(milliseconds: 180));
+    await MockBehavior.delay();
     return _ordersById[orderId];
   }
 }
