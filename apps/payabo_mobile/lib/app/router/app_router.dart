@@ -38,6 +38,9 @@ import '../../features/profile/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/personal_details_screen.dart';
 import '../../features/profile/presentation/photo_selection_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/spending/presentation/spending_category_detail_screen.dart';
+import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
+import '../../features/spending/presentation/spending_screen.dart';
 import '../auth/mock_auth_controller.dart';
 
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
@@ -141,6 +144,25 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           name: 'dashboard-empty',
           builder: (context, state) =>
               const DashboardScreen(showEmptyState: true),
+        ),
+        GoRoute(
+          path: '/spending',
+          name: 'spending',
+          builder: (context, state) => const SpendingScreen(),
+        ),
+        GoRoute(
+          path: '/spending/category/:categoryId',
+          name: 'spending-category-detail',
+          builder: (context, state) => SpendingCategoryDetailScreen(
+            categoryId: state.pathParameters['categoryId'] ?? 'finances',
+          ),
+        ),
+        GoRoute(
+          path: '/spending/merchant/:merchantId',
+          name: 'spending-merchant-detail',
+          builder: (context, state) => SpendingMerchantDetailScreen(
+            merchantId: state.pathParameters['merchantId'] ?? 'amazon',
+          ),
         ),
         GoRoute(
           path: '/payments/country',

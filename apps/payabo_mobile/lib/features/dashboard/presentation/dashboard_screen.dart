@@ -143,7 +143,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           PayaboBottomNavItem(
               icon: Icons.receipt_long_outlined, label: 'Bills'),
           PayaboBottomNavItem(
-              icon: Icons.sync_alt_outlined, label: 'Transactions'),
+              icon: Icons.show_chart_outlined, label: 'Spending'),
           PayaboBottomNavItem(icon: Icons.more_horiz, label: 'More'),
         ],
         currentIndex: _navIndex,
@@ -166,6 +166,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         context.go('/payments/country');
         return;
       case 2:
+        context.go('/spending');
+        return;
       case 3:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Section coming soon in mock build.')),
