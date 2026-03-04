@@ -345,10 +345,10 @@ Map Payabo user policy to minimum needed set for self-scope operations.
 ## 14. Payabo Frontend Specification
 
 ## 14.1 New API Clients
-- `Payabo/src/api/personalFinanceAccounts.ts`
-- `Payabo/src/api/personalFinanceTransactions.ts`
-- `Payabo/src/api/personalFinanceImports.ts`
-- `Payabo/src/api/personalFinanceInsights.ts`
+- `apps/Payabo/src/api/personalFinanceAccounts.ts`
+- `apps/Payabo/src/api/personalFinanceTransactions.ts`
+- `apps/Payabo/src/api/personalFinanceImports.ts`
+- `apps/Payabo/src/api/personalFinanceInsights.ts`
 
 ## 14.2 New Pages
 - Accounts:

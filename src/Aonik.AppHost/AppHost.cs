@@ -34,7 +34,7 @@ var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
     .WithExternalHttpEndpoints();
 
 // Add Payabo (React/Vite frontend)
-var payabo = builder.AddViteApp("payabo", "../../Payabo")
+var payabo = builder.AddViteApp("payabo", "../../apps/Payabo")
     .WithEndpoint("http", endpoint =>
     {
         endpoint.Port = 5174;

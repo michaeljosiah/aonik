@@ -417,6 +417,9 @@ FodyWeavers.xsd
 *.msm
 *.msp
 /src/Aonik.Api/appsettings.Development.json
+
+# Local SDK installs
+.tools/flutter/
 nul
 
 # App_Data folders - ignore contents but keep the folder structure
@@ -424,5 +427,5 @@ nul
 !**/App_Data/.gitkeep
 
 # Frontend build output
-Payabo/dist/
+apps/Payabo/dist/
 

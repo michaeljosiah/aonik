@@ -1,14 +1,14 @@
 # payabo-specification
 
 ## Objective
-Convert the static HTML in `website/MyBillAfrica` (Payabo prototype) into a React application with identical look, feel, and page behavior while preserving the existing visual language, layouts, and styling. The React app should be structured for maintainability, reuse, and future integration with AONIK platform services.
+Convert the static HTML in `apps/website/MyBillAfrica` (Payabo prototype) into a React application with identical look, feel, and page behavior while preserving the existing visual language, layouts, and styling. The React app should be structured for maintainability, reuse, and future integration with AONIK platform services.
 
 ## Project Location
-Create the React project in a **new root-level folder named `Payabo/`**. This keeps the marketing prototype (`website/MyBillAfrica`) intact for reference while establishing a dedicated, production-ready front-end workspace.
+Create the React project in `apps/Payabo/`. This keeps the marketing prototype (`apps/website/MyBillAfrica`) intact for reference while establishing a dedicated, production-ready front-end workspace.
 
 Proposed root layout:
 ```
-Payabo/
+apps/Payabo/
   package.json
   vite.config.ts
   public/
@@ -57,13 +57,13 @@ These pages share a common header, footer, sidebar, and a repeatable card/layout
 ## React App Architecture
 
 ### Suggested Tech Stack
-- React + Vite (aligns with existing tooling but lives in the new `Payabo/` root folder).
+- React + Vite (aligns with existing tooling and lives in `apps/Payabo/`).
 - React Router for routing.
 - CSS import strategy: global CSS import in `main.tsx` or `App.tsx` for `bootstrap.min.css`, `select2.min.css`, `slick.css`, `intlTelInput.css`, and `style.css`.
 
 ### Application Structure (Proposed)
 ```
-Payabo/
+apps/Payabo/
   src/
     app/
       App.tsx
@@ -213,8 +213,8 @@ Establish a route per HTML page, matching the current page names for easy QA com
 Keep routes aligned with existing filenames during migration for QA parity.
 
 ## Assets & Styling
-- Copy `website/MyBillAfrica/images` to `Payabo/public/images` (or an equivalent static path) so existing relative URLs still resolve.
-- Copy `css` files to `Payabo/src/styles` and ensure they are loaded globally.
+- Copy `apps/website/MyBillAfrica/images` to `apps/Payabo/public/images` (or an equivalent static path) so existing relative URLs still resolve.
+- Copy `css` files to `apps/Payabo/src/styles` and ensure they are loaded globally.
 - Avoid renaming class names or structural DOM order when possible.
 
 ## Data Modeling (Front-End Only)
@@ -228,7 +228,7 @@ Use mock data providers to mirror the static content until APIs exist.
 - Ensure cross-device parity (desktop, tablet, mobile breakpoints).
 
 ## Phased Migration Plan
-1. **Foundation**: Create React app shell in `Payabo/`, global CSS import, routing, assets.
+1. **Foundation**: Create React app shell in `apps/Payabo/`, global CSS import, routing, assets.
 2. **Layouts**: Implement marketing/auth/dashboard/flow layouts.
 3. **Shared components**: Header, footer, sidebar, cards, form fields.
 4. **Page migrations**: Port pages in batches (marketing → auth → dashboard → payments → profile).
@@ -240,4 +240,4 @@ Use mock data providers to mirror the static content until APIs exist.
 - Visual look/feel matches current HTML pages (spacing, typography, colors, icons).
 - Interactive behaviors (dropdowns, sliders, form toggles) match the current experience.
 - No regressions in responsive layouts (mobile/tablet/desktop).
-- React project lives at repo root in `Payabo/`.
+- React project lives in `apps/Payabo/`.
