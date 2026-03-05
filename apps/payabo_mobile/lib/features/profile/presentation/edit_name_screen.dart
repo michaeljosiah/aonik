@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -91,13 +92,22 @@ class _EditNameScreenState extends ConsumerState<EditNameScreen> {
       _error = null;
     });
 
-    await ref.read(profileControllerProvider.notifier).updateName(
-          firstName: firstName,
-          lastName: lastName,
-        );
+    try {
+      await ref.read(profileControllerProvider.notifier).updateName(
+            firstName: firstName,
+            lastName: lastName,
+          );
 
-    if (mounted) {
-      context.go('/profile/personal-details');
+      if (mounted) {
+        context.go('/profile/personal-details');
+      }
+    } catch (error) {
+      setState(() {
+        _error = error is ApiException
+            ? error.message
+            : 'Unable to update your name right now.';
+        _saving = false;
+      });
     }
   }
 }

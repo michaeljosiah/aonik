@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
 import 'profile_scaffold.dart';
+import 'profile_state.dart';
 
-class LoginPasswordScreen extends StatefulWidget {
+class LoginPasswordScreen extends ConsumerStatefulWidget {
   const LoginPasswordScreen({super.key});
 
   @override
-  State<LoginPasswordScreen> createState() => _LoginPasswordScreenState();
+  ConsumerState<LoginPasswordScreen> createState() =>
+      _LoginPasswordScreenState();
 }
 
-class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
+class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
   final TextEditingController _currentPasswordController =
       TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   bool _hideCurrent = true;
   bool _hideNew = true;
+  bool _saving = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -32,15 +38,15 @@ class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
   Widget build(BuildContext context) {
     final password = _newPasswordController.text;
     final canSubmit = _isPasswordValid(password) &&
-        _currentPasswordController.text.isNotEmpty;
+        _currentPasswordController.text.isNotEmpty &&
+        !_saving;
 
     return ProfileScaffold(
       title: 'Password',
       backRoute: '/profile/login-details',
       footer: PayaboButton(
-        label: 'Save changes',
-        onPressed:
-            canSubmit ? () => context.go('/profile/login-details') : null,
+        label: _saving ? 'Saving...' : 'Save changes',
+        onPressed: canSubmit ? _submit : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -87,9 +93,46 @@ class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
               valid: RegExp(r'[A-Z]').hasMatch(password)),
           _RuleLine(
               label: '1 number', valid: RegExp(r'[0-9]').hasMatch(password)),
+          if (_error != null) ...<Widget>[
+            const SizedBox(height: PayaboSpacing.sm),
+            Text(
+              _error!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: PayaboColors.danger),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(profileControllerProvider.notifier).updatePassword(
+            currentPassword: _currentPasswordController.text,
+            newPassword: _newPasswordController.text,
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      context.go('/profile/login-details');
+    } catch (error) {
+      setState(() {
+        _error = error is ApiException
+            ? error.message
+            : 'Unable to update your password right now.';
+        _saving = false;
+      });
+    }
   }
 
   bool _isPasswordValid(String value) {

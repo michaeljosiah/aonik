@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -112,9 +113,23 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
       return;
     }
 
-    await ref.read(profileControllerProvider.notifier).updateLoginEmail(email);
-    if (mounted) {
-      context.go('/profile/login-details');
+    try {
+      await ref.read(profileControllerProvider.notifier).updateLoginEmail(
+            currentEmail: _currentEmailController.text.trim(),
+            newEmail: email,
+            password: _passwordController.text,
+          );
+
+      if (mounted) {
+        context.go('/profile/login-details');
+      }
+    } catch (error) {
+      setState(() {
+        _error = error is ApiException
+            ? error.message
+            : 'Unable to update your email right now.';
+        _saving = false;
+      });
     }
   }
 }

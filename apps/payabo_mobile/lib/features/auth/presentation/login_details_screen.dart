@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/auth/mock_auth_controller.dart';
+import '../../../app/auth/auth_controller.dart';
+import '../../../data/api/api_exception.dart';
+import '../../../data/repositories/auth_repository.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -44,8 +46,10 @@ class _LoginDetailsScreenState extends ConsumerState<LoginDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final onboarding = ref.watch(onboardingControllerProvider);
+    final authState = ref.watch(authControllerProvider);
     final isLocked = widget.isDisabledState;
-    final canSubmit = !isLocked && _canRegister;
+    final canSubmit = !isLocked && _canRegister && !authState.isBusy;
 
     return AuthFlowScaffold(
       title: 'Login details',
@@ -120,9 +124,41 @@ class _LoginDetailsScreenState extends ConsumerState<LoginDetailsScreen> {
           PayaboButton(
             label: 'Register Account',
             onPressed: canSubmit
-                ? () {
-                    ref.read(mockAuthProvider.notifier).signIn();
-                    context.go('/dashboard');
+                ? () async {
+                    final request = RegisterIndividualRequest(
+                      firstName: onboarding.firstName.trim(),
+                      lastName: onboarding.lastName.trim(),
+                      email: _emailController.text.trim(),
+                      phone: _resolvePhoneNumber(onboarding),
+                      password: _passwordController.text,
+                      registrationCountry: onboarding.registrationCountryCode,
+                    );
+
+                    try {
+                      await ref
+                          .read(authControllerProvider.notifier)
+                          .registerIndividual(request);
+
+                      ref.read(onboardingControllerProvider.notifier).reset();
+
+                      if (!context.mounted) {
+                        return;
+                      }
+
+                      context.go('/dashboard');
+                    } catch (error) {
+                      if (!context.mounted) {
+                        return;
+                      }
+
+                      final message = error is ApiException
+                          ? error.message
+                          : 'Unable to complete registration right now.';
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(message)),
+                      );
+                    }
                   }
                 : null,
           ),
@@ -134,6 +170,16 @@ class _LoginDetailsScreenState extends ConsumerState<LoginDetailsScreen> {
   bool get _canRegister {
     return isValidEmail(_emailController.text) &&
         meetsPasswordRequirements(_passwordController.text);
+  }
+
+  String? _resolvePhoneNumber(OnboardingState onboarding) {
+    final digits = onboarding.mobileNumber.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return null;
+    }
+
+    final dialCode = onboarding.phoneCountry.dialCode.trim();
+    return '$dialCode$digits';
   }
 }
 

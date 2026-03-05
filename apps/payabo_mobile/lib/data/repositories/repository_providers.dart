@@ -1,16 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/environment/environment_provider.dart';
+import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_catalog_repository.dart';
 import '../../mock/repositories/mock_dashboard_repository.dart';
 import '../../mock/repositories/mock_order_repository.dart';
 import '../../mock/repositories/mock_payment_repository.dart';
 import '../../mock/repositories/mock_profile_repository.dart';
+import '../api/api_client.dart';
+import 'auth_repository.dart';
 import 'catalog_repository.dart';
 import 'dashboard_repository.dart';
+import 'live_auth_repository.dart';
+import 'live_profile_repository.dart';
 import 'order_repository.dart';
 import 'payment_repository.dart';
 import 'profile_repository.dart';
+
+final Provider<AuthRepository> authRepositoryProvider =
+    Provider<AuthRepository>(
+  (Ref ref) {
+    final environment = ref.watch(appEnvironmentProvider);
+    if (environment.useMocks) {
+      return MockAuthRepository();
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+
+    return LiveAuthRepository(
+      apiClient: apiClient,
+      tenantId: environment.tenantId,
+      authClientId: environment.authClientId,
+    );
+  },
+);
 
 final Provider<CatalogRepository> catalogRepositoryProvider =
     Provider<CatalogRepository>(
@@ -68,6 +91,7 @@ final Provider<ProfileRepository> profileRepositoryProvider =
       return MockProfileRepository();
     }
 
-    return MockProfileRepository();
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveProfileRepository(apiClient: apiClient);
   },
 );

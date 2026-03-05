@@ -35,7 +35,8 @@ public class AzureAdAuthTokenService : IAuthTokenService
             ["code_verifier"] = request.CodeVerifier,
             ["code"] = request.AuthorizationCode,
             ["username"] = request.Username,
-            ["password"] = request.Password
+            ["password"] = request.Password,
+            ["refresh_token"] = request.RefreshToken
         };
 
         var content = new FormUrlEncodedContent(payload

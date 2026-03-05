@@ -10,6 +10,9 @@ namespace Aonik.Infrastructure.Authentication.TokenExchange;
 
 public class Auth0AuthTokenService : IAuthTokenService
 {
+    private const string PasswordGrantType = "password";
+    private const string PasswordRealmGrantType = "http://auth0.com/oauth/grant-type/password-realm";
+
     private readonly HttpClient _httpClient;
     private readonly ISettingProvider _settingProvider;
 
@@ -24,14 +27,30 @@ public class Auth0AuthTokenService : IAuthTokenService
         var domain = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0Domain, cancellationToken);
         var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientId, cancellationToken);
         var audience = await _settingProvider.GetAsync(AuthSettingNames.Auth0Audience, cancellationToken);
+        var connection = await _settingProvider.GetAsync(AuthSettingNames.Auth0Connection, cancellationToken);
 
         var effectiveClientId = string.IsNullOrWhiteSpace(request.ClientId)
             ? clientId
             : request.ClientId;
 
+        var effectiveGrantType = request.GrantType;
+        string? realm = null;
+
+        if (string.Equals(request.GrantType, PasswordGrantType, StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(connection))
+        {
+            effectiveGrantType = PasswordRealmGrantType;
+            realm = connection;
+        }
+        else if (string.Equals(request.GrantType, PasswordRealmGrantType, StringComparison.OrdinalIgnoreCase) &&
+                 !string.IsNullOrWhiteSpace(connection))
+        {
+            realm = connection;
+        }
+
         var payload = new Dictionary<string, string?>
         {
-            ["grant_type"] = request.GrantType,
+            ["grant_type"] = effectiveGrantType,
             ["client_id"] = effectiveClientId,
             ["username"] = request.Username,
             ["password"] = request.Password,
@@ -39,6 +58,8 @@ public class Auth0AuthTokenService : IAuthTokenService
             ["redirect_uri"] = request.RedirectUri,
             ["code_verifier"] = request.CodeVerifier,
             ["code"] = request.AuthorizationCode,
+            ["refresh_token"] = request.RefreshToken,
+            ["realm"] = realm,
             ["audience"] = audience
         };
 

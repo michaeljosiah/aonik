@@ -18,4 +18,15 @@ abstract class ProfileRepository {
   Future<UserProfile> getProfile();
 
   Future<UserProfile> updateProfile(UserProfile profile);
+
+  Future<UserProfile> updateEmail({
+    required String currentEmail,
+    required String newEmail,
+    required String password,
+  });
+
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
 }

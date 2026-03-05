@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -87,10 +88,19 @@ class _EditContactScreenState extends ConsumerState<EditContactScreen> {
       _error = null;
     });
 
-    await ref.read(profileControllerProvider.notifier).updatePhone(phone);
+    try {
+      await ref.read(profileControllerProvider.notifier).updatePhone(phone);
 
-    if (mounted) {
-      context.go('/profile/personal-details');
+      if (mounted) {
+        context.go('/profile/personal-details');
+      }
+    } catch (error) {
+      setState(() {
+        _error = error is ApiException
+            ? error.message
+            : 'Unable to update your phone number right now.';
+        _saving = false;
+      });
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -41,25 +42,54 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/spending/presentation/spending_category_detail_screen.dart';
 import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
 import '../../features/spending/presentation/spending_screen.dart';
-import '../auth/mock_auth_controller.dart';
+import '../auth/auth_controller.dart';
+
+class RouterRefreshNotifier extends ChangeNotifier {
+  RouterRefreshNotifier(this._ref) {
+    _ref.listen<AuthState>(
+      authControllerProvider,
+      (_, __) => notifyListeners(),
+    );
+  }
+
+  final Ref _ref;
+}
+
+final Provider<RouterRefreshNotifier> routerRefreshNotifierProvider =
+    Provider<RouterRefreshNotifier>(
+  (Ref ref) {
+    final notifier = RouterRefreshNotifier(ref);
+    ref.onDispose(notifier.dispose);
+    return notifier;
+  },
+);
 
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
   (Ref ref) {
-    final bool isAuthenticated = ref.watch(mockAuthProvider);
+    final refreshNotifier = ref.watch(routerRefreshNotifierProvider);
 
     return GoRouter(
       initialLocation: '/',
+      refreshListenable: refreshNotifier,
       redirect: (context, state) {
+        final authState = ref.read(authControllerProvider);
+
+        if (!authState.isInitialized) {
+          return null;
+        }
+
         final String location = state.uri.path;
         final bool isAuthArea = location == '/' ||
             location == '/intro' ||
             location.startsWith('/auth');
 
-        if (!isAuthenticated && !isAuthArea && location != '/design-system') {
+        if (!authState.isAuthenticated &&
+            !isAuthArea &&
+            location != '/design-system') {
           return '/auth/login';
         }
 
-        if (isAuthenticated && isAuthArea) {
+        if (authState.isAuthenticated && isAuthArea) {
           return '/dashboard';
         }
 

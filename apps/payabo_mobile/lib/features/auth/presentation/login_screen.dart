@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/auth/mock_auth_controller.dart';
+import '../../../app/auth/auth_controller.dart';
+import '../../../data/api/api_exception.dart';
+import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
@@ -20,6 +22,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -30,8 +33,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
     final canSubmit = isValidEmail(_emailController.text) &&
-        _passwordController.text.isNotEmpty;
+        _passwordController.text.isNotEmpty &&
+        !authState.isBusy;
 
     return AuthFlowScaffold(
       title: 'Nice to see you again.',
@@ -44,7 +49,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             variant: PayaboInputVariant.floating,
             label: 'Email',
             keyboardType: TextInputType.emailAddress,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() {
+              _errorMessage = null;
+            }),
           ),
           const SizedBox(height: PayaboSpacing.md),
           PayaboTextField(
@@ -52,7 +59,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             variant: PayaboInputVariant.floating,
             label: 'Password',
             obscureText: !_isPasswordVisible,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() {
+              _errorMessage = null;
+            }),
             suffixIcon: IconButton(
               onPressed: () {
                 setState(() {
@@ -68,12 +77,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           PayaboButton(
             label: 'Login',
             onPressed: canSubmit
-                ? () {
-                    ref.read(mockAuthProvider.notifier).signIn();
-                    context.go('/dashboard');
+                ? () async {
+                    setState(() {
+                      _errorMessage = null;
+                    });
+
+                    try {
+                      await ref
+                          .read(authControllerProvider.notifier)
+                          .signInWithPassword(
+                            email: _emailController.text,
+                            password: _passwordController.text,
+                          );
+
+                      if (!context.mounted) {
+                        return;
+                      }
+
+                      context.go('/dashboard');
+                    } catch (error) {
+                      if (!context.mounted) {
+                        return;
+                      }
+
+                      final message = error is ApiException
+                          ? error.message
+                          : 'Unable to sign in right now. Please try again.';
+
+                      setState(() {
+                        _errorMessage = message;
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(message)),
+                      );
+                    }
                   }
                 : null,
           ),
+          if (_errorMessage != null) ...<Widget>[
+            const SizedBox(height: PayaboSpacing.sm),
+            Text(
+              _errorMessage!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: PayaboColors.danger),
+            ),
+          ],
           const SizedBox(height: PayaboSpacing.lg),
           TextButton(
             onPressed: () => context.go('/auth/forgot-password'),

@@ -153,33 +153,59 @@ class ProfileController extends StateNotifier<ProfileState> {
     }
 
     final profile = await _ref.read(profileRepositoryProvider).getProfile();
-    state = state.copyWith(
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      email: profile.email,
-      phone: profile.phone,
-      countryCode: profile.countryCode,
-      notificationsEmail: profile.email,
-      marketingEmail: profile.email,
-      loaded: true,
-    );
+    _applyProfile(profile, syncEmailPreferences: true, loaded: true);
   }
 
   Future<void> updateName(
       {required String firstName, required String lastName}) async {
-    state =
-        state.copyWith(firstName: firstName.trim(), lastName: lastName.trim());
-    await _persistCoreProfile();
+    final previousState = state;
+    state = state.copyWith(
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+    );
+
+    try {
+      await _persistCoreProfile();
+    } catch (_) {
+      state = previousState;
+      rethrow;
+    }
   }
 
   Future<void> updatePhone(String phone) async {
+    final previousState = state;
     state = state.copyWith(phone: phone.trim());
-    await _persistCoreProfile();
+
+    try {
+      await _persistCoreProfile();
+    } catch (_) {
+      state = previousState;
+      rethrow;
+    }
   }
 
-  Future<void> updateLoginEmail(String email) async {
-    state = state.copyWith(email: email.trim());
-    await _persistCoreProfile();
+  Future<void> updateLoginEmail({
+    required String currentEmail,
+    required String newEmail,
+    required String password,
+  }) async {
+    final profile = await _ref.read(profileRepositoryProvider).updateEmail(
+          currentEmail: currentEmail,
+          newEmail: newEmail,
+          password: password,
+        );
+
+    _applyProfile(profile, syncEmailPreferences: true, loaded: true);
+  }
+
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _ref.read(profileRepositoryProvider).updatePassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
   }
 
   void setPhotoLabel(String label) {
@@ -241,7 +267,7 @@ class ProfileController extends StateNotifier<ProfileState> {
   }
 
   Future<void> _persistCoreProfile() async {
-    await _ref.read(profileRepositoryProvider).updateProfile(
+    final profile = await _ref.read(profileRepositoryProvider).updateProfile(
           UserProfile(
             firstName: state.firstName,
             lastName: state.lastName,
@@ -250,6 +276,27 @@ class ProfileController extends StateNotifier<ProfileState> {
             countryCode: state.countryCode,
           ),
         );
+
+    _applyProfile(profile, loaded: true);
+  }
+
+  void _applyProfile(
+    UserProfile profile, {
+    bool syncEmailPreferences = false,
+    bool loaded = true,
+  }) {
+    state = state.copyWith(
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      countryCode: profile.countryCode,
+      notificationsEmail:
+          syncEmailPreferences ? profile.email : state.notificationsEmail,
+      marketingEmail:
+          syncEmailPreferences ? profile.email : state.marketingEmail,
+      loaded: loaded,
+    );
   }
 }
 

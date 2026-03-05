@@ -1,4 +1,5 @@
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 using Aonik.Platform.Contracts.Api.Identity;
 using Aonik.Platform.Contracts.Models.Authentication;
@@ -23,23 +24,32 @@ public class AuthTokenEndpoint : Endpoint<TokenRequestDto, TokenResponseDto>
 
     public override async Task HandleAsync(TokenRequestDto req, CancellationToken ct)
     {
-        var request = new TokenRequest(
-            req.GrantType,
-            req.ClientId,
-            req.Username,
-            req.Password,
-            req.Scope,
-            req.RedirectUri,
-            req.CodeVerifier,
-            req.AuthorizationCode);
+        try
+        {
+            var request = new TokenRequest(
+                req.GrantType,
+                req.ClientId,
+                req.Username,
+                req.Password,
+                req.Scope,
+                req.RedirectUri,
+                req.CodeVerifier,
+                req.AuthorizationCode,
+                req.RefreshToken);
 
-        var response = await _identityService.TokenAsync(request, ct);
+            var response = await _identityService.TokenAsync(request, ct);
 
-        await Send.OkAsync(new TokenResponseDto(
-            response.AccessToken,
-            response.RefreshToken,
-            response.ExpiresIn,
-            response.TokenType,
-            response.IdToken), ct);
+            await Send.OkAsync(new TokenResponseDto(
+                response.AccessToken,
+                response.RefreshToken,
+                response.ExpiresIn,
+                response.TokenType,
+                response.IdToken), ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
+        }
     }
 }

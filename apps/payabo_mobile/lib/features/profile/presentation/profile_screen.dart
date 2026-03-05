@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../app/auth/mock_auth_controller.dart';
+import '../../../app/auth/auth_controller.dart';
+import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
@@ -22,8 +23,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(profileControllerProvider.notifier).ensureLoaded();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await ref.read(profileControllerProvider.notifier).ensureLoaded();
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        final message = error is ApiException
+            ? error.message
+            : 'Unable to load your profile right now.';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
     });
   }
 
@@ -86,8 +101,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: Column(
               children: <Widget>[
                 TextButton(
-                  onPressed: () {
-                    ref.read(mockAuthProvider.notifier).signOut();
+                  onPressed: () async {
+                    await ref.read(authControllerProvider.notifier).signOut();
+
+                    if (!context.mounted) {
+                      return;
+                    }
+
                     context.go('/intro');
                   },
                   child: const Text(

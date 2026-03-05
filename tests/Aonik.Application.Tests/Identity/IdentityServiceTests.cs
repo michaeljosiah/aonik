@@ -212,7 +212,7 @@ public class IdentityServiceTests
                 new TestCorrelationContext()),
             new AllowAllPermissionService());
 
-        var response = await service.TokenAsync(new TokenRequest("password", "client", "user", "pass", null, null, null, null));
+        var response = await service.TokenAsync(new TokenRequest("password", "client", "user", "pass", null, null, null, null, null));
 
         response.AccessToken.Should().Be("access");
     }

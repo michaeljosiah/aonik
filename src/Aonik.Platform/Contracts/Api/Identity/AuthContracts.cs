@@ -8,7 +8,8 @@ public record TokenRequestDto(
     string? Scope,
     string? RedirectUri,
     string? CodeVerifier,
-    string? AuthorizationCode);
+    string? AuthorizationCode,
+    string? RefreshToken);
 
 public record TokenResponseDto(
     string AccessToken,

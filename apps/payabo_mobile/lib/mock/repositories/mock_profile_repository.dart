@@ -24,4 +24,33 @@ class MockProfileRepository implements ProfileRepository {
     _profile = profile;
     return _profile;
   }
+
+  @override
+  Future<UserProfile> updateEmail({
+    required String currentEmail,
+    required String newEmail,
+    required String password,
+  }) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('profile.updateEmail');
+
+    _profile = UserProfile(
+      firstName: _profile.firstName,
+      lastName: _profile.lastName,
+      email: newEmail.trim(),
+      phone: _profile.phone,
+      countryCode: _profile.countryCode,
+    );
+
+    return _profile;
+  }
+
+  @override
+  Future<void> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('profile.updatePassword');
+  }
 }
