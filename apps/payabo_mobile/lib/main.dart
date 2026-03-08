@@ -1,14 +1,22 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
 import 'app/environment/app_environment.dart';
 import 'app/environment/environment_provider.dart';
+import 'app/network/dev_http_overrides.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   final AppEnvironment environment = AppEnvironment.fromDefines();
+  configureDevHttpOverrides(environment);
+  developer.log(
+    'Starting Payabo with baseUrl=${environment.runtimeApiBaseUrl}, flavor=${environment.label}, useMocks=${environment.useMocks}',
+    name: 'Payabo.Main',
+  );
 
   runApp(
     ProviderScope(

@@ -19,6 +19,7 @@ class NotificationsEmailScreen extends ConsumerStatefulWidget {
 class _NotificationsEmailScreenState
     extends ConsumerState<NotificationsEmailScreen> {
   late final TextEditingController _emailController;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -39,13 +40,8 @@ class _NotificationsEmailScreenState
       title: 'Email for notifications',
       backRoute: '/profile/notifications',
       footer: PayaboButton(
-        label: 'Save changes',
-        onPressed: () {
-          ref
-              .read(profileControllerProvider.notifier)
-              .setNotificationsEmail(_emailController.text);
-          context.go('/profile/notifications');
-        },
+        label: _saving ? 'Saving...' : 'Save changes',
+        onPressed: _saving ? null : _submit,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -64,5 +60,28 @@ class _NotificationsEmailScreenState
         ],
       ),
     );
+  }
+
+  Future<void> _submit() async {
+    setState(() => _saving = true);
+
+    try {
+      await ref
+          .read(profileControllerProvider.notifier)
+          .setNotificationsEmail(_emailController.text);
+
+      if (mounted) {
+        context.go('/profile/notifications');
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+            content: Text('Unable to update notification email right now.'),
+          ));
+        setState(() => _saving = false);
+      }
+    }
   }
 }

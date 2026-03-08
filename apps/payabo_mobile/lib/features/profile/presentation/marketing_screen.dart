@@ -15,6 +15,22 @@ class MarketingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(profileControllerProvider);
 
+    void showError(String message) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
+
+    Future<void> toggleMarketing({bool? news, bool? offers, bool? surveys}) async {
+      try {
+        await ref
+            .read(profileControllerProvider.notifier)
+            .setMarketingToggle(news: news, offers: offers, surveys: surveys);
+      } catch (_) {
+        showError('Unable to update marketing preferences right now.');
+      }
+    }
+
     return ProfileScaffold(
       title: 'Marketing',
       backRoute: '/profile',
@@ -52,25 +68,19 @@ class MarketingScreen extends ConsumerWidget {
             label: 'News',
             subtitle: 'Updates and news services',
             value: state.marketingNews,
-            onChanged: (v) => ref
-                .read(profileControllerProvider.notifier)
-                .setMarketingToggle(news: v),
+            onChanged: (v) => toggleMarketing(news: v),
           ),
           _ToggleCard(
             label: 'Offers',
             subtitle: 'Offers and promotional campaigns',
             value: state.marketingOffers,
-            onChanged: (v) => ref
-                .read(profileControllerProvider.notifier)
-                .setMarketingToggle(offers: v),
+            onChanged: (v) => toggleMarketing(offers: v),
           ),
           _ToggleCard(
             label: 'Surveys',
             subtitle: 'To help us improve our services',
             value: state.marketingSurveys,
-            onChanged: (v) => ref
-                .read(profileControllerProvider.notifier)
-                .setMarketingToggle(surveys: v),
+            onChanged: (v) => toggleMarketing(surveys: v),
           ),
         ],
       ),
@@ -108,7 +118,21 @@ class _ToggleCard extends StatelessWidget {
                 ],
               ),
             ),
-            Switch.adaptive(value: value, onChanged: onChanged),
+            SizedBox(
+              width: 60,
+              height: 30,
+              child: FittedBox(
+                fit: BoxFit.fill,
+                child: Switch.adaptive(
+                  value: value,
+                  onChanged: onChanged,
+                  activeThumbColor: PayaboColors.white,
+                  activeTrackColor: PayaboColors.success,
+                  inactiveThumbColor: PayaboColors.white,
+                  inactiveTrackColor: PayaboColors.background,
+                ),
+              ),
+            ),
           ],
         ),
       ),

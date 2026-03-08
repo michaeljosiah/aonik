@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/widgets/payabo_button.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
 
@@ -23,6 +24,15 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
     return ProfileScaffold(
       title: 'Choose photo',
       backRoute: '/profile',
+      footer: PayaboButton(
+        label: 'Done',
+        onPressed: () {
+          ref
+              .read(profileControllerProvider.notifier)
+              .setPhotoLabel('Change photo');
+          context.go('/profile');
+        },
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -55,7 +65,7 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
               crossAxisSpacing: 4,
               mainAxisSpacing: 4,
             ),
-            itemCount: 12,
+            itemCount: 8,
             itemBuilder: (context, index) {
               final selected = _selectedIndex == index;
               return InkWell(
@@ -74,16 +84,6 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
                 ),
               );
             },
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          ElevatedButton(
-            onPressed: () {
-              ref
-                  .read(profileControllerProvider.notifier)
-                  .setPhotoLabel('Photo selected');
-              context.go('/profile');
-            },
-            child: const Text('DONE'),
           ),
         ],
       ),

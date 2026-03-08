@@ -10,6 +10,12 @@ import '../../../shared/widgets/payabo_text_field.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
 
+void _showError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
 class LoginPasswordScreen extends ConsumerStatefulWidget {
   const LoginPasswordScreen({super.key});
 
@@ -25,7 +31,6 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
   bool _hideCurrent = true;
   bool _hideNew = true;
   bool _saving = false;
-  String? _error;
 
   @override
   void dispose() {
@@ -93,16 +98,6 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
               valid: RegExp(r'[A-Z]').hasMatch(password)),
           _RuleLine(
               label: '1 number', valid: RegExp(r'[0-9]').hasMatch(password)),
-          if (_error != null) ...<Widget>[
-            const SizedBox(height: PayaboSpacing.sm),
-            Text(
-              _error!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: PayaboColors.danger),
-            ),
-          ],
         ],
       ),
     );
@@ -111,7 +106,6 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
   Future<void> _submit() async {
     setState(() {
       _saving = true;
-      _error = null;
     });
 
     try {
@@ -126,10 +120,13 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
 
       context.go('/profile/login-details');
     } catch (error) {
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to update your password right now.';
+      if (mounted) {
+        _showError(context, message);
+      }
       setState(() {
-        _error = error is ApiException
-            ? error.message
-            : 'Unable to update your password right now.';
         _saving = false;
       });
     }
@@ -151,15 +148,27 @@ class _RuleLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = valid ? PayaboColors.success : PayaboColors.muted;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: <Widget>[
-          Icon(valid ? Icons.check_circle : Icons.radio_button_unchecked,
-              size: 16,
-              color: valid ? PayaboColors.success : PayaboColors.muted),
-          const SizedBox(width: 8),
-          Text(label),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(width: PayaboSpacing.sm),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color,
+                ),
+          ),
         ],
       ),
     );

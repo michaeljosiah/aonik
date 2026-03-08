@@ -3,12 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
-import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
+
+void _showError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
 
 class EditNameScreen extends ConsumerStatefulWidget {
   const EditNameScreen({super.key});
@@ -20,7 +25,6 @@ class EditNameScreen extends ConsumerStatefulWidget {
 class _EditNameScreenState extends ConsumerState<EditNameScreen> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _lastNameController;
-  String? _error;
   bool _saving = false;
 
   @override
@@ -62,16 +66,6 @@ class _EditNameScreenState extends ConsumerState<EditNameScreen> {
             controller: _lastNameController,
             hintText: 'Last name',
           ),
-          if (_error != null) ...<Widget>[
-            const SizedBox(height: PayaboSpacing.sm),
-            Text(
-              _error!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: PayaboColors.danger),
-            ),
-          ],
         ],
       ),
     );
@@ -81,15 +75,12 @@ class _EditNameScreenState extends ConsumerState<EditNameScreen> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     if (firstName.isEmpty || lastName.isEmpty) {
-      setState(() {
-        _error = 'Both first and last name are required.';
-      });
+      _showError(context, 'Both first and last name are required.');
       return;
     }
 
     setState(() {
       _saving = true;
-      _error = null;
     });
 
     try {
@@ -102,10 +93,13 @@ class _EditNameScreenState extends ConsumerState<EditNameScreen> {
         context.go('/profile/personal-details');
       }
     } catch (error) {
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to update your name right now.';
+      if (mounted) {
+        _showError(context, message);
+      }
       setState(() {
-        _error = error is ApiException
-            ? error.message
-            : 'Unable to update your name right now.';
         _saving = false;
       });
     }

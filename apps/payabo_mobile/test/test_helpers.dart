@@ -5,7 +5,10 @@ import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Widget buildTestApp(Widget child) {
+Widget buildTestApp(
+  Widget child, {
+  List<Override> overrides = const <Override>[],
+}) {
   SharedPreferences.setMockInitialValues(<String, Object>{});
 
   return ProviderScope(
@@ -17,6 +20,7 @@ Widget buildTestApp(Widget child) {
           apiBaseUrl: 'https://api.dev.payabo.local',
         ),
       ),
+      ...overrides,
     ],
     child: MaterialApp(
       theme: buildPayaboTheme(),

@@ -18,6 +18,7 @@ class MarketingEmailScreen extends ConsumerStatefulWidget {
 
 class _MarketingEmailScreenState extends ConsumerState<MarketingEmailScreen> {
   late final TextEditingController _emailController;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -38,13 +39,8 @@ class _MarketingEmailScreenState extends ConsumerState<MarketingEmailScreen> {
       title: 'Email for marketing',
       backRoute: '/profile/marketing',
       footer: PayaboButton(
-        label: 'Save changes',
-        onPressed: () {
-          ref
-              .read(profileControllerProvider.notifier)
-              .setMarketingEmail(_emailController.text);
-          context.go('/profile/marketing');
-        },
+        label: _saving ? 'Saving...' : 'Save changes',
+        onPressed: _saving ? null : _submit,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -63,5 +59,28 @@ class _MarketingEmailScreenState extends ConsumerState<MarketingEmailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _submit() async {
+    setState(() => _saving = true);
+
+    try {
+      await ref
+          .read(profileControllerProvider.notifier)
+          .setMarketingEmail(_emailController.text);
+
+      if (mounted) {
+        context.go('/profile/marketing');
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+            content: Text('Unable to update marketing email right now.'),
+          ));
+        setState(() => _saving = false);
+      }
+    }
   }
 }

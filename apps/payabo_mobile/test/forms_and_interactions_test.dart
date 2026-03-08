@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:payabo_mobile/data/api/api_exception.dart';
+import 'package:payabo_mobile/data/repositories/auth_repository.dart';
+import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/auth/presentation/login_screen.dart';
 import 'package:payabo_mobile/features/auth/presentation/phone_code_screen.dart';
 import 'package:payabo_mobile/features/payments/presentation/provider_list_screen.dart';
@@ -35,6 +39,35 @@ void main() {
     expect(enabled.onPressed, isNotNull);
   });
 
+  testWidgets('login failure shows friendly snackbar message',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const LoginScreen(),
+        overrides: <Override>[
+          authRepositoryProvider.overrideWithValue(
+            const _FailingAuthRepository(
+              ApiException(
+                message: 'Wrong email or password.',
+                statusCode: 401,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).first, 'jane@mail.com');
+    await tester.enterText(find.byType(TextField).last, 'WrongPass123');
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'LOGIN'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wrong email or password.'), findsOneWidget);
+    expect(find.text('We couldn\'t sign you in'), findsNothing);
+  });
+
   testWidgets('phone code disabled state shows countdown then unlocks',
       (WidgetTester tester) async {
     await tester
@@ -60,4 +93,47 @@ void main() {
     expect(find.text('ECG Power'), findsNothing);
     expect(find.text('Ghana Water'), findsOneWidget);
   });
+}
+
+class _FailingAuthRepository implements AuthRepository {
+  const _FailingAuthRepository(this._error);
+
+  final ApiException _error;
+
+  @override
+  Future<AuthUserInfo> getUserInfo() async {
+    return const AuthUserInfo(
+      userId: 'test-user-id',
+      email: 'jane@mail.com',
+      firstName: 'Jane',
+      lastName: 'Doe',
+    );
+  }
+
+  @override
+  Future<void> registerIndividual(RegisterIndividualRequest request) async {}
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {}
+
+  @override
+  Future<AuthTokenResult> signInWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    throw _error;
+  }
+
+  @override
+  Future<AuthTokenResult> refreshAccessToken({
+    required String refreshToken,
+  }) async {
+    return const AuthTokenResult(
+      accessToken: 'unused-access-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      refreshToken: 'unused-refresh-token',
+      idToken: null,
+    );
+  }
 }

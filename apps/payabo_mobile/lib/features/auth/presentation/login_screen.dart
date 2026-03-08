@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/auth/auth_controller.dart';
 import '../../../data/api/api_exception.dart';
-import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
@@ -22,7 +21,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
-  String? _errorMessage;
 
   @override
   void dispose() {
@@ -49,9 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             variant: PayaboInputVariant.floating,
             label: 'Email',
             keyboardType: TextInputType.emailAddress,
-            onChanged: (_) => setState(() {
-              _errorMessage = null;
-            }),
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: PayaboSpacing.md),
           PayaboTextField(
@@ -59,9 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             variant: PayaboInputVariant.floating,
             label: 'Password',
             obscureText: !_isPasswordVisible,
-            onChanged: (_) => setState(() {
-              _errorMessage = null;
-            }),
+            onChanged: (_) => setState(() {}),
             suffixIcon: IconButton(
               onPressed: () {
                 setState(() {
@@ -78,15 +72,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             label: 'Login',
             onPressed: canSubmit
                 ? () async {
-                    setState(() {
-                      _errorMessage = null;
-                    });
-
                     try {
                       await ref
                           .read(authControllerProvider.notifier)
                           .signInWithPassword(
-                            email: _emailController.text,
+                            email: _emailController.text.trim(),
                             password: _passwordController.text,
                           );
 
@@ -104,27 +94,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ? error.message
                           : 'Unable to sign in right now. Please try again.';
 
-                      setState(() {
-                        _errorMessage = message;
-                      });
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(message)),
-                      );
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(content: Text(message)),
+                        );
                     }
                   }
                 : null,
           ),
-          if (_errorMessage != null) ...<Widget>[
-            const SizedBox(height: PayaboSpacing.sm),
-            Text(
-              _errorMessage!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: PayaboColors.danger),
-            ),
-          ],
           const SizedBox(height: PayaboSpacing.lg),
           TextButton(
             onPressed: () => context.go('/auth/forgot-password'),

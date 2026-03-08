@@ -19,6 +19,60 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   int _tabIndex = 0;
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _togglePush({
+    bool? newBills,
+    bool? billUpdates,
+    bool? billAssist,
+    bool? mbaMessages,
+    bool? orgMessages,
+    bool? friendsMessages,
+  }) async {
+    try {
+      await ref.read(profileControllerProvider.notifier).setPushToggle(
+            newBills: newBills,
+            billUpdates: billUpdates,
+            billAssist: billAssist,
+            mbaMessages: mbaMessages,
+            orgMessages: orgMessages,
+            friendsMessages: friendsMessages,
+          );
+    } catch (_) {
+      if (mounted) {
+        _showError('Unable to update notification settings right now.');
+      }
+    }
+  }
+
+  Future<void> _toggleEmail({
+    bool? newBills,
+    bool? billUpdates,
+    bool? billAssist,
+    bool? mbaMessages,
+    bool? orgMessages,
+  }) async {
+    try {
+      await ref
+          .read(profileControllerProvider.notifier)
+          .setEmailNotificationToggle(
+            newBills: newBills,
+            billUpdates: billUpdates,
+            billAssist: billAssist,
+            mbaMessages: mbaMessages,
+            orgMessages: orgMessages,
+          );
+    } catch (_) {
+      if (mounted) {
+        _showError('Unable to update notification settings right now.');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(profileControllerProvider);
@@ -41,14 +95,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   label: 'PUSH',
                   selected: _tabIndex == 0,
                   onTap: () => setState(() => _tabIndex = 0),
+                  isFirst: true,
                 ),
               ),
-              const SizedBox(width: PayaboSpacing.sm),
               Expanded(
                 child: _TabButton(
                   label: 'EMAIL',
                   selected: _tabIndex == 1,
                   onTap: () => setState(() => _tabIndex = 1),
+                  isLast: true,
                 ),
               ),
             ],
@@ -58,44 +113,32 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             _ToggleCard(
               label: 'New bills',
               value: state.newBillsPush,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setPushToggle(newBills: v),
+              onChanged: (v) => _togglePush(newBills: v),
             ),
             _ToggleCard(
               label: 'Bills updates',
               value: state.billUpdatesPush,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setPushToggle(billUpdates: v),
+              onChanged: (v) => _togglePush(billUpdates: v),
             ),
             _ToggleCard(
               label: 'Bill pay assist requests',
               value: state.billAssistPush,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setPushToggle(billAssist: v),
+              onChanged: (v) => _togglePush(billAssist: v),
             ),
             _ToggleCard(
               label: 'Bill MBA messages',
               value: state.mbaMessagesPush,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setPushToggle(mbaMessages: v),
+              onChanged: (v) => _togglePush(mbaMessages: v),
             ),
             _ToggleCard(
               label: 'Organisations messages',
               value: state.orgMessagesPush,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setPushToggle(orgMessages: v),
+              onChanged: (v) => _togglePush(orgMessages: v),
             ),
             _ToggleCard(
               label: 'Friends messages',
               value: state.friendsMessagesPush,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setPushToggle(friendsMessages: v),
+              onChanged: (v) => _togglePush(friendsMessages: v),
             ),
           ] else ...<Widget>[
             InkWell(
@@ -123,37 +166,27 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             _ToggleCard(
               label: 'New bills',
               value: state.newBillsEmail,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setEmailNotificationToggle(newBills: v),
+              onChanged: (v) => _toggleEmail(newBills: v),
             ),
             _ToggleCard(
               label: 'Bills updates',
               value: state.billUpdatesEmail,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setEmailNotificationToggle(billUpdates: v),
+              onChanged: (v) => _toggleEmail(billUpdates: v),
             ),
             _ToggleCard(
               label: 'Bill pay assist requests',
               value: state.billAssistEmail,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setEmailNotificationToggle(billAssist: v),
+              onChanged: (v) => _toggleEmail(billAssist: v),
             ),
             _ToggleCard(
               label: 'Bill MBA messages',
               value: state.mbaMessagesEmail,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setEmailNotificationToggle(mbaMessages: v),
+              onChanged: (v) => _toggleEmail(mbaMessages: v),
             ),
             _ToggleCard(
               label: 'Organisations messages',
               value: state.orgMessagesEmail,
-              onChanged: (v) => ref
-                  .read(profileControllerProvider.notifier)
-                  .setEmailNotificationToggle(orgMessages: v),
+              onChanged: (v) => _toggleEmail(orgMessages: v),
             ),
           ],
         ],
@@ -178,7 +211,21 @@ class _ToggleCard extends StatelessWidget {
         child: Row(
           children: <Widget>[
             Expanded(child: Text(label)),
-            Switch.adaptive(value: value, onChanged: onChanged),
+            SizedBox(
+              width: 60,
+              height: 30,
+              child: FittedBox(
+                fit: BoxFit.fill,
+                child: Switch.adaptive(
+                  value: value,
+                  onChanged: onChanged,
+                  activeThumbColor: PayaboColors.white,
+                  activeTrackColor: PayaboColors.success,
+                  inactiveThumbColor: PayaboColors.white,
+                  inactiveTrackColor: PayaboColors.background,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -186,33 +233,47 @@ class _ToggleCard extends StatelessWidget {
   }
 }
 
+/// Segmented tab control with squared inner edges matching the HTML
+/// `.nav-tabs` reference: orange active background, gray inactive.
 class _TabButton extends StatelessWidget {
   const _TabButton({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.isFirst = false,
+    this.isLast = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool isFirst;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.only(
+      topLeft: isFirst ? const Radius.circular(6) : Radius.zero,
+      bottomLeft: isFirst ? const Radius.circular(6) : Radius.zero,
+      topRight: isLast ? const Radius.circular(6) : Radius.zero,
+      bottomRight: isLast ? const Radius.circular(6) : Radius.zero,
+    );
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: borderRadius,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.sm),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: selected ? PayaboColors.primary : PayaboColors.background,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: borderRadius,
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: selected ? PayaboColors.white : PayaboColors.ink,
+                fontWeight: FontWeight.w700,
               ),
         ),
       ),

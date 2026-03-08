@@ -8,10 +8,14 @@ Future<T?> showPayaboModalSheet<T>({
   required BuildContext context,
   required Widget child,
   String? title,
+  bool isDismissible = true,
+  bool enableDrag = true,
 }) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
     backgroundColor: PayaboColors.transparent,
     builder: (context) {
       return PayaboModalSheet(

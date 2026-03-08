@@ -3,12 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
-import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
+
+void _showError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
 
 class LoginEmailScreen extends ConsumerStatefulWidget {
   const LoginEmailScreen({super.key});
@@ -23,7 +28,6 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _hidePassword = true;
   bool _saving = false;
-  String? _error;
 
   @override
   void initState() {
@@ -42,7 +46,8 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = _newEmailController.text.trim().contains('@') &&
+    final canSubmit = _currentEmailController.text.trim().contains('@') &&
+        _newEmailController.text.trim().contains('@') &&
         _passwordController.text.isNotEmpty;
 
     return ProfileScaffold(
@@ -59,7 +64,7 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
             variant: PayaboInputVariant.floating,
             controller: _currentEmailController,
             keyboardType: TextInputType.emailAddress,
-            enabled: false,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: PayaboSpacing.md),
           PayaboTextField(
@@ -83,35 +88,21 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
             ),
             onChanged: (_) => setState(() {}),
           ),
-          if (_error != null) ...<Widget>[
-            const SizedBox(height: PayaboSpacing.sm),
-            Text(
-              _error!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: PayaboColors.danger),
-            ),
-          ],
         ],
       ),
     );
   }
 
   Future<void> _submit() async {
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-
     final email = _newEmailController.text.trim();
     if (!email.contains('@')) {
-      setState(() {
-        _error = 'Enter a valid email address.';
-        _saving = false;
-      });
+      _showError(context, 'Enter a valid email address.');
       return;
     }
+
+    setState(() {
+      _saving = true;
+    });
 
     try {
       await ref.read(profileControllerProvider.notifier).updateLoginEmail(
@@ -124,10 +115,13 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
         context.go('/profile/login-details');
       }
     } catch (error) {
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to update your email right now.';
+      if (mounted) {
+        _showError(context, message);
+      }
       setState(() {
-        _error = error is ApiException
-            ? error.message
-            : 'Unable to update your email right now.';
         _saving = false;
       });
     }

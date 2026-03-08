@@ -1,7 +1,12 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
+
+const String _touchIdKey = 'profile.touchIdEnabled';
 
 class ProfileState {
   const ProfileState({
@@ -10,6 +15,7 @@ class ProfileState {
     required this.email,
     required this.phone,
     required this.countryCode,
+    required this.photoUrl,
     required this.photoLabel,
     required this.touchIdEnabled,
     required this.notificationsEmail,
@@ -36,6 +42,7 @@ class ProfileState {
   final String email;
   final String phone;
   final String countryCode;
+  final String? photoUrl;
   final String photoLabel;
   final bool touchIdEnabled;
   final String notificationsEmail;
@@ -56,7 +63,7 @@ class ProfileState {
   final bool marketingSurveys;
   final bool loaded;
 
-  String get displayName => '$firstName $lastName';
+  String get displayName => '$firstName $lastName'.trim();
 
   ProfileState copyWith({
     String? firstName,
@@ -64,6 +71,8 @@ class ProfileState {
     String? email,
     String? phone,
     String? countryCode,
+    String? photoUrl,
+    bool clearPhotoUrl = false,
     String? photoLabel,
     bool? touchIdEnabled,
     String? notificationsEmail,
@@ -90,6 +99,7 @@ class ProfileState {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       countryCode: countryCode ?? this.countryCode,
+      photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
       photoLabel: photoLabel ?? this.photoLabel,
       touchIdEnabled: touchIdEnabled ?? this.touchIdEnabled,
       notificationsEmail: notificationsEmail ?? this.notificationsEmail,
@@ -114,14 +124,15 @@ class ProfileState {
 
   factory ProfileState.initial() {
     return const ProfileState(
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'johndoe@mail.com',
-      phone: '+44 999 999 999',
-      countryCode: 'GB',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      countryCode: '',
+      photoUrl: null,
       photoLabel: 'Add photo',
-      touchIdEnabled: true,
-      notificationsEmail: 'johndoe@mail.com',
+      touchIdEnabled: false,
+      notificationsEmail: '',
       newBillsPush: true,
       billUpdatesPush: true,
       billAssistPush: false,
@@ -133,7 +144,7 @@ class ProfileState {
       billAssistEmail: false,
       mbaMessagesEmail: true,
       orgMessagesEmail: true,
-      marketingEmail: 'johndoe@mail.com',
+      marketingEmail: '',
       marketingNews: true,
       marketingOffers: true,
       marketingSurveys: false,
@@ -147,14 +158,122 @@ class ProfileController extends StateNotifier<ProfileState> {
 
   final Ref _ref;
 
+  ProfileRepository get _repository => _ref.read(profileRepositoryProvider);
+
   Future<void> ensureLoaded() async {
     if (state.loaded) {
       return;
     }
 
-    final profile = await _ref.read(profileRepositoryProvider).getProfile();
-    _applyProfile(profile, syncEmailPreferences: true, loaded: true);
+    final profile = await _loadProfile();
+
+    final results = await Future.wait<Object>(<Future<Object>>[
+      _loadNotificationPreferencesOrDefault(profile.email),
+      _loadMarketingPreferencesOrDefault(profile.email),
+    ]);
+
+    final notifPrefs = results[0] as NotificationPreferences;
+    final marketingPrefs = results[1] as MarketingPreferences;
+
+    final prefs = await SharedPreferences.getInstance();
+    final touchIdEnabled = prefs.getBool(_touchIdKey) ?? false;
+
+    state = state.copyWith(
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      countryCode: profile.countryCode,
+      photoUrl: profile.photoUrl,
+      photoLabel: profile.photoUrl != null ? 'Change photo' : 'Add photo',
+      touchIdEnabled: touchIdEnabled,
+      notificationsEmail: notifPrefs.email,
+      newBillsPush: notifPrefs.newBillsPush,
+      billUpdatesPush: notifPrefs.billUpdatesPush,
+      billAssistPush: notifPrefs.billAssistPush,
+      mbaMessagesPush: notifPrefs.mbaMessagesPush,
+      orgMessagesPush: notifPrefs.orgMessagesPush,
+      friendsMessagesPush: notifPrefs.friendsMessagesPush,
+      newBillsEmail: notifPrefs.newBillsEmail,
+      billUpdatesEmail: notifPrefs.billUpdatesEmail,
+      billAssistEmail: notifPrefs.billAssistEmail,
+      mbaMessagesEmail: notifPrefs.mbaMessagesEmail,
+      orgMessagesEmail: notifPrefs.orgMessagesEmail,
+      marketingEmail: marketingPrefs.email,
+      marketingNews: marketingPrefs.news,
+      marketingOffers: marketingPrefs.offers,
+      marketingSurveys: marketingPrefs.surveys,
+      loaded: true,
+    );
   }
+
+  Future<UserProfile> _loadProfile() async {
+    try {
+      return await _repository.getProfile();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to load customer profile.',
+        name: 'Payabo.ProfileController',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  Future<NotificationPreferences> _loadNotificationPreferencesOrDefault(
+    String fallbackEmail,
+  ) async {
+    try {
+      return await _repository.getNotificationPreferences();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to load notification preferences. Falling back to defaults.',
+        name: 'Payabo.ProfileController',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      return NotificationPreferences(
+        email: fallbackEmail,
+        newBillsPush: state.newBillsPush,
+        billUpdatesPush: state.billUpdatesPush,
+        billAssistPush: state.billAssistPush,
+        mbaMessagesPush: state.mbaMessagesPush,
+        orgMessagesPush: state.orgMessagesPush,
+        friendsMessagesPush: state.friendsMessagesPush,
+        newBillsEmail: state.newBillsEmail,
+        billUpdatesEmail: state.billUpdatesEmail,
+        billAssistEmail: state.billAssistEmail,
+        mbaMessagesEmail: state.mbaMessagesEmail,
+        orgMessagesEmail: state.orgMessagesEmail,
+      );
+    }
+  }
+
+  Future<MarketingPreferences> _loadMarketingPreferencesOrDefault(
+    String fallbackEmail,
+  ) async {
+    try {
+      return await _repository.getMarketingPreferences();
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to load marketing preferences. Falling back to defaults.',
+        name: 'Payabo.ProfileController',
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+      return MarketingPreferences(
+        email: fallbackEmail,
+        news: state.marketingNews,
+        offers: state.marketingOffers,
+        surveys: state.marketingSurveys,
+      );
+    }
+  }
+
+  // -- Core profile --
 
   Future<void> updateName(
       {required String firstName, required String lastName}) async {
@@ -189,49 +308,105 @@ class ProfileController extends StateNotifier<ProfileState> {
     required String newEmail,
     required String password,
   }) async {
-    final profile = await _ref.read(profileRepositoryProvider).updateEmail(
-          currentEmail: currentEmail,
-          newEmail: newEmail,
-          password: password,
-        );
+    final profile = await _repository.updateEmail(
+      currentEmail: currentEmail,
+      newEmail: newEmail,
+      password: password,
+    );
 
-    _applyProfile(profile, syncEmailPreferences: true, loaded: true);
+    state = state.copyWith(
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      countryCode: profile.countryCode,
+      photoUrl: profile.photoUrl,
+      loaded: true,
+    );
   }
 
   Future<void> updatePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
-    await _ref.read(profileRepositoryProvider).updatePassword(
-          currentPassword: currentPassword,
-          newPassword: newPassword,
-        );
+    await _repository.updatePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
+
+  // -- Photo --
+
+  Future<void> uploadPhoto(String filePath) async {
+    final uploadedUrl = await _repository.uploadPhoto(filePath);
+    var resolvedUrl = uploadedUrl.trim();
+
+    developer.log(
+      'uploadPhoto returned URL: ${resolvedUrl.isEmpty ? '<empty>' : resolvedUrl}',
+      name: 'Payabo.ProfileController',
+    );
+
+    if (resolvedUrl.isEmpty) {
+      final profile = await _repository.getProfile();
+      resolvedUrl = profile.photoUrl?.trim() ?? '';
+
+      developer.log(
+        'Reloaded profile after upload. photoUrl: ${resolvedUrl.isEmpty ? '<empty>' : resolvedUrl}',
+        name: 'Payabo.ProfileController',
+      );
+    }
+
+    state = state.copyWith(
+      photoUrl: resolvedUrl.isEmpty ? null : resolvedUrl,
+      photoLabel: 'Change photo',
+    );
+
+    developer.log(
+      'Profile state photoUrl set to: ${state.photoUrl ?? '<empty>'}',
+      name: 'Payabo.ProfileController',
+    );
+  }
+
+  Future<void> deletePhoto() async {
+    await _repository.deletePhoto();
+    state = state.copyWith(clearPhotoUrl: true, photoLabel: 'Add photo');
   }
 
   void setPhotoLabel(String label) {
     state = state.copyWith(photoLabel: label);
   }
 
-  void setTouchId(bool enabled) {
+  // -- Touch ID --
+
+  Future<void> setTouchId(bool enabled) async {
     state = state.copyWith(touchIdEnabled: enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_touchIdKey, enabled);
   }
 
-  void setNotificationsEmail(String email) {
+  // -- Notification preferences --
+
+  Future<void> setNotificationsEmail(String email) async {
+    final previous = state;
     state = state.copyWith(notificationsEmail: email.trim());
+
+    try {
+      await _persistNotificationPreferences();
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
   }
 
-  void setMarketingEmail(String email) {
-    state = state.copyWith(marketingEmail: email.trim());
-  }
-
-  void setPushToggle({
+  Future<void> setPushToggle({
     bool? newBills,
     bool? billUpdates,
     bool? billAssist,
     bool? mbaMessages,
     bool? orgMessages,
     bool? friendsMessages,
-  }) {
+  }) async {
+    final previous = state;
     state = state.copyWith(
       newBillsPush: newBills,
       billUpdatesPush: billUpdates,
@@ -240,15 +415,23 @@ class ProfileController extends StateNotifier<ProfileState> {
       orgMessagesPush: orgMessages,
       friendsMessagesPush: friendsMessages,
     );
+
+    try {
+      await _persistNotificationPreferences();
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
   }
 
-  void setEmailNotificationToggle({
+  Future<void> setEmailNotificationToggle({
     bool? newBills,
     bool? billUpdates,
     bool? billAssist,
     bool? mbaMessages,
     bool? orgMessages,
-  }) {
+  }) async {
+    final previous = state;
     state = state.copyWith(
       newBillsEmail: newBills,
       billUpdatesEmail: billUpdates,
@@ -256,46 +439,120 @@ class ProfileController extends StateNotifier<ProfileState> {
       mbaMessagesEmail: mbaMessages,
       orgMessagesEmail: orgMessages,
     );
+
+    try {
+      await _persistNotificationPreferences();
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
   }
 
-  void setMarketingToggle({bool? news, bool? offers, bool? surveys}) {
+  // -- Marketing preferences --
+
+  Future<void> setMarketingEmail(String email) async {
+    final previous = state;
+    state = state.copyWith(marketingEmail: email.trim());
+
+    try {
+      await _persistMarketingPreferences();
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
+  }
+
+  Future<void> setMarketingToggle(
+      {bool? news, bool? offers, bool? surveys}) async {
+    final previous = state;
     state = state.copyWith(
       marketingNews: news,
       marketingOffers: offers,
       marketingSurveys: surveys,
     );
+
+    try {
+      await _persistMarketingPreferences();
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
   }
+
+  // -- Private helpers --
 
   Future<void> _persistCoreProfile() async {
-    final profile = await _ref.read(profileRepositoryProvider).updateProfile(
-          UserProfile(
-            firstName: state.firstName,
-            lastName: state.lastName,
-            email: state.email,
-            phone: state.phone,
-            countryCode: state.countryCode,
-          ),
-        );
+    final profile = await _repository.updateProfile(
+      UserProfile(
+        firstName: state.firstName,
+        lastName: state.lastName,
+        email: state.email,
+        phone: state.phone,
+        countryCode: state.countryCode,
+        photoUrl: state.photoUrl,
+      ),
+    );
 
-    _applyProfile(profile, loaded: true);
-  }
-
-  void _applyProfile(
-    UserProfile profile, {
-    bool syncEmailPreferences = false,
-    bool loaded = true,
-  }) {
     state = state.copyWith(
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: profile.email,
       phone: profile.phone,
       countryCode: profile.countryCode,
-      notificationsEmail:
-          syncEmailPreferences ? profile.email : state.notificationsEmail,
-      marketingEmail:
-          syncEmailPreferences ? profile.email : state.marketingEmail,
-      loaded: loaded,
+      photoUrl: profile.photoUrl,
+      loaded: true,
+    );
+  }
+
+  Future<void> _persistNotificationPreferences() async {
+    final prefs = await _repository.updateNotificationPreferences(
+      NotificationPreferences(
+        email: state.notificationsEmail,
+        newBillsPush: state.newBillsPush,
+        billUpdatesPush: state.billUpdatesPush,
+        billAssistPush: state.billAssistPush,
+        mbaMessagesPush: state.mbaMessagesPush,
+        orgMessagesPush: state.orgMessagesPush,
+        friendsMessagesPush: state.friendsMessagesPush,
+        newBillsEmail: state.newBillsEmail,
+        billUpdatesEmail: state.billUpdatesEmail,
+        billAssistEmail: state.billAssistEmail,
+        mbaMessagesEmail: state.mbaMessagesEmail,
+        orgMessagesEmail: state.orgMessagesEmail,
+      ),
+    );
+
+    state = state.copyWith(
+      notificationsEmail: prefs.email,
+      newBillsPush: prefs.newBillsPush,
+      billUpdatesPush: prefs.billUpdatesPush,
+      billAssistPush: prefs.billAssistPush,
+      mbaMessagesPush: prefs.mbaMessagesPush,
+      orgMessagesPush: prefs.orgMessagesPush,
+      friendsMessagesPush: prefs.friendsMessagesPush,
+      newBillsEmail: prefs.newBillsEmail,
+      billUpdatesEmail: prefs.billUpdatesEmail,
+      billAssistEmail: prefs.billAssistEmail,
+      mbaMessagesEmail: prefs.mbaMessagesEmail,
+      orgMessagesEmail: prefs.orgMessagesEmail,
+    );
+  }
+
+  Future<void> _persistMarketingPreferences() async {
+    final prefs = await _repository.updateMarketingPreferences(
+      MarketingPreferences(
+        email: state.marketingEmail,
+        news: state.marketingNews,
+        offers: state.marketingOffers,
+        surveys: state.marketingSurveys,
+      ),
+    );
+
+    state = state.copyWith(
+      marketingEmail: prefs.email,
+      marketingNews: prefs.news,
+      marketingOffers: prefs.offers,
+      marketingSurveys: prefs.surveys,
     );
   }
 }
