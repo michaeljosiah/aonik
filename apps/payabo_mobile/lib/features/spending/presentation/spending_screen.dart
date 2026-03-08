@@ -283,7 +283,7 @@ class _SpendingScreenState extends State<SpendingScreen> {
               icon: Icons.receipt_long_outlined, label: 'Bills'),
           PayaboBottomNavItem(
               icon: Icons.show_chart_outlined, label: 'Spending'),
-          PayaboBottomNavItem(icon: Icons.more_horiz, label: 'More'),
+          PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Chat'),
         ],
         currentIndex: _navIndex,
         onTap: _handleNavTap,
@@ -308,9 +308,7 @@ class _SpendingScreenState extends State<SpendingScreen> {
         context.go('/spending');
         return;
       case 3:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Section coming soon in mock build.')),
-        );
+        context.go('/chat');
         return;
     }
   }

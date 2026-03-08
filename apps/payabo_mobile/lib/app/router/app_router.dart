@@ -13,6 +13,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/personal_details_screen.dart';
 import '../../features/auth/presentation/phone_code_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/payments/presentation/add_friend_screen.dart';
 import '../../features/payments/presentation/card_details_screen.dart';
@@ -193,6 +194,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           builder: (context, state) => SpendingMerchantDetailScreen(
             merchantId: state.pathParameters['merchantId'] ?? 'amazon',
           ),
+        ),
+        GoRoute(
+          path: '/chat',
+          name: 'chat',
+          builder: (context, state) => const ChatScreen(),
         ),
         GoRoute(
           path: '/payments/country',
