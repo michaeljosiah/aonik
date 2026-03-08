@@ -8,6 +8,8 @@ abstract final class PayaboColors {
   // Typography
   static const Color ink = Color(0xFF1A1C20);
   static const Color muted = Color(0xFFB4BFC3);
+  static const Color accentBrown = Color(0xFF6C402A);
+  static const Color accentBrownMuted = Color(0xFF9B7557);
 
   // Surfaces
   static const Color white = Color(0xFFFFFFFF);

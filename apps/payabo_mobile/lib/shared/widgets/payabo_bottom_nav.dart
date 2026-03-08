@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/payabo_colors.dart';
-import '../theme/payabo_shadows.dart';
 import '../theme/payabo_spacing.dart';
 
 class PayaboBottomNavItem {
@@ -36,19 +35,24 @@ class PayaboBottomNav extends StatelessWidget {
         'PayaboBottomNav expects 4 items around center action.');
 
     final navColor = Theme.of(context).scaffoldBackgroundColor;
-
     return SafeArea(
       top: false,
       child: DecoratedBox(
         decoration: const BoxDecoration(
           color: PayaboColors.white,
-          boxShadow: PayaboShadows.soft,
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Color(0x12000000),
+              offset: Offset(0, -1),
+              blurRadius: 10,
+            ),
+          ],
           border: Border(
-            top: BorderSide(color: PayaboColors.border),
+            top: BorderSide(color: Color(0xFFF0E7DA)),
           ),
         ),
         child: SizedBox(
-          height: 70,
+          height: 74,
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.center,
@@ -63,7 +67,7 @@ class PayaboBottomNav extends StatelessWidget {
                 ],
               ),
               Positioned(
-                top: -20,
+                top: -18,
                 child: Material(
                   color: navColor,
                   shape: const CircleBorder(),
@@ -71,11 +75,18 @@ class PayaboBottomNav extends StatelessWidget {
                     onTap: onCenterTap,
                     customBorder: const CircleBorder(),
                     child: Ink(
-                      width: 56,
-                      height: 56,
+                      width: 58,
+                      height: 58,
                       decoration: const BoxDecoration(
                         color: PayaboColors.primary,
                         shape: BoxShape.circle,
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0x26000000),
+                            offset: Offset(0, 4),
+                            blurRadius: 12,
+                          ),
+                        ],
                       ),
                       child: Icon(centerIcon, color: PayaboColors.white),
                     ),
@@ -92,6 +103,8 @@ class PayaboBottomNav extends StatelessWidget {
   Widget _buildItem(BuildContext context, {required int index}) {
     final item = items[index];
     final selected = currentIndex == index;
+    const selectedColor = Color(0xFFC29752);
+    const unselectedColor = Color(0xFF99958F);
 
     return InkWell(
       onTap: () => onTap(index),
@@ -102,15 +115,15 @@ class PayaboBottomNav extends StatelessWidget {
           children: <Widget>[
             Icon(
               item.icon,
-              color: selected ? PayaboColors.primary : PayaboColors.muted,
-              size: 22,
+              color: selected ? selectedColor : unselectedColor,
+              size: 21,
             ),
             const SizedBox(height: PayaboSpacing.xs),
             Text(
               item.label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: selected ? PayaboColors.primary : PayaboColors.muted,
-                    fontSize: 11,
+                    color: selected ? selectedColor : unselectedColor,
+                    fontSize: 12,
                   ),
             ),
           ],

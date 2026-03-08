@@ -8,11 +8,11 @@ import 'package:image_picker/image_picker.dart';
 import '../../../app/auth/auth_controller.dart';
 import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
+import '../../../shared/widgets/payabo_profile_avatar.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
 
@@ -80,7 +80,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         Center(
           child: Column(
             children: <Widget>[
-              _ProfileAvatar(photoUrl: state.photoUrl),
+              PayaboProfileAvatar(
+                photoUrl: state.photoUrl,
+                showShadow: true,
+              ),
               const SizedBox(height: PayaboSpacing.sm),
               GestureDetector(
                 onTap: _openPhotoPicker,
@@ -261,59 +264,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           );
       }
     }
-  }
-}
-
-/// 100x100 circular avatar with drop-shadow and camera icon placeholder.
-class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({this.photoUrl});
-
-  final String? photoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    if (photoUrl != null && photoUrl!.isNotEmpty) {
-      developer.log(
-        'Attempting to render profile image from $photoUrl',
-        name: 'Payabo.ProfileAvatar',
-      );
-    }
-
-    return Container(
-      width: 100,
-      height: 100,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: PayaboColors.background,
-        boxShadow: PayaboShadows.soft,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: photoUrl != null
-          ? Image.network(
-              photoUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, error, stackTrace) {
-                developer.log(
-                  'Profile image failed to render from $photoUrl',
-                  name: 'Payabo.ProfileAvatar',
-                  error: error,
-                  stackTrace: stackTrace,
-                );
-                return _placeholder();
-              },
-            )
-          : _placeholder(),
-    );
-  }
-
-  static Widget _placeholder() {
-    return const Center(
-      child: Icon(
-        Icons.camera_alt_outlined,
-        size: 36,
-        color: PayaboColors.muted,
-      ),
-    );
   }
 }
 

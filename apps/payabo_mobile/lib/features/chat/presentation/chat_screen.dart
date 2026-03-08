@@ -5,6 +5,7 @@ import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_bottom_nav.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
@@ -98,12 +99,13 @@ class _ChatScreenState extends State<ChatScreen> {
             SafeArea(
               child: Column(
                 children: <Widget>[
+                  const PayaboAppHeader(),
                   Expanded(
                     child: ListView(
                       controller: _scrollController,
                       padding: const EdgeInsets.fromLTRB(
                         PayaboSpacing.xl,
-                        PayaboSpacing.x4,
+                        PayaboSpacing.md,
                         PayaboSpacing.xl,
                         PayaboSpacing.xl,
                       ),

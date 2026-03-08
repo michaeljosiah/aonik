@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,24 +11,19 @@ void main() {
     await tester.pumpWidget(buildTestApp(const SpendingScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Updated today, 06:43'), findsOneWidget);
+    expect(find.text('Spend'), findsOneWidget);
+    expect(find.text('Transactions'), findsOneWidget);
+    expect(find.text('Your spending'), findsOneWidget);
     expect(find.text('February spend'), findsOneWidget);
-    expect(find.byType(LineChart), findsOneWidget);
 
-    final Finder primaryScrollable = find.byType(Scrollable).first;
+    final Finder primaryList = find.byType(ListView).first;
 
-    await tester.scrollUntilVisible(
-      find.text('Categories'),
-      300,
-      scrollable: primaryScrollable,
-    );
+    await tester.drag(primaryList, const Offset(0, -520));
+    await tester.pumpAndSettle();
     expect(find.text('Categories'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Finances'),
-      220,
-      scrollable: primaryScrollable,
-    );
+    await tester.drag(primaryList, const Offset(0, -240));
+    await tester.pumpAndSettle();
     expect(find.text('Finances'), findsOneWidget);
   });
 }

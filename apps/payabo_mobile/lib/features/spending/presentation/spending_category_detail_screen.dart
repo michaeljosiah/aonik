@@ -6,6 +6,7 @@ import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_bottom_nav.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
@@ -34,140 +35,150 @@ class _SpendingCategoryDetailScreenState
     final _SpendingCategoryTransaction transaction = detail.transactions.first;
 
     return Scaffold(
-      backgroundColor: PayaboColors.white,
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            _CategoryHeader(
-              title: detail.title,
-              onBackTap: () => context.go('/spending'),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  PayaboSpacing.xl,
-                  PayaboSpacing.lg,
-                  PayaboSpacing.xl,
-                  PayaboSpacing.x4,
-                ),
-                children: <Widget>[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              detail.monthLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(color: PayaboColors.muted),
-                            ),
-                            const SizedBox(height: PayaboSpacing.xs),
-                            Text(
-                              detail.totalAmount,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
-                                  ?.copyWith(fontSize: 56),
-                            ),
-                            const SizedBox(height: PayaboSpacing.xs),
-                            Row(
-                              children: <Widget>[
-                                Text(
-                                  detail.deltaAmount,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        color: detail.isDecrease
-                                            ? PayaboColors.success
-                                            : PayaboColors.danger,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                                Icon(
-                                  detail.isDecrease
-                                      ? Icons.arrow_drop_down
-                                      : Icons.arrow_drop_up,
-                                  color: detail.isDecrease
-                                      ? PayaboColors.success
-                                      : PayaboColors.danger,
-                                  size: 20,
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    detail.deltaReference,
+      backgroundColor: const Color(0xFFFFFBF7),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: <Color>[Color(0xFFFFFCF9), Color(0xFFF7EEE4)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: <Widget>[
+              _CategoryHeader(
+                title: detail.title,
+                onBackTap: () => context.go('/spending/transactions'),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    PayaboSpacing.xl,
+                    PayaboSpacing.lg,
+                    PayaboSpacing.xl,
+                    PayaboSpacing.x4,
+                  ),
+                  children: <Widget>[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                detail.monthLabel,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(color: PayaboColors.muted),
+                              ),
+                              const SizedBox(height: PayaboSpacing.xs),
+                              Text(
+                                detail.totalAmount,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(fontSize: 56),
+                              ),
+                              const SizedBox(height: PayaboSpacing.xs),
+                              Row(
+                                children: <Widget>[
+                                  Text(
+                                    detail.deltaAmount,
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
-                                        ?.copyWith(color: PayaboColors.muted),
+                                        ?.copyWith(
+                                          color: detail.isDecrease
+                                              ? PayaboColors.success
+                                              : PayaboColors.danger,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                  Icon(
+                                    detail.isDecrease
+                                        ? Icons.arrow_drop_down
+                                        : Icons.arrow_drop_up,
+                                    color: detail.isDecrease
+                                        ? PayaboColors.success
+                                        : PayaboColors.danger,
+                                    size: 20,
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      detail.deltaReference,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(color: PayaboColors.muted),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: PayaboSpacing.md),
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: PayaboColors.background,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: PayaboColors.border),
+                        const SizedBox(width: PayaboSpacing.md),
+                        Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: PayaboColors.background,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: PayaboColors.border),
+                          ),
+                          child: Icon(
+                            detail.icon,
+                            color: PayaboColors.primary,
+                            size: 56,
+                          ),
                         ),
-                        child: Icon(
-                          detail.icon,
-                          color: PayaboColors.primary,
-                          size: 56,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: PayaboSpacing.lg),
-                  Center(
-                    child: _DetailComparisonChip(
-                      deltaAmount: detail.deltaAmount,
-                      deltaReference: detail.deltaReference,
-                      isDecrease: detail.isDecrease,
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: PayaboSpacing.xl),
-                  const SizedBox(height: 250, child: _CategorySpendingChart()),
-                  const SizedBox(height: PayaboSpacing.xl),
-                  _ActiveAlertBanner(alertCount: detail.activeAlertCount),
-                  const SizedBox(height: PayaboSpacing.xl),
-                  Text(
-                    detail.transactionCountLabel,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(color: PayaboColors.muted),
-                  ),
-                  const SizedBox(height: PayaboSpacing.md),
-                  _TransactionDateRow(
-                    dateLabel: transaction.dateLabel,
-                    totalAmount: transaction.amount,
-                  ),
-                  _TransactionListItem(transaction: transaction),
-                  const SizedBox(height: PayaboSpacing.x3),
-                  Center(
-                    child: Text(
-                      "That's all your transactions.",
+                    const SizedBox(height: PayaboSpacing.lg),
+                    Center(
+                      child: _DetailComparisonChip(
+                        deltaAmount: detail.deltaAmount,
+                        deltaReference: detail.deltaReference,
+                        isDecrease: detail.isDecrease,
+                      ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.xl),
+                    const SizedBox(
+                        height: 250, child: _CategorySpendingChart()),
+                    const SizedBox(height: PayaboSpacing.xl),
+                    _ActiveAlertBanner(alertCount: detail.activeAlertCount),
+                    const SizedBox(height: PayaboSpacing.xl),
+                    Text(
+                      detail.transactionCountLabel,
                       style: Theme.of(context)
                           .textTheme
                           .titleLarge
                           ?.copyWith(color: PayaboColors.muted),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: PayaboSpacing.md),
+                    _TransactionDateRow(
+                      dateLabel: transaction.dateLabel,
+                      totalAmount: transaction.amount,
+                    ),
+                    _TransactionListItem(transaction: transaction),
+                    const SizedBox(height: PayaboSpacing.x3),
+                    Center(
+                      child: Text(
+                        "That's all your transactions.",
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(color: PayaboColors.muted),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: PayaboBottomNav(
@@ -263,14 +274,8 @@ class _CategoryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        PayaboSpacing.md,
-        PayaboSpacing.md,
-        PayaboSpacing.xl,
-        PayaboSpacing.xl,
-      ),
       decoration: const BoxDecoration(
-        color: PayaboColors.background,
+        color: Color(0xFFF9F0E2),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
@@ -279,19 +284,40 @@ class _CategoryHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          IconButton(
-            onPressed: onBackTap,
-            icon: const Icon(Icons.arrow_back_ios_new),
-            color: PayaboColors.primary,
+          const PayaboAppHeader(
+            padding: EdgeInsets.fromLTRB(
+              PayaboSpacing.xl,
+              PayaboSpacing.md,
+              PayaboSpacing.xl,
+              PayaboSpacing.md,
+            ),
           ),
           Padding(
-            padding: const EdgeInsets.only(left: PayaboSpacing.md),
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 54,
-                    fontWeight: FontWeight.w700,
+            padding: const EdgeInsets.fromLTRB(
+              PayaboSpacing.md,
+              0,
+              PayaboSpacing.xl,
+              PayaboSpacing.xl,
+            ),
+            child: Row(
+              children: <Widget>[
+                IconButton(
+                  onPressed: onBackTap,
+                  icon: const Icon(Icons.arrow_back_ios_new),
+                  color: PayaboColors.primary,
+                ),
+                const SizedBox(width: PayaboSpacing.xs),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontSize: 42,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF4D3120),
+                        ),
                   ),
+                ),
+              ],
             ),
           ),
         ],
@@ -327,27 +353,30 @@ class _DetailComparisonChip extends StatelessWidget {
           horizontal: PayaboSpacing.lg,
           vertical: PayaboSpacing.md,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              deltaAmount,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: amountColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            Icon(
-              isDecrease ? Icons.arrow_drop_down : Icons.arrow_drop_up,
-              color: amountColor,
-            ),
-            Text(
-              deltaReference,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: PayaboColors.muted,
-                  ),
-            ),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                deltaAmount,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: amountColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              Icon(
+                isDecrease ? Icons.arrow_drop_down : Icons.arrow_drop_up,
+                color: amountColor,
+              ),
+              Text(
+                deltaReference,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: PayaboColors.muted,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );
