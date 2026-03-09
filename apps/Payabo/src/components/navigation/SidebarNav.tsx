@@ -217,7 +217,7 @@ export const SidebarNav = () => {
             Organisations
           </a>
 
-          <a href="#" className="list-nav-item d-flex align-items-center">
+          <NavLink to="/chat" className="list-nav-item d-flex align-items-center">
             <span className="list-nav-icon">
               <SidebarIcon viewBox="0 0 24 24">
                 <path
@@ -234,8 +234,8 @@ export const SidebarNav = () => {
                 />
               </SidebarIcon>
             </span>
-            Friends &amp; Recipients
-          </a>
+            Chat
+          </NavLink>
         </div>
       </div>
 

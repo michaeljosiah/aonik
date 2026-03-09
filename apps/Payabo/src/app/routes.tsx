@@ -5,6 +5,7 @@ import { AuthLayout } from "./layouts/AuthLayout";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import { FlowLayout } from "./layouts/FlowLayout";
 import { MarketingLayout } from "./layouts/MarketingLayout";
+import { MobileAppLayout } from "./layouts/MobileAppLayout";
 import { Home } from "../pages/marketing/Home";
 import { About } from "../pages/marketing/About";
 import { Community } from "../pages/marketing/Community";
@@ -50,6 +51,7 @@ import { TransactionsImport } from "../pages/dashboard/TransactionsImport";
 import { TransactionsReview } from "../pages/dashboard/TransactionsReview";
 import { SpendingInsights } from "../pages/dashboard/SpendingInsights";
 import { WalletAccounts } from "../pages/dashboard/WalletAccounts";
+import { ChatAssistant } from "../pages/dashboard/ChatAssistant";
 import { TransactionDetails } from "../pages/payments/TransactionDetails";
 import { PersonalDetails } from "../pages/profile/PersonalDetails";
 import { PersonalDetailsEditName } from "../pages/profile/PersonalDetailsEditName";
@@ -174,6 +176,14 @@ export const router = createBrowserRouter([
           { path: "/profile-notification", element: <NotificationSettings /> },
           { path: "/profile-marketing", element: <MarketingPreferences /> }
         ]
+      },
+      {
+        element: (
+          <RequireAuth>
+            <MobileAppLayout />
+          </RequireAuth>
+        ),
+        children: [{ path: "/chat", element: <ChatAssistant /> }]
       },
       {
         element: <FlowLayout currentStep={0} headerClassName="border-bottom-0" />,

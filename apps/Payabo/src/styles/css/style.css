@@ -8338,3 +8338,330 @@ Slick Slider
 	background-color: #2F4851;
 	color: #fff;
 }
+
+/*=================
+Payabo Chat
+===================*/
+.payabo-chat-page {
+	--payabo-chat-bg: #f5eee6;
+	--payabo-chat-panel: rgba(255, 250, 245, 0.82);
+	--payabo-chat-line: rgba(77, 58, 41, 0.12);
+	--payabo-chat-ink: #2f241c;
+	--payabo-chat-muted: #7d6958;
+	--payabo-chat-accent: #221915;
+	--payabo-chat-soft: #fff7f0;
+	min-height: 100vh;
+	padding: 24px 16px;
+	background:
+		radial-gradient(circle at top left, rgba(198, 225, 239, 0.95), transparent 32%),
+		radial-gradient(circle at bottom right, rgba(219, 236, 208, 0.7), transparent 28%),
+		linear-gradient(180deg, #dce9ef 0%, #f4efe8 52%, #ebe0d2 100%);
+}
+
+.payabo-chat-shell {
+	max-width: 430px;
+	min-height: calc(100vh - 48px);
+	margin: 0 auto;
+	padding: 24px 18px 18px;
+	border: 1px solid rgba(255, 255, 255, 0.4);
+	border-radius: 36px;
+	background: linear-gradient(180deg, rgba(250, 245, 240, 0.96) 0%, rgba(240, 231, 221, 0.96) 100%);
+	box-shadow: 0 24px 60px rgba(61, 42, 28, 0.18);
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	color: var(--payabo-chat-ink);
+	position: relative;
+	overflow: hidden;
+}
+
+.payabo-chat-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 16px;
+}
+
+.payabo-chat-header__eyebrow {
+	margin-bottom: 8px;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--payabo-chat-muted);
+}
+
+.payabo-chat-header h1 {
+	margin-bottom: 0;
+	max-width: 250px;
+	font-size: 34px;
+	line-height: 0.98;
+	font-weight: 300;
+	text-transform: none;
+	letter-spacing: -0.04em;
+}
+
+.payabo-chat-header__actions {
+	display: flex;
+	gap: 10px;
+}
+
+.payabo-chat-icon-button {
+	width: 42px;
+	height: 42px;
+	border: 1px solid var(--payabo-chat-line);
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.62);
+	color: var(--payabo-chat-accent);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.payabo-chat-icon-button:hover {
+	transform: translateY(-1px);
+	background: rgba(255, 255, 255, 0.88);
+}
+
+.payabo-chat-thread {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding-right: 2px;
+	flex: 1 1 auto;
+}
+
+.payabo-chat-message {
+	max-width: 87%;
+	opacity: 0;
+	transform: translateY(10px);
+	animation: payabo-chat-rise 0.55s ease forwards;
+}
+
+.payabo-chat-message p {
+	margin-bottom: 0;
+	font-size: 18px;
+	line-height: 1.14;
+	letter-spacing: -0.03em;
+}
+
+.payabo-chat-message__tag {
+	display: inline-flex;
+	margin-bottom: 8px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.7);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--payabo-chat-muted);
+}
+
+.payabo-chat-message--hero p {
+	font-size: 54px;
+	line-height: 0.95;
+	font-weight: 300;
+	max-width: 320px;
+}
+
+.payabo-chat-message--coach {
+	align-self: flex-start;
+	padding: 18px 18px 16px;
+	border-radius: 26px 26px 26px 10px;
+	background: var(--payabo-chat-panel);
+	box-shadow: 0 16px 30px rgba(61, 42, 28, 0.08);
+}
+
+.payabo-chat-message--user {
+	align-self: flex-end;
+	padding: 14px 18px;
+	border-radius: 999px;
+	background: #fff;
+	box-shadow: 0 10px 20px rgba(61, 42, 28, 0.08);
+}
+
+.payabo-chat-message--user p {
+	font-size: 17px;
+	white-space: nowrap;
+}
+
+.payabo-chat-message--insight {
+	align-self: flex-start;
+	padding: 18px;
+	border-radius: 24px 24px 24px 12px;
+	background: rgba(255, 248, 241, 0.84);
+	border: 1px solid rgba(106, 81, 59, 0.08);
+	box-shadow: 0 16px 30px rgba(61, 42, 28, 0.06);
+}
+
+.payabo-chat-composer-wrap {
+	margin-top: auto;
+	padding: 14px;
+	border-radius: 28px;
+	background: rgba(255, 255, 255, 0.56);
+	backdrop-filter: blur(10px);
+	border: 1px solid rgba(255, 255, 255, 0.6);
+	box-shadow: 0 -12px 30px rgba(61, 42, 28, 0.06);
+}
+
+.payabo-chat-suggestions {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 12px;
+	overflow-x: auto;
+	padding-bottom: 2px;
+	scrollbar-width: none;
+}
+
+.payabo-chat-suggestions::-webkit-scrollbar {
+	display: none;
+}
+
+.payabo-chat-suggestion {
+	flex: 0 0 auto;
+	padding: 10px 14px;
+	border: 1px solid var(--payabo-chat-line);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.78);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--payabo-chat-ink);
+	white-space: nowrap;
+	transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.payabo-chat-suggestion:hover {
+	background: #fff;
+	transform: translateY(-1px);
+}
+
+.payabo-chat-composer {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px;
+	border: 1px solid rgba(77, 58, 41, 0.1);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.92);
+}
+
+.payabo-chat-composer input {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	padding: 0 10px;
+	font-size: 16px;
+	color: var(--payabo-chat-ink);
+}
+
+.payabo-chat-composer input:focus {
+	outline: none;
+}
+
+.payabo-chat-composer input::placeholder {
+	color: #9a8573;
+}
+
+.payabo-chat-composer button {
+	flex: 0 0 auto;
+	width: 48px;
+	height: 48px;
+	border: 0;
+	border-radius: 50%;
+	background: var(--payabo-chat-accent);
+	color: #fff;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 10px 20px rgba(34, 25, 21, 0.24);
+}
+
+.payabo-chat-bottom-nav {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 8px;
+	margin-top: 14px;
+}
+
+.payabo-chat-bottom-nav__item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	padding: 10px 8px 4px;
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--payabo-chat-muted);
+	text-decoration: none;
+	transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.payabo-chat-bottom-nav__item:hover {
+	background: rgba(255, 255, 255, 0.5);
+	color: var(--payabo-chat-accent);
+	transform: translateY(-1px);
+}
+
+.payabo-chat-bottom-nav__item.active {
+	background: #201712;
+	color: #fff;
+	box-shadow: 0 12px 24px rgba(34, 25, 21, 0.18);
+}
+
+.payabo-chat-bottom-nav__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.72);
+}
+
+.payabo-chat-bottom-nav__item.active .payabo-chat-bottom-nav__icon {
+	background: rgba(255, 255, 255, 0.14);
+}
+
+@keyframes payabo-chat-rise {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (max-width: 575.98px) {
+	.payabo-chat-page {
+		padding: 0;
+	}
+
+	.payabo-chat-shell {
+		max-width: none;
+		min-height: 100vh;
+		border-radius: 0;
+		padding-top: 20px;
+	}
+
+	.payabo-chat-header h1 {
+		font-size: 30px;
+	}
+
+	.payabo-chat-message--hero p {
+		font-size: 42px;
+	}
+
+	.payabo-chat-message,
+	.payabo-chat-message--hero {
+		max-width: 100%;
+	}
+
+	.payabo-chat-message--user p {
+		white-space: normal;
+	}
+}
