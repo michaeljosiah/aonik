@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
 import 'package:payabo_mobile/features/chat/presentation/chat_history_screen.dart';
 
 import 'test_helpers.dart';
@@ -19,6 +20,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Track spending to see where money goes'), findsOneWidget);
+    expect(find.text('Current account balance inquiry'), findsNothing);
+  });
+
+  testWidgets('chat history is empty in fresh demo mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const ChatHistoryScreen(),
+        demoDataMode: DemoDataMode.fresh,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No conversation history yet in this demo state.'),
+      findsOneWidget,
+    );
     expect(find.text('Current account balance inquiry'), findsNothing);
   });
 }

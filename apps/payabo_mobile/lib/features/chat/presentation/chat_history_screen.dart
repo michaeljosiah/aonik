@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 
@@ -22,7 +24,7 @@ const List<_ChatHistoryEntry> _historyEntries = <_ChatHistoryEntry>[
   ),
 ];
 
-class ChatHistoryScreen extends StatefulWidget {
+class ChatHistoryScreen extends ConsumerStatefulWidget {
   const ChatHistoryScreen({
     super.key,
     this.selectedConversationId,
@@ -31,10 +33,10 @@ class ChatHistoryScreen extends StatefulWidget {
   final String? selectedConversationId;
 
   @override
-  State<ChatHistoryScreen> createState() => _ChatHistoryScreenState();
+  ConsumerState<ChatHistoryScreen> createState() => _ChatHistoryScreenState();
 }
 
-class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
+class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -45,8 +47,12 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isFreshDemo =
+        ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final query = _searchController.text.trim().toLowerCase();
-    final items = _historyEntries.where((entry) {
+    final sourceItems =
+        isFreshDemo ? const <_ChatHistoryEntry>[] : _historyEntries;
+    final items = sourceItems.where((entry) {
       return entry.title.toLowerCase().contains(query) ||
           entry.dateLabel.toLowerCase().contains(query);
     }).toList(growable: false);
@@ -110,7 +116,9 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
                         border: Border.all(color: const Color(0xFFE4E0DC)),
                       ),
                       child: Text(
-                        'No conversations match your search.',
+                        isFreshDemo && query.isEmpty
+                            ? 'No conversation history yet in this demo state.'
+                            : 'No conversations match your search.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: PayaboColors.chatTextSecondary,
                             ),

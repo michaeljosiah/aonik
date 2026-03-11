@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
-import '../../../shared/widgets/payabo_bottom_nav.dart';
-import '../../../shared/widgets/payabo_list_row.dart';
-import '../../../shared/widgets/payabo_modal_sheet.dart';
+import '../../../shared/widgets/payabo_primary_app_shell.dart';
 
 const List<String> _quickPrompts = <String>[
   'Build me a Sunday reset',
@@ -17,16 +17,17 @@ const List<String> _quickPrompts = <String>[
   'Find spending leaks',
 ];
 
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final List<_ChatMessage> _freshMessages = <_ChatMessage>[];
   final List<_ChatConversation> _conversations = <_ChatConversation>[
     _ChatConversation(
       id: 'sunday-reset',
@@ -102,8 +103,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ],
     ),
   ];
-
-  int _navIndex = 3;
   int _activeConversationIndex = 0;
 
   List<_ChatMessage> get _messages =>
@@ -126,7 +125,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isFreshDemo =
+        ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final theme = Theme.of(context);
+    final List<_ChatMessage> visibleMessages =
+        isFreshDemo ? _freshMessages : _messages;
+    final String title = isFreshDemo ? 'Ready when you are' : 'Hey you';
+    final String subtitle = isFreshDemo
+        ? 'Ask your first question and build your own conversation from a clean slate.'
+        : 'Tell me what feels messy and I will turn it into a plan.';
 
     return Scaffold(
       backgroundColor: PayaboColors.chatScreenSurface,
@@ -156,7 +163,9 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 children: <Widget>[
                   PayaboAppHeader(
-                    trailingAction: _ChatHeaderMenuButton(onTap: _openHistory),
+                    trailingAction: _ChatHeaderMenuButton(
+                      onTap: () => _openHistory(isFreshDemo),
+                    ),
                   ),
                   Expanded(
                     child: ListView(
@@ -169,7 +178,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       children: <Widget>[
                         Text(
-                          'Hey you',
+                          title,
                           style: theme.textTheme.displayMedium?.copyWith(
                             fontSize: 58,
                             fontWeight: FontWeight.w300,
@@ -178,39 +187,45 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                         const SizedBox(height: PayaboSpacing.sm),
                         Text(
-                          'Tell me what feels messy and I will turn it into a plan.',
+                          subtitle,
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: PayaboColors.chatTextSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: PayaboSpacing.x3),
-                        ..._messages.map(
-                          (_ChatMessage message) => Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: PayaboSpacing.xl),
-                            child: _ChatMessageBlock(message: message),
+                        if (isFreshDemo && visibleMessages.isEmpty)
+                          const _ChatFreshStateCard()
+                        else
+                          ...visibleMessages.map(
+                            (_ChatMessage message) => Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: PayaboSpacing.xl,
+                              ),
+                              child: _ChatMessageBlock(message: message),
+                            ),
                           ),
-                        ),
-                        Text(
-                          'Try one of these',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: PayaboColors.chatTextSecondary,
+                        if (!isFreshDemo) ...<Widget>[
+                          Text(
+                            'Try one of these',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: PayaboColors.chatTextSecondary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: PayaboSpacing.md),
-                        Wrap(
-                          spacing: PayaboSpacing.sm,
-                          runSpacing: PayaboSpacing.sm,
-                          children: _quickPrompts
-                              .map(
-                                (String prompt) => _QuickPromptChip(
-                                  label: prompt,
-                                  onTap: () => _submitPrompt(prompt),
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          Wrap(
+                            spacing: PayaboSpacing.sm,
+                            runSpacing: PayaboSpacing.sm,
+                            children: _quickPrompts
+                                .map(
+                                  (String prompt) => _QuickPromptChip(
+                                    label: prompt,
+                                    onTap: () => _submitPrompt(prompt),
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                        ],
                         const SizedBox(height: PayaboSpacing.md),
                       ],
                     ),
@@ -234,18 +249,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: PayaboBottomNav(
-        items: const <PayaboBottomNavItem>[
-          PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-          PayaboBottomNavItem(
-              icon: Icons.receipt_long_outlined, label: 'Bills'),
-          PayaboBottomNavItem(
-              icon: Icons.show_chart_outlined, label: 'Spending'),
-          PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Chat'),
-        ],
-        currentIndex: _navIndex,
-        onTap: _handleNavTap,
-        onCenterTap: _showQuickActions,
+      bottomNavigationBar: const PayaboPrimaryAppShell(
+        destination: PayaboPrimaryDestination.chat,
       ),
     );
   }
@@ -256,10 +261,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _openHistory() async {
-    final currentId = _conversations[_activeConversationIndex].id;
+  Future<void> _openHistory(bool isFreshDemo) async {
+    final currentId = isFreshDemo || _conversations.isEmpty
+        ? null
+        : _conversations[_activeConversationIndex].id;
     final selectedId = await context.push<String>(
-      '/chat/history?selected=$currentId',
+      currentId == null ? '/chat/history' : '/chat/history?selected=$currentId',
     );
 
     if (!mounted || selectedId == null) {
@@ -289,70 +296,9 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _handleNavTap(int index) {
-    setState(() {
-      _navIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        context.go('/dashboard');
-        return;
-      case 1:
-        context.go('/payments/country');
-        return;
-      case 2:
-        context.go('/spending');
-        return;
-      case 3:
-        context.go('/chat');
-        return;
-    }
-  }
-
-  Future<void> _showQuickActions() async {
-    await showPayaboModalSheet<void>(
-      context: context,
-      title: 'Quick Actions',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          PayaboListRow(
-            title: 'Pay a bill',
-            subtitle: 'Start a bill payment now',
-            leading: const Icon(Icons.receipt_long_outlined),
-            onTap: () {
-              Navigator.of(context).pop();
-              context.go('/payments/country');
-            },
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Transfer',
-            subtitle: 'Send money to another account',
-            leading: const Icon(Icons.compare_arrows_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Account',
-            subtitle: 'Manage your account details',
-            leading: const Icon(Icons.account_balance_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Income',
-            subtitle: 'Track and categorize income',
-            leading: const Icon(Icons.trending_up_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _submitPrompt([String? preset]) {
+    final bool isFreshDemo =
+        ref.read(demoDataModeProvider) == DemoDataMode.fresh;
     final String prompt = (preset ?? _controller.text).trim();
 
     if (prompt.isEmpty) {
@@ -362,8 +308,10 @@ class _ChatScreenState extends State<ChatScreen> {
     FocusScope.of(context).unfocus();
     _controller.clear();
 
+    final targetMessages = isFreshDemo ? _freshMessages : _messages;
+
     setState(() {
-      _messages.add(
+      targetMessages.add(
         _ChatMessage(
           sender: _ChatSender.user,
           lines: <String>[prompt],
@@ -380,7 +328,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
       setState(() {
-        _messages.add(reply);
+        targetMessages.add(reply);
       });
       _scrollToBottom();
     });
@@ -464,6 +412,58 @@ class _ChatScreenState extends State<ChatScreen> {
         curve: Curves.easeOutCubic,
       );
     });
+  }
+}
+
+class _ChatFreshStateCard extends StatelessWidget {
+  const _ChatFreshStateCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: PayaboColors.white.withValues(alpha: 0.8),
+        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        boxShadow: PayaboShadows.soft,
+        border: Border.all(color: PayaboColors.chatPlanBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(PayaboSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: PayaboColors.chatPlanIconSurface,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: PayaboColors.primary,
+              ),
+            ),
+            const SizedBox(height: PayaboSpacing.lg),
+            Text(
+              'Fresh demo state',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: PayaboColors.chatTextPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: PayaboSpacing.sm),
+            Text(
+              'There is no seeded conversation history here yet. Ask your first question below and build the chat from scratch.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: PayaboColors.chatTextSecondary,
+                    height: 1.45,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

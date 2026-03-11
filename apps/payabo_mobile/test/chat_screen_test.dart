@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
 import 'package:payabo_mobile/features/chat/presentation/chat_screen.dart';
 
 import 'test_helpers.dart';
@@ -36,5 +37,20 @@ void main() {
 
     expect(find.text('Bill rescue plan'), findsWidgets);
     expect(find.text('Pin every due date in one list.'), findsOneWidget);
+  });
+
+  testWidgets('chat screen starts empty in fresh demo mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const ChatScreen(),
+        demoDataMode: DemoDataMode.fresh,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ready when you are'), findsOneWidget);
+    expect(find.text('Fresh demo state'), findsOneWidget);
+    expect(find.text('Sunday reset'), findsNothing);
   });
 }

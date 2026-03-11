@@ -30,6 +30,7 @@ import '../../features/payments/presentation/payment_selection_screen.dart';
 import '../../features/payments/presentation/provider_list_screen.dart';
 import '../../features/payments/presentation/service_details_screen.dart';
 import '../../features/payments/presentation/thank_you_screen.dart';
+import '../../features/profile/presentation/demo_data_preferences_screen.dart';
 import '../../features/profile/presentation/edit_contact_screen.dart';
 import '../../features/profile/presentation/edit_name_screen.dart';
 import '../../features/profile/presentation/login_details_screen.dart';
@@ -343,6 +344,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/profile/marketing/email',
           name: 'profile-marketing-email',
           builder: (context, state) => const MarketingEmailScreen(),
+        ),
+        GoRoute(
+          path: '/profile/demo-data',
+          name: 'profile-demo-data',
+          builder: (context, state) => const DemoDataPreferencesScreen(),
         ),
       ],
     );

@@ -1,17 +1,17 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
-import '../../../shared/widgets/payabo_bottom_nav.dart';
 import '../../../shared/widgets/payabo_card.dart';
-import '../../../shared/widgets/payabo_list_row.dart';
-import '../../../shared/widgets/payabo_modal_sheet.dart';
+import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'widgets/spending_section_pills.dart';
 
 const List<_AccountSnapshot> _accountSnapshots = <_AccountSnapshot>[
@@ -105,16 +105,17 @@ const List<_RecentTransactionPreview> _recentTransactions =
   ),
 ];
 
-class SpendingOverviewScreen extends StatefulWidget {
+class SpendingOverviewScreen extends ConsumerStatefulWidget {
   const SpendingOverviewScreen({super.key});
 
   @override
-  State<SpendingOverviewScreen> createState() => _SpendingOverviewScreenState();
+  ConsumerState<SpendingOverviewScreen> createState() =>
+      _SpendingOverviewScreenState();
 }
 
-class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
+class _SpendingOverviewScreenState
+    extends ConsumerState<SpendingOverviewScreen> {
   late final PageController _accountController;
-  int _navIndex = 2;
   int _accountPage = 0;
 
   @override
@@ -131,6 +132,8 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
+
     return Scaffold(
       backgroundColor: PayaboColors.surfaceWarm,
       body: DecoratedBox(
@@ -149,157 +152,133 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
                     PayaboSpacing.xl,
                     PayaboSpacing.x4,
                   ),
-                  children: <Widget>[
-                    SizedBox(
-                      height: 210,
-                      child: PageView.builder(
-                        controller: _accountController,
-                        itemCount: _accountSnapshots.length,
-                        onPageChanged: (int index) {
-                          setState(() {
-                            _accountPage = index;
-                          });
-                        },
-                        itemBuilder: (BuildContext context, int index) {
-                          return Padding(
-                            padding:
-                                const EdgeInsets.only(right: PayaboSpacing.md),
-                            child: _AccountSnapshotCard(
-                              snapshot: _accountSnapshots[index],
+                  children: isFreshDemo
+                      ? const <Widget>[
+                          _FreshOverviewStateCard(),
+                        ]
+                      : <Widget>[
+                          SizedBox(
+                            height: 210,
+                            child: PageView.builder(
+                              controller: _accountController,
+                              itemCount: _accountSnapshots.length,
+                              onPageChanged: (int index) {
+                                setState(() {
+                                  _accountPage = index;
+                                });
+                              },
+                              itemBuilder: (BuildContext context, int index) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: PayaboSpacing.md,
+                                  ),
+                                  child: _AccountSnapshotCard(
+                                    snapshot: _accountSnapshots[index],
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List<Widget>.generate(
-                        _accountSnapshots.length,
-                        (int index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          width: index == _accountPage ? 18 : 8,
-                          height: 8,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: index == _accountPage
-                                ? PayaboColors.primary
-                                : PayaboColors.spendingDotInactive,
-                            borderRadius: BorderRadius.circular(999),
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.x2),
-                    _OverviewQuickActions(
-                      onAddAccountTap: () => _showSectionComingSoon('Accounts'),
-                      onManageAccountsTap: () =>
-                          _showSectionComingSoon('Accounts'),
-                    ),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    const _SectionHeading(
-                      title: 'Snapshot',
-                      subtitle: 'The numbers that matter this month',
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    const Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: _MetricCard(
-                            label: 'Total balance',
-                            amountLabel: '£11,172.46',
-                            trendLabel: '+4.6% vs last month',
-                            icon: Icons.stacked_line_chart,
+                          const SizedBox(height: PayaboSpacing.md),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List<Widget>.generate(
+                              _accountSnapshots.length,
+                              (int index) => AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: index == _accountPage ? 18 : 8,
+                                height: 8,
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  color: index == _accountPage
+                                      ? PayaboColors.primary
+                                      : PayaboColors.spendingDotInactive,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        SizedBox(width: PayaboSpacing.md),
-                        Expanded(
-                          child: _MetricCard(
-                            label: 'Net worth',
-                            amountLabel: '£18,406.20',
-                            trendLabel: '+£620 this month',
-                            icon: Icons.diamond_outlined,
+                          const SizedBox(height: PayaboSpacing.x2),
+                          _OverviewQuickActions(
+                            onAddAccountTap: () =>
+                                _showSectionComingSoon('Accounts'),
+                            onManageAccountsTap: () =>
+                                _showSectionComingSoon('Accounts'),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    const _SafeToSpendCard(),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    const _SectionHeading(
-                      title: 'Monthly spending breakdown',
-                      subtitle: 'Where this month is going so far',
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    const _MonthlyBreakdownCard(),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    const _SectionHeading(
-                      title: 'Spending trend',
-                      subtitle: 'Week-by-week movement this month',
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    const _TrendCard(),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    const _SectionHeading(
-                      title: 'Quick insights',
-                      subtitle:
-                          'AI-generated nudges from your spending patterns',
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    const _InsightCard(),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    const _SectionHeading(
-                      title: 'Recent transactions',
-                      subtitle:
-                          'A quick preview before you dive into everything',
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    _RecentTransactionsCard(
-                      transactions: _recentTransactions,
-                      onViewAllTap: () => context.go('/spending/transactions'),
-                    ),
-                  ],
+                          const SizedBox(height: PayaboSpacing.xl),
+                          const _SectionHeading(
+                            title: 'Snapshot',
+                            subtitle: 'The numbers that matter this month',
+                          ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          const Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: _MetricCard(
+                                  label: 'Total balance',
+                                  amountLabel: '£11,172.46',
+                                  trendLabel: '+4.6% vs last month',
+                                  icon: Icons.stacked_line_chart,
+                                ),
+                              ),
+                              SizedBox(width: PayaboSpacing.md),
+                              Expanded(
+                                child: _MetricCard(
+                                  label: 'Net worth',
+                                  amountLabel: '£18,406.20',
+                                  trendLabel: '+£620 this month',
+                                  icon: Icons.diamond_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          const _SafeToSpendCard(),
+                          const SizedBox(height: PayaboSpacing.xl),
+                          const _SectionHeading(
+                            title: 'Monthly spending breakdown',
+                            subtitle: 'Where this month is going so far',
+                          ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          const _MonthlyBreakdownCard(),
+                          const SizedBox(height: PayaboSpacing.xl),
+                          const _SectionHeading(
+                            title: 'Spending trend',
+                            subtitle: 'Week-by-week movement this month',
+                          ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          const _TrendCard(),
+                          const SizedBox(height: PayaboSpacing.xl),
+                          const _SectionHeading(
+                            title: 'Quick insights',
+                            subtitle:
+                                'AI-generated nudges from your spending patterns',
+                          ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          const _InsightCard(),
+                          const SizedBox(height: PayaboSpacing.xl),
+                          const _SectionHeading(
+                            title: 'Recent transactions',
+                            subtitle:
+                                'A quick preview before you dive into everything',
+                          ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          _RecentTransactionsCard(
+                            transactions: _recentTransactions,
+                            onViewAllTap: () => context.go('/spending'),
+                          ),
+                        ],
                 ),
               ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: PayaboBottomNav(
-        items: const <PayaboBottomNavItem>[
-          PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-          PayaboBottomNavItem(
-              icon: Icons.receipt_long_outlined, label: 'Bills'),
-          PayaboBottomNavItem(
-              icon: Icons.show_chart_outlined, label: 'Spending'),
-          PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Chat'),
-        ],
-        currentIndex: _navIndex,
-        onTap: _handleNavTap,
-        onCenterTap: _showQuickActions,
+      bottomNavigationBar: const PayaboPrimaryAppShell(
+        destination: PayaboPrimaryDestination.spending,
       ),
     );
-  }
-
-  void _handleNavTap(int index) {
-    setState(() {
-      _navIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        context.go('/dashboard');
-        return;
-      case 1:
-        context.go('/payments/country');
-        return;
-      case 2:
-        context.go('/spending');
-        return;
-      case 3:
-        context.go('/chat');
-        return;
-    }
   }
 
   void _handleSectionSelected(SpendingSection section) {
@@ -307,7 +286,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
       case SpendingSection.overview:
         return;
       case SpendingSection.transactions:
-        context.go('/spending/transactions');
+        context.go('/spending');
         return;
       case SpendingSection.budgets:
         _showSectionComingSoon('Budgets');
@@ -321,48 +300,6 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
   void _showSectionComingSoon(String sectionName) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$sectionName view coming soon in mock build.')),
-    );
-  }
-
-  Future<void> _showQuickActions() async {
-    await showPayaboModalSheet<void>(
-      context: context,
-      title: 'Quick Actions',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          PayaboListRow(
-            title: 'Pay a bill',
-            subtitle: 'Start a bill payment now',
-            leading: const Icon(Icons.receipt_long_outlined),
-            onTap: () {
-              Navigator.of(context).pop();
-              context.go('/payments/country');
-            },
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Transfer',
-            subtitle: 'Send money to another account',
-            leading: const Icon(Icons.compare_arrows_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Account',
-            subtitle: 'Manage your account details',
-            leading: const Icon(Icons.account_balance_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Income',
-            subtitle: 'Track and categorize income',
-            leading: const Icon(Icons.trending_up_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -384,6 +321,64 @@ class _OverviewHeader extends StatelessWidget {
       bottom: SpendingSectionPills(
         selectedSection: SpendingSection.overview,
         onSelected: onSectionSelected,
+      ),
+    );
+  }
+}
+
+class _FreshOverviewStateCard extends StatelessWidget {
+  const _FreshOverviewStateCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF8),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFF1DEC9)),
+        boxShadow: PayaboShadows.soft,
+      ),
+      padding: const EdgeInsets.all(PayaboSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE8D1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_outlined,
+              color: PayaboColors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'No balances or account snapshots yet',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: PayaboColors.accentBrown,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.sm),
+          Text(
+            'Fresh demo mode clears linked-account examples, monthly breakdowns, and recent transaction previews so the spending experience starts empty.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: PayaboColors.muted,
+                  height: 1.45,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'Switch back to Populated demo data in Profile whenever you want to review the seeded spending showcase again.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: PayaboColors.chatTextSecondary,
+                ),
+          ),
+        ],
       ),
     );
   }

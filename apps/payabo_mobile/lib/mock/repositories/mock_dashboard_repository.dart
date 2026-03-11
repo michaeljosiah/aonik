@@ -1,11 +1,25 @@
+import '../../app/demo/demo_data_mode.dart';
 import '../../data/repositories/dashboard_repository.dart';
 import '../mock_behavior.dart';
 
 class MockDashboardRepository implements DashboardRepository {
+  MockDashboardRepository({
+    this.demoDataMode = DemoDataMode.populated,
+  });
+
+  final DemoDataMode demoDataMode;
+
   @override
   Future<DashboardSummary> getSummary() async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('dashboard.getSummary');
+
+    if (demoDataMode == DemoDataMode.fresh) {
+      return const DashboardSummary(
+        upcomingBills: <DashboardUpcomingBill>[],
+        recentTransactions: <DashboardTransaction>[],
+      );
+    }
 
     return const DashboardSummary(
       upcomingBills: <DashboardUpcomingBill>[

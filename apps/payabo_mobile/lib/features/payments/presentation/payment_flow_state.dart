@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/order_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
@@ -186,8 +187,53 @@ class PaymentFlowState {
     );
   }
 
-  factory PaymentFlowState.initial() {
-    return const PaymentFlowState(
+  factory PaymentFlowState.initial(DemoDataMode demoDataMode) {
+    final savedCards = demoDataMode == DemoDataMode.fresh
+        ? const <SavedCard>[]
+        : const <SavedCard>[
+            SavedCard(
+              id: 'card_visa_4567',
+              brand: 'Card type',
+              last4: '4567',
+              expiryLabel: '12/24',
+            ),
+            SavedCard(
+              id: 'card_master_9021',
+              brand: 'Card type',
+              last4: '9021',
+              expiryLabel: '08/27',
+            ),
+          ];
+    final friends = demoDataMode == DemoDataMode.fresh
+        ? const <PaymentFriend>[]
+        : const <PaymentFriend>[
+            PaymentFriend(
+              id: 'friend_dany',
+              firstName: 'Dany',
+              lastName: 'Keys',
+              email: 'dany.keys@mailinator.com',
+              relationship: 'Sister',
+              isFavorite: true,
+            ),
+            PaymentFriend(
+              id: 'friend_alicia',
+              firstName: 'Alicia',
+              lastName: 'Keys',
+              email: 'alicia.keys@mailinator.com',
+              relationship: 'Mother',
+              isFavorite: false,
+            ),
+            PaymentFriend(
+              id: 'friend_ken',
+              firstName: 'Ken',
+              lastName: 'Keys',
+              email: 'ken.keys@mailinator.com',
+              relationship: 'Uncle',
+              isFavorite: false,
+            ),
+          ];
+
+    return PaymentFlowState(
       countryCode: 'GH',
       providerId: '',
       providerName: '',
@@ -202,7 +248,7 @@ class PaymentFlowState {
       recurringEndsOn: null,
       useSamePaymentMethodForRecurring: true,
       paymentMethod: PaymentMethodType.card,
-      selectedCardId: 'card_visa_4567',
+      selectedCardId: savedCards.isEmpty ? '' : savedCards.first.id,
       saveCard: true,
       selectedFriendId: '',
       friendMessage: '',
@@ -211,54 +257,19 @@ class PaymentFlowState {
       providerReference: '',
       paymentResult: null,
       statusChecks: 0,
-      savedCards: <SavedCard>[
-        SavedCard(
-          id: 'card_visa_4567',
-          brand: 'Card type',
-          last4: '4567',
-          expiryLabel: '12/24',
-        ),
-        SavedCard(
-          id: 'card_master_9021',
-          brand: 'Card type',
-          last4: '9021',
-          expiryLabel: '08/27',
-        ),
-      ],
-      friends: <PaymentFriend>[
-        PaymentFriend(
-          id: 'friend_dany',
-          firstName: 'Dany',
-          lastName: 'Keys',
-          email: 'dany.keys@mailinator.com',
-          relationship: 'Sister',
-          isFavorite: true,
-        ),
-        PaymentFriend(
-          id: 'friend_alicia',
-          firstName: 'Alicia',
-          lastName: 'Keys',
-          email: 'alicia.keys@mailinator.com',
-          relationship: 'Mother',
-          isFavorite: false,
-        ),
-        PaymentFriend(
-          id: 'friend_ken',
-          firstName: 'Ken',
-          lastName: 'Keys',
-          email: 'ken.keys@mailinator.com',
-          relationship: 'Uncle',
-          isFavorite: false,
-        ),
-      ],
+      savedCards: savedCards,
+      friends: friends,
     );
   }
 }
 
 class PaymentFlowController extends StateNotifier<PaymentFlowState> {
-  PaymentFlowController(Ref _) : super(PaymentFlowState.initial()) {
+  PaymentFlowController(this._demoDataMode)
+      : super(PaymentFlowState.initial(_demoDataMode)) {
     _restoreState();
   }
+
+  final DemoDataMode _demoDataMode;
 
   static const String _storageKey = 'payabo.payment_flow_state.v1';
 
@@ -459,6 +470,12 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       return;
     }
 
+    final storedDemoDataMode = decoded['demoDataMode'] as String?;
+    if (storedDemoDataMode != _demoDataMode.name) {
+      await prefs.remove(_storageKey);
+      return;
+    }
+
     _commit(
       state.copyWith(
         countryCode: decoded['countryCode'] as String? ?? state.countryCode,
@@ -510,6 +527,7 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
   Future<void> _persistState() async {
     final prefs = await SharedPreferences.getInstance();
     final payload = <String, dynamic>{
+      'demoDataMode': _demoDataMode.name,
       'countryCode': state.countryCode,
       'providerId': state.providerId,
       'providerName': state.providerName,
@@ -578,7 +596,10 @@ const _copySentinel = Object();
 final StateNotifierProvider<PaymentFlowController, PaymentFlowState>
     paymentFlowControllerProvider =
     StateNotifierProvider<PaymentFlowController, PaymentFlowState>(
-  PaymentFlowController.new,
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+    return PaymentFlowController(demoDataMode);
+  },
 );
 
 final FutureProvider<List<CatalogCountry>> paymentCountriesProvider =

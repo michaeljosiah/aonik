@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../app/auth/auth_controller.dart';
+import '../../../app/demo/demo_data_mode.dart';
+import '../../../app/environment/environment_provider.dart';
+import '../../../app/startup/offline_mode_provider.dart';
 import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -58,12 +61,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(profileControllerProvider);
+    final demoDataMode = ref.watch(demoDataModeProvider);
+    final environment = ref.watch(appEnvironmentProvider);
+    final isOfflineMode = ref.watch(offlineModeProvider);
+    final showDemoDataPreferences =
+        environment.useMocks || isOfflineMode || !environment.isProduction;
 
     return ProfileScaffold(
-      title: state.loaded ? state.displayName : '',
+      title: 'Profile',
       backRoute: '/dashboard',
       child: state.loaded
-          ? _buildContent(context, state)
+          ? _buildContent(
+              context,
+              state,
+              showDemoDataPreferences: showDemoDataPreferences,
+              demoDataMode: demoDataMode,
+            )
           : const Center(
               child: Padding(
                 padding: EdgeInsets.only(top: 80),
@@ -73,7 +86,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context, ProfileState state) {
+  Widget _buildContent(
+    BuildContext context,
+    ProfileState state, {
+    required bool showDemoDataPreferences,
+    required DemoDataMode demoDataMode,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -127,6 +145,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           leading: const _MenuIcon(Icons.campaign_outlined),
           onTap: () => context.go('/profile/marketing'),
         ),
+        if (showDemoDataPreferences) ...<Widget>[
+          const SizedBox(height: PayaboSpacing.sm),
+          PayaboListRow(
+            title: 'Demo data preferences',
+            subtitle: demoDataMode.profileMenuSubtitle,
+            leading: const _MenuIcon(Icons.storage_outlined),
+            onTap: () => context.go('/profile/demo-data'),
+          ),
+        ],
         const SizedBox(height: PayaboSpacing.lg),
         InkWell(
           onTap: () async {

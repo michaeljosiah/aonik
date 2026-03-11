@@ -1,7 +1,9 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
@@ -113,27 +115,37 @@ const List<_SpendingBreakdownItem> _merchantItems = <_SpendingBreakdownItem>[
   ),
 ];
 
-class SpendingScreen extends StatefulWidget {
+class SpendingScreen extends ConsumerStatefulWidget {
   const SpendingScreen({super.key});
 
   @override
-  State<SpendingScreen> createState() => _SpendingScreenState();
+  ConsumerState<SpendingScreen> createState() => _SpendingScreenState();
 }
 
-class _SpendingScreenState extends State<SpendingScreen> {
+class _SpendingScreenState extends ConsumerState<SpendingScreen> {
   int _monthIndex = 2;
   int _breakdownViewIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    final List<_SpendingBreakdownItem> breakdownItems =
-        _breakdownViewIndex == 0 ? _categoryItems : _merchantItems;
+    final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
+    final List<_SpendingBreakdownItem> breakdownItems = isFreshDemo
+        ? const <_SpendingBreakdownItem>[]
+        : _breakdownViewIndex == 0
+            ? _categoryItems
+            : _merchantItems;
 
-    const String summaryTitle = 'February spend';
-    const String summaryAmount = '£672.97';
-    const Color summaryColor = PayaboColors.primaryHover;
-    const String compareAmount = '£518.97';
-    const String compareLabel = 'vs. January';
+    final String summaryTitle =
+        isFreshDemo ? 'Fresh spending state' : 'February spend';
+    final String summaryAmount = isFreshDemo ? '£0.00' : '£672.97';
+    final Color summaryColor =
+        isFreshDemo ? PayaboColors.muted : PayaboColors.primaryHover;
+    final String compareAmount = isFreshDemo ? '0 transactions' : '£518.97';
+    final String compareLabel =
+        isFreshDemo ? 'build your first trend' : 'vs. January';
+    final String summaryDescription = isFreshDemo
+        ? 'Transactions, categories, and merchants will appear here once activity starts.'
+        : 'Filtered view for your latest money movement.';
 
     return Scaffold(
       backgroundColor: PayaboColors.surfaceWarm,
@@ -163,101 +175,110 @@ class _SpendingScreenState extends State<SpendingScreen> {
                       summaryAmount: summaryAmount,
                       compareAmount: compareAmount,
                       compareLabel: compareLabel,
+                      description: summaryDescription,
                       summaryColor: summaryColor,
                       onPersonaliseTap: _showInfoMessage,
                     ),
-                    const SizedBox(height: PayaboSpacing.lg),
-                    _MonthFilterRow(
-                      selectedIndex: _monthIndex,
-                      onSelected: (int index) {
-                        setState(() {
-                          _monthIndex = index;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    const SizedBox(height: 230, child: _SpendingTrendChart()),
-                    const SizedBox(height: PayaboSpacing.xl),
-                    _SegmentControl(
-                      leftLabel: 'Categories',
-                      rightLabel: 'Merchants',
-                      selectedIndex: _breakdownViewIndex,
-                      onChanged: (int index) {
-                        setState(() {
-                          _breakdownViewIndex = index;
-                        });
-                      },
-                      backgroundColor: const Color(0xFFFFF7F0),
-                      selectedColor: const Color(0xFFFFE7D3),
-                      selectedTextColor: PayaboColors.accentBrown,
-                      unselectedTextColor: PayaboColors.accentBrownMuted,
-                    ),
-                    const SizedBox(height: PayaboSpacing.lg),
-                    LayoutBuilder(
-                      builder:
-                          (BuildContext context, BoxConstraints constraints) {
-                        final Widget editCategoriesButton = PayaboButton(
-                          label: 'Edit categories',
-                          variant: PayaboButtonVariant.link,
-                          expand: true,
-                          leading: const Icon(Icons.edit_outlined, size: 18),
-                          onPressed: () {},
-                        );
+                    if (isFreshDemo) ...<Widget>[
+                      const SizedBox(height: PayaboSpacing.lg),
+                      const _FreshTransactionsEmptyState(),
+                    ] else ...<Widget>[
+                      const SizedBox(height: PayaboSpacing.lg),
+                      _MonthFilterRow(
+                        selectedIndex: _monthIndex,
+                        onSelected: (int index) {
+                          setState(() {
+                            _monthIndex = index;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: PayaboSpacing.xl),
+                      const SizedBox(
+                        height: 230,
+                        child: _SpendingTrendChart(),
+                      ),
+                      const SizedBox(height: PayaboSpacing.xl),
+                      _SegmentControl(
+                        leftLabel: 'Categories',
+                        rightLabel: 'Merchants',
+                        selectedIndex: _breakdownViewIndex,
+                        onChanged: (int index) {
+                          setState(() {
+                            _breakdownViewIndex = index;
+                          });
+                        },
+                        backgroundColor: const Color(0xFFFFF7F0),
+                        selectedColor: const Color(0xFFFFE7D3),
+                        selectedTextColor: PayaboColors.accentBrown,
+                        unselectedTextColor: PayaboColors.accentBrownMuted,
+                      ),
+                      const SizedBox(height: PayaboSpacing.lg),
+                      LayoutBuilder(
+                        builder:
+                            (BuildContext context, BoxConstraints constraints) {
+                          final Widget editCategoriesButton = PayaboButton(
+                            label: 'Edit categories',
+                            variant: PayaboButtonVariant.link,
+                            expand: true,
+                            leading: const Icon(Icons.edit_outlined, size: 18),
+                            onPressed: () {},
+                          );
 
-                        if (constraints.maxWidth < 360) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          if (constraints.maxWidth < 360) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                editCategoriesButton,
+                                const SizedBox(height: PayaboSpacing.md),
+                                const Align(
+                                  alignment: Alignment.centerRight,
+                                  child: _CurrencySortButton(),
+                                ),
+                              ],
+                            );
+                          }
+
+                          return Row(
                             children: <Widget>[
-                              editCategoriesButton,
-                              const SizedBox(height: PayaboSpacing.md),
-                              const Align(
-                                alignment: Alignment.centerRight,
-                                child: _CurrencySortButton(),
-                              ),
+                              Expanded(child: editCategoriesButton),
+                              const SizedBox(width: PayaboSpacing.md),
+                              const _CurrencySortButton(),
                             ],
                           );
-                        }
-
-                        return Row(
-                          children: <Widget>[
-                            Expanded(child: editCategoriesButton),
-                            const SizedBox(width: PayaboSpacing.md),
-                            const _CurrencySortButton(),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: PayaboSpacing.lg),
-                    ...breakdownItems.map(
-                      (_SpendingBreakdownItem item) => Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: PayaboSpacing.sm),
-                        child: PayaboListRow(
-                          title: item.name,
-                          subtitle: '${item.transactionCount} Transactions',
-                          leading: _BreakdownIcon(
-                            icon: item.icon,
-                            color: item.iconColor,
-                          ),
-                          trailing: SizedBox(
-                            width: 128,
-                            child: _BreakdownAmount(
-                              totalAmount: item.totalAmount,
-                              changeAmount: item.changeAmount,
-                              isDecrease: item.isDecrease,
+                        },
+                      ),
+                      const SizedBox(height: PayaboSpacing.lg),
+                      ...breakdownItems.map(
+                        (_SpendingBreakdownItem item) => Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: PayaboSpacing.sm),
+                          child: PayaboListRow(
+                            title: item.name,
+                            subtitle: '${item.transactionCount} Transactions',
+                            leading: _BreakdownIcon(
+                              icon: item.icon,
+                              color: item.iconColor,
                             ),
-                          ),
-                          onTap: () {
-                            if (_breakdownViewIndex == 0) {
-                              context.go('/spending/category/${item.id}');
-                              return;
-                            }
+                            trailing: SizedBox(
+                              width: 128,
+                              child: _BreakdownAmount(
+                                totalAmount: item.totalAmount,
+                                changeAmount: item.changeAmount,
+                                isDecrease: item.isDecrease,
+                              ),
+                            ),
+                            onTap: () {
+                              if (_breakdownViewIndex == 0) {
+                                context.go('/spending/category/${item.id}');
+                                return;
+                              }
 
-                            context.go('/spending/merchant/${item.id}');
-                          },
+                              context.go('/spending/merchant/${item.id}');
+                            },
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -336,6 +357,7 @@ class _TransactionsHeroCard extends StatelessWidget {
     required this.summaryAmount,
     required this.compareAmount,
     required this.compareLabel,
+    required this.description,
     required this.summaryColor,
     required this.onPersonaliseTap,
   });
@@ -344,6 +366,7 @@ class _TransactionsHeroCard extends StatelessWidget {
   final String summaryAmount;
   final String compareAmount;
   final String compareLabel;
+  final String description;
   final Color summaryColor;
   final VoidCallback onPersonaliseTap;
 
@@ -377,7 +400,7 @@ class _TransactionsHeroCard extends StatelessWidget {
                       ),
                       const SizedBox(height: PayaboSpacing.xs),
                       Text(
-                        'Filtered view for your latest money movement.',
+                        description,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: PayaboColors.muted,
                             ),
@@ -406,6 +429,64 @@ class _TransactionsHeroCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FreshTransactionsEmptyState extends StatelessWidget {
+  const _FreshTransactionsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF8),
+        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        border: Border.all(color: const Color(0xFFF1DEC9)),
+        boxShadow: PayaboShadows.soft,
+      ),
+      padding: const EdgeInsets.all(PayaboSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFEBD6),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(
+              Icons.insights_outlined,
+              color: PayaboColors.primary,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'No spending activity yet',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: PayaboColors.accentBrown,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.sm),
+          Text(
+            'This fresh demo keeps transactions, category rollups, and merchant trends empty so you can start from a clean slate.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: PayaboColors.muted,
+                  height: 1.45,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'Switch back to Populated demo data in Profile if you want to explore seeded spending examples.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: PayaboColors.chatTextSecondary,
+                ),
+          ),
+        ],
       ),
     );
   }

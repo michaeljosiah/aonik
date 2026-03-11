@@ -1,36 +1,98 @@
+import '../../app/demo/demo_data_mode.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../mock_behavior.dart';
 
 class MockProfileRepository implements ProfileRepository {
-  UserProfile _profile = const UserProfile(
-    firstName: 'Kwame',
-    lastName: 'Mensah',
-    email: 'kwame.mensah@payabo.app',
-    phone: '+233241000000',
-    countryCode: 'GH',
-  );
+  MockProfileRepository({
+    this.demoDataMode = DemoDataMode.populated,
+  })  : _profile = _buildProfile(demoDataMode),
+        _notificationPrefs = _buildNotificationPreferences(demoDataMode),
+        _marketingPrefs = _buildMarketingPreferences(demoDataMode);
 
-  NotificationPreferences _notificationPrefs = const NotificationPreferences(
-    email: 'kwame.mensah@payabo.app',
-    newBillsPush: true,
-    billUpdatesPush: true,
-    billAssistPush: false,
-    mbaMessagesPush: true,
-    orgMessagesPush: true,
-    friendsMessagesPush: false,
-    newBillsEmail: true,
-    billUpdatesEmail: true,
-    billAssistEmail: false,
-    mbaMessagesEmail: true,
-    orgMessagesEmail: true,
-  );
+  final DemoDataMode demoDataMode;
 
-  MarketingPreferences _marketingPrefs = const MarketingPreferences(
-    email: 'kwame.mensah@payabo.app',
-    news: true,
-    offers: true,
-    surveys: false,
-  );
+  UserProfile _profile;
+  NotificationPreferences _notificationPrefs;
+  MarketingPreferences _marketingPrefs;
+
+  static UserProfile _buildProfile(DemoDataMode demoDataMode) {
+    switch (demoDataMode) {
+      case DemoDataMode.fresh:
+        return const UserProfile(
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          countryCode: 'GH',
+        );
+      case DemoDataMode.populated:
+        return const UserProfile(
+          firstName: 'Kwame',
+          lastName: 'Mensah',
+          email: 'kwame.mensah@payabo.app',
+          phone: '+233241000000',
+          countryCode: 'GH',
+        );
+    }
+  }
+
+  static NotificationPreferences _buildNotificationPreferences(
+    DemoDataMode demoDataMode,
+  ) {
+    switch (demoDataMode) {
+      case DemoDataMode.fresh:
+        return const NotificationPreferences(
+          email: '',
+          newBillsPush: false,
+          billUpdatesPush: false,
+          billAssistPush: false,
+          mbaMessagesPush: false,
+          orgMessagesPush: false,
+          friendsMessagesPush: false,
+          newBillsEmail: false,
+          billUpdatesEmail: false,
+          billAssistEmail: false,
+          mbaMessagesEmail: false,
+          orgMessagesEmail: false,
+        );
+      case DemoDataMode.populated:
+        return const NotificationPreferences(
+          email: 'kwame.mensah@payabo.app',
+          newBillsPush: true,
+          billUpdatesPush: true,
+          billAssistPush: false,
+          mbaMessagesPush: true,
+          orgMessagesPush: true,
+          friendsMessagesPush: false,
+          newBillsEmail: true,
+          billUpdatesEmail: true,
+          billAssistEmail: false,
+          mbaMessagesEmail: true,
+          orgMessagesEmail: true,
+        );
+    }
+  }
+
+  static MarketingPreferences _buildMarketingPreferences(
+    DemoDataMode demoDataMode,
+  ) {
+    switch (demoDataMode) {
+      case DemoDataMode.fresh:
+        return const MarketingPreferences(
+          email: '',
+          news: false,
+          offers: false,
+          surveys: false,
+        );
+      case DemoDataMode.populated:
+        return const MarketingPreferences(
+          email: 'kwame.mensah@payabo.app',
+          news: true,
+          offers: true,
+          surveys: false,
+        );
+    }
+  }
 
   @override
   Future<UserProfile> getProfile() async {

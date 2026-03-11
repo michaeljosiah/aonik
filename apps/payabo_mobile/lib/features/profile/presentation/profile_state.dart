@@ -166,6 +166,15 @@ class ProfileController extends StateNotifier<ProfileState> {
       return;
     }
 
+    await _loadState();
+  }
+
+  Future<void> reload() async {
+    state = state.copyWith(loaded: false);
+    await _loadState();
+  }
+
+  Future<void> _loadState() async {
     final profile = await _loadProfile();
 
     final results = await Future.wait<Object>(<Future<Object>>[

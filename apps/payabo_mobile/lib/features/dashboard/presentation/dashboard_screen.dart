@@ -6,23 +6,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/dashboard_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
-import '../../../shared/widgets/payabo_bottom_nav.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_card.dart';
-import '../../../shared/widgets/payabo_list_row.dart';
-import '../../../shared/widgets/payabo_modal_sheet.dart';
+import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import '../../profile/presentation/profile_state.dart';
 
 final FutureProvider<DashboardSummary> dashboardSummaryProvider =
     FutureProvider<DashboardSummary>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
   final repository = ref.watch(dashboardRepositoryProvider);
   return repository.getSummary();
 });
@@ -40,8 +40,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  int _navIndex = 0;
-
   @override
   void initState() {
     super.initState();
@@ -58,6 +56,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final summaryValue = ref.watch(dashboardSummaryProvider);
     final profileState = ref.watch(profileControllerProvider);
+    final demoDataMode = ref.watch(demoDataModeProvider);
+    final isEmptyDemoMode = demoDataMode == DemoDataMode.fresh;
 
     return PayaboWarmScaffold(
       body: Column(
@@ -71,7 +71,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Expanded(
             child: summaryValue.when(
               data: (summary) {
-                final isEmpty = widget.showEmptyState;
+                final isEmpty = widget.showEmptyState || isEmptyDemoMode;
 
                 return RefreshIndicator(
                   onRefresh: () async =>
@@ -95,18 +95,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: PayaboBottomNav(
-        items: const <PayaboBottomNavItem>[
-          PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-          PayaboBottomNavItem(
-              icon: Icons.receipt_long_outlined, label: 'Bills'),
-          PayaboBottomNavItem(
-              icon: Icons.show_chart_outlined, label: 'Spending'),
-          PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Chat'),
-        ],
-        currentIndex: _navIndex,
-        onTap: _handleNavTap,
-        onCenterTap: _showQuickActions,
+      bottomNavigationBar: const PayaboPrimaryAppShell(
+        destination: PayaboPrimaryDestination.dashboard,
       ),
     );
   }
@@ -115,69 +105,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     try {
       await ref.read(profileControllerProvider.notifier).ensureLoaded();
     } catch (_) {}
-  }
-
-  void _handleNavTap(int index) {
-    setState(() {
-      _navIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        context.go('/dashboard');
-        return;
-      case 1:
-        context.go('/payments/country');
-        return;
-      case 2:
-        context.go('/spending');
-        return;
-      case 3:
-        context.go('/chat');
-        return;
-    }
-  }
-
-  Future<void> _showQuickActions() async {
-    await showPayaboModalSheet<void>(
-      context: context,
-      title: 'Quick Actions',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          PayaboListRow(
-            title: 'Pay a bill',
-            subtitle: 'Start a bill payment now',
-            leading: const Icon(Icons.receipt_long_outlined),
-            onTap: () {
-              Navigator.of(context).pop();
-              context.go('/payments/country');
-            },
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Transfer',
-            subtitle: 'Send money to another account',
-            leading: const Icon(Icons.compare_arrows_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Account',
-            subtitle: 'Manage your account details',
-            leading: const Icon(Icons.account_balance_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Income',
-            subtitle: 'Track and categorize income',
-            leading: const Icon(Icons.trending_up_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -390,16 +317,12 @@ class _DashboardContent extends StatelessWidget {
         PayaboSpacing.x2,
       ),
       children: <Widget>[
-        _InsightCard(isEmpty: isEmpty),
-        const SizedBox(height: PayaboSpacing.md),
-        const _InsightPageIndicator(),
-        const SizedBox(height: PayaboSpacing.md),
-        _DashboardFeatureRow(isEmpty: isEmpty),
-        const SizedBox(height: PayaboSpacing.md),
-        _DashboardBalanceCard(
+        _InsightCarouselSection(
           dueBillCount: allUpcomingBills.length,
           isEmpty: isEmpty,
         ),
+        const SizedBox(height: PayaboSpacing.md),
+        _DashboardFeatureRow(isEmpty: isEmpty),
         const SizedBox(height: PayaboSpacing.xl),
         _DashboardListHeader(
           title: 'Upcoming bills',
@@ -415,183 +338,573 @@ class _DashboardContent extends StatelessWidget {
   }
 }
 
-class _InsightCard extends StatelessWidget {
-  const _InsightCard({required this.isEmpty});
+class _InsightCarouselSection extends StatefulWidget {
+  const _InsightCarouselSection({
+    required this.dueBillCount,
+    required this.isEmpty,
+  });
+
+  final int dueBillCount;
+  final bool isEmpty;
+
+  @override
+  State<_InsightCarouselSection> createState() =>
+      _InsightCarouselSectionState();
+}
+
+class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
+  static const Duration _autoScrollDelay = Duration(seconds: 5);
+  static const Duration _scrollAnimationDuration = Duration(milliseconds: 420);
+  static const int _pageCount = 3;
+
+  late final PageController _pageController;
+  Timer? _autoScrollTimer;
+  int _currentPage = 0;
+  bool _isUserInteracting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _scheduleAutoScroll();
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _scheduleAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer(_autoScrollDelay, _advancePage);
+  }
+
+  void _pauseAutoScroll() {
+    _autoScrollTimer?.cancel();
+  }
+
+  void _advancePage() {
+    if (!mounted) {
+      return;
+    }
+
+    if (!_pageController.hasClients) {
+      _scheduleAutoScroll();
+      return;
+    }
+
+    final int nextPage = (_currentPage + 1) % _pageCount;
+    _pageController.animateToPage(
+      nextPage,
+      duration: _scrollAnimationDuration,
+      curve: Curves.easeInOutCubic,
+    );
+  }
+
+  void _handlePageChanged(int index) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _currentPage = index;
+    });
+
+    if (!_isUserInteracting) {
+      _scheduleAutoScroll();
+    }
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _isUserInteracting = true;
+      _pauseAutoScroll();
+    }
+
+    if (notification is ScrollEndNotification && _isUserInteracting) {
+      _isUserInteracting = false;
+      _scheduleAutoScroll();
+    }
+
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> pages = <Widget>[
+      _TodayInsightCard(isEmpty: widget.isEmpty),
+      _AvailableToSpendInsightCard(
+        dueBillCount: widget.dueBillCount,
+        isEmpty: widget.isEmpty,
+      ),
+      _NetWorthInsightCard(isEmpty: widget.isEmpty),
+    ];
+
+    return Column(
+      children: <Widget>[
+        SizedBox(
+          height: 240,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _handleScrollNotification,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: pages.length,
+              onPageChanged: _handlePageChanged,
+              itemBuilder: (BuildContext context, int index) => pages[index],
+            ),
+          ),
+        ),
+        const SizedBox(height: PayaboSpacing.sm),
+        _InsightPageIndicator(
+          currentPage: _currentPage,
+          pageCount: pages.length,
+        ),
+      ],
+    );
+  }
+}
+
+class _InsightCarouselCardShell extends StatelessWidget {
+  const _InsightCarouselCardShell({
+    required this.child,
+    this.backgroundColor = PayaboColors.white,
+    this.borderColor = const Color(0xFFE7DCCB),
+    this.gradient,
+    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
+    this.padding = const EdgeInsets.all(PayaboSpacing.lg),
+  });
+
+  final Widget child;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Gradient? gradient;
+  final BorderRadiusGeometry borderRadius;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        gradient: gradient,
+        borderRadius: borderRadius,
+        border: Border.all(color: borderColor),
+        boxShadow: PayaboShadows.soft,
+      ),
+      child: Padding(
+        padding: padding,
+        child: child,
+      ),
+    );
+  }
+}
+
+class _TodayInsightCard extends StatelessWidget {
+  const _TodayInsightCard({required this.isEmpty});
 
   final bool isEmpty;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final String message = isEmpty
+        ? 'Add a bill to unlock daily insights and spending guidance.'
+        : 'Dining spend is running 18% above your usual daily pace.';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: PayaboColors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFE7DCCB)),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF7EFD9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.tips_and_updates_rounded,
-                    color: Color(0xFFD3A04B),
-                    size: 19,
-                  ),
+    return _InsightCarouselCardShell(
+      backgroundColor: PayaboColors.white.withValues(alpha: 0.86),
+      borderColor: const Color(0xFFE6D8C8),
+      borderRadius: const BorderRadius.all(Radius.circular(20)),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD3A04B).withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: PayaboSpacing.md),
-                Expanded(
-                  child: Text(
-                    "Today's Insight",
-                    overflow: TextOverflow.ellipsis,
-                    style: textTheme.titleLarge?.copyWith(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF2A231D),
-                    ),
-                  ),
+                child: const Icon(
+                  Icons.tips_and_updates_rounded,
+                  color: Color(0xFFD3A04B),
+                  size: 20,
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text.rich(
-              TextSpan(
-                style: textTheme.headlineMedium?.copyWith(
-                  fontSize: 16,
-                  height: 1.25,
-                  color: const Color(0xFF231F1B),
-                  fontWeight: FontWeight.w400,
-                ),
-                children: <InlineSpan>[
-                  TextSpan(
-                    text: isEmpty
-                        ? 'You are ready to start tracking your bills.'
-                        : "You're likely to overspend today. ",
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  TextSpan(
-                    text: isEmpty
-                        ? 'Add a bill to unlock daily insights and spending guidance.'
-                        : 'Dining category is trending higher than overall.',
-                  ),
-                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            const Wrap(
-              spacing: PayaboSpacing.sm,
-              runSpacing: PayaboSpacing.sm,
-              children: <Widget>[
-                _InsightActionChip(
-                  label: 'Set a dining alert',
-                  leadingIcon: Icons.notifications_none_rounded,
+              const SizedBox(width: PayaboSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            "Today's Insight",
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: PayaboColors.chatTextPrimary,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(left: PayaboSpacing.sm),
+                          decoration: const BoxDecoration(
+                            color: PayaboColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: PayaboColors.chatTextSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
-                _InsightActionChip(
-                  label: 'Adjust dining budget',
-                  trailingIcon: Icons.arrow_forward_rounded,
+              ),
+            ],
+          ),
+          Row(
+            children: <Widget>[
+              Text(
+                isEmpty ? 'Set up now' : 'Today',
+                style: textTheme.labelMedium?.copyWith(
+                  color: PayaboColors.muted,
+                  fontWeight: FontWeight.w600,
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const Spacer(),
+              Text(
+                isEmpty ? 'Add first bill' : 'Review dining',
+                style: textTheme.labelLarge?.copyWith(
+                  color: const Color(0xFFB47A33),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-class _InsightActionChip extends StatelessWidget {
-  const _InsightActionChip({
+class _AvailableToSpendInsightCard extends StatelessWidget {
+  const _AvailableToSpendInsightCard({
+    required this.dueBillCount,
+    required this.isEmpty,
+  });
+
+  final int dueBillCount;
+  final bool isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final String dueText = isEmpty
+        ? 'No bills due'
+        : dueBillCount == 1
+            ? '1 bill due this week'
+            : '$dueBillCount bills due this week';
+
+    return _InsightCarouselCardShell(
+      gradient: const LinearGradient(
+        colors: <Color>[Color(0xFFFFF4E5), Color(0xFFF8D9AB)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderColor: const Color(0xFFE7C792),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Available to spend',
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF4B2A13),
+                  ),
+                ),
+              ),
+              _DashboardStatusPill(label: isEmpty ? 'set up' : 'on track'),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                isEmpty ? '£0.00' : '£1,285.00',
+                style: textTheme.headlineMedium?.copyWith(
+                  fontSize: 36,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF4A2F1B),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isEmpty
+                    ? 'Add bills and budgets to unlock your spendable balance.'
+                    : 'After bills, savings, and your weekly buffer.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF6C5644),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  minHeight: 8,
+                  value: isEmpty ? 0 : 0.78,
+                  backgroundColor: const Color(0x33FFFFFF),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFFB77428),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  Text(
+                    isEmpty ? '0% free' : '78% free',
+                    style: textTheme.labelLarge?.copyWith(
+                      color: const Color(0xFF7B5A37),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Flexible(
+                    child: Text(
+                      dueText,
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelLarge?.copyWith(
+                        color: const Color(0xFF7B5A37),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: PayaboColors.white.withValues(alpha: 0.34),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 16,
+                      color: Color(0xFF8A571E),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isEmpty
+                            ? 'Start by adding your first bill.'
+                            : 'You still have room for planned spending.',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.labelLarge?.copyWith(
+                          color: const Color(0xFF4B2A13),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NetWorthInsightCard extends StatelessWidget {
+  const _NetWorthInsightCard({required this.isEmpty});
+
+  final bool isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
+    return _InsightCarouselCardShell(
+      backgroundColor: const Color(0xFFFFFAF4),
+      borderColor: const Color(0xFFE8D7C2),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Net worth',
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF3B2A1D),
+                  ),
+                ),
+              ),
+              _DashboardStatusPill(label: isEmpty ? 'add data' : 'up 3.5%'),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                isEmpty ? '£0.00' : '£18,406.20',
+                style: textTheme.headlineMedium?.copyWith(
+                  fontSize: 34,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF4A2F1B),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isEmpty
+                    ? 'Link balances to see your full financial picture.'
+                    : '+£620 since last month across your linked balances.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF6B5440),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _InsightStatTile(
+                  label: 'Assets',
+                  value: isEmpty ? '£0.00' : '£20.1k',
+                ),
+              ),
+              const SizedBox(width: PayaboSpacing.sm),
+              Expanded(
+                child: _InsightStatTile(
+                  label: 'Bills',
+                  value: isEmpty ? '£0.00' : '£1.7k',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightStatTile extends StatelessWidget {
+  const _InsightStatTile({
     required this.label,
-    this.leadingIcon,
-    this.trailingIcon,
+    required this.value,
   });
 
   final String label;
-  final IconData? leadingIcon;
-  final IconData? trailingIcon;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F3F4),
-        borderRadius: BorderRadius.circular(18),
+        color: PayaboColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8D8C6)),
       ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (leadingIcon != null) ...<Widget>[
-              Icon(leadingIcon, size: 15, color: const Color(0xFF4D4F5C)),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF27231E),
-                  ),
-            ),
-            if (trailingIcon != null) ...<Widget>[
-              const SizedBox(width: 6),
-              Icon(trailingIcon, size: 15, color: const Color(0xFF6F6F76)),
-            ],
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF8A725D),
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF3A2B1F),
+                ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _InsightPageIndicator extends StatelessWidget {
-  const _InsightPageIndicator();
+  const _InsightPageIndicator({
+    required this.currentPage,
+    required this.pageCount,
+  });
+
+  final int currentPage;
+  final int pageCount;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        Container(
-          width: 30,
-          height: 6,
-          decoration: BoxDecoration(
-            color: const Color(0xFFC99144),
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        const SizedBox(width: 8),
-        _buildDot(const Color(0xFFD6CCBD)),
-        const SizedBox(width: 8),
-        _buildDot(const Color(0xFFD6CCBD)),
-        const SizedBox(width: 8),
-        _buildDot(const Color(0xFFD6CCBD)),
-      ],
-    );
-  }
+      children: List<Widget>.generate(pageCount, (int index) {
+        final bool isActive = index == currentPage;
 
-  Widget _buildDot(Color color) {
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+        return Padding(
+          padding: EdgeInsets.only(right: index == pageCount - 1 ? 0 : 8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: isActive ? 30 : 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color:
+                  isActive ? const Color(0xFFC99144) : const Color(0xFFD6CCBD),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
@@ -939,108 +1252,6 @@ class _AssistantOrb extends StatelessWidget {
               Icon(Icons.circle, size: 3.4, color: Colors.white),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardBalanceCard extends StatelessWidget {
-  const _DashboardBalanceCard({
-    required this.dueBillCount,
-    required this.isEmpty,
-  });
-
-  final int dueBillCount;
-  final bool isEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: PayaboColors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE7DDCF)),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'Available to spend',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF413226),
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              isEmpty ? '£0.00' : '£1,285.00',
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    fontSize: 46,
-                    height: 1,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF4A2F1B),
-                  ),
-            ),
-            const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                minHeight: 10,
-                value: isEmpty ? 0 : 0.78,
-                backgroundColor: const Color(0xFFF0E7D8),
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFC78933),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              isEmpty
-                  ? 'No bills due this week'
-                  : '$dueBillCount bills due this week',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF33261C),
-                  ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF3DFBA),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    size: 14,
-                    color: Color(0xFF9C6C26),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    isEmpty
-                        ? 'Start by adding your first bill'
-                        : 'You\'re on track',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF32261D),
-                        ),
-                  ),
-                ),
-                const _DashboardStatusPill(label: 'on track'),
-              ],
-            ),
-          ],
         ),
       ),
     );

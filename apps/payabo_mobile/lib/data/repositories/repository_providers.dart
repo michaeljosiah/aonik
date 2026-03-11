@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/demo/demo_data_mode.dart';
 import '../../app/environment/environment_provider.dart';
 import '../../app/startup/offline_mode_provider.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
@@ -58,11 +59,13 @@ final Provider<CatalogRepository> catalogRepositoryProvider =
 final Provider<DashboardRepository> dashboardRepositoryProvider =
     Provider<DashboardRepository>(
   (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
     if (_shouldMock(ref)) {
-      return MockDashboardRepository();
+      return MockDashboardRepository(demoDataMode: demoDataMode);
     }
 
-    return MockDashboardRepository();
+    return MockDashboardRepository(demoDataMode: demoDataMode);
   },
 );
 
@@ -91,8 +94,10 @@ final Provider<PaymentRepository> paymentRepositoryProvider =
 final Provider<ProfileRepository> profileRepositoryProvider =
     Provider<ProfileRepository>(
   (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
     if (_shouldMock(ref)) {
-      return MockProfileRepository();
+      return MockProfileRepository(demoDataMode: demoDataMode);
     }
 
     final apiClient = ref.watch(apiClientProvider);

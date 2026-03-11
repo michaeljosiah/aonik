@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_spacing.dart';
-import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_bottom_nav.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
@@ -28,7 +27,6 @@ class ProfileScaffold extends StatelessWidget {
     return PayaboWarmScaffold(
       body: Column(
         children: <Widget>[
-          const PayaboAppHeader(),
           PayaboScreenTitleBar(
             title: title,
             onBack: backRoute == null ? null : () => context.go(backRoute!),
@@ -43,7 +41,7 @@ class ProfileScaffold extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(
                 PayaboSpacing.xl,
-                PayaboSpacing.md,
+                0,
                 PayaboSpacing.xl,
                 PayaboSpacing.xl,
               ),

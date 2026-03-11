@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/data/repositories/profile_repository.dart';
@@ -16,7 +17,7 @@ import 'package:payabo_mobile/features/payments/presentation/payment_country_scr
 import 'package:payabo_mobile/features/profile/presentation/personal_details_screen.dart';
 import 'package:payabo_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_category_detail_screen.dart';
-import 'package:payabo_mobile/features/spending/presentation/spending_overview_screen.dart';
+import 'package:payabo_mobile/features/spending/presentation/spending_screen.dart';
 import 'package:payabo_mobile/mock/repositories/mock_profile_repository.dart';
 import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 import 'package:payabo_mobile/shared/widgets/payabo_app_header.dart';
@@ -88,23 +89,90 @@ void main() {
     expect(find.text('Kwame Mensah'), findsOneWidget);
   });
 
+  testWidgets('dashboard uses the empty experience for fresh demo mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.fresh),
+          profileRepositoryProvider.overrideWithValue(
+            _ImmediateFreshProfileRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildPayaboTheme(),
+          home: const DashboardScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+          'No upcoming bills yet. Add a bill to start tracking due dates.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('dashboard upcoming bills preview is limited to five items',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const DashboardScreen()));
     await tester.pumpAndSettle();
 
-    final Finder primaryScroll = find.byType(Scrollable).first;
-    await tester.scrollUntilVisible(
-      find.text('GOtv'),
-      300,
-      scrollable: primaryScroll,
-    );
+    final Finder primaryScroll = find.byType(ListView);
+
+    while (find.text('GOtv').evaluate().isEmpty) {
+      await tester.drag(primaryScroll, const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
 
     expect(find.text('GOtv'), findsOneWidget);
     expect(find.text('AirtelTigo'), findsNothing);
     expect(find.text('Netflix'), findsNothing);
 
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('dashboard insight carousel supports swipe and auto-scroll',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildTestApp(const DashboardScreen()));
+    await tester.pumpAndSettle();
+
+    final Finder insightPager = find.byType(PageView);
+
+    expect(find.text("Today's Insight"), findsOneWidget);
+
+    await tester.drag(insightPager, const Offset(-320, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Available to spend'), findsOneWidget);
+
+    await tester.drag(insightPager, const Offset(320, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Today's Insight"), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Today's Insight"), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Available to spend'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Net worth'), findsOneWidget);
   });
 
   testWidgets('profile screens keep the bottom menu visible',
@@ -120,9 +188,24 @@ void main() {
     expect(find.byType(PayaboBottomNav), findsOneWidget);
   });
 
-  testWidgets('shared profile and bell header appears on app pages',
+  testWidgets('profile screens use the compact settings layout',
       (WidgetTester tester) async {
-    await tester.pumpWidget(buildTestApp(const SpendingOverviewScreen()));
+    await tester.pumpWidget(buildTestApp(const ProfileScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PayaboAppHeader), findsNothing);
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Demo data preferences'), findsOneWidget);
+
+    await tester.pumpWidget(buildTestApp(const ProfilePersonalDetailsScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PayaboAppHeader), findsNothing);
+  });
+
+  testWidgets('shared profile and bell header appears on main app pages',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildTestApp(const SpendingScreen()));
     await tester.pumpAndSettle();
     expect(find.byType(PayaboAppHeader), findsOneWidget);
 
@@ -139,10 +222,6 @@ void main() {
     await tester.pumpWidget(buildTestApp(const PaymentCountryScreen()));
     await tester.pumpAndSettle();
     expect(find.byType(PayaboAppHeader), findsOneWidget);
-
-    await tester.pumpWidget(buildTestApp(const ProfilePersonalDetailsScreen()));
-    await tester.pumpAndSettle();
-    expect(find.byType(PayaboAppHeader), findsOneWidget);
   });
 
   testWidgets('notification center screen renders grouped items',
@@ -153,6 +232,20 @@ void main() {
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('Electricity bill reminder'), findsOneWidget);
     expect(find.text('Spend alert'), findsOneWidget);
+  });
+
+  testWidgets('notification center starts empty in fresh demo mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const NotificationCenterScreen(),
+        demoDataMode: DemoDataMode.fresh,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No notifications yet'), findsOneWidget);
+    expect(find.text('Electricity bill reminder'), findsNothing);
   });
 }
 
@@ -166,6 +259,49 @@ class _ProfileRepositoryWithPhoto extends MockProfileRepository {
       phone: '+233241000000',
       countryCode: 'GH',
       photoUrl: 'https://mock.payabo.app/photos/profile-kwame.jpg',
+    );
+  }
+}
+
+class _ImmediateFreshProfileRepository extends MockProfileRepository {
+  _ImmediateFreshProfileRepository() : super(demoDataMode: DemoDataMode.fresh);
+
+  @override
+  Future<UserProfile> getProfile() async {
+    return const UserProfile(
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      countryCode: 'GH',
+    );
+  }
+
+  @override
+  Future<NotificationPreferences> getNotificationPreferences() async {
+    return const NotificationPreferences(
+      email: '',
+      newBillsPush: false,
+      billUpdatesPush: false,
+      billAssistPush: false,
+      mbaMessagesPush: false,
+      orgMessagesPush: false,
+      friendsMessagesPush: false,
+      newBillsEmail: false,
+      billUpdatesEmail: false,
+      billAssistEmail: false,
+      mbaMessagesEmail: false,
+      orgMessagesEmail: false,
+    );
+  }
+
+  @override
+  Future<MarketingPreferences> getMarketingPreferences() async {
+    return const MarketingPreferences(
+      email: '',
+      news: false,
+      offers: false,
+      surveys: false,
     );
   }
 }

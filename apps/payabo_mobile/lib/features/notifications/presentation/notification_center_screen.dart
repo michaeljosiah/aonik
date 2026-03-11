@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -64,11 +66,16 @@ const List<_NotificationSection> _notificationSections = <_NotificationSection>[
   ),
 ];
 
-class NotificationCenterScreen extends StatelessWidget {
+class NotificationCenterScreen extends ConsumerWidget {
   const NotificationCenterScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool isFreshDemo =
+        ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
+    final sections =
+        isFreshDemo ? const <_NotificationSection>[] : _notificationSections;
+
     return PayaboWarmScaffold(
       body: Column(
         children: <Widget>[
@@ -117,28 +124,91 @@ class NotificationCenterScreen extends StatelessWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: sections.isEmpty ? null : () {},
                   child: const Text('Mark all read'),
                 ),
               ],
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                PayaboSpacing.xl,
-                0,
-                PayaboSpacing.xl,
-                PayaboSpacing.xl,
-              ),
-              children: _notificationSections
-                  .map(
-                    (_NotificationSection section) => _NotificationSectionBlock(
-                      section: section,
+            child: sections.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      PayaboSpacing.xl,
+                      0,
+                      PayaboSpacing.xl,
+                      PayaboSpacing.xl,
                     ),
+                    child: _NotificationEmptyState(),
                   )
-                  .toList(growable: false),
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      PayaboSpacing.xl,
+                      0,
+                      PayaboSpacing.xl,
+                      PayaboSpacing.xl,
+                    ),
+                    children: sections
+                        .map(
+                          (_NotificationSection section) =>
+                              _NotificationSectionBlock(
+                            section: section,
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationEmptyState extends StatelessWidget {
+  const _NotificationEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: PayaboColors.white.withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE6D8C8)),
+        boxShadow: PayaboShadows.soft,
+      ),
+      padding: const EdgeInsets.all(PayaboSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE8D4),
+              borderRadius: BorderRadius.circular(16),
             ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              color: PayaboColors.primary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'No notifications yet',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: PayaboColors.chatTextPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.sm),
+          Text(
+            'Fresh demo mode clears reminders, alerts, and update cards so this inbox starts empty.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: PayaboColors.chatTextSecondary,
+                  height: 1.45,
+                ),
           ),
         ],
       ),
