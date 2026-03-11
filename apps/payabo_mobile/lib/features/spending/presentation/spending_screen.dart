@@ -859,7 +859,7 @@ class _SpendingTrendChart extends StatelessWidget {
     }
 
     return SideTitleWidget(
-      axisSide: meta.axisSide,
+      meta: meta,
       space: PayaboSpacing.sm,
       child: Text(
         label,

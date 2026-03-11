@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:payabo_mobile/app/environment/app_environment.dart';
+import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/data/api/api_exception.dart';
 import 'package:payabo_mobile/data/repositories/auth_repository.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/auth/presentation/login_screen.dart';
 import 'package:payabo_mobile/features/auth/presentation/phone_code_screen.dart';
 import 'package:payabo_mobile/features/payments/presentation/provider_list_screen.dart';
+import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 
 import 'test_helpers.dart';
 
@@ -42,9 +45,15 @@ void main() {
   testWidgets('login failure shows friendly snackbar message',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      buildTestApp(
-        const LoginScreen(),
-        overrides: <Override>[
+      ProviderScope(
+        overrides: [
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
           authRepositoryProvider.overrideWithValue(
             const _FailingAuthRepository(
               ApiException(
@@ -54,6 +63,10 @@ void main() {
             ),
           ),
         ],
+        child: MaterialApp(
+          theme: buildPayaboTheme(),
+          home: const LoginScreen(),
+        ),
       ),
     );
 

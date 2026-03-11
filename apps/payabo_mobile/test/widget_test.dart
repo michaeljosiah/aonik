@@ -9,7 +9,7 @@ void main() {
   testWidgets('app boots on index splash', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: <Override>[
+        overrides: [
           appEnvironmentProvider.overrideWithValue(
             const AppEnvironment(
               flavor: AppFlavor.dev,

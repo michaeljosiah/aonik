@@ -45,10 +45,8 @@ class _ProfileLoginDetailsScreenState
 
         final didAuthenticate = await _localAuth.authenticate(
           localizedReason: 'Authenticate to enable Touch ID for Payabo',
-          options: const AuthenticationOptions(
-            stickyAuth: true,
-            biometricOnly: true,
-          ),
+          biometricOnly: true,
+          persistAcrossBackgrounding: true,
         );
 
         if (!didAuthenticate) {

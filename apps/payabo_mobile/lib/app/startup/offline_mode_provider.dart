@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 /// Runtime flag activated when the API health check fails at startup.
 /// When true, all repository providers fall back to mock implementations

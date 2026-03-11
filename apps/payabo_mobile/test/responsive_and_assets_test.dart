@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:payabo_mobile/app/environment/app_environment.dart';
+import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/data/repositories/profile_repository.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/app/presentation/splash_screen.dart';
@@ -15,6 +18,7 @@ import 'package:payabo_mobile/features/profile/presentation/profile_screen.dart'
 import 'package:payabo_mobile/features/spending/presentation/spending_category_detail_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_overview_screen.dart';
 import 'package:payabo_mobile/mock/repositories/mock_profile_repository.dart';
+import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 import 'package:payabo_mobile/shared/widgets/payabo_app_header.dart';
 import 'package:payabo_mobile/shared/widgets/payabo_bottom_nav.dart';
 import 'package:payabo_mobile/shared/widgets/payabo_profile_avatar.dart';
@@ -49,13 +53,23 @@ void main() {
   testWidgets('dashboard uses the logged in user profile image',
       (WidgetTester tester) async {
     await tester.pumpWidget(
-      buildTestApp(
-        const DashboardScreen(),
+      ProviderScope(
         overrides: [
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
           profileRepositoryProvider.overrideWithValue(
             _ProfileRepositoryWithPhoto(),
           ),
         ],
+        child: MaterialApp(
+          theme: buildPayaboTheme(),
+          home: const DashboardScreen(),
+        ),
       ),
     );
 

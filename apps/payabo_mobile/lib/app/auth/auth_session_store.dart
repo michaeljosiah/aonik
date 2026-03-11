@@ -157,9 +157,6 @@ final Provider<KeyValueStore> keyValueStoreProvider = Provider<KeyValueStore>(
 
     return FlutterSecureKeyValueStore(
       const FlutterSecureStorage(
-        aOptions: AndroidOptions(
-          encryptedSharedPreferences: true,
-        ),
         iOptions: IOSOptions(
           accessibility: KeychainAccessibility.first_unlock,
         ),

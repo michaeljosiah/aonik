@@ -13,7 +13,7 @@ void main() {
     final repository = _FakeAuthRepository();
 
     final container = ProviderContainer(
-      overrides: <Override>[
+      overrides: [
         authSessionStoreProvider.overrideWithValue(store),
         authRepositoryProvider.overrideWithValue(repository),
       ],
@@ -35,7 +35,7 @@ void main() {
     final repository = _FakeAuthRepository();
 
     final container = ProviderContainer(
-      overrides: <Override>[
+      overrides: [
         authSessionStoreProvider.overrideWithValue(store),
         authRepositoryProvider.overrideWithValue(repository),
       ],
@@ -70,7 +70,7 @@ void main() {
     );
 
     final container = ProviderContainer(
-      overrides: <Override>[
+      overrides: [
         authSessionStoreProvider.overrideWithValue(store),
         authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
       ],

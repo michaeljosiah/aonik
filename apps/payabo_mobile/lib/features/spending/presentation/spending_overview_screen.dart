@@ -934,7 +934,7 @@ class _OverviewTrendChart extends StatelessWidget {
     }
 
     return SideTitleWidget(
-      axisSide: meta.axisSide,
+      meta: meta,
       child: Text(
         '£${value.toInt()}',
         style: const TextStyle(
@@ -955,7 +955,7 @@ class _OverviewTrendChart extends StatelessWidget {
     }
 
     return SideTitleWidget(
-      axisSide: meta.axisSide,
+      meta: meta,
       child: Text(
         labels[index],
         style: const TextStyle(
