@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_bottom_nav.dart';
@@ -25,14 +26,10 @@ class ProfileScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFBF7),
+      backgroundColor: PayaboColors.surfaceWarm,
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[Color(0xFFFFFCF9), Color(0xFFF7EEE4)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          gradient: PayaboGradients.warmScreen,
         ),
         child: SafeArea(
           child: Column(
@@ -68,7 +65,7 @@ class ProfileScaffold extends StatelessWidget {
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF4D3120),
+                                  color: PayaboColors.headerTitle,
                                 ),
                       ),
                     ),

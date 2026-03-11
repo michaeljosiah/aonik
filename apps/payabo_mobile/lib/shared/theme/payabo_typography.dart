@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'payabo_colors.dart';
 
 TextTheme buildPayaboTextTheme(TextTheme base) {
-  final textTheme = base.apply(
-    fontFamily: 'sans-serif',
-  );
+  final textTheme = GoogleFonts.openSansTextTheme(base);
 
   return textTheme.copyWith(
     displayLarge: textTheme.displayLarge?.copyWith(

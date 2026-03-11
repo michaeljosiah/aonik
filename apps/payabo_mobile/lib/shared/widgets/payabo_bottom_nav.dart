@@ -39,16 +39,16 @@ class PayaboBottomNav extends StatelessWidget {
       top: false,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: PayaboColors.white,
+          color: PayaboColors.navBackground,
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Color(0x12000000),
+              color: PayaboColors.navShadow,
               offset: Offset(0, -1),
               blurRadius: 10,
             ),
           ],
           border: Border(
-            top: BorderSide(color: Color(0xFFF0E7DA)),
+            top: BorderSide(color: PayaboColors.navBorder),
           ),
         ),
         child: SizedBox(
@@ -78,11 +78,11 @@ class PayaboBottomNav extends StatelessWidget {
                       width: 58,
                       height: 58,
                       decoration: const BoxDecoration(
-                        color: PayaboColors.primary,
+                        color: PayaboColors.navFabBackground,
                         shape: BoxShape.circle,
                         boxShadow: <BoxShadow>[
                           BoxShadow(
-                            color: Color(0x26000000),
+                            color: PayaboColors.navFabShadow,
                             offset: Offset(0, 4),
                             blurRadius: 12,
                           ),
@@ -103,8 +103,6 @@ class PayaboBottomNav extends StatelessWidget {
   Widget _buildItem(BuildContext context, {required int index}) {
     final item = items[index];
     final selected = currentIndex == index;
-    const selectedColor = Color(0xFFC29752);
-    const unselectedColor = Color(0xFF99958F);
 
     return InkWell(
       onTap: () => onTap(index),
@@ -115,14 +113,18 @@ class PayaboBottomNav extends StatelessWidget {
           children: <Widget>[
             Icon(
               item.icon,
-              color: selected ? selectedColor : unselectedColor,
+              color: selected
+                  ? PayaboColors.navSelected
+                  : PayaboColors.navUnselected,
               size: 21,
             ),
             const SizedBox(height: PayaboSpacing.xs),
             Text(
               item.label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: selected ? selectedColor : unselectedColor,
+                    color: selected
+                        ? PayaboColors.navSelected
+                        : PayaboColors.navUnselected,
                     fontSize: 12,
                   ),
             ),

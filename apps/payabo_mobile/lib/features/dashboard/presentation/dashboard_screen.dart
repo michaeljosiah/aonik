@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../data/repositories/dashboard_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -59,14 +60,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final profileState = ref.watch(profileControllerProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFBF7),
+      backgroundColor: PayaboColors.surfaceWarm,
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[Color(0xFFFFFCF9), Color(0xFFF7EEE4)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          gradient: PayaboGradients.warmScreen,
         ),
         child: SafeArea(
           child: Column(
