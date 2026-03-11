@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/environment/environment_provider.dart';
+import '../../app/startup/offline_mode_provider.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_catalog_repository.dart';
 import '../../mock/repositories/mock_dashboard_repository.dart';
@@ -17,14 +18,22 @@ import 'order_repository.dart';
 import 'payment_repository.dart';
 import 'profile_repository.dart';
 
+/// True when the app should use mock implementations -- either because the
+/// compile-time USE_MOCKS flag is set or because the API was unreachable at
+/// startup and we fell back to demo mode.
+bool _shouldMock(Ref ref) {
+  return ref.watch(appEnvironmentProvider).useMocks ||
+      ref.watch(offlineModeProvider);
+}
+
 final Provider<AuthRepository> authRepositoryProvider =
     Provider<AuthRepository>(
   (Ref ref) {
-    final environment = ref.watch(appEnvironmentProvider);
-    if (environment.useMocks) {
+    if (_shouldMock(ref)) {
       return MockAuthRepository();
     }
 
+    final environment = ref.watch(appEnvironmentProvider);
     final apiClient = ref.watch(apiClientProvider);
 
     return LiveAuthRepository(
@@ -38,8 +47,7 @@ final Provider<AuthRepository> authRepositoryProvider =
 final Provider<CatalogRepository> catalogRepositoryProvider =
     Provider<CatalogRepository>(
   (Ref ref) {
-    final useMocks = ref.watch(appEnvironmentProvider).useMocks;
-    if (useMocks) {
+    if (_shouldMock(ref)) {
       return MockCatalogRepository();
     }
 
@@ -50,8 +58,7 @@ final Provider<CatalogRepository> catalogRepositoryProvider =
 final Provider<DashboardRepository> dashboardRepositoryProvider =
     Provider<DashboardRepository>(
   (Ref ref) {
-    final useMocks = ref.watch(appEnvironmentProvider).useMocks;
-    if (useMocks) {
+    if (_shouldMock(ref)) {
       return MockDashboardRepository();
     }
 
@@ -62,8 +69,7 @@ final Provider<DashboardRepository> dashboardRepositoryProvider =
 final Provider<OrderRepository> orderRepositoryProvider =
     Provider<OrderRepository>(
   (Ref ref) {
-    final useMocks = ref.watch(appEnvironmentProvider).useMocks;
-    if (useMocks) {
+    if (_shouldMock(ref)) {
       return MockOrderRepository();
     }
 
@@ -74,8 +80,7 @@ final Provider<OrderRepository> orderRepositoryProvider =
 final Provider<PaymentRepository> paymentRepositoryProvider =
     Provider<PaymentRepository>(
   (Ref ref) {
-    final useMocks = ref.watch(appEnvironmentProvider).useMocks;
-    if (useMocks) {
+    if (_shouldMock(ref)) {
       return MockPaymentRepository();
     }
 
@@ -86,8 +91,7 @@ final Provider<PaymentRepository> paymentRepositoryProvider =
 final Provider<ProfileRepository> profileRepositoryProvider =
     Provider<ProfileRepository>(
   (Ref ref) {
-    final useMocks = ref.watch(appEnvironmentProvider).useMocks;
-    if (useMocks) {
+    if (_shouldMock(ref)) {
       return MockProfileRepository();
     }
 

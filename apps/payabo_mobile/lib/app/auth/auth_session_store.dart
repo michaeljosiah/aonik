@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../environment/environment_provider.dart';
+import '../startup/offline_mode_provider.dart';
 
 class AuthSession {
   const AuthSession({
@@ -149,7 +150,8 @@ class KeyValueAuthSessionStore implements AuthSessionStore {
 final Provider<KeyValueStore> keyValueStoreProvider = Provider<KeyValueStore>(
   (Ref ref) {
     final useMocks = ref.watch(appEnvironmentProvider).useMocks;
-    if (useMocks) {
+    final isOffline = ref.watch(offlineModeProvider);
+    if (useMocks || isOffline) {
       return InMemoryKeyValueStore();
     }
 
