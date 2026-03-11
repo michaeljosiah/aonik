@@ -45,6 +45,7 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
     return AuthFlowScaffold(
       title: 'Contact details',
       onBack: () => context.go('/auth/register/personal-details'),
+      useWarmBackground: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

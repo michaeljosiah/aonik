@@ -50,6 +50,7 @@ class _PhoneCodeScreenState extends State<PhoneCodeScreen> {
     return AuthFlowScaffold(
       title: 'The code is',
       onBack: () => context.go('/auth/register/contact-details'),
+      useWarmBackground: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

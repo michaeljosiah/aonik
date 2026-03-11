@@ -54,6 +54,7 @@ class _LoginDetailsScreenState extends ConsumerState<LoginDetailsScreen> {
     return AuthFlowScaffold(
       title: 'Login details',
       onBack: () => context.go('/auth/register/phone-code'),
+      useWarmBackground: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

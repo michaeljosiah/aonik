@@ -25,6 +25,7 @@ class PayaboAppHeader extends ConsumerWidget {
     this.subtitleStyle,
     this.onProfileTap,
     this.onNotificationsTap,
+    this.trailingAction,
   });
 
   final String? title;
@@ -37,6 +38,7 @@ class PayaboAppHeader extends ConsumerWidget {
   final TextStyle? subtitleStyle;
   final VoidCallback? onProfileTap;
   final VoidCallback? onNotificationsTap;
+  final Widget? trailingAction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -44,6 +46,9 @@ class PayaboAppHeader extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final hasTitle = title != null && title!.trim().isNotEmpty;
     final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
+    final displayName = profileState.displayName.trim().isEmpty
+        ? 'Your account'
+        : profileState.displayName.trim();
 
     return Padding(
       padding: padding,
@@ -51,16 +56,23 @@ class PayaboAppHeader extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              _AppHeaderProfileButton(
-                photoUrl: profileState.photoUrl,
-                onTap: onProfileTap ?? () => context.go('/profile'),
+              Expanded(
+                child: _AppHeaderProfileSummary(
+                  photoUrl: profileState.photoUrl,
+                  displayName: displayName,
+                  onTap: onProfileTap ?? () => context.go('/profile'),
+                ),
               ),
+              const SizedBox(width: PayaboSpacing.md),
               _AppHeaderNotificationButton(
-                onTap: onNotificationsTap ??
-                    () => _showNotificationsMessage(context),
+                onTap:
+                    onNotificationsTap ?? () => context.push('/notifications'),
               ),
+              if (trailingAction != null) ...<Widget>[
+                const SizedBox(width: PayaboSpacing.xs),
+                trailingAction!,
+              ],
             ],
           ),
           if (hasTitle) ...<Widget>[
@@ -93,14 +105,6 @@ class PayaboAppHeader extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  void _showNotificationsMessage(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Notifications are coming soon.')),
-      );
   }
 }
 
@@ -138,6 +142,56 @@ class _AppHeaderProfileButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AppHeaderProfileSummary extends StatelessWidget {
+  const _AppHeaderProfileSummary({
+    required this.photoUrl,
+    required this.displayName,
+    required this.onTap,
+  });
+
+  final String? photoUrl;
+  final String displayName;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        _AppHeaderProfileButton(
+          photoUrl: photoUrl,
+          onTap: onTap,
+        ),
+        const SizedBox(width: PayaboSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Welcome back',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: PayaboColors.headerSubtitle,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+              Text(
+                displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: PayaboColors.headerTitle,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

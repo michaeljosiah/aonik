@@ -43,6 +43,7 @@ class _PersonalDetailsScreenState extends ConsumerState<PersonalDetailsScreen> {
     return AuthFlowScaffold(
       title: 'Personal details',
       onBack: () => context.go('/auth/register'),
+      useWarmBackground: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

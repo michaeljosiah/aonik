@@ -27,28 +27,87 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<_ChatMessage> _messages = <_ChatMessage>[
-    const _ChatMessage(
-      sender: _ChatSender.user,
-      lines: <String>['My finances are hot garbage.'],
-    ),
-    const _ChatMessage(
-      sender: _ChatSender.assistant,
-      lines: <String>[
-        'You say this every Sunday.',
-        'It is time to fix this financial broken record.',
-        'I will create a plan.',
+  final List<_ChatConversation> _conversations = <_ChatConversation>[
+    _ChatConversation(
+      id: 'sunday-reset',
+      title: 'Sunday reset',
+      dateLabel: 'Today',
+      messages: <_ChatMessage>[
+        const _ChatMessage(
+          sender: _ChatSender.user,
+          lines: <String>['My finances are hot garbage.'],
+        ),
+        const _ChatMessage(
+          sender: _ChatSender.assistant,
+          lines: <String>[
+            'You say this every Sunday.',
+            'It is time to fix this financial broken record.',
+            'I will create a plan.',
+          ],
+          planTitle: 'Sunday reset',
+          planItems: <String>[
+            'Round up every bill due in the next 7 days.',
+            'Separate non-negotiables before casual spending starts.',
+            'Cut one repeat expense before tomorrow night.',
+          ],
+        ),
       ],
-      planTitle: 'Sunday reset',
-      planItems: <String>[
-        'Round up every bill due in the next 7 days.',
-        'Separate non-negotiables before casual spending starts.',
-        'Cut one repeat expense before tomorrow night.',
+    ),
+    _ChatConversation(
+      id: 'bill-rescue',
+      title: 'Bill rescue plan',
+      dateLabel: '08 Mar 2026',
+      messages: <_ChatMessage>[
+        const _ChatMessage(
+          sender: _ChatSender.user,
+          lines: <String>['I keep missing my due dates.'],
+        ),
+        const _ChatMessage(
+          sender: _ChatSender.assistant,
+          lines: <String>[
+            'That is recoverable.',
+            'Let us lock the next few bill dates and reduce late fees.',
+          ],
+          planTitle: 'Bill rescue plan',
+          planItems: <String>[
+            'Sort bills by due date and urgency.',
+            'Enable reminders two days before due date.',
+            'Pay essentials first, then spread the rest.',
+          ],
+        ),
+      ],
+    ),
+    _ChatConversation(
+      id: 'goal-sprint',
+      title: 'Goal sprint',
+      dateLabel: '03 Mar 2026',
+      messages: <_ChatMessage>[
+        const _ChatMessage(
+          sender: _ChatSender.user,
+          lines: <String>['Help me save for travel by summer.'],
+        ),
+        const _ChatMessage(
+          sender: _ChatSender.assistant,
+          lines: <String>[
+            'Great goal.',
+            'We will break this into weekly actions.',
+          ],
+          planTitle: 'Goal sprint',
+          planItems: <String>[
+            'Set a target amount and date.',
+            'Automate one weekly transfer.',
+            'Pause one non-essential subscription.',
+          ],
+        ),
       ],
     ),
   ];
 
   int _navIndex = 3;
+  int _activeConversationIndex = 0;
+
+  List<_ChatMessage> get _messages =>
+      _conversations[_activeConversationIndex].messages;
 
   @override
   void initState() {
@@ -96,7 +155,9 @@ class _ChatScreenState extends State<ChatScreen> {
             SafeArea(
               child: Column(
                 children: <Widget>[
-                  const PayaboAppHeader(),
+                  PayaboAppHeader(
+                    trailingAction: _ChatHeaderMenuButton(onTap: _openHistory),
+                  ),
                   Expanded(
                     child: ListView(
                       controller: _scrollController,
@@ -193,6 +254,39 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Future<void> _openHistory() async {
+    final currentId = _conversations[_activeConversationIndex].id;
+    final selectedId = await context.push<String>(
+      '/chat/history?selected=$currentId',
+    );
+
+    if (!mounted || selectedId == null) {
+      return;
+    }
+
+    final selectedIndex = _conversations
+        .indexWhere((conversation) => conversation.id == selectedId);
+    if (selectedIndex < 0) {
+      return;
+    }
+
+    setState(() {
+      _activeConversationIndex = selectedIndex;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   void _handleNavTap(int index) {
@@ -581,6 +675,39 @@ class _QuickPromptChip extends StatelessWidget {
   }
 }
 
+class _ChatHeaderMenuButton extends StatelessWidget {
+  const _ChatHeaderMenuButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: PayaboColors.headerIconSurface,
+            shape: BoxShape.circle,
+            border: Border.all(color: PayaboColors.headerIconBorder),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.menu_rounded,
+              size: 22,
+              color: PayaboColors.headerIconAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatComposer extends StatelessWidget {
   const _ChatComposer({
     required this.controller,
@@ -594,105 +721,72 @@ class _ChatComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: PayaboColors.chatComposerSurface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: PayaboShadows.soft,
-        border: Border.all(color: PayaboColors.chatPlanBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          PayaboSpacing.lg,
-          PayaboSpacing.sm,
-          PayaboSpacing.lg,
-          PayaboSpacing.lg,
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: TextField(
+            controller: controller,
+            minLines: 1,
+            maxLines: 4,
+            textInputAction: TextInputAction.send,
+            onSubmitted: onSubmitted,
+            decoration: InputDecoration(
+              hintText: 'Ask me anything...',
+              filled: false,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: PayaboSpacing.sm,
+                vertical: PayaboSpacing.md,
+              ),
+              border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: PayaboColors.chatInputBorder),
+              ),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: PayaboColors.chatInputBorder),
+              ),
+              focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: PayaboColors.primary),
+              ),
+              hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: PayaboColors.chatTextSecondary,
+                  ),
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Container(
-              width: 42,
-              height: 5,
-              decoration: BoxDecoration(
-                color: PayaboColors.chatComposerHandle,
-                borderRadius: BorderRadius.circular(999),
+        const SizedBox(width: PayaboSpacing.md),
+        Material(
+          color: canSend ? PayaboColors.chatSendActive : PayaboColors.white,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: canSend ? () => onSubmitted(controller.text) : null,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: Stack(
+                alignment: Alignment.center,
+                children: <Widget>[
+                  Icon(
+                    Icons.auto_graph_rounded,
+                    color: canSend
+                        ? PayaboColors.white
+                        : PayaboColors.chatTextSecondary,
+                  ),
+                  const Positioned(
+                    top: 12,
+                    right: 11,
+                    child: Icon(
+                      Icons.auto_awesome,
+                      size: 11,
+                      color: PayaboColors.primary,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: PayaboColors.white.withValues(alpha: 0.9),
-                      borderRadius: const BorderRadius.all(
-                        Radius.circular(30),
-                      ),
-                      border: Border.all(color: PayaboColors.chatInputBorder),
-                    ),
-                    child: TextField(
-                      controller: controller,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: onSubmitted,
-                      decoration: const InputDecoration(
-                        hintText: 'Ask me anything...',
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: PayaboSpacing.lg,
-                          vertical: PayaboSpacing.md,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: PayaboSpacing.md),
-                Material(
-                  color: canSend
-                      ? PayaboColors.chatSendActive
-                      : PayaboColors.white,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    onTap: canSend ? () => onSubmitted(controller.text) : null,
-                    customBorder: const CircleBorder(),
-                    child: SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: <Widget>[
-                          Icon(
-                            Icons.auto_graph_rounded,
-                            color: canSend
-                                ? PayaboColors.white
-                                : PayaboColors.chatTextSecondary,
-                          ),
-                          Positioned(
-                            top: 12,
-                            right: 11,
-                            child: Icon(
-                              Icons.auto_awesome,
-                              size: 11,
-                              color: canSend
-                                  ? PayaboColors.primary
-                                  : PayaboColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -721,6 +815,20 @@ class _ChatGlowOrb extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ChatConversation {
+  _ChatConversation({
+    required this.id,
+    required this.title,
+    required this.dateLabel,
+    required this.messages,
+  });
+
+  final String id;
+  final String title;
+  final String dateLabel;
+  final List<_ChatMessage> messages;
 }
 
 class _ChatMessage {

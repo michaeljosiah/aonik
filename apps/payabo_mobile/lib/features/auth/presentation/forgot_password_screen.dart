@@ -37,6 +37,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       description:
           "Please enter the email address used to register on MyBillAfrica, and we'll send you an email with instructions to recover your password.",
       onClose: () => context.go('/auth/login'),
+      useWarmBackground: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

@@ -64,8 +64,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: <Widget>[
           _DashboardHeader(
             onProfileTap: () => context.go('/profile'),
-            onNotificationsTap: _showNotificationsMessage,
+            onNotificationsTap: () => context.push('/notifications'),
             photoUrl: profileState.photoUrl,
+            displayName: profileState.displayName,
           ),
           Expanded(
             child: summaryValue.when(
@@ -114,14 +115,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     try {
       await ref.read(profileControllerProvider.notifier).ensureLoaded();
     } catch (_) {}
-  }
-
-  void _showNotificationsMessage() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Notifications are coming soon.')),
-      );
   }
 
   void _handleNavTap(int index) {
@@ -193,11 +186,13 @@ class _DashboardHeader extends StatelessWidget {
     required this.onProfileTap,
     required this.onNotificationsTap,
     required this.photoUrl,
+    required this.displayName,
   });
 
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
   final String? photoUrl;
+  final String displayName;
 
   @override
   Widget build(BuildContext context) {
@@ -210,15 +205,71 @@ class _DashboardHeader extends StatelessWidget {
         PayaboSpacing.lg,
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
-          _DashboardProfileAvatar(
-            onTap: onProfileTap,
-            photoUrl: photoUrl,
+          Expanded(
+            child: _DashboardProfileSummary(
+              onTap: onProfileTap,
+              photoUrl: photoUrl,
+              displayName: displayName,
+            ),
           ),
+          const SizedBox(width: PayaboSpacing.md),
           _DashboardNotificationButton(onTap: onNotificationsTap),
         ],
       ),
+    );
+  }
+}
+
+class _DashboardProfileSummary extends StatelessWidget {
+  const _DashboardProfileSummary({
+    required this.onTap,
+    required this.photoUrl,
+    required this.displayName,
+  });
+
+  final VoidCallback onTap;
+  final String? photoUrl;
+  final String displayName;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedName =
+        displayName.trim().isEmpty ? 'Your account' : displayName.trim();
+
+    return Row(
+      children: <Widget>[
+        _DashboardProfileAvatar(
+          onTap: onTap,
+          photoUrl: photoUrl,
+        ),
+        const SizedBox(width: PayaboSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'Welcome back',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: PayaboColors.headerSubtitle,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+              Text(
+                resolvedName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: PayaboColors.headerTitle,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -317,13 +368,18 @@ class _DashboardContent extends StatelessWidget {
     required this.isEmpty,
   });
 
+  static const int _upcomingBillPreviewLimit = 5;
+
   final DashboardSummary summary;
   final bool isEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final bills =
+    final allUpcomingBills =
         isEmpty ? const <DashboardUpcomingBill>[] : summary.upcomingBills;
+    final bills = allUpcomingBills
+        .take(_upcomingBillPreviewLimit)
+        .toList(growable: false);
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -341,7 +397,7 @@ class _DashboardContent extends StatelessWidget {
         _DashboardFeatureRow(isEmpty: isEmpty),
         const SizedBox(height: PayaboSpacing.md),
         _DashboardBalanceCard(
-          dueBillCount: bills.length,
+          dueBillCount: allUpcomingBills.length,
           isEmpty: isEmpty,
         ),
         const SizedBox(height: PayaboSpacing.xl),

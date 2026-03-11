@@ -21,6 +21,7 @@ class RegisterScreen extends ConsumerWidget {
     return AuthFlowScaffold(
       title: "Register now, it's free!",
       onClose: () => context.go('/intro'),
+      useWarmBackground: true,
       footer: Text(
         'By registering you agree with our\nTerms and Conditions and Privacy Policy.',
         textAlign: TextAlign.center,

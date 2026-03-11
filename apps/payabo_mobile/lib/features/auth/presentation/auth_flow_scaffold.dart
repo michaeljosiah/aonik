@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 
 class AuthFlowScaffold extends StatelessWidget {
@@ -12,6 +13,7 @@ class AuthFlowScaffold extends StatelessWidget {
     this.footer,
     this.onBack,
     this.onClose,
+    this.useWarmBackground = false,
     this.bottomSpacing = PayaboSpacing.x2,
   });
 
@@ -21,75 +23,94 @@ class AuthFlowScaffold extends StatelessWidget {
   final Widget? footer;
   final VoidCallback? onBack;
   final VoidCallback? onClose;
+  final bool useWarmBackground;
   final double bottomSpacing;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: PayaboColors.white,
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl,
-                  PayaboSpacing.lg, PayaboSpacing.xl, PayaboSpacing.x2),
-              child: Row(
+    final content = SafeArea(
+      child: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              PayaboSpacing.xl,
+              PayaboSpacing.lg,
+              PayaboSpacing.xl,
+              PayaboSpacing.x2,
+            ),
+            child: Row(
+              children: <Widget>[
+                if (onBack != null)
+                  _TopIconButton(
+                    icon: Icons.arrow_back_ios_new,
+                    onTap: onBack!,
+                  )
+                else
+                  const SizedBox(width: 44),
+                const Spacer(),
+                if (onClose != null)
+                  _TopIconButton(
+                    icon: Icons.close,
+                    onTap: onClose!,
+                  )
+                else
+                  const SizedBox(width: 44),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  if (onBack != null)
-                    _TopIconButton(
-                      icon: Icons.arrow_back_ios_new,
-                      onTap: onBack!,
-                    )
-                  else
-                    const SizedBox(width: 44),
-                  const Spacer(),
-                  if (onClose != null)
-                    _TopIconButton(
-                      icon: Icons.close,
-                      onTap: onClose!,
-                    )
-                  else
-                    const SizedBox(width: 44),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          fontWeight: FontWeight.w300,
+                          fontSize: 32,
+                          height: 1.15,
+                        ),
+                  ),
+                  if (description != null) ...<Widget>[
+                    const SizedBox(height: PayaboSpacing.md),
+                    Text(
+                      description!,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                  const SizedBox(height: PayaboSpacing.xl),
+                  child,
+                  SizedBox(height: bottomSpacing),
                 ],
               ),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      title,
-                      style:
-                          Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                fontWeight: FontWeight.w300,
-                                fontSize: 32,
-                                height: 1.15,
-                              ),
-                    ),
-                    if (description != null) ...<Widget>[
-                      const SizedBox(height: PayaboSpacing.md),
-                      Text(description!,
-                          style: Theme.of(context).textTheme.bodyLarge),
-                    ],
-                    const SizedBox(height: PayaboSpacing.xl),
-                    child,
-                    SizedBox(height: bottomSpacing),
-                  ],
-                ),
+          ),
+          if (footer != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                PayaboSpacing.xl,
+                0,
+                PayaboSpacing.xl,
+                PayaboSpacing.lg,
               ),
+              child: footer!,
             ),
-            if (footer != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl, 0, PayaboSpacing.xl, PayaboSpacing.lg),
-                child: footer!,
-              ),
-          ],
-        ),
+        ],
       ),
+    );
+
+    return Scaffold(
+      backgroundColor:
+          useWarmBackground ? PayaboColors.surfaceWarm : PayaboColors.white,
+      body: useWarmBackground
+          ? DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: PayaboGradients.warmScreen,
+              ),
+              child: content,
+            )
+          : content,
     );
   }
 }

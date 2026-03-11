@@ -8,6 +8,7 @@ import 'package:payabo_mobile/features/app/presentation/splash_screen.dart';
 import 'package:payabo_mobile/features/auth/presentation/contact_details_screen.dart';
 import 'package:payabo_mobile/features/chat/presentation/chat_screen.dart';
 import 'package:payabo_mobile/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:payabo_mobile/features/notifications/presentation/notification_center_screen.dart';
 import 'package:payabo_mobile/features/payments/presentation/payment_country_screen.dart';
 import 'package:payabo_mobile/features/profile/presentation/personal_details_screen.dart';
 import 'package:payabo_mobile/features/profile/presentation/profile_screen.dart';
@@ -68,6 +69,28 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Kwame Mensah'), findsOneWidget);
+  });
+
+  testWidgets('dashboard upcoming bills preview is limited to five items',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildTestApp(const DashboardScreen()));
+    await tester.pumpAndSettle();
+
+    final Finder primaryScroll = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('GOtv'),
+      300,
+      scrollable: primaryScroll,
+    );
+
+    expect(find.text('GOtv'), findsOneWidget);
+    expect(find.text('AirtelTigo'), findsNothing);
+    expect(find.text('Netflix'), findsNothing);
+
+    await tester.pumpAndSettle();
   });
 
   testWidgets('profile screens keep the bottom menu visible',
@@ -106,6 +129,16 @@ void main() {
     await tester.pumpWidget(buildTestApp(const ProfilePersonalDetailsScreen()));
     await tester.pumpAndSettle();
     expect(find.byType(PayaboAppHeader), findsOneWidget);
+  });
+
+  testWidgets('notification center screen renders grouped items',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildTestApp(const NotificationCenterScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Notifications'), findsOneWidget);
+    expect(find.text('Electricity bill reminder'), findsOneWidget);
+    expect(find.text('Spend alert'), findsOneWidget);
   });
 }
 

@@ -14,7 +14,8 @@ void main() {
     final Finder primaryScrollable = find.byType(Scrollable).first;
 
     expect(find.text('Hey you'), findsOneWidget);
-    expect(find.text('Sunday reset'), findsOneWidget);
+    expect(find.text('Sunday reset'), findsWidgets);
+    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Build me a Sunday reset'),
@@ -33,7 +34,7 @@ void main() {
     await tester.drag(primaryScrollable, const Offset(0, -600));
     await tester.pumpAndSettle();
 
-    expect(find.text('Bill rescue plan'), findsOneWidget);
+    expect(find.text('Bill rescue plan'), findsWidgets);
     expect(find.text('Pin every due date in one list.'), findsOneWidget);
   });
 }

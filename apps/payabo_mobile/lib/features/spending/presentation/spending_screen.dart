@@ -117,7 +117,6 @@ class SpendingScreen extends StatefulWidget {
 
 class _SpendingScreenState extends State<SpendingScreen> {
   int _navIndex = 2;
-  int _focusViewIndex = 0;
   int _monthIndex = 2;
   int _breakdownViewIndex = 0;
 
@@ -126,14 +125,11 @@ class _SpendingScreenState extends State<SpendingScreen> {
     final List<_SpendingBreakdownItem> breakdownItems =
         _breakdownViewIndex == 0 ? _categoryItems : _merchantItems;
 
-    final String summaryTitle =
-        _focusViewIndex == 0 ? 'February spend' : 'February budget';
-    final String summaryAmount = _focusViewIndex == 0 ? '£672.97' : '£2,500.00';
-    final Color summaryColor =
-        _focusViewIndex == 0 ? PayaboColors.primaryHover : PayaboColors.primary;
-    final String compareAmount = _focusViewIndex == 0 ? '£518.97' : '£320.00';
-    final String compareLabel =
-        _focusViewIndex == 0 ? 'vs. January' : 'remaining this month';
+    const String summaryTitle = 'February spend';
+    const String summaryAmount = '£672.97';
+    const Color summaryColor = PayaboColors.primaryHover;
+    const String compareAmount = '£518.97';
+    const String compareLabel = 'vs. January';
 
     return Scaffold(
       backgroundColor: PayaboColors.surfaceWarm,
@@ -146,34 +142,18 @@ class _SpendingScreenState extends State<SpendingScreen> {
             children: <Widget>[
               _SpendingHeader(
                 onSectionSelected: _handleSectionSelected,
-                onNotificationsTap: _showInfoMessage,
+                onNotificationsTap: () => context.push('/notifications'),
                 onProfileTap: () => context.go('/profile'),
               ),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(
                     PayaboSpacing.xl,
-                    PayaboSpacing.lg,
+                    PayaboSpacing.md,
                     PayaboSpacing.xl,
                     PayaboSpacing.x4,
                   ),
                   children: <Widget>[
-                    const SizedBox(height: PayaboSpacing.md),
-                    _SegmentControl(
-                      leftLabel: 'Your spending',
-                      rightLabel: 'Your budget',
-                      selectedIndex: _focusViewIndex,
-                      onChanged: (int index) {
-                        setState(() {
-                          _focusViewIndex = index;
-                        });
-                      },
-                      backgroundColor: const Color(0xFFFFF7F0),
-                      selectedColor: PayaboColors.primary,
-                      selectedTextColor: PayaboColors.white,
-                      unselectedTextColor: PayaboColors.accentBrownMuted,
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
                     _TransactionsHeroCard(
                       summaryTitle: summaryTitle,
                       summaryAmount: summaryAmount,

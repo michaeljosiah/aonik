@@ -39,6 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return AuthFlowScaffold(
       title: 'Nice to see you again.',
       onClose: () => context.go('/intro'),
+      useWarmBackground: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

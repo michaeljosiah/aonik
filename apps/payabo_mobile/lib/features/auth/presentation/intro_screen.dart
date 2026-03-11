@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,7 +16,11 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen> {
   final PageController _pageController = PageController();
+  Timer? _autoScrollTimer;
   int _activeIndex = 0;
+
+  static const Duration _autoScrollDelay = Duration(seconds: 4);
+  static const Duration _autoScrollDuration = Duration(milliseconds: 450);
 
   // TODO: Replace illustration assets with photo-real images and change
   // BoxFit.contain → BoxFit.cover for full-bleed backgrounds.
@@ -40,7 +46,14 @@ class _IntroScreenState extends State<IntroScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _scheduleAutoScroll();
+  }
+
+  @override
   void dispose() {
+    _autoScrollTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -61,6 +74,7 @@ class _IntroScreenState extends State<IntroScreen> {
             itemCount: _slides.length,
             onPageChanged: (index) {
               setState(() => _activeIndex = index);
+              _scheduleAutoScroll();
             },
             itemBuilder: (context, index) {
               return Image.asset(
@@ -162,6 +176,24 @@ class _IntroScreenState extends State<IntroScreen> {
       ),
     );
   }
+
+  void _scheduleAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer(_autoScrollDelay, _goToNextSlide);
+  }
+
+  void _goToNextSlide() {
+    if (!mounted || !_pageController.hasClients) {
+      return;
+    }
+
+    final nextIndex = (_activeIndex + 1) % _slides.length;
+    _pageController.animateToPage(
+      nextIndex,
+      duration: _autoScrollDuration,
+      curve: Curves.easeInOut,
+    );
+  }
 }
 
 // ── Data model ──────────────────────────────────────────────────────────
@@ -196,9 +228,7 @@ class _PageDot extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isActive
-            ? Colors.white
-            : Colors.white.withValues(alpha: 0.35),
+        color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.35),
       ),
     );
   }
