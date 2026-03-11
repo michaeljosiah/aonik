@@ -16,21 +16,26 @@ class _IntroScreenState extends State<IntroScreen> {
   final PageController _pageController = PageController();
   int _activeIndex = 0;
 
+  // TODO: Replace illustration assets with photo-real images and change
+  // BoxFit.contain → BoxFit.cover for full-bleed backgrounds.
   static const List<_IntroSlide> _slides = <_IntroSlide>[
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-01.png',
-      titleLineOne: 'PAY YOUR BILLS',
-      titleLineTwo: 'IN ONE PLACE',
+      backgroundColor: Color(0xFFFFF5EB),
+      subtitle: 'Pay your bills',
+      headline: 'All your bills, paid\nin one place with ease.',
     ),
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-02.png',
-      titleLineOne: 'SUPPORT YOUR',
-      titleLineTwo: 'LOVED ONES',
+      backgroundColor: Color(0xFFFFF8F2),
+      subtitle: 'Support loved ones',
+      headline: 'Send money to friends\nand family, anywhere.',
     ),
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-03.png',
-      titleLineOne: 'KEEP TRACK OF',
-      titleLineTwo: 'YOUR SPENDING',
+      backgroundColor: Color(0xFFFFFBF6),
+      subtitle: 'Track spending',
+      headline: 'Keep track of your\nspending and reach\nyour goals.',
     ),
   ];
 
@@ -42,114 +47,116 @@ class _IntroScreenState extends State<IntroScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final slide = _slides[_activeIndex];
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      backgroundColor: PayaboColors.white,
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Expanded(
-              child: Column(
-                children: <Widget>[
-                  Expanded(
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: _slides.length,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _activeIndex = index;
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        return _IntroSlideView(slide: _slides[index]);
-                      },
-                    ),
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          // ── Full-screen paged images ──────────────────────────────
+          PageView.builder(
+            controller: _pageController,
+            itemCount: _slides.length,
+            onPageChanged: (index) {
+              setState(() => _activeIndex = index);
+            },
+            itemBuilder: (context, index) {
+              return Image.asset(
+                _slides[index].imageAsset,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              );
+            },
+          ),
+
+          // ── Bottom gradient overlay ───────────────────────────────
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: screenHeight * 0.44,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const <double>[0.0, 0.30, 1.0],
+                    colors: <Color>[
+                      Colors.black.withValues(alpha: 0.0),
+                      Colors.black.withValues(alpha: 0.70),
+                      Colors.black.withValues(alpha: 0.92),
+                    ],
                   ),
-                  const SizedBox(height: PayaboSpacing.lg),
+                ),
+              ),
+            ),
+          ),
+
+          // ── Bottom content (text + dots + buttons) ────────────────
+          Positioned(
+            left: PayaboSpacing.x2,
+            right: PayaboSpacing.x2,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  // Subtitle
+                  Text(
+                    slide.subtitle,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: PayaboColors.brandPrimary,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.sm),
+
+                  // Headline
+                  Text(
+                    slide.headline,
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 28,
+                          height: 1.25,
+                        ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.x2),
+
+                  // Page indicator dots
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List<Widget>.generate(
                       _slides.length,
-                      (index) => _SlideDot(isActive: index == _activeIndex),
+                      (index) => _PageDot(isActive: index == _activeIndex),
                     ),
                   ),
+                  const SizedBox(height: PayaboSpacing.x3),
+
+                  // Log in
+                  PayaboButton(
+                    label: 'Log in',
+                    onPressed: () => context.go('/auth/login'),
+                  ),
+                  const SizedBox(height: PayaboSpacing.md),
+
+                  // Create an account
+                  PayaboButton(
+                    label: 'Create an account',
+                    variant: PayaboButtonVariant.link,
+                    onPressed: () => context.go('/auth/register'),
+                  ),
+                  const SizedBox(height: PayaboSpacing.lg),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl,
-                  PayaboSpacing.x2, PayaboSpacing.xl, PayaboSpacing.xl),
-              child: Row(
-                children: <Widget>[
-                  Expanded(
-                    child: PayaboButton(
-                      label: 'Login',
-                      onPressed: () => context.go('/auth/login'),
-                    ),
-                  ),
-                  const SizedBox(width: PayaboSpacing.md),
-                  Expanded(
-                    child: PayaboButton(
-                      label: 'Register',
-                      variant: PayaboButtonVariant.secondary,
-                      onPressed: () => context.go('/auth/register'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _IntroSlide {
-  const _IntroSlide({
-    required this.imageAsset,
-    required this.titleLineOne,
-    required this.titleLineTwo,
-  });
-
-  final String imageAsset;
-  final String titleLineOne;
-  final String titleLineTwo;
-}
-
-class _IntroSlideView extends StatelessWidget {
-  const _IntroSlideView({required this.slide});
-
-  final _IntroSlide slide;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(PayaboSpacing.x2, PayaboSpacing.x2,
-          PayaboSpacing.x2, PayaboSpacing.lg),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Image.asset(
-            slide.imageAsset,
-            fit: BoxFit.contain,
-          ),
-          const SizedBox(height: PayaboSpacing.xl),
-          Text(
-            slide.titleLineOne,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w300,
-                ),
-          ),
-          Text(
-            slide.titleLineTwo,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: PayaboColors.primary,
-                ),
           ),
         ],
       ),
@@ -157,24 +164,41 @@ class _IntroSlideView extends StatelessWidget {
   }
 }
 
-class _SlideDot extends StatelessWidget {
-  const _SlideDot({required this.isActive});
+// ── Data model ──────────────────────────────────────────────────────────
+
+class _IntroSlide {
+  const _IntroSlide({
+    required this.imageAsset,
+    required this.backgroundColor,
+    required this.subtitle,
+    required this.headline,
+  });
+
+  final String imageAsset;
+  final Color backgroundColor;
+  final String subtitle;
+  final String headline;
+}
+
+// ── Page indicator dot ──────────────────────────────────────────────────
+
+class _PageDot extends StatelessWidget {
+  const _PageDot({required this.isActive});
 
   final bool isActive;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      width: isActive ? 24 : 12,
-      height: 12,
-      margin: const EdgeInsets.symmetric(horizontal: 5),
+      duration: const Duration(milliseconds: 200),
+      width: isActive ? 10 : 8,
+      height: isActive ? 10 : 8,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(
-            color: isActive ? PayaboColors.muted : PayaboColors.border,
-            width: 3),
-        color: isActive ? PayaboColors.muted : PayaboColors.white,
+        shape: BoxShape.circle,
+        color: isActive
+            ? Colors.white
+            : Colors.white.withValues(alpha: 0.35),
       ),
     );
   }
