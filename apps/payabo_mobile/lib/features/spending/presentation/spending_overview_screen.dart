@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -131,14 +132,10 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFBF7),
+      backgroundColor: PayaboColors.surfaceWarm,
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[Color(0xFFFFFCF9), Color(0xFFF7EEE4)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          gradient: PayaboGradients.warmScreen,
         ),
         child: SafeArea(
           child: Column(
@@ -594,7 +591,7 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PayaboCard(
-      backgroundColor: const Color(0xFFFFFBF7),
+      backgroundColor: PayaboColors.surfaceWarm,
       padding: const EdgeInsets.all(PayaboSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import '../../../data/repositories/dashboard_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -19,6 +18,7 @@ import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
+import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import '../../profile/presentation/profile_state.dart';
 
 final FutureProvider<DashboardSummary> dashboardSummaryProvider =
@@ -59,49 +59,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final summaryValue = ref.watch(dashboardSummaryProvider);
     final profileState = ref.watch(profileControllerProvider);
 
-    return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              _DashboardHeader(
-                onProfileTap: () => context.go('/profile'),
-                onNotificationsTap: _showNotificationsMessage,
-                photoUrl: profileState.photoUrl,
-              ),
-              Expanded(
-                child: summaryValue.when(
-                  data: (summary) {
-                    final isEmpty = widget.showEmptyState;
-
-                    return RefreshIndicator(
-                      onRefresh: () async =>
-                          ref.refresh(dashboardSummaryProvider.future),
-                      child: _DashboardContent(
-                        summary: summary,
-                        isEmpty: isEmpty,
-                      ),
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, stackTrace) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(PayaboSpacing.xl),
-                        child: Text('Unable to load dashboard: $error'),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+    return PayaboWarmScaffold(
+      body: Column(
+        children: <Widget>[
+          _DashboardHeader(
+            onProfileTap: () => context.go('/profile'),
+            onNotificationsTap: _showNotificationsMessage,
+            photoUrl: profileState.photoUrl,
           ),
-        ),
+          Expanded(
+            child: summaryValue.when(
+              data: (summary) {
+                final isEmpty = widget.showEmptyState;
+
+                return RefreshIndicator(
+                  onRefresh: () async =>
+                      ref.refresh(dashboardSummaryProvider.future),
+                  child: _DashboardContent(
+                    summary: summary,
+                    isEmpty: isEmpty,
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(PayaboSpacing.xl),
+                    child: Text('Unable to load dashboard: $error'),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: PayaboBottomNav(
         items: const <PayaboBottomNavItem>[

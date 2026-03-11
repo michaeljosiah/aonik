@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_bottom_nav.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
+import '../../../shared/widgets/payabo_screen_title_bar.dart';
+import '../../../shared/widgets/payabo_warm_scaffold.dart';
 
 class ProfileScaffold extends StatelessWidget {
   const ProfileScaffold({
@@ -25,78 +25,42 @@ class ProfileScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              const PayaboAppHeader(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  PayaboSpacing.xl,
-                  0,
-                  PayaboSpacing.xl,
-                  PayaboSpacing.md,
-                ),
-                child: Row(
-                  children: <Widget>[
-                    SizedBox(
-                      width: 32,
-                      child: backRoute == null
-                          ? const SizedBox.shrink()
-                          : InkWell(
-                              onTap: () => context.go(backRoute!),
-                              borderRadius: BorderRadius.circular(20),
-                              child: const Icon(
-                                Icons.arrow_back_ios_new,
-                                size: 18,
-                                color: PayaboColors.primary,
-                              ),
-                            ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: PayaboColors.headerTitle,
-                                ),
-                      ),
-                    ),
-                    const SizedBox(width: 32),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    PayaboSpacing.md,
-                    PayaboSpacing.xl,
-                    PayaboSpacing.xl,
-                  ),
-                  child: child,
-                ),
-              ),
-              if (footer != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    0,
-                    PayaboSpacing.xl,
-                    PayaboSpacing.lg,
-                  ),
-                  child: footer!,
-                ),
-            ],
+    return PayaboWarmScaffold(
+      body: Column(
+        children: <Widget>[
+          const PayaboAppHeader(),
+          PayaboScreenTitleBar(
+            title: title,
+            onBack: backRoute == null ? null : () => context.go(backRoute!),
+            padding: const EdgeInsets.fromLTRB(
+              PayaboSpacing.xl,
+              0,
+              PayaboSpacing.xl,
+              PayaboSpacing.md,
+            ),
           ),
-        ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                PayaboSpacing.xl,
+                PayaboSpacing.md,
+                PayaboSpacing.xl,
+                PayaboSpacing.xl,
+              ),
+              child: child,
+            ),
+          ),
+          if (footer != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                PayaboSpacing.xl,
+                0,
+                PayaboSpacing.xl,
+                PayaboSpacing.lg,
+              ),
+              child: footer!,
+            ),
+        ],
       ),
       bottomNavigationBar: PayaboBottomNav(
         items: const <PayaboBottomNavItem>[
