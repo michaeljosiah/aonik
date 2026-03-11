@@ -1,13 +1,8 @@
 import '../../data/repositories/catalog_repository.dart';
+import '../../shared/reference/payabo_country_reference.dart';
 import '../mock_behavior.dart';
 
 class MockCatalogRepository implements CatalogRepository {
-  static const List<CatalogCountry> _countries = <CatalogCountry>[
-    CatalogCountry(code: 'GH', name: 'Ghana', currency: 'GHS'),
-    CatalogCountry(code: 'NG', name: 'Nigeria', currency: 'NGN'),
-    CatalogCountry(code: 'KE', name: 'Kenya', currency: 'KES'),
-  ];
-
   static const List<CatalogProvider> _providers = <CatalogProvider>[
     CatalogProvider(id: 'prov_ecg', name: 'ECG Power', countryCode: 'GH'),
     CatalogProvider(id: 'prov_gwcl', name: 'Ghana Water', countryCode: 'GH'),
@@ -19,7 +14,15 @@ class MockCatalogRepository implements CatalogRepository {
   Future<List<CatalogCountry>> getCountries() async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('catalog.getCountries');
-    return _countries;
+    return payaboCountries
+        .map(
+          (country) => CatalogCountry(
+            code: country.code,
+            name: country.name,
+            currency: country.currencyCode,
+          ),
+        )
+        .toList(growable: false);
   }
 
   @override

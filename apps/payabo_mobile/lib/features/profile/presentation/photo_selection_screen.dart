@@ -27,9 +27,7 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
       footer: PayaboButton(
         label: 'Done',
         onPressed: () {
-          ref
-              .read(profileControllerProvider.notifier)
-              .setPhotoLabel('Change photo');
+          ref.read(profileCoreProvider.notifier).setPhotoLabel('Change photo');
           context.go('/profile');
         },
       ),

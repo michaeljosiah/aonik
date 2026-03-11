@@ -13,7 +13,7 @@ class MarketingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(profileControllerProvider);
+    final state = ref.watch(profileMarketingProvider);
 
     void showError(String message) {
       ScaffoldMessenger.of(context)
@@ -21,10 +21,11 @@ class MarketingScreen extends ConsumerWidget {
         ..showSnackBar(SnackBar(content: Text(message)));
     }
 
-    Future<void> toggleMarketing({bool? news, bool? offers, bool? surveys}) async {
+    Future<void> toggleMarketing(
+        {bool? news, bool? offers, bool? surveys}) async {
       try {
         await ref
-            .read(profileControllerProvider.notifier)
+            .read(profileMarketingProvider.notifier)
             .setMarketingToggle(news: news, offers: offers, surveys: surveys);
       } catch (_) {
         showError('Unable to update marketing preferences right now.');

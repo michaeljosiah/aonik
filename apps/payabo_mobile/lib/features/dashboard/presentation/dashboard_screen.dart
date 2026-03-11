@@ -55,7 +55,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final summaryValue = ref.watch(dashboardSummaryProvider);
-    final profileState = ref.watch(profileControllerProvider);
+    final profileState = ref.watch(profileHeaderProvider);
     final demoDataMode = ref.watch(demoDataModeProvider);
     final isEmptyDemoMode = demoDataMode == DemoDataMode.fresh;
 
@@ -103,7 +103,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Future<void> _ensureProfileLoaded() async {
     try {
-      await ref.read(profileControllerProvider.notifier).ensureLoaded();
+      await ref.read(profileDataCoordinatorProvider).ensureLoaded();
     } catch (_) {}
   }
 }

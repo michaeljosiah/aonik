@@ -25,7 +25,7 @@ class _NotificationsEmailScreenState
   void initState() {
     super.initState();
     _emailController = TextEditingController(
-        text: ref.read(profileControllerProvider).notificationsEmail);
+        text: ref.read(profileNotificationsProvider).notificationsEmail);
   }
 
   @override
@@ -67,7 +67,7 @@ class _NotificationsEmailScreenState
 
     try {
       await ref
-          .read(profileControllerProvider.notifier)
+          .read(profileNotificationsProvider.notifier)
           .setNotificationsEmail(_emailController.text);
 
       if (mounted) {

@@ -15,9 +15,10 @@ class PaymentSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final flowState = ref.watch(paymentFlowControllerProvider);
+    final orderId = ref.watch(paymentOrderIdProvider);
+    final summary = ref.watch(paymentOrderSummaryProvider);
 
-    if (flowState.orderId.isEmpty) {
+    if (orderId.isEmpty) {
       return PaymentFlowScaffold(
         title: 'Select payment method',
         onBack: () => context.go('/payments/service-details'),
@@ -45,7 +46,7 @@ class PaymentSelectionScreen extends ConsumerWidget {
       footer: PayaboButton(
         label: 'View order summary',
         variant: PayaboButtonVariant.secondary,
-        onPressed: () => _showOrderSummary(context, flowState),
+        onPressed: () => _showOrderSummary(context, summary),
       ),
       child: Column(
         children: <Widget>[
@@ -80,7 +81,7 @@ class PaymentSelectionScreen extends ConsumerWidget {
   }
 
   Future<void> _showOrderSummary(
-      BuildContext context, PaymentFlowState state) async {
+      BuildContext context, PaymentOrderSummary summary) async {
     await showPayaboModalSheet<void>(
       context: context,
       title: 'Order summary',
@@ -89,19 +90,19 @@ class PaymentSelectionScreen extends ConsumerWidget {
         children: <Widget>[
           _SummaryItem(
             label: 'Destination country',
-            value: state.countryCode,
+            value: summary.countryCode,
           ),
           _SummaryItem(
             label: 'Biller',
-            value: state.providerName,
+            value: summary.providerName,
           ),
           _SummaryItem(
             label: 'Service details',
-            value: '${state.serviceType}\nCard ID #${state.smartCardId}',
+            value: '${summary.serviceType}\nCard ID #${summary.smartCardId}',
           ),
           _SummaryItem(
             label: 'Amount',
-            value: state.amount,
+            value: summary.amount,
             isLast: true,
           ),
         ],

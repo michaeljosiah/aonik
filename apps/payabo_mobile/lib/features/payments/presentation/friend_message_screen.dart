@@ -23,7 +23,7 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
   void initState() {
     super.initState();
     _messageController = TextEditingController(
-      text: ref.read(paymentFlowControllerProvider).friendMessage,
+      text: ref.read(paymentFriendMessageProvider),
     );
   }
 
@@ -35,8 +35,12 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(paymentFlowControllerProvider);
-    final friend = state.selectedFriend;
+    final friend = ref.watch(selectedPaymentFriendProvider);
+    final message = ref.watch(paymentFriendMessageProvider);
+
+    if (_messageController.text.isEmpty && message.isNotEmpty) {
+      _messageController.text = message;
+    }
 
     return PaymentFlowScaffold(
       title: 'Send message to friend',
@@ -49,7 +53,10 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
             : () {
                 ref
                     .read(paymentFlowControllerProvider.notifier)
-                    .setFriendMessage(_messageController.text.trim());
+                    .setFriendMessage(
+                      _messageController.text.trim(),
+                      persist: true,
+                    );
                 context.go('/payments/checkout/help');
               },
       ),
@@ -85,7 +92,7 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
             onPressed: () {
               ref
                   .read(paymentFlowControllerProvider.notifier)
-                  .setFriendMessage('');
+                  .setFriendMessage('', persist: true);
               _messageController.clear();
               context.go('/payments/checkout/help');
             },

@@ -1,55 +1,56 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/auth/auth_session_manager.dart';
 import '../../app/auth/auth_session_store.dart';
 import '../../app/environment/app_environment.dart';
 import '../../app/environment/environment_provider.dart';
 import 'dio_transport.dart';
 
-final Provider<Dio> apiClientProvider = Provider<Dio>(
+final Provider<Dio> authApiClientProvider = Provider<Dio>(
   (Ref ref) {
-    final environment = ref.watch(appEnvironmentProvider);
-    final authSessionStore = ref.watch(authSessionStoreProvider);
-    Future<AuthSession?>? refreshInFlight;
+    final AppEnvironment environment = ref.watch(appEnvironmentProvider);
+    final String baseUrl = environment.runtimeApiBaseUrl;
+    final Dio dio = _createConfiguredDio(environment, baseUrl: baseUrl);
 
-    final baseUrl = environment.runtimeApiBaseUrl;
-
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          _applyCommonHeaders(options, tenantId: environment.tenantId);
+          handler.next(options);
+        },
       ),
     );
-    configureDioTransport(dio, environment, baseUrl: baseUrl);
+
+    ref.onDispose(dio.close);
+
+    return dio;
+  },
+);
+
+final Provider<Dio> apiClientProvider = Provider<Dio>(
+  (Ref ref) {
+    final AppEnvironment environment = ref.watch(appEnvironmentProvider);
+    final AuthSessionStore authSessionStore =
+        ref.watch(authSessionStoreProvider);
+    final AuthSessionManager sessionManager =
+        ref.watch(authSessionManagerProvider);
+    Future<AuthSession?>? refreshInFlight;
+
+    final String baseUrl = environment.runtimeApiBaseUrl;
+    final Dio dio = _createConfiguredDio(environment, baseUrl: baseUrl);
 
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          options.headers['Accept'] = 'application/json';
-
-          if (environment.tenantId.isNotEmpty) {
-            options.headers['X-Tenant-Id'] = environment.tenantId;
-          }
-
-          if (options.data != null &&
-              options.data is! FormData &&
-              options.headers['Content-Type'] == null) {
-            options.headers['Content-Type'] = 'application/json';
-          }
+          _applyCommonHeaders(options, tenantId: environment.tenantId);
 
           AuthSession? session = await authSessionStore.read();
-          final isTokenExchangeRequest =
+          final bool isTokenExchangeRequest =
               options.path.toLowerCase().endsWith('/auth/token');
 
           if (!isTokenExchangeRequest && session != null && session.isExpired) {
-            refreshInFlight ??= _refreshSession(
-              environment: environment,
-              baseUrl: baseUrl,
-              tenantId: environment.tenantId,
-              expiredSession: session,
-              authSessionStore: authSessionStore,
-            );
+            refreshInFlight ??= sessionManager.refreshExpiredSession(session);
 
             try {
               session = await refreshInFlight;
@@ -74,78 +75,34 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
   },
 );
 
-Future<AuthSession?> _refreshSession({
-  required AppEnvironment environment,
+Dio _createConfiguredDio(
+  AppEnvironment environment, {
   required String baseUrl,
-  required String tenantId,
-  required AuthSession expiredSession,
-  required AuthSessionStore authSessionStore,
-}) async {
-  final refreshToken = expiredSession.refreshToken?.trim();
-  if (refreshToken == null || refreshToken.isEmpty) {
-    await authSessionStore.clear();
-    return null;
-  }
-
-  final refreshDio = Dio(
+}) {
+  final Dio dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
     ),
   );
-  configureDioTransport(refreshDio, environment, baseUrl: baseUrl);
+  configureDioTransport(dio, environment, baseUrl: baseUrl);
+  return dio;
+}
 
-  try {
-    final headers = <String, String>{
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    };
+void _applyCommonHeaders(
+  RequestOptions options, {
+  required String tenantId,
+}) {
+  options.headers['Accept'] = 'application/json';
 
-    if (tenantId.trim().isNotEmpty) {
-      headers['X-Tenant-Id'] = tenantId.trim();
-    }
+  if (tenantId.isNotEmpty) {
+    options.headers['X-Tenant-Id'] = tenantId;
+  }
 
-    final response = await refreshDio.post<Map<String, dynamic>>(
-      '/auth/token',
-      data: <String, dynamic>{
-        'grantType': 'refresh_token',
-        'clientId': environment.authClientId,
-        'refreshToken': refreshToken,
-        'scope': 'openid profile email',
-      },
-      options: Options(headers: headers),
-    );
-
-    final payload = response.data ?? const <String, dynamic>{};
-    final accessToken = (payload['accessToken'] as String?)?.trim() ?? '';
-    final tokenType = (payload['tokenType'] as String?)?.trim() ?? 'Bearer';
-    final refreshedToken = (payload['refreshToken'] as String?)?.trim();
-    final expiresIn = (payload['expiresIn'] as num?)?.toInt() ?? 0;
-
-    if (accessToken.isEmpty) {
-      await authSessionStore.clear();
-      return null;
-    }
-
-    final expiresAt =
-        expiresIn > 0 ? DateTime.now().add(Duration(seconds: expiresIn)) : null;
-
-    final refreshedSession = AuthSession(
-      accessToken: accessToken,
-      tokenType: tokenType,
-      refreshToken: (refreshedToken == null || refreshedToken.isEmpty)
-          ? expiredSession.refreshToken
-          : refreshedToken,
-      expiresAt: expiresAt,
-    );
-
-    await authSessionStore.write(refreshedSession);
-    return refreshedSession;
-  } on DioException {
-    await authSessionStore.clear();
-    return null;
-  } finally {
-    refreshDio.close();
+  if (options.data != null &&
+      options.data is! FormData &&
+      options.headers['Content-Type'] == null) {
+    options.headers['Content-Type'] = 'application/json';
   }
 }

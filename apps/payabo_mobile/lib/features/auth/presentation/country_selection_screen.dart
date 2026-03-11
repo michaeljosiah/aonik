@@ -125,7 +125,7 @@ class _CountrySelectionScreenState
                         child: Row(
                           children: <Widget>[
                             SvgPicture.asset(
-                              country.flagAsset,
+                              country.flagAsset!,
                               width: 32,
                               height: 24,
                             ),

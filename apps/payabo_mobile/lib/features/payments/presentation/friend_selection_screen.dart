@@ -28,9 +28,10 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(paymentFlowControllerProvider);
+    final orderId = ref.watch(paymentOrderIdProvider);
+    final friendsState = ref.watch(paymentFriendsProvider);
 
-    if (state.orderId.isEmpty) {
+    if (orderId.isEmpty) {
       return PaymentFlowScaffold(
         title: 'Request help with payment',
         onBack: () => context.go('/payments/service-details'),
@@ -52,7 +53,7 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
     }
 
     final query = _searchController.text.trim().toLowerCase();
-    final friends = state.friends.where((friend) {
+    final friends = friendsState.where((friend) {
       final haystack =
           '${friend.firstName} ${friend.lastName} ${friend.relationship}'
               .toLowerCase();

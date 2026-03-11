@@ -23,8 +23,9 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(paymentFlowControllerProvider);
-    final selectedCard = state.selectedCard;
+    final summary = ref.watch(paymentOrderSummaryProvider);
+    final selectedCard = ref.watch(selectedPaymentCardProvider);
+    final orderId = ref.watch(paymentOrderIdProvider);
 
     return PaymentFlowScaffold(
       title: 'Review your order',
@@ -32,7 +33,7 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
       onClose: () => context.go('/dashboard'),
       footer: PayaboButton(
         label: _isSubmitting ? 'Confirming...' : 'Confirm payment',
-        onPressed: _isSubmitting ? null : () => _confirmPayment(state),
+        onPressed: _isSubmitting ? null : () => _confirmPayment(orderId),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -40,12 +41,13 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
           const _SectionTitle(label: 'Service details'),
           _SummaryCard(
             children: <Widget>[
-              _SummaryRow(label: 'Biller', value: state.providerName),
+              _SummaryRow(label: 'Biller', value: summary.providerName),
               _SummaryRow(
                 label: 'Service details',
-                value: '${state.serviceType}\nCard ID #${state.smartCardId}',
+                value:
+                    '${summary.serviceType}\nCard ID #${summary.smartCardId}',
               ),
-              _SummaryRow(label: 'Amount', value: state.amount, isLast: true),
+              _SummaryRow(label: 'Amount', value: summary.amount, isLast: true),
             ],
           ),
           const SizedBox(height: PayaboSpacing.lg),
@@ -95,8 +97,8 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
     );
   }
 
-  Future<void> _confirmPayment(PaymentFlowState state) async {
-    if (state.orderId.isEmpty) {
+  Future<void> _confirmPayment(String orderId) async {
+    if (orderId.isEmpty) {
       setState(() {
         _error = 'No order draft found. Please restart payment.';
       });

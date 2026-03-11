@@ -34,7 +34,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     bool? friendsMessages,
   }) async {
     try {
-      await ref.read(profileControllerProvider.notifier).setPushToggle(
+      await ref.read(profileNotificationsProvider.notifier).setPushToggle(
             newBills: newBills,
             billUpdates: billUpdates,
             billAssist: billAssist,
@@ -58,7 +58,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }) async {
     try {
       await ref
-          .read(profileControllerProvider.notifier)
+          .read(profileNotificationsProvider.notifier)
           .setEmailNotificationToggle(
             newBills: newBills,
             billUpdates: billUpdates,
@@ -75,7 +75,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(profileControllerProvider);
+    final state = ref.watch(profileNotificationsProvider);
 
     return ProfileScaffold(
       title: 'Notifications',

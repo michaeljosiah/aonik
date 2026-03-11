@@ -37,7 +37,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final flowState = ref.watch(paymentFlowControllerProvider);
+    final selectedCategory = ref.watch(paymentCategoryProvider);
     final providersValue = ref.watch(paymentProvidersProvider);
 
     return PaymentFlowScaffold(
@@ -65,7 +65,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
                   const SizedBox(width: PayaboSpacing.sm),
               itemBuilder: (BuildContext context, int index) {
                 final category = _providerCategories[index];
-                final selected = flowState.category == category;
+                final selected = selectedCategory == category;
 
                 return ChoiceChip(
                   label: Text(category),
@@ -93,7 +93,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
               final filtered = providers
                   .where(
                     (provider) =>
-                        _providerMatchesCategory(provider, flowState.category),
+                        _providerMatchesCategory(provider, selectedCategory),
                   )
                   .where(
                     (provider) => provider.name.toLowerCase().contains(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
+import '../../../shared/reference/payabo_country_reference.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -16,33 +17,6 @@ void _showError(BuildContext context, String message) {
     ..showSnackBar(SnackBar(content: Text(message)));
 }
 
-/// Common country entries used in the country code picker.
-class _CountryEntry {
-  const _CountryEntry({
-    required this.flag,
-    required this.dialCode,
-    required this.name,
-    required this.code,
-  });
-
-  final String flag;
-  final String dialCode;
-  final String name;
-  final String code;
-}
-
-const List<_CountryEntry> _countries = <_CountryEntry>[
-  _CountryEntry(flag: '\u{1F1EC}\u{1F1E7}', dialCode: '+44', name: 'United Kingdom', code: 'GB'),
-  _CountryEntry(flag: '\u{1F1FA}\u{1F1F8}', dialCode: '+1', name: 'United States', code: 'US'),
-  _CountryEntry(flag: '\u{1F1F3}\u{1F1EC}', dialCode: '+234', name: 'Nigeria', code: 'NG'),
-  _CountryEntry(flag: '\u{1F1EE}\u{1F1EA}', dialCode: '+353', name: 'Ireland', code: 'IE'),
-  _CountryEntry(flag: '\u{1F1EC}\u{1F1ED}', dialCode: '+233', name: 'Ghana', code: 'GH'),
-  _CountryEntry(flag: '\u{1F1F0}\u{1F1EA}', dialCode: '+254', name: 'Kenya', code: 'KE'),
-  _CountryEntry(flag: '\u{1F1FF}\u{1F1E6}', dialCode: '+27', name: 'South Africa', code: 'ZA'),
-  _CountryEntry(flag: '\u{1F1EE}\u{1F1F3}', dialCode: '+91', name: 'India', code: 'IN'),
-  _CountryEntry(flag: '\u{1F1E8}\u{1F1E6}', dialCode: '+1', name: 'Canada', code: 'CA'),
-];
-
 class EditContactScreen extends ConsumerStatefulWidget {
   const EditContactScreen({super.key});
 
@@ -52,17 +26,16 @@ class EditContactScreen extends ConsumerStatefulWidget {
 
 class _EditContactScreenState extends ConsumerState<EditContactScreen> {
   late final TextEditingController _phoneController;
-  late _CountryEntry _selectedCountry;
+  late PayaboCountryReference _selectedCountry;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    final state = ref.read(profileControllerProvider);
-    _phoneController = TextEditingController(text: state.phone);
-    _selectedCountry = _countries.firstWhere(
-      (c) => c.code == state.countryCode,
-      orElse: () => _countries.first,
+    final state = ref.read(profileCoreProvider);
+    _selectedCountry = resolvePayaboCountry(state.countryCode);
+    _phoneController = TextEditingController(
+      text: _stripDialCode(state.phone, _selectedCountry.dialCode),
     );
   }
 
@@ -114,8 +87,9 @@ class _EditContactScreenState extends ConsumerState<EditContactScreen> {
   }
 
   Future<void> _submit() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
+    final localPhone = _phoneController.text.trim();
+    final digits = localPhone.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
       _showError(context, 'Mobile number is required.');
       return;
     }
@@ -125,7 +99,10 @@ class _EditContactScreenState extends ConsumerState<EditContactScreen> {
     });
 
     try {
-      await ref.read(profileControllerProvider.notifier).updatePhone(phone);
+      await ref.read(profileCoreProvider.notifier).updatePhone(
+            phone: '${_selectedCountry.dialCode}$digits',
+            countryCode: _selectedCountry.code,
+          );
 
       if (mounted) {
         context.go('/profile/personal-details');
@@ -142,6 +119,16 @@ class _EditContactScreenState extends ConsumerState<EditContactScreen> {
       });
     }
   }
+
+  String _stripDialCode(String phone, String dialCode) {
+    final String trimmedPhone = phone.trim();
+    final String normalizedDialCode = dialCode.trim();
+    if (trimmedPhone.startsWith(normalizedDialCode)) {
+      return trimmedPhone.substring(normalizedDialCode.length);
+    }
+
+    return trimmedPhone;
+  }
 }
 
 /// Inline country code prefix picker (flag + dial code + dropdown arrow).
@@ -151,8 +138,8 @@ class _CountryCodePicker extends StatelessWidget {
     required this.onChanged,
   });
 
-  final _CountryEntry selected;
-  final ValueChanged<_CountryEntry> onChanged;
+  final PayaboCountryReference selected;
+  final ValueChanged<PayaboCountryReference> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +159,7 @@ class _CountryCodePicker extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Text(selected.flag, style: const TextStyle(fontSize: 20)),
+            Text(selected.flagEmoji, style: const TextStyle(fontSize: 20)),
             const SizedBox(width: PayaboSpacing.xs),
             Text(
               selected.dialCode,
@@ -191,7 +178,7 @@ class _CountryCodePicker extends StatelessWidget {
   }
 
   Future<void> _showPicker(BuildContext context) async {
-    final result = await showModalBottomSheet<_CountryEntry>(
+    final result = await showModalBottomSheet<PayaboCountryReference>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
@@ -199,19 +186,21 @@ class _CountryCodePicker extends StatelessWidget {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const ClampingScrollPhysics(),
-            itemCount: _countries.length,
+            itemCount: payaboCountries.length,
             separatorBuilder: (_, __) =>
                 const Divider(height: 1, color: PayaboColors.border),
             itemBuilder: (ctx, index) {
-              final entry = _countries[index];
+              final entry = payaboCountries[index];
               final isSelected = entry.code == selected.code;
               return ListTile(
-                leading: Text(entry.flag, style: const TextStyle(fontSize: 22)),
+                leading:
+                    Text(entry.flagEmoji, style: const TextStyle(fontSize: 22)),
                 title: Text(entry.name),
                 trailing: Text(
                   entry.dialCode,
                   style: TextStyle(
-                    color: isSelected ? PayaboColors.primary : PayaboColors.muted,
+                    color:
+                        isSelected ? PayaboColors.primary : PayaboColors.muted,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                   ),
                 ),

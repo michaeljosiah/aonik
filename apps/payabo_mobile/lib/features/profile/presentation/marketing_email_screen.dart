@@ -24,7 +24,7 @@ class _MarketingEmailScreenState extends ConsumerState<MarketingEmailScreen> {
   void initState() {
     super.initState();
     _emailController = TextEditingController(
-        text: ref.read(profileControllerProvider).marketingEmail);
+        text: ref.read(profileMarketingProvider).marketingEmail);
   }
 
   @override
@@ -66,7 +66,7 @@ class _MarketingEmailScreenState extends ConsumerState<MarketingEmailScreen> {
 
     try {
       await ref
-          .read(profileControllerProvider.notifier)
+          .read(profileMarketingProvider.notifier)
           .setMarketingEmail(_emailController.text);
 
       if (mounted) {

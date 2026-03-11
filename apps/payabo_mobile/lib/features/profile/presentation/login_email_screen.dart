@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/validation/payabo_input_validators.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
 import 'profile_scaffold.dart';
@@ -33,7 +34,7 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
   void initState() {
     super.initState();
     _currentEmailController =
-        TextEditingController(text: ref.read(profileControllerProvider).email);
+        TextEditingController(text: ref.read(profileCoreProvider).email);
   }
 
   @override
@@ -46,8 +47,8 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = _currentEmailController.text.trim().contains('@') &&
-        _newEmailController.text.trim().contains('@') &&
+    final canSubmit = isValidPayaboEmailAddress(_currentEmailController.text) &&
+        isValidPayaboEmailAddress(_newEmailController.text) &&
         _passwordController.text.isNotEmpty;
 
     return ProfileScaffold(
@@ -95,7 +96,7 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
 
   Future<void> _submit() async {
     final email = _newEmailController.text.trim();
-    if (!email.contains('@')) {
+    if (!isValidPayaboEmailAddress(email)) {
       _showError(context, 'Enter a valid email address.');
       return;
     }
@@ -105,7 +106,7 @@ class _LoginEmailScreenState extends ConsumerState<LoginEmailScreen> {
     });
 
     try {
-      await ref.read(profileControllerProvider.notifier).updateLoginEmail(
+      await ref.read(profileCoreProvider.notifier).updateLoginEmail(
             currentEmail: _currentEmailController.text.trim(),
             newEmail: email,
             password: _passwordController.text,

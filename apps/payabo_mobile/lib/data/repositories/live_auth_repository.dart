@@ -1,18 +1,22 @@
 import 'package:dio/dio.dart';
 
+import '../../app/auth/auth_session_store.dart';
 import '../api/api_exception.dart';
 import 'auth_repository.dart';
 
 class LiveAuthRepository implements AuthRepository {
   LiveAuthRepository({
     required Dio apiClient,
+    required AuthSessionStore authSessionStore,
     required String tenantId,
     required String authClientId,
   })  : _apiClient = apiClient,
+        _authSessionStore = authSessionStore,
         _tenantId = tenantId,
         _authClientId = authClientId;
 
   final Dio _apiClient;
+  final AuthSessionStore _authSessionStore;
   final String _tenantId;
   final String _authClientId;
 
@@ -106,8 +110,10 @@ class LiveAuthRepository implements AuthRepository {
   @override
   Future<AuthUserInfo> getUserInfo() async {
     try {
-      final response =
-          await _apiClient.get<Map<String, dynamic>>('/identity/userinfo');
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/identity/userinfo',
+        options: await _authorizedOptions(),
+      );
       final payload = response.data ?? const <String, dynamic>{};
 
       final userId = (payload['userId'] as String?)?.trim() ?? '';
@@ -148,6 +154,19 @@ class LiveAuthRepository implements AuthRepository {
       expiresIn: expiresIn,
       tokenType: tokenType,
       idToken: (payload['idToken'] as String?)?.trim(),
+    );
+  }
+
+  Future<Options?> _authorizedOptions() async {
+    final session = await _authSessionStore.read();
+    if (session == null || !session.hasAccessToken || session.isExpired) {
+      return null;
+    }
+
+    return Options(
+      headers: <String, String>{
+        'Authorization': '${session.tokenType} ${session.accessToken}',
+      },
     );
   }
 }

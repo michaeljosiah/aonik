@@ -23,8 +23,10 @@ class _CheckoutHelpScreenState extends ConsumerState<CheckoutHelpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(paymentFlowControllerProvider);
-    final friend = state.selectedFriend;
+    final summary = ref.watch(paymentOrderSummaryProvider);
+    final friend = ref.watch(selectedPaymentFriendProvider);
+    final friendMessage = ref.watch(paymentFriendMessageProvider);
+    final orderId = ref.watch(paymentOrderIdProvider);
 
     return PaymentFlowScaffold(
       title: 'Review your order',
@@ -34,7 +36,7 @@ class _CheckoutHelpScreenState extends ConsumerState<CheckoutHelpScreen> {
         label: _isSubmitting ? 'Confirming...' : 'Confirm payment',
         onPressed: _isSubmitting || friend == null
             ? null
-            : () => _confirmPayment(state),
+            : () => _confirmPayment(orderId),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -42,12 +44,13 @@ class _CheckoutHelpScreenState extends ConsumerState<CheckoutHelpScreen> {
           const _SectionTitle(label: 'Service details'),
           _SummaryCard(
             children: <Widget>[
-              _SummaryRow(label: 'Biller', value: state.providerName),
+              _SummaryRow(label: 'Biller', value: summary.providerName),
               _SummaryRow(
                 label: 'Service details',
-                value: '${state.serviceType}\nCard ID #${state.smartCardId}',
+                value:
+                    '${summary.serviceType}\nCard ID #${summary.smartCardId}',
               ),
-              _SummaryRow(label: 'Amount', value: state.amount, isLast: true),
+              _SummaryRow(label: 'Amount', value: summary.amount, isLast: true),
             ],
           ),
           const SizedBox(height: PayaboSpacing.lg),
@@ -78,7 +81,7 @@ class _CheckoutHelpScreenState extends ConsumerState<CheckoutHelpScreen> {
                       ),
                     ],
                   ),
-                  if (state.friendMessage.isNotEmpty) ...<Widget>[
+                  if (friendMessage.isNotEmpty) ...<Widget>[
                     const SizedBox(height: PayaboSpacing.md),
                     Container(
                       width: double.infinity,
@@ -87,7 +90,7 @@ class _CheckoutHelpScreenState extends ConsumerState<CheckoutHelpScreen> {
                         color: PayaboColors.background,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(state.friendMessage),
+                      child: Text(friendMessage),
                     ),
                   ],
                 ],
@@ -112,8 +115,8 @@ class _CheckoutHelpScreenState extends ConsumerState<CheckoutHelpScreen> {
     );
   }
 
-  Future<void> _confirmPayment(PaymentFlowState state) async {
-    if (state.orderId.isEmpty) {
+  Future<void> _confirmPayment(String orderId) async {
+    if (orderId.isEmpty) {
       setState(() {
         _error = 'No order draft found. Please restart payment.';
       });

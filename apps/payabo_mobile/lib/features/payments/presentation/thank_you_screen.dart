@@ -23,12 +23,12 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(paymentFlowControllerProvider);
-    final status = state.paymentResult ?? PaymentResult.pending;
+    final statusState = ref.watch(paymentStatusSummaryProvider);
+    final status = statusState.paymentResult ?? PaymentResult.pending;
     final isFirstPending =
-        status == PaymentResult.pending && state.statusChecks == 0;
+        status == PaymentResult.pending && statusState.statusChecks == 0;
     final isSecondPending =
-        status == PaymentResult.pending && state.statusChecks > 0;
+        status == PaymentResult.pending && statusState.statusChecks > 0;
 
     final icon = status == PaymentResult.success
         ? Icons.check_circle_outline
@@ -67,7 +67,7 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
           ),
           const SizedBox(height: PayaboSpacing.sm),
           Text(
-            'Order: ${state.orderId.isEmpty ? '-' : state.orderId}',
+            'Order: ${statusState.orderId.isEmpty ? '-' : statusState.orderId}',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),

@@ -53,7 +53,7 @@ class RegisterScreen extends ConsumerWidget {
               child: Row(
                 children: <Widget>[
                   SvgPicture.asset(
-                    selectedCountry.flagAsset,
+                    selectedCountry.flagAsset!,
                     width: 32,
                     height: 24,
                   ),

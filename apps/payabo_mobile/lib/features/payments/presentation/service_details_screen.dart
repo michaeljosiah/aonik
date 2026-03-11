@@ -65,6 +65,21 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
     final flowState = ref.watch(paymentFlowControllerProvider);
     final canContinue = _canSubmit(flowState);
 
+    if (_smartCardController.text.isEmpty && flowState.smartCardId.isNotEmpty) {
+      _smartCardController.text = flowState.smartCardId;
+    }
+    if (_contactController.text.isEmpty &&
+        flowState.contactReference.isNotEmpty) {
+      _contactController.text = flowState.contactReference;
+    }
+    if (_amountController.text.isEmpty && flowState.amount.isNotEmpty) {
+      _amountController.text = flowState.amount;
+    }
+    if (_serviceType != flowState.serviceType &&
+        flowState.serviceType.isNotEmpty) {
+      _serviceType = flowState.serviceType;
+    }
+
     return PaymentFlowScaffold(
       title: 'Service details',
       onBack: () => context.go('/payments/providers'),

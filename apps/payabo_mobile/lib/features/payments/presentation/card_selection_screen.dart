@@ -13,9 +13,10 @@ class CardSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final flowState = ref.watch(paymentFlowControllerProvider);
+    final orderId = ref.watch(paymentOrderIdProvider);
+    final savedCards = ref.watch(paymentSavedCardsProvider);
 
-    if (flowState.orderId.isEmpty) {
+    if (orderId.isEmpty) {
       return PaymentFlowScaffold(
         title: 'Select card',
         onBack: () => context.go('/payments/service-details'),
@@ -47,7 +48,7 @@ class CardSelectionScreen extends ConsumerWidget {
       ),
       child: Column(
         children: <Widget>[
-          ...flowState.savedCards.map((card) {
+          ...savedCards.map((card) {
             return Padding(
               padding: const EdgeInsets.only(bottom: PayaboSpacing.md),
               child: PayaboListRow(

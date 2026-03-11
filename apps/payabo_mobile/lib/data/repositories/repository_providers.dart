@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/auth/auth_session_store.dart';
 import '../../app/demo/demo_data_mode.dart';
 import '../../app/environment/environment_provider.dart';
 import '../../app/startup/offline_mode_provider.dart';
@@ -35,10 +36,12 @@ final Provider<AuthRepository> authRepositoryProvider =
     }
 
     final environment = ref.watch(appEnvironmentProvider);
-    final apiClient = ref.watch(apiClientProvider);
+    final apiClient = ref.watch(authApiClientProvider);
+    final authSessionStore = ref.watch(authSessionStoreProvider);
 
     return LiveAuthRepository(
       apiClient: apiClient,
+      authSessionStore: authSessionStore,
       tenantId: environment.tenantId,
       authClientId: environment.authClientId,
     );
@@ -48,10 +51,7 @@ final Provider<AuthRepository> authRepositoryProvider =
 final Provider<CatalogRepository> catalogRepositoryProvider =
     Provider<CatalogRepository>(
   (Ref ref) {
-    if (_shouldMock(ref)) {
-      return MockCatalogRepository();
-    }
-
+    // Catalog remains mock-backed until a live repository is implemented.
     return MockCatalogRepository();
   },
 );
@@ -61,10 +61,7 @@ final Provider<DashboardRepository> dashboardRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    if (_shouldMock(ref)) {
-      return MockDashboardRepository(demoDataMode: demoDataMode);
-    }
-
+    // Dashboard remains mock-backed until a live repository is implemented.
     return MockDashboardRepository(demoDataMode: demoDataMode);
   },
 );
@@ -72,10 +69,7 @@ final Provider<DashboardRepository> dashboardRepositoryProvider =
 final Provider<OrderRepository> orderRepositoryProvider =
     Provider<OrderRepository>(
   (Ref ref) {
-    if (_shouldMock(ref)) {
-      return MockOrderRepository();
-    }
-
+    // Orders remain mock-backed until a live repository is implemented.
     return MockOrderRepository();
   },
 );
@@ -83,10 +77,7 @@ final Provider<OrderRepository> orderRepositoryProvider =
 final Provider<PaymentRepository> paymentRepositoryProvider =
     Provider<PaymentRepository>(
   (Ref ref) {
-    if (_shouldMock(ref)) {
-      return MockPaymentRepository();
-    }
-
+    // Payments remain mock-backed until a live repository is implemented.
     return MockPaymentRepository();
   },
 );

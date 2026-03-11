@@ -1,87 +1,27 @@
 import 'package:flutter_riverpod/legacy.dart';
 
-class OnboardingCountry {
-  const OnboardingCountry({
-    required this.code,
-    required this.name,
-    required this.dialCode,
-    required this.flagAsset,
-  });
+import '../../../shared/reference/payabo_country_reference.dart';
+import '../../../shared/validation/payabo_input_validators.dart';
 
-  final String code;
-  final String name;
-  final String dialCode;
-  final String flagAsset;
-}
+typedef OnboardingCountry = PayaboCountryReference;
 
-const List<OnboardingCountry> onboardingCountries = <OnboardingCountry>[
-  OnboardingCountry(
-    code: 'BW',
-    name: 'Botswana',
-    dialCode: '+267',
-    flagAsset: 'assets/images/flags/bw.svg',
-  ),
-  OnboardingCountry(
-    code: 'GH',
-    name: 'Ghana',
-    dialCode: '+233',
-    flagAsset: 'assets/images/flags/gh.svg',
-  ),
-  OnboardingCountry(
-    code: 'GB',
-    name: 'United Kingdom',
-    dialCode: '+44',
-    flagAsset: 'assets/images/flags/gb.svg',
-  ),
-  OnboardingCountry(
-    code: 'NG',
-    name: 'Nigeria',
-    dialCode: '+234',
-    flagAsset: 'assets/images/flags/ng.svg',
-  ),
-  OnboardingCountry(
-    code: 'ZM',
-    name: 'Zambia',
-    dialCode: '+260',
-    flagAsset: 'assets/images/flags/zm.svg',
-  ),
-  OnboardingCountry(
-    code: 'ZW',
-    name: 'Zimbabwe',
-    dialCode: '+263',
-    flagAsset: 'assets/images/flags/zw.svg',
-  ),
-];
+const List<OnboardingCountry> onboardingCountries = payaboOnboardingCountries;
 
 OnboardingCountry resolveOnboardingCountry(String countryCode) {
-  final normalized = countryCode.trim().toUpperCase();
+  final String normalized = countryCode.trim().toUpperCase();
 
   return onboardingCountries.firstWhere(
-    (country) => country.code == normalized,
-    orElse: () =>
-        onboardingCountries.firstWhere((country) => country.code == 'GB'),
+    (OnboardingCountry country) => country.code == normalized,
+    orElse: () => payaboCountryUnitedKingdom,
   );
 }
 
 bool isValidEmail(String value) {
-  final email = value.trim();
-  if (email.isEmpty) {
-    return false;
-  }
-
-  final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-  return emailPattern.hasMatch(email);
+  return isValidPayaboEmailAddress(value);
 }
 
 bool meetsPasswordRequirements(String password) {
-  if (password.length < 8) {
-    return false;
-  }
-
-  final hasLower = RegExp('[a-z]').hasMatch(password);
-  final hasUpper = RegExp('[A-Z]').hasMatch(password);
-  final hasDigit = RegExp('[0-9]').hasMatch(password);
-  return hasLower && hasUpper && hasDigit;
+  return validatePayaboPassword(password).isValid;
 }
 
 class OnboardingState {

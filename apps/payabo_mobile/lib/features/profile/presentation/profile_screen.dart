@@ -34,7 +34,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        await ref.read(profileControllerProvider.notifier).ensureLoaded();
+        await ref.read(profileDataCoordinatorProvider).ensureLoaded();
       } catch (error, stackTrace) {
         developer.log(
           'Failed to open profile screen.',
@@ -60,7 +60,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(profileControllerProvider);
+    final state = ref.watch(profileCoreProvider);
     final demoDataMode = ref.watch(demoDataModeProvider);
     final environment = ref.watch(appEnvironmentProvider);
     final isOfflineMode = ref.watch(offlineModeProvider);
@@ -88,7 +88,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildContent(
     BuildContext context,
-    ProfileState state, {
+    ProfileCoreState state, {
     required bool showDemoDataPreferences,
     required DemoDataMode demoDataMode,
   }) {
@@ -191,7 +191,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _openPhotoPicker() async {
-    final state = ref.read(profileControllerProvider);
+    final state = ref.read(profileCoreProvider);
     final hasPhoto = state.photoUrl != null;
 
     await showPayaboModalSheet<void>(
@@ -225,9 +225,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               onTap: () async {
                 Navigator.of(context).pop();
                 try {
-                  await ref
-                      .read(profileControllerProvider.notifier)
-                      .deletePhoto();
+                  await ref.read(profileCoreProvider.notifier).deletePhoto();
                 } catch (_) {
                   if (mounted) {
                     ScaffoldMessenger.of(context)
@@ -258,9 +256,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final XFile? image =
           await _picker.pickImage(source: ImageSource.camera, maxWidth: 800);
       if (image != null && mounted) {
-        await ref
-            .read(profileControllerProvider.notifier)
-            .uploadPhoto(image.path);
+        await ref.read(profileCoreProvider.notifier).uploadPhoto(image.path);
       }
     } catch (_) {
       if (mounted) {
@@ -278,9 +274,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       final XFile? image =
           await _picker.pickImage(source: ImageSource.gallery, maxWidth: 800);
       if (image != null && mounted) {
-        await ref
-            .read(profileControllerProvider.notifier)
-            .uploadPhoto(image.path);
+        await ref.read(profileCoreProvider.notifier).uploadPhoto(image.path);
       }
     } catch (_) {
       if (mounted) {

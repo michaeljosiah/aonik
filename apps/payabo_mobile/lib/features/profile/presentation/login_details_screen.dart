@@ -66,12 +66,12 @@ class _ProfileLoginDetailsScreenState
       }
     }
 
-    await ref.read(profileControllerProvider.notifier).setTouchId(value);
+    await ref.read(biometricPreferenceProvider.notifier).setTouchId(value);
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(profileControllerProvider);
+    final state = ref.watch(profileLoginDetailsProvider);
 
     return ProfileScaffold(
       title: 'Login details',

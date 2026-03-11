@@ -42,7 +42,7 @@ class PayaboAppHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profileState = ref.watch(profileControllerProvider);
+    final profileState = ref.watch(profileHeaderProvider);
     final textTheme = Theme.of(context).textTheme;
     final hasTitle = title != null && title!.trim().isNotEmpty;
     final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;

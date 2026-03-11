@@ -73,7 +73,7 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
                   child: Row(
                     children: <Widget>[
                       SvgPicture.asset(
-                        phoneCountry.flagAsset,
+                        phoneCountry.flagAsset!,
                         width: 26,
                         height: 20,
                       ),

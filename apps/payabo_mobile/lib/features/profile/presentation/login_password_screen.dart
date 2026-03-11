@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
-import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/validation/payabo_input_validators.dart';
 import '../../../shared/widgets/payabo_button.dart';
+import '../../../shared/widgets/payabo_password_requirements.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
@@ -42,7 +43,7 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final password = _newPasswordController.text;
-    final canSubmit = _isPasswordValid(password) &&
+    final canSubmit = validatePayaboPassword(password).isValid &&
         _currentPasswordController.text.isNotEmpty &&
         !_saving;
 
@@ -84,20 +85,10 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: PayaboSpacing.md),
-          Text(
-            'Your password must contain at least:',
-            style: Theme.of(context).textTheme.titleSmall,
+          PayaboPasswordRequirements(
+            password: password,
+            titleStyle: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: PayaboSpacing.xs),
-          _RuleLine(label: '8 characters', valid: password.length >= 8),
-          _RuleLine(
-              label: '1 lowercase letter',
-              valid: RegExp(r'[a-z]').hasMatch(password)),
-          _RuleLine(
-              label: '1 uppercase letter',
-              valid: RegExp(r'[A-Z]').hasMatch(password)),
-          _RuleLine(
-              label: '1 number', valid: RegExp(r'[0-9]').hasMatch(password)),
         ],
       ),
     );
@@ -109,7 +100,7 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
     });
 
     try {
-      await ref.read(profileControllerProvider.notifier).updatePassword(
+      await ref.read(profileCoreProvider.notifier).updatePassword(
             currentPassword: _currentPasswordController.text,
             newPassword: _newPasswordController.text,
           );
@@ -130,47 +121,5 @@ class _LoginPasswordScreenState extends ConsumerState<LoginPasswordScreen> {
         _saving = false;
       });
     }
-  }
-
-  bool _isPasswordValid(String value) {
-    return value.length >= 8 &&
-        RegExp(r'[a-z]').hasMatch(value) &&
-        RegExp(r'[A-Z]').hasMatch(value) &&
-        RegExp(r'[0-9]').hasMatch(value);
-  }
-}
-
-class _RuleLine extends StatelessWidget {
-  const _RuleLine({required this.label, required this.valid});
-
-  final String label;
-  final bool valid;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = valid ? PayaboColors.success : PayaboColors.muted;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-          const SizedBox(width: PayaboSpacing.sm),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: color,
-                ),
-          ),
-        ],
-      ),
-    );
   }
 }

@@ -12,7 +12,7 @@ class ProfilePersonalDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(profileControllerProvider);
+    final state = ref.watch(profilePersonalDetailsProvider);
 
     return ProfileScaffold(
       title: 'Personal details',

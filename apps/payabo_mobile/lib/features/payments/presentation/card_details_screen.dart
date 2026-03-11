@@ -30,9 +30,10 @@ class _CardDetailsScreenState extends ConsumerState<CardDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final flowState = ref.watch(paymentFlowControllerProvider);
+    final orderId = ref.watch(paymentOrderIdProvider);
+    final saveCard = ref.watch(paymentSaveCardProvider);
 
-    if (flowState.orderId.isEmpty) {
+    if (orderId.isEmpty) {
       return PaymentFlowScaffold(
         title: 'Enter your card details',
         onBack: () => context.go('/payments/service-details'),
@@ -116,7 +117,7 @@ class _CardDetailsScreenState extends ConsumerState<CardDetailsScreen> {
           const SizedBox(height: PayaboSpacing.md),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            value: flowState.saveCard,
+            value: saveCard,
             onChanged: (value) => ref
                 .read(paymentFlowControllerProvider.notifier)
                 .setSaveCard(value),

@@ -21,7 +21,7 @@ class DemoDataPreferencesScreen extends ConsumerWidget {
       }
 
       await ref.read(demoDataModeProvider.notifier).setMode(mode);
-      await ref.read(profileControllerProvider.notifier).reload();
+      await ref.read(profileDataCoordinatorProvider).reload();
 
       if (!context.mounted) {
         return;

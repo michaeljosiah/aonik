@@ -30,7 +30,7 @@ class _EditNameScreenState extends ConsumerState<EditNameScreen> {
   @override
   void initState() {
     super.initState();
-    final state = ref.read(profileControllerProvider);
+    final state = ref.read(profileCoreProvider);
     _firstNameController = TextEditingController(text: state.firstName);
     _lastNameController = TextEditingController(text: state.lastName);
   }
@@ -84,7 +84,7 @@ class _EditNameScreenState extends ConsumerState<EditNameScreen> {
     });
 
     try {
-      await ref.read(profileControllerProvider.notifier).updateName(
+      await ref.read(profileCoreProvider.notifier).updateName(
             firstName: firstName,
             lastName: lastName,
           );
