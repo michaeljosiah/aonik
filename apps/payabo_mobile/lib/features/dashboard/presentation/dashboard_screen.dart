@@ -1,6 +1,7 @@
 // ignore_for_file: unused_element, unused_element_parameter
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,28 @@ final FutureProvider<DashboardSummary> dashboardSummaryProvider =
   final repository = ref.watch(dashboardRepositoryProvider);
   return repository.getSummary();
 });
+
+const List<_DashboardOverviewSlice> _dashboardOverviewSlices =
+    <_DashboardOverviewSlice>[
+  _DashboardOverviewSlice(
+    label: 'Income',
+    amountLabel: 'GHS 4,232.24',
+    value: 4232.24,
+    color: PayaboColors.success,
+  ),
+  _DashboardOverviewSlice(
+    label: 'Expenses',
+    amountLabel: 'GHS 2,660.12',
+    value: 2660.12,
+    color: PayaboColors.primary,
+  ),
+  _DashboardOverviewSlice(
+    label: 'Investments',
+    amountLabel: 'GHS 1,754.64',
+    value: 1754.64,
+    color: PayaboColors.info,
+  ),
+];
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({
@@ -323,6 +346,8 @@ class _DashboardContent extends StatelessWidget {
         ),
         const SizedBox(height: PayaboSpacing.md),
         _DashboardFeatureRow(isEmpty: isEmpty),
+        const SizedBox(height: PayaboSpacing.xl),
+        const _DashboardOverviewCard(),
         const SizedBox(height: PayaboSpacing.xl),
         _DashboardListHeader(
           title: 'Upcoming bills',
@@ -929,6 +954,264 @@ class _DashboardFeatureRow extends StatelessWidget {
   }
 }
 
+class _DashboardOverviewCard extends StatelessWidget {
+  const _DashboardOverviewCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        border: Border.all(color: const Color(0xFFEAD9C3)),
+        boxShadow: PayaboShadows.soft,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        child: Stack(
+          children: <Widget>[
+            Positioned(
+              top: -18,
+              right: -24,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: PayaboColors.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              left: -34,
+              bottom: -44,
+              child: Container(
+                width: 144,
+                height: 144,
+                decoration: BoxDecoration(
+                  color: PayaboColors.info.withValues(alpha: 0.06),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(PayaboSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          'Overview',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: PayaboColors.accentBrown,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                      ),
+                      const _DashboardOverviewMonthChip(label: 'Mar'),
+                    ],
+                  ),
+                  const SizedBox(height: PayaboSpacing.lg),
+                  const Center(child: _DashboardOverviewRing()),
+                  const SizedBox(height: PayaboSpacing.xl),
+                  ..._dashboardOverviewSlices.asMap().entries.map(
+                        (MapEntry<int, _DashboardOverviewSlice> entry) =>
+                            Padding(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                entry.key == _dashboardOverviewSlices.length - 1
+                                    ? 0
+                                    : PayaboSpacing.md,
+                          ),
+                          child: _DashboardOverviewRow(slice: entry.value),
+                        ),
+                      ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardOverviewMonthChip extends StatelessWidget {
+  const _DashboardOverviewMonthChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: PayaboSpacing.md,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: PayaboColors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE7D5BF)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: PayaboColors.accentBrown,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(width: PayaboSpacing.xs),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: PayaboColors.accentBrown,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardOverviewRing extends StatelessWidget {
+  const _DashboardOverviewRing();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 220,
+      height: 220,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          const CustomPaint(
+            size: Size.square(220),
+            painter: _DashboardOverviewRingPainter(
+              slices: _dashboardOverviewSlices,
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                'March',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: PayaboColors.accentBrown,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '2026',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: PayaboColors.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardOverviewRingPainter extends CustomPainter {
+  const _DashboardOverviewRingPainter({required this.slices});
+
+  static const double _gapRadians = 0.22;
+  static const double _strokeWidth = 16;
+
+  final List<_DashboardOverviewSlice> slices;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final double radius = (math.min(size.width, size.height) / 2) - 18;
+    final Rect rect = Rect.fromCircle(center: center, radius: radius);
+    final Paint trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFFEADFD2);
+
+    canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
+
+    final double total = slices.fold<double>(
+      0,
+      (double sum, _DashboardOverviewSlice slice) => sum + slice.value,
+    );
+
+    final double totalSweep = (math.pi * 2) - (slices.length * _gapRadians);
+    double startAngle = -math.pi / 2;
+
+    for (final _DashboardOverviewSlice slice in slices) {
+      final double sweepAngle =
+          total == 0 ? 0 : totalSweep * (slice.value / total).clamp(0.0, 1.0);
+      final Paint slicePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..color = slice.color;
+
+      canvas.drawArc(rect, startAngle, sweepAngle, false, slicePaint);
+      startAngle += sweepAngle + _gapRadians;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashboardOverviewRingPainter oldDelegate) {
+    return oldDelegate.slices != slices;
+  }
+}
+
+class _DashboardOverviewRow extends StatelessWidget {
+  const _DashboardOverviewRow({required this.slice});
+
+  final _DashboardOverviewSlice slice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: slice.color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: PayaboSpacing.sm),
+        Expanded(
+          child: Text(
+            slice.label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: PayaboColors.accentBrown,
+                ),
+          ),
+        ),
+        Text(
+          slice.amountLabel,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: PayaboColors.accentBrown,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
 class _GoalsShowcaseCard extends StatelessWidget {
   const _GoalsShowcaseCard({required this.isEmpty});
 
@@ -1280,6 +1563,20 @@ class _DashboardStatusPill extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DashboardOverviewSlice {
+  const _DashboardOverviewSlice({
+    required this.label,
+    required this.amountLabel,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String amountLabel;
+  final double value;
+  final Color color;
 }
 
 class _DashboardListHeader extends StatelessWidget {

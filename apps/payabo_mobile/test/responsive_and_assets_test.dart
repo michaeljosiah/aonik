@@ -115,6 +115,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final Finder primaryScroll = find.byType(ListView).first;
+
+    while (find
+        .text('No upcoming bills yet. Add a bill to start tracking due dates.')
+        .evaluate()
+        .isEmpty) {
+      await tester.drag(primaryScroll, const Offset(0, -280));
+      await tester.pumpAndSettle();
+    }
+
     expect(
       find.text(
           'No upcoming bills yet. Add a bill to start tracking due dates.'),
