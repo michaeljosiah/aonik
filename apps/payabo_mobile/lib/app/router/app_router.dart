@@ -44,6 +44,7 @@ import '../../features/profile/presentation/personal_details_screen.dart';
 import '../../features/profile/presentation/photo_selection_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/spending/presentation/spending_category_detail_screen.dart';
+import '../../features/spending/presentation/spending_budget_screen.dart';
 import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
 import '../../features/spending/presentation/spending_screen.dart';
 import '../auth/auth_controller.dart';
@@ -183,6 +184,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending',
           name: 'spending',
           builder: (context, state) => const SpendingScreen(),
+        ),
+        GoRoute(
+          path: '/spending/budgets',
+          name: 'spending-budgets',
+          builder: (context, state) => const SpendingBudgetScreen(),
         ),
         GoRoute(
           path: '/spending/transactions',

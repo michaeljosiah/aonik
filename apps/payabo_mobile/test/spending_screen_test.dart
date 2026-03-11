@@ -1,8 +1,14 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
+import 'package:payabo_mobile/app/environment/app_environment.dart';
+import 'package:payabo_mobile/app/environment/environment_provider.dart';
+import 'package:payabo_mobile/features/spending/presentation/spending_budget_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_screen.dart';
+import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'test_helpers.dart';
 
@@ -43,5 +49,56 @@ void main() {
     expect(find.text('Fresh spending state'), findsOneWidget);
     expect(find.text('No spending activity yet'), findsOneWidget);
     expect(find.text('Finances'), findsNothing);
+  });
+
+  testWidgets('budgets pill opens the budget screen',
+      (WidgetTester tester) async {
+    final GoRouter router = GoRouter(
+      initialLocation: '/spending',
+      routes: <GoRoute>[
+        GoRoute(
+          path: '/spending',
+          builder: (BuildContext context, GoRouterState state) =>
+              const SpendingScreen(),
+        ),
+        GoRoute(
+          path: '/spending/budgets',
+          builder: (BuildContext context, GoRouterState state) =>
+              const SpendingBudgetScreen(),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
+        ],
+        child: MaterialApp.router(
+          theme: buildPayaboTheme(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Budgets'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Monthly budget'), findsOneWidget);
+
+    final Finder primaryList = find.byType(ListView).first;
+    await tester.drag(primaryList, const Offset(0, -280));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Category budgets'), findsOneWidget);
+    expect(find.text('Housing'), findsOneWidget);
   });
 }

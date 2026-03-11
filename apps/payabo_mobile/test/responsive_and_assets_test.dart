@@ -16,6 +16,7 @@ import 'package:payabo_mobile/features/notifications/presentation/notification_c
 import 'package:payabo_mobile/features/payments/presentation/payment_country_screen.dart';
 import 'package:payabo_mobile/features/profile/presentation/personal_details_screen.dart';
 import 'package:payabo_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:payabo_mobile/features/spending/presentation/spending_budget_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_category_detail_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_screen.dart';
 import 'package:payabo_mobile/mock/repositories/mock_profile_repository.dart';
@@ -206,6 +207,10 @@ void main() {
   testWidgets('shared profile and bell header appears on main app pages',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const SpendingScreen()));
+    await tester.pumpAndSettle();
+    expect(find.byType(PayaboAppHeader), findsOneWidget);
+
+    await tester.pumpWidget(buildTestApp(const SpendingBudgetScreen()));
     await tester.pumpAndSettle();
     expect(find.byType(PayaboAppHeader), findsOneWidget);
 

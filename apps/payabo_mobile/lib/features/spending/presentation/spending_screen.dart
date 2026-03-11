@@ -298,7 +298,7 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
       case SpendingSection.transactions:
         return;
       case SpendingSection.budgets:
-        _showSectionComingSoon('Budgets');
+        context.go('/spending/budgets');
         return;
       case SpendingSection.accounts:
         _showSectionComingSoon('Accounts');
