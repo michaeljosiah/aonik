@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -69,14 +70,10 @@ class _ChatScreenState extends State<ChatScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8ECDD),
+      backgroundColor: PayaboColors.chatScreenSurface,
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[Color(0xFFFBF5EE), Color(0xFFF2DEC8)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: PayaboGradients.chatScreen,
         ),
         child: Stack(
           children: <Widget>[
@@ -85,7 +82,7 @@ class _ChatScreenState extends State<ChatScreen> {
               right: -70,
               child: _ChatGlowOrb(
                 size: 240,
-                color: Color(0x22F37920),
+                color: PayaboColors.chatGlowPrimary,
               ),
             ),
             const Positioned(
@@ -93,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
               bottom: 200,
               child: _ChatGlowOrb(
                 size: 300,
-                color: Color(0x1FD4A36A),
+                color: PayaboColors.chatGlowSecondary,
               ),
             ),
             SafeArea(
@@ -115,14 +112,14 @@ class _ChatScreenState extends State<ChatScreen> {
                           style: theme.textTheme.displayMedium?.copyWith(
                             fontSize: 58,
                             fontWeight: FontWeight.w300,
-                            color: const Color(0xFF4B2B1F),
+                            color: PayaboColors.chatTextPrimary,
                           ),
                         ),
                         const SizedBox(height: PayaboSpacing.sm),
                         Text(
                           'Tell me what feels messy and I will turn it into a plan.',
                           style: theme.textTheme.titleSmall?.copyWith(
-                            color: const Color(0xFF6E4B3D),
+                            color: PayaboColors.chatTextSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -137,7 +134,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         Text(
                           'Try one of these',
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: const Color(0xFF6E4B3D),
+                            color: PayaboColors.chatTextSecondary,
                           ),
                         ),
                         const SizedBox(height: PayaboSpacing.md),
@@ -409,7 +406,7 @@ class _ChatMessageBlock extends StatelessWidget {
               child: Text(
                 message.lines.first,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: const Color(0xFF4B2B1F),
+                      color: PayaboColors.chatTextPrimary,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -434,7 +431,7 @@ class _ChatMessageBlock extends StatelessWidget {
           child: Text(
             'Payabo coach',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: const Color(0xFF6E4B3D),
+                  color: PayaboColors.chatTextSecondary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -448,7 +445,7 @@ class _ChatMessageBlock extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontSize: 18,
                     height: 1.4,
-                    color: const Color(0xFF4B2B1F),
+                    color: PayaboColors.chatTextPrimary,
                   ),
             ),
           ),
@@ -481,7 +478,7 @@ class _ChatPlanCard extends StatelessWidget {
         color: PayaboColors.white.withValues(alpha: 0.82),
         borderRadius: const BorderRadius.all(Radius.circular(28)),
         boxShadow: PayaboShadows.soft,
-        border: Border.all(color: const Color(0xFFD9C7B8)),
+        border: Border.all(color: PayaboColors.chatPlanBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.all(PayaboSpacing.xl),
@@ -494,7 +491,7 @@ class _ChatPlanCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0x1AF37920),
+                    color: PayaboColors.chatPlanIconSurface,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
@@ -507,7 +504,7 @@ class _ChatPlanCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: const Color(0xFF4B2B1F),
+                          color: PayaboColors.chatTextPrimary,
                         ),
                   ),
                 ),
@@ -534,7 +531,7 @@ class _ChatPlanCard extends StatelessWidget {
                       child: Text(
                         item,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: const Color(0xFF5C3A2D),
+                              color: PayaboColors.chatTextTertiary,
                               height: 1.45,
                             ),
                       ),
@@ -575,7 +572,7 @@ class _QuickPromptChip extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFF5C3A2D),
+                  color: PayaboColors.chatTextTertiary,
                 ),
           ),
         ),
@@ -599,10 +596,10 @@ class _ChatComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFE6DC),
+        color: PayaboColors.chatComposerSurface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         boxShadow: PayaboShadows.soft,
-        border: Border.all(color: const Color(0xFFD9C7B8)),
+        border: Border.all(color: PayaboColors.chatPlanBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -618,7 +615,7 @@ class _ChatComposer extends StatelessWidget {
               width: 42,
               height: 5,
               decoration: BoxDecoration(
-                color: const Color(0xFFD0C1B5),
+                color: PayaboColors.chatComposerHandle,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -632,7 +629,7 @@ class _ChatComposer extends StatelessWidget {
                       borderRadius: const BorderRadius.all(
                         Radius.circular(30),
                       ),
-                      border: Border.all(color: const Color(0xFFD8D0C8)),
+                      border: Border.all(color: PayaboColors.chatInputBorder),
                     ),
                     child: TextField(
                       controller: controller,
@@ -656,7 +653,9 @@ class _ChatComposer extends StatelessWidget {
                 ),
                 const SizedBox(width: PayaboSpacing.md),
                 Material(
-                  color: canSend ? const Color(0xFF4B2B1F) : PayaboColors.white,
+                  color: canSend
+                      ? PayaboColors.chatSendActive
+                      : PayaboColors.white,
                   shape: const CircleBorder(),
                   child: InkWell(
                     onTap: canSend ? () => onSubmitted(controller.text) : null,
@@ -671,7 +670,7 @@ class _ChatComposer extends StatelessWidget {
                             Icons.auto_graph_rounded,
                             color: canSend
                                 ? PayaboColors.white
-                                : const Color(0xFF6E4B3D),
+                                : PayaboColors.chatTextSecondary,
                           ),
                           Positioned(
                             top: 12,

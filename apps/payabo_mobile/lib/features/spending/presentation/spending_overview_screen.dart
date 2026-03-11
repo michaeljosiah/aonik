@@ -20,8 +20,8 @@ const List<_AccountSnapshot> _accountSnapshots = <_AccountSnapshot>[
     balanceLabel: '£3,842.16',
     statusLabel: 'Primary',
     changeLabel: '+£186.40 this week',
-    gradientColors: <Color>[Color(0xFFFFF8F0), Color(0xFFFFE9D4)],
-    accentColor: Color(0xFFD86F17),
+    gradientColors: PayaboColors.spendingAccountGradientPrimary,
+    accentColor: PayaboColors.spendingAccountAccentPrimary,
     icon: Icons.account_balance_wallet_outlined,
   ),
   _AccountSnapshot(
@@ -29,8 +29,8 @@ const List<_AccountSnapshot> _accountSnapshots = <_AccountSnapshot>[
     balanceLabel: '£6,240.00',
     statusLabel: 'Savings',
     changeLabel: '+£120.00 auto-saved',
-    gradientColors: <Color>[Color(0xFFFFFBF6), Color(0xFFF7EBDD)],
-    accentColor: Color(0xFFF08A2E),
+    gradientColors: PayaboColors.spendingAccountGradientSavings,
+    accentColor: PayaboColors.spendingAccountAccentSavings,
     icon: Icons.savings_outlined,
   ),
   _AccountSnapshot(
@@ -38,8 +38,8 @@ const List<_AccountSnapshot> _accountSnapshots = <_AccountSnapshot>[
     balanceLabel: '£1,090.30',
     statusLabel: 'Bills',
     changeLabel: 'Covers 6 upcoming payments',
-    gradientColors: <Color>[Color(0xFFFFFCF8), Color(0xFFF6EDE3)],
-    accentColor: Color(0xFFE39A4C),
+    gradientColors: PayaboColors.spendingAccountGradientBills,
+    accentColor: PayaboColors.spendingAccountAccentBills,
     icon: Icons.receipt_long_outlined,
   ),
 ];
@@ -49,31 +49,31 @@ const List<_BreakdownSlice> _breakdownSlices = <_BreakdownSlice>[
     label: 'Food',
     amountLabel: '£570',
     value: 31,
-    color: Color(0xFFF37920),
+    color: PayaboColors.primary,
   ),
   _BreakdownSlice(
     label: 'Bills',
     amountLabel: '£410',
     value: 22,
-    color: Color(0xFFEA7A27),
+    color: PayaboColors.spendingSliceBills,
   ),
   _BreakdownSlice(
     label: 'Transport',
     amountLabel: '£312',
     value: 17,
-    color: Color(0xFF4ACB64),
+    color: PayaboColors.success,
   ),
   _BreakdownSlice(
     label: 'Shopping',
     amountLabel: '£260',
     value: 14,
-    color: Color(0xFF2465E8),
+    color: PayaboColors.info,
   ),
   _BreakdownSlice(
     label: 'Other',
     amountLabel: '£288',
     value: 16,
-    color: Color(0xFFFFC56D),
+    color: PayaboColors.spendingSliceOther,
   ),
 ];
 
@@ -84,7 +84,7 @@ const List<_RecentTransactionPreview> _recentTransactions =
     category: 'Pending ride',
     amountLabel: '£14.20',
     iconText: 'U',
-    iconBackground: Color(0xFF111111),
+    iconBackground: PayaboColors.spendingMerchantIconDark,
     iconForeground: PayaboColors.white,
   ),
   _RecentTransactionPreview(
@@ -92,16 +92,16 @@ const List<_RecentTransactionPreview> _recentTransactions =
     category: 'Shopping',
     amountLabel: '£11.00',
     iconText: 'a',
-    iconBackground: Color(0xFFF4F1EC),
-    iconForeground: Color(0xFF111111),
+    iconBackground: PayaboColors.spendingMerchantIconWarmSurface,
+    iconForeground: PayaboColors.spendingMerchantIconDark,
   ),
   _RecentTransactionPreview(
     merchant: 'Nando\'s',
     category: 'Food and dining',
     amountLabel: '£28.45',
     iconText: 'N',
-    iconBackground: Color(0xFFFFEFE3),
-    iconForeground: Color(0xFF7A3211),
+    iconBackground: PayaboColors.spendingMerchantIconWarmAccent,
+    iconForeground: PayaboColors.spendingMerchantIconWarmText,
   ),
 ];
 
@@ -184,7 +184,7 @@ class _SpendingOverviewScreenState extends State<SpendingOverviewScreen> {
                           decoration: BoxDecoration(
                             color: index == _accountPage
                                 ? PayaboColors.primary
-                                : const Color(0xFFF1D9C4),
+                                : PayaboColors.spendingDotInactive,
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -442,9 +442,10 @@ class _OverviewQuickAction extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E8),
+                color: PayaboColors.spendingQuickActionSurface,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFF1DEC9)),
+                border:
+                    Border.all(color: PayaboColors.spendingQuickActionBorder),
               ),
               child: Icon(icon, color: PayaboColors.primary, size: 32),
             ),
@@ -628,11 +629,7 @@ class _SafeToSpendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[Color(0xFF122C1C), Color(0xFF285634)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: PayaboGradients.spendingSafeToSpend,
         borderRadius: BorderRadius.all(Radius.circular(24)),
         boxShadow: PayaboShadows.medium,
       ),
@@ -695,7 +692,7 @@ class _MonthlyBreakdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PayaboCard(
-      backgroundColor: const Color(0xFFFFFAF5),
+      backgroundColor: PayaboColors.spendingCardWarm,
       padding: const EdgeInsets.all(PayaboSpacing.xl),
       child: Column(
         children: <Widget>[
@@ -803,7 +800,7 @@ class _TrendCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PayaboCard(
-      backgroundColor: const Color(0xFFFFFBF8),
+      backgroundColor: PayaboColors.spendingCardWarmElevated,
       padding: const EdgeInsets.fromLTRB(
         PayaboSpacing.lg,
         PayaboSpacing.lg,
@@ -852,7 +849,7 @@ class _OverviewTrendChart extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: 100,
           getDrawingHorizontalLine: (_) => const FlLine(
-            color: Color(0xFFE8DDD2),
+            color: PayaboColors.spendingTrendGrid,
             strokeWidth: 1,
           ),
         ),
@@ -883,8 +880,8 @@ class _OverviewTrendChart extends StatelessWidget {
         borderData: FlBorderData(
           show: true,
           border: const Border(
-            bottom: BorderSide(color: Color(0xFFE8DDD2)),
-            left: BorderSide(color: Color(0xFFE8DDD2)),
+            bottom: BorderSide(color: PayaboColors.spendingTrendGrid),
+            left: BorderSide(color: PayaboColors.spendingTrendGrid),
           ),
         ),
         lineBarsData: <LineChartBarData>[
@@ -978,13 +975,9 @@ class _InsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFFFFE2C5), Color(0xFFFFF2E3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: PayaboGradients.spendingInsight,
         borderRadius: const BorderRadius.all(Radius.circular(24)),
-        border: Border.all(color: const Color(0xFFF2C79A)),
+        border: Border.all(color: PayaboColors.spendingInsightBorder),
         boxShadow: PayaboShadows.soft,
       ),
       child: Padding(
@@ -1012,7 +1005,7 @@ class _InsightCard extends StatelessWidget {
                   Text(
                     'AI insight',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: const Color(0xFF7A3211),
+                          color: PayaboColors.spendingInsightLabel,
                         ),
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
@@ -1052,7 +1045,7 @@ class _RecentTransactionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PayaboCard(
-      backgroundColor: const Color(0xFFFFFBF8),
+      backgroundColor: PayaboColors.spendingCardWarmElevated,
       padding: const EdgeInsets.fromLTRB(
         PayaboSpacing.lg,
         PayaboSpacing.lg,
@@ -1081,7 +1074,8 @@ class _RecentTransactionsCard extends StatelessWidget {
               onPressed: onViewAllTap,
               style: OutlinedButton.styleFrom(
                 foregroundColor: PayaboColors.accentBrown,
-                side: const BorderSide(color: Color(0xFFF1DEC9)),
+                side: const BorderSide(
+                    color: PayaboColors.spendingQuickActionBorder),
                 backgroundColor: PayaboColors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
