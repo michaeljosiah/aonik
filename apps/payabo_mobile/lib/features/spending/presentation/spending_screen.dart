@@ -8,10 +8,9 @@ import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
-import '../../../shared/widgets/payabo_bottom_nav.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
-import '../../../shared/widgets/payabo_modal_sheet.dart';
+import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'widgets/spending_section_pills.dart';
 
 const List<String> _monthFilters = <String>[
@@ -20,6 +19,12 @@ const List<String> _monthFilters = <String>[
   'Feb',
   'Mar',
   'Custom',
+];
+
+const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
+  SpendingSection.transactions,
+  SpendingSection.budgets,
+  SpendingSection.accounts,
 ];
 
 const List<_SpendingBreakdownItem> _categoryItems = <_SpendingBreakdownItem>[
@@ -116,7 +121,6 @@ class SpendingScreen extends StatefulWidget {
 }
 
 class _SpendingScreenState extends State<SpendingScreen> {
-  int _navIndex = 2;
   int _monthIndex = 2;
   int _breakdownViewIndex = 0;
 
@@ -189,20 +193,39 @@ class _SpendingScreenState extends State<SpendingScreen> {
                       unselectedTextColor: PayaboColors.accentBrownMuted,
                     ),
                     const SizedBox(height: PayaboSpacing.lg),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: PayaboButton(
-                            label: 'Edit custom categories',
-                            variant: PayaboButtonVariant.link,
-                            expand: true,
-                            leading: const Icon(Icons.edit_outlined, size: 18),
-                            onPressed: () {},
-                          ),
-                        ),
-                        const SizedBox(width: PayaboSpacing.md),
-                        const _CurrencySortButton(),
-                      ],
+                    LayoutBuilder(
+                      builder:
+                          (BuildContext context, BoxConstraints constraints) {
+                        final Widget editCategoriesButton = PayaboButton(
+                          label: 'Edit categories',
+                          variant: PayaboButtonVariant.link,
+                          expand: true,
+                          leading: const Icon(Icons.edit_outlined, size: 18),
+                          onPressed: () {},
+                        );
+
+                        if (constraints.maxWidth < 360) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              editCategoriesButton,
+                              const SizedBox(height: PayaboSpacing.md),
+                              const Align(
+                                alignment: Alignment.centerRight,
+                                child: _CurrencySortButton(),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: <Widget>[
+                            Expanded(child: editCategoriesButton),
+                            const SizedBox(width: PayaboSpacing.md),
+                            const _CurrencySortButton(),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: PayaboSpacing.lg),
                     ...breakdownItems.map(
@@ -242,48 +265,15 @@ class _SpendingScreenState extends State<SpendingScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: PayaboBottomNav(
-        items: const <PayaboBottomNavItem>[
-          PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-          PayaboBottomNavItem(
-              icon: Icons.receipt_long_outlined, label: 'Bills'),
-          PayaboBottomNavItem(
-              icon: Icons.show_chart_outlined, label: 'Spending'),
-          PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Chat'),
-        ],
-        currentIndex: _navIndex,
-        onTap: _handleNavTap,
-        onCenterTap: _showQuickActions,
+      bottomNavigationBar: const PayaboPrimaryAppShell(
+        destination: PayaboPrimaryDestination.spending,
       ),
     );
-  }
-
-  void _handleNavTap(int index) {
-    setState(() {
-      _navIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        context.go('/dashboard');
-        return;
-      case 1:
-        context.go('/payments/country');
-        return;
-      case 2:
-        context.go('/spending');
-        return;
-      case 3:
-        context.go('/chat');
-        return;
-    }
   }
 
   void _handleSectionSelected(SpendingSection section) {
     switch (section) {
       case SpendingSection.overview:
-        context.go('/spending');
-        return;
       case SpendingSection.transactions:
         return;
       case SpendingSection.budgets:
@@ -293,48 +283,6 @@ class _SpendingScreenState extends State<SpendingScreen> {
         _showSectionComingSoon('Accounts');
         return;
     }
-  }
-
-  Future<void> _showQuickActions() async {
-    await showPayaboModalSheet<void>(
-      context: context,
-      title: 'Quick Actions',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          PayaboListRow(
-            title: 'Pay a bill',
-            subtitle: 'Start a bill payment now',
-            leading: const Icon(Icons.receipt_long_outlined),
-            onTap: () {
-              Navigator.of(context).pop();
-              context.go('/payments/country');
-            },
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Transfer',
-            subtitle: 'Send money to another account',
-            leading: const Icon(Icons.compare_arrows_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Account',
-            subtitle: 'Manage your account details',
-            leading: const Icon(Icons.account_balance_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          PayaboListRow(
-            title: 'Income',
-            subtitle: 'Track and categorize income',
-            leading: const Icon(Icons.trending_up_outlined),
-            onTap: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showInfoMessage() {
@@ -375,6 +323,7 @@ class _SpendingHeader extends StatelessWidget {
       onProfileTap: onProfileTap,
       bottom: SpendingSectionPills(
         selectedSection: SpendingSection.transactions,
+        sections: _visibleSpendingSections,
         onSelected: onSectionSelected,
       ),
     );
@@ -679,25 +628,28 @@ class _ComparisonChip extends StatelessWidget {
           horizontal: PayaboSpacing.lg,
           vertical: PayaboSpacing.md,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              amount,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: amountColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            Icon(directionIcon, color: amountColor, size: 20),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: PayaboColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
-            ),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                amount,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: amountColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              Icon(directionIcon, color: amountColor, size: 20),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: PayaboColors.muted,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );

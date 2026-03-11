@@ -13,6 +13,7 @@ void main() {
 
     expect(find.text('Spend'), findsOneWidget);
     expect(find.text('Transactions'), findsOneWidget);
+    expect(find.text('Overview'), findsNothing);
     expect(find.text('Your spending'), findsNothing);
     expect(find.text('Your budget'), findsNothing);
     expect(find.text('February spend'), findsOneWidget);

@@ -32,17 +32,22 @@ class SpendingSectionPills extends StatelessWidget {
     super.key,
     required this.selectedSection,
     required this.onSelected,
+    this.sections,
   });
 
   final SpendingSection selectedSection;
   final ValueChanged<SpendingSection> onSelected;
+  final List<SpendingSection>? sections;
 
   @override
   Widget build(BuildContext context) {
+    final List<SpendingSection> visibleSections =
+        sections ?? SpendingSection.values;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: SpendingSection.values
+        children: visibleSections
             .map(
               (SpendingSection section) => Padding(
                 padding: const EdgeInsets.only(right: PayaboSpacing.sm),
