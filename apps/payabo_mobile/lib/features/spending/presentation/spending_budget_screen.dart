@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
-import '../../../app/demo/demo_data_mode.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_gradients.dart';
 import '../../../shared/theme/payabo_radii.dart';
@@ -11,6 +9,8 @@ import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
+import 'spending_budget_data.dart';
+import 'spending_budget_state.dart';
 import 'widgets/spending_section_pills.dart';
 
 const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
@@ -18,124 +18,6 @@ const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
   SpendingSection.budgets,
   SpendingSection.accounts,
 ];
-
-const List<_BudgetCategory> _budgetCategories = <_BudgetCategory>[
-  _BudgetCategory(
-    id: 'housing',
-    name: 'Housing',
-    icon: Icons.home_work_outlined,
-    accentColor: PayaboColors.primary,
-    lineItems: <_BudgetLineItem>[
-      _BudgetLineItem(id: 'rent', name: 'Rent', allocated: 850, spent: 850),
-      _BudgetLineItem(
-        id: 'repairs',
-        name: 'Repairs',
-        allocated: 100,
-        spent: 42,
-      ),
-      _BudgetLineItem(
-        id: 'supplies',
-        name: 'Supplies',
-        allocated: 250,
-        spent: 58,
-      ),
-    ],
-  ),
-  _BudgetCategory(
-    id: 'groceries',
-    name: 'Food & Groceries',
-    icon: Icons.local_grocery_store_outlined,
-    accentColor: PayaboColors.success,
-    lineItems: <_BudgetLineItem>[
-      _BudgetLineItem(
-        id: 'supermarket',
-        name: 'Supermarket',
-        allocated: 350,
-        spent: 240,
-      ),
-      _BudgetLineItem(
-        id: 'market',
-        name: 'Fresh market',
-        allocated: 150,
-        spent: 123.65,
-      ),
-      _BudgetLineItem(
-        id: 'snacks',
-        name: 'Coffee & snacks',
-        allocated: 100,
-        spent: 55,
-      ),
-    ],
-  ),
-  _BudgetCategory(
-    id: 'transport',
-    name: 'Transport',
-    icon: Icons.directions_bus_outlined,
-    accentColor: PayaboColors.warning,
-    lineItems: <_BudgetLineItem>[
-      _BudgetLineItem(id: 'fuel', name: 'Fuel', allocated: 200, spent: 232.2),
-      _BudgetLineItem(
-        id: 'ride-apps',
-        name: 'Ride apps',
-        allocated: 120,
-        spent: 106,
-      ),
-      _BudgetLineItem(
-        id: 'public-transit',
-        name: 'Public transit',
-        allocated: 100,
-        spent: 110,
-      ),
-    ],
-  ),
-  _BudgetCategory(
-    id: 'utilities',
-    name: 'Utilities',
-    icon: Icons.lightbulb_outline_rounded,
-    accentColor: PayaboColors.info,
-    lineItems: <_BudgetLineItem>[
-      _BudgetLineItem(
-        id: 'electricity',
-        name: 'Electricity',
-        allocated: 180,
-        spent: 120.4,
-      ),
-      _BudgetLineItem(id: 'water', name: 'Water', allocated: 70, spent: 48.9),
-      _BudgetLineItem(
-        id: 'internet',
-        name: 'Internet',
-        allocated: 130,
-        spent: 72,
-      ),
-    ],
-  ),
-  _BudgetCategory(
-    id: 'personal',
-    name: 'Personal care',
-    icon: Icons.spa_outlined,
-    accentColor: PayaboColors.headerIconAccent,
-    lineItems: <_BudgetLineItem>[
-      _BudgetLineItem(
-        id: 'grooming',
-        name: 'Hair & grooming',
-        allocated: 150,
-        spent: 125.55,
-      ),
-      _BudgetLineItem(
-        id: 'pharmacy',
-        name: 'Pharmacy',
-        allocated: 120,
-        spent: 52,
-      ),
-      _BudgetLineItem(id: 'gym', name: 'Gym', allocated: 80, spent: 33),
-    ],
-  ),
-];
-
-final NumberFormat _currencyFormat = NumberFormat.currency(
-  locale: 'en_GB',
-  symbol: '£',
-);
 
 class SpendingBudgetScreen extends ConsumerStatefulWidget {
   const SpendingBudgetScreen({super.key});
@@ -146,18 +28,12 @@ class SpendingBudgetScreen extends ConsumerStatefulWidget {
 }
 
 class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
-  String _expandedCategoryId = _budgetCategories.first.id;
+  String _expandedCategoryId = spendingBudgetCategories.first.id;
 
   @override
   Widget build(BuildContext context) {
-    final bool isFreshDemo =
-        ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
-    final List<_BudgetCategory> categories =
-        isFreshDemo ? const <_BudgetCategory>[] : _budgetCategories;
-    final _BudgetSummary summary = _BudgetSummary.fromCategories(
-      monthLabel: 'March 2026',
-      categories: categories,
-    );
+    final AsyncValue<List<SpendingBudgetCategory>> budgetsValue =
+        ref.watch(spendingBudgetsProvider);
 
     return Scaffold(
       backgroundColor: PayaboColors.surfaceWarm,
@@ -174,34 +50,77 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
                 onProfileTap: () => context.go('/profile'),
               ),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    PayaboSpacing.md,
-                    PayaboSpacing.xl,
-                    PayaboSpacing.x4,
-                  ),
-                  children: <Widget>[
-                    _BudgetHeroCard(summary: summary),
-                    const SizedBox(height: PayaboSpacing.lg),
-                    if (isFreshDemo)
-                      const _FreshBudgetEmptyState()
-                    else ...<Widget>[
-                      _BudgetSectionIntro(summary: summary),
-                      const SizedBox(height: PayaboSpacing.lg),
-                      ...categories.map(
-                        (_BudgetCategory category) => Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: PayaboSpacing.md),
-                          child: _BudgetCategoryCard(
-                            category: category,
-                            expanded: _expandedCategoryId == category.id,
-                            onTap: () => _toggleCategory(category.id),
-                          ),
+                child: budgetsValue.when(
+                  data: (List<SpendingBudgetCategory> categories) {
+                    final SpendingBudgetSummary summary =
+                        SpendingBudgetSummary.fromCategories(
+                      monthLabel: spendingBudgetMonthLabel,
+                      categories: categories,
+                    );
+                    final String expandedCategoryId;
+                    if (_expandedCategoryId.isEmpty) {
+                      expandedCategoryId = '';
+                    } else if (categories.any(
+                      (SpendingBudgetCategory category) =>
+                          category.id == _expandedCategoryId,
+                    )) {
+                      expandedCategoryId = _expandedCategoryId;
+                    } else {
+                      expandedCategoryId =
+                          categories.isNotEmpty ? categories.first.id : '';
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: () async {
+                        ref.invalidate(spendingBudgetsProvider);
+                        await ref.read(spendingBudgetsProvider.future);
+                      },
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                          PayaboSpacing.xl,
+                          PayaboSpacing.md,
+                          PayaboSpacing.xl,
+                          PayaboSpacing.x4,
                         ),
+                        children: <Widget>[
+                          _BudgetHeroCard(summary: summary),
+                          const SizedBox(height: PayaboSpacing.lg),
+                          if (categories.isEmpty)
+                            const _FreshBudgetEmptyState()
+                          else ...<Widget>[
+                            _BudgetSectionIntro(summary: summary),
+                            const SizedBox(height: PayaboSpacing.lg),
+                            ...categories.map(
+                              (SpendingBudgetCategory category) => Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: PayaboSpacing.md,
+                                ),
+                                child: _BudgetCategoryCard(
+                                  category: category,
+                                  expanded: expandedCategoryId == category.id,
+                                  onExpandToggle: () =>
+                                      _toggleCategory(category.id),
+                                  onOpen: () => context.push(
+                                    '/spending/budgets/${category.id}',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
-                  ],
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (Object error, StackTrace stackTrace) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(PayaboSpacing.xl),
+                        child: Text('Unable to load budgets: $error'),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -275,7 +194,7 @@ class _BudgetHeader extends StatelessWidget {
 class _BudgetHeroCard extends StatelessWidget {
   const _BudgetHeroCard({required this.summary});
 
-  final _BudgetSummary summary;
+  final SpendingBudgetSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +243,7 @@ class _BudgetHeroCard extends StatelessWidget {
             ),
             const SizedBox(height: PayaboSpacing.lg),
             Text(
-              _formatCurrency(summary.totalBudget),
+              formatSpendingBudgetCurrency(summary.totalBudget),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: PayaboColors.accentBrown,
                     fontSize: 44,
@@ -354,7 +273,8 @@ class _BudgetHeroCard extends StatelessWidget {
                 Expanded(
                   child: _BudgetSummaryMetric(
                     label: 'Used so far',
-                    valueLabel: _formatCurrency(summary.totalSpent),
+                    valueLabel:
+                        formatSpendingBudgetCurrency(summary.totalSpent),
                     valueColor: PayaboColors.accentBrown,
                     alignEnd: true,
                   ),
@@ -432,7 +352,7 @@ class _BudgetSummaryMetric extends StatelessWidget {
 class _BudgetSectionIntro extends StatelessWidget {
   const _BudgetSectionIntro({required this.summary});
 
-  final _BudgetSummary summary;
+  final SpendingBudgetSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -473,16 +393,18 @@ class _BudgetCategoryCard extends StatelessWidget {
   const _BudgetCategoryCard({
     required this.category,
     required this.expanded,
-    required this.onTap,
+    required this.onExpandToggle,
+    required this.onOpen,
   });
 
-  final _BudgetCategory category;
+  final SpendingBudgetCategory category;
   final bool expanded;
-  final VoidCallback onTap;
+  final VoidCallback onExpandToggle;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final _BudgetState state = _BudgetState.fromBudget(
+    final SpendingBudgetState state = SpendingBudgetState.fromBudget(
       allocated: category.allocated,
       spent: category.spent,
     );
@@ -503,7 +425,8 @@ class _BudgetCategoryCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          key: Key('budget-card-${category.id}'),
+          onTap: onOpen,
           borderRadius: BorderRadius.circular(PayaboRadii.xl),
           child: Padding(
             padding: const EdgeInsets.all(PayaboSpacing.lg),
@@ -548,7 +471,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: <Widget>[
                         Text(
-                          _formatCurrency(category.allocated),
+                          formatSpendingBudgetCurrency(category.allocated),
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: PayaboColors.accentBrown,
@@ -567,11 +490,16 @@ class _BudgetCategoryCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(width: PayaboSpacing.xs),
-                    Icon(
-                      expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      color: PayaboColors.accentBrownMuted,
+                    IconButton(
+                      key: Key('budget-expand-${category.id}'),
+                      onPressed: onExpandToggle,
+                      splashRadius: 20,
+                      icon: Icon(
+                        expanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: PayaboColors.accentBrownMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -615,7 +543,8 @@ class _BudgetCategoryCard extends StatelessWidget {
                                 children: <Widget>[
                                   _BudgetDetailChip(
                                     label: 'Spent',
-                                    value: _formatCurrency(category.spent),
+                                    value: formatSpendingBudgetCurrency(
+                                        category.spent),
                                   ),
                                   _BudgetDetailChip(
                                     label: 'Remaining',
@@ -626,7 +555,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                               ),
                               const SizedBox(height: PayaboSpacing.lg),
                               ...category.lineItems.map(
-                                (_BudgetLineItem item) => Padding(
+                                (SpendingBudgetLineItem item) => Padding(
                                   padding: const EdgeInsets.only(
                                     bottom: PayaboSpacing.md,
                                   ),
@@ -720,11 +649,11 @@ class _BudgetDetailChip extends StatelessWidget {
 class _BudgetLineItemCard extends StatelessWidget {
   const _BudgetLineItemCard({required this.item});
 
-  final _BudgetLineItem item;
+  final SpendingBudgetLineItem item;
 
   @override
   Widget build(BuildContext context) {
-    final _BudgetState state = _BudgetState.fromBudget(
+    final SpendingBudgetState state = SpendingBudgetState.fromBudget(
       allocated: item.allocated,
       spent: item.spent,
     );
@@ -763,7 +692,7 @@ class _BudgetLineItemCard extends StatelessWidget {
           _BudgetProgressBar(value: state.progress, color: state.progressColor),
           const SizedBox(height: PayaboSpacing.sm),
           Text(
-            '${_formatCurrency(item.spent)} of ${_formatCurrency(item.allocated)} used',
+            '${formatSpendingBudgetCurrency(item.spent)} of ${formatSpendingBudgetCurrency(item.allocated)} used',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: PayaboColors.accentBrownMuted,
                 ),
@@ -887,198 +816,3 @@ class _FreshBudgetEmptyState extends StatelessWidget {
     );
   }
 }
-
-class _BudgetSummary {
-  const _BudgetSummary({
-    required this.monthLabel,
-    required this.totalBudget,
-    required this.totalSpent,
-    required this.categoryCount,
-  });
-
-  factory _BudgetSummary.fromCategories({
-    required String monthLabel,
-    required List<_BudgetCategory> categories,
-  }) {
-    final double totalBudget = categories.fold<double>(
-      0,
-      (double sum, _BudgetCategory category) => sum + category.allocated,
-    );
-    final double totalSpent = categories.fold<double>(
-      0,
-      (double sum, _BudgetCategory category) => sum + category.spent,
-    );
-
-    return _BudgetSummary(
-      monthLabel: monthLabel,
-      totalBudget: totalBudget,
-      totalSpent: totalSpent,
-      categoryCount: categories.length,
-    );
-  }
-
-  final String monthLabel;
-  final double totalBudget;
-  final double totalSpent;
-  final int categoryCount;
-
-  double get remaining => totalBudget - totalSpent;
-  double get progress => totalBudget == 0 ? 0 : totalSpent / totalBudget;
-
-  String get statusLabel {
-    if (categoryCount == 0) {
-      return 'Start planning';
-    }
-
-    if (remaining < 0) {
-      return 'Over plan';
-    }
-
-    if (progress >= 0.9) {
-      return 'Almost there';
-    }
-
-    return 'On track';
-  }
-
-  Color get statusColor {
-    if (categoryCount == 0) {
-      return PayaboColors.primary;
-    }
-
-    if (remaining < 0) {
-      return PayaboColors.danger;
-    }
-
-    if (progress >= 0.9) {
-      return PayaboColors.warning;
-    }
-
-    return PayaboColors.success;
-  }
-
-  String get description {
-    if (categoryCount == 0) {
-      return 'Create your first category budget to start tracking how much is left before month end.';
-    }
-
-    return '$categoryCount active budgets covering home, food, transport, utilities, and personal care.';
-  }
-
-  String get leftToSpendLabel {
-    if (remaining >= 0) {
-      return _formatCurrency(remaining);
-    }
-
-    return '${_formatCurrency(remaining.abs())} over';
-  }
-
-  Color get leftToSpendColor {
-    if (categoryCount == 0) {
-      return PayaboColors.primary;
-    }
-
-    return remaining >= 0 ? PayaboColors.success : PayaboColors.danger;
-  }
-
-  String get progressLabel {
-    if (totalBudget == 0) {
-      return 'No monthly budget set yet.';
-    }
-
-    return '${(progress * 100).toStringAsFixed(1)}% of this month\'s plan is already used.';
-  }
-}
-
-class _BudgetCategory {
-  const _BudgetCategory({
-    required this.id,
-    required this.name,
-    required this.icon,
-    required this.accentColor,
-    required this.lineItems,
-  });
-
-  final String id;
-  final String name;
-  final IconData icon;
-  final Color accentColor;
-  final List<_BudgetLineItem> lineItems;
-
-  double get allocated => lineItems.fold<double>(
-        0,
-        (double sum, _BudgetLineItem item) => sum + item.allocated,
-      );
-
-  double get spent => lineItems.fold<double>(
-        0,
-        (double sum, _BudgetLineItem item) => sum + item.spent,
-      );
-}
-
-class _BudgetLineItem {
-  const _BudgetLineItem({
-    required this.id,
-    required this.name,
-    required this.allocated,
-    required this.spent,
-  });
-
-  final String id;
-  final String name;
-  final double allocated;
-  final double spent;
-}
-
-class _BudgetState {
-  const _BudgetState({
-    required this.progress,
-    required this.progressColor,
-    required this.statusLabel,
-    required this.remainingLabel,
-    required this.remainingColor,
-    required this.percentUsedLabel,
-  });
-
-  factory _BudgetState.fromBudget({
-    required double allocated,
-    required double spent,
-  }) {
-    final double remaining = allocated - spent;
-    final double progress = allocated == 0 ? 0 : spent / allocated;
-    final bool isOver = remaining < 0;
-    final bool isClose = !isOver && progress >= 0.9;
-
-    final Color progressColor = isOver
-        ? PayaboColors.danger
-        : isClose
-            ? PayaboColors.warning
-            : PayaboColors.primary;
-
-    final String remainingLabel = isOver
-        ? '${_formatCurrency(remaining.abs())} over'
-        : '${_formatCurrency(remaining)} left';
-
-    return _BudgetState(
-      progress: progress,
-      progressColor: progressColor,
-      statusLabel: isOver
-          ? 'Overspent'
-          : isClose
-              ? 'Close'
-              : 'On track',
-      remainingLabel: remainingLabel,
-      remainingColor: isOver ? PayaboColors.danger : PayaboColors.success,
-      percentUsedLabel: '${(progress.clamp(0, 1) * 100).toStringAsFixed(0)}%',
-    );
-  }
-
-  final double progress;
-  final Color progressColor;
-  final String statusLabel;
-  final String remainingLabel;
-  final Color remainingColor;
-  final String percentUsedLabel;
-}
-
-String _formatCurrency(double amount) => _currencyFormat.format(amount);
