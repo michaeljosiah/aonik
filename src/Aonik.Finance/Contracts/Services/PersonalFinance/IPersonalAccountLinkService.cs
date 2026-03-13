@@ -24,6 +24,10 @@ public interface IPersonalAccountLinkService
         Guid connectionId,
         CancellationToken cancellationToken = default);
 
+    Task ProcessPlaidWebhookAsync(
+        PlaidAccountLinkWebhookRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<AccountLinkSummaryItemResponse>> GetSummaryAsync(
         bool includeArchived = false,
         CancellationToken cancellationToken = default);

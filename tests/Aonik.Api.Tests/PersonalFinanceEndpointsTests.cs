@@ -161,6 +161,47 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task AccountLinks_PlaidWebhook_MarksSummaryAsActionRequired()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+
+        var sessionResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/sessions",
+            new CreateAccountLinkSessionRequest("Plaid"));
+        var session = await sessionResponse.Content.ReadFromJsonAsync<AccountLinkSessionResponse>();
+
+        var exchangeResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/exchanges",
+            new ExchangeAccountLinkSessionRequest(session!.AccountLinkSessionId, "sandbox-public-token-004"));
+        var exchanged = await exchangeResponse.Content.ReadFromJsonAsync<AccountLinkExchangeResponse>();
+
+        // Act
+        var webhookResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/webhooks/plaid",
+            new PlaidAccountLinkWebhookRequest
+            {
+                WebhookType = "ITEM",
+                WebhookCode = "PENDING_DISCONNECT",
+                ItemId = exchanged!.Connection.ProviderConnectionReference
+            });
+        var webhookAck = await webhookResponse.Content.ReadFromJsonAsync<AccountLinkWebhookResponse>();
+
+        var summaryResponse = await client.GetAsync("/personal-finance/account-links/summary");
+        var summary = await summaryResponse.Content.ReadFromJsonAsync<List<AccountLinkSummaryItemResponse>>();
+
+        // Assert
+        webhookResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        webhookAck.Should().NotBeNull();
+        webhookAck!.Status.Should().Be("accepted");
+
+        summaryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        summary.Should().NotBeNull();
+        summary!.Should().OnlyContain(item => item.Status == "ActionRequired");
+        summary.Should().OnlyContain(item => item.LastSyncStatus == "PENDING_DISCONNECT");
+    }
+
+    [Fact]
     public async Task StatementImport_UploadAndApply_CreatesImportAndAppliesRows()
     {
         // Arrange

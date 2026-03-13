@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
@@ -12,17 +14,20 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 {
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
 
     public PersonalAccountLinkService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
+        ITenantContext tenantContext,
         ICurrentUserProvider currentUserProvider,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
+        _tenantContext = tenantContext;
         _currentUserProvider = currentUserProvider;
         _providerGateways = providerGateways;
     }
@@ -295,30 +300,104 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                     connection.SecretReference),
                 cancellationToken);
 
-            connection.Status = "Disconnected";
-            connection.ConsentStatus = "Revoked";
-            connection.LastSyncStatus = "Disconnected";
-            connection.LastError = null;
-            connection.DisconnectedAt = utcNow;
-
-            foreach (var linkedAccount in linkedAccounts)
-            {
-                linkedAccount.Status = "Archived";
-                linkedAccount.LastSyncStatus = "Disconnected";
-                linkedAccount.LastError = null;
-            }
-
-            foreach (var personalAccount in personalAccounts)
-            {
-                personalAccount.Status = "Archived";
-                personalAccount.IsArchived = true;
-                personalAccount.ClosedAt ??= utcNow;
-            }
+            ApplyLocalDisconnectState(connection, linkedAccounts, personalAccounts, utcNow, "Disconnected");
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
         }
 
         return MapConnectionToResponse(connection, linkedAccounts, ResolveProvider(connection.Provider).DisplayName);
+    }
+
+    public async Task ProcessPlaidWebhookAsync(
+        PlaidAccountLinkWebhookRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var utcNow = DateTime.UtcNow;
+        var webhookEvent = new FinancialWebhookEvent
+        {
+            Provider = "Plaid",
+            ProviderConnectionReference = TrimNullable(request.ItemId) ?? string.Empty,
+            ProviderEventType = NormalizeWebhookValue(request.WebhookType),
+            ProviderEventCode = NormalizeWebhookValue(request.WebhookCode),
+            ProcessingStatus = "Received",
+            PayloadJson = JsonSerializer.Serialize(request),
+            ReceivedAt = utcNow
+        };
+
+        _financeDbContext.FinancialWebhookEvents.Add(webhookEvent);
+
+        var originalTenantId = _tenantContext.TenantId;
+        var originalResolutionSource = _tenantContext.ResolutionSource;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.ItemId))
+            {
+                webhookEvent.ProcessingStatus = "Ignored";
+                webhookEvent.Error = "Plaid webhook did not include item_id.";
+                webhookEvent.ProcessedAt = utcNow;
+                await _financeDbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
+            var connection = await _financeDbContext.FinancialConnections
+                .FirstOrDefaultAsync(
+                    item => item.Provider == "Plaid"
+                        && item.ProviderConnectionReference == request.ItemId.Trim(),
+                    cancellationToken);
+
+            if (connection == null)
+            {
+                webhookEvent.ProcessingStatus = "Ignored";
+                webhookEvent.Error = $"No financial connection found for Plaid item {request.ItemId.Trim()}.";
+                webhookEvent.ProcessedAt = utcNow;
+                await _financeDbContext.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
+            webhookEvent.TenantId = connection.TenantId;
+            webhookEvent.UserId = connection.UserId;
+            webhookEvent.FinancialConnectionId = connection.Id;
+
+            _tenantContext.TenantId = connection.TenantId;
+            _tenantContext.ResolutionSource = "PlaidWebhook";
+
+            var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
+                .Where(item => item.FinancialConnectionId == connection.Id)
+                .OrderBy(item => item.Name)
+                .ToListAsync(cancellationToken);
+
+            var personalAccountIds = linkedAccounts.Select(item => item.PersonalAccountId).Distinct().ToList();
+            var personalAccounts = personalAccountIds.Count == 0
+                ? []
+                : await _financeDbContext.PersonalAccounts
+                    .Where(item => personalAccountIds.Contains(item.Id))
+                    .ToListAsync(cancellationToken);
+
+            webhookEvent.ProcessingStatus = ApplyPlaidWebhook(
+                request,
+                connection,
+                linkedAccounts,
+                personalAccounts,
+                utcNow);
+            webhookEvent.ProcessedAt = utcNow;
+
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            webhookEvent.ProcessingStatus = "Failed";
+            webhookEvent.Error = LimitText(ex.Message, 1000);
+            webhookEvent.ProcessedAt = DateTime.UtcNow;
+
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+            throw;
+        }
+        finally
+        {
+            _tenantContext.TenantId = originalTenantId;
+            _tenantContext.ResolutionSource = originalResolutionSource;
+        }
     }
 
     public async Task<IReadOnlyList<AccountLinkSummaryItemResponse>> GetSummaryAsync(
@@ -470,6 +549,132 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         }
 
         return connection;
+    }
+
+    private string ApplyPlaidWebhook(
+        PlaidAccountLinkWebhookRequest request,
+        FinancialConnection connection,
+        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalAccount> personalAccounts,
+        DateTime utcNow)
+    {
+        var webhookType = NormalizeWebhookValue(request.WebhookType);
+        var webhookCode = NormalizeWebhookValue(request.WebhookCode);
+
+        if (webhookType == "ITEM" && webhookCode == "USER_PERMISSION_REVOKED")
+        {
+            ApplyLocalDisconnectState(connection, linkedAccounts, personalAccounts, utcNow, "UserPermissionRevoked");
+            return "Processed";
+        }
+
+        if (webhookType == "ITEM" && (webhookCode == "PENDING_DISCONNECT" || webhookCode == "PENDING_EXPIRATION"))
+        {
+            var message = webhookCode == "PENDING_DISCONNECT"
+                ? "Reconnect required before Plaid disconnects this linked account."
+                : "Consent is about to expire. Reconnect this linked account to keep syncing.";
+
+            ApplyActionRequiredState(connection, linkedAccounts, personalAccounts, webhookCode, message);
+            return "Processed";
+        }
+
+        if (webhookType == "ITEM" && webhookCode == "ERROR")
+        {
+            var errorCode = NormalizeWebhookValue(request.Error?.ErrorCode);
+            if (errorCode == "ITEM_LOGIN_REQUIRED" || errorCode == "PENDING_DISCONNECT")
+            {
+                var message = LimitText(
+                    request.Error?.DisplayMessage
+                        ?? request.Error?.ErrorMessage
+                        ?? "Reconnect required to restore Plaid account access.",
+                    1000) ?? "Reconnect required to restore Plaid account access.";
+
+                ApplyActionRequiredState(connection, linkedAccounts, personalAccounts, errorCode, message);
+                return "Processed";
+            }
+
+            connection.LastSyncStatus = string.IsNullOrWhiteSpace(errorCode) ? webhookCode : errorCode;
+            connection.LastError = LimitText(
+                request.Error?.DisplayMessage ?? request.Error?.ErrorMessage,
+                1000);
+            return "Processed";
+        }
+
+        if (webhookType == "TRANSACTIONS" && webhookCode == "SYNC_UPDATES_AVAILABLE")
+        {
+            connection.LastSyncStatus = "SyncUpdatesAvailable";
+            connection.LastSyncedAt = utcNow;
+            if (!string.Equals(connection.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase))
+            {
+                connection.LastError = null;
+            }
+
+            foreach (var linkedAccount in linkedAccounts)
+            {
+                linkedAccount.LastSyncStatus = "SyncUpdatesAvailable";
+                linkedAccount.LastSyncedAt = utcNow;
+                if (!string.Equals(linkedAccount.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase))
+                {
+                    linkedAccount.LastError = null;
+                }
+            }
+
+            return "Processed";
+        }
+
+        return "Ignored";
+    }
+
+    private static void ApplyActionRequiredState(
+        FinancialConnection connection,
+        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalAccount> personalAccounts,
+        string syncStatus,
+        string message)
+    {
+        connection.Status = "ActionRequired";
+        connection.ConsentStatus = "ActionRequired";
+        connection.LastSyncStatus = syncStatus;
+        connection.LastError = LimitText(message, 1000);
+
+        foreach (var linkedAccount in linkedAccounts)
+        {
+            linkedAccount.Status = "ActionRequired";
+            linkedAccount.LastSyncStatus = syncStatus;
+            linkedAccount.LastError = LimitText(message, 1000);
+        }
+
+        foreach (var personalAccount in personalAccounts)
+        {
+            personalAccount.Status = "ActionRequired";
+        }
+    }
+
+    private static void ApplyLocalDisconnectState(
+        FinancialConnection connection,
+        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalAccount> personalAccounts,
+        DateTime utcNow,
+        string syncStatus)
+    {
+        connection.Status = "Disconnected";
+        connection.ConsentStatus = "Revoked";
+        connection.LastSyncStatus = syncStatus;
+        connection.LastError = null;
+        connection.DisconnectedAt = utcNow;
+
+        foreach (var linkedAccount in linkedAccounts)
+        {
+            linkedAccount.Status = "Archived";
+            linkedAccount.LastSyncStatus = syncStatus;
+            linkedAccount.LastError = null;
+        }
+
+        foreach (var personalAccount in personalAccounts)
+        {
+            personalAccount.Status = "Archived";
+            personalAccount.IsArchived = true;
+            personalAccount.ClosedAt ??= utcNow;
+        }
     }
 
     private static void UpdateConnectionState(
@@ -824,6 +1029,26 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private static string? TrimNullable(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string NormalizeWebhookValue(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim().ToUpperInvariant();
+    }
+
+    private static string? LimitText(string? value, int maxLength)
+    {
+        var normalized = TrimNullable(value);
+        if (normalized == null)
+        {
+            return null;
+        }
+
+        return normalized.Length <= maxLength
+            ? normalized
+            : normalized[..maxLength];
     }
 
     private static string? NormalizeLast4(string? value)

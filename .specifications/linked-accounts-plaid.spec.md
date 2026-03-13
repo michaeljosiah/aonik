@@ -17,7 +17,8 @@
 - [x] Add mobile refresh, reconnect, disconnect, and OAuth-resume handling foundations
 - [x] Replace placeholder mobile app identifiers with the Payabo package/bundle ids needed for Plaid sandbox OAuth setup
 - [x] Add a real Plaid backend adapter path for Android link-token creation, public-token exchange, refresh, and item removal
-- [ ] Add future backend webhook and recurring sync workflows
+- [x] Add backend Plaid webhook handling and state propagation for action-required/disconnect events
+- [ ] Add future backend recurring sync workflows
 
 ## 1. Purpose
 
@@ -390,6 +391,13 @@ This increment does not yet include:
   - fetch item/account metadata for linked-account projection
   - refresh linked accounts through Plaid account fetches
   - remove Items during disconnect
+- AONIK now persists Plaid webhook events and applies webhook-driven state changes for:
+  - `PENDING_DISCONNECT`
+  - `PENDING_EXPIRATION`
+  - `ITEM_LOGIN_REQUIRED` surfaced via `ITEM/ERROR`
+  - `USER_PERMISSION_REVOKED`
+  - `SYNC_UPDATES_AVAILABLE`
+- Webhook processing updates linked connection and account states so Payabo can surface reconnect/disconnect needs without waiting for a manual refresh.
 - Access tokens are currently stored as protected values in the existing `SecretReference` field until a dedicated secret-vault integration layer is added.
 
 ---

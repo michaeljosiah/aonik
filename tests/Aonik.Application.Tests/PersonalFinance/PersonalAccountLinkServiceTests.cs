@@ -48,6 +48,15 @@ public class PersonalAccountLinkServiceTests
         }
     }
 
+    private sealed class TestTenantContext : ITenantContext
+    {
+        public Guid? TenantId { get; set; }
+
+        public string? ResolutionSource { get; set; }
+
+        public bool IsResolved => TenantId.HasValue;
+    }
+
     private sealed class FakeAccountLinkProviderGateway : IPersonalAccountLinkProviderGateway
     {
         public string ProviderCode => "Plaid";
@@ -175,6 +184,7 @@ public class PersonalAccountLinkServiceTests
         var service = new PersonalAccountLinkService(
             context,
             new TestTenantProvider(tenantId),
+            new TestTenantContext { TenantId = tenantId },
             new TestCurrentUserProvider(userId),
             new[] { new FakeAccountLinkProviderGateway() });
 
@@ -200,6 +210,7 @@ public class PersonalAccountLinkServiceTests
         var service = new PersonalAccountLinkService(
             context,
             new TestTenantProvider(tenantId),
+            new TestTenantContext { TenantId = tenantId },
             new TestCurrentUserProvider(userId),
             new[] { new FakeAccountLinkProviderGateway() });
 
@@ -243,6 +254,7 @@ public class PersonalAccountLinkServiceTests
         var service = new PersonalAccountLinkService(
             context,
             new TestTenantProvider(tenantId),
+            new TestTenantContext { TenantId = tenantId },
             new TestCurrentUserProvider(userId),
             new[] { new FakeAccountLinkProviderGateway() });
 
@@ -269,6 +281,7 @@ public class PersonalAccountLinkServiceTests
         var service = new PersonalAccountLinkService(
             context,
             new TestTenantProvider(tenantId),
+            new TestTenantContext { TenantId = tenantId },
             new TestCurrentUserProvider(userId),
             new[] { new FakeAccountLinkProviderGateway() });
 
@@ -298,6 +311,7 @@ public class PersonalAccountLinkServiceTests
         var service = new PersonalAccountLinkService(
             context,
             new TestTenantProvider(tenantId),
+            new TestTenantContext { TenantId = tenantId },
             new TestCurrentUserProvider(userId),
             new[] { new FakeAccountLinkProviderGateway() });
 
@@ -324,6 +338,7 @@ public class PersonalAccountLinkServiceTests
         var service = new PersonalAccountLinkService(
             context,
             new TestTenantProvider(tenantId),
+            new TestTenantContext { TenantId = tenantId },
             new TestCurrentUserProvider(userId),
             new[] { new FakeAccountLinkProviderGateway() });
 
@@ -339,5 +354,81 @@ public class PersonalAccountLinkServiceTests
         disconnected!.Status.Should().Be("Disconnected");
         disconnected.DisconnectedAt.Should().NotBeNull();
         context.PersonalAccounts.Should().OnlyContain(item => item.IsArchived);
+    }
+
+    [Fact]
+    public async Task ProcessPlaidWebhookAsync_Should_MarkConnectionActionRequired_WhenPendingDisconnectReceived()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantContext = new TestTenantContext();
+        var service = new PersonalAccountLinkService(
+            context,
+            new TestTenantProvider(tenantId),
+            tenantContext,
+            new TestCurrentUserProvider(userId),
+            new[] { new FakeAccountLinkProviderGateway() });
+
+        var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+        var exchange = await service.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "pending99"));
+
+        tenantContext.TenantId = null;
+        tenantContext.ResolutionSource = null;
+
+        // Act
+        await service.ProcessPlaidWebhookAsync(new PlaidAccountLinkWebhookRequest
+        {
+            WebhookType = "ITEM",
+            WebhookCode = "PENDING_DISCONNECT",
+            ItemId = exchange!.Connection.ProviderConnectionReference
+        });
+
+        // Assert
+        var connection = context.FinancialConnections.Single();
+        connection.Status.Should().Be("ActionRequired");
+        connection.ConsentStatus.Should().Be("ActionRequired");
+        connection.LastSyncStatus.Should().Be("PENDING_DISCONNECT");
+
+        context.FinancialLinkedAccounts.Should().OnlyContain(item => item.Status == "ActionRequired");
+        context.FinancialWebhookEvents.Should().ContainSingle(item => item.ProviderEventCode == "PENDING_DISCONNECT");
+    }
+
+    [Fact]
+    public async Task ProcessPlaidWebhookAsync_Should_DisconnectConnection_WhenPermissionRevokedReceived()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantContext = new TestTenantContext();
+        var service = new PersonalAccountLinkService(
+            context,
+            new TestTenantProvider(tenantId),
+            tenantContext,
+            new TestCurrentUserProvider(userId),
+            new[] { new FakeAccountLinkProviderGateway() });
+
+        var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+        var exchange = await service.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "revoked1"));
+
+        tenantContext.TenantId = null;
+        tenantContext.ResolutionSource = null;
+
+        // Act
+        await service.ProcessPlaidWebhookAsync(new PlaidAccountLinkWebhookRequest
+        {
+            WebhookType = "ITEM",
+            WebhookCode = "USER_PERMISSION_REVOKED",
+            ItemId = exchange!.Connection.ProviderConnectionReference
+        });
+
+        // Assert
+        context.FinancialConnections.Single().Status.Should().Be("Disconnected");
+        context.PersonalAccounts.Should().OnlyContain(item => item.IsArchived);
+        context.FinancialWebhookEvents.Should().ContainSingle(item => item.ProviderEventCode == "USER_PERMISSION_REVOKED");
     }
 }

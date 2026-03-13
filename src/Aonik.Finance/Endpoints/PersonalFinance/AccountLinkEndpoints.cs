@@ -190,3 +190,25 @@ internal sealed class DisconnectAccountLinkEndpoint : EndpointWithoutRequest<Acc
         await Send.OkAsync(new AccountLinkActionResponse("disconnect", response), ct);
     }
 }
+
+internal sealed class PlaidAccountLinkWebhookEndpoint : Endpoint<PlaidAccountLinkWebhookRequest, AccountLinkWebhookResponse>
+{
+    private readonly IPersonalAccountLinkService _personalAccountLinkService;
+
+    public PlaidAccountLinkWebhookEndpoint(IPersonalAccountLinkService personalAccountLinkService)
+    {
+        _personalAccountLinkService = personalAccountLinkService;
+    }
+
+    public override void Configure()
+    {
+        Post("/personal-finance/account-links/webhooks/plaid");
+        AllowAnonymous();
+    }
+
+    public override async Task HandleAsync(PlaidAccountLinkWebhookRequest req, CancellationToken ct)
+    {
+        await _personalAccountLinkService.ProcessPlaidWebhookAsync(req, ct);
+        await Send.OkAsync(new AccountLinkWebhookResponse("accepted"), ct);
+    }
+}

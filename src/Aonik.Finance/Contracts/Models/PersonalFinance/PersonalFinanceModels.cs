@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Aonik.Finance.Contracts.Models.PersonalFinance;
 
 public record CreateHouseholdRequest(string Name);
@@ -123,6 +126,44 @@ public record AccountLinkExchangeResponse(
 public record AccountLinkActionResponse(
     string Action,
     AccountLinkConnectionResponse Connection);
+
+public record AccountLinkWebhookResponse(string Status);
+
+public class PlaidWebhookErrorRequest
+{
+    [JsonPropertyName("error_type")]
+    public string? ErrorType { get; set; }
+
+    [JsonPropertyName("error_code")]
+    public string? ErrorCode { get; set; }
+
+    [JsonPropertyName("error_message")]
+    public string? ErrorMessage { get; set; }
+
+    [JsonPropertyName("display_message")]
+    public string? DisplayMessage { get; set; }
+}
+
+public class PlaidAccountLinkWebhookRequest
+{
+    [JsonPropertyName("webhook_type")]
+    public string WebhookType { get; set; } = string.Empty;
+
+    [JsonPropertyName("webhook_code")]
+    public string WebhookCode { get; set; } = string.Empty;
+
+    [JsonPropertyName("item_id")]
+    public string? ItemId { get; set; }
+
+    [JsonPropertyName("environment")]
+    public string? Environment { get; set; }
+
+    [JsonPropertyName("error")]
+    public PlaidWebhookErrorRequest? Error { get; set; }
+
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? AdditionalData { get; set; }
+}
 
 public record AccountLinkSummaryItemResponse(
     Guid PersonalAccountId,
