@@ -10,6 +10,10 @@ public class FinancialConnection : AuditableEntity, ITenantScoped
     public string ProviderConnectionReference { get; set; } = string.Empty;
     public string InstitutionName { get; set; } = string.Empty;
     public string? InstitutionReference { get; set; }
+    public bool AutoSyncEnabled { get; set; }
+    public int SyncIntervalMinutes { get; set; }
+    public DateTime? NextScheduledSyncAt { get; set; }
+    public DateTime? LastWebhookReceivedAt { get; set; }
     public string Status { get; set; } = string.Empty;
     public string ConsentStatus { get; set; } = string.Empty;
     public string SecretReference { get; set; } = string.Empty;

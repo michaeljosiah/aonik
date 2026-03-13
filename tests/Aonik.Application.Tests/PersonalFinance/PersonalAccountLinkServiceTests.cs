@@ -7,6 +7,8 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -215,6 +217,41 @@ public class PersonalAccountLinkServiceTests
         return new FinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
+    private static PersonalAccountLinkService CreateService(
+        FinanceDbContext context,
+        Guid tenantId,
+        Guid userId,
+        TestTenantContext tenantContext,
+        IPersonalAccountLinkProviderGateway? gateway = null)
+    {
+        gateway ??= new FakeAccountLinkProviderGateway();
+
+        var syncOptions = Microsoft.Extensions.Options.Options.Create(new FinancialConnectionSyncOptions
+        {
+            EnableRecurringSync = true,
+            DefaultSyncIntervalMinutes = 60,
+            WorkerPollIntervalSeconds = 30,
+            BatchSize = 10,
+            FailureRetryDelayMinutes = 5
+        });
+
+        var orchestrator = new FinancialConnectionTransactionSyncOrchestrator(
+            context,
+            tenantContext,
+            new[] { gateway },
+            syncOptions,
+            NullLogger<FinancialConnectionTransactionSyncOrchestrator>.Instance);
+
+        return new PersonalAccountLinkService(
+            context,
+            new TestTenantProvider(tenantId),
+            tenantContext,
+            new TestCurrentUserProvider(userId),
+            new[] { gateway },
+            orchestrator,
+            syncOptions);
+    }
+
     [Fact]
     public async Task CreateSessionAsync_Should_CreateReadySession_WhenProviderIsSupported()
     {
@@ -222,12 +259,8 @@ public class PersonalAccountLinkServiceTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestTenantContext { TenantId = tenantId },
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         // Act
         var result = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
@@ -248,12 +281,8 @@ public class PersonalAccountLinkServiceTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestTenantContext { TenantId = tenantId },
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
 
@@ -292,12 +321,8 @@ public class PersonalAccountLinkServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestTenantContext { TenantId = tenantId },
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
         await service.ExchangeSessionAsync(
@@ -319,12 +344,8 @@ public class PersonalAccountLinkServiceTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestTenantContext { TenantId = tenantId },
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var initialSession = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
         var initialExchange = await service.ExchangeSessionAsync(
@@ -349,12 +370,8 @@ public class PersonalAccountLinkServiceTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestTenantContext { TenantId = tenantId },
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
@@ -376,12 +393,8 @@ public class PersonalAccountLinkServiceTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestTenantContext { TenantId = tenantId },
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
@@ -404,13 +417,8 @@ public class PersonalAccountLinkServiceTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var tenantContext = new TestTenantContext();
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            tenantContext,
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
@@ -432,6 +440,7 @@ public class PersonalAccountLinkServiceTests
         connection.Status.Should().Be("ActionRequired");
         connection.ConsentStatus.Should().Be("ActionRequired");
         connection.LastSyncStatus.Should().Be("PENDING_DISCONNECT");
+        connection.NextScheduledSyncAt.Should().BeNull();
 
         context.FinancialLinkedAccounts.Should().OnlyContain(item => item.Status == "ActionRequired");
         context.FinancialWebhookEvents.Should().ContainSingle(item => item.ProviderEventCode == "PENDING_DISCONNECT");
@@ -444,13 +453,8 @@ public class PersonalAccountLinkServiceTests
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var tenantContext = new TestTenantContext();
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            tenantContext,
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
@@ -474,18 +478,46 @@ public class PersonalAccountLinkServiceTests
     }
 
     [Fact]
+    public async Task ProcessPlaidWebhookAsync_Should_QueueImmediateSync_WhenTransactionWebhookArrives()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
+
+        var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+        var exchange = await service.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "synchook1"));
+
+        tenantContext.TenantId = null;
+        tenantContext.ResolutionSource = null;
+
+        // Act
+        await service.ProcessPlaidWebhookAsync(new PlaidAccountLinkWebhookRequest
+        {
+            WebhookType = "TRANSACTIONS",
+            WebhookCode = "SYNC_UPDATES_AVAILABLE",
+            ItemId = exchange!.Connection.ProviderConnectionReference
+        });
+
+        // Assert
+        var connection = context.FinancialConnections.Single();
+        connection.LastSyncStatus.Should().Be("SYNC_UPDATES_AVAILABLE");
+        connection.NextScheduledSyncAt.Should().NotBeNull();
+        connection.NextScheduledSyncAt.Should().BeOnOrBefore(DateTime.UtcNow.AddSeconds(1));
+    }
+
+    [Fact]
     public async Task SyncConnectionTransactionsAsync_Should_PersistLinkedTransactions_WhenProviderReturnsTransactions()
     {
         // Arrange
         var tenantId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var service = new PersonalAccountLinkService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestTenantContext { TenantId = tenantId },
-            new TestCurrentUserProvider(userId),
-            new[] { new FakeAccountLinkProviderGateway() });
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
 
         var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
@@ -499,6 +531,11 @@ public class PersonalAccountLinkServiceTests
         syncResult!.TransactionsAdded.Should().Be(2);
         syncResult.TransactionsUpdated.Should().Be(0);
         syncResult.TransactionsRemoved.Should().Be(0);
+        syncResult.NextCursor.Should().Be("cursor-sync1234-1");
+
+        var connection = context.FinancialConnections.Single();
+        connection.SyncCursor.Should().Be("cursor-sync1234-1");
+        connection.NextScheduledSyncAt.Should().NotBeNull();
 
         context.PersonalTransactions.Should().HaveCount(2);
         context.PersonalTransactions.Should().OnlyContain(item => item.SourceType == "linked_account_sync");

@@ -21,6 +21,7 @@ builder.Services.AddAgentsModule(builder.Configuration);
 
 // Register the Quartz hosted service
 builder.Services.AddHostedService<QuartzHostedService>();
+builder.Services.AddHostedService<FinancialConnectionRecurringSyncWorker>();
 
 var host = builder.Build();
 host.Run();

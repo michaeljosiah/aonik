@@ -19,7 +19,8 @@
 - [x] Add a real Plaid backend adapter path for Android link-token creation, public-token exchange, refresh, and item removal
 - [x] Add backend Plaid webhook handling and state propagation for action-required/disconnect events
 - [x] Add linked-account transaction sync ingestion into `PersonalTransaction`
-- [ ] Add future backend recurring sync scheduling/workers
+- [x] Add recurring linked-account sync scheduling and worker execution
+- [x] Trigger transaction sync orchestration from Plaid transaction webhooks
 
 ## 1. Purpose
 
@@ -411,6 +412,18 @@ This increment does not yet include:
   - linked `PersonalAccountId` resolved from the provider account reference
 - Sync upserts provider transactions, removes provider-deleted transactions, and stores the latest Plaid cursor on the financial connection.
 - Provider categories are treated as low-confidence provider classifications and remain compatible with later user review or rule-based overrides.
+
+### Recurring Sync Notes
+
+- Financial connections now store recurring sync metadata, including:
+  - `AutoSyncEnabled`
+  - `SyncIntervalMinutes`
+  - `NextScheduledSyncAt`
+  - `LastWebhookReceivedAt`
+  - `SyncCursor`
+- The Worker host now includes a recurring linked-account sync worker that polls for due connections and runs transaction sync in batches.
+- Plaid transaction webhooks such as `SYNC_UPDATES_AVAILABLE`, `INITIAL_UPDATE`, `DEFAULT_UPDATE`, and `HISTORICAL_UPDATE` now queue immediate follow-up sync by setting `NextScheduledSyncAt`.
+- Action-required and disconnect states clear recurring scheduling until the linked account is restored.
 
 ---
 

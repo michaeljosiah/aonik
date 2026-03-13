@@ -28,6 +28,12 @@ internal class FinancialConnectionConfiguration : IEntityTypeConfiguration<Finan
         builder.Property(x => x.InstitutionReference)
             .HasMaxLength(200);
 
+        builder.Property(x => x.AutoSyncEnabled)
+            .HasDefaultValue(true);
+
+        builder.Property(x => x.SyncIntervalMinutes)
+            .HasDefaultValue(360);
+
         builder.Property(x => x.Status)
             .IsRequired()
             .HasMaxLength(50);
@@ -53,5 +59,6 @@ internal class FinancialConnectionConfiguration : IEntityTypeConfiguration<Finan
             .IsUnique();
 
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.Status });
+        builder.HasIndex(x => new { x.AutoSyncEnabled, x.NextScheduledSyncAt });
     }
 }

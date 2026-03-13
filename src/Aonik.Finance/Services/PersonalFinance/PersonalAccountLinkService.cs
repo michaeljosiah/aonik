@@ -19,19 +19,25 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
+    private readonly FinancialConnectionTransactionSyncOrchestrator _transactionSyncOrchestrator;
+    private readonly FinancialConnectionSyncOptions _syncOptions;
 
     public PersonalAccountLinkService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ITenantContext tenantContext,
         ICurrentUserProvider currentUserProvider,
-        IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways)
+        IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
+        FinancialConnectionTransactionSyncOrchestrator transactionSyncOrchestrator,
+        Microsoft.Extensions.Options.IOptions<FinancialConnectionSyncOptions> syncOptions)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _tenantContext = tenantContext;
         _currentUserProvider = currentUserProvider;
         _providerGateways = providerGateways;
+        _transactionSyncOrchestrator = transactionSyncOrchestrator;
+        _syncOptions = syncOptions.Value;
     }
 
     public async Task<AccountLinkSessionResponse> CreateSessionAsync(
@@ -316,193 +322,13 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var utcNow = DateTime.UtcNow;
 
-        var connection = await GetOwnedConnectionAsync(connectionId, tenantId, userId, cancellationToken);
-        if (connection == null)
-        {
-            return null;
-        }
-
-        if (connection.DisconnectedAt != null || string.Equals(connection.Status, "Disconnected", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Disconnected account links cannot sync transactions.");
-        }
-
-        if (string.Equals(connection.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(connection.ConsentStatus, "ActionRequired", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Reconnect this account link before syncing transactions.");
-        }
-
-        var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
-            .Where(item => item.TenantId == tenantId
-                && item.UserId == userId
-                && item.FinancialConnectionId == connection.Id)
-            .OrderBy(item => item.Name)
-            .ToListAsync(cancellationToken);
-
-        if (linkedAccounts.Count == 0)
-        {
-            throw new InvalidOperationException("No linked accounts are available for transaction sync.");
-        }
-
-        var personalAccountIds = linkedAccounts.Select(item => item.PersonalAccountId).Distinct().ToList();
-        var personalAccounts = await _financeDbContext.PersonalAccounts
-            .Where(item => item.TenantId == tenantId
-                && item.UserId == userId
-                && personalAccountIds.Contains(item.Id))
-            .ToListAsync(cancellationToken);
-
-        var personalAccountsById = personalAccounts.ToDictionary(item => item.Id);
-        var linkedAccountsByReference = linkedAccounts.ToDictionary(item => item.ProviderAccountReference, StringComparer.Ordinal);
-
-        var gateway = ResolveProvider(connection.Provider);
-        var syncResult = await gateway.SyncTransactionsAsync(
-            new AccountLinkProviderTransactionsSyncRequest(
-                tenantId,
-                userId,
-                connection.Id,
-                connection.ProviderConnectionReference,
-                connection.SecretReference,
-                connection.SyncCursor),
+        return await _transactionSyncOrchestrator.SyncConnectionTransactionsAsync(
+            tenantId,
+            userId,
+            connectionId,
+            "manual",
             cancellationToken);
-
-        connection.LastSyncedAt = syncResult.SyncedAt;
-        connection.LastSyncStatus = syncResult.SyncStatus;
-        connection.SyncCursor = syncResult.NextCursor ?? connection.SyncCursor;
-
-        if (!string.IsNullOrWhiteSpace(syncResult.LastError))
-        {
-            ApplyActionRequiredState(
-                connection,
-                linkedAccounts,
-                personalAccounts,
-                syncResult.SyncStatus,
-                syncResult.LastError);
-
-            await _financeDbContext.SaveChangesAsync(cancellationToken);
-
-            return new AccountLinkTransactionSyncResponse(
-                connection.Id,
-                0,
-                0,
-                0,
-                0,
-                syncResult.SyncStatus,
-                connection.SyncCursor,
-                syncResult.SyncedAt);
-        }
-
-        connection.Status = "Connected";
-        connection.ConsentStatus = "Granted";
-        connection.LastError = null;
-
-        foreach (var linkedAccount in linkedAccounts)
-        {
-            linkedAccount.Status = "Connected";
-            linkedAccount.LastSyncedAt = syncResult.SyncedAt;
-            linkedAccount.LastSyncStatus = syncResult.SyncStatus;
-            linkedAccount.LastError = null;
-        }
-
-        foreach (var personalAccount in personalAccounts)
-        {
-            personalAccount.Status = "Connected";
-            personalAccount.IsArchived = false;
-            personalAccount.ClosedAt = null;
-        }
-
-        var transactionIds = syncResult.Transactions
-            .Select(item => CreateDeterministicGuid(item.ProviderTransactionReference))
-            .Distinct()
-            .ToList();
-
-        var existingTransactionsBySourceId = transactionIds.Count == 0
-            ? new Dictionary<Guid, PersonalTransaction>()
-            : await _financeDbContext.PersonalTransactions
-                .Where(item => item.TenantId == tenantId
-                    && item.UserId == userId
-                    && item.SourceType == LinkedAccountSyncSourceType
-                    && transactionIds.Contains(item.SourceId))
-                .ToDictionaryAsync(item => item.SourceId, cancellationToken);
-
-        var added = 0;
-        var updated = 0;
-        var skipped = 0;
-
-        foreach (var providerTransaction in syncResult.Transactions)
-        {
-            if (!linkedAccountsByReference.TryGetValue(providerTransaction.ProviderAccountReference, out var linkedAccount))
-            {
-                skipped += 1;
-                continue;
-            }
-
-            if (!personalAccountsById.TryGetValue(linkedAccount.PersonalAccountId, out var personalAccount))
-            {
-                skipped += 1;
-                continue;
-            }
-
-            var sourceId = CreateDeterministicGuid(providerTransaction.ProviderTransactionReference);
-            if (!existingTransactionsBySourceId.TryGetValue(sourceId, out var transaction))
-            {
-                transaction = new PersonalTransaction
-                {
-                    TenantId = tenantId,
-                    UserId = userId,
-                    PersonalAccountId = personalAccount.Id,
-                    SourceType = LinkedAccountSyncSourceType,
-                    SourceId = sourceId,
-                    TagsJson = "[]"
-                };
-
-                ApplyProviderTransaction(transaction, providerTransaction);
-                _financeDbContext.PersonalTransactions.Add(transaction);
-                existingTransactionsBySourceId[sourceId] = transaction;
-                added += 1;
-                continue;
-            }
-
-            transaction.PersonalAccountId = personalAccount.Id;
-            ApplyProviderTransaction(transaction, providerTransaction);
-            updated += 1;
-        }
-
-        var removed = 0;
-        if (syncResult.RemovedTransactionReferences.Count > 0)
-        {
-            var removedIds = syncResult.RemovedTransactionReferences
-                .Select(CreateDeterministicGuid)
-                .Distinct()
-                .ToList();
-
-            var existingRemovedTransactions = await _financeDbContext.PersonalTransactions
-                .Where(item => item.TenantId == tenantId
-                    && item.UserId == userId
-                    && item.SourceType == LinkedAccountSyncSourceType
-                    && removedIds.Contains(item.SourceId))
-                .ToListAsync(cancellationToken);
-
-            if (existingRemovedTransactions.Count > 0)
-            {
-                _financeDbContext.PersonalTransactions.RemoveRange(existingRemovedTransactions);
-                removed = existingRemovedTransactions.Count;
-            }
-        }
-
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
-
-        return new AccountLinkTransactionSyncResponse(
-            connection.Id,
-            added,
-            updated,
-            removed,
-            skipped,
-            syncResult.SyncStatus,
-            connection.SyncCursor,
-            syncResult.SyncedAt);
     }
 
     public async Task ProcessPlaidWebhookAsync(
@@ -555,6 +381,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             webhookEvent.TenantId = connection.TenantId;
             webhookEvent.UserId = connection.UserId;
             webhookEvent.FinancialConnectionId = connection.Id;
+            connection.LastWebhookReceivedAt = utcNow;
 
             _tenantContext.TenantId = connection.TenantId;
             _tenantContext.ResolutionSource = "PlaidWebhook";
@@ -692,13 +519,19 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             {
                 TenantId = tenantId,
                 UserId = userId,
-                Provider = providerCode
+                Provider = providerCode,
+                AutoSyncEnabled = true,
+                SyncIntervalMinutes = Math.Max(_syncOptions.DefaultSyncIntervalMinutes, 1)
             };
 
             _financeDbContext.FinancialConnections.Add(connection);
         }
 
         UpdateConnectionState(connection, providerState);
+        EnsureRecurringSyncDefaults(connection);
+        connection.NextScheduledSyncAt = DetermineConnectionStatus(providerState) == "Connected"
+            ? ComputeNextScheduledSyncAt(connection, providerState.LastSyncedAt ?? utcNow)
+            : null;
 
         var linkedAccountsByReference = await _financeDbContext.FinancialLinkedAccounts
             .Where(item => item.TenantId == tenantId
@@ -796,10 +629,19 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             return "Processed";
         }
 
-        if (webhookType == "TRANSACTIONS" && webhookCode == "SYNC_UPDATES_AVAILABLE")
+        if (webhookType == "TRANSACTIONS"
+            && (webhookCode == "SYNC_UPDATES_AVAILABLE"
+                || webhookCode == "INITIAL_UPDATE"
+                || webhookCode == "HISTORICAL_UPDATE"
+                || webhookCode == "DEFAULT_UPDATE"
+                || webhookCode == "TRANSACTIONS_REMOVED"))
         {
-            connection.LastSyncStatus = "SyncUpdatesAvailable";
-            connection.LastSyncedAt = utcNow;
+            connection.LastSyncStatus = webhookCode;
+            connection.LastWebhookReceivedAt = utcNow;
+            if (_syncOptions.EnableRecurringSync && connection.AutoSyncEnabled)
+            {
+                connection.NextScheduledSyncAt = utcNow;
+            }
             if (!string.Equals(connection.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase))
             {
                 connection.LastError = null;
@@ -807,7 +649,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
             foreach (var linkedAccount in linkedAccounts)
             {
-                linkedAccount.LastSyncStatus = "SyncUpdatesAvailable";
+                linkedAccount.LastSyncStatus = webhookCode;
                 linkedAccount.LastSyncedAt = utcNow;
                 if (!string.Equals(linkedAccount.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase))
                 {
@@ -832,6 +674,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         connection.ConsentStatus = "ActionRequired";
         connection.LastSyncStatus = syncStatus;
         connection.LastError = LimitText(message, 1000);
+        connection.NextScheduledSyncAt = null;
 
         foreach (var linkedAccount in linkedAccounts)
         {
@@ -905,6 +748,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         connection.LastSyncStatus = syncStatus;
         connection.LastError = null;
         connection.DisconnectedAt = utcNow;
+        connection.NextScheduledSyncAt = null;
 
         foreach (var linkedAccount in linkedAccounts)
         {
@@ -942,6 +786,28 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         connection.LastSyncStatus = providerState.LastSyncStatus;
         connection.LastError = DetermineConnectionError(providerState);
         connection.DisconnectedAt = null;
+    }
+
+    private void EnsureRecurringSyncDefaults(FinancialConnection connection)
+    {
+        if (connection.SyncIntervalMinutes <= 0)
+        {
+            connection.SyncIntervalMinutes = Math.Max(_syncOptions.DefaultSyncIntervalMinutes, 1);
+        }
+    }
+
+    private DateTime? ComputeNextScheduledSyncAt(FinancialConnection connection, DateTime fromUtc)
+    {
+        if (!_syncOptions.EnableRecurringSync || !connection.AutoSyncEnabled)
+        {
+            return null;
+        }
+
+        var intervalMinutes = connection.SyncIntervalMinutes > 0
+            ? connection.SyncIntervalMinutes
+            : Math.Max(_syncOptions.DefaultSyncIntervalMinutes, 1);
+
+        return fromUtc.AddMinutes(intervalMinutes);
     }
 
     private static string DetermineConnectionStatus(AccountLinkProviderExchangeResult providerState)

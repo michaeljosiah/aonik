@@ -82,6 +82,8 @@ public sealed class FinanceModule : IModule
         // PersonalFinance
         services.Configure<Services.PersonalFinance.PlaidAccountLinkOptions>(
             configuration.GetSection("Finance:PersonalFinance:Plaid"));
+        services.Configure<Services.PersonalFinance.FinancialConnectionSyncOptions>(
+            configuration.GetSection("Finance:PersonalFinance:LinkedAccountSync"));
         services.AddHttpClient<Services.PersonalFinance.PlaidAccountLinkProviderGateway>((sp, client) =>
         {
             var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;
@@ -93,6 +95,7 @@ public sealed class FinanceModule : IModule
 
         services.AddScoped<Contracts.Services.PersonalFinance.IHouseholdService, Services.PersonalFinance.HouseholdService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalAccountService, Services.PersonalFinance.PersonalAccountService>();
+        services.AddScoped<Services.PersonalFinance.FinancialConnectionTransactionSyncOrchestrator>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalAccountLinkService, Services.PersonalFinance.PersonalAccountLinkService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalTransactionService, Services.PersonalFinance.PersonalTransactionService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IStatementImportService, Services.PersonalFinance.StatementImportService>();
