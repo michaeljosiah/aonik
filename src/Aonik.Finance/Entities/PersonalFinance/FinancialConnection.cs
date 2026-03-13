@@ -1,0 +1,20 @@
+using Aonik.SharedKernel.Primitives;
+
+namespace Aonik.Finance.Entities.PersonalFinance;
+
+public class FinancialConnection : AuditableEntity, ITenantScoped
+{
+    public Guid TenantId { get; set; }
+    public Guid UserId { get; set; }
+    public string Provider { get; set; } = string.Empty;
+    public string ProviderConnectionReference { get; set; } = string.Empty;
+    public string InstitutionName { get; set; } = string.Empty;
+    public string? InstitutionReference { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string ConsentStatus { get; set; } = string.Empty;
+    public string SecretReference { get; set; } = string.Empty;
+    public DateTime? LastSyncedAt { get; set; }
+    public string? LastSyncStatus { get; set; }
+    public string? LastError { get; set; }
+    public DateTime? DisconnectedAt { get; set; }
+}

@@ -1,4 +1,4 @@
-package com.example.payabo_mobile
+package com.payabo.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

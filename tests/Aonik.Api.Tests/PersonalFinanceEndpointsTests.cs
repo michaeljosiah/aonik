@@ -48,6 +48,119 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task AccountLinks_CreateSessionExchangeAndSummary_ReturnLinkedAccounts()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+        var sessionRequest = new CreateAccountLinkSessionRequest("Plaid");
+
+        // Act
+        var sessionResponse = await client.PostAsJsonAsync("/personal-finance/account-links/sessions", sessionRequest);
+        var session = await sessionResponse.Content.ReadFromJsonAsync<AccountLinkSessionResponse>();
+
+        var exchangeResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/exchanges",
+            new ExchangeAccountLinkSessionRequest(session!.AccountLinkSessionId, "sandbox-public-token-001"));
+        var exchanged = await exchangeResponse.Content.ReadFromJsonAsync<AccountLinkExchangeResponse>();
+
+        var listResponse = await client.GetAsync("/personal-finance/account-links");
+        var listed = await listResponse.Content.ReadFromJsonAsync<List<AccountLinkConnectionResponse>>();
+
+        var summaryResponse = await client.GetAsync("/personal-finance/account-links/summary");
+        var summary = await summaryResponse.Content.ReadFromJsonAsync<List<AccountLinkSummaryItemResponse>>();
+
+        // Assert
+        sessionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        session.Should().NotBeNull();
+        session!.Provider.Should().Be("Plaid");
+        session.Status.Should().Be("Ready");
+
+        exchangeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        exchanged.Should().NotBeNull();
+        exchanged!.Connection.Accounts.Should().HaveCount(2);
+        exchanged.Connection.InstitutionName.Should().Be("Plaid Sandbox Bank");
+
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listed.Should().NotBeNull();
+        listed!.Should().ContainSingle(item => item.ConnectionId == exchanged.Connection.ConnectionId);
+
+        summaryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        summary.Should().NotBeNull();
+        summary!.Should().Contain(item =>
+            item.ConnectionId == exchanged.Connection.ConnectionId
+            && item.SourceType == "linked"
+            && item.Provider == "Plaid");
+    }
+
+    [Fact]
+    public async Task AccountLinks_ReconnectRefreshAndDisconnect_UpdateConnectionState()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+
+        var sessionResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/sessions",
+            new CreateAccountLinkSessionRequest("Plaid"));
+        var session = await sessionResponse.Content.ReadFromJsonAsync<AccountLinkSessionResponse>();
+
+        var exchangeResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/exchanges",
+            new ExchangeAccountLinkSessionRequest(session!.AccountLinkSessionId, "sandbox-public-token-002"));
+        var exchanged = await exchangeResponse.Content.ReadFromJsonAsync<AccountLinkExchangeResponse>();
+
+        // Act
+        var refreshResponse = await client.PostAsync(
+            $"/personal-finance/account-links/{exchanged!.Connection.ConnectionId}/refresh",
+            null);
+        var refreshed = await refreshResponse.Content.ReadFromJsonAsync<AccountLinkActionResponse>();
+
+        var reconnectSessionResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/sessions",
+            new CreateAccountLinkSessionRequest(
+                "Plaid",
+                Mode: "update",
+                ConnectionId: exchanged.Connection.ConnectionId));
+        var reconnectSession = await reconnectSessionResponse.Content.ReadFromJsonAsync<AccountLinkSessionResponse>();
+
+        var reconnectExchangeResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/exchanges",
+            new ExchangeAccountLinkSessionRequest(reconnectSession!.AccountLinkSessionId, "sandbox-public-token-003"));
+        var reconnected = await reconnectExchangeResponse.Content.ReadFromJsonAsync<AccountLinkExchangeResponse>();
+
+        var disconnectResponse = await client.PostAsync(
+            $"/personal-finance/account-links/{exchanged.Connection.ConnectionId}/disconnect",
+            null);
+        var disconnected = await disconnectResponse.Content.ReadFromJsonAsync<AccountLinkActionResponse>();
+
+        var summaryResponse = await client.GetAsync("/personal-finance/account-links/summary");
+        var summary = await summaryResponse.Content.ReadFromJsonAsync<List<AccountLinkSummaryItemResponse>>();
+
+        // Assert
+        refreshResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        refreshed.Should().NotBeNull();
+        refreshed!.Action.Should().Be("refresh");
+        refreshed.Connection.LastSyncStatus.Should().Be("RefreshComplete");
+
+        reconnectSessionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        reconnectSession.Should().NotBeNull();
+        reconnectSession!.ConnectionId.Should().Be(exchanged.Connection.ConnectionId);
+        reconnectSession.Mode.Should().Be("update");
+
+        reconnectExchangeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        reconnected.Should().NotBeNull();
+        reconnected!.Connection.ConnectionId.Should().Be(exchanged.Connection.ConnectionId);
+
+        disconnectResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        disconnected.Should().NotBeNull();
+        disconnected!.Action.Should().Be("disconnect");
+        disconnected.Connection.Status.Should().Be("Disconnected");
+
+        summaryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        summary.Should().NotBeNull();
+        summary!.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task StatementImport_UploadAndApply_CreatesImportAndAppliesRows()
     {
         // Arrange

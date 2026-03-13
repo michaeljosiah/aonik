@@ -59,6 +59,90 @@ public record PersonalAccountResponse(
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 
+public record CreateAccountLinkSessionRequest(
+    string Provider,
+    string Mode = "connect",
+    Guid? ConnectionId = null,
+    string? AndroidPackageName = null,
+    string? RedirectUri = null,
+    string? CountryCode = null,
+    string? ClientName = null);
+
+public record AccountLinkSessionResponse(
+    Guid AccountLinkSessionId,
+    string Provider,
+    string ProviderDisplayName,
+    string Mode,
+    string Status,
+    Guid? ConnectionId,
+    string LaunchToken,
+    DateTime ExpiresAt,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
+public record ExchangeAccountLinkSessionRequest(
+    Guid AccountLinkSessionId,
+    string TemporaryCode);
+
+public record AccountLinkConnectionAccountResponse(
+    Guid LinkedAccountId,
+    Guid PersonalAccountId,
+    string Name,
+    string AccountType,
+    string? AccountSubtype,
+    string Currency,
+    string? Last4,
+    string Status,
+    DateTime? LastSyncedAt,
+    string? LastSyncStatus,
+    string? LastError,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
+public record AccountLinkConnectionResponse(
+    Guid ConnectionId,
+    string Provider,
+    string ProviderDisplayName,
+    string ProviderConnectionReference,
+    string InstitutionName,
+    string? InstitutionReference,
+    string Status,
+    string ConsentStatus,
+    DateTime? LastSyncedAt,
+    string? LastSyncStatus,
+    string? LastError,
+    DateTime? DisconnectedAt,
+    IReadOnlyList<AccountLinkConnectionAccountResponse> Accounts,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
+public record AccountLinkExchangeResponse(
+    Guid AccountLinkSessionId,
+    AccountLinkConnectionResponse Connection);
+
+public record AccountLinkActionResponse(
+    string Action,
+    AccountLinkConnectionResponse Connection);
+
+public record AccountLinkSummaryItemResponse(
+    Guid PersonalAccountId,
+    Guid? ConnectionId,
+    Guid? LinkedAccountId,
+    string SourceType,
+    string Name,
+    string AccountType,
+    string Currency,
+    string? InstitutionName,
+    string? AccountSubtype,
+    string? Last4,
+    string Status,
+    string? Provider,
+    DateTime? LastSyncedAt,
+    string? LastSyncStatus,
+    string? LastError,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
 public record CreateManualPersonalTransactionRequest(
     Guid? PersonalAccountId,
     DateTime OccurredAt,

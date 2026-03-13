@@ -100,6 +100,9 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
     public DbSet<Household> Households { get; set; } = null!;
     public DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
+    public DbSet<FinancialConnectionSession> FinancialConnectionSessions { get; set; } = null!;
+    public DbSet<FinancialConnection> FinancialConnections { get; set; } = null!;
+    public DbSet<FinancialLinkedAccount> FinancialLinkedAccounts { get; set; } = null!;
     public DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
     public DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
@@ -186,6 +189,9 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
         MapTable<Household>(modelBuilder, "Households");
         MapTable<HouseholdMember>(modelBuilder, "HouseholdMembers");
+        MapTable<FinancialConnectionSession>(modelBuilder, "FinancialConnectionSessions");
+        MapTable<FinancialConnection>(modelBuilder, "FinancialConnections");
+        MapTable<FinancialLinkedAccount>(modelBuilder, "FinancialLinkedAccounts");
         MapTable<PersonalAccount>(modelBuilder, "PersonalAccounts");
         MapTable<PersonalTransaction>(modelBuilder, "PersonalTransactions");
         MapTable<CategorisationRule>(modelBuilder, "CategorisationRules");

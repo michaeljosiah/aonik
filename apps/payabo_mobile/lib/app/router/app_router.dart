@@ -43,9 +43,11 @@ import '../../features/profile/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/personal_details_screen.dart';
 import '../../features/profile/presentation/photo_selection_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/spending/presentation/spending_account_link_return_screen.dart';
+import '../../features/spending/presentation/spending_accounts_screen.dart';
 import '../../features/spending/presentation/spending_budget_detail_screen.dart';
-import '../../features/spending/presentation/spending_category_detail_screen.dart';
 import '../../features/spending/presentation/spending_budget_screen.dart';
+import '../../features/spending/presentation/spending_category_detail_screen.dart';
 import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
 import '../../features/spending/presentation/spending_screen.dart';
 import '../auth/auth_controller.dart';
@@ -190,6 +192,27 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending/budgets',
           name: 'spending-budgets',
           builder: (context, state) => const SpendingBudgetScreen(),
+        ),
+        GoRoute(
+          path: '/spending/accounts',
+          name: 'spending-accounts',
+          builder: (context, state) => const SpendingAccountsScreen(),
+        ),
+        GoRoute(
+          path: '/spending/accounts/return',
+          name: 'spending-accounts-return',
+          builder: (context, state) => SpendingAccountLinkReturnScreen(
+            redirectUri: state.uri.queryParameters['redirect_uri'] ??
+                state.uri.toString(),
+          ),
+        ),
+        GoRoute(
+          path: '/accounts/return',
+          name: 'accounts-return',
+          builder: (context, state) => SpendingAccountLinkReturnScreen(
+            redirectUri: state.uri.queryParameters['redirect_uri'] ??
+                state.uri.toString(),
+          ),
         ),
         GoRoute(
           path: '/spending/budgets/:budgetId',

@@ -13,6 +13,10 @@ class AppEnvironment {
     required this.apiBaseUrl,
     this.tenantId = '',
     this.authClientId = 'Xw3xY2u7FhoLcdc1VjfS0J7Zz6o0jN3R',
+    this.accountLinkProvider = 'Plaid',
+    this.accountLinkUseNativeLauncher = false,
+    this.accountLinkAndroidPackageName = 'com.payabo.mobile',
+    this.accountLinkRedirectUri = '',
   });
 
   final AppFlavor flavor;
@@ -20,6 +24,10 @@ class AppEnvironment {
   final String apiBaseUrl;
   final String tenantId;
   final String authClientId;
+  final String accountLinkProvider;
+  final bool accountLinkUseNativeLauncher;
+  final String accountLinkAndroidPackageName;
+  final String accountLinkRedirectUri;
 
   String get runtimeApiBaseUrl {
     final normalized = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '');
@@ -73,9 +81,29 @@ class AppEnvironment {
       'AUTH0_CLIENT_ID',
       defaultValue: 'Xw3xY2u7FhoLcdc1VjfS0J7Zz6o0jN3R',
     );
+    const String accountLinkProvider = String.fromEnvironment(
+      'ACCOUNT_LINK_PROVIDER',
+      defaultValue: 'Plaid',
+    );
+    const bool accountLinkUseNativeLauncher = bool.fromEnvironment(
+      'ACCOUNT_LINK_USE_NATIVE_LAUNCHER',
+      defaultValue: false,
+    );
+    const String accountLinkAndroidPackageName = String.fromEnvironment(
+      'ACCOUNT_LINK_ANDROID_PACKAGE_NAME',
+      defaultValue: 'com.payabo.mobile',
+    );
+    const String accountLinkRedirectUri = String.fromEnvironment(
+      'ACCOUNT_LINK_REDIRECT_URI',
+      defaultValue: '',
+    );
 
     final normalizedTenantId = tenantId.trim();
     final normalizedAuthClientId = authClientId.trim();
+    final normalizedAccountLinkProvider = accountLinkProvider.trim();
+    final normalizedAccountLinkAndroidPackageName =
+        accountLinkAndroidPackageName.trim();
+    final normalizedAccountLinkRedirectUri = accountLinkRedirectUri.trim();
 
     if (!useMocks && !_guidPattern.hasMatch(normalizedTenantId)) {
       throw StateError(
@@ -95,6 +123,15 @@ class AppEnvironment {
       apiBaseUrl: apiBaseUrl,
       tenantId: normalizedTenantId,
       authClientId: normalizedAuthClientId,
+      accountLinkProvider: normalizedAccountLinkProvider.isEmpty
+          ? 'Plaid'
+          : normalizedAccountLinkProvider,
+      accountLinkUseNativeLauncher: accountLinkUseNativeLauncher,
+      accountLinkAndroidPackageName:
+          normalizedAccountLinkAndroidPackageName.isEmpty
+              ? 'com.payabo.mobile'
+              : normalizedAccountLinkAndroidPackageName,
+      accountLinkRedirectUri: normalizedAccountLinkRedirectUri,
     );
   }
 

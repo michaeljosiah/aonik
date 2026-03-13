@@ -301,7 +301,7 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
         context.go('/spending/budgets');
         return;
       case SpendingSection.accounts:
-        _showSectionComingSoon('Accounts');
+        context.go('/spending/accounts');
         return;
     }
   }
@@ -310,12 +310,6 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
           content: Text('Spending insights are mocked in this build.')),
-    );
-  }
-
-  void _showSectionComingSoon(String sectionName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$sectionName view coming soon in mock build.')),
     );
   }
 }

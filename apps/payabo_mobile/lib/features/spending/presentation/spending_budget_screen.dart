@@ -142,7 +142,7 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
       case SpendingSection.budgets:
         return;
       case SpendingSection.accounts:
-        _showSectionComingSoon('Accounts');
+        context.go('/spending/accounts');
         return;
     }
   }
@@ -151,12 +151,6 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
     setState(() {
       _expandedCategoryId = _expandedCategoryId == categoryId ? '' : categoryId;
     });
-  }
-
-  void _showSectionComingSoon(String sectionName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$sectionName view coming soon in mock build.')),
-    );
   }
 }
 

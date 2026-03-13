@@ -5,6 +5,7 @@ using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Aonik.Finance;
 
@@ -79,13 +80,35 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Catalog.IPublicCatalogService, Services.Catalog.PublicCatalogService>();
 
         // PersonalFinance
+        services.Configure<Services.PersonalFinance.PlaidAccountLinkOptions>(
+            configuration.GetSection("Finance:PersonalFinance:Plaid"));
+        services.AddHttpClient<Services.PersonalFinance.PlaidAccountLinkProviderGateway>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;
+            if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                client.BaseAddress = baseUri;
+            }
+        });
+
         services.AddScoped<Contracts.Services.PersonalFinance.IHouseholdService, Services.PersonalFinance.HouseholdService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalAccountService, Services.PersonalFinance.PersonalAccountService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IPersonalAccountLinkService, Services.PersonalFinance.PersonalAccountLinkService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalTransactionService, Services.PersonalFinance.PersonalTransactionService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IStatementImportService, Services.PersonalFinance.StatementImportService>();
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionClassificationService, Services.PersonalFinance.TransactionClassificationService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceInsightsService, Services.PersonalFinance.PersonalFinanceInsightsService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceNarrativeInsightsService, Services.PersonalFinance.PersonalFinanceNarrativeInsightsService>();
+        services.AddTransient<Contracts.Services.PersonalFinance.IPersonalAccountLinkProviderGateway>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;
+            if (options.IsConfigured())
+            {
+                return sp.GetRequiredService<Services.PersonalFinance.PlaidAccountLinkProviderGateway>();
+            }
+
+            return new Services.PersonalFinance.PlaidSimulatedAccountLinkProviderGateway();
+        });
 
         // ── Finance AI Insights ──────────────────────────────────────
         services.AddScoped<Services.Ai.InvoiceInsightWorkflow>();

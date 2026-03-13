@@ -100,6 +100,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
     public virtual DbSet<Household> Households { get; set; } = null!;
     public virtual DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
+    public virtual DbSet<FinancialConnectionSession> FinancialConnectionSessions { get; set; } = null!;
+    public virtual DbSet<FinancialConnection> FinancialConnections { get; set; } = null!;
+    public virtual DbSet<FinancialLinkedAccount> FinancialLinkedAccounts { get; set; } = null!;
     public virtual DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public virtual DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
     public virtual DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
@@ -261,6 +264,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapFinanceTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
         MapFinanceTable<Household>(modelBuilder, "Households");
         MapFinanceTable<HouseholdMember>(modelBuilder, "HouseholdMembers");
+        MapFinanceTable<FinancialConnectionSession>(modelBuilder, "FinancialConnectionSessions");
+        MapFinanceTable<FinancialConnection>(modelBuilder, "FinancialConnections");
+        MapFinanceTable<FinancialLinkedAccount>(modelBuilder, "FinancialLinkedAccounts");
         MapFinanceTable<PersonalAccount>(modelBuilder, "PersonalAccounts");
         MapFinanceTable<PersonalTransaction>(modelBuilder, "PersonalTransactions");
         MapFinanceTable<CategorisationRule>(modelBuilder, "CategorisationRules");

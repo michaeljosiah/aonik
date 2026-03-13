@@ -4,6 +4,7 @@ import '../../app/auth/auth_session_store.dart';
 import '../../app/demo/demo_data_mode.dart';
 import '../../app/environment/environment_provider.dart';
 import '../../app/startup/offline_mode_provider.dart';
+import '../../mock/repositories/mock_account_links_repository.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_budget_repository.dart';
 import '../../mock/repositories/mock_catalog_repository.dart';
@@ -12,10 +13,12 @@ import '../../mock/repositories/mock_order_repository.dart';
 import '../../mock/repositories/mock_payment_repository.dart';
 import '../../mock/repositories/mock_profile_repository.dart';
 import '../api/api_client.dart';
+import 'account_links_repository.dart';
 import 'auth_repository.dart';
 import 'budget_repository.dart';
 import 'catalog_repository.dart';
 import 'dashboard_repository.dart';
+import 'live_account_links_repository.dart';
 import 'live_auth_repository.dart';
 import 'live_profile_repository.dart';
 import 'order_repository.dart';
@@ -65,6 +68,20 @@ final Provider<BudgetRepository> budgetRepositoryProvider =
 
     // Budgets remain mock-backed until a live repository is implemented.
     return MockBudgetRepository(demoDataMode: demoDataMode);
+  },
+);
+
+final Provider<AccountLinksRepository> accountLinksRepositoryProvider =
+    Provider<AccountLinksRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    if (_shouldMock(ref)) {
+      return MockAccountLinksRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveAccountLinksRepository(apiClient: apiClient);
   },
 );
 

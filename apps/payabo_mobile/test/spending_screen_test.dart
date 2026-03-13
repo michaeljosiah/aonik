@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
+import 'package:payabo_mobile/features/spending/presentation/spending_accounts_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_budget_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_screen.dart';
 import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'test_helpers.dart';
 
@@ -100,5 +101,57 @@ void main() {
 
     expect(find.text('Category budgets'), findsOneWidget);
     expect(find.text('Housing'), findsOneWidget);
+  });
+
+  testWidgets('accounts pill opens the accounts screen',
+      (WidgetTester tester) async {
+    final GoRouter router = GoRouter(
+      initialLocation: '/spending',
+      routes: <GoRoute>[
+        GoRoute(
+          path: '/spending',
+          builder: (BuildContext context, GoRouterState state) =>
+              const SpendingScreen(),
+        ),
+        GoRoute(
+          path: '/spending/accounts',
+          builder: (BuildContext context, GoRouterState state) =>
+              const SpendingAccountsScreen(),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
+        ],
+        child: MaterialApp.router(
+          theme: buildPayaboTheme(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Accounts'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connected accounts'), findsOneWidget);
+    final Finder primaryScrollable = find.byType(Scrollable).last;
+
+    await tester.scrollUntilVisible(
+      find.text('Everyday current'),
+      260,
+      scrollable: primaryScrollable,
+    );
+    expect(find.text('Everyday current'), findsOneWidget);
   });
 }

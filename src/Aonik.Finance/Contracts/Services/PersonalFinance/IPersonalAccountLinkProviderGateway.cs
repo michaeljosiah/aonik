@@ -1,0 +1,86 @@
+namespace Aonik.Finance.Contracts.Services.PersonalFinance;
+
+public interface IPersonalAccountLinkProviderGateway
+{
+    string ProviderCode { get; }
+
+    string DisplayName { get; }
+
+    Task<AccountLinkProviderSessionResult> CreateSessionAsync(
+        AccountLinkProviderSessionRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<AccountLinkProviderExchangeResult> ExchangeSessionAsync(
+        AccountLinkProviderExchangeRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<AccountLinkProviderExchangeResult> RefreshConnectionAsync(
+        AccountLinkProviderRefreshRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DisconnectConnectionAsync(
+        AccountLinkProviderDisconnectRequest request,
+        CancellationToken cancellationToken = default);
+}
+
+public record AccountLinkProviderSessionRequest(
+    Guid TenantId,
+    Guid UserId,
+    Guid SessionId,
+    Guid? ConnectionId,
+    string? ExistingConnectionReference,
+    string? ExistingSecretReference,
+    string Mode,
+    string? AndroidPackageName,
+    string? RedirectUri,
+    string? CountryCode,
+    string? ClientName);
+
+public record AccountLinkProviderSessionResult(
+    string LaunchToken,
+    string? ProviderSessionReference,
+    DateTime ExpiresAt);
+
+public record AccountLinkProviderExchangeRequest(
+    Guid TenantId,
+    Guid UserId,
+    Guid SessionId,
+    Guid? ConnectionId,
+    string? ExistingConnectionReference,
+    string SessionToken,
+    string TemporaryCode,
+    string Mode);
+
+public record AccountLinkProviderRefreshRequest(
+    Guid TenantId,
+    Guid UserId,
+    Guid ConnectionId,
+    string ProviderConnectionReference,
+    string SecretReference);
+
+public record AccountLinkProviderDisconnectRequest(
+    Guid TenantId,
+    Guid UserId,
+    Guid ConnectionId,
+    string ProviderConnectionReference,
+    string SecretReference);
+
+public record AccountLinkProviderAccountResult(
+    string ProviderAccountReference,
+    string Name,
+    string AccountType,
+    string? AccountSubtype,
+    string Currency,
+    string? Last4,
+    string Status);
+
+public record AccountLinkProviderExchangeResult(
+    string ProviderConnectionReference,
+    string SecretReference,
+    string InstitutionName,
+    string? InstitutionReference,
+    string ConsentStatus,
+    DateTime? LastSyncedAt,
+    string LastSyncStatus,
+    string? LastError,
+    IReadOnlyList<AccountLinkProviderAccountResult> Accounts);

@@ -226,9 +226,9 @@ class _SpendingOverviewScreenState
                           const SizedBox(height: PayaboSpacing.x2),
                           _OverviewQuickActions(
                             onAddAccountTap: () =>
-                                _showSectionComingSoon('Accounts'),
+                                context.go('/spending/accounts'),
                             onManageAccountsTap: () =>
-                                _showSectionComingSoon('Accounts'),
+                                context.go('/spending/accounts'),
                           ),
                           const SizedBox(height: PayaboSpacing.xl),
                           const _SectionHeading(
@@ -318,15 +318,9 @@ class _SpendingOverviewScreenState
         context.go('/spending/budgets');
         return;
       case SpendingSection.accounts:
-        _showSectionComingSoon('Accounts');
+        context.go('/spending/accounts');
         return;
     }
-  }
-
-  void _showSectionComingSoon(String sectionName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$sectionName view coming soon in mock build.')),
-    );
   }
 }
 
