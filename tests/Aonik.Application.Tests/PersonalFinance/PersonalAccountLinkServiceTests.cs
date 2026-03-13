@@ -163,6 +163,47 @@ public class PersonalAccountLinkServiceTests
         {
             return Task.CompletedTask;
         }
+
+        public Task<AccountLinkProviderTransactionsSyncResult> SyncTransactionsAsync(
+            AccountLinkProviderTransactionsSyncRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var suffix = request.ProviderConnectionReference.Replace("item-", string.Empty, StringComparison.Ordinal);
+            if (suffix.Length > 8)
+            {
+                suffix = suffix[..8];
+            }
+
+            return Task.FromResult(new AccountLinkProviderTransactionsSyncResult(
+                $"cursor-{suffix}-1",
+                DateTime.UtcNow,
+                "TransactionsSyncComplete",
+                null,
+                new List<AccountLinkProviderTransactionResult>
+                {
+                    new(
+                        $"txn-{suffix}-coffee",
+                        $"acct-{suffix}-current",
+                        DateTime.UtcNow.Date.AddDays(-1),
+                        -6.40m,
+                        "USD",
+                        "Blue Bottle",
+                        "Morning coffee",
+                        "Food And Drink",
+                        false),
+                    new(
+                        $"txn-{suffix}-groceries",
+                        $"acct-{suffix}-current",
+                        DateTime.UtcNow.Date.AddDays(-2),
+                        -45.25m,
+                        "USD",
+                        "Fresh Market",
+                        "Weekly groceries",
+                        "Shops",
+                        false)
+                },
+                []));
+        }
     }
 
     private static FinanceDbContext CreateDbContext(Guid tenantId)
@@ -430,5 +471,37 @@ public class PersonalAccountLinkServiceTests
         context.FinancialConnections.Single().Status.Should().Be("Disconnected");
         context.PersonalAccounts.Should().OnlyContain(item => item.IsArchived);
         context.FinancialWebhookEvents.Should().ContainSingle(item => item.ProviderEventCode == "USER_PERMISSION_REVOKED");
+    }
+
+    [Fact]
+    public async Task SyncConnectionTransactionsAsync_Should_PersistLinkedTransactions_WhenProviderReturnsTransactions()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalAccountLinkService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestTenantContext { TenantId = tenantId },
+            new TestCurrentUserProvider(userId),
+            new[] { new FakeAccountLinkProviderGateway() });
+
+        var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+        var exchange = await service.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "sync1234"));
+
+        // Act
+        var syncResult = await service.SyncConnectionTransactionsAsync(exchange!.Connection.ConnectionId);
+
+        // Assert
+        syncResult.Should().NotBeNull();
+        syncResult!.TransactionsAdded.Should().Be(2);
+        syncResult.TransactionsUpdated.Should().Be(0);
+        syncResult.TransactionsRemoved.Should().Be(0);
+
+        context.PersonalTransactions.Should().HaveCount(2);
+        context.PersonalTransactions.Should().OnlyContain(item => item.SourceType == "linked_account_sync");
+        context.PersonalTransactions.Should().Contain(item => item.Merchant == "Blue Bottle");
     }
 }

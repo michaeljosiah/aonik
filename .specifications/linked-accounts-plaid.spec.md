@@ -18,7 +18,8 @@
 - [x] Replace placeholder mobile app identifiers with the Payabo package/bundle ids needed for Plaid sandbox OAuth setup
 - [x] Add a real Plaid backend adapter path for Android link-token creation, public-token exchange, refresh, and item removal
 - [x] Add backend Plaid webhook handling and state propagation for action-required/disconnect events
-- [ ] Add future backend recurring sync workflows
+- [x] Add linked-account transaction sync ingestion into `PersonalTransaction`
+- [ ] Add future backend recurring sync scheduling/workers
 
 ## 1. Purpose
 
@@ -399,6 +400,17 @@ This increment does not yet include:
   - `SYNC_UPDATES_AVAILABLE`
 - Webhook processing updates linked connection and account states so Payabo can surface reconnect/disconnect needs without waiting for a manual refresh.
 - Access tokens are currently stored as protected values in the existing `SecretReference` field until a dedicated secret-vault integration layer is added.
+
+### Transaction Sync Ingestion Notes
+
+- AONIK now supports on-demand transaction sync for linked accounts via a provider-neutral account-link sync endpoint.
+- For Plaid-backed connections, transaction ingestion uses `/transactions/sync` and persists the results into `PersonalTransaction`.
+- Synced transactions are stored as Personal Finance projections with:
+  - `SourceType = linked_account_sync`
+  - deterministic `SourceId` derived from the provider transaction reference
+  - linked `PersonalAccountId` resolved from the provider account reference
+- Sync upserts provider transactions, removes provider-deleted transactions, and stores the latest Plaid cursor on the financial connection.
+- Provider categories are treated as low-confidence provider classifications and remain compatible with later user review or rule-based overrides.
 
 ---
 

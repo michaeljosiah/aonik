@@ -191,6 +191,42 @@ internal sealed class DisconnectAccountLinkEndpoint : EndpointWithoutRequest<Acc
     }
 }
 
+internal sealed class SyncAccountLinkTransactionsEndpoint : EndpointWithoutRequest<AccountLinkTransactionSyncResponse>
+{
+    private readonly IPersonalAccountLinkService _personalAccountLinkService;
+
+    public SyncAccountLinkTransactionsEndpoint(IPersonalAccountLinkService personalAccountLinkService)
+    {
+        _personalAccountLinkService = personalAccountLinkService;
+    }
+
+    public override void Configure()
+    {
+        Post("/personal-finance/account-links/{id}/transactions/sync");
+        Policies("UserPolicy");
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        try
+        {
+            var id = Route<Guid>("id");
+            var response = await _personalAccountLinkService.SyncConnectionTransactionsAsync(id, ct);
+            if (response == null)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
+
+            await Send.OkAsync(response, ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ThrowError(ex.Message, 422);
+        }
+    }
+}
+
 internal sealed class PlaidAccountLinkWebhookEndpoint : Endpoint<PlaidAccountLinkWebhookRequest, AccountLinkWebhookResponse>
 {
     private readonly IPersonalAccountLinkService _personalAccountLinkService;

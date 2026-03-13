@@ -170,6 +170,80 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
         }
     }
 
+    public async Task<AccountLinkProviderTransactionsSyncResult> SyncTransactionsAsync(
+        AccountLinkProviderTransactionsSyncRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureConfigured();
+
+        var accessToken = UnprotectAccessToken(request.SecretReference);
+        var cursor = TrimNullable(request.Cursor);
+        var transactions = new Dictionary<string, AccountLinkProviderTransactionResult>(StringComparer.Ordinal);
+        var removedTransactionReferences = new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            while (true)
+            {
+                var response = await PostAsync<PlaidTransactionsSyncRequest, PlaidTransactionsSyncResponse>(
+                    "transactions/sync",
+                    new PlaidTransactionsSyncRequest(
+                        _options.ClientId.Trim(),
+                        _options.Secret.Trim(),
+                        accessToken,
+                        cursor),
+                    cancellationToken);
+
+                foreach (var transaction in response.Added)
+                {
+                    transactions[transaction.TransactionId] = MapTransaction(transaction);
+                    removedTransactionReferences.Remove(transaction.TransactionId);
+                }
+
+                foreach (var transaction in response.Modified)
+                {
+                    transactions[transaction.TransactionId] = MapTransaction(transaction);
+                    removedTransactionReferences.Remove(transaction.TransactionId);
+                }
+
+                foreach (var removed in response.Removed)
+                {
+                    transactions.Remove(removed.TransactionId);
+                    removedTransactionReferences.Add(removed.TransactionId);
+                }
+
+                cursor = TrimNullable(response.NextCursor);
+                if (!response.HasMore)
+                {
+                    break;
+                }
+            }
+
+            return new AccountLinkProviderTransactionsSyncResult(
+                cursor,
+                DateTime.UtcNow,
+                "TransactionsSyncComplete",
+                null,
+                transactions.Values.ToList(),
+                removedTransactionReferences.ToList());
+        }
+        catch (PlaidAccountLinkProviderException ex) when (ex.RequiresReconnect)
+        {
+            _logger.LogWarning(
+                ex,
+                "Plaid transaction sync requires reconnect for connection {ConnectionId}.",
+                request.ConnectionId);
+
+            return new AccountLinkProviderTransactionsSyncResult(
+                cursor,
+                DateTime.UtcNow,
+                ex.PlaidErrorCode ?? "TransactionsSyncFailed",
+                ex.Message,
+                [],
+                []);
+        }
+    }
+
     private async Task<AccountLinkProviderExchangeResult> BuildConnectionResultAsync(
         string accessToken,
         string syncStatus,
@@ -401,6 +475,49 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
             "Connected");
     }
 
+    private static AccountLinkProviderTransactionResult MapTransaction(PlaidTransaction transaction)
+    {
+        return new AccountLinkProviderTransactionResult(
+            transaction.TransactionId,
+            transaction.AccountId,
+            ResolveOccurredAt(transaction),
+            -transaction.Amount,
+            transaction.IsoCurrencyCode?.Trim().ToUpperInvariant()
+                ?? transaction.UnofficialCurrencyCode?.Trim().ToUpperInvariant()
+                ?? "USD",
+            TrimNullable(transaction.MerchantName),
+            TrimNullable(transaction.Name),
+            ResolveCategory(transaction.PersonalFinanceCategory),
+            transaction.Pending);
+    }
+
+    private static DateTime ResolveOccurredAt(PlaidTransaction transaction)
+    {
+        if (transaction.Date.HasValue)
+        {
+            return transaction.Date.Value;
+        }
+
+        if (transaction.AuthorizedDate.HasValue)
+        {
+            return transaction.AuthorizedDate.Value;
+        }
+
+        return DateTime.UtcNow.Date;
+    }
+
+    private static string? ResolveCategory(PlaidPersonalFinanceCategory? category)
+    {
+        if (string.IsNullOrWhiteSpace(category?.Primary))
+        {
+            return null;
+        }
+
+        return category!.Primary
+            .Replace("_", " ", StringComparison.Ordinal)
+            .Trim();
+    }
+
     private static string MapAccountType(string? value)
     {
         return value?.Trim().ToLowerInvariant() switch
@@ -548,10 +665,34 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
         [property: JsonPropertyName("secret")] string Secret,
         [property: JsonPropertyName("access_token")] string AccessToken);
 
+    private sealed record PlaidTransactionsSyncRequest(
+        [property: JsonPropertyName("client_id")] string ClientId,
+        [property: JsonPropertyName("secret")] string Secret,
+        [property: JsonPropertyName("access_token")] string AccessToken,
+        [property: JsonPropertyName("cursor")] string? Cursor);
+
     private sealed class PlaidAccountsGetResponse
     {
         [JsonPropertyName("accounts")]
         public List<PlaidAccount> Accounts { get; set; } = [];
+    }
+
+    private sealed class PlaidTransactionsSyncResponse
+    {
+        [JsonPropertyName("added")]
+        public List<PlaidTransaction> Added { get; set; } = [];
+
+        [JsonPropertyName("modified")]
+        public List<PlaidTransaction> Modified { get; set; } = [];
+
+        [JsonPropertyName("removed")]
+        public List<PlaidRemovedTransaction> Removed { get; set; } = [];
+
+        [JsonPropertyName("next_cursor")]
+        public string? NextCursor { get; set; }
+
+        [JsonPropertyName("has_more")]
+        public bool HasMore { get; set; }
     }
 
     private sealed class PlaidAccount
@@ -573,6 +714,54 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
 
         [JsonPropertyName("balances")]
         public PlaidAccountBalances? Balances { get; set; }
+    }
+
+    private sealed class PlaidTransaction
+    {
+        [JsonPropertyName("transaction_id")]
+        public string TransactionId { get; set; } = string.Empty;
+
+        [JsonPropertyName("account_id")]
+        public string AccountId { get; set; } = string.Empty;
+
+        [JsonPropertyName("amount")]
+        public decimal Amount { get; set; }
+
+        [JsonPropertyName("iso_currency_code")]
+        public string? IsoCurrencyCode { get; set; }
+
+        [JsonPropertyName("unofficial_currency_code")]
+        public string? UnofficialCurrencyCode { get; set; }
+
+        [JsonPropertyName("merchant_name")]
+        public string? MerchantName { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("date")]
+        public DateTime? Date { get; set; }
+
+        [JsonPropertyName("authorized_date")]
+        public DateTime? AuthorizedDate { get; set; }
+
+        [JsonPropertyName("pending")]
+        public bool Pending { get; set; }
+
+        [JsonPropertyName("personal_finance_category")]
+        public PlaidPersonalFinanceCategory? PersonalFinanceCategory { get; set; }
+    }
+
+    private sealed class PlaidRemovedTransaction
+    {
+        [JsonPropertyName("transaction_id")]
+        public string TransactionId { get; set; } = string.Empty;
+    }
+
+    private sealed class PlaidPersonalFinanceCategory
+    {
+        [JsonPropertyName("primary")]
+        public string? Primary { get; set; }
     }
 
     private sealed class PlaidAccountBalances

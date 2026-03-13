@@ -58,6 +58,57 @@ internal sealed class PlaidSimulatedAccountLinkProviderGateway : IPersonalAccoun
         return Task.CompletedTask;
     }
 
+    public Task<AccountLinkProviderTransactionsSyncResult> SyncTransactionsAsync(
+        AccountLinkProviderTransactionsSyncRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Cursor))
+        {
+            return Task.FromResult(new AccountLinkProviderTransactionsSyncResult(
+                request.Cursor,
+                DateTime.UtcNow,
+                "TransactionsSyncComplete",
+                null,
+                [],
+                []));
+        }
+
+        var accountReferenceSeed = ExtractAccountReferenceSeed(request.ProviderConnectionReference);
+        var occurredAt = DateTime.UtcNow.Date.AddDays(-1);
+
+        var transactions = new List<AccountLinkProviderTransactionResult>
+        {
+            new(
+                $"txn_{accountReferenceSeed}_coffee",
+                $"acct_{accountReferenceSeed}_current",
+                occurredAt,
+                -6.40m,
+                "GBP",
+                "Blue Bottle",
+                "Morning coffee",
+                "Food And Drink",
+                false),
+            new(
+                $"txn_{accountReferenceSeed}_groceries",
+                $"acct_{accountReferenceSeed}_current",
+                occurredAt.AddDays(-1),
+                -48.25m,
+                "GBP",
+                "Fresh Market",
+                "Weekly groceries",
+                "Shops",
+                false)
+        };
+
+        return Task.FromResult(new AccountLinkProviderTransactionsSyncResult(
+            $"cursor_{accountReferenceSeed}_1",
+            DateTime.UtcNow,
+            "TransactionsSyncComplete",
+            null,
+            transactions,
+            []));
+    }
+
     private static string ResolveConnectionReference(
         string mode,
         string? existingConnectionReference,

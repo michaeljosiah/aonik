@@ -13,6 +13,7 @@ public class FinancialConnection : AuditableEntity, ITenantScoped
     public string Status { get; set; } = string.Empty;
     public string ConsentStatus { get; set; } = string.Empty;
     public string SecretReference { get; set; } = string.Empty;
+    public string? SyncCursor { get; set; }
     public DateTime? LastSyncedAt { get; set; }
     public string? LastSyncStatus { get; set; }
     public string? LastError { get; set; }

@@ -21,6 +21,10 @@ public interface IPersonalAccountLinkProviderGateway
     Task DisconnectConnectionAsync(
         AccountLinkProviderDisconnectRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<AccountLinkProviderTransactionsSyncResult> SyncTransactionsAsync(
+        AccountLinkProviderTransactionsSyncRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 public record AccountLinkProviderSessionRequest(
@@ -65,6 +69,14 @@ public record AccountLinkProviderDisconnectRequest(
     string ProviderConnectionReference,
     string SecretReference);
 
+public record AccountLinkProviderTransactionsSyncRequest(
+    Guid TenantId,
+    Guid UserId,
+    Guid ConnectionId,
+    string ProviderConnectionReference,
+    string SecretReference,
+    string? Cursor);
+
 public record AccountLinkProviderAccountResult(
     string ProviderAccountReference,
     string Name,
@@ -84,3 +96,22 @@ public record AccountLinkProviderExchangeResult(
     string LastSyncStatus,
     string? LastError,
     IReadOnlyList<AccountLinkProviderAccountResult> Accounts);
+
+public record AccountLinkProviderTransactionResult(
+    string ProviderTransactionReference,
+    string ProviderAccountReference,
+    DateTime OccurredAt,
+    decimal Amount,
+    string Currency,
+    string? Merchant,
+    string? Description,
+    string? Category,
+    bool Pending);
+
+public record AccountLinkProviderTransactionsSyncResult(
+    string? NextCursor,
+    DateTime SyncedAt,
+    string SyncStatus,
+    string? LastError,
+    IReadOnlyList<AccountLinkProviderTransactionResult> Transactions,
+    IReadOnlyList<string> RemovedTransactionReferences);

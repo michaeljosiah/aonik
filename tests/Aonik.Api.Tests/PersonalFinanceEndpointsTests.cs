@@ -202,6 +202,43 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task AccountLinks_TransactionSync_PersistsLinkedTransactions()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+
+        var sessionResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/sessions",
+            new CreateAccountLinkSessionRequest("Plaid"));
+        var session = await sessionResponse.Content.ReadFromJsonAsync<AccountLinkSessionResponse>();
+
+        var exchangeResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/exchanges",
+            new ExchangeAccountLinkSessionRequest(session!.AccountLinkSessionId, "sandbox-public-token-005"));
+        var exchanged = await exchangeResponse.Content.ReadFromJsonAsync<AccountLinkExchangeResponse>();
+
+        // Act
+        var syncResponse = await client.PostAsync(
+            $"/personal-finance/account-links/{exchanged!.Connection.ConnectionId}/transactions/sync",
+            null);
+        var synced = await syncResponse.Content.ReadFromJsonAsync<AccountLinkTransactionSyncResponse>();
+
+        var transactionsResponse = await client.GetAsync("/personal-finance/transactions");
+        var transactions = await transactionsResponse.Content.ReadFromJsonAsync<List<PersonalTransactionResponse>>();
+
+        // Assert
+        syncResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        synced.Should().NotBeNull();
+        synced!.TransactionsAdded.Should().Be(2);
+        synced.SyncStatus.Should().Be("TransactionsSyncComplete");
+
+        transactionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        transactions.Should().NotBeNull();
+        transactions!.Should().Contain(item => item.Merchant == "Blue Bottle");
+        transactions.Should().Contain(item => item.Merchant == "Fresh Market");
+    }
+
+    [Fact]
     public async Task StatementImport_UploadAndApply_CreatesImportAndAppliesRows()
     {
         // Arrange

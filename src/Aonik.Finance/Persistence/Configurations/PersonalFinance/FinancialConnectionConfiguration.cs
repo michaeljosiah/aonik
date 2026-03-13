@@ -40,6 +40,9 @@ internal class FinancialConnectionConfiguration : IEntityTypeConfiguration<Finan
             .IsRequired()
             .HasMaxLength(500);
 
+        builder.Property(x => x.SyncCursor)
+            .HasMaxLength(500);
+
         builder.Property(x => x.LastSyncStatus)
             .HasMaxLength(100);
 

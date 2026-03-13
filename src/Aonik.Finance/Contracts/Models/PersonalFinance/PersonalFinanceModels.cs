@@ -129,6 +129,16 @@ public record AccountLinkActionResponse(
 
 public record AccountLinkWebhookResponse(string Status);
 
+public record AccountLinkTransactionSyncResponse(
+    Guid ConnectionId,
+    int TransactionsAdded,
+    int TransactionsUpdated,
+    int TransactionsRemoved,
+    int TransactionsSkipped,
+    string SyncStatus,
+    string? NextCursor,
+    DateTime SyncedAt);
+
 public class PlaidWebhookErrorRequest
 {
     [JsonPropertyName("error_type")]

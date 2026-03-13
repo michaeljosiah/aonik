@@ -78,6 +78,13 @@ public class PlaidAccountLinkProviderGatewayTests
             NullLogger<PlaidAccountLinkProviderGateway>.Instance);
     }
 
+    private static string ProtectAccessToken(string value)
+    {
+        var provider = DataProtectionProvider.Create("Aonik.PlaidTests");
+        var protector = provider.CreateProtector("Aonik.Finance.PlaidAccountLinks");
+        return $"protected:{protector.Protect(value)}";
+    }
+
     [Fact]
     public async Task CreateSessionAsync_Should_SendAndroidPackageName_WhenCreatingLinkToken()
     {
@@ -194,5 +201,66 @@ public class PlaidAccountLinkProviderGatewayTests
         result.Accounts[0].AccountType.Should().Be("bank");
         result.Accounts[0].AccountSubtype.Should().Be("current");
         result.Accounts[0].Last4.Should().Be("1842");
+    }
+
+    [Fact]
+    public async Task SyncTransactionsAsync_Should_MapTransactionsAndRemovedReferences()
+    {
+        // Arrange
+        var handler = new RecordingHttpMessageHandler();
+        handler.EnqueueJsonResponse(new
+        {
+            added = new object[]
+            {
+                new
+                {
+                    transaction_id = "txn-001",
+                    account_id = "acc-checking-1",
+                    amount = 12.34m,
+                    iso_currency_code = "USD",
+                    merchant_name = "Blue Bottle",
+                    name = "Morning coffee",
+                    date = DateTime.UtcNow.Date,
+                    authorized_date = DateTime.UtcNow.Date,
+                    pending = false,
+                    personal_finance_category = new
+                    {
+                        primary = "FOOD_AND_DRINK"
+                    }
+                }
+            },
+            modified = new object[] { },
+            removed = new object[]
+            {
+                new
+                {
+                    transaction_id = "txn-removed-1"
+                }
+            },
+            next_cursor = "cursor-123",
+            has_more = false
+        });
+
+        var gateway = CreateGateway(handler);
+
+        // Act
+        var result = await gateway.SyncTransactionsAsync(
+            new AccountLinkProviderTransactionsSyncRequest(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "item-sandbox-123",
+                ProtectAccessToken("access-sandbox-token"),
+                null));
+
+        // Assert
+        result.NextCursor.Should().Be("cursor-123");
+        result.SyncStatus.Should().Be("TransactionsSyncComplete");
+        result.Transactions.Should().HaveCount(1);
+        result.Transactions[0].Amount.Should().Be(-12.34m);
+        result.Transactions[0].Category.Should().Be("FOOD AND DRINK");
+        result.RemovedTransactionReferences.Should().ContainSingle("txn-removed-1");
+        handler.LastRequestBody.Should().Contain("\"access_token\"");
+        handler.LastRequest!.RequestUri!.ToString().Should().EndWith("/transactions/sync");
     }
 }
