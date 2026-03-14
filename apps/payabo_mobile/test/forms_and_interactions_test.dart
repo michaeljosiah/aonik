@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
+import 'package:payabo_mobile/app/startup/offline_mode_provider.dart';
 import 'package:payabo_mobile/data/api/api_exception.dart';
 import 'package:payabo_mobile/data/repositories/auth_repository.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
@@ -79,6 +81,95 @@ void main() {
 
     expect(find.text('Wrong email or password.'), findsOneWidget);
     expect(find.text('We couldn\'t sign you in'), findsNothing);
+  });
+
+  testWidgets('google login redirects to dashboard in demo mode',
+      (WidgetTester tester) async {
+    final router = GoRouter(
+      initialLocation: '/auth/login',
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/auth/login',
+          builder: (BuildContext context, GoRouterState state) {
+            return const LoginScreen();
+          },
+        ),
+        GoRoute(
+          path: '/dashboard',
+          builder: (BuildContext context, GoRouterState state) {
+            return const Scaffold(body: Text('Dashboard'));
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+        ],
+        child: MaterialApp.router(
+          theme: buildPayaboTheme(),
+          routerConfig: router,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dashboard'), findsOneWidget);
+  });
+
+  testWidgets('google login redirects to dashboard in offline demo mode',
+      (WidgetTester tester) async {
+    final router = GoRouter(
+      initialLocation: '/auth/login',
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/auth/login',
+          builder: (BuildContext context, GoRouterState state) {
+            return const LoginScreen();
+          },
+        ),
+        GoRoute(
+          path: '/dashboard',
+          builder: (BuildContext context, GoRouterState state) {
+            return const Scaffold(body: Text('Dashboard'));
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: false,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => true),
+        ],
+        child: MaterialApp.router(
+          theme: buildPayaboTheme(),
+          routerConfig: router,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dashboard'), findsOneWidget);
   });
 
   testWidgets('phone code disabled state shows countdown then unlocks',

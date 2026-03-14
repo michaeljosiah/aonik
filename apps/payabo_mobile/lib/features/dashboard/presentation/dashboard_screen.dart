@@ -107,6 +107,19 @@ String _dashboardDueBillPhrase(int dueBillCount) {
   return '$dueBillCount bills';
 }
 
+LinearGradient _dashboardBackgroundGradient(BuildContext context) {
+  return const LinearGradient(
+    colors: <Color>[
+      Color(0xFF242223),
+      Color(0xFF191718),
+      Color(0xFF0F0D0E),
+    ],
+    stops: <double>[0, 0.46, 1],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+}
+
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({
     super.key,
@@ -510,22 +523,29 @@ class _DashboardHeroInsightsSectionState
           viewportHeight - pinnedSheetTop,
         );
         final double collapsedSheetTop = math.max(
-          pinnedSheetTop + 132,
-          heroHeight - PayaboSpacing.lg,
+          pinnedSheetTop + 164,
+          heroHeight + PayaboSpacing.sm,
         );
         final double initialSheetSize =
             (1 - ((collapsedSheetTop - pinnedSheetTop) / sheetViewportHeight))
-                .clamp(0.72, 0.84)
+                .clamp(0.62, 0.76)
                 .toDouble();
         final double minSheetSize =
-            (initialSheetSize - 0.12).clamp(0.60, initialSheetSize).toDouble();
+            (initialSheetSize - 0.10).clamp(0.56, initialSheetSize).toDouble();
         final double heroBottomPadding = math.max(
-          72,
-          heroHeight - collapsedSheetTop + 56,
+          40,
+          heroHeight - collapsedSheetTop + 28,
         );
 
         return Stack(
           children: <Widget>[
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: _dashboardBackgroundGradient(context),
+                ),
+              ),
+            ),
             Positioned(
               top: 0,
               left: 0,
@@ -700,14 +720,16 @@ class _DashboardHeroBanner extends StatelessWidget {
     final String firstName = _dashboardFirstName(displayName);
     final String greeting = _dashboardGreeting(DateTime.now());
     final String dueBillPhrase = _dashboardDueBillPhrase(dueBillCount);
+    final bool isDark = context.colors.isDark;
     final TextStyle baseMessageStyle = textTheme.bodyLarge?.copyWith(
+          fontSize: 17,
           color: Colors.white.withValues(alpha: 0.76),
-          height: 1.45,
+          height: 1.5,
         ) ??
         const TextStyle(
           color: Colors.white,
-          fontSize: 16,
-          height: 1.45,
+          fontSize: 17,
+          height: 1.5,
         );
     final TextStyle emphasisStyle = baseMessageStyle.copyWith(
       color: const Color(0xFFF3A85C),
@@ -716,141 +738,90 @@ class _DashboardHeroBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[Color(0xFF2D2421), Color(0xFF171313)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          0,
+          PayaboSpacing.xl,
+          bottomPadding,
         ),
-      ),
-      child: Stack(
-        children: <Widget>[
-          Positioned(
-            top: -56,
-            right: -28,
-            child: Container(
-              width: 176,
-              height: 176,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFF37920).withValues(alpha: 0.16),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -48,
-            bottom: 24,
-            child: Container(
-              width: 148,
-              height: 148,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF2FA36B).withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              PayaboSpacing.xl,
-              0,
-              PayaboSpacing.xl,
-              bottomPadding,
-            ),
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 360),
-                child: LayoutBuilder(
-                  builder: (
-                    BuildContext context,
-                    BoxConstraints constraints,
-                  ) {
-                    final bool compact = constraints.maxHeight < 190;
-                    final int messageMaxLines = compact ? 3 : 4;
+        child: Align(
+          alignment: Alignment.bottomLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: LayoutBuilder(
+              builder: (
+                BuildContext context,
+                BoxConstraints constraints,
+              ) {
+                final bool compact = constraints.maxHeight < 190;
+                final int messageMaxLines = compact ? 4 : 5;
 
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          'Today\'s insight',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.labelLarge?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.64),
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        SizedBox(
-                          height: compact ? PayaboSpacing.xs : PayaboSpacing.sm,
-                        ),
-                        Text(
-                          '$greeting, $firstName.',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: (compact
-                                  ? textTheme.headlineSmall
-                                  : textTheme.headlineMedium)
-                              ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            height: 1.08,
-                          ),
-                        ),
-                        SizedBox(
-                          height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
-                        ),
-                        Text.rich(
-                          TextSpan(
-                            style: baseMessageStyle,
-                            children: isEmpty
-                                ? <InlineSpan>[
-                                    const TextSpan(
-                                        text: 'This might interest you. '),
-                                    const TextSpan(
-                                      text:
-                                          'Add your first bill to unlock daily insights, spendable balance guidance, and due reminders.',
-                                    ),
-                                  ]
-                                : <InlineSpan>[
-                                    const TextSpan(
-                                        text: 'This might interest you. '),
-                                    const TextSpan(text: 'You have '),
-                                    TextSpan(
-                                      text: '₵1,285.00',
-                                      style: emphasisStyle,
-                                    ),
-                                    const TextSpan(
-                                        text: ' available to spend, '),
-                                    TextSpan(
-                                      text: dueBillPhrase,
-                                      style: emphasisStyle,
-                                    ),
-                                    const TextSpan(
-                                        text: ' due this week, and '),
-                                    TextSpan(
-                                      text: '₵620',
-                                      style: emphasisStyle,
-                                    ),
-                                    const TextSpan(
-                                      text:
-                                          ' added to your net worth this month.',
-                                    ),
-                                  ],
-                          ),
-                          maxLines: messageMaxLines,
-                          overflow: TextOverflow.ellipsis,
-                          softWrap: true,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '$greeting, $firstName.',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: (compact
+                              ? textTheme.headlineMedium
+                              : textTheme.headlineLarge)
+                          ?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        height: 1.08,
+                      ),
+                    ),
+                    SizedBox(
+                      height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
+                    ),
+                    Text.rich(
+                      TextSpan(
+                        style: baseMessageStyle,
+                        children: isEmpty
+                            ? <InlineSpan>[
+                                const TextSpan(
+                                    text: 'This might interest you. '),
+                                const TextSpan(
+                                  text:
+                                      'Add your first bill to unlock daily insights, spendable balance guidance, and due reminders.',
+                                ),
+                              ]
+                            : <InlineSpan>[
+                                const TextSpan(
+                                    text: 'This might interest you. '),
+                                const TextSpan(text: 'You have '),
+                                TextSpan(
+                                  text: '₵1,285.00',
+                                  style: emphasisStyle,
+                                ),
+                                const TextSpan(text: ' available to spend, '),
+                                TextSpan(
+                                  text: dueBillPhrase,
+                                  style: emphasisStyle,
+                                ),
+                                const TextSpan(text: ' due this week, and '),
+                                TextSpan(
+                                  text: '₵620',
+                                  style: emphasisStyle,
+                                ),
+                                const TextSpan(
+                                  text: ' added to your net worth this month.',
+                                ),
+                              ],
+                      ),
+                      maxLines: messageMaxLines,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -925,7 +896,6 @@ class _DashboardStatsSheet extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.xl),
           _DashboardMetricSummary(
-            dueBillCount: dueBillCount,
             isEmpty: isEmpty,
           ),
           const SizedBox(height: PayaboSpacing.xl),
@@ -948,11 +918,9 @@ class _DashboardStatsSheet extends StatelessWidget {
 
 class _DashboardMetricSummary extends StatelessWidget {
   const _DashboardMetricSummary({
-    required this.dueBillCount,
     required this.isEmpty,
   });
 
-  final int dueBillCount;
   final bool isEmpty;
 
   @override
@@ -976,32 +944,6 @@ class _DashboardMetricSummary extends StatelessWidget {
         ),
         const SizedBox(height: PayaboSpacing.md),
         _DashboardSpendableBalanceCard(isEmpty: isEmpty),
-        const SizedBox(height: PayaboSpacing.md),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _DashboardMiniStatCard(
-                icon: Icons.receipt_long_outlined,
-                label: 'Bills due',
-                value: isEmpty ? '0' : dueBillCount.toString(),
-                detail: isEmpty ? 'Nothing scheduled yet' : 'Due this week',
-                accentColor: const Color(0xFFD97A1D),
-              ),
-            ),
-            const SizedBox(width: PayaboSpacing.md),
-            Expanded(
-              child: _DashboardMiniStatCard(
-                icon: Icons.trending_up_rounded,
-                label: 'Total wealth',
-                value: isEmpty ? '₵0.00' : '₵18.4k',
-                detail: isEmpty
-                    ? 'Link balances to track growth'
-                    : '+₵620 this month',
-                accentColor: const Color(0xFF2FA36B),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -1074,82 +1016,6 @@ class _DashboardSpendableBalanceCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _DashboardMiniStatCard extends StatelessWidget {
-  const _DashboardMiniStatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.detail,
-    required this.accentColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String detail;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    const Color titleColor = Color(0xFF2F2118);
-    const Color subtitleColor = Color(0xFF79695C);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFAF5),
-        borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(color: const Color(0xFFE6D8C7)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: accentColor, size: 20),
-              ),
-              const SizedBox(width: PayaboSpacing.sm),
-              Expanded(
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: subtitleColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: PayaboSpacing.md),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: titleColor,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.xs),
-          Text(
-            detail,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: subtitleColor,
-                ),
-          ),
-        ],
       ),
     );
   }
@@ -2092,7 +1958,8 @@ class _DashboardListHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color titleColor = Color(0xFF2C2017);
+    final c = context.colors;
+    final Color titleColor = c.isDark ? Colors.white : const Color(0xFF2C2017);
 
     return Row(
       children: <Widget>[
