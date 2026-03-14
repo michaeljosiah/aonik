@@ -21,6 +21,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
     private readonly FinancialConnectionTransactionSyncOrchestrator _transactionSyncOrchestrator;
     private readonly FinancialConnectionSyncOptions _syncOptions;
+    private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public PersonalAccountLinkService(
         FinanceDbContext financeDbContext,
@@ -29,7 +30,8 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         ICurrentUserProvider currentUserProvider,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
         FinancialConnectionTransactionSyncOrchestrator transactionSyncOrchestrator,
-        Microsoft.Extensions.Options.IOptions<FinancialConnectionSyncOptions> syncOptions)
+        Microsoft.Extensions.Options.IOptions<FinancialConnectionSyncOptions> syncOptions,
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
@@ -38,6 +40,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         _providerGateways = providerGateways;
         _transactionSyncOrchestrator = transactionSyncOrchestrator;
         _syncOptions = syncOptions.Value;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<AccountLinkSessionResponse> CreateSessionAsync(
@@ -171,6 +174,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         session.ConsumedAt = utcNow;
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         var response = await BuildConnectionResponseAsync(
             connection,
@@ -263,6 +267,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             cancellationToken);
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         return await BuildConnectionResponseAsync(connection, gateway.DisplayName, cancellationToken);
     }
@@ -311,6 +316,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             ApplyLocalDisconnectState(connection, linkedAccounts, personalAccounts, utcNow, "Disconnected");
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
+            _cacheInvalidator.InvalidateCurrentUserGraph();
         }
 
         return MapConnectionToResponse(connection, linkedAccounts, ResolveProvider(connection.Provider).DisplayName);
@@ -360,6 +366,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 webhookEvent.Error = "Plaid webhook did not include item_id.";
                 webhookEvent.ProcessedAt = utcNow;
                 await _financeDbContext.SaveChangesAsync(cancellationToken);
+                _cacheInvalidator.InvalidateCurrentUserGraph();
                 return;
             }
 
@@ -375,6 +382,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 webhookEvent.Error = $"No financial connection found for Plaid item {request.ItemId.Trim()}.";
                 webhookEvent.ProcessedAt = utcNow;
                 await _financeDbContext.SaveChangesAsync(cancellationToken);
+                _cacheInvalidator.InvalidateCurrentUserGraph();
                 return;
             }
 
@@ -407,6 +415,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             webhookEvent.ProcessedAt = utcNow;
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
+            _cacheInvalidator.InvalidateCurrentUserGraph();
         }
         catch (Exception ex)
         {
@@ -415,6 +424,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             webhookEvent.ProcessedAt = DateTime.UtcNow;
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
+            _cacheInvalidator.InvalidateCurrentUserGraph();
             throw;
         }
         finally

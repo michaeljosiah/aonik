@@ -59,6 +59,13 @@ public class PersonalAccountLinkServiceTests
         public bool IsResolved => TenantId.HasValue;
     }
 
+    private sealed class NoOpGraphCacheInvalidator : IFinancialLifeGraphCacheInvalidator
+    {
+        public void InvalidateCurrentUserGraph()
+        {
+        }
+    }
+
     private sealed class FakeAccountLinkProviderGateway : IPersonalAccountLinkProviderGateway
     {
         public string ProviderCode => "Plaid";
@@ -240,7 +247,8 @@ public class PersonalAccountLinkServiceTests
             tenantContext,
             new[] { gateway },
             syncOptions,
-            NullLogger<FinancialConnectionTransactionSyncOrchestrator>.Instance);
+            NullLogger<FinancialConnectionTransactionSyncOrchestrator>.Instance,
+            new NoOpGraphCacheInvalidator());
 
         return new PersonalAccountLinkService(
             context,
@@ -249,7 +257,8 @@ public class PersonalAccountLinkServiceTests
             new TestCurrentUserProvider(userId),
             new[] { gateway },
             orchestrator,
-            syncOptions);
+            syncOptions,
+            new NoOpGraphCacheInvalidator());
     }
 
     [Fact]

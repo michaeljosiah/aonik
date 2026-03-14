@@ -51,6 +51,13 @@ public class StatementImportServiceTests
         }
     }
 
+    private sealed class NoOpGraphCacheInvalidator : IFinancialLifeGraphCacheInvalidator
+    {
+        public void InvalidateCurrentUserGraph()
+        {
+        }
+    }
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
@@ -104,7 +111,8 @@ public class StatementImportServiceTests
         var service = new StatementImportService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
 
@@ -143,7 +151,8 @@ public class StatementImportServiceTests
         var service = new StatementImportService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         var csv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\ninvalid-date,100,Groceries,Market,USD\n";
         using var uploadStream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
@@ -194,7 +203,8 @@ public class StatementImportServiceTests
         var service = new StatementImportService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         var csv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\n2026-01-10,-12.50,Coffee,Starbucks,USD\n";
         using var uploadStream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
@@ -252,7 +262,8 @@ public class StatementImportServiceTests
         var service = new StatementImportService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         var firstCsv = "date,amount,description,merchant,currency\n2026-01-10,-12.50,Coffee,Starbucks,USD\n2026-01-11,-5.00,Snack,Store,USD\n";
         using var firstUploadStream = new MemoryStream(Encoding.UTF8.GetBytes(firstCsv));

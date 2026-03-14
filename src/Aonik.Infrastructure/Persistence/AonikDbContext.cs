@@ -114,6 +114,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
     public virtual DbSet<StatementImport> StatementImports { get; set; } = null!;
     public virtual DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
+    public virtual DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
+    public virtual DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; } = null!;
 
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,
@@ -279,6 +281,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapFinanceTable<Budget>(modelBuilder, "Budgets");
         MapFinanceTable<StatementImport>(modelBuilder, "StatementImports");
         MapFinanceTable<StatementImportRow>(modelBuilder, "StatementImportRows");
+        MapFinanceTable<FinancialLifeGraphNode>(modelBuilder, "FinancialLifeGraphNodes");
+        MapFinanceTable<FinancialLifeGraphEdge>(modelBuilder, "FinancialLifeGraphEdges");
 
         MapAiTable<AiProvider>(modelBuilder, "AiProviders");
         MapAiTable<AiModel>(modelBuilder, "AiModels");

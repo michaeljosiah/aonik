@@ -23,15 +23,18 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public HouseholdService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<HouseholdResponse> CreateHouseholdAsync(
@@ -80,6 +83,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
 
         await AssignHouseholdToProfileAsync(userId, tenantId, household.Id, cancellationToken);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         var ownerResponse = new HouseholdMemberResponse(
             member.Id,
@@ -178,6 +182,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
 
         await AssignHouseholdToProfileAsync(request.UserId, tenantId, household.Id, cancellationToken);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         return new HouseholdMemberResponse(
             member.Id,

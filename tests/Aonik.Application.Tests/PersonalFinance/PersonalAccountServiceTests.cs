@@ -46,6 +46,13 @@ public class PersonalAccountServiceTests
         }
     }
 
+    private sealed class NoOpGraphCacheInvalidator : IFinancialLifeGraphCacheInvalidator
+    {
+        public void InvalidateCurrentUserGraph()
+        {
+        }
+    }
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
@@ -65,7 +72,8 @@ public class PersonalAccountServiceTests
         var service = new PersonalAccountService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         var request = new CreatePersonalAccountRequest(
             "Main Bank",
@@ -97,7 +105,8 @@ public class PersonalAccountServiceTests
         var service = new PersonalAccountService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Card",

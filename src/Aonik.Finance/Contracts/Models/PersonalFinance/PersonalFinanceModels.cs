@@ -402,3 +402,81 @@ public record PersonalSpendingNarrativeInsightResponse(
     string Title,
     string Summary,
     DateTime CreatedUtc);
+
+public record FinancialLifeGraphNodeResponse(
+    string NodeId,
+    string NodeType,
+    string DisplayName,
+    string SourceType,
+    Guid? SourceId,
+    string? MetadataJson);
+
+public record FinancialLifeGraphEdgeResponse(
+    string FromNodeId,
+    string Predicate,
+    string ToNodeId,
+    string? MetadataJson);
+
+public record FinancialLifeGraphSourceCoverageItemResponse(
+    string SourceType,
+    int Count);
+
+public record FinancialLifeGraphSummaryResponse(
+    int AccountsCount,
+    int LinkedAccountsCount,
+    int TransactionsCount,
+    int BillsCount,
+    int GoalsCount,
+    int SubscriptionsCount,
+    bool HasHousehold,
+    int HouseholdMembersCount,
+    int RelatedPartiesCount,
+    Guid? PartyId,
+    Guid? HouseholdId);
+
+public record FinancialLifeGraphResponse(
+    Guid TenantId,
+    Guid UserId,
+    Guid? HouseholdId,
+    DateTime GeneratedAt,
+    FinancialLifeGraphSummaryResponse Summary,
+    IReadOnlyList<FinancialLifeGraphNodeResponse> Nodes,
+    IReadOnlyList<FinancialLifeGraphEdgeResponse> Edges,
+    IReadOnlyList<FinancialLifeGraphSourceCoverageItemResponse> SourceCoverage);
+
+public record UpcomingObligationResponse(
+    string ItemType,
+    Guid SourceId,
+    string DisplayName,
+    decimal? Amount,
+    string Currency,
+    DateTime DueDate,
+    int DaysUntilDue,
+    string Status);
+
+public record CreateFinancialLifeGraphNodeRequest(
+    string NodeType,
+    string DisplayName,
+    string? MetadataJson,
+    string? SourceEntity,
+    Guid? SourceId,
+    Guid? HouseholdId,
+    string? Status,
+    bool IsInferred,
+    Guid? AiRunId);
+
+public record FinancialLifeGraphNodeWriteResponse(
+    Guid GraphNodeId,
+    string NodeKey);
+
+public record CreateFinancialLifeGraphEdgeRequest(
+    string FromNodeKey,
+    string Predicate,
+    string ToNodeKey,
+    string? MetadataJson,
+    Guid? HouseholdId,
+    string? Status,
+    bool IsInferred,
+    Guid? AiRunId);
+
+public record FinancialLifeGraphEdgeWriteResponse(Guid GraphEdgeId);

@@ -81,6 +81,9 @@ internal class FinanceDbContext : AonikDbContextBase
     /// <summary>Read-only projection of Party (authoritative entity in Platform module)</summary>
     public DbSet<PartyReadModel> Parties { get; set; } = null!;
 
+    /// <summary>Read-only projection of PartyRelationship (authoritative entity in Platform module)</summary>
+    public DbSet<PartyRelationshipReadModel> PartyRelationships { get; set; } = null!;
+
     /// <summary>Read-only projection of User (authoritative entity in Platform module)</summary>
     public DbSet<UserReadModel> Users { get; set; } = null!;
 
@@ -114,6 +117,8 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Budget> Budgets { get; set; } = null!;
     public DbSet<StatementImport> StatementImports { get; set; } = null!;
     public DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
+    public DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
+    public DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -204,8 +209,11 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<Budget>(modelBuilder, "Budgets");
         MapTable<StatementImport>(modelBuilder, "StatementImports");
         MapTable<StatementImportRow>(modelBuilder, "StatementImportRows");
+        MapTable<FinancialLifeGraphNode>(modelBuilder, "FinancialLifeGraphNodes");
+        MapTable<FinancialLifeGraphEdge>(modelBuilder, "FinancialLifeGraphEdges");
 
         MapPlatformTable<PartyReadModel>(modelBuilder, "Parties");
+        MapPlatformTable<PartyRelationshipReadModel>(modelBuilder, "PartyRelationships");
         MapPlatformTable<UserReadModel>(modelBuilder, "Users");
         MapPlatformTable<CountryReadModel>(modelBuilder, "Countries");
         MapPlatformTable<CurrencyReadModel>(modelBuilder, "Currencies");

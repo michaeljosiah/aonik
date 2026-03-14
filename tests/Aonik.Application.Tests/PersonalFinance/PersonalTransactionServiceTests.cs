@@ -47,6 +47,13 @@ public class PersonalTransactionServiceTests
         }
     }
 
+    private sealed class NoOpGraphCacheInvalidator : IFinancialLifeGraphCacheInvalidator
+    {
+        public void InvalidateCurrentUserGraph()
+        {
+        }
+    }
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
@@ -79,7 +86,8 @@ public class PersonalTransactionServiceTests
         var service = new PersonalTransactionService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         var request = new CreateManualPersonalTransactionRequest(
             accountId,
@@ -114,7 +122,8 @@ public class PersonalTransactionServiceTests
         var service = new PersonalTransactionService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         var created = await service.CreateManualTransactionAsync(new CreateManualPersonalTransactionRequest(
             null,

@@ -75,6 +75,7 @@ public static class DependencyInjection
         services.Configure<PlatformAdminOptions>(configuration.GetSection("PlatformAdmin"));
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
         services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
+        services.AddMemoryCache();
         services.AddFusionCache();
         services.AddDataProtection();
 

@@ -21,19 +21,22 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
     private readonly FinancialConnectionSyncOptions _options;
     private readonly ILogger<FinancialConnectionTransactionSyncOrchestrator> _logger;
+    private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialConnectionTransactionSyncOrchestrator(
         FinanceDbContext financeDbContext,
         ITenantContext tenantContext,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
         IOptions<FinancialConnectionSyncOptions> options,
-        ILogger<FinancialConnectionTransactionSyncOrchestrator> logger)
+        ILogger<FinancialConnectionTransactionSyncOrchestrator> logger,
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantContext = tenantContext;
         _providerGateways = providerGateways;
         _options = options.Value;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<AccountLinkTransactionSyncResponse?> SyncConnectionTransactionsAsync(
@@ -124,6 +127,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
                     syncResult.LastError);
 
                 await _financeDbContext.SaveChangesAsync(cancellationToken);
+                _cacheInvalidator.InvalidateCurrentUserGraph();
 
                 return new AccountLinkTransactionSyncResponse(
                     connection.Id,
@@ -237,6 +241,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
             }
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
+            _cacheInvalidator.InvalidateCurrentUserGraph();
 
             return new AccountLinkTransactionSyncResponse(
                 connection.Id,
@@ -260,6 +265,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
             connection.LastError = LimitText(ex.Message, 1000);
             connection.NextScheduledSyncAt = ComputeFailureRetryAt(connection, DateTime.UtcNow);
             await _financeDbContext.SaveChangesAsync(cancellationToken);
+            _cacheInvalidator.InvalidateCurrentUserGraph();
             throw;
         }
         finally

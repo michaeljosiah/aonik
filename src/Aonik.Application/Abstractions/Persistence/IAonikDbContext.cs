@@ -97,6 +97,8 @@ public interface IAonikDbContext
     DbSet<Subscription> Subscriptions { get; set; }
     DbSet<Goal> Goals { get; set; }
     DbSet<Budget> Budgets { get; set; }
+    DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; }
+    DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

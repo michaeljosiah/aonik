@@ -13,15 +13,18 @@ internal sealed class PersonalAccountService : IPersonalAccountService
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public PersonalAccountService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<PersonalAccountResponse> CreateAccountAsync(
@@ -53,6 +56,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         _financeDbContext.PersonalAccounts.Add(account);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         return MapToResponse(account);
     }
@@ -116,6 +120,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         }
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
         return MapToResponse(account);
     }
 
@@ -131,6 +136,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         account.ClosedAt ??= DateTime.UtcNow;
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
     }
 
     private Guid GetCurrentUserId()

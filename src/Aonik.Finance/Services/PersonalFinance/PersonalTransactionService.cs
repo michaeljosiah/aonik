@@ -20,15 +20,18 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public PersonalTransactionService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<PersonalTransactionResponse> CreateManualTransactionAsync(
@@ -69,6 +72,7 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
 
         _financeDbContext.PersonalTransactions.Add(transaction);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         return MapToResponse(transaction, tags);
     }
@@ -179,6 +183,7 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         ApplyCategorisation(transaction);
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         return MapToResponse(transaction, tags);
     }

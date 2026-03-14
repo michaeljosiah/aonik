@@ -27,15 +27,18 @@ internal sealed class StatementImportService : IStatementImportService
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public StatementImportService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<StatementImportResponse> UploadStatementAsync(
@@ -331,6 +334,7 @@ internal sealed class StatementImportService : IStatementImportService
         statementImport.FailureReason = null;
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
+        _cacheInvalidator.InvalidateCurrentUserGraph();
 
         return MapApplyResponse(statementImport);
     }

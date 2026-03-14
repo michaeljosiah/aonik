@@ -47,6 +47,13 @@ public class TransactionClassificationServiceTests
         }
     }
 
+    private sealed class NoOpGraphCacheInvalidator : IFinancialLifeGraphCacheInvalidator
+    {
+        public void InvalidateCurrentUserGraph()
+        {
+        }
+    }
+
     private static FinanceDbContext CreateDbContext(Guid tenantId)
     {
         var options = new DbContextOptionsBuilder<FinanceDbContext>()
@@ -84,7 +91,8 @@ public class TransactionClassificationServiceTests
         var service = new TransactionClassificationService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         // Act
         var result = await service.OverrideClassificationAsync(
@@ -135,7 +143,8 @@ public class TransactionClassificationServiceTests
         var service = new TransactionClassificationService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         // Act
         Func<Task> action = () => service.OverrideClassificationAsync(
@@ -197,7 +206,8 @@ public class TransactionClassificationServiceTests
         var service = new TransactionClassificationService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         // Act
         var result = await service.AcceptClassificationAsync(transaction.Id);
@@ -220,7 +230,8 @@ public class TransactionClassificationServiceTests
         var service = new TransactionClassificationService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         // Act
         Func<Task> action = () => service.CreateRuleAsync(
@@ -284,7 +295,8 @@ public class TransactionClassificationServiceTests
         var service = new TransactionClassificationService(
             context,
             new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId));
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
 
         // Act
         var result = await service.AcceptClassificationAsync(transaction.Id);
