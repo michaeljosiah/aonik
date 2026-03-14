@@ -3,21 +3,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
+import 'package:payabo_mobile/app/environment/app_environment.dart';
+import 'package:payabo_mobile/app/environment/environment_provider.dart';
+import 'package:payabo_mobile/app/startup/offline_mode_provider.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_journey_controller.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_step_configs.dart';
 import 'package:payabo_mobile/features/setup_journey/domain/setup_enums.dart';
+import 'package:payabo_mobile/features/setup_journey/domain/setup_models.dart';
 import 'package:payabo_mobile/mock/repositories/mock_setup_journey_repository.dart';
 
 void main() {
   late ProviderContainer container;
+  late MockSetupJourneyRepository repository;
 
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    repository = MockSetupJourneyRepository();
     container = ProviderContainer(
       overrides: [
-        setupJourneyRepositoryProvider
-            .overrideWithValue(MockSetupJourneyRepository()),
+        setupJourneyRepositoryProvider.overrideWithValue(repository),
+        appEnvironmentProvider.overrideWithValue(
+          const AppEnvironment(
+            flavor: AppFlavor.dev,
+            useMocks: true,
+            apiBaseUrl: 'https://api.dev.payabo.local',
+          ),
+        ),
+        offlineModeProvider.overrideWith((Ref ref) => false),
       ],
     );
   });
@@ -126,8 +139,7 @@ void main() {
 
     test('toggleAccountSource adds then removes', () {
       controller().toggleAccountSource(AccountSourceType.ukBank);
-      expect(
-          state().profile.accountSourceTypes, [AccountSourceType.ukBank]);
+      expect(state().profile.accountSourceTypes, [AccountSourceType.ukBank]);
 
       controller().toggleAccountSource(AccountSourceType.ukBank);
       expect(state().profile.accountSourceTypes, isEmpty);
@@ -140,8 +152,8 @@ void main() {
           [ResponsibilityType.rentOrMortgage, ResponsibilityType.electricity]);
 
       controller().toggleResponsibility(ResponsibilityType.rentOrMortgage);
-      expect(state().profile.responsibilities,
-          [ResponsibilityType.electricity]);
+      expect(
+          state().profile.responsibilities, [ResponsibilityType.electricity]);
     });
 
     test('toggleFinancialGoal adds then removes', () {
@@ -151,16 +163,15 @@ void main() {
           [FinancialGoalType.saveMore, FinancialGoalType.buildEmergencyFund]);
 
       controller().toggleFinancialGoal(FinancialGoalType.saveMore);
-      expect(
-          state().profile.financialGoals, [FinancialGoalType.buildEmergencyFund]);
+      expect(state().profile.financialGoals,
+          [FinancialGoalType.buildEmergencyFund]);
     });
   });
 
   group('SetupJourneyController — single-select setters', () {
     test('setConnectChoice updates profile', () {
       controller().setConnectChoice(SetupConnectChoice.connectUkBank);
-      expect(state().profile.connectChoice,
-          SetupConnectChoice.connectUkBank);
+      expect(state().profile.connectChoice, SetupConnectChoice.connectUkBank);
 
       controller().setConnectChoice(SetupConnectChoice.skipForNow);
       expect(state().profile.connectChoice, SetupConnectChoice.skipForNow);
@@ -202,8 +213,7 @@ void main() {
 
     test('setupCompletedProvider reflects SharedPreferences', () async {
       // Before completing setup
-      final beforeValue =
-          await container.read(setupCompletedProvider.future);
+      final beforeValue = await container.read(setupCompletedProvider.future);
       expect(beforeValue, isFalse);
 
       // Complete setup (writes to SharedPreferences)
@@ -211,8 +221,7 @@ void main() {
 
       // Re-read the provider (refresh to pick up new value)
       container.invalidate(setupCompletedProvider);
-      final afterValue =
-          await container.read(setupCompletedProvider.future);
+      final afterValue = await container.read(setupCompletedProvider.future);
       expect(afterValue, isTrue);
     });
   });
@@ -293,8 +302,7 @@ void main() {
 
       // Invalidate provider and verify it reads as false
       container.invalidate(setupCompletedProvider);
-      final result =
-          await container.read(setupCompletedProvider.future);
+      final result = await container.read(setupCompletedProvider.future);
       expect(result, isFalse);
     });
   });
@@ -311,20 +319,25 @@ void main() {
         overrides: [
           setupJourneyRepositoryProvider
               .overrideWithValue(MockSetupJourneyRepository()),
-          initialDemoDataModeProvider
-              .overrideWithValue(DemoDataMode.fresh),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => false),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.fresh),
         ],
       );
       addTearDown(freshContainer.dispose);
 
-      final result =
-          await freshContainer.read(setupCompletedProvider.future);
+      final result = await freshContainer.read(setupCompletedProvider.future);
       expect(result, isFalse,
           reason: 'Fresh demo mode should always report setup as incomplete');
     });
 
-    test('returns true when demo mode is populated and flag is set',
-        () async {
+    test('returns true when demo mode is populated and flag is set', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('payabo.setup.completed', true);
 
@@ -333,8 +346,15 @@ void main() {
         overrides: [
           setupJourneyRepositoryProvider
               .overrideWithValue(MockSetupJourneyRepository()),
-          initialDemoDataModeProvider
-              .overrideWithValue(DemoDataMode.populated),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => false),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
         ],
       );
       addTearDown(populatedContainer.dispose);
@@ -352,8 +372,15 @@ void main() {
         overrides: [
           setupJourneyRepositoryProvider
               .overrideWithValue(MockSetupJourneyRepository()),
-          initialDemoDataModeProvider
-              .overrideWithValue(DemoDataMode.populated),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => false),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
         ],
       );
       addTearDown(populatedContainer.dispose);
@@ -365,4 +392,59 @@ void main() {
     });
   });
 
+  group('setupCompletedProvider — live backend mode', () {
+    test('returns repository completion state when live mode is enabled',
+        () async {
+      final liveRepository = MockSetupJourneyRepository();
+      await liveRepository.saveSetupProfile(
+        const PayaboSetupProfile(
+          selectedUseCases: <SetupUseCase>[SetupUseCase.trackMoney],
+          completed: true,
+        ),
+      );
+
+      final liveContainer = ProviderContainer(
+        overrides: [
+          setupJourneyRepositoryProvider.overrideWithValue(liveRepository),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: false,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+              tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => false),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
+        ],
+      );
+      addTearDown(liveContainer.dispose);
+
+      final result = await liveContainer.read(setupCompletedProvider.future);
+      expect(result, isTrue);
+    });
+
+    test('returns false when live mode has no stored setup profile', () async {
+      final liveContainer = ProviderContainer(
+        overrides: [
+          setupJourneyRepositoryProvider
+              .overrideWithValue(MockSetupJourneyRepository()),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: false,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+              tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => false),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
+        ],
+      );
+      addTearDown(liveContainer.dispose);
+
+      final result = await liveContainer.read(setupCompletedProvider.future);
+      expect(result, isFalse);
+    });
+  });
 }

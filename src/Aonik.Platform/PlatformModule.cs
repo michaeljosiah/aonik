@@ -76,6 +76,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IBootstrapService, BootstrapService>();
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
+        services.AddScoped<IPayaboSetupProfileService, PayaboSetupProfileService>();
         services.AddScoped<IRegistrationService, RegistrationService>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();

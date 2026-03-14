@@ -42,13 +42,17 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> registerIndividual(RegisterIndividualRequest request) async {
+  Future<AuthOnboardingSnapshot?> registerIndividual(
+    RegisterIndividualRequest request,
+  ) async {
     _currentUser = AuthUserInfo(
       userId: 'mock-user-id',
       email: request.email.trim().toLowerCase(),
       firstName: request.firstName.trim(),
       lastName: request.lastName.trim(),
     );
+
+    return _buildOnboardingSnapshot();
   }
 
   @override
@@ -63,6 +67,33 @@ class MockAuthRepository implements AuthRepository {
           firstName: 'John',
           lastName: 'Doe',
         );
+  }
+
+  @override
+  Future<AuthOnboardingSnapshot?> getOnboardingSnapshot() async {
+    return _buildOnboardingSnapshot();
+  }
+
+  AuthOnboardingSnapshot _buildOnboardingSnapshot() {
+    return AuthOnboardingSnapshot(
+      userId: _currentUser?.userId ?? 'mock-user-id',
+      partyId: 'mock-party-id',
+      gates: const <AuthOnboardingGate>[
+        AuthOnboardingGate(
+          gate: 'EmailVerified',
+          isSatisfied: true,
+          isRequired: true,
+          requiredActions: <String>[],
+        ),
+        AuthOnboardingGate(
+          gate: 'ProfileComplete',
+          isSatisfied: true,
+          isRequired: true,
+          requiredActions: <String>[],
+        ),
+      ],
+      nextActions: const <String>[],
+    );
   }
 
   static String _capitalize(String rawValue) {

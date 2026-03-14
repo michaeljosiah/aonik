@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../app/auth/auth_controller.dart';
 import '../../../app/demo/demo_data_mode.dart';
@@ -82,7 +81,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               demoDataMode: demoDataMode,
               themeMode: themeMode,
             )
-            : const Center(
+          : const Center(
               child: Padding(
                 padding: EdgeInsets.only(top: 80),
                 child: CircularProgressIndicator(),
@@ -230,11 +229,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _startSetupJourney(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('payabo.setup.completed');
-
-    ref.read(setupJourneyControllerProvider.notifier).reset();
-    ref.invalidate(setupCompletedProvider);
+    await clearSetupCompleted(ref);
 
     if (!context.mounted) {
       return;
@@ -375,15 +370,15 @@ class _ModalOption extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.lg),
         child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: color ?? c.ink,
-              ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: color ?? c.ink,
             ),
           ),
+        ),
       ),
     );
   }

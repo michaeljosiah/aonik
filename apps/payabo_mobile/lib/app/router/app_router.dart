@@ -54,6 +54,38 @@ import '../../features/spending/presentation/spending_merchant_detail_screen.dar
 import '../../features/spending/presentation/spending_screen.dart';
 import '../auth/auth_controller.dart';
 
+String? resolveAppRedirect({
+  required AuthState authState,
+  required String location,
+  required bool setupDone,
+}) {
+  final bool isAuthArea =
+      location == '/' || location == '/intro' || location.startsWith('/auth');
+  final bool isSetupArea = location == '/setup';
+  final bool isDesignSystemArea = location == '/design-system';
+
+  if (!authState.isAuthenticated && !isAuthArea && !isDesignSystemArea) {
+    return '/auth/login';
+  }
+
+  if (authState.isAuthenticated && isAuthArea) {
+    return setupDone ? '/dashboard' : '/setup';
+  }
+
+  if (authState.isAuthenticated &&
+      !setupDone &&
+      !isSetupArea &&
+      !isDesignSystemArea) {
+    return '/setup';
+  }
+
+  if (authState.isAuthenticated && isSetupArea && setupDone) {
+    return '/dashboard';
+  }
+
+  return null;
+}
+
 class RouterRefreshNotifier extends ChangeNotifier {
   RouterRefreshNotifier(this._ref) {
     _ref.listen<AuthState>(
@@ -92,40 +124,14 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           return null;
         }
 
-        final String location = state.uri.path;
-        final bool isAuthArea = location == '/' ||
-            location == '/intro' ||
-            location.startsWith('/auth');
-        final bool isSetupArea = location == '/setup';
+        final setupAsync = ref.read(setupCompletedProvider);
+        final bool setupDone = setupAsync.value ?? false;
 
-        if (!authState.isAuthenticated &&
-            !isAuthArea &&
-            location != '/design-system') {
-          return '/auth/login';
-        }
-
-        if (authState.isAuthenticated && isAuthArea) {
-          // Check if setup has been completed before sending to dashboard.
-          // The provider is async — if still loading, send to /setup
-          // (the screen will display quickly regardless). If completed,
-          // go straight to dashboard.
-          final setupAsync = ref.read(setupCompletedProvider);
-          final bool setupDone = setupAsync.value ?? false;
-
-          return setupDone ? '/dashboard' : '/setup';
-        }
-
-        // Guard: authenticated users who finished setup should not revisit /setup
-        if (authState.isAuthenticated && isSetupArea) {
-          final setupAsync = ref.read(setupCompletedProvider);
-          final bool setupDone = setupAsync.value ?? false;
-
-          if (setupDone) {
-            return '/dashboard';
-          }
-        }
-
-        return null;
+        return resolveAppRedirect(
+          authState: authState,
+          location: state.uri.path,
+          setupDone: setupDone,
+        );
       },
       routes: <GoRoute>[
         GoRoute(

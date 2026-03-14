@@ -28,6 +28,44 @@ class AuthUserInfo {
   final String? lastName;
 }
 
+class AuthOnboardingGate {
+  const AuthOnboardingGate({
+    required this.gate,
+    required this.isSatisfied,
+    required this.isRequired,
+    required this.requiredActions,
+  });
+
+  final String gate;
+  final bool isSatisfied;
+  final bool isRequired;
+  final List<String> requiredActions;
+}
+
+class AuthOnboardingSnapshot {
+  const AuthOnboardingSnapshot({
+    required this.userId,
+    required this.partyId,
+    required this.gates,
+    required this.nextActions,
+  });
+
+  final String userId;
+  final String? partyId;
+  final List<AuthOnboardingGate> gates;
+  final List<String> nextActions;
+
+  bool get hasPendingRequiredActions {
+    if (nextActions.isNotEmpty) {
+      return true;
+    }
+
+    return gates.any((AuthOnboardingGate gate) {
+      return gate.isRequired && !gate.isSatisfied;
+    });
+  }
+}
+
 class RegisterIndividualRequest {
   const RegisterIndividualRequest({
     required this.firstName,
@@ -58,9 +96,13 @@ abstract class AuthRepository {
     required String refreshToken,
   });
 
-  Future<void> registerIndividual(RegisterIndividualRequest request);
+  Future<AuthOnboardingSnapshot?> registerIndividual(
+    RegisterIndividualRequest request,
+  );
 
   Future<void> sendPasswordResetEmail(String email);
 
   Future<AuthUserInfo> getUserInfo();
+
+  Future<AuthOnboardingSnapshot?> getOnboardingSnapshot();
 }

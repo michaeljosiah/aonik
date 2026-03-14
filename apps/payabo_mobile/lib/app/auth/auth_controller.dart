@@ -41,12 +41,14 @@ class AuthState {
     required this.isAuthenticated,
     required this.isBusy,
     this.user,
+    this.onboarding,
   });
 
   final bool isInitialized;
   final bool isAuthenticated;
   final bool isBusy;
   final AuthUser? user;
+  final AuthOnboardingSnapshot? onboarding;
 
   factory AuthState.initial() {
     return const AuthState(
@@ -54,6 +56,7 @@ class AuthState {
       isAuthenticated: false,
       isBusy: false,
       user: null,
+      onboarding: null,
     );
   }
 
@@ -62,13 +65,16 @@ class AuthState {
     bool? isAuthenticated,
     bool? isBusy,
     AuthUser? user,
+    AuthOnboardingSnapshot? onboarding,
     bool clearUser = false,
+    bool clearOnboarding = false,
   }) {
     return AuthState(
       isInitialized: isInitialized ?? this.isInitialized,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isBusy: isBusy ?? this.isBusy,
       user: clearUser ? null : user ?? this.user,
+      onboarding: clearOnboarding ? null : onboarding ?? this.onboarding,
     );
   }
 }
@@ -111,11 +117,13 @@ class AuthController extends StateNotifier<AuthState> {
 
     try {
       final userInfo = await _ref.read(authRepositoryProvider).getUserInfo();
+      final onboarding = await _resolveOnboardingSnapshot();
       state = AuthState(
         isInitialized: true,
         isAuthenticated: true,
         isBusy: false,
         user: _mapUser(userInfo),
+        onboarding: onboarding,
       );
     } on ApiException catch (exception) {
       if (_isAuthenticationFailure(exception.statusCode)) {
@@ -154,12 +162,14 @@ class AuthController extends StateNotifier<AuthState> {
       final user = await _resolveUserInfo(
         fallbackEmail: email.trim().toLowerCase(),
       );
+      final onboarding = await _resolveOnboardingSnapshot();
 
       state = AuthState(
         isInitialized: true,
         isAuthenticated: true,
         isBusy: false,
         user: user,
+        onboarding: onboarding,
       );
     } catch (error) {
       state = state.copyWith(isBusy: false);
@@ -172,7 +182,7 @@ class AuthController extends StateNotifier<AuthState> {
 
     try {
       final repository = _ref.read(authRepositoryProvider);
-      await repository.registerIndividual(request);
+      final onboarding = await repository.registerIndividual(request);
 
       final token = await repository.signInWithPassword(
         email: request.email,
@@ -184,12 +194,15 @@ class AuthController extends StateNotifier<AuthState> {
       final user = await _resolveUserInfo(
         fallbackEmail: request.email.trim().toLowerCase(),
       );
+      final resolvedOnboarding =
+          onboarding ?? await _resolveOnboardingSnapshot();
 
       state = AuthState(
         isInitialized: true,
         isAuthenticated: true,
         isBusy: false,
         user: user,
+        onboarding: resolvedOnboarding,
       );
     } catch (error) {
       state = state.copyWith(isBusy: false);
@@ -215,6 +228,7 @@ class AuthController extends StateNotifier<AuthState> {
       isInitialized: true,
       isAuthenticated: false,
       isBusy: false,
+      onboarding: null,
     );
   }
 
@@ -247,6 +261,14 @@ class AuthController extends StateNotifier<AuthState> {
         userId: '',
         email: fallbackEmail,
       );
+    }
+  }
+
+  Future<AuthOnboardingSnapshot?> _resolveOnboardingSnapshot() async {
+    try {
+      return await _ref.read(authRepositoryProvider).getOnboardingSnapshot();
+    } on ApiException {
+      return null;
     }
   }
 

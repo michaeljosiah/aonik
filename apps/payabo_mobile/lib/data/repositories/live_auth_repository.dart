@@ -72,9 +72,11 @@ class LiveAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> registerIndividual(RegisterIndividualRequest request) async {
+  Future<AuthOnboardingSnapshot?> registerIndividual(
+    RegisterIndividualRequest request,
+  ) async {
     try {
-      await _apiClient.post<void>(
+      final response = await _apiClient.post<Map<String, dynamic>>(
         '/v1/registrations/individual',
         data: <String, dynamic>{
           'tenantId': _tenantId,
@@ -87,6 +89,16 @@ class LiveAuthRepository implements AuthRepository {
           'password': request.password,
         },
       );
+
+      final payload = response.data ?? const <String, dynamic>{};
+      final onboarding = payload['onboarding'];
+      if (onboarding is Map) {
+        return _mapOnboardingSnapshot(
+          Map<String, dynamic>.from(onboarding),
+        );
+      }
+
+      return null;
     } on DioException catch (exception) {
       throw mapDioException(exception);
     }
@@ -136,6 +148,22 @@ class LiveAuthRepository implements AuthRepository {
     }
   }
 
+  @override
+  Future<AuthOnboardingSnapshot?> getOnboardingSnapshot() async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/v1/onboarding/me',
+        options: await _authorizedOptions(),
+      );
+
+      return _mapOnboardingSnapshot(
+        response.data ?? const <String, dynamic>{},
+      );
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    }
+  }
+
   AuthTokenResult _mapTokenResponse(
     Map<String, dynamic> payload, {
     required String errorMessage,
@@ -155,6 +183,63 @@ class LiveAuthRepository implements AuthRepository {
       tokenType: tokenType,
       idToken: (payload['idToken'] as String?)?.trim(),
     );
+  }
+
+  AuthOnboardingSnapshot _mapOnboardingSnapshot(
+    Map<String, dynamic> payload,
+  ) {
+    final gatesPayload = payload['gates'];
+    final nextActionsPayload = payload['nextActions'];
+
+    return AuthOnboardingSnapshot(
+      userId: _readString(payload['userId']),
+      partyId: _readNullableString(payload['partyId']),
+      gates: gatesPayload is List
+          ? gatesPayload
+              .whereType<Map>()
+              .map(
+                (Map<dynamic, dynamic> gate) => _mapOnboardingGate(
+                  Map<String, dynamic>.from(gate),
+                ),
+              )
+              .toList(growable: false)
+          : const <AuthOnboardingGate>[],
+      nextActions: nextActionsPayload is List
+          ? nextActionsPayload
+              .map((dynamic action) => action.toString().trim())
+              .where((String action) => action.isNotEmpty)
+              .toList(growable: false)
+          : const <String>[],
+    );
+  }
+
+  AuthOnboardingGate _mapOnboardingGate(Map<String, dynamic> payload) {
+    final actionsPayload = payload['requiredActions'];
+
+    return AuthOnboardingGate(
+      gate: _readString(payload['gate']),
+      isSatisfied: payload['isSatisfied'] == true,
+      isRequired: payload['isRequired'] == true,
+      requiredActions: actionsPayload is List
+          ? actionsPayload
+              .map((dynamic action) => action.toString().trim())
+              .where((String action) => action.isNotEmpty)
+              .toList(growable: false)
+          : const <String>[],
+    );
+  }
+
+  String _readString(dynamic value) {
+    return value?.toString().trim() ?? '';
+  }
+
+  String? _readNullableString(dynamic value) {
+    final normalized = value?.toString().trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+
+    return normalized;
   }
 
   Future<Options?> _authorizedOptions() async {

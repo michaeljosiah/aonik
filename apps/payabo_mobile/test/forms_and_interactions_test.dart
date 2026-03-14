@@ -83,11 +83,17 @@ void main() {
     expect(find.text('We couldn\'t sign you in'), findsNothing);
   });
 
-  testWidgets('google login redirects to dashboard in demo mode',
+  testWidgets('google login returns to root route in demo mode',
       (WidgetTester tester) async {
     final router = GoRouter(
       initialLocation: '/auth/login',
       routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (BuildContext context, GoRouterState state) {
+            return const Scaffold(body: Text('Root'));
+          },
+        ),
         GoRoute(
           path: '/auth/login',
           builder: (BuildContext context, GoRouterState state) {
@@ -124,14 +130,20 @@ void main() {
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Root'), findsOneWidget);
   });
 
-  testWidgets('google login redirects to dashboard in offline demo mode',
+  testWidgets('google login returns to root route in offline demo mode',
       (WidgetTester tester) async {
     final router = GoRouter(
       initialLocation: '/auth/login',
       routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (BuildContext context, GoRouterState state) {
+            return const Scaffold(body: Text('Root'));
+          },
+        ),
         GoRoute(
           path: '/auth/login',
           builder: (BuildContext context, GoRouterState state) {
@@ -169,7 +181,7 @@ void main() {
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Root'), findsOneWidget);
   });
 
   testWidgets('phone code disabled state shows countdown then unlocks',
@@ -215,7 +227,11 @@ class _FailingAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> registerIndividual(RegisterIndividualRequest request) async {}
+  Future<AuthOnboardingSnapshot?> registerIndividual(
+    RegisterIndividualRequest request,
+  ) async {
+    return null;
+  }
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {}
@@ -239,5 +255,10 @@ class _FailingAuthRepository implements AuthRepository {
       refreshToken: 'unused-refresh-token',
       idToken: null,
     );
+  }
+
+  @override
+  Future<AuthOnboardingSnapshot?> getOnboardingSnapshot() async {
+    return null;
   }
 }

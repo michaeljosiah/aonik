@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app/environment/environment_provider.dart';
+import '../../../app/startup/offline_mode_provider.dart';
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../domain/setup_enums.dart';
@@ -101,8 +103,7 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
   }
 
   void toggleFinancialGoal(FinancialGoalType goal) {
-    final current =
-        List<FinancialGoalType>.from(state.profile.financialGoals);
+    final current = List<FinancialGoalType>.from(state.profile.financialGoals);
     if (current.contains(goal)) {
       current.remove(goal);
     } else {
@@ -171,18 +172,18 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
 
     state = state.copyWith(profile: completedProfile);
 
-    // Persist completion flag locally
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_setupCompletedKey, true);
 
-    // Save to repository (placeholder / mock for now)
     try {
       final repository = _ref.read(setupJourneyRepositoryProvider);
       await repository.saveSetupProfile(completedProfile);
     } catch (_) {
-      // Graceful degradation — setup is saved locally even if
-      // the backend call fails (relevant for Nigeria connectivity).
+      // Graceful degradation — preserve local completion state if the
+      // backend call cannot be completed right now.
     }
+
+    _ref.invalidate(setupCompletedProvider);
   }
 
   void reset() {
@@ -223,13 +224,44 @@ final FutureProvider<bool> setupCompletedProvider =
   }
 
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(SetupJourneyController._setupCompletedKey) ?? false;
+  if (_useLocalSetupPersistence(ref)) {
+    return prefs.getBool(SetupJourneyController._setupCompletedKey) ?? false;
+  }
+
+  try {
+    final repository = ref.watch(setupJourneyRepositoryProvider);
+    final profile = await repository.loadSetupProfile();
+    final completed = profile?.completed ?? false;
+
+    if (completed) {
+      await prefs.setBool(SetupJourneyController._setupCompletedKey, true);
+    } else {
+      await prefs.remove(SetupJourneyController._setupCompletedKey);
+    }
+
+    return completed;
+  } catch (_) {
+    return prefs.getBool(SetupJourneyController._setupCompletedKey) ?? false;
+  }
 });
+
+bool _useLocalSetupPersistence(Ref ref) {
+  return ref.watch(appEnvironmentProvider).useMocks ||
+      ref.watch(offlineModeProvider);
+}
 
 /// Clears the setup-completed flag and resets the controller state
 /// so the user can re-enter the setup journey from the profile screen.
-Future<void> clearSetupCompleted(Ref ref) async {
+Future<void> clearSetupCompleted(WidgetRef ref) async {
   final prefs = await SharedPreferences.getInstance();
+  try {
+    final repository = ref.read(setupJourneyRepositoryProvider);
+    await repository.clearSetupProfile();
+  } catch (_) {
+    // Best-effort clear. Local state is still reset so the user can
+    // restart setup immediately on this device.
+  }
+
   await prefs.remove(SetupJourneyController._setupCompletedKey);
 
   ref.read(setupJourneyControllerProvider.notifier).reset();

@@ -5,6 +5,7 @@ using System.Text;
 using FluentAssertions;
 
 using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Platform.Contracts.Api.PersonalFinance;
 
 namespace Aonik.Api.Tests;
 
@@ -45,6 +46,63 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
         var listed = await listResponse.Content.ReadFromJsonAsync<List<PersonalAccountResponse>>();
         listed.Should().NotBeNull();
         listed!.Should().ContainSingle(item => item.PersonalAccountId == created.PersonalAccountId);
+    }
+
+    [Fact]
+    public async Task SetupProfile_SaveGetAndClear_RoundTripsThroughBackend()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create()
+                .WithRoles("PersonalUser")
+                .WithPermissions("Settings.Read", "Settings.Write"));
+
+        var request = new PayaboSetupProfileRequest(
+            new[] { "trackMoney", "saveForGoals" },
+            new[] { "ukBank", "cashManual" },
+            "skipForNow",
+            new[] { "rentOrMortgage" },
+            "parents",
+            new[] { "saveMore", "buildEmergencyFund" },
+            true);
+
+        // Act
+        var emptyResponse = await client.GetAsync("/personal-finance/setup-profile");
+        var saveResponse = await client.PutAsJsonAsync("/personal-finance/setup-profile", request);
+        var saved = await saveResponse.Content.ReadFromJsonAsync<PayaboSetupProfileResponse>();
+
+        var getResponse = await client.GetAsync("/personal-finance/setup-profile");
+        var fetched = await getResponse.Content.ReadFromJsonAsync<PayaboSetupProfileResponse>();
+
+        var clearResponse = await client.DeleteAsync("/personal-finance/setup-profile");
+        var cleared = await clearResponse.Content.ReadFromJsonAsync<ClearPayaboSetupProfileResponse>();
+
+        var afterClearResponse = await client.GetAsync("/personal-finance/setup-profile");
+        var afterClear = await afterClearResponse.Content.ReadFromJsonAsync<PayaboSetupProfileResponse>();
+
+        // Assert
+        emptyResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        saveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        saved.Should().NotBeNull();
+        saved!.Completed.Should().BeTrue();
+        saved.SelectedUseCases.Should().ContainInOrder("trackMoney", "saveForGoals");
+        saved.ConnectChoice.Should().Be("skipForNow");
+
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        fetched.Should().NotBeNull();
+        fetched!.FinancialGoals.Should().Contain(new[] { "saveMore", "buildEmergencyFund" });
+        fetched.SupportType.Should().Be("parents");
+
+        clearResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        cleared.Should().NotBeNull();
+        cleared!.Status.Should().Be("ok");
+
+        afterClearResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        afterClear.Should().NotBeNull();
+        afterClear!.Completed.Should().BeFalse();
+        afterClear.SelectedUseCases.Should().BeEmpty();
+        afterClear.AccountSourceTypes.Should().BeEmpty();
     }
 
     [Fact]

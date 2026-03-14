@@ -23,6 +23,7 @@ import 'dashboard_repository.dart';
 import 'live_account_links_repository.dart';
 import 'live_auth_repository.dart';
 import 'live_profile_repository.dart';
+import 'live_setup_journey_repository.dart';
 import 'order_repository.dart';
 import 'payment_repository.dart';
 import 'profile_repository.dart';
@@ -130,7 +131,11 @@ final Provider<ProfileRepository> profileRepositoryProvider =
 final Provider<SetupJourneyRepository> setupJourneyRepositoryProvider =
     Provider<SetupJourneyRepository>(
   (Ref ref) {
-    // Setup journey remains mock-backed until a live repository is implemented.
-    return MockSetupJourneyRepository();
+    if (_shouldMock(ref)) {
+      return MockSetupJourneyRepository();
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveSetupJourneyRepository(apiClient: apiClient);
   },
 );

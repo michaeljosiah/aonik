@@ -92,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         return;
                       }
 
-                      context.go('/dashboard');
+                      context.go('/');
                     } catch (error) {
                       if (!context.mounted) {
                         return;
@@ -129,7 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         return;
                       }
 
-                      context.go('/dashboard');
+                      context.go('/');
                       return;
                     }
 

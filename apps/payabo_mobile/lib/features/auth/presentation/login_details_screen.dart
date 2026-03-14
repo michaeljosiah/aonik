@@ -126,7 +126,7 @@ class _LoginDetailsScreenState extends ConsumerState<LoginDetailsScreen> {
                         return;
                       }
 
-                      context.go('/dashboard');
+                      context.go('/');
                     } catch (error) {
                       if (!context.mounted) {
                         return;

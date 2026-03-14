@@ -53,6 +53,9 @@ public static class SettingDefinitions
             [FeatureFlagSettingNames.BillPaymentsInvoicingDiscounts] = new SettingDefinition(FeatureFlagSettingNames.BillPaymentsInvoicingDiscounts, "false"),
             [FeatureFlagSettingNames.BillPaymentsInvoicingAllocations] = new SettingDefinition(FeatureFlagSettingNames.BillPaymentsInvoicingAllocations, "true"),
             [FeatureFlagSettingNames.BillPaymentsCustomerAccountsManagement] = new SettingDefinition(FeatureFlagSettingNames.BillPaymentsCustomerAccountsManagement, "true"),
+
+            // ── Payabo ───────────────────────────────────────────────────
+            [PayaboSettingNames.SetupProfile] = new SettingDefinition(PayaboSettingNames.SetupProfile),
         });
 
     public static SettingDefinition? Get(string key)

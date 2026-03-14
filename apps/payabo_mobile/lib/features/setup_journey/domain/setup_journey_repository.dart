@@ -2,9 +2,10 @@ import 'setup_models.dart';
 
 /// Repository abstraction for the setup journey.
 ///
-/// The current implementation is a no-op mock. Replace with a live
-/// implementation that calls AONIK backend endpoints when available:
-/// - POST /personal-finance/setup-profile (saveSetupProfile)
+/// The live implementation stores the profile through the AONIK backend:
+/// - GET /personal-finance/setup-profile
+/// - PUT /personal-finance/setup-profile
+/// - DELETE /personal-finance/setup-profile
 /// - POST /personal-finance/account-links/sessions (triggerUkAccountLink)
 /// - POST /personal-finance/account-links/sessions (triggerNigeriaAccountLink)
 ///
@@ -17,6 +18,9 @@ abstract class SetupJourneyRepository {
 
   /// Load a previously saved setup profile, if any.
   Future<PayaboSetupProfile?> loadSetupProfile();
+
+  /// Clear a previously saved setup profile.
+  Future<void> clearSetupProfile();
 
   /// Trigger UK Open Banking account linking flow.
   ///

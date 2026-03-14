@@ -52,6 +52,7 @@ void main() {
     final state = container.read(authControllerProvider);
     expect(state.isAuthenticated, isTrue);
     expect(state.user?.email, 'jane@mail.com');
+    expect(state.onboarding?.hasPendingRequiredActions, isFalse);
 
     final session = await store.read();
     expect(session, isNotNull);
@@ -110,7 +111,11 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> registerIndividual(RegisterIndividualRequest request) async {}
+  Future<AuthOnboardingSnapshot?> registerIndividual(
+    RegisterIndividualRequest request,
+  ) async {
+    return _buildOnboardingSnapshot();
+  }
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {}
@@ -139,6 +144,27 @@ class _FakeAuthRepository implements AuthRepository {
       expiresIn: 3600,
       refreshToken: 'test-refresh-token',
       idToken: null,
+    );
+  }
+
+  @override
+  Future<AuthOnboardingSnapshot?> getOnboardingSnapshot() async {
+    return _buildOnboardingSnapshot();
+  }
+
+  AuthOnboardingSnapshot _buildOnboardingSnapshot() {
+    return const AuthOnboardingSnapshot(
+      userId: 'test-user-id',
+      partyId: 'test-party-id',
+      gates: <AuthOnboardingGate>[
+        AuthOnboardingGate(
+          gate: 'EmailVerified',
+          isSatisfied: true,
+          isRequired: true,
+          requiredActions: <String>[],
+        ),
+      ],
+      nextActions: <String>[],
     );
   }
 }

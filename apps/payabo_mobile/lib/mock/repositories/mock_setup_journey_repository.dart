@@ -27,6 +27,14 @@ class MockSetupJourneyRepository implements SetupJourneyRepository {
   }
 
   @override
+  Future<void> clearSetupProfile() async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('setupJourney.clearSetupProfile');
+
+    _savedProfile = null;
+  }
+
+  @override
   Future<void> triggerUkAccountLink() async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('setupJourney.triggerUkAccountLink');
