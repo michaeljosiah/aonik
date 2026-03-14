@@ -467,7 +467,7 @@ class _OverviewQuickAction extends StatelessWidget {
       width: 130,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: PayaboRadii.radiusSm,
         child: Column(
           children: <Widget>[
             Container(
@@ -543,7 +543,7 @@ class _AccountSnapshotCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: snapshot.accentColor.withValues(alpha: 0.18)),
         boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.medium,
       ),
@@ -1107,12 +1107,12 @@ class _MonthlyOverviewCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        borderRadius: PayaboRadii.radiusSm,
         child: Stack(
           children: <Widget>[
             Positioned(

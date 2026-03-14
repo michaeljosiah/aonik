@@ -657,7 +657,7 @@ class _AccountsHeroCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: c.surfaceCardElevated,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.soft,
       ),
@@ -920,7 +920,7 @@ class _UnlinkedAccountsStateCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: c.spendingCardWarmElevated,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: PayaboShadows.soft,
       ),
@@ -994,7 +994,7 @@ class _FreshAccountsStateCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: c.spendingCardWarmElevated,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: PayaboShadows.soft,
       ),
@@ -1126,7 +1126,7 @@ class _AccountLinkCard extends StatelessWidget {
       key: Key('account-card-${item.id}'),
       decoration: BoxDecoration(
         color: c.surfaceBase,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(
           color: item.needsReconnect
               ? c.spendingInsightBorder
@@ -1400,7 +1400,7 @@ class _AccountsExplainerCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),

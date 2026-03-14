@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,7 +16,6 @@ import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
-import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
@@ -32,19 +32,19 @@ List<_DashboardOverviewSlice> _dashboardOverviewSlices(PayaboColorResolver c) =>
     <_DashboardOverviewSlice>[
       _DashboardOverviewSlice(
         label: 'Income',
-        amountLabel: 'GHS 4,232.24',
+        amountLabel: '₵4,232.24',
         value: 4232.24,
         color: c.success,
       ),
       _DashboardOverviewSlice(
         label: 'Expenses',
-        amountLabel: 'GHS 2,660.12',
+        amountLabel: '₵2,660.12',
         value: 2660.12,
         color: c.primary,
       ),
       _DashboardOverviewSlice(
         label: 'Investments',
-        amountLabel: 'GHS 1,754.64',
+        amountLabel: '₵1,754.64',
         value: 1754.64,
         color: c.info,
       ),
@@ -383,8 +383,6 @@ class _DashboardContent extends StatelessWidget {
   });
 
   static const int _upcomingBillPreviewLimit = 5;
-  static const int _recentActivityPreviewLimit = 2;
-
   final DashboardSummary summary;
   final bool isEmpty;
   final String displayName;
@@ -399,19 +397,12 @@ class _DashboardContent extends StatelessWidget {
     final bills = allUpcomingBills
         .take(_upcomingBillPreviewLimit)
         .toList(growable: false);
-    final recentTransactions = isEmpty
-        ? const <DashboardTransaction>[]
-        : summary.recentTransactions
-            .take(_recentActivityPreviewLimit)
-            .toList(growable: false);
-
     return _DashboardHeroInsightsSection(
       displayName: displayName,
       photoUrl: photoUrl,
       onProfileTap: onProfileTap,
       onNotificationsTap: onNotificationsTap,
       dueBillCount: allUpcomingBills.length,
-      recentTransactions: recentTransactions,
       upcomingBills: bills,
       isEmpty: isEmpty,
     );
@@ -425,7 +416,6 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
     required this.onProfileTap,
     required this.onNotificationsTap,
     required this.dueBillCount,
-    required this.recentTransactions,
     required this.upcomingBills,
     required this.isEmpty,
   });
@@ -441,7 +431,6 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
   final int dueBillCount;
-  final List<DashboardTransaction> recentTransactions;
   final List<DashboardUpcomingBill> upcomingBills;
   final bool isEmpty;
 
@@ -471,7 +460,24 @@ class _DashboardHeroInsightsSectionState
     final double nextExtent = _sheetController.size;
 
     if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
-      _sheetExtentNotifier.value = nextExtent;
+      final SchedulerPhase schedulerPhase =
+          WidgetsBinding.instance.schedulerPhase;
+
+      if (schedulerPhase == SchedulerPhase.idle ||
+          schedulerPhase == SchedulerPhase.postFrameCallbacks) {
+        _sheetExtentNotifier.value = nextExtent;
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_sheetController.isAttached) {
+          return;
+        }
+
+        if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
+          _sheetExtentNotifier.value = nextExtent;
+        }
+      });
     }
   }
 
@@ -565,6 +571,7 @@ class _DashboardHeroInsightsSectionState
 
                   return _DashboardPinnedHeader(
                     backgroundProgress: headerBackgroundProgress,
+                    displayName: widget.displayName,
                     photoUrl: widget.photoUrl,
                     onProfileTap: widget.onProfileTap,
                     onNotificationsTap: widget.onNotificationsTap,
@@ -594,7 +601,6 @@ class _DashboardHeroInsightsSectionState
                   return _DashboardStatsSheet(
                     scrollController: scrollController,
                     dueBillCount: widget.dueBillCount,
-                    recentTransactions: widget.recentTransactions,
                     upcomingBills: widget.upcomingBills,
                     isEmpty: widget.isEmpty,
                   );
@@ -611,12 +617,14 @@ class _DashboardHeroInsightsSectionState
 class _DashboardPinnedHeader extends StatelessWidget {
   const _DashboardPinnedHeader({
     required this.backgroundProgress,
+    required this.displayName,
     required this.photoUrl,
     required this.onProfileTap,
     required this.onNotificationsTap,
   });
 
   final double backgroundProgress;
+  final String displayName;
   final String? photoUrl;
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
@@ -656,11 +664,14 @@ class _DashboardPinnedHeader extends StatelessWidget {
           ),
           child: Row(
             children: <Widget>[
-              _DashboardProfileAvatar(
-                onTap: onProfileTap,
-                photoUrl: photoUrl,
+              Expanded(
+                child: _DashboardProfileSummary(
+                  onTap: onProfileTap,
+                  photoUrl: photoUrl,
+                  displayName: displayName,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: PayaboSpacing.md),
               _DashboardNotificationButton(onTap: onNotificationsTap),
             ],
           ),
@@ -749,65 +760,92 @@ class _DashboardHeroBanner extends StatelessWidget {
               alignment: Alignment.bottomLeft,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 360),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Today\'s insight',
-                      style: textTheme.labelLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.64),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.sm),
-                    Text(
-                      '$greeting, $firstName.',
-                      style: textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        height: 1.08,
-                      ),
-                    ),
-                    const SizedBox(height: PayaboSpacing.md),
-                    Text.rich(
-                      TextSpan(
-                        style: baseMessageStyle,
-                        children: isEmpty
-                            ? <InlineSpan>[
-                                const TextSpan(
-                                    text: 'This might interest you. '),
-                                const TextSpan(
-                                  text:
-                                      'Add your first bill to unlock daily insights, spendable balance guidance, and due reminders.',
-                                ),
-                              ]
-                            : <InlineSpan>[
-                                const TextSpan(
-                                    text: 'This might interest you. '),
-                                const TextSpan(text: 'You have '),
-                                TextSpan(
-                                  text: 'GHS 1,285.00',
-                                  style: emphasisStyle,
-                                ),
-                                const TextSpan(text: ' available to spend, '),
-                                TextSpan(
-                                  text: dueBillPhrase,
-                                  style: emphasisStyle,
-                                ),
-                                const TextSpan(text: ' due this week, and '),
-                                TextSpan(
-                                  text: 'GHS 620',
-                                  style: emphasisStyle,
-                                ),
-                                const TextSpan(
-                                  text: ' added to your net worth this month.',
-                                ),
-                              ],
-                      ),
-                    ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (
+                    BuildContext context,
+                    BoxConstraints constraints,
+                  ) {
+                    final bool compact = constraints.maxHeight < 190;
+                    final int messageMaxLines = compact ? 3 : 4;
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Today\'s insight',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.labelLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.64),
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        SizedBox(
+                          height: compact ? PayaboSpacing.xs : PayaboSpacing.sm,
+                        ),
+                        Text(
+                          '$greeting, $firstName.',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: (compact
+                                  ? textTheme.headlineSmall
+                                  : textTheme.headlineMedium)
+                              ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            height: 1.08,
+                          ),
+                        ),
+                        SizedBox(
+                          height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
+                        ),
+                        Text.rich(
+                          TextSpan(
+                            style: baseMessageStyle,
+                            children: isEmpty
+                                ? <InlineSpan>[
+                                    const TextSpan(
+                                        text: 'This might interest you. '),
+                                    const TextSpan(
+                                      text:
+                                          'Add your first bill to unlock daily insights, spendable balance guidance, and due reminders.',
+                                    ),
+                                  ]
+                                : <InlineSpan>[
+                                    const TextSpan(
+                                        text: 'This might interest you. '),
+                                    const TextSpan(text: 'You have '),
+                                    TextSpan(
+                                      text: '₵1,285.00',
+                                      style: emphasisStyle,
+                                    ),
+                                    const TextSpan(
+                                        text: ' available to spend, '),
+                                    TextSpan(
+                                      text: dueBillPhrase,
+                                      style: emphasisStyle,
+                                    ),
+                                    const TextSpan(
+                                        text: ' due this week, and '),
+                                    TextSpan(
+                                      text: '₵620',
+                                      style: emphasisStyle,
+                                    ),
+                                    const TextSpan(
+                                      text:
+                                          ' added to your net worth this month.',
+                                    ),
+                                  ],
+                          ),
+                          maxLines: messageMaxLines,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -822,41 +860,39 @@ class _DashboardStatsSheet extends StatelessWidget {
   const _DashboardStatsSheet({
     required this.scrollController,
     required this.dueBillCount,
-    required this.recentTransactions,
     required this.upcomingBills,
     required this.isEmpty,
   });
 
   final ScrollController scrollController;
   final int dueBillCount;
-  final List<DashboardTransaction> recentTransactions;
   final List<DashboardUpcomingBill> upcomingBills;
   final bool isEmpty;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final Color sheetBackground =
-        c.isDark ? const Color(0xFFF4EDE3) : c.surfaceWarmElevated;
-    final Color sheetBorder = c.isDark ? const Color(0xFFE2D4C4) : c.borderWarm;
-    final Color handleColor = c.isDark ? const Color(0xFFCCBCAA) : c.borderWarm;
+    final Color sheetBackground = c.surfaceBase;
+    final Color sheetBorder =
+        c.isDark ? c.borderStrong.withValues(alpha: 0.52) : c.border;
+    final Color handleColor = c.borderStrong;
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: sheetBackground,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(32),
-          topRight: Radius.circular(32),
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
         ),
         border: Border.all(color: sheetBorder),
-        boxShadow: const <BoxShadow>[
+        boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Color(0x1F000000),
-            blurRadius: 24,
-            offset: Offset(0, -8),
+            color: Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -883,18 +919,15 @@ class _DashboardStatsSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: PayaboSpacing.lg),
+          _InsightCarouselSection(
+            dueBillCount: dueBillCount,
+            isEmpty: isEmpty,
+          ),
+          const SizedBox(height: PayaboSpacing.xl),
           _DashboardMetricSummary(
             dueBillCount: dueBillCount,
             isEmpty: isEmpty,
           ),
-          if (recentTransactions.isNotEmpty) ...<Widget>[
-            const SizedBox(height: PayaboSpacing.lg),
-            const _DashboardListHeader(title: 'Recent activity'),
-            const SizedBox(height: PayaboSpacing.md),
-            _RecentActivityCard(items: recentTransactions),
-          ],
-          const SizedBox(height: PayaboSpacing.xl),
-          _DashboardFeatureRow(isEmpty: isEmpty),
           const SizedBox(height: PayaboSpacing.xl),
           const _DashboardOverviewCard(),
           const SizedBox(height: PayaboSpacing.xl),
@@ -959,11 +992,11 @@ class _DashboardMetricSummary extends StatelessWidget {
             Expanded(
               child: _DashboardMiniStatCard(
                 icon: Icons.trending_up_rounded,
-                label: 'Net worth',
-                value: isEmpty ? 'GHS 0.00' : 'GHS 18.4k',
+                label: 'Total wealth',
+                value: isEmpty ? '₵0.00' : '₵18.4k',
                 detail: isEmpty
                     ? 'Link balances to track growth'
-                    : '+GHS 620 this month',
+                    : '+₵620 this month',
                 accentColor: const Color(0xFF2FA36B),
               ),
             ),
@@ -986,7 +1019,7 @@ class _DashboardSpendableBalanceCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: c.spendingSafeToSpendGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: PayaboRadii.radiusSm,
         boxShadow: PayaboShadows.medium,
       ),
       child: Padding(
@@ -998,14 +1031,14 @@ class _DashboardSpendableBalanceCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Available to spend',
+                    'Spendable balance',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: Colors.white,
                         ),
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
                   Text(
-                    isEmpty ? 'GHS 0.00' : 'GHS 1,285.00',
+                    isEmpty ? '₵0.00' : '₵1,285.00',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -1070,7 +1103,7 @@ class _DashboardMiniStatCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFFFFAF5),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: const Color(0xFFE6D8C7)),
       ),
       child: Column(
@@ -1122,38 +1155,6 @@ class _DashboardMiniStatCard extends StatelessWidget {
   }
 }
 
-class _RecentActivityCard extends StatelessWidget {
-  const _RecentActivityCard({required this.items});
-
-  final List<DashboardTransaction> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF7),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE6D8C7)),
-      ),
-      child: Column(
-        children: items
-            .asMap()
-            .entries
-            .map(
-              (MapEntry<int, DashboardTransaction> entry) => _ProductRow(
-                title: entry.value.title,
-                subtitle: entry.value.status,
-                amountLabel: entry.value.amountLabel,
-                showDivider: entry.key != items.length - 1,
-                useLightSurface: true,
-              ),
-            )
-            .toList(growable: false),
-      ),
-    );
-  }
-}
-
 class _InsightCarouselSection extends StatefulWidget {
   const _InsightCarouselSection({
     required this.dueBillCount,
@@ -1177,6 +1178,7 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
   Timer? _autoScrollTimer;
   int _currentPage = 0;
   bool _isUserInteracting = false;
+  double _dragDeltaX = 0;
 
   @override
   void initState() {
@@ -1212,6 +1214,18 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
     }
 
     final int nextPage = (_currentPage + 1) % _pageCount;
+    _animateToPage(nextPage);
+  }
+
+  void _animateToPage(int nextPage) {
+    if (!_pageController.hasClients || nextPage == _currentPage) {
+      if (!_isUserInteracting) {
+        _scheduleAutoScroll();
+      }
+
+      return;
+    }
+
     _pageController.animateToPage(
       nextPage,
       duration: _scrollAnimationDuration,
@@ -1233,21 +1247,6 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
     }
   }
 
-  bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification is ScrollStartNotification &&
-        notification.dragDetails != null) {
-      _isUserInteracting = true;
-      _pauseAutoScroll();
-    }
-
-    if (notification is ScrollEndNotification && _isUserInteracting) {
-      _isUserInteracting = false;
-      _scheduleAutoScroll();
-    }
-
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = <Widget>[
@@ -1263,13 +1262,37 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
       children: <Widget>[
         SizedBox(
           height: 240,
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _handleScrollNotification,
-            child: PageView.builder(
+          child: GestureDetector(
+            onHorizontalDragStart: (_) {
+              _isUserInteracting = true;
+              _dragDeltaX = 0;
+              _pauseAutoScroll();
+            },
+            onHorizontalDragUpdate: (DragUpdateDetails details) {
+              _dragDeltaX += details.primaryDelta ?? 0;
+            },
+            onHorizontalDragEnd: (DragEndDetails details) {
+              final double velocity = details.primaryVelocity ?? 0;
+
+              if (velocity < 0) {
+                _animateToPage((_currentPage + 1).clamp(0, _pageCount - 1));
+              } else if (velocity > 0) {
+                _animateToPage((_currentPage - 1).clamp(0, _pageCount - 1));
+              } else if (_dragDeltaX <= -40) {
+                _animateToPage((_currentPage + 1).clamp(0, _pageCount - 1));
+              } else if (_dragDeltaX >= 40) {
+                _animateToPage((_currentPage - 1).clamp(0, _pageCount - 1));
+              }
+
+              _isUserInteracting = false;
+              _dragDeltaX = 0;
+              _scheduleAutoScroll();
+            },
+            child: PageView(
               controller: _pageController,
-              itemCount: pages.length,
+              physics: const NeverScrollableScrollPhysics(),
               onPageChanged: _handlePageChanged,
-              itemBuilder: (BuildContext context, int index) => pages[index],
+              children: pages,
             ),
           ),
         ),
@@ -1289,7 +1312,7 @@ class _InsightCarouselCardShell extends StatelessWidget {
     this.backgroundColor,
     this.borderColor,
     this.gradient,
-    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
+    this.borderRadius = PayaboRadii.radiusSm,
     this.padding = const EdgeInsets.all(PayaboSpacing.lg),
   });
 
@@ -1303,14 +1326,18 @@ class _InsightCarouselCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final Color defaultBackground =
+        c.isDark ? c.surfaceCardElevated : const Color(0xFFFFFBF8);
+    final Color defaultBorder = c.isDark
+        ? c.borderStrong.withValues(alpha: 0.5)
+        : const Color(0xFFF1DEC9);
 
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor ?? c.surfaceBase,
+        color: backgroundColor ?? defaultBackground,
         gradient: gradient,
         borderRadius: borderRadius,
-        border: Border.all(color: borderColor ?? c.borderWarm),
-        boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.soft,
+        border: Border.all(color: borderColor ?? defaultBorder, width: 0.5),
       ),
       child: Padding(
         padding: padding,
@@ -1334,9 +1361,7 @@ class _TodayInsightCard extends StatelessWidget {
         : 'Dining spend is running 18% above your usual daily pace.';
 
     return _InsightCarouselCardShell(
-      backgroundColor: c.surfaceBase.withValues(alpha: 0.86),
-      borderColor: c.borderWarm,
-      borderRadius: const BorderRadius.all(Radius.circular(20)),
+      borderRadius: PayaboRadii.radiusSm,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1370,7 +1395,7 @@ class _TodayInsightCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: c.chatTextPrimary,
+                              color: c.accentBrown,
                             ),
                           ),
                         ),
@@ -1391,7 +1416,7 @@ class _TodayInsightCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.bodyMedium?.copyWith(
-                        color: c.chatTextSecondary,
+                        color: c.muted,
                         height: 1.35,
                       ),
                     ),
@@ -1413,7 +1438,7 @@ class _TodayInsightCard extends StatelessWidget {
               Text(
                 isEmpty ? 'Add first bill' : 'Review dining',
                 style: textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFFB47A33),
+                  color: c.primary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1445,12 +1470,11 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
             : '$dueBillCount bills due this week';
 
     return _InsightCarouselCardShell(
-      gradient: const LinearGradient(
-        colors: <Color>[Color(0xFFFFF4E5), Color(0xFFF8D9AB)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderColor: const Color(0xFFE7C792),
+      backgroundColor:
+          c.isDark ? c.surfaceCardElevated : const Color(0xFFFFFBF8),
+      borderColor: c.isDark
+          ? c.borderStrong.withValues(alpha: 0.5)
+          : const Color(0xFFF1DEC9),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1463,7 +1487,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF4B2A13),
+                    color: c.accentBrown,
                   ),
                 ),
               ),
@@ -1474,12 +1498,12 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                isEmpty ? '£0.00' : '£1,285.00',
+                isEmpty ? '₵0.00' : '₵1,285.00',
                 style: textTheme.headlineMedium?.copyWith(
                   fontSize: 36,
                   height: 1,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF4A2F1B),
+                  color: c.accentBrown,
                 ),
               ),
               const SizedBox(height: 6),
@@ -1490,7 +1514,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF6C5644),
+                  color: c.muted,
                   height: 1.3,
                 ),
               ),
@@ -1504,10 +1528,8 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                 child: LinearProgressIndicator(
                   minHeight: 8,
                   value: isEmpty ? 0 : 0.78,
-                  backgroundColor: const Color(0x33FFFFFF),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFFB77428),
-                  ),
+                  backgroundColor: c.border.withValues(alpha: 0.5),
+                  valueColor: AlwaysStoppedAnimation<Color>(c.primary),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1516,7 +1538,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                   Text(
                     isEmpty ? '0% free' : '78% free',
                     style: textTheme.labelLarge?.copyWith(
-                      color: const Color(0xFF7B5A37),
+                      color: c.accentBrown,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1528,7 +1550,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.labelLarge?.copyWith(
-                        color: const Color(0xFF7B5A37),
+                        color: c.muted,
                       ),
                     ),
                   ),
@@ -1539,8 +1561,9 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color:
-                      c.surfaceBase.withValues(alpha: c.isDark ? 0.16 : 0.34),
+                  color: c.isDark
+                      ? c.surfaceBase.withValues(alpha: 0.12)
+                      : c.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -1559,7 +1582,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: textTheme.labelLarge?.copyWith(
-                          color: const Color(0xFF4B2A13),
+                          color: c.accentBrown,
                         ),
                       ),
                     ),
@@ -1585,8 +1608,11 @@ class _NetWorthInsightCard extends StatelessWidget {
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     return _InsightCarouselCardShell(
-      backgroundColor: c.spendingCardWarm,
-      borderColor: c.borderWarm,
+      backgroundColor:
+          c.isDark ? c.surfaceCardElevated : const Color(0xFFFFFBF8),
+      borderColor: c.isDark
+          ? c.borderStrong.withValues(alpha: 0.5)
+          : const Color(0xFFF1DEC9),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1599,7 +1625,7 @@ class _NetWorthInsightCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF3B2A1D),
+                    color: c.accentBrown,
                   ),
                 ),
               ),
@@ -1610,23 +1636,23 @@ class _NetWorthInsightCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                isEmpty ? '£0.00' : '£18,406.20',
+                isEmpty ? '₵0.00' : '₵18,406.20',
                 style: textTheme.headlineMedium?.copyWith(
                   fontSize: 34,
                   height: 1,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF4A2F1B),
+                  color: c.accentBrown,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 isEmpty
                     ? 'Link balances to see your full financial picture.'
-                    : '+£620 since last month across your linked balances.',
+                    : '+₵620 since last month across your linked balances.',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF6B5440),
+                  color: c.muted,
                   height: 1.3,
                 ),
               ),
@@ -1637,14 +1663,14 @@ class _NetWorthInsightCard extends StatelessWidget {
               Expanded(
                 child: _InsightStatTile(
                   label: 'Assets',
-                  value: isEmpty ? '£0.00' : '£20.1k',
+                  value: isEmpty ? '₵0.00' : '₵20.1k',
                 ),
               ),
               const SizedBox(width: PayaboSpacing.sm),
               Expanded(
                 child: _InsightStatTile(
                   label: 'Bills',
-                  value: isEmpty ? '£0.00' : '£1.7k',
+                  value: isEmpty ? '₵0.00' : '₵1.7k',
                 ),
               ),
             ],
@@ -1734,26 +1760,6 @@ class _InsightPageIndicator extends StatelessWidget {
   }
 }
 
-class _DashboardFeatureRow extends StatelessWidget {
-  const _DashboardFeatureRow({required this.isEmpty});
-
-  final bool isEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 196,
-      child: Row(
-        children: <Widget>[
-          Expanded(child: _GoalsShowcaseCard(isEmpty: isEmpty)),
-          const SizedBox(width: PayaboSpacing.md),
-          Expanded(child: _PayaboReminderCard(isEmpty: isEmpty)),
-        ],
-      ),
-    );
-  }
-}
-
 class _DashboardOverviewCard extends StatelessWidget {
   const _DashboardOverviewCard();
 
@@ -1761,91 +1767,76 @@ class _DashboardOverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final slices = _dashboardOverviewSlices(c);
+    final Color cardBackground =
+        c.isDark ? c.surfaceCardElevated : const Color(0xFF171D26);
+    final Color cardBorder = c.isDark
+        ? c.borderStrong.withValues(alpha: 0.5)
+        : const Color(0xFF2B3442);
+    final Color titleColor = c.isDark ? Colors.white : const Color(0xFFF4F6FA);
+    final Color mutedColor = c.isDark ? c.muted : const Color(0xFFB7C0CC);
 
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: c.isDark
-              ? <Color>[c.surfaceCardElevated, c.surfaceWarmElevated]
-              : const <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
-        border: Border.all(color: c.borderWarm),
-        boxShadow: PayaboShadows.soft,
+        color: cardBackground,
+        borderRadius: PayaboRadii.radiusSm,
+        border: Border.all(color: cardBorder, width: 0.5),
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
-        child: Stack(
-          children: <Widget>[
-            Positioned(
-              top: -18,
-              right: -24,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: c.primary.withValues(alpha: 0.08),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Positioned(
-              left: -34,
-              bottom: -44,
-              child: Container(
-                width: 144,
-                height: 144,
-                decoration: BoxDecoration(
-                  color: c.info.withValues(alpha: 0.06),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(PayaboSpacing.xl),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: PayaboRadii.radiusSm,
+        child: Padding(
+          padding: const EdgeInsets.all(PayaboSpacing.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          'Overview',
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: c.accentBrown,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ),
-                      const _DashboardOverviewMonthChip(label: 'Mar'),
-                    ],
-                  ),
-                  const SizedBox(height: PayaboSpacing.lg),
-                  Center(
-                    child: _DashboardOverviewRing(
-                      slices: slices,
-                      trackColor: c.borderWarm,
+                  Expanded(
+                    child: Text(
+                      'Overview',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: titleColor,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                   ),
-                  const SizedBox(height: PayaboSpacing.xl),
-                  ...slices.asMap().entries.map(
-                        (MapEntry<int, _DashboardOverviewSlice> entry) =>
-                            Padding(
-                          padding: EdgeInsets.only(
-                            bottom: entry.key == slices.length - 1
-                                ? 0
-                                : PayaboSpacing.md,
-                          ),
-                          child: _DashboardOverviewRow(slice: entry.value),
-                        ),
-                      ),
+                  _DashboardOverviewMonthChip(
+                    label: 'Mar',
+                    backgroundColor: Colors.white.withValues(
+                      alpha: c.isDark ? 0.08 : 0.06,
+                    ),
+                    borderColor: Colors.white.withValues(
+                      alpha: c.isDark ? 0.12 : 0.10,
+                    ),
+                    textColor: titleColor,
+                  ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: PayaboSpacing.lg),
+              Center(
+                child: _DashboardOverviewRing(
+                  slices: slices,
+                  trackColor: Colors.white.withValues(alpha: 0.12),
+                  titleColor: titleColor,
+                  subtitleColor: mutedColor,
+                ),
+              ),
+              const SizedBox(height: PayaboSpacing.xl),
+              ...slices.asMap().entries.map(
+                    (MapEntry<int, _DashboardOverviewSlice> entry) => Padding(
+                      padding: EdgeInsets.only(
+                        bottom: entry.key == slices.length - 1
+                            ? 0
+                            : PayaboSpacing.md,
+                      ),
+                      child: _DashboardOverviewRow(
+                        slice: entry.value,
+                        labelColor: titleColor,
+                        amountColor: titleColor,
+                      ),
+                    ),
+                  ),
+            ],
+          ),
         ),
       ),
     );
@@ -1853,23 +1844,29 @@ class _DashboardOverviewCard extends StatelessWidget {
 }
 
 class _DashboardOverviewMonthChip extends StatelessWidget {
-  const _DashboardOverviewMonthChip({required this.label});
+  const _DashboardOverviewMonthChip({
+    required this.label,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.textColor,
+  });
 
   final String label;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color textColor;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: PayaboSpacing.md,
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: c.surfaceBase.withValues(alpha: 0.82),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: c.borderWarm),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1877,7 +1874,7 @@ class _DashboardOverviewMonthChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: c.accentBrown,
+                  color: textColor,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1885,7 +1882,7 @@ class _DashboardOverviewMonthChip extends StatelessWidget {
           Icon(
             Icons.keyboard_arrow_down_rounded,
             size: 18,
-            color: c.accentBrown,
+            color: textColor,
           ),
         ],
       ),
@@ -1897,15 +1894,17 @@ class _DashboardOverviewRing extends StatelessWidget {
   const _DashboardOverviewRing({
     required this.slices,
     required this.trackColor,
+    required this.titleColor,
+    required this.subtitleColor,
   });
 
   final List<_DashboardOverviewSlice> slices;
   final Color trackColor;
+  final Color titleColor;
+  final Color subtitleColor;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-
     return SizedBox(
       width: 220,
       height: 220,
@@ -1925,7 +1924,7 @@ class _DashboardOverviewRing extends StatelessWidget {
               Text(
                 'March',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: c.accentBrown,
+                      color: titleColor,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -1933,7 +1932,7 @@ class _DashboardOverviewRing extends StatelessWidget {
               Text(
                 '2026',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: c.muted,
+                      color: subtitleColor,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -1999,14 +1998,18 @@ class _DashboardOverviewRingPainter extends CustomPainter {
 }
 
 class _DashboardOverviewRow extends StatelessWidget {
-  const _DashboardOverviewRow({required this.slice});
+  const _DashboardOverviewRow({
+    required this.slice,
+    required this.labelColor,
+    required this.amountColor,
+  });
 
   final _DashboardOverviewSlice slice;
+  final Color labelColor;
+  final Color amountColor;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-
     return Row(
       children: <Widget>[
         Container(
@@ -2022,354 +2025,18 @@ class _DashboardOverviewRow extends StatelessWidget {
           child: Text(
             slice.label,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: c.accentBrown,
+                  color: labelColor,
                 ),
           ),
         ),
         Text(
           slice.amountLabel,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: c.accentBrown,
+                color: amountColor,
                 fontWeight: FontWeight.w700,
               ),
         ),
       ],
-    );
-  }
-}
-
-class _GoalsShowcaseCard extends StatelessWidget {
-  const _GoalsShowcaseCard({required this.isEmpty});
-
-  final bool isEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0x3BE8E8E8)),
-        gradient: const LinearGradient(
-          colors: <Color>[
-            Color(0xFFB8B6AA),
-            Color(0xFF5D6659),
-            Color(0xFF263223),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: <Widget>[
-            Positioned(
-              top: -24,
-              right: -16,
-              child: Container(
-                width: 98,
-                height: 98,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0x1EFFFFFF),
-                ),
-              ),
-            ),
-            Positioned(
-              left: -24,
-              right: -18,
-              bottom: -46,
-              child: Container(
-                height: 116,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(120),
-                  gradient: const LinearGradient(
-                    colors: <Color>[Color(0xAA4B5C49), Color(0xFF142215)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: -18,
-              right: 56,
-              bottom: 10,
-              child: Container(
-                height: 72,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(80),
-                  gradient: const LinearGradient(
-                    colors: <Color>[Color(0x99384C38), Color(0x00384C38)],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Goals',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white,
-                        ),
-                  ),
-                  _GoalProgressStat(
-                    label: 'Goal\nProgress',
-                    progress: isEmpty ? 0.0 : 0.5,
-                    progressLabel: isEmpty ? '0%' : '50%',
-                    ringColor: Colors.white,
-                  ),
-                  const SizedBox(height: 14),
-                  _GoalProgressStat(
-                    label: 'Visual\nProgress',
-                    progress: isEmpty ? 0.0 : 0.7,
-                    progressLabel: isEmpty ? '0%' : '70%',
-                    ringColor: const Color(0xFFC78D4A),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GoalProgressStat extends StatelessWidget {
-  const _GoalProgressStat({
-    required this.label,
-    required this.progress,
-    required this.progressLabel,
-    required this.ringColor,
-  });
-
-  final String label;
-  final double progress;
-  final String progressLabel;
-  final Color ringColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  height: 1.1,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
-                ),
-          ),
-        ),
-        _GoalProgressRing(
-          progress: progress,
-          label: progressLabel,
-          ringColor: ringColor,
-        ),
-      ],
-    );
-  }
-}
-
-class _GoalProgressRing extends StatelessWidget {
-  const _GoalProgressRing({
-    required this.progress,
-    required this.label,
-    required this.ringColor,
-  });
-
-  final double progress;
-  final String label;
-  final Color ringColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 50,
-      height: 50,
-      child: Stack(
-        alignment: Alignment.center,
-        children: <Widget>[
-          SizedBox.expand(
-            child: CircularProgressIndicator(
-              value: progress,
-              strokeWidth: 3.5,
-              backgroundColor: const Color(0x4DFFFFFF),
-              valueColor: AlwaysStoppedAnimation<Color>(ringColor),
-            ),
-          ),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PayaboReminderCard extends StatelessWidget {
-  const _PayaboReminderCard({required this.isEmpty});
-
-  final bool isEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-            color: c.isDark ? c.borderWarm : const Color(0xFFE2B47D)),
-        gradient: LinearGradient(
-          colors: c.isDark
-              ? <Color>[const Color(0xFF3A2C1E), const Color(0xFF4A3522)]
-              : const <Color>[Color(0xFFF2CCA4), Color(0xFFEAB783)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Row(
-              children: <Widget>[
-                Expanded(child: _PayaboBadge()),
-                SizedBox(width: 8),
-                _AssistantOrb(),
-              ],
-            ),
-            Text(
-              isEmpty
-                  ? 'Payabo helps you stay ahead of upcoming bills.'
-                  : 'Mum\'s\nelectricity bill\nis due in 2 days. Or\npay it now?',
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: 14,
-                    height: 1.18,
-                    fontWeight: FontWeight.w500,
-                    color: c.isDark ? Colors.white : const Color(0xFF4B2E18),
-                  ),
-            ),
-            Container(
-              width: double.infinity,
-              height: 38,
-              decoration: BoxDecoration(
-                color: c.isDark ? c.primary : const Color(0xFFC69A70),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'Pay now',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PayaboBadge extends StatelessWidget {
-  const _PayaboBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Container(
-          width: 18,
-          height: 18,
-          decoration: BoxDecoration(
-            color: const Color(0xFFC27B34),
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: const Icon(
-            Icons.currency_pound_rounded,
-            size: 11,
-            color: Color(0xFFFFE9C9),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            'Payabo',
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: c.isDark ? Colors.white : const Color(0xFF5A3217),
-                ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AssistantOrb extends StatelessWidget {
-  const _AssistantOrb();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: <Color>[Color(0xFFFCF8F0), Color(0xFFD8E4F2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Container(
-          width: 22,
-          height: 14,
-          decoration: BoxDecoration(
-            color: const Color(0xFF6D4322),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(Icons.circle, size: 3.4, color: Colors.white),
-              SizedBox(width: 4),
-              Icon(Icons.circle, size: 3.4, color: Colors.white),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -2460,88 +2127,60 @@ class _UpcomingBillsCardV2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF7),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE6D8C7)),
-      ),
-      child: Column(
-        children: items
-            .asMap()
-            .entries
-            .map(
-              (entry) => _UpcomingBillRow(
-                item: entry.value,
-                showDivider: entry.key != items.length - 1,
-                useLightSurface: true,
-              ),
-            )
-            .toList(growable: false),
-      ),
+    final theme = Theme.of(context);
+
+    return Column(
+      children: items
+          .asMap()
+          .entries
+          .map(
+            (entry) => Column(
+              children: <Widget>[
+                _UpcomingBillRow(item: entry.value),
+                if (entry.key != items.length - 1)
+                  Divider(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.3,
+                    ),
+                  ),
+              ],
+            ),
+          )
+          .toList(growable: false),
     );
   }
 }
 
 class _UpcomingBillRow extends StatelessWidget {
-  const _UpcomingBillRow({
-    required this.item,
-    required this.showDivider,
-    this.useLightSurface = false,
-  });
+  const _UpcomingBillRow({required this.item});
 
   final DashboardUpcomingBill item;
-  final bool showDivider;
-  final bool useLightSurface;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final c = context.colors;
-    final avatarLabel = _dashboardAvatarLabel(item.biller);
-    final Color dividerColor = useLightSurface
-        ? const Color(0xFFE8DDD1)
-        : c.borderStrong.withValues(alpha: 0.6);
-    final Color titleColor = useLightSurface ? const Color(0xFF332319) : c.ink;
-    final Color subtitleColor =
-        useLightSurface ? const Color(0xFF7A6A5D) : c.muted;
-    final Color amountColor =
-        useLightSurface ? const Color(0xFF5A3217) : c.accentBrown;
-    final Color avatarSurface = useLightSurface
-        ? const Color(0xFFF2E4D2)
-        : c.spendingQuickActionSurface;
-    final Color avatarTextColor =
-        useLightSurface ? const Color(0xFFD97A1D) : c.primary;
+    final iconSurface = c.isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : c.primary.withValues(alpha: 0.08);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: PayaboSpacing.lg,
-        vertical: PayaboSpacing.md,
-      ),
-      decoration: showDivider
-          ? BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: dividerColor,
-                ),
-              ),
-            )
-          : null,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
       child: Row(
         children: <Widget>[
           Container(
-            width: 46,
-            height: 46,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: avatarSurface,
-              shape: BoxShape.circle,
+              color: iconSurface,
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
             ),
             alignment: Alignment.center,
-            child: Text(
-              avatarLabel,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: avatarTextColor,
-                    fontWeight: FontWeight.w700,
-                  ),
+            child: Icon(
+              Icons.receipt_long_outlined,
+              size: 18,
+              color: theme.colorScheme.primary,
             ),
           ),
           const SizedBox(width: PayaboSpacing.md),
@@ -2551,16 +2190,15 @@ class _UpcomingBillRow extends StatelessWidget {
               children: <Widget>[
                 Text(
                   item.biller,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: titleColor,
-                      ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
-                const SizedBox(height: PayaboSpacing.xxs),
+                const SizedBox(height: 2),
                 Text(
                   item.dueDateLabel,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: subtitleColor,
-                      ),
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
@@ -2568,10 +2206,10 @@ class _UpcomingBillRow extends StatelessWidget {
           const SizedBox(width: PayaboSpacing.md),
           Text(
             item.amountLabel,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: amountColor,
-                ),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
         ],
       ),
@@ -2587,7 +2225,7 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFFFFBF7),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: const Color(0xFFE6D8C7)),
       ),
       padding: const EdgeInsets.all(20),
@@ -2648,7 +2286,7 @@ class _DashboardHeroCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
+        borderRadius: PayaboRadii.radiusSm,
         border: Border.all(color: c.primary),
         boxShadow: PayaboShadows.soft,
       ),
@@ -2674,7 +2312,7 @@ class _DashboardHeroCard extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                isEmpty ? '£0.00' : '£1,285.00',
+                isEmpty ? '₵0.00' : '₵1,285.00',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: c.isDark ? Colors.white : const Color(0xFF4F220F),
                       fontSize: 52,
@@ -2830,430 +2468,6 @@ class _EmptyPanel extends StatelessWidget {
                 onPressed: () {},
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OrganisationCarousel extends StatelessWidget {
-  const _OrganisationCarousel();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 230,
-      child: PageView(
-        controller: PageController(viewportFraction: 0.88),
-        children: const <Widget>[
-          _OrganisationCard(name: 'Volunteer of the World', sponsored: true),
-          _OrganisationCard(name: 'Organisation name'),
-          _OrganisationCard(name: 'Organisation name'),
-        ],
-      ),
-    );
-  }
-}
-
-class _OrganisationCard extends StatelessWidget {
-  const _OrganisationCard({
-    required this.name,
-    this.sponsored = false,
-  });
-
-  final String name;
-  final bool sponsored;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl, PayaboSpacing.lg,
-          PayaboSpacing.sm, PayaboSpacing.x2),
-      child: PayaboCard(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(PayaboRadii.sm),
-                    topRight: Radius.circular(PayaboRadii.sm),
-                  ),
-                  gradient: LinearGradient(
-                    colors: <Color>[Color(0xFFFFC48F), Color(0xFFF37920)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: <Widget>[
-                    if (sponsored)
-                      Positioned(
-                        left: 12,
-                        top: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: c.info,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'SPONSORED',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 10,
-                                    ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(PayaboSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(name, style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 4),
-                  Text('Line for extra info',
-                      style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BillList extends StatelessWidget {
-  const _BillList({required this.items});
-
-  final List<DashboardUpcomingBill> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
-      child: PayaboCard(
-        backgroundColor: c.surfaceCardElevated,
-        padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.lg),
-        child: Column(
-          children: items
-              .map(
-                (bill) => _ProductRow(
-                  title: bill.biller,
-                  subtitle: bill.dueDateLabel,
-                  amountLabel: bill.amountLabel,
-                ),
-              )
-              .toList(growable: false),
-        ),
-      ),
-    );
-  }
-}
-
-class _TransactionList extends StatelessWidget {
-  const _TransactionList({required this.items});
-
-  final List<DashboardTransaction> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
-      child: PayaboCard(
-        backgroundColor: c.spendingCardWarmElevated,
-        padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.lg),
-        child: Column(
-          children: items
-              .asMap()
-              .entries
-              .map(
-                (entry) => _ProductRow(
-                  title: entry.value.title,
-                  subtitle: entry.value.status,
-                  amountLabel: entry.value.amountLabel,
-                  showDivider: entry.key != items.length - 1,
-                ),
-              )
-              .toList(growable: false),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProductRow extends StatelessWidget {
-  const _ProductRow({
-    required this.title,
-    required this.subtitle,
-    required this.amountLabel,
-    this.showDivider = true,
-    this.useLightSurface = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final String amountLabel;
-  final bool showDivider;
-  final bool useLightSurface;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final avatarLabel = _dashboardAvatarLabel(title);
-    final Color dividerColor = useLightSurface
-        ? const Color(0xFFE8DDD1)
-        : c.borderStrong.withValues(alpha: 0.6);
-    final Color titleColor = useLightSurface ? const Color(0xFF332319) : c.ink;
-    final Color subtitleColor =
-        useLightSurface ? const Color(0xFF7A6A5D) : c.muted;
-    final Color amountColor =
-        useLightSurface ? const Color(0xFF5A3217) : c.accentBrown;
-    final Color avatarSurface = useLightSurface
-        ? const Color(0xFFF2E4D2)
-        : c.spendingQuickActionSurface;
-    final Color avatarTextColor =
-        useLightSurface ? const Color(0xFFD97A1D) : c.primary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
-      decoration: showDivider
-          ? BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: dividerColor,
-                  width: 1,
-                ),
-              ),
-            )
-          : null,
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: avatarSurface,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              avatarLabel,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: avatarTextColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          const SizedBox(width: PayaboSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: titleColor,
-                      ),
-                ),
-                const SizedBox(height: PayaboSpacing.xxs),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: subtitleColor,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: PayaboSpacing.md),
-          Text(
-            amountLabel,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: amountColor,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BudgetCarousel extends StatelessWidget {
-  const _BudgetCarousel();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 196,
-      child: PageView(
-        controller: PageController(viewportFraction: 0.88),
-        children: const <Widget>[
-          _BudgetCard(month: 'July 2022', progress: 0.25),
-          _BudgetCard(month: 'June 2022', progress: 0.42),
-          _BudgetCard(month: 'May 2022', progress: 0.35),
-        ],
-      ),
-    );
-  }
-}
-
-class _BudgetCard extends StatelessWidget {
-  const _BudgetCard({
-    required this.month,
-    required this.progress,
-  });
-
-  final String month;
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl, PayaboSpacing.lg,
-          PayaboSpacing.sm, PayaboSpacing.x2),
-      child: PayaboCard(
-        backgroundColor: c.surfaceCardElevated,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(month, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: PayaboSpacing.md),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(5),
-              child: LinearProgressIndicator(
-                minHeight: 10,
-                value: progress,
-                backgroundColor: c.border,
-                valueColor: AlwaysStoppedAnimation<Color>(c.primary),
-              ),
-            ),
-            const SizedBox(height: PayaboSpacing.md),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('SPENT',
-                          style: Theme.of(context).textTheme.bodySmall),
-                      const SizedBox(height: 2),
-                      Text('N 0,000.00',
-                          style: Theme.of(context).textTheme.titleSmall),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: <Widget>[
-                    Text('BUDGET',
-                        style: Theme.of(context).textTheme.bodySmall),
-                    const SizedBox(height: 2),
-                    Text('N 0,000.00',
-                        style: Theme.of(context).textTheme.titleSmall),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AssistRequestCarousel extends StatelessWidget {
-  const _AssistRequestCarousel();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 186,
-      child: PageView(
-        controller: PageController(viewportFraction: 0.88),
-        children: const <Widget>[
-          _AssistRequestCard(
-              friendName: 'Alicia Keys', amountLabel: 'N 0,000.00'),
-          _AssistRequestCard(
-              friendName: 'Friend Name', amountLabel: 'N 0,000.00'),
-          _AssistRequestCard(
-              friendName: 'Friend Name', amountLabel: 'N 0,000.00'),
-        ],
-      ),
-    );
-  }
-}
-
-class _AssistRequestCard extends StatelessWidget {
-  const _AssistRequestCard({
-    required this.friendName,
-    required this.amountLabel,
-  });
-
-  final String friendName;
-  final String amountLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl, PayaboSpacing.lg,
-          PayaboSpacing.sm, PayaboSpacing.x2),
-      child: PayaboCard(
-        backgroundColor: c.surfaceCardElevated,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: c.background,
-                  child: Icon(Icons.person_outline, color: c.primary),
-                ),
-                const SizedBox(width: PayaboSpacing.md),
-                Text(friendName, style: Theme.of(context).textTheme.titleSmall),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('Bill name',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      Text('Line for extra info',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
-                ),
-                Text(amountLabel, style: Theme.of(context).textTheme.bodyLarge),
-              ],
-            ),
           ],
         ),
       ),
