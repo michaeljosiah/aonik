@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_borders.dart';
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 
 enum PayaboInputVariant {
   boxed,
@@ -40,6 +39,8 @@ class PayaboTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
@@ -50,12 +51,14 @@ class PayaboTextField extends StatelessWidget {
       style: Theme.of(context)
           .textTheme
           .bodyLarge
-          ?.copyWith(color: PayaboColors.ink),
+          ?.copyWith(color: c.ink),
       decoration: _buildDecoration(context),
     );
   }
 
   InputDecoration _buildDecoration(BuildContext context) {
+    final c = context.colors;
+
     if (variant == PayaboInputVariant.floating) {
       return InputDecoration(
         labelText: label,
@@ -67,23 +70,28 @@ class PayaboTextField extends StatelessWidget {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 11),
         labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: PayaboColors.muted,
+              color: c.muted,
               fontWeight: FontWeight.w600,
             ),
         floatingLabelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: PayaboColors.primary,
+              color: c.primary,
               fontWeight: FontWeight.w400,
             ),
-        border:
-            const UnderlineInputBorder(borderSide: PayaboBorders.defaultBorder),
-        enabledBorder:
-            const UnderlineInputBorder(borderSide: PayaboBorders.defaultBorder),
-        focusedBorder:
-            const UnderlineInputBorder(borderSide: PayaboBorders.activeBorder),
-        errorBorder:
-            const UnderlineInputBorder(borderSide: PayaboBorders.errorBorder),
-        focusedErrorBorder:
-            const UnderlineInputBorder(borderSide: PayaboBorders.errorBorder),
+        border: UnderlineInputBorder(
+          borderSide: BorderSide(color: c.border, width: 1),
+        ),
+        enabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: c.border, width: 1),
+        ),
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: c.primary, width: 1),
+        ),
+        errorBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: c.danger, width: 1),
+        ),
+        focusedErrorBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: c.danger, width: 1),
+        ),
       );
     }
 

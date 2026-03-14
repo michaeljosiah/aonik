@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
 
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 
 class PayaboOtpField extends StatelessWidget {
   const PayaboOtpField({
@@ -19,16 +19,18 @@ class PayaboOtpField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     final defaultPinTheme = PinTheme(
       width: 44,
       height: 54,
       textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: enabled ? PayaboColors.ink : PayaboColors.muted,
+            color: enabled ? c.ink : c.muted,
           ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: PayaboColors.border, width: 1),
+          bottom: BorderSide(color: c.border, width: 1),
         ),
       ),
     );
@@ -38,16 +40,16 @@ class PayaboOtpField extends StatelessWidget {
       length: length,
       defaultPinTheme: defaultPinTheme,
       focusedPinTheme: defaultPinTheme.copyWith(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: PayaboColors.primary, width: 1),
+            bottom: BorderSide(color: c.primary, width: 1),
           ),
         ),
       ),
       disabledPinTheme: defaultPinTheme.copyWith(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: PayaboColors.border, width: 1),
+            bottom: BorderSide(color: c.border, width: 1),
           ),
         ),
       ),

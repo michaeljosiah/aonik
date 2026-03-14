@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import 'payment_flow_scaffold.dart';
@@ -35,6 +35,7 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final friend = ref.watch(selectedPaymentFriendProvider);
     final message = ref.watch(paymentFriendMessageProvider);
 
@@ -105,7 +106,7 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
-                  ?.copyWith(color: PayaboColors.danger),
+                  ?.copyWith(color: c.danger),
             ),
           ],
         ],

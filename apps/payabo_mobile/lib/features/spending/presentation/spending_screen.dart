@@ -4,16 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
-import '../../../shared/theme/payabo_radii.dart';
-import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
-import '../../../shared/widgets/payabo_button.dart';
-import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'widgets/spending_section_pills.dart';
+
+// ─────────────────────────────────────────────────────────
+//  Static demo data
+// ─────────────────────────────────────────────────────────
 
 const List<String> _monthFilters = <String>[
   'Dec',
@@ -35,40 +33,32 @@ const List<_SpendingBreakdownItem> _categoryItems = <_SpendingBreakdownItem>[
     name: 'Finances',
     transactionCount: 30,
     totalAmount: '£2,190.72',
-    changeAmount: '£148.60',
-    isDecrease: true,
+    percentage: '45.9%',
     icon: Icons.currency_pound,
-    iconColor: PayaboColors.success,
   ),
   _SpendingBreakdownItem(
     id: 'shopping',
     name: 'Shopping',
     transactionCount: 13,
     totalAmount: '£1,770.57',
-    changeAmount: '£1,209.34',
-    isDecrease: false,
+    percentage: '37.1%',
     icon: Icons.shopping_bag_outlined,
-    iconColor: PayaboColors.info,
   ),
   _SpendingBreakdownItem(
     id: 'groceries',
     name: 'Groceries',
     transactionCount: 22,
     totalAmount: '£505.10',
-    changeAmount: '£42.80',
-    isDecrease: true,
+    percentage: '10.6%',
     icon: Icons.local_grocery_store_outlined,
-    iconColor: PayaboColors.success,
   ),
   _SpendingBreakdownItem(
     id: 'transport',
     name: 'Transport',
     transactionCount: 9,
     totalAmount: '£312.44',
-    changeAmount: '£65.20',
-    isDecrease: false,
+    percentage: '6.5%',
     icon: Icons.directions_car_outlined,
-    iconColor: PayaboColors.warning,
   ),
 ];
 
@@ -78,42 +68,38 @@ const List<_SpendingBreakdownItem> _merchantItems = <_SpendingBreakdownItem>[
     name: 'Amazon',
     transactionCount: 6,
     totalAmount: '£410.90',
-    changeAmount: '£98.20',
-    isDecrease: false,
+    percentage: '49.2%',
     icon: Icons.shopping_cart_outlined,
-    iconColor: PayaboColors.info,
   ),
   _SpendingBreakdownItem(
     id: 'tesco',
     name: 'Tesco',
     transactionCount: 11,
     totalAmount: '£284.35',
-    changeAmount: '£21.30',
-    isDecrease: true,
+    percentage: '34.1%',
     icon: Icons.local_grocery_store_outlined,
-    iconColor: PayaboColors.success,
   ),
   _SpendingBreakdownItem(
     id: 'uber',
     name: 'Uber',
     transactionCount: 5,
     totalAmount: '£126.40',
-    changeAmount: '£18.00',
-    isDecrease: false,
+    percentage: '15.2%',
     icon: Icons.local_taxi_outlined,
-    iconColor: PayaboColors.warning,
   ),
   _SpendingBreakdownItem(
     id: 'netflix',
     name: 'Netflix',
     transactionCount: 1,
     totalAmount: '£12.99',
-    changeAmount: '£0.00',
-    isDecrease: true,
+    percentage: '1.6%',
     icon: Icons.ondemand_video_outlined,
-    iconColor: PayaboColors.primary,
   ),
 ];
+
+// ─────────────────────────────────────────────────────────
+//  Screen
+// ─────────────────────────────────────────────────────────
 
 class SpendingScreen extends ConsumerStatefulWidget {
   const SpendingScreen({super.key});
@@ -129,161 +115,81 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
   @override
   Widget build(BuildContext context) {
     final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cs = theme.colorScheme;
+
     final List<_SpendingBreakdownItem> breakdownItems = isFreshDemo
         ? const <_SpendingBreakdownItem>[]
         : _breakdownViewIndex == 0
             ? _categoryItems
             : _merchantItems;
 
-    final String summaryTitle =
-        isFreshDemo ? 'Fresh spending state' : 'February spend';
+    final String summaryLabel =
+        isFreshDemo ? 'Fresh spending state' : 'Spent this month';
     final String summaryAmount = isFreshDemo ? '£0.00' : '£672.97';
-    final Color summaryColor =
-        isFreshDemo ? PayaboColors.muted : PayaboColors.primaryHover;
-    final String compareAmount = isFreshDemo ? '0 transactions' : '£518.97';
-    final String compareLabel =
-        isFreshDemo ? 'build your first trend' : 'vs. January';
-    final String summaryDescription = isFreshDemo
-        ? 'Transactions, categories, and merchants will appear here once activity starts.'
-        : 'Filtered view for your latest money movement.';
 
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              _SpendingHeader(
-                onSectionSelected: _handleSectionSelected,
-                onNotificationsTap: () => context.push('/notifications'),
-                onProfileTap: () => context.go('/profile'),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    PayaboSpacing.md,
-                    PayaboSpacing.xl,
-                    PayaboSpacing.x4,
-                  ),
-                  children: <Widget>[
-                    _TransactionsHeroCard(
-                      summaryTitle: summaryTitle,
-                      summaryAmount: summaryAmount,
-                      compareAmount: compareAmount,
-                      compareLabel: compareLabel,
-                      description: summaryDescription,
-                      summaryColor: summaryColor,
-                      onPersonaliseTap: _showInfoMessage,
+      backgroundColor: cs.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: <Widget>[
+            // ── Compact header ───────────────────────────
+            _SpendingHeader(
+              onSectionSelected: _handleSectionSelected,
+              onNotificationsTap: () => context.push('/notifications'),
+              onProfileTap: () => context.go('/profile'),
+            ),
+
+            // ── Stacked body: upper summary + draggable breakdown ─
+            Expanded(
+              child: Stack(
+                children: <Widget>[
+                  // Top section: summary + chart (scrolls behind sheet)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: PayaboSpacing.xl,
                     ),
-                    if (isFreshDemo) ...<Widget>[
-                      const SizedBox(height: PayaboSpacing.lg),
-                      const _FreshTransactionsEmptyState(),
-                    ] else ...<Widget>[
-                      const SizedBox(height: PayaboSpacing.lg),
-                      _MonthFilterRow(
-                        selectedIndex: _monthIndex,
-                        onSelected: (int index) {
-                          setState(() {
-                            _monthIndex = index;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: PayaboSpacing.xl),
-                      const SizedBox(
-                        height: 230,
-                        child: _SpendingTrendChart(),
-                      ),
-                      const SizedBox(height: PayaboSpacing.xl),
-                      _SegmentControl(
-                        leftLabel: 'Categories',
-                        rightLabel: 'Merchants',
-                        selectedIndex: _breakdownViewIndex,
-                        onChanged: (int index) {
-                          setState(() {
-                            _breakdownViewIndex = index;
-                          });
-                        },
-                        backgroundColor: const Color(0xFFFFF7F0),
-                        selectedColor: const Color(0xFFFFE7D3),
-                        selectedTextColor: PayaboColors.accentBrown,
-                        unselectedTextColor: PayaboColors.accentBrownMuted,
-                      ),
-                      const SizedBox(height: PayaboSpacing.lg),
-                      LayoutBuilder(
-                        builder:
-                            (BuildContext context, BoxConstraints constraints) {
-                          final Widget editCategoriesButton = PayaboButton(
-                            label: 'Edit categories',
-                            variant: PayaboButtonVariant.link,
-                            expand: true,
-                            leading: const Icon(Icons.edit_outlined, size: 18),
-                            onPressed: () {},
-                          );
-
-                          if (constraints.maxWidth < 360) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: <Widget>[
-                                editCategoriesButton,
-                                const SizedBox(height: PayaboSpacing.md),
-                                const Align(
-                                  alignment: Alignment.centerRight,
-                                  child: _CurrencySortButton(),
-                                ),
-                              ],
-                            );
-                          }
-
-                          return Row(
+                    child: isFreshDemo
+                        ? _FreshTransactionsEmptyState(isDark: isDark)
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Expanded(child: editCategoriesButton),
-                              const SizedBox(width: PayaboSpacing.md),
-                              const _CurrencySortButton(),
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: PayaboSpacing.lg),
-                      ...breakdownItems.map(
-                        (_SpendingBreakdownItem item) => Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: PayaboSpacing.sm),
-                          child: PayaboListRow(
-                            title: item.name,
-                            subtitle: '${item.transactionCount} Transactions',
-                            leading: _BreakdownIcon(
-                              icon: item.icon,
-                              color: item.iconColor,
-                            ),
-                            trailing: SizedBox(
-                              width: 128,
-                              child: _BreakdownAmount(
-                                totalAmount: item.totalAmount,
-                                changeAmount: item.changeAmount,
-                                isDecrease: item.isDecrease,
+                              const SizedBox(height: PayaboSpacing.md),
+                              _FilterChipRow(
+                                selectedMonthIndex: _monthIndex,
+                                onMonthSelected: (int i) =>
+                                    setState(() => _monthIndex = i),
                               ),
-                            ),
-                            onTap: () {
-                              if (_breakdownViewIndex == 0) {
-                                context.go('/spending/category/${item.id}');
-                                return;
-                              }
-
-                              context.go('/spending/merchant/${item.id}');
-                            },
+                              const SizedBox(height: PayaboSpacing.lg),
+                              _SpentThisMonthCard(
+                                label: summaryLabel,
+                                amount: summaryAmount,
+                                isDark: isDark,
+                              ),
+                              const SizedBox(height: PayaboSpacing.lg),
+                              SizedBox(
+                                height: 180,
+                                child: _SpendingBarChart(isDark: isDark),
+                              ),
+                            ],
                           ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+
+                  // Draggable breakdown sheet
+                  if (!isFreshDemo)
+                    _BreakdownSheet(
+                      breakdownItems: breakdownItems,
+                      breakdownViewIndex: _breakdownViewIndex,
+                      onBreakdownViewChanged: (int i) =>
+                          setState(() => _breakdownViewIndex = i),
+                      isDark: isDark,
+                    ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: const PayaboPrimaryAppShell(
@@ -305,14 +211,11 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
         return;
     }
   }
-
-  void _showInfoMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Spending insights are mocked in this build.')),
-    );
-  }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Header
+// ─────────────────────────────────────────────────────────
 
 class _SpendingHeader extends StatelessWidget {
   const _SpendingHeader({
@@ -327,13 +230,14 @@ class _SpendingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return PayaboAppHeader(
-      title: 'Spend',
-      titleStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontSize: 48,
-            fontWeight: FontWeight.w700,
-            color: PayaboColors.accentBrown,
-          ),
+      title: 'Spending',
+      titleStyle: theme.textTheme.headlineLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: theme.colorScheme.onSurface,
+      ),
       onNotificationsTap: onNotificationsTap,
       onProfileTap: onProfileTap,
       bottom: SpendingSectionPills(
@@ -345,384 +249,93 @@ class _SpendingHeader extends StatelessWidget {
   }
 }
 
-class _TransactionsHeroCard extends StatelessWidget {
-  const _TransactionsHeroCard({
-    required this.summaryTitle,
-    required this.summaryAmount,
-    required this.compareAmount,
-    required this.compareLabel,
-    required this.description,
-    required this.summaryColor,
-    required this.onPersonaliseTap,
+// ─────────────────────────────────────────────────────────
+//  Filter chip row (Starling-style dropdown chips)
+// ─────────────────────────────────────────────────────────
+
+class _FilterChipRow extends StatelessWidget {
+  const _FilterChipRow({
+    required this.selectedMonthIndex,
+    required this.onMonthSelected,
   });
 
-  final String summaryTitle;
-  final String summaryAmount;
-  final String compareAmount;
-  final String compareLabel;
-  final String description;
-  final Color summaryColor;
-  final VoidCallback onPersonaliseTap;
+  final int selectedMonthIndex;
+  final ValueChanged<int> onMonthSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF8),
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
-        border: Border.all(color: const Color(0xFFF1DEC9)),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(PayaboSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        summaryTitle,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: PayaboColors.accentBrownMuted,
-                                ),
-                      ),
-                      const SizedBox(height: PayaboSpacing.xs),
-                      Text(
-                        description,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: PayaboColors.muted,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: PayaboSpacing.md),
-                _HeroActionButton(onTap: onPersonaliseTap),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.xl),
-            Text(
-              summaryAmount,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: summaryColor,
-                    fontSize: 46,
-                    height: 1,
-                  ),
-            ),
-            const SizedBox(height: PayaboSpacing.md),
-            _ComparisonChip(
-              amount: compareAmount,
-              label: compareLabel,
-              isDecrease: true,
-            ),
-          ],
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final chipBg = theme.brightness == Brightness.dark
+        ? cs.surface.withValues(alpha: 0.6)
+        : cs.surfaceContainerHighest.withValues(alpha: 0.5);
+
+    return Row(
+      children: <Widget>[
+        _DropdownChip(
+          icon: Icons.person_outline,
+          label: 'Main balance',
+          backgroundColor: chipBg,
+          onTap: () {},
         ),
-      ),
+        const SizedBox(width: PayaboSpacing.sm),
+        _DropdownChip(
+          icon: Icons.calendar_today_outlined,
+          label: _monthFilters[selectedMonthIndex],
+          backgroundColor: chipBg,
+          onTap: () {
+            final next = (selectedMonthIndex + 1) % _monthFilters.length;
+            onMonthSelected(next);
+          },
+        ),
+      ],
     );
   }
 }
 
-class _FreshTransactionsEmptyState extends StatelessWidget {
-  const _FreshTransactionsEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF8),
-        borderRadius: const BorderRadius.all(Radius.circular(28)),
-        border: Border.all(color: const Color(0xFFF1DEC9)),
-        boxShadow: PayaboShadows.soft,
-      ),
-      padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFEBD6),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.insights_outlined,
-              color: PayaboColors.primary,
-              size: 26,
-            ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'No spending activity yet',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          Text(
-            'This fresh demo keeps transactions, category rollups, and merchant trends empty so you can start from a clean slate.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.muted,
-                  height: 1.45,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'Switch back to Populated demo data in Profile if you want to explore seeded spending examples.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.chatTextSecondary,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroActionButton extends StatelessWidget {
-  const _HeroActionButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: PayaboColors.accentBrown,
-          minimumSize: const Size(0, 40),
-          padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.md),
-          side: const BorderSide(color: Color(0xFFF1DEC9)),
-          backgroundColor: PayaboColors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
-        icon: const Icon(Icons.tune, size: 18),
-        label: Text(
-          'Personalise',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: PayaboColors.accentBrown,
-              ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SegmentControl extends StatelessWidget {
-  const _SegmentControl({
-    required this.leftLabel,
-    required this.rightLabel,
-    required this.selectedIndex,
-    required this.onChanged,
-    required this.backgroundColor,
-    required this.selectedColor,
-    required this.selectedTextColor,
-    required this.unselectedTextColor,
-  });
-
-  final String leftLabel;
-  final String rightLabel;
-  final int selectedIndex;
-  final ValueChanged<int> onChanged;
-  final Color backgroundColor;
-  final Color selectedColor;
-  final Color selectedTextColor;
-  final Color unselectedTextColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: PayaboRadii.radiusPill,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(PayaboSpacing.xs),
-        child: Row(
-          children: <Widget>[
-            _SegmentControlOption(
-              label: leftLabel,
-              selected: selectedIndex == 0,
-              selectedColor: selectedColor,
-              selectedTextColor: selectedTextColor,
-              unselectedTextColor: unselectedTextColor,
-              onTap: () => onChanged(0),
-            ),
-            const SizedBox(width: PayaboSpacing.xs),
-            _SegmentControlOption(
-              label: rightLabel,
-              selected: selectedIndex == 1,
-              selectedColor: selectedColor,
-              selectedTextColor: selectedTextColor,
-              unselectedTextColor: unselectedTextColor,
-              onTap: () => onChanged(1),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SegmentControlOption extends StatelessWidget {
-  const _SegmentControlOption({
+class _DropdownChip extends StatelessWidget {
+  const _DropdownChip({
+    required this.icon,
     required this.label,
-    required this.selected,
-    required this.selectedColor,
-    required this.selectedTextColor,
-    required this.unselectedTextColor,
+    required this.backgroundColor,
     required this.onTap,
   });
 
+  final IconData icon;
   final String label;
-  final bool selected;
-  final Color selectedColor;
-  final Color selectedTextColor;
-  final Color unselectedTextColor;
+  final Color backgroundColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: PayaboRadii.radiusPill,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(
-              horizontal: PayaboSpacing.md,
-              vertical: PayaboSpacing.md,
-            ),
-            decoration: BoxDecoration(
-              color: selected ? selectedColor : Colors.transparent,
-              borderRadius: PayaboRadii.radiusPill,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: selected ? selectedTextColor : unselectedTextColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-              textAlign: TextAlign.center,
-            ),
+    final theme = Theme.of(context);
+    final textColor = theme.colorScheme.primary;
+
+    return Material(
+      color: backgroundColor,
+      borderRadius: const BorderRadius.all(Radius.circular(20)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.all(Radius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: PayaboSpacing.md,
+            vertical: PayaboSpacing.sm,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MonthFilterRow extends StatelessWidget {
-  const _MonthFilterRow({
-    required this.selectedIndex,
-    required this.onSelected,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _monthFilters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: PayaboSpacing.sm),
-        itemBuilder: (BuildContext context, int index) {
-          final bool selected = selectedIndex == index;
-
-          return ChoiceChip(
-            label: Text(_monthFilters[index]),
-            selected: selected,
-            showCheckmark: false,
-            selectedColor: PayaboColors.primary,
-            backgroundColor: PayaboColors.surfaceWarm,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(PayaboRadii.pill),
-              side: BorderSide(
-                color:
-                    selected ? PayaboColors.primary : const Color(0xFFE7D8CC),
-              ),
-            ),
-            labelStyle: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: selected
-                      ? PayaboColors.white
-                      : PayaboColors.accentBrownMuted,
-                  fontWeight: FontWeight.w700,
-                ),
-            onSelected: (_) => onSelected(index),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ComparisonChip extends StatelessWidget {
-  const _ComparisonChip({
-    required this.amount,
-    required this.label,
-    required this.isDecrease,
-  });
-
-  final String amount;
-  final String label;
-  final bool isDecrease;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color amountColor =
-        isDecrease ? PayaboColors.success : PayaboColors.danger;
-    final IconData directionIcon =
-        isDecrease ? Icons.arrow_drop_down : Icons.arrow_drop_up;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF9F4),
-        borderRadius: PayaboRadii.radiusLg,
-        border: Border.all(color: const Color(0xFFF1DEC9)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: PayaboSpacing.lg,
-          vertical: PayaboSpacing.md,
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Text(
-                amount,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: amountColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              Icon(directionIcon, color: amountColor, size: 20),
+              Icon(icon, size: 14, color: textColor),
+              const SizedBox(width: PayaboSpacing.xs),
               Text(
                 label,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: PayaboColors.muted,
-                      fontWeight: FontWeight.w500,
-                    ),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+              const SizedBox(width: 2),
+              Icon(Icons.unfold_more, size: 14, color: textColor),
             ],
           ),
         ),
@@ -731,288 +344,183 @@ class _ComparisonChip extends StatelessWidget {
   }
 }
 
-class _SpendingTrendChart extends StatelessWidget {
-  const _SpendingTrendChart();
+// ─────────────────────────────────────────────────────────
+//  Spent this month summary card
+// ─────────────────────────────────────────────────────────
 
-  static const List<FlSpot> _currentMonthSpots = <FlSpot>[
-    FlSpot(1, 2),
-    FlSpot(2, 14),
-    FlSpot(3, 86),
-    FlSpot(4, 88),
-    FlSpot(5, 90),
-    FlSpot(7, 93),
-    FlSpot(10, 94),
-    FlSpot(11, 16),
-    FlSpot(13, 22),
-    FlSpot(14, 6),
-    FlSpot(15, 20),
-    FlSpot(18, 20),
-    FlSpot(20, 21),
-    FlSpot(22, 22),
-    FlSpot(23, 2),
-    FlSpot(26, 2),
-  ];
+class _SpentThisMonthCard extends StatelessWidget {
+  const _SpentThisMonthCard({
+    required this.label,
+    required this.amount,
+    required this.isDark,
+  });
 
-  static const List<FlSpot> _previousMonthSpots = <FlSpot>[
-    FlSpot(1, 38),
-    FlSpot(3, 42),
-    FlSpot(5, 52),
-    FlSpot(6, 52),
-    FlSpot(7, 62),
-    FlSpot(8, 62),
-    FlSpot(9, 70),
-    FlSpot(10, 70),
-    FlSpot(11, 78),
-    FlSpot(13, 78),
-    FlSpot(14, 14),
-    FlSpot(16, 15),
-    FlSpot(18, 18),
-    FlSpot(22, 18),
-    FlSpot(23, 2),
-    FlSpot(28, 2),
-  ];
+  final String label;
+  final String amount;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    final Color previousMonthColor = PayaboColors.muted.withValues(alpha: 0.45);
+    final theme = Theme.of(context);
+    final cardColor = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFFFFBF8);
+    final borderColor = isDark
+        ? theme.colorScheme.outlineVariant
+        : const Color(0xFFF1DEC9);
 
-    return LineChart(
-      LineChartData(
-        minX: 1,
-        maxX: 28,
-        minY: 0,
-        maxY: 100,
-        lineTouchData: const LineTouchData(enabled: false),
-        gridData: const FlGridData(show: false),
-        extraLinesData:
-            const ExtraLinesData(horizontalLines: <HorizontalLine>[]),
-        titlesData: FlTitlesData(
-          leftTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: 1,
-              getTitlesWidget: _buildBottomTitle,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(PayaboSpacing.lg),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        border: Border.all(color: borderColor, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.textTheme.bodySmall?.color,
             ),
           ),
-        ),
-        borderData: FlBorderData(
-          show: true,
-          border: const Border(bottom: BorderSide(color: PayaboColors.border)),
-        ),
-        lineBarsData: <LineChartBarData>[
-          LineChartBarData(
-            spots: _previousMonthSpots,
-            isCurved: false,
-            color: previousMonthColor,
-            barWidth: 2,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              checkToShowDot: (FlSpot spot, LineChartBarData barData) {
-                return (spot.x - 28).abs() < 0.01;
-              },
-              getDotPainter: (
-                FlSpot spot,
-                double percent,
-                LineChartBarData barData,
-                int index,
-              ) {
-                return FlDotCirclePainter(
-                  radius: 5,
-                  color: PayaboColors.muted,
-                  strokeWidth: 2,
-                  strokeColor: PayaboColors.white,
-                );
-              },
+          const SizedBox(height: PayaboSpacing.xs),
+          Text(
+            amount,
+            style: theme.textTheme.displayMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
             ),
-            belowBarData: BarAreaData(show: false),
-          ),
-          LineChartBarData(
-            spots: _currentMonthSpots,
-            isCurved: false,
-            color: PayaboColors.ink,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              checkToShowDot: (FlSpot spot, LineChartBarData barData) {
-                return (spot.x - 26).abs() < 0.01;
-              },
-              getDotPainter: (
-                FlSpot spot,
-                double percent,
-                LineChartBarData barData,
-                int index,
-              ) {
-                return FlDotCirclePainter(
-                  radius: 6,
-                  color: PayaboColors.success,
-                  strokeWidth: 2,
-                  strokeColor: PayaboColors.white,
-                );
-              },
-            ),
-            belowBarData: BarAreaData(show: false),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildBottomTitle(double value, TitleMeta meta) {
-    String? label;
-    final int day = value.round();
-
-    if (day == 1) {
-      label = '1 Feb';
-    } else if (day == 14) {
-      label = '14 Feb';
-    } else if (day == 28) {
-      label = '28 Feb';
-    }
-
-    if (label == null) {
-      return const SizedBox.shrink();
-    }
-
-    return SideTitleWidget(
-      meta: meta,
-      space: PayaboSpacing.sm,
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: PayaboColors.muted,
-        ),
-      ),
-    );
-  }
 }
 
-class _CurrencySortButton extends StatelessWidget {
-  const _CurrencySortButton();
+// ─────────────────────────────────────────────────────────
+//  Bar chart (Starling-style grouped bars)
+// ─────────────────────────────────────────────────────────
+
+class _SpendingBarChart extends StatelessWidget {
+  const _SpendingBarChart({required this.isDark});
+
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 90,
-      height: 48,
-      child: OutlinedButton(
-        onPressed: () {},
-        style: OutlinedButton.styleFrom(
-          foregroundColor: PayaboColors.primary,
-          minimumSize: const Size(90, 48),
-          side: const BorderSide(color: PayaboColors.primary),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(PayaboRadii.sm),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.lg),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              '£',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: PayaboColors.primary,
-                  ),
-            ),
-            const SizedBox(width: PayaboSpacing.xs),
-            const Icon(Icons.arrow_upward, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
+    final theme = Theme.of(context);
+    final barColor = theme.colorScheme.primary;
+    final gridColor = isDark
+        ? theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
+        : const Color(0xFFE8DDD2);
+    final mutedColor =
+        theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurface;
 
-class _BreakdownIcon extends StatelessWidget {
-  const _BreakdownIcon({
-    required this.icon,
-    required this.color,
-  });
-
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: color, size: 22),
-    );
-  }
-}
-
-class _BreakdownAmount extends StatelessWidget {
-  const _BreakdownAmount({
-    required this.totalAmount,
-    required this.changeAmount,
-    required this.isDecrease,
-  });
-
-  final String totalAmount;
-  final String changeAmount;
-  final bool isDecrease;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color changeColor =
-        isDecrease ? PayaboColors.success : PayaboColors.danger;
-    final IconData direction =
-        isDecrease ? Icons.arrow_drop_down : Icons.arrow_drop_up;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: <Widget>[
-        Align(
-          alignment: Alignment.centerRight,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              totalAmount,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: PayaboColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  changeAmount,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: changeColor,
-                        fontWeight: FontWeight.w700,
-                      ),
+    return BarChart(
+      BarChartData(
+        maxY: 800,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) => theme.colorScheme.surfaceContainerHighest,
+            tooltipBorderRadius: BorderRadius.circular(8),
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '£${rod.toY.toInt()}',
+                theme.textTheme.bodySmall!.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
                 ),
-                Icon(direction, color: changeColor, size: 18),
-              ],
+              );
+            },
+          ),
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 200,
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: gridColor,
+            strokeWidth: 0.5,
+          ),
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 36,
+              interval: 400,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                if (value == 0) return const SizedBox.shrink();
+                return SideTitleWidget(
+                  meta: meta,
+                  child: Text(
+                    '£${value.toInt()}',
+                    style: TextStyle(
+                      color: mutedColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              },
             ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 24,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                const labels = <String>['1', '2-8', '9-13'];
+                final i = value.toInt();
+                if (i < 0 || i >= labels.length) {
+                  return const SizedBox.shrink();
+                }
+                return SideTitleWidget(
+                  meta: meta,
+                  space: PayaboSpacing.xs,
+                  child: Text(
+                    labels[i],
+                    style: TextStyle(
+                      color: mutedColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: <BarChartGroupData>[
+          _barGroup(0, 320, barColor),
+          _barGroup(1, 540, barColor),
+          _barGroup(2, 285, barColor),
+        ],
+      ),
+    );
+  }
+
+  BarChartGroupData _barGroup(int x, double y, Color color) {
+    return BarChartGroupData(
+      x: x,
+      barRods: <BarChartRodData>[
+        BarChartRodData(
+          toY: y,
+          color: color,
+          width: 40,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(4),
           ),
         ),
       ],
@@ -1020,24 +528,423 @@ class _BreakdownAmount extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Draggable breakdown sheet
+// ─────────────────────────────────────────────────────────
+
+class _BreakdownSheet extends StatelessWidget {
+  const _BreakdownSheet({
+    required this.breakdownItems,
+    required this.breakdownViewIndex,
+    required this.onBreakdownViewChanged,
+    required this.isDark,
+  });
+
+  final List<_SpendingBreakdownItem> breakdownItems;
+  final int breakdownViewIndex;
+  final ValueChanged<int> onBreakdownViewChanged;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sheetBg = isDark
+        ? theme.colorScheme.surface
+        : const Color(0xFFFFFCF9);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.38,
+      minChildSize: 0.30,
+      maxChildSize: 0.88,
+      snap: true,
+      snapSizes: const <double>[0.38, 0.88],
+      builder: (BuildContext context, ScrollController scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: CustomScrollView(
+            controller: scrollController,
+            slivers: <Widget>[
+              // Drag handle
+              SliverToBoxAdapter(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 6),
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                        borderRadius:
+                            const BorderRadius.all(Radius.circular(2)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // "Spending breakdown" heading
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    PayaboSpacing.xl,
+                    PayaboSpacing.sm,
+                    PayaboSpacing.xl,
+                    PayaboSpacing.md,
+                  ),
+                  child: Text(
+                    'Spending breakdown',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Segment toggle: Categories | Merchants
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PayaboSpacing.xl,
+                  ),
+                  child: _SegmentToggle(
+                    leftLabel: 'Categories',
+                    rightLabel: 'Merchants',
+                    selectedIndex: breakdownViewIndex,
+                    onChanged: onBreakdownViewChanged,
+                    isDark: isDark,
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: PayaboSpacing.lg),
+              ),
+
+              // Breakdown list
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: PayaboSpacing.xl,
+                ),
+                sliver: SliverList.separated(
+                  itemCount: breakdownItems.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                  itemBuilder: (BuildContext context, int index) {
+                    final item = breakdownItems[index];
+                    return _BreakdownRow(
+                      item: item,
+                      isDark: isDark,
+                      onTap: () {
+                        if (breakdownViewIndex == 0) {
+                          context.go('/spending/category/${item.id}');
+                          return;
+                        }
+                        context.go('/spending/merchant/${item.id}');
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              // Bottom safety padding
+              const SliverToBoxAdapter(
+                child: SizedBox(height: PayaboSpacing.x4),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Segment toggle (Categories | Merchants)
+// ─────────────────────────────────────────────────────────
+
+class _SegmentToggle extends StatelessWidget {
+  const _SegmentToggle({
+    required this.leftLabel,
+    required this.rightLabel,
+    required this.selectedIndex,
+    required this.onChanged,
+    required this.isDark,
+  });
+
+  final String leftLabel;
+  final String rightLabel;
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        _SegmentOption(
+          label: leftLabel,
+          selected: selectedIndex == 0,
+          onTap: () => onChanged(0),
+          isDark: isDark,
+        ),
+        const SizedBox(width: PayaboSpacing.sm),
+        _SegmentOption(
+          label: rightLabel,
+          selected: selectedIndex == 1,
+          onTap: () => onChanged(1),
+          isDark: isDark,
+        ),
+        const Spacer(),
+      ],
+    );
+  }
+}
+
+class _SegmentOption extends StatelessWidget {
+  const _SegmentOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bgColor = selected
+        ? (isDark
+            ? theme.colorScheme.surfaceContainerHighest
+            : const Color(0xFFFFE7D3))
+        : Colors.transparent;
+    final textColor = selected
+        ? theme.colorScheme.onSurface
+        : theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurface;
+    final borderColor = selected
+        ? (isDark
+            ? theme.colorScheme.outlineVariant
+            : const Color(0xFFE7D8CC))
+        : (isDark
+            ? theme.colorScheme.outlineVariant.withValues(alpha: 0.4)
+            : const Color(0xFFE7D8CC));
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(
+          horizontal: PayaboSpacing.lg,
+          vertical: PayaboSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          border: Border.all(color: borderColor, width: 0.5),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: textColor,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Breakdown row (clean Starling-style list item)
+// ─────────────────────────────────────────────────────────
+
+class _BreakdownRow extends StatelessWidget {
+  const _BreakdownRow({
+    required this.item,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final _SpendingBreakdownItem item;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final iconBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : theme.colorScheme.primary.withValues(alpha: 0.08);
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
+        child: Row(
+          children: <Widget>[
+            // Icon
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: const BorderRadius.all(Radius.circular(10)),
+              ),
+              child: Icon(
+                item.icon,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: PayaboSpacing.md),
+
+            // Name + transaction count
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    item.name,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${item.transactionCount} transactions',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+
+            // Amount + percentage
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Text(
+                  item.totalAmount,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.percentage,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Fresh / empty state
+// ─────────────────────────────────────────────────────────
+
+class _FreshTransactionsEmptyState extends StatelessWidget {
+  const _FreshTransactionsEmptyState({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cardBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFFFFBF8);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: PayaboSpacing.lg),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+        ),
+        padding: const EdgeInsets.all(PayaboSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
+              ),
+              child: Icon(
+                Icons.insights_outlined,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: PayaboSpacing.md),
+            Text(
+              'No spending activity yet',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: PayaboSpacing.sm),
+            Text(
+              'Transactions, category rollups, and merchant trends will appear here once activity starts.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.textTheme.bodySmall?.color,
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Data model
+// ─────────────────────────────────────────────────────────
+
 class _SpendingBreakdownItem {
   const _SpendingBreakdownItem({
     required this.id,
     required this.name,
     required this.transactionCount,
     required this.totalAmount,
-    required this.changeAmount,
-    required this.isDecrease,
+    required this.percentage,
     required this.icon,
-    required this.iconColor,
   });
 
   final String id;
   final String name;
   final int transactionCount;
   final String totalAmount;
-  final String changeAmount;
-  final bool isDecrease;
+  final String percentage;
   final IconData icon;
-  final Color iconColor;
 }

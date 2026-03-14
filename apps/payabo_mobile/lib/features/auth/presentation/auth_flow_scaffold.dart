@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 
 class AuthFlowScaffold extends StatelessWidget {
@@ -28,6 +27,8 @@ class AuthFlowScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     final content = SafeArea(
       child: Column(
         children: <Widget>[
@@ -102,11 +103,11 @@ class AuthFlowScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor:
-          useWarmBackground ? PayaboColors.surfaceWarm : PayaboColors.white,
+          useWarmBackground ? c.surfaceWarm : c.surfaceBase,
       body: useWarmBackground
           ? DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: PayaboGradients.warmScreen,
+              decoration: BoxDecoration(
+                gradient: c.warmScreenGradient,
               ),
               child: content,
             )
@@ -126,6 +127,8 @@ class _TopIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -134,7 +137,7 @@ class _TopIconButton extends StatelessWidget {
         height: 44,
         child: Icon(
           icon,
-          color: PayaboColors.primary,
+          color: c.primary,
           size: icon == Icons.close ? 30 : 20,
         ),
       ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_card.dart';
@@ -28,6 +28,7 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final orderId = ref.watch(paymentOrderIdProvider);
     final friendsState = ref.watch(paymentFriendsProvider);
 
@@ -104,7 +105,7 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
                       children: <Widget>[
                         CircleAvatar(
                           radius: 20,
-                          backgroundColor: PayaboColors.background,
+                          backgroundColor: c.background,
                           child: Text(
                             friend.firstName.substring(0, 1),
                             style: Theme.of(context).textTheme.titleSmall,
@@ -126,8 +127,7 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
                                     ),
                                   ),
                                   if (friend.isFavorite)
-                                    const Icon(Icons.star,
-                                        color: PayaboColors.primary, size: 18),
+                                    Icon(Icons.star, color: c.primary, size: 18),
                                 ],
                               ),
                               const SizedBox(height: 2),
@@ -138,8 +138,7 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right,
-                            color: PayaboColors.muted),
+                        Icon(Icons.chevron_right, color: c.muted),
                       ],
                     ),
                   ),

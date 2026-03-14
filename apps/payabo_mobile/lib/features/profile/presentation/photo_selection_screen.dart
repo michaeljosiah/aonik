@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import 'profile_scaffold.dart';
@@ -21,6 +21,8 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return ProfileScaffold(
       title: 'Choose photo',
       backRoute: '/profile',
@@ -39,13 +41,13 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                color: PayaboColors.background,
+                color: c.background,
               ),
               child: Center(
                 child: Icon(
                   Icons.person,
                   size: 120,
-                  color: PayaboColors.muted.withValues(alpha: 0.5),
+                  color: c.muted.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -71,14 +73,12 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color:
-                          selected ? PayaboColors.primary : PayaboColors.border,
+                      color: selected ? c.primary : c.border,
                       width: selected ? 2 : 1,
                     ),
-                    color: PayaboColors.background,
+                    color: c.background,
                   ),
-                  child: const Icon(Icons.image_outlined,
-                      color: PayaboColors.muted),
+                  child: Icon(Icons.image_outlined, color: c.muted),
                 ),
               );
             },

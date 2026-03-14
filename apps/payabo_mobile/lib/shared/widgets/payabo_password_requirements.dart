@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_spacing.dart';
 import '../validation/payabo_input_validators.dart';
 
@@ -67,11 +67,12 @@ class _PasswordRequirementLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final Color color = disabled
-        ? PayaboColors.muted
+        ? c.muted
         : met
-            ? PayaboColors.success
-            : PayaboColors.muted;
+            ? c.success
+            : c.muted;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),

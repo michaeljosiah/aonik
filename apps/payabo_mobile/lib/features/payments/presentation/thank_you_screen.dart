@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_card.dart';
@@ -23,6 +23,7 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final statusState = ref.watch(paymentStatusSummaryProvider);
     final status = statusState.paymentResult ?? PaymentResult.pending;
     final isFirstPending =
@@ -37,10 +38,10 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
             : Icons.hourglass_top;
 
     final color = status == PaymentResult.success
-        ? PayaboColors.success
+        ? c.success
         : status == PaymentResult.failed
-            ? PayaboColors.danger
-            : PayaboColors.muted;
+            ? c.danger
+            : c.muted;
 
     final title = status == PaymentResult.success
         ? 'Your bill is paid'
@@ -81,21 +82,21 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
           ),
           const SizedBox(height: PayaboSpacing.lg),
           if (status == PaymentResult.success)
-            const PayaboCard(
+            PayaboCard(
               child: Column(
                 children: <Widget>[
-                  Text('MBA points earned in this transaction:'),
-                  SizedBox(height: PayaboSpacing.sm),
+                  const Text('MBA points earned in this transaction:'),
+                  const SizedBox(height: PayaboSpacing.sm),
                   Text(
                     '78',
                     style: TextStyle(
                       fontSize: 42,
-                      color: PayaboColors.success,
+                      color: c.success,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 4),
-                  Text('TOTAL POINTS 5800'),
+                  const SizedBox(height: 4),
+                  const Text('TOTAL POINTS 5800'),
                 ],
               ),
             ),
@@ -179,6 +180,7 @@ class _ProgressSteps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     const labels = <String>['Order\nreceived', 'Payment\nsent', 'Bill\npaid'];
 
     return Row(
@@ -192,22 +194,21 @@ class _ProgressSteps extends StatelessWidget {
                   Expanded(
                     child: Container(
                       height: 4,
-                      color:
-                          isActive ? PayaboColors.primary : PayaboColors.border,
+                      color: isActive ? c.primary : c.border,
                     ),
                   ),
                   if (index < labels.length - 1) const SizedBox(width: 6),
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                labels[index],
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isActive ? PayaboColors.ink : PayaboColors.muted,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-                    ),
-              ),
+                Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isActive ? c.ink : c.muted,
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                ),
             ],
           ),
         );

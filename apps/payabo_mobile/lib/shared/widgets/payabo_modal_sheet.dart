@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_radii.dart';
 import '../theme/payabo_spacing.dart';
 
@@ -16,7 +16,7 @@ Future<T?> showPayaboModalSheet<T>({
     isScrollControlled: true,
     isDismissible: isDismissible,
     enableDrag: enableDrag,
-    backgroundColor: PayaboColors.transparent,
+    backgroundColor: Colors.transparent,
     builder: (context) {
       return PayaboModalSheet(
         title: title,
@@ -38,14 +38,16 @@ class PayaboModalSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: PayaboColors.white,
+        decoration: BoxDecoration(
+          color: c.surfaceBase,
           borderRadius: PayaboRadii.sheetTop,
+          border: Border.all(color: c.borderStrong),
         ),
         child: SafeArea(
           top: false,
@@ -62,13 +64,14 @@ class PayaboModalSheet extends StatelessWidget {
                       Expanded(
                         child: Text(
                           title!,
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: c.textPrimary,
+                              ),
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close,
-                            color: PayaboColors.primary),
+                        icon: Icon(Icons.close, color: c.primary),
                       ),
                     ],
                   ),

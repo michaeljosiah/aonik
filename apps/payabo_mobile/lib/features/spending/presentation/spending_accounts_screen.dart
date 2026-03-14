@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/account_links_repository.dart';
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -28,6 +27,7 @@ class SpendingAccountsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final AsyncValue<AccountLinksSummary> summaryValue =
         ref.watch(accountLinksSummaryProvider);
     final AccountLinkFlowState flowState =
@@ -36,10 +36,10 @@ class SpendingAccountsScreen extends ConsumerWidget {
         ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
 
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceWarm,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
+        decoration: BoxDecoration(
+          gradient: c.warmScreenGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -295,20 +295,22 @@ class SpendingAccountsScreen extends ConsumerWidget {
 
     final bool? confirmed = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: PayaboColors.white,
+        builder: (BuildContext context) {
+          final c = context.colors;
+
+          return AlertDialog(
+          backgroundColor: c.surfaceBase,
           title: Text(
             'Disconnect ${item.name.toLowerCase()}?',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
           content: Text(
             'Payabo will stop syncing ${item.institutionName} and remove this linked account from active Spend views.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.accentBrownMuted,
+                  color: c.accentBrownMuted,
                 ),
           ),
           actions: <Widget>[
@@ -386,12 +388,13 @@ class _AccountsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboAppHeader(
       title: 'Spend',
-      titleStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontSize: 48,
+      titleStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: PayaboColors.accentBrown,
+            color: c.accentBrown,
           ),
       onNotificationsTap: onNotificationsTap,
       onProfileTap: onProfileTap,
@@ -417,6 +420,7 @@ class _AccountLinkConnectSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final AccountLinkFlowState flowState =
         ref.watch(accountLinkFlowControllerProvider);
     final AccountLinkLauncher launcher = ref.watch(accountLinkLauncherProvider);
@@ -469,7 +473,7 @@ class _AccountLinkConnectSheet extends ConsumerWidget {
         Text(
           introText,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: PayaboColors.accentBrownMuted,
+                color: c.accentBrownMuted,
                 height: 1.45,
               ),
         ),
@@ -498,17 +502,17 @@ class _AccountLinkConnectSheet extends ConsumerWidget {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: PayaboColors.warning.withValues(alpha: 0.1),
+              color: c.warning.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(PayaboRadii.lg),
               border: Border.all(
-                color: PayaboColors.warning.withValues(alpha: 0.3),
+                color: c.warning.withValues(alpha: 0.3),
               ),
             ),
             padding: const EdgeInsets.all(PayaboSpacing.md),
             child: Text(
               flowState.errorMessage!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: PayaboColors.accentBrown,
+                    color: c.accentBrown,
                     height: 1.4,
                   ),
             ),
@@ -530,7 +534,7 @@ class _AccountLinkConnectSheet extends ConsumerWidget {
                       ? 'Reconnecting securely and exchanging the temporary code...'
                       : 'Connecting securely and exchanging the temporary code...',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: PayaboColors.accentBrownMuted,
+                        color: c.accentBrownMuted,
                       ),
                 ),
               ),
@@ -578,6 +582,8 @@ class _ConnectSheetStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -585,10 +591,10 @@ class _ConnectSheetStep extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: PayaboColors.primary.withValues(alpha: 0.12),
+            color: c.primary.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: PayaboColors.primary, size: 21),
+          child: Icon(icon, color: c.primary, size: 21),
         ),
         const SizedBox(width: PayaboSpacing.md),
         Expanded(
@@ -598,7 +604,7 @@ class _ConnectSheetStep extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: PayaboColors.accentBrown,
+                      color: c.accentBrown,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -606,7 +612,7 @@ class _ConnectSheetStep extends StatelessWidget {
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PayaboColors.accentBrownMuted,
+                      color: c.accentBrownMuted,
                       height: 1.45,
                     ),
               ),
@@ -631,6 +637,7 @@ class _AccountsHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final String description;
 
     if (isFreshDemo) {
@@ -649,10 +656,10 @@ class _AccountsHeroCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF8),
+        color: c.surfaceCardElevated,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFF1DEC9)),
-        boxShadow: PayaboShadows.soft,
+        border: Border.all(color: c.spendingQuickActionBorder),
+        boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.soft,
       ),
       child: Padding(
         padding: const EdgeInsets.all(PayaboSpacing.xl),
@@ -670,14 +677,14 @@ class _AccountsHeroCard extends StatelessWidget {
                         'Connected accounts',
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: PayaboColors.accentBrownMuted,
+                                  color: c.accentBrownMuted,
                                 ),
                       ),
                       const SizedBox(height: PayaboSpacing.xs),
                       Text(
                         description,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: PayaboColors.muted,
+                              color: c.muted,
                               height: 1.45,
                             ),
                       ),
@@ -689,12 +696,12 @@ class _AccountsHeroCard extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFE8D1),
+                    color: c.primary.withValues(alpha: c.isDark ? 0.14 : 0.12),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.account_balance_outlined,
-                    color: PayaboColors.primary,
+                    color: c.primary,
                     size: 28,
                   ),
                 ),
@@ -703,17 +710,17 @@ class _AccountsHeroCard extends StatelessWidget {
             const SizedBox(height: PayaboSpacing.xl),
             Text(
               '${summary.linkedCount}',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: PayaboColors.accentBrown,
-                    fontSize: 46,
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    color: c.accentBrown,
                     height: 1,
+                    fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: PayaboSpacing.xs),
             Text(
               'linked source${summary.linkedCount == 1 ? '' : 's'} ready for Spend',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: PayaboColors.accentBrownMuted,
+                    color: c.accentBrownMuted,
                   ),
             ),
             const SizedBox(height: PayaboSpacing.lg),
@@ -727,8 +734,8 @@ class _AccountsHeroCard extends StatelessWidget {
                   label: 'Needs attention',
                   value: '${summary.attentionCount}',
                   valueColor: summary.attentionCount > 0
-                      ? PayaboColors.warning
-                      : PayaboColors.accentBrown,
+                      ? c.warning
+                      : c.accentBrown,
                 ),
               ],
             ),
@@ -753,20 +760,22 @@ class _MetricChip extends StatelessWidget {
   const _MetricChip({
     required this.label,
     required this.value,
-    this.valueColor = PayaboColors.accentBrown,
+    this.valueColor,
   });
 
   final String label;
   final String value;
-  final Color valueColor;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarm,
+        color: c.spendingCardWarm,
         borderRadius: BorderRadius.circular(PayaboRadii.pill),
-        border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+        border: Border.all(color: c.spendingQuickActionBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -779,14 +788,14 @@ class _MetricChip extends StatelessWidget {
               TextSpan(
                 text: '$label ',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PayaboColors.muted,
+                      color: c.muted,
                       fontWeight: FontWeight.w600,
                     ),
               ),
               TextSpan(
                 text: value,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: valueColor,
+                      color: valueColor ?? c.accentBrown,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -877,13 +886,15 @@ class _AccountsSectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
           title,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: PayaboColors.accentBrown,
+                color: c.accentBrown,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -891,7 +902,7 @@ class _AccountsSectionHeading extends StatelessWidget {
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: PayaboColors.accentBrownMuted,
+                color: c.accentBrownMuted,
               ),
         ),
       ],
@@ -904,11 +915,13 @@ class _UnlinkedAccountsStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarmElevated,
+        color: c.spendingCardWarmElevated,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+        border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: PayaboShadows.soft,
       ),
       padding: const EdgeInsets.all(PayaboSpacing.xl),
@@ -919,12 +932,12 @@ class _UnlinkedAccountsStateCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: PayaboColors.primary.withValues(alpha: 0.14),
+              color: c.primary.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.link_outlined,
-              color: PayaboColors.primary,
+              color: c.primary,
               size: 28,
             ),
           ),
@@ -932,7 +945,7 @@ class _UnlinkedAccountsStateCard extends StatelessWidget {
           Text(
             'No linked accounts yet',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -940,7 +953,7 @@ class _UnlinkedAccountsStateCard extends StatelessWidget {
           Text(
             'Connect a bank or add a manual account to widen spend coverage, improve merchant rollups, and keep budgets closer to reality.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                   height: 1.45,
                 ),
           ),
@@ -976,11 +989,13 @@ class _FreshAccountsStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarmElevated,
+        color: c.spendingCardWarmElevated,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+        border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: PayaboShadows.soft,
       ),
       padding: const EdgeInsets.all(PayaboSpacing.xl),
@@ -991,12 +1006,12 @@ class _FreshAccountsStateCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE8D1),
+              color: c.primary.withValues(alpha: c.isDark ? 0.14 : 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.wallet_outlined,
-              color: PayaboColors.primary,
+              color: c.primary,
               size: 28,
             ),
           ),
@@ -1004,7 +1019,7 @@ class _FreshAccountsStateCard extends StatelessWidget {
           Text(
             'Fresh accounts state',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1012,7 +1027,7 @@ class _FreshAccountsStateCard extends StatelessWidget {
           Text(
             'Fresh demo mode removes the seeded account showcase so this page starts empty and ready for your first secure connection or manual account.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                   height: 1.45,
                 ),
           ),
@@ -1020,7 +1035,7 @@ class _FreshAccountsStateCard extends StatelessWidget {
           Text(
             'Switch back to Populated demo data in Profile if you want to review linked-account examples again.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.chatTextSecondary,
+                  color: c.chatTextSecondary,
                 ),
           ),
         ],
@@ -1042,6 +1057,8 @@ class _SetupStepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1049,11 +1066,11 @@ class _SetupStepRow extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: PayaboColors.white,
+            color: c.surfaceBase,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+            border: Border.all(color: c.spendingQuickActionBorder),
           ),
-          child: Icon(icon, color: PayaboColors.primary, size: 22),
+          child: Icon(icon, color: c.primary, size: 22),
         ),
         const SizedBox(width: PayaboSpacing.md),
         Expanded(
@@ -1063,7 +1080,7 @@ class _SetupStepRow extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: PayaboColors.accentBrown,
+                      color: c.accentBrown,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -1071,7 +1088,7 @@ class _SetupStepRow extends StatelessWidget {
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PayaboColors.accentBrownMuted,
+                      color: c.accentBrownMuted,
                       height: 1.45,
                     ),
               ),
@@ -1102,17 +1119,18 @@ class _AccountLinkCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accentColor = _statusColor(item.status);
+    final c = context.colors;
+    final Color accentColor = _statusColor(context, item.status);
 
     return Container(
       key: Key('account-card-${item.id}'),
       decoration: BoxDecoration(
-        color: PayaboColors.white,
+        color: c.surfaceBase,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
           color: item.needsReconnect
-              ? PayaboColors.spendingInsightBorder
-              : PayaboColors.spendingQuickActionBorder,
+              ? c.spendingInsightBorder
+              : c.spendingQuickActionBorder,
         ),
         boxShadow: PayaboShadows.soft,
       ),
@@ -1133,19 +1151,19 @@ class _AccountLinkCard extends StatelessWidget {
                       Text(
                         item.institutionName,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: PayaboColors.accentBrownMuted,
+                              color: c.accentBrownMuted,
                               fontWeight: FontWeight.w700,
                             ),
                       ),
                       const SizedBox(height: PayaboSpacing.xxs),
-                      Text(
-                        item.name,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: PayaboColors.accentBrown,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                      ),
+                        Text(
+                          item.name,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: c.accentBrown,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
                     ],
                   ),
                 ),
@@ -1163,9 +1181,9 @@ class _AccountLinkCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     item.balanceLabel ?? item.accountTypeLabel,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: PayaboColors.accentBrown,
-                          fontSize: item.balanceLabel == null ? 30 : 36,
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                          color: c.accentBrown,
+                          fontSize: item.balanceLabel == null ? 28 : 32,
                           height: 1,
                         ),
                   ),
@@ -1174,7 +1192,7 @@ class _AccountLinkCard extends StatelessWidget {
                   Text(
                     item.accountTypeLabel,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: PayaboColors.accentBrownMuted,
+                          color: c.accentBrownMuted,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
@@ -1184,7 +1202,7 @@ class _AccountLinkCard extends StatelessWidget {
             Text(
               item.statusDetail,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: PayaboColors.muted,
+                    color: c.muted,
                     height: 1.45,
                   ),
             ),
@@ -1248,18 +1266,20 @@ class _AccountLinkCard extends StatelessWidget {
     );
   }
 
-  Color _statusColor(AccountLinkStatus status) {
+  Color _statusColor(BuildContext context, AccountLinkStatus status) {
+    final c = context.colors;
+
     switch (status) {
       case AccountLinkStatus.connected:
-        return PayaboColors.success;
+        return c.success;
       case AccountLinkStatus.syncing:
-        return PayaboColors.info;
+        return c.info;
       case AccountLinkStatus.actionRequired:
-        return PayaboColors.warning;
+        return c.warning;
       case AccountLinkStatus.manual:
-        return PayaboColors.accentBrown;
+        return c.accentBrown;
       case AccountLinkStatus.archived:
-        return PayaboColors.muted;
+        return c.muted;
     }
   }
 }
@@ -1339,11 +1359,13 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarm,
+        color: c.spendingCardWarm,
         borderRadius: BorderRadius.circular(PayaboRadii.pill),
-        border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+        border: Border.all(color: c.spendingQuickActionBorder),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(
@@ -1353,7 +1375,7 @@ class _MetaChip extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: PayaboColors.accentBrownMuted,
+                color: c.accentBrownMuted,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -1367,15 +1389,19 @@ class _AccountsExplainerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
+        gradient: LinearGradient(
+          colors: c.isDark
+              ? <Color>[c.surfaceCardElevated, c.surfaceWarmElevated]
+              : const <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFEAD9C3)),
+        border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       child: Padding(
@@ -1389,12 +1415,12 @@ class _AccountsExplainerCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: PayaboColors.white.withValues(alpha: 0.82),
+                    color: c.surfaceBase.withValues(alpha: 0.82),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.shield_outlined,
-                    color: PayaboColors.primary,
+                    color: c.primary,
                   ),
                 ),
                 const SizedBox(width: PayaboSpacing.md),
@@ -1402,7 +1428,7 @@ class _AccountsExplainerCard extends StatelessWidget {
                   child: Text(
                     'How secure account connections will work',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: PayaboColors.accentBrown,
+                          color: c.accentBrown,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
@@ -1413,7 +1439,7 @@ class _AccountsExplainerCard extends StatelessWidget {
             Text(
               'Payabo will request a short-lived secure session, open the provider link flow, and hand the temporary result back to AONIK. Long-lived provider credentials stay on the server, not in the mobile app.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: PayaboColors.accentBrownMuted,
+                    color: c.accentBrownMuted,
                     height: 1.5,
                   ),
             ),
@@ -1449,8 +1475,10 @@ class _AccountsLoadErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboCard(
-      backgroundColor: PayaboColors.spendingCardWarmElevated,
+      backgroundColor: c.spendingCardWarmElevated,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1458,7 +1486,7 @@ class _AccountsLoadErrorCard extends StatelessWidget {
           Text(
             'Unable to load accounts right now',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1466,7 +1494,7 @@ class _AccountsLoadErrorCard extends StatelessWidget {
           Text(
             message,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                   height: 1.45,
                 ),
           ),

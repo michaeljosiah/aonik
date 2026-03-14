@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_borders.dart';
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import 'onboarding_flow_state.dart';
@@ -40,6 +38,7 @@ class _CountrySelectionScreenState
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final query = _searchController.text.trim().toLowerCase();
     final items = onboardingCountries
         .where((country) =>
@@ -48,10 +47,10 @@ class _CountrySelectionScreenState
         .toList(growable: false);
 
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceWarm,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
+        decoration: BoxDecoration(
+          gradient: c.warmScreenGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -59,8 +58,8 @@ class _CountrySelectionScreenState
               Container(
                 padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl,
                     PayaboSpacing.lg, PayaboSpacing.xl, PayaboSpacing.lg),
-                decoration: const BoxDecoration(
-                  color: PayaboColors.surfaceWarmElevated,
+                decoration: BoxDecoration(
+                  color: c.surfaceWarmElevated,
                   boxShadow: PayaboShadows.soft,
                 ),
                 child: Column(
@@ -70,20 +69,22 @@ class _CountrySelectionScreenState
                         InkWell(
                           borderRadius: BorderRadius.circular(20),
                           onTap: _goBack,
-                          child: const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Icon(Icons.arrow_back_ios_new,
-                                color: PayaboColors.primary),
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.arrow_back_ios_new,
+                              color: c.primary,
+                            ),
                           ),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Center(
                             child: Text(
                               'Select a country',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: PayaboColors.ink,
+                                color: c.ink,
                               ),
                             ),
                           ),
@@ -95,10 +96,9 @@ class _CountrySelectionScreenState
                     TextField(
                       controller: _searchController,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Search for a country',
-                        prefixIcon:
-                            Icon(Icons.search, color: PayaboColors.muted),
+                        prefixIcon: Icon(Icons.search, color: c.muted),
                       ),
                     ),
                   ],
@@ -117,9 +117,9 @@ class _CountrySelectionScreenState
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             vertical: PayaboSpacing.lg),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           border: Border(
-                            bottom: PayaboBorders.defaultBorder,
+                            bottom: BorderSide(color: c.border),
                           ),
                         ),
                         child: Row(

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -32,14 +31,15 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final AsyncValue<List<SpendingBudgetCategory>> budgetsValue =
         ref.watch(spendingBudgetsProvider);
 
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceWarm,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
+        decoration: BoxDecoration(
+          gradient: c.warmScreenGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -167,12 +167,13 @@ class _BudgetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboAppHeader(
       title: 'Spend',
-      titleStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontSize: 48,
+      titleStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: PayaboColors.accentBrown,
+            color: c.accentBrown,
           ),
       onNotificationsTap: onNotificationsTap,
       onProfileTap: onProfileTap,
@@ -192,11 +193,13 @@ class _BudgetHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarmElevated,
+        color: c.spendingCardWarmElevated,
         borderRadius: BorderRadius.circular(PayaboRadii.xl),
-        border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+        border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: PayaboShadows.soft,
       ),
       child: Padding(
@@ -215,14 +218,14 @@ class _BudgetHeroCard extends StatelessWidget {
                         summary.monthLabel,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: PayaboColors.accentBrownMuted,
+                                  color: c.accentBrownMuted,
                                 ),
                       ),
                       const SizedBox(height: PayaboSpacing.xs),
                       Text(
                         'Monthly budget',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: PayaboColors.muted,
+                              color: c.muted,
                             ),
                       ),
                     ],
@@ -231,16 +234,15 @@ class _BudgetHeroCard extends StatelessWidget {
                 const SizedBox(width: PayaboSpacing.md),
                 _BudgetStatusPill(
                   label: summary.statusLabel,
-                  foregroundColor: summary.statusColor,
+                  foregroundColor: summary.statusColorRole.resolve(c),
                 ),
               ],
             ),
             const SizedBox(height: PayaboSpacing.lg),
             Text(
               formatSpendingBudgetCurrency(summary.totalBudget),
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: PayaboColors.accentBrown,
-                    fontSize: 44,
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    color: c.accentBrown,
                     height: 1,
                     fontWeight: FontWeight.w800,
                   ),
@@ -249,7 +251,7 @@ class _BudgetHeroCard extends StatelessWidget {
             Text(
               summary.description,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: PayaboColors.muted,
+                    color: c.muted,
                     height: 1.45,
                   ),
             ),
@@ -260,7 +262,7 @@ class _BudgetHeroCard extends StatelessWidget {
                   child: _BudgetSummaryMetric(
                     label: 'Left to spend',
                     valueLabel: summary.leftToSpendLabel,
-                    valueColor: summary.leftToSpendColor,
+                    valueColor: summary.leftToSpendColorRole.resolve(c),
                   ),
                 ),
                 const SizedBox(width: PayaboSpacing.md),
@@ -269,7 +271,7 @@ class _BudgetHeroCard extends StatelessWidget {
                     label: 'Used so far',
                     valueLabel:
                         formatSpendingBudgetCurrency(summary.totalSpent),
-                    valueColor: PayaboColors.accentBrown,
+                    valueColor: c.accentBrown,
                     alignEnd: true,
                   ),
                 ),
@@ -278,13 +280,13 @@ class _BudgetHeroCard extends StatelessWidget {
             const SizedBox(height: PayaboSpacing.lg),
             _BudgetProgressBar(
               value: summary.progress,
-              color: summary.statusColor,
+              color: summary.statusColorRole.resolve(c),
             ),
             const SizedBox(height: PayaboSpacing.sm),
             Text(
               summary.progressLabel,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: PayaboColors.accentBrownMuted,
+                    color: c.accentBrownMuted,
                   ),
             ),
           ],
@@ -309,6 +311,7 @@ class _BudgetSummaryMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final CrossAxisAlignment crossAxisAlignment =
         alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final Alignment alignment =
@@ -320,7 +323,7 @@ class _BudgetSummaryMetric extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: PayaboColors.muted,
+                color: c.muted,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -350,6 +353,8 @@ class _BudgetSectionIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       children: <Widget>[
         Expanded(
@@ -359,7 +364,7 @@ class _BudgetSectionIntro extends StatelessWidget {
               Text(
                 'Category budgets',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: PayaboColors.accentBrown,
+                      color: c.accentBrown,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -367,7 +372,7 @@ class _BudgetSectionIntro extends StatelessWidget {
               Text(
                 'Open a budget to see what is left in each spending pocket.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: PayaboColors.accentBrownMuted,
+                      color: c.accentBrownMuted,
                     ),
               ),
             ],
@@ -376,7 +381,7 @@ class _BudgetSectionIntro extends StatelessWidget {
         const SizedBox(width: PayaboSpacing.md),
         _BudgetStatusPill(
           label: '${summary.categoryCount} active',
-          foregroundColor: PayaboColors.primary,
+          foregroundColor: c.primary,
         ),
       ],
     );
@@ -398,6 +403,7 @@ class _BudgetCategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final SpendingBudgetState state = SpendingBudgetState.fromBudget(
       allocated: category.allocated,
       spent: category.spent,
@@ -407,12 +413,12 @@ class _BudgetCategoryCard extends StatelessWidget {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: PayaboColors.white,
+        color: c.surfaceBase,
         borderRadius: BorderRadius.circular(PayaboRadii.xl),
         border: Border.all(
           color: expanded
-              ? PayaboColors.spendingInsightBorder
-              : PayaboColors.spendingQuickActionBorder,
+              ? c.spendingInsightBorder
+              : c.spendingQuickActionBorder,
         ),
         boxShadow: PayaboShadows.soft,
       ),
@@ -432,7 +438,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                   children: <Widget>[
                     _BudgetCategoryIcon(
                       icon: category.icon,
-                      color: category.accentColor,
+                      color: category.accentRole.resolve(c),
                     ),
                     const SizedBox(width: PayaboSpacing.md),
                     Expanded(
@@ -443,9 +449,9 @@ class _BudgetCategoryCard extends StatelessWidget {
                             category.name,
                             style: Theme.of(context)
                                 .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: PayaboColors.accentBrown,
+                                 .titleMedium
+                                 ?.copyWith(
+                                  color: c.accentBrown,
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
@@ -454,7 +460,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                             '${category.lineItems.length} budget lines',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: PayaboColors.muted,
+                                      color: c.muted,
                                     ),
                           ),
                         ],
@@ -468,7 +474,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                           formatSpendingBudgetCurrency(category.allocated),
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: PayaboColors.accentBrown,
+                                    color: c.accentBrown,
                                     fontWeight: FontWeight.w700,
                                   ),
                         ),
@@ -477,7 +483,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                           state.remainingLabel,
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: state.remainingColor,
+                                    color: state.remainingColorRole.resolve(c),
                                     fontWeight: FontWeight.w700,
                                   ),
                         ),
@@ -492,14 +498,16 @@ class _BudgetCategoryCard extends StatelessWidget {
                         expanded
                             ? Icons.keyboard_arrow_up_rounded
                             : Icons.keyboard_arrow_down_rounded,
-                        color: PayaboColors.accentBrownMuted,
+                        color: c.accentBrownMuted,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: PayaboSpacing.lg),
                 _BudgetProgressBar(
-                    value: state.progress, color: state.progressColor),
+                  value: state.progress,
+                  color: state.progressColorRole.resolve(c),
+                ),
                 const SizedBox(height: PayaboSpacing.sm),
                 Row(
                   children: <Widget>[
@@ -507,13 +515,13 @@ class _BudgetCategoryCard extends StatelessWidget {
                       child: Text(
                         '${state.percentUsedLabel} used',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: PayaboColors.accentBrownMuted,
+                              color: c.accentBrownMuted,
                             ),
                       ),
                     ),
                     _BudgetStatusPill(
                       label: state.statusLabel,
-                      foregroundColor: state.progressColor,
+                      foregroundColor: state.progressColorRole.resolve(c),
                     ),
                   ],
                 ),
@@ -528,7 +536,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                             children: <Widget>[
                               Container(
                                 height: 1,
-                                color: PayaboColors.spendingQuickActionBorder,
+                                color: c.spendingQuickActionBorder,
                               ),
                               const SizedBox(height: PayaboSpacing.lg),
                               Wrap(
@@ -543,7 +551,7 @@ class _BudgetCategoryCard extends StatelessWidget {
                                   _BudgetDetailChip(
                                     label: 'Remaining',
                                     value: state.remainingLabel,
-                                    valueColor: state.remainingColor,
+                                    valueColor: state.remainingColorRole.resolve(c),
                                   ),
                                 ],
                               ),
@@ -597,20 +605,22 @@ class _BudgetDetailChip extends StatelessWidget {
   const _BudgetDetailChip({
     required this.label,
     required this.value,
-    this.valueColor = PayaboColors.accentBrown,
+    this.valueColor,
   });
 
   final String label;
   final String value;
-  final Color valueColor;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarm,
+        color: c.spendingCardWarm,
         borderRadius: BorderRadius.circular(PayaboRadii.pill),
-        border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+        border: Border.all(color: c.spendingQuickActionBorder),
       ),
       padding: const EdgeInsets.symmetric(
         horizontal: PayaboSpacing.md,
@@ -619,20 +629,20 @@ class _BudgetDetailChip extends StatelessWidget {
       child: RichText(
         text: TextSpan(
           children: <InlineSpan>[
-            TextSpan(
-              text: '$label ',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: PayaboColors.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            TextSpan(
-              text: value,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: valueColor,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
+              TextSpan(
+                text: '$label ',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: c.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              TextSpan(
+                text: value,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: valueColor ?? c.accentBrown,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
           ],
         ),
       ),
@@ -647,6 +657,7 @@ class _BudgetLineItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final SpendingBudgetState state = SpendingBudgetState.fromBudget(
       allocated: item.allocated,
       spent: item.spent,
@@ -654,7 +665,7 @@ class _BudgetLineItemCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarm,
+        color: c.spendingCardWarm,
         borderRadius: BorderRadius.circular(PayaboRadii.lg),
       ),
       padding: const EdgeInsets.all(PayaboSpacing.md),
@@ -667,7 +678,7 @@ class _BudgetLineItemCard extends StatelessWidget {
                 child: Text(
                   item.name,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: PayaboColors.accentBrown,
+                        color: c.accentBrown,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -676,19 +687,22 @@ class _BudgetLineItemCard extends StatelessWidget {
               Text(
                 state.remainingLabel,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: state.remainingColor,
+                      color: state.remainingColorRole.resolve(c),
                       fontWeight: FontWeight.w700,
                     ),
               ),
             ],
           ),
           const SizedBox(height: PayaboSpacing.sm),
-          _BudgetProgressBar(value: state.progress, color: state.progressColor),
+          _BudgetProgressBar(
+            value: state.progress,
+            color: state.progressColorRole.resolve(c),
+          ),
           const SizedBox(height: PayaboSpacing.sm),
           Text(
             '${formatSpendingBudgetCurrency(item.spent)} of ${formatSpendingBudgetCurrency(item.allocated)} used',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.accentBrownMuted,
+                  color: c.accentBrownMuted,
                 ),
           ),
         ],
@@ -708,12 +722,14 @@ class _BudgetProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(PayaboRadii.pill),
       child: LinearProgressIndicator(
         minHeight: 10,
         value: value.clamp(0, 1),
-        backgroundColor: PayaboColors.border,
+        backgroundColor: c.border,
         valueColor: AlwaysStoppedAnimation<Color>(color),
       ),
     );
@@ -758,11 +774,13 @@ class _FreshBudgetEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.spendingCardWarmElevated,
+        color: c.spendingCardWarmElevated,
         borderRadius: BorderRadius.circular(PayaboRadii.xl),
-        border: Border.all(color: PayaboColors.spendingQuickActionBorder),
+        border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: PayaboShadows.soft,
       ),
       padding: const EdgeInsets.all(PayaboSpacing.xl),
@@ -773,12 +791,12 @@ class _FreshBudgetEmptyState extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: PayaboColors.primary.withValues(alpha: 0.14),
+              color: c.primary.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(PayaboRadii.lg),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.savings_outlined,
-              color: PayaboColors.primary,
+              color: c.primary,
               size: 28,
             ),
           ),
@@ -786,7 +804,7 @@ class _FreshBudgetEmptyState extends StatelessWidget {
           Text(
             'No budgets set yet',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -794,7 +812,7 @@ class _FreshBudgetEmptyState extends StatelessWidget {
           Text(
             'Fresh demo mode removes the seeded budget plan so this page starts clean and ready for your first category budget.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                   height: 1.45,
                 ),
           ),
@@ -802,7 +820,7 @@ class _FreshBudgetEmptyState extends StatelessWidget {
           Text(
             'Once you add a budget, each category can expand here to show what is left in every spending pocket.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.chatTextSecondary,
+                  color: c.chatTextSecondary,
                 ),
           ),
         ],

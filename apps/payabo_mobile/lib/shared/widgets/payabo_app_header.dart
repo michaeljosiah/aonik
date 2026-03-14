@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/profile/presentation/profile_state.dart';
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_spacing.dart';
 import 'payabo_profile_avatar.dart';
 
@@ -44,6 +44,7 @@ class PayaboAppHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileState = ref.watch(profileHeaderProvider);
     final textTheme = Theme.of(context).textTheme;
+    final c = context.colors;
     final hasTitle = title != null && title!.trim().isNotEmpty;
     final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
     final displayName = profileState.displayName.trim().isEmpty
@@ -81,9 +82,8 @@ class PayaboAppHeader extends ConsumerWidget {
               title!,
               style: titleStyle ??
                   textTheme.headlineMedium?.copyWith(
-                    fontSize: 40,
                     fontWeight: FontWeight.w700,
-                    color: PayaboColors.headerTitle,
+                    color: c.headerTitle,
                   ),
             ),
           ],
@@ -93,7 +93,7 @@ class PayaboAppHeader extends ConsumerWidget {
               subtitle!,
               style: subtitleStyle ??
                   textTheme.titleSmall?.copyWith(
-                    color: PayaboColors.headerSubtitle,
+                    color: c.headerSubtitle,
                     fontWeight: FontWeight.w500,
                   ),
             ),
@@ -119,13 +119,15 @@ class _AppHeaderProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Material(
-      color: PayaboColors.headerIconSurface,
+      color: c.headerIconSurface,
       shape: const CircleBorder(),
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: PayaboColors.headerIconBorder, width: 1.2),
+          border: Border.all(color: c.headerIconBorder, width: 1.2),
         ),
         child: InkWell(
           onTap: onTap,
@@ -135,7 +137,7 @@ class _AppHeaderProfileButton extends StatelessWidget {
             child: PayaboProfileAvatar(
               photoUrl: photoUrl,
               size: 42,
-              backgroundColor: PayaboColors.headerIconSurfaceAccent,
+              backgroundColor: c.headerIconSurfaceAccent,
               placeholderIcon: Icons.person_outline_rounded,
               placeholderIconSize: 20,
             ),
@@ -159,6 +161,8 @@ class _AppHeaderProfileSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       children: <Widget>[
         _AppHeaderProfileButton(
@@ -175,7 +179,7 @@ class _AppHeaderProfileSummary extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PayaboColors.headerSubtitle,
+                      color: c.headerSubtitle,
                       fontWeight: FontWeight.w500,
                     ),
               ),
@@ -184,7 +188,7 @@ class _AppHeaderProfileSummary extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: PayaboColors.headerTitle,
+                      color: c.headerTitle,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -203,6 +207,8 @@ class _AppHeaderNotificationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -212,17 +218,17 @@ class _AppHeaderNotificationButton extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: PayaboColors.headerIconSurface,
+            color: c.headerIconSurface,
             shape: BoxShape.circle,
-            border: Border.all(color: PayaboColors.headerIconBorder),
+            border: Border.all(color: c.headerIconBorder),
           ),
           child: Stack(
             clipBehavior: Clip.none,
             children: <Widget>[
-              const Center(
+              Center(
                 child: Icon(
                   Icons.notifications_none_rounded,
-                  color: PayaboColors.headerIconAccent,
+                  color: c.headerIconAccent,
                   size: 22,
                 ),
               ),
@@ -232,8 +238,8 @@ class _AppHeaderNotificationButton extends StatelessWidget {
                 child: Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: PayaboColors.headerNotificationDot,
+                  decoration: BoxDecoration(
+                    color: c.headerNotificationDot,
                     shape: BoxShape.circle,
                   ),
                 ),

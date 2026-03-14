@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
@@ -71,6 +71,7 @@ class _ProfileLoginDetailsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final state = ref.watch(profileLoginDetailsProvider);
 
     return ProfileScaffold(
@@ -102,10 +103,10 @@ class _ProfileLoginDetailsScreenState
                     child: Switch.adaptive(
                       value: state.touchIdEnabled,
                       onChanged: _onTouchIdChanged,
-                      activeThumbColor: PayaboColors.white,
-                      activeTrackColor: PayaboColors.success,
-                      inactiveThumbColor: PayaboColors.white,
-                      inactiveTrackColor: PayaboColors.background,
+                      activeThumbColor: c.surfaceBase,
+                      activeTrackColor: c.success,
+                      inactiveThumbColor: c.surfaceBase,
+                      inactiveTrackColor: c.background,
                     ),
                   ),
                 ),

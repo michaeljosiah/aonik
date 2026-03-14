@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_shadows.dart';
 
 class PayaboProfileAvatar extends StatelessWidget {
@@ -8,7 +8,7 @@ class PayaboProfileAvatar extends StatelessWidget {
     super.key,
     this.photoUrl,
     this.size = 100,
-    this.backgroundColor = PayaboColors.background,
+    this.backgroundColor,
     this.placeholderIcon = Icons.camera_alt_outlined,
     this.placeholderIconSize = 36,
     this.showShadow = false,
@@ -16,13 +16,14 @@ class PayaboProfileAvatar extends StatelessWidget {
 
   final String? photoUrl;
   final double size;
-  final Color backgroundColor;
+  final Color? backgroundColor;
   final IconData placeholderIcon;
   final double placeholderIconSize;
   final bool showShadow;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final resolvedPhotoUrl = photoUrl?.trim();
     final hasPhoto = resolvedPhotoUrl != null && resolvedPhotoUrl.isNotEmpty;
 
@@ -31,7 +32,7 @@ class PayaboProfileAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: backgroundColor,
+        color: backgroundColor ?? c.background,
         boxShadow: showShadow ? PayaboShadows.soft : null,
       ),
       clipBehavior: Clip.antiAlias,
@@ -39,18 +40,20 @@ class PayaboProfileAvatar extends StatelessWidget {
           ? Image.network(
               resolvedPhotoUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _placeholder(),
+              errorBuilder: (_, __, ___) => _placeholder(context),
             )
-          : _placeholder(),
+          : _placeholder(context),
     );
   }
 
-  Widget _placeholder() {
+  Widget _placeholder(BuildContext context) {
+    final c = context.colors;
+
     return Center(
       child: Icon(
         placeholderIcon,
         size: placeholderIconSize,
-        color: PayaboColors.muted,
+        color: c.muted,
       ),
     );
   }

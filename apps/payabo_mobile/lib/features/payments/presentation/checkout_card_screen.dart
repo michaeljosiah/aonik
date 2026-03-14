@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/repository_providers.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_card.dart';
@@ -23,6 +23,7 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final summary = ref.watch(paymentOrderSummaryProvider);
     final selectedCard = ref.watch(selectedPaymentCardProvider);
     final orderId = ref.watch(paymentOrderIdProvider);
@@ -55,8 +56,7 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
           PayaboCard(
             child: Row(
               children: <Widget>[
-                const Icon(Icons.credit_card,
-                    size: 28, color: PayaboColors.muted),
+                Icon(Icons.credit_card, size: 28, color: c.muted),
                 const SizedBox(width: PayaboSpacing.md),
                 Expanded(
                   child: Column(
@@ -88,7 +88,7 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
             Text(
               _error!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: PayaboColors.danger,
+                    color: c.danger,
                   ),
             ),
           ],
@@ -181,13 +181,15 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(
-                bottom: BorderSide(color: PayaboColors.border, width: 1),
+            : Border(
+                bottom: BorderSide(color: c.border, width: 1),
               ),
       ),
       child: Row(
@@ -217,18 +219,23 @@ class _PricingBreakdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const PayaboCard(
+    final c = context.colors;
+
+    return PayaboCard(
       child: Column(
         children: <Widget>[
-          _PriceLine(label: 'Rate NGN:GBP', value: '303.5770', subtle: true),
-          _PriceLine(label: 'Sub-total', value: 'GBP 5.11', bold: true),
-          _PriceLine(label: 'Fees', value: 'GBP 1.99'),
-          _PriceLine(label: 'VAT', value: 'GBP 0.30'),
-          Divider(color: PayaboColors.border, height: 28),
-          _PriceLine(label: 'Total', value: 'GBP 7.40', bold: true),
-          SizedBox(height: PayaboSpacing.md),
-          _PriceLine(
-              label: 'You will earn', value: '74 MBA POINTS', accent: true),
+          const _PriceLine(label: 'Rate NGN:GBP', value: '303.5770', subtle: true),
+          const _PriceLine(label: 'Sub-total', value: 'GBP 5.11', bold: true),
+          const _PriceLine(label: 'Fees', value: 'GBP 1.99'),
+          const _PriceLine(label: 'VAT', value: 'GBP 0.30'),
+          Divider(color: c.border, height: 28),
+          const _PriceLine(label: 'Total', value: 'GBP 7.40', bold: true),
+          const SizedBox(height: PayaboSpacing.md),
+          const _PriceLine(
+            label: 'You will earn',
+            value: '74 MBA POINTS',
+            accent: true,
+          ),
         ],
       ),
     );
@@ -252,8 +259,9 @@ class _PriceLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: subtle ? PayaboColors.muted : PayaboColors.ink,
+          color: subtle ? c.muted : c.ink,
           fontWeight: bold || accent ? FontWeight.w700 : FontWeight.w400,
         );
 
@@ -267,7 +275,7 @@ class _PriceLine extends StatelessWidget {
           Text(
             value,
             style: textStyle?.copyWith(
-              color: accent ? PayaboColors.primary : textStyle.color,
+              color: accent ? c.primary : textStyle.color,
             ),
           ),
         ],

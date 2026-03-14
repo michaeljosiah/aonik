@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
@@ -71,6 +71,7 @@ class NotificationCenterScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final bool isFreshDemo =
         ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final sections =
@@ -110,14 +111,14 @@ class NotificationCenterScreen extends ConsumerWidget {
                             .textTheme
                             .headlineMedium
                             ?.copyWith(
-                              color: PayaboColors.headerTitle,
+                              color: c.headerTitle,
                               fontWeight: FontWeight.w700,
                             ),
                       ),
                       Text(
                         'Your latest reminders and updates.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: PayaboColors.headerSubtitle,
+                              color: c.headerSubtitle,
                             ),
                       ),
                     ],
@@ -169,12 +170,14 @@ class _NotificationEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: PayaboColors.white.withValues(alpha: 0.86),
+        color: c.surfaceBase.withValues(alpha: 0.86),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE6D8C8)),
+        border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       padding: const EdgeInsets.all(PayaboSpacing.xl),
@@ -185,12 +188,12 @@ class _NotificationEmptyState extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE8D4),
+              color: c.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.notifications_none_rounded,
-              color: PayaboColors.primary,
+              color: c.primary,
               size: 24,
             ),
           ),
@@ -198,7 +201,7 @@ class _NotificationEmptyState extends StatelessWidget {
           Text(
             'No notifications yet',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.chatTextPrimary,
+                  color: c.chatTextPrimary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -206,7 +209,7 @@ class _NotificationEmptyState extends StatelessWidget {
           Text(
             'Fresh demo mode clears reminders, alerts, and update cards so this inbox starts empty.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.chatTextSecondary,
+                  color: c.chatTextSecondary,
                   height: 1.45,
                 ),
           ),
@@ -223,6 +226,8 @@ class _NotificationSectionBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
       child: Column(
@@ -231,7 +236,7 @@ class _NotificationSectionBlock extends StatelessWidget {
           Text(
             section.title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: PayaboColors.chatTextSecondary,
+                  color: c.chatTextSecondary,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -255,11 +260,13 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.white.withValues(alpha: 0.86),
+        color: c.surfaceBase.withValues(alpha: 0.86),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE6D8C8)),
+        border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       padding: const EdgeInsets.all(PayaboSpacing.lg),
@@ -287,7 +294,7 @@ class _NotificationCard extends StatelessWidget {
                         item.title,
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: PayaboColors.chatTextPrimary,
+                                  color: c.chatTextPrimary,
                                   fontWeight: item.unread
                                       ? FontWeight.w700
                                       : FontWeight.w600,
@@ -299,8 +306,8 @@ class _NotificationCard extends StatelessWidget {
                         width: 8,
                         height: 8,
                         margin: const EdgeInsets.only(left: PayaboSpacing.sm),
-                        decoration: const BoxDecoration(
-                          color: PayaboColors.primary,
+                        decoration: BoxDecoration(
+                          color: c.primary,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -310,7 +317,7 @@ class _NotificationCard extends StatelessWidget {
                 Text(
                   item.message,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: PayaboColors.chatTextSecondary,
+                        color: c.chatTextSecondary,
                         height: 1.35,
                       ),
                 ),
@@ -318,7 +325,7 @@ class _NotificationCard extends StatelessWidget {
                 Text(
                   item.timeLabel,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: PayaboColors.muted,
+                        color: c.muted,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
@@ -342,18 +349,20 @@ class _HeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Ink(
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: PayaboColors.white.withValues(alpha: 0.8),
+        color: c.surfaceBase.withValues(alpha: 0.8),
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFE2D3C2)),
+        border: Border.all(color: c.borderWarm),
       ),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: Icon(icon, size: 18, color: PayaboColors.headerIconAccent),
+        child: Icon(icon, size: 18, color: c.headerIconAccent),
       ),
     );
   }

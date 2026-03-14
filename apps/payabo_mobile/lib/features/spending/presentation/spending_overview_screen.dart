@@ -6,8 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -16,118 +15,122 @@ import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'widgets/spending_section_pills.dart';
 
-const List<_AccountSnapshot> _accountSnapshots = <_AccountSnapshot>[
-  _AccountSnapshot(
-    label: 'Current account',
-    balanceLabel: '£3,842.16',
-    statusLabel: 'Primary',
-    changeLabel: '+£186.40 this week',
-    gradientColors: PayaboColors.spendingAccountGradientPrimary,
-    accentColor: PayaboColors.spendingAccountAccentPrimary,
-    icon: Icons.account_balance_wallet_outlined,
-  ),
-  _AccountSnapshot(
-    label: 'Rainy day fund',
-    balanceLabel: '£6,240.00',
-    statusLabel: 'Savings',
-    changeLabel: '+£120.00 auto-saved',
-    gradientColors: PayaboColors.spendingAccountGradientSavings,
-    accentColor: PayaboColors.spendingAccountAccentSavings,
-    icon: Icons.savings_outlined,
-  ),
-  _AccountSnapshot(
-    label: 'Bills pocket',
-    balanceLabel: '£1,090.30',
-    statusLabel: 'Bills',
-    changeLabel: 'Covers 6 upcoming payments',
-    gradientColors: PayaboColors.spendingAccountGradientBills,
-    accentColor: PayaboColors.spendingAccountAccentBills,
-    icon: Icons.receipt_long_outlined,
-  ),
-];
+List<_AccountSnapshot> _accountSnapshots(PayaboColorResolver c) =>
+    <_AccountSnapshot>[
+      _AccountSnapshot(
+        label: 'Current account',
+        balanceLabel: '£3,842.16',
+        statusLabel: 'Primary',
+        changeLabel: '+£186.40 this week',
+        gradientColors: c.spendingAccountGradientPrimary,
+        accentColor: c.spendingAccountAccentPrimary,
+        icon: Icons.account_balance_wallet_outlined,
+      ),
+      _AccountSnapshot(
+        label: 'Rainy day fund',
+        balanceLabel: '£6,240.00',
+        statusLabel: 'Savings',
+        changeLabel: '+£120.00 auto-saved',
+        gradientColors: c.spendingAccountGradientSavings,
+        accentColor: c.spendingAccountAccentSavings,
+        icon: Icons.savings_outlined,
+      ),
+      _AccountSnapshot(
+        label: 'Bills pocket',
+        balanceLabel: '£1,090.30',
+        statusLabel: 'Bills',
+        changeLabel: 'Covers 6 upcoming payments',
+        gradientColors: c.spendingAccountGradientBills,
+        accentColor: c.spendingAccountAccentBills,
+        icon: Icons.receipt_long_outlined,
+      ),
+    ];
 
-const List<_BreakdownSlice> _breakdownSlices = <_BreakdownSlice>[
-  _BreakdownSlice(
-    label: 'Food',
-    amountLabel: '£570',
-    value: 31,
-    color: PayaboColors.primary,
-  ),
-  _BreakdownSlice(
-    label: 'Bills',
-    amountLabel: '£410',
-    value: 22,
-    color: PayaboColors.spendingSliceBills,
-  ),
-  _BreakdownSlice(
-    label: 'Transport',
-    amountLabel: '£312',
-    value: 17,
-    color: PayaboColors.success,
-  ),
-  _BreakdownSlice(
-    label: 'Shopping',
-    amountLabel: '£260',
-    value: 14,
-    color: PayaboColors.info,
-  ),
-  _BreakdownSlice(
-    label: 'Other',
-    amountLabel: '£288',
-    value: 16,
-    color: PayaboColors.spendingSliceOther,
-  ),
-];
+List<_BreakdownSlice> _breakdownSlices(PayaboColorResolver c) =>
+    <_BreakdownSlice>[
+      _BreakdownSlice(
+        label: 'Food',
+        amountLabel: '£570',
+        value: 31,
+        color: c.primary,
+      ),
+      _BreakdownSlice(
+        label: 'Bills',
+        amountLabel: '£410',
+        value: 22,
+        color: c.spendingSliceBills,
+      ),
+      _BreakdownSlice(
+        label: 'Transport',
+        amountLabel: '£312',
+        value: 17,
+        color: c.success,
+      ),
+      _BreakdownSlice(
+        label: 'Shopping',
+        amountLabel: '£260',
+        value: 14,
+        color: c.info,
+      ),
+      _BreakdownSlice(
+        label: 'Other',
+        amountLabel: '£288',
+        value: 16,
+        color: c.spendingSliceOther,
+      ),
+    ];
 
-const List<_RecentTransactionPreview> _recentTransactions =
+List<_RecentTransactionPreview> _recentTransactions(PayaboColorResolver c) =>
     <_RecentTransactionPreview>[
-  _RecentTransactionPreview(
-    merchant: 'Uber',
-    category: 'Pending ride',
-    amountLabel: '£14.20',
-    iconText: 'U',
-    iconBackground: PayaboColors.spendingMerchantIconDark,
-    iconForeground: PayaboColors.white,
-  ),
-  _RecentTransactionPreview(
-    merchant: 'Amazon',
-    category: 'Shopping',
-    amountLabel: '£11.00',
-    iconText: 'a',
-    iconBackground: PayaboColors.spendingMerchantIconWarmSurface,
-    iconForeground: PayaboColors.spendingMerchantIconDark,
-  ),
-  _RecentTransactionPreview(
-    merchant: 'Nando\'s',
-    category: 'Food and dining',
-    amountLabel: '£28.45',
-    iconText: 'N',
-    iconBackground: PayaboColors.spendingMerchantIconWarmAccent,
-    iconForeground: PayaboColors.spendingMerchantIconWarmText,
-  ),
-];
+      _RecentTransactionPreview(
+        merchant: 'Uber',
+        category: 'Pending ride',
+        amountLabel: '£14.20',
+        iconText: 'U',
+        iconBackground: c.spendingMerchantIconDark,
+        iconForeground: c.surfaceBase,
+      ),
+      _RecentTransactionPreview(
+        merchant: 'Amazon',
+        category: 'Shopping',
+        amountLabel: '£11.00',
+        iconText: 'a',
+        iconBackground: c.spendingMerchantIconWarmSurface,
+        iconForeground: c.spendingMerchantIconDark,
+      ),
+      _RecentTransactionPreview(
+        merchant: 'Nando\'s',
+        category: 'Food and dining',
+        amountLabel: '£28.45',
+        iconText: 'N',
+        iconBackground: c.spendingMerchantIconWarmAccent,
+        iconForeground: c.spendingMerchantIconWarmText,
+      ),
+    ];
 
-const List<_OverviewAllocationSlice> _overviewAllocationSlices =
+List<_OverviewAllocationSlice> _overviewAllocationSlices(
+  PayaboColorResolver c,
+) =>
     <_OverviewAllocationSlice>[
-  _OverviewAllocationSlice(
-    label: 'Income',
-    amountLabel: '£4,232.24',
-    value: 4232.24,
-    color: PayaboColors.success,
-  ),
-  _OverviewAllocationSlice(
-    label: 'Expenses',
-    amountLabel: '£2,660.12',
-    value: 2660.12,
-    color: PayaboColors.primary,
-  ),
-  _OverviewAllocationSlice(
-    label: 'Investments',
-    amountLabel: '£1,754.64',
-    value: 1754.64,
-    color: PayaboColors.info,
-  ),
-];
+      _OverviewAllocationSlice(
+        label: 'Income',
+        amountLabel: '£4,232.24',
+        value: 4232.24,
+        color: c.success,
+      ),
+      _OverviewAllocationSlice(
+        label: 'Expenses',
+        amountLabel: '£2,660.12',
+        value: 2660.12,
+        color: c.primary,
+      ),
+      _OverviewAllocationSlice(
+        label: 'Investments',
+        amountLabel: '£1,754.64',
+        value: 1754.64,
+        color: c.info,
+      ),
+    ];
 
 class SpendingOverviewScreen extends ConsumerStatefulWidget {
   const SpendingOverviewScreen({super.key});
@@ -156,14 +159,17 @@ class _SpendingOverviewScreenState
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
+    final accountSnapshots = _accountSnapshots(c);
+    final breakdownSlices = _breakdownSlices(c);
+    final transactions = _recentTransactions(c);
+    final allocationSlices = _overviewAllocationSlices(c);
 
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceWarm,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
-        ),
+        decoration: BoxDecoration(gradient: c.warmScreenGradient),
         child: SafeArea(
           child: Column(
             children: <Widget>[
@@ -182,14 +188,12 @@ class _SpendingOverviewScreenState
                         ]
                       : <Widget>[
                           SizedBox(
-                            height: 210,
+                            height: 204,
                             child: PageView.builder(
                               controller: _accountController,
-                              itemCount: _accountSnapshots.length,
+                              itemCount: accountSnapshots.length,
                               onPageChanged: (int index) {
-                                setState(() {
-                                  _accountPage = index;
-                                });
+                                setState(() => _accountPage = index);
                               },
                               itemBuilder: (BuildContext context, int index) {
                                 return Padding(
@@ -197,36 +201,20 @@ class _SpendingOverviewScreenState
                                     right: PayaboSpacing.md,
                                   ),
                                   child: _AccountSnapshotCard(
-                                    snapshot: _accountSnapshots[index],
+                                    snapshot: accountSnapshots[index],
                                   ),
                                 );
                               },
                             ),
                           ),
                           const SizedBox(height: PayaboSpacing.md),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List<Widget>.generate(
-                              _accountSnapshots.length,
-                              (int index) => AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                width: index == _accountPage ? 18 : 8,
-                                height: 8,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                decoration: BoxDecoration(
-                                  color: index == _accountPage
-                                      ? PayaboColors.primary
-                                      : PayaboColors.spendingDotInactive,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
-                            ),
+                          _AccountPagerDots(
+                            count: accountSnapshots.length,
+                            activeIndex: _accountPage,
                           ),
                           const SizedBox(height: PayaboSpacing.x2),
                           _OverviewQuickActions(
-                            onAddAccountTap: () =>
-                                context.go('/spending/accounts'),
+                            onAddAccountTap: () => context.go('/spending/accounts'),
                             onManageAccountsTap: () =>
                                 context.go('/spending/accounts'),
                           ),
@@ -261,11 +249,11 @@ class _SpendingOverviewScreenState
                           const _SafeToSpendCard(),
                           const SizedBox(height: PayaboSpacing.xl),
                           const _SectionHeading(
-                            title: 'Monthly spending breakdown',
+                            title: 'Monthly breakdown',
                             subtitle: 'Where this month is going so far',
                           ),
                           const SizedBox(height: PayaboSpacing.md),
-                          const _MonthlyBreakdownCard(),
+                          _MonthlyBreakdownCard(slices: breakdownSlices),
                           const SizedBox(height: PayaboSpacing.xl),
                           const _SectionHeading(
                             title: 'Spending trend',
@@ -282,7 +270,7 @@ class _SpendingOverviewScreenState
                           const SizedBox(height: PayaboSpacing.md),
                           const _InsightCard(),
                           const SizedBox(height: PayaboSpacing.xl),
-                          const _MonthlyOverviewCard(),
+                          _MonthlyOverviewCard(slices: allocationSlices),
                           const SizedBox(height: PayaboSpacing.xl),
                           const _SectionHeading(
                             title: 'Recent transactions',
@@ -291,7 +279,7 @@ class _SpendingOverviewScreenState
                           ),
                           const SizedBox(height: PayaboSpacing.md),
                           _RecentTransactionsCard(
-                            transactions: _recentTransactions,
+                            transactions: transactions,
                             onViewAllTap: () => context.go('/spending'),
                           ),
                         ],
@@ -331,12 +319,13 @@ class _OverviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboAppHeader(
       title: 'Spend',
-      titleStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontSize: 48,
+      titleStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: PayaboColors.accentBrown,
+            color: c.accentBrown,
           ),
       bottom: SpendingSectionPills(
         selectedSection: SpendingSection.overview,
@@ -351,13 +340,10 @@ class _FreshOverviewStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF8),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFF1DEC9)),
-        boxShadow: PayaboShadows.soft,
-      ),
+    final c = context.colors;
+
+    return PayaboCard(
+      backgroundColor: c.surfaceCardElevated,
       padding: const EdgeInsets.all(PayaboSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,12 +352,12 @@ class _FreshOverviewStateCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE8D1),
+              color: c.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.account_balance_wallet_outlined,
-              color: PayaboColors.primary,
+              color: c.primary,
               size: 28,
             ),
           ),
@@ -379,7 +365,7 @@ class _FreshOverviewStateCard extends StatelessWidget {
           Text(
             'No balances or account snapshots yet',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -387,7 +373,7 @@ class _FreshOverviewStateCard extends StatelessWidget {
           Text(
             'Fresh demo mode clears linked-account examples, monthly breakdowns, and recent transaction previews so the spending experience starts empty.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                   height: 1.45,
                 ),
           ),
@@ -395,10 +381,39 @@ class _FreshOverviewStateCard extends StatelessWidget {
           Text(
             'Switch back to Populated demo data in Profile whenever you want to review the seeded spending showcase again.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.chatTextSecondary,
+                  color: c.chatTextSecondary,
                 ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AccountPagerDots extends StatelessWidget {
+  const _AccountPagerDots({required this.count, required this.activeIndex});
+
+  final int count;
+  final int activeIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List<Widget>.generate(
+        count,
+        (int index) => AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: index == activeIndex ? 18 : 8,
+          height: 8,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: index == activeIndex ? c.primary : c.spendingDotInactive,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
       ),
     );
   }
@@ -446,6 +461,8 @@ class _OverviewQuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return SizedBox(
       width: 130,
       child: InkWell(
@@ -457,18 +474,17 @@ class _OverviewQuickAction extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: PayaboColors.spendingQuickActionSurface,
+                color: c.spendingQuickActionSurface,
                 shape: BoxShape.circle,
-                border:
-                    Border.all(color: PayaboColors.spendingQuickActionBorder),
+                border: Border.all(color: c.spendingQuickActionBorder),
               ),
-              child: Icon(icon, color: PayaboColors.primary, size: 32),
+              child: Icon(icon, color: c.primary, size: 32),
             ),
             const SizedBox(height: PayaboSpacing.sm),
             Text(
               label,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: PayaboColors.accentBrown,
+                    color: c.accentBrown,
                     fontWeight: FontWeight.w600,
                   ),
               textAlign: TextAlign.center,
@@ -481,25 +497,29 @@ class _OverviewQuickAction extends StatelessWidget {
 }
 
 class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({
-    required this.title,
-    required this.subtitle,
-  });
+  const _SectionHeading({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: c.accentBrown,
+              ),
+        ),
         const SizedBox(height: PayaboSpacing.xs),
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: PayaboColors.muted,
+                color: c.muted,
               ),
         ),
       ],
@@ -514,6 +534,8 @@ class _AccountSnapshotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -522,14 +544,14 @@ class _AccountSnapshotCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.all(Radius.circular(28)),
-        boxShadow: PayaboShadows.medium,
         border: Border.all(color: snapshot.accentColor.withValues(alpha: 0.18)),
+        boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.medium,
       ),
       child: Padding(
         padding: const EdgeInsets.all(PayaboSpacing.lg),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
             Row(
               children: <Widget>[
@@ -537,7 +559,7 @@ class _AccountSnapshotCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: PayaboColors.white.withValues(alpha: 0.72),
+                    color: c.surfaceBase.withValues(alpha: 0.72),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(snapshot.icon, color: snapshot.accentColor),
@@ -549,7 +571,7 @@ class _AccountSnapshotCard extends StatelessWidget {
                     vertical: PayaboSpacing.sm,
                   ),
                   decoration: BoxDecoration(
-                    color: PayaboColors.white.withValues(alpha: 0.72),
+                    color: c.surfaceBase.withValues(alpha: 0.72),
                     borderRadius: PayaboRadii.radiusPill,
                   ),
                   child: Text(
@@ -564,24 +586,23 @@ class _AccountSnapshotCard extends StatelessWidget {
             ),
             Text(
               snapshot.balanceLabel,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 34,
-                    height: 1,
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
                     color: snapshot.accentColor,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
                   ),
             ),
-            const SizedBox(height: PayaboSpacing.xs),
             Text(
               snapshot.label,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: snapshot.accentColor,
+                    fontWeight: FontWeight.w600,
                   ),
             ),
-            const SizedBox(height: PayaboSpacing.xs),
             Text(
               snapshot.changeLabel,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: snapshot.accentColor.withValues(alpha: 0.75),
+                    color: snapshot.accentColor.withValues(alpha: 0.8),
                   ),
             ),
           ],
@@ -606,28 +627,35 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboCard(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceCardElevated,
       padding: const EdgeInsets.all(PayaboSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(icon, color: PayaboColors.primary),
+          Icon(icon, color: c.primary),
           const SizedBox(height: PayaboSpacing.md),
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: c.muted,
+                ),
+          ),
           const SizedBox(height: PayaboSpacing.xs),
           Text(
             amountLabel,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontSize: 24,
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
+                  fontWeight: FontWeight.w800,
                 ),
           ),
           const SizedBox(height: PayaboSpacing.xs),
           Text(
             trendLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.success,
+                  color: c.success,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -642,10 +670,12 @@ class _SafeToSpendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
-      decoration: const BoxDecoration(
-        gradient: PayaboGradients.spendingSafeToSpend,
-        borderRadius: BorderRadius.all(Radius.circular(24)),
+      decoration: BoxDecoration(
+        gradient: c.spendingSafeToSpendGradient,
+        borderRadius: const BorderRadius.all(Radius.circular(24)),
         boxShadow: PayaboShadows.medium,
       ),
       child: Padding(
@@ -659,22 +689,22 @@ class _SafeToSpendCard extends StatelessWidget {
                   Text(
                     'Safe to spend',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: PayaboColors.white,
+                          color: Colors.white,
                         ),
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
                   Text(
                     '£820.00',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontSize: 36,
-                          color: PayaboColors.white,
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
                         ),
                   ),
                   const SizedBox(height: PayaboSpacing.sm),
                   Text(
                     'After bills, goals, and your weekly safety buffer.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: PayaboColors.white.withValues(alpha: 0.82),
+                          color: Colors.white.withValues(alpha: 0.82),
                         ),
                   ),
                 ],
@@ -685,12 +715,12 @@ class _SafeToSpendCard extends StatelessWidget {
               width: 66,
               height: 66,
               decoration: BoxDecoration(
-                color: PayaboColors.white.withValues(alpha: 0.14),
+                color: Colors.white.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Icon(
                 Icons.verified_user_outlined,
-                color: PayaboColors.white,
+                color: Colors.white,
                 size: 32,
               ),
             ),
@@ -702,75 +732,76 @@ class _SafeToSpendCard extends StatelessWidget {
 }
 
 class _MonthlyBreakdownCard extends StatelessWidget {
-  const _MonthlyBreakdownCard();
+  const _MonthlyBreakdownCard({required this.slices});
+
+  final List<_BreakdownSlice> slices;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboCard(
-      backgroundColor: PayaboColors.spendingCardWarm,
+      backgroundColor: c.spendingCardWarm,
       padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              SizedBox(
-                width: 156,
-                height: 156,
-                child: Stack(
-                  alignment: Alignment.center,
+          SizedBox(
+            width: 156,
+            height: 156,
+            child: Stack(
+              alignment: Alignment.center,
+              children: <Widget>[
+                PieChart(
+                  PieChartData(
+                    centerSpaceRadius: 38,
+                    sectionsSpace: 3,
+                    startDegreeOffset: -90,
+                    sections: slices
+                        .map(
+                          (_BreakdownSlice slice) => PieChartSectionData(
+                            value: slice.value,
+                            color: slice.color,
+                            radius: 18,
+                            title: '',
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    PieChart(
-                      PieChartData(
-                        centerSpaceRadius: 38,
-                        sectionsSpace: 3,
-                        startDegreeOffset: -90,
-                        sections: _breakdownSlices
-                            .map(
-                              (_BreakdownSlice slice) => PieChartSectionData(
-                                value: slice.value,
-                                color: slice.color,
-                                radius: 18,
-                                title: '',
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
+                    Text(
+                      '£1,840',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: c.accentBrown,
+                            fontWeight: FontWeight.w800,
+                          ),
                     ),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Text(
-                          '£1,840',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(color: PayaboColors.accentBrown),
-                        ),
-                        Text(
-                          'Spent this month',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
+                    Text(
+                      'Spent this month',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: c.muted,
+                          ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: PayaboSpacing.lg),
-              Expanded(
-                child: Column(
-                  children: _breakdownSlices
-                      .map(
-                        (_BreakdownSlice slice) => Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: PayaboSpacing.md),
-                          child: _BreakdownLegendRow(slice: slice),
-                        ),
-                      )
-                      .toList(growable: false),
-                ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          const SizedBox(width: PayaboSpacing.lg),
+          Expanded(
+            child: Column(
+              children: slices
+                  .map(
+                    (_BreakdownSlice slice) => Padding(
+                      padding: const EdgeInsets.only(bottom: PayaboSpacing.md),
+                      child: _BreakdownLegendRow(slice: slice),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
           ),
         ],
       ),
@@ -785,6 +816,8 @@ class _BreakdownLegendRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       children: <Widget>[
         Container(
@@ -794,13 +827,17 @@ class _BreakdownLegendRow extends StatelessWidget {
         ),
         const SizedBox(width: PayaboSpacing.sm),
         Expanded(
-          child:
-              Text(slice.label, style: Theme.of(context).textTheme.titleSmall),
+          child: Text(
+            slice.label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: c.textPrimary,
+                ),
+          ),
         ),
         Text(
           slice.amountLabel,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: PayaboColors.accentBrown,
+                color: c.accentBrown,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -814,8 +851,10 @@ class _TrendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboCard(
-      backgroundColor: PayaboColors.spendingCardWarmElevated,
+      backgroundColor: c.spendingCardWarmElevated,
       padding: const EdgeInsets.fromLTRB(
         PayaboSpacing.lg,
         PayaboSpacing.lg,
@@ -828,7 +867,7 @@ class _TrendCard extends StatelessWidget {
           Text(
             'Spend is tracking 6% lower than last month.',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                 ),
           ),
           const SizedBox(height: PayaboSpacing.lg),
@@ -852,6 +891,8 @@ class _OverviewTrendChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return LineChart(
       LineChartData(
         minX: 0,
@@ -863,8 +904,8 @@ class _OverviewTrendChart extends StatelessWidget {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: 100,
-          getDrawingHorizontalLine: (_) => const FlLine(
-            color: PayaboColors.spendingTrendGrid,
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: c.spendingTrendGrid,
             strokeWidth: 1,
           ),
         ),
@@ -874,7 +915,8 @@ class _OverviewTrendChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 40,
               interval: 100,
-              getTitlesWidget: _buildLeftTitle,
+              getTitlesWidget: (double value, TitleMeta meta) =>
+                  _buildLeftTitle(value, meta, c.muted),
             ),
           ),
           rightTitles: const AxisTitles(
@@ -888,24 +930,23 @@ class _OverviewTrendChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 30,
               interval: 1,
-              getTitlesWidget: _buildBottomTitle,
+              getTitlesWidget: (double value, TitleMeta meta) =>
+                  _buildBottomTitle(value, meta, c.muted),
             ),
           ),
         ),
         borderData: FlBorderData(
           show: true,
-          border: const Border(
-            bottom: BorderSide(color: PayaboColors.spendingTrendGrid),
-            left: BorderSide(color: PayaboColors.spendingTrendGrid),
+          border: Border(
+            bottom: BorderSide(color: c.spendingTrendGrid),
+            left: BorderSide(color: c.spendingTrendGrid),
           ),
         ),
         lineBarsData: <LineChartBarData>[
           LineChartBarData(
             spots: _spots,
             isCurved: true,
-            gradient: const LinearGradient(
-              colors: <Color>[PayaboColors.primary, PayaboColors.primaryHover],
-            ),
+            gradient: LinearGradient(colors: <Color>[c.primary, c.primaryHover]),
             barWidth: 4,
             isStrokeCapRound: true,
             dotData: FlDotData(
@@ -918,11 +959,9 @@ class _OverviewTrendChart extends StatelessWidget {
               ) {
                 return FlDotCirclePainter(
                   radius: 4,
-                  color: index == _spots.length - 1
-                      ? PayaboColors.accentBrown
-                      : PayaboColors.primary,
+                  color: index == _spots.length - 1 ? c.accentBrown : c.primary,
                   strokeWidth: 2,
-                  strokeColor: PayaboColors.white,
+                  strokeColor: c.surfaceBase,
                 );
               },
             ),
@@ -932,8 +971,8 @@ class _OverviewTrendChart extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: <Color>[
-                  PayaboColors.primary.withValues(alpha: 0.18),
-                  PayaboColors.primary.withValues(alpha: 0.02),
+                  c.primary.withValues(alpha: 0.18),
+                  c.primary.withValues(alpha: 0.02),
                 ],
               ),
             ),
@@ -943,7 +982,7 @@ class _OverviewTrendChart extends StatelessWidget {
     );
   }
 
-  Widget _buildLeftTitle(double value, TitleMeta meta) {
+  Widget _buildLeftTitle(double value, TitleMeta meta, Color textColor) {
     if (value == 0 || value == 500) {
       return const SizedBox.shrink();
     }
@@ -952,8 +991,8 @@ class _OverviewTrendChart extends StatelessWidget {
       meta: meta,
       child: Text(
         '£${value.toInt()}',
-        style: const TextStyle(
-          color: PayaboColors.muted,
+        style: TextStyle(
+          color: textColor,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -961,7 +1000,7 @@ class _OverviewTrendChart extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomTitle(double value, TitleMeta meta) {
+  Widget _buildBottomTitle(double value, TitleMeta meta, Color textColor) {
     const List<String> labels = <String>['W1', 'W2', 'W3', 'W4', 'Now'];
     final int index = value.toInt();
 
@@ -973,8 +1012,8 @@ class _OverviewTrendChart extends StatelessWidget {
       meta: meta,
       child: Text(
         labels[index],
-        style: const TextStyle(
-          color: PayaboColors.muted,
+        style: TextStyle(
+          color: textColor,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -988,11 +1027,13 @@ class _InsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: PayaboGradients.spendingInsight,
+        gradient: c.spendingInsightGradient,
         borderRadius: const BorderRadius.all(Radius.circular(24)),
-        border: Border.all(color: PayaboColors.spendingInsightBorder),
+        border: Border.all(color: c.spendingInsightBorder),
         boxShadow: PayaboShadows.soft,
       ),
       child: Padding(
@@ -1004,12 +1045,12 @@ class _InsightCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: PayaboColors.white.withValues(alpha: 0.72),
+                color: c.surfaceBase.withValues(alpha: c.isDark ? 0.92 : 0.72),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.auto_awesome_rounded,
-                color: PayaboColors.primary,
+                color: c.primary,
               ),
             ),
             const SizedBox(width: PayaboSpacing.md),
@@ -1020,14 +1061,14 @@ class _InsightCard extends StatelessWidget {
                   Text(
                     'AI insight',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: PayaboColors.spendingInsightLabel,
+                          color: c.spendingInsightLabel,
                         ),
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
                   Text(
                     'Your food spending is 12% higher than usual this week.',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: PayaboColors.accentBrown,
+                          color: c.accentBrown,
                           height: 1.45,
                         ),
                   ),
@@ -1035,7 +1076,7 @@ class _InsightCard extends StatelessWidget {
                   Text(
                     'Most of the lift came from weekday deliveries after 8pm.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: PayaboColors.accentBrownMuted,
+                          color: c.accentBrownMuted,
                         ),
                   ),
                 ],
@@ -1049,19 +1090,25 @@ class _InsightCard extends StatelessWidget {
 }
 
 class _MonthlyOverviewCard extends StatelessWidget {
-  const _MonthlyOverviewCard();
+  const _MonthlyOverviewCard({required this.slices});
+
+  final List<_OverviewAllocationSlice> slices;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
+        gradient: LinearGradient(
+          colors: c.isDark
+              ? <Color>[c.surfaceCardElevated, c.surfaceWarmElevated]
+              : const <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.all(Radius.circular(28)),
-        border: Border.all(color: const Color(0xFFEAD9C3)),
+        border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       child: ClipRRect(
@@ -1075,7 +1122,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: PayaboColors.primary.withValues(alpha: 0.08),
+                  color: c.primary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1087,7 +1134,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
                 width: 144,
                 height: 144,
                 decoration: BoxDecoration(
-                  color: PayaboColors.info.withValues(alpha: 0.06),
+                  color: c.info.withValues(alpha: 0.06),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1104,7 +1151,7 @@ class _MonthlyOverviewCard extends StatelessWidget {
                           'Overview',
                           style:
                               Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: PayaboColors.accentBrown,
+                                    color: c.accentBrown,
                                     fontWeight: FontWeight.w700,
                                   ),
                         ),
@@ -1113,9 +1160,9 @@ class _MonthlyOverviewCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: PayaboSpacing.lg),
-                  const Center(child: _OverviewAllocationRing()),
+                  Center(child: _OverviewAllocationRing(slices: slices)),
                   const SizedBox(height: PayaboSpacing.xl),
-                  ..._overviewAllocationSlices.map(
+                  ...slices.map(
                     (_OverviewAllocationSlice slice) => Padding(
                       padding: const EdgeInsets.only(bottom: PayaboSpacing.md),
                       child: _OverviewAllocationRow(slice: slice),
@@ -1138,15 +1185,17 @@ class _OverviewMonthChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: PayaboSpacing.md,
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: PayaboColors.white.withValues(alpha: 0.82),
+        color: c.surfaceBase.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7D5BF)),
+        border: Border.all(color: c.borderWarm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1154,15 +1203,15 @@ class _OverviewMonthChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(width: PayaboSpacing.xs),
-          const Icon(
+          Icon(
             Icons.keyboard_arrow_down_rounded,
             size: 18,
-            color: PayaboColors.accentBrown,
+            color: c.accentBrown,
           ),
         ],
       ),
@@ -1171,20 +1220,25 @@ class _OverviewMonthChip extends StatelessWidget {
 }
 
 class _OverviewAllocationRing extends StatelessWidget {
-  const _OverviewAllocationRing();
+  const _OverviewAllocationRing({required this.slices});
+
+  final List<_OverviewAllocationSlice> slices;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return SizedBox(
       width: 220,
       height: 220,
       child: Stack(
         alignment: Alignment.center,
         children: <Widget>[
-          const CustomPaint(
-            size: Size.square(220),
+          CustomPaint(
+            size: const Size.square(220),
             painter: _OverviewAllocationRingPainter(
-              slices: _overviewAllocationSlices,
+              slices: slices,
+              trackColor: c.borderWarm,
             ),
           ),
           Column(
@@ -1193,7 +1247,7 @@ class _OverviewAllocationRing extends StatelessWidget {
               Text(
                 'March',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: PayaboColors.accentBrown,
+                      color: c.accentBrown,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -1201,7 +1255,7 @@ class _OverviewAllocationRing extends StatelessWidget {
               Text(
                 '2026',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: PayaboColors.muted,
+                      color: c.muted,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -1214,12 +1268,16 @@ class _OverviewAllocationRing extends StatelessWidget {
 }
 
 class _OverviewAllocationRingPainter extends CustomPainter {
-  const _OverviewAllocationRingPainter({required this.slices});
+  const _OverviewAllocationRingPainter({
+    required this.slices,
+    required this.trackColor,
+  });
 
   static const double _gapRadians = 0.22;
   static const double _strokeWidth = 16;
 
   final List<_OverviewAllocationSlice> slices;
+  final Color trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1230,15 +1288,14 @@ class _OverviewAllocationRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = _strokeWidth
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFFEADFD2);
+      ..color = trackColor;
 
     canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
 
-    final double total =
-        slices.fold<double>(0, (double sum, _OverviewAllocationSlice slice) {
-      return sum + slice.value;
-    });
-
+    final double total = slices.fold<double>(
+      0,
+      (double sum, _OverviewAllocationSlice slice) => sum + slice.value,
+    );
     final double totalSweep = (math.pi * 2) - (slices.length * _gapRadians);
     double startAngle = -math.pi / 2;
 
@@ -1258,7 +1315,7 @@ class _OverviewAllocationRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _OverviewAllocationRingPainter oldDelegate) {
-    return oldDelegate.slices != slices;
+    return oldDelegate.slices != slices || oldDelegate.trackColor != trackColor;
   }
 }
 
@@ -1269,29 +1326,28 @@ class _OverviewAllocationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       children: <Widget>[
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: slice.color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: slice.color, shape: BoxShape.circle),
         ),
         const SizedBox(width: PayaboSpacing.sm),
         Expanded(
           child: Text(
             slice.label,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                 ),
           ),
         ),
         Text(
           slice.amountLabel,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: PayaboColors.accentBrown,
+                color: c.accentBrown,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -1311,14 +1367,11 @@ class _RecentTransactionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboCard(
-      backgroundColor: PayaboColors.spendingCardWarmElevated,
-      padding: const EdgeInsets.fromLTRB(
-        PayaboSpacing.lg,
-        PayaboSpacing.lg,
-        PayaboSpacing.lg,
-        PayaboSpacing.lg,
-      ),
+      backgroundColor: c.spendingCardWarmElevated,
+      padding: const EdgeInsets.all(PayaboSpacing.lg),
       child: Column(
         children: <Widget>[
           ...transactions.asMap().entries.map(
@@ -1328,7 +1381,11 @@ class _RecentTransactionsCard extends StatelessWidget {
               return Column(
                 children: <Widget>[
                   _RecentTransactionRow(transaction: entry.value),
-                  if (!isLast) const Divider(height: PayaboSpacing.xl),
+                  if (!isLast)
+                    Divider(
+                      height: PayaboSpacing.xl,
+                      color: c.borderStrong.withValues(alpha: 0.6),
+                    ),
                 ],
               );
             },
@@ -1340,10 +1397,9 @@ class _RecentTransactionsCard extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onViewAllTap,
               style: OutlinedButton.styleFrom(
-                foregroundColor: PayaboColors.accentBrown,
-                side: const BorderSide(
-                    color: PayaboColors.spendingQuickActionBorder),
-                backgroundColor: PayaboColors.white,
+                foregroundColor: c.accentBrown,
+                side: BorderSide(color: c.spendingQuickActionBorder),
+                backgroundColor: c.surfaceBase,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -1354,7 +1410,7 @@ class _RecentTransactionsCard extends StatelessWidget {
                   Text(
                     'View all transactions',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: PayaboColors.accentBrown,
+                          color: c.accentBrown,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
@@ -1377,6 +1433,8 @@ class _RecentTransactionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       children: <Widget>[
         Container(
@@ -1403,14 +1461,14 @@ class _RecentTransactionRow extends StatelessWidget {
               Text(
                 transaction.merchant,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: PayaboColors.ink,
+                      color: c.ink,
                     ),
               ),
               const SizedBox(height: PayaboSpacing.xxs),
               Text(
                 transaction.category,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PayaboColors.muted,
+                      color: c.muted,
                     ),
               ),
             ],
@@ -1420,7 +1478,7 @@ class _RecentTransactionRow extends StatelessWidget {
         Text(
           transaction.amountLabel,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: PayaboColors.accentBrown,
+                color: c.accentBrown,
                 fontWeight: FontWeight.w700,
               ),
         ),

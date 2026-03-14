@@ -10,7 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/dashboard_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -28,27 +28,27 @@ final FutureProvider<DashboardSummary> dashboardSummaryProvider =
   return repository.getSummary();
 });
 
-const List<_DashboardOverviewSlice> _dashboardOverviewSlices =
+List<_DashboardOverviewSlice> _dashboardOverviewSlices(PayaboColorResolver c) =>
     <_DashboardOverviewSlice>[
-  _DashboardOverviewSlice(
-    label: 'Income',
-    amountLabel: 'GHS 4,232.24',
-    value: 4232.24,
-    color: PayaboColors.success,
-  ),
-  _DashboardOverviewSlice(
-    label: 'Expenses',
-    amountLabel: 'GHS 2,660.12',
-    value: 2660.12,
-    color: PayaboColors.primary,
-  ),
-  _DashboardOverviewSlice(
-    label: 'Investments',
-    amountLabel: 'GHS 1,754.64',
-    value: 1754.64,
-    color: PayaboColors.info,
-  ),
-];
+      _DashboardOverviewSlice(
+        label: 'Income',
+        amountLabel: 'GHS 4,232.24',
+        value: 4232.24,
+        color: c.success,
+      ),
+      _DashboardOverviewSlice(
+        label: 'Expenses',
+        amountLabel: 'GHS 2,660.12',
+        value: 2660.12,
+        color: c.primary,
+      ),
+      _DashboardOverviewSlice(
+        label: 'Investments',
+        amountLabel: 'GHS 1,754.64',
+        value: 1754.64,
+        color: c.info,
+      ),
+    ];
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({
@@ -184,6 +184,7 @@ class _DashboardProfileSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final resolvedName =
         displayName.trim().isEmpty ? 'Your account' : displayName.trim();
 
@@ -203,7 +204,7 @@ class _DashboardProfileSummary extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: PayaboColors.headerSubtitle,
+                      color: c.headerSubtitle,
                       fontWeight: FontWeight.w500,
                     ),
               ),
@@ -212,7 +213,7 @@ class _DashboardProfileSummary extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: PayaboColors.headerTitle,
+                      color: c.headerTitle,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -235,13 +236,15 @@ class _DashboardProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Material(
-      color: const Color(0xFFFFFBF8),
+      color: c.surfaceBase,
       shape: const CircleBorder(),
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: PayaboColors.primary, width: 1.5),
+          border: Border.all(color: c.primary, width: 1.5),
         ),
         child: InkWell(
           onTap: onTap,
@@ -251,7 +254,7 @@ class _DashboardProfileAvatar extends StatelessWidget {
             child: PayaboProfileAvatar(
               photoUrl: photoUrl,
               size: 42,
-              backgroundColor: const Color(0xFFF4ECDE),
+              backgroundColor: c.background,
               placeholderIcon: Icons.person_outline_rounded,
               placeholderIconSize: 20,
             ),
@@ -269,6 +272,8 @@ class _DashboardNotificationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -278,17 +283,17 @@ class _DashboardNotificationButton extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFCF6),
+            color: c.headerIconSurface,
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFDCCDB7)),
+            border: Border.all(color: c.headerIconBorder),
           ),
           child: Stack(
             clipBehavior: Clip.none,
             children: <Widget>[
-              const Center(
+              Center(
                 child: Icon(
                   Icons.notifications_none_rounded,
-                  color: Color(0xFF9B7A43),
+                  color: c.headerIconAccent,
                   size: 22,
                 ),
               ),
@@ -298,8 +303,8 @@ class _DashboardNotificationButton extends StatelessWidget {
                 child: Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFD7A14E),
+                  decoration: BoxDecoration(
+                    color: c.headerNotificationDot,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -495,29 +500,31 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
 class _InsightCarouselCardShell extends StatelessWidget {
   const _InsightCarouselCardShell({
     required this.child,
-    this.backgroundColor = PayaboColors.white,
-    this.borderColor = const Color(0xFFE7DCCB),
+    this.backgroundColor,
+    this.borderColor,
     this.gradient,
     this.borderRadius = const BorderRadius.all(Radius.circular(24)),
     this.padding = const EdgeInsets.all(PayaboSpacing.lg),
   });
 
   final Widget child;
-  final Color backgroundColor;
-  final Color borderColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
   final Gradient? gradient;
   final BorderRadiusGeometry borderRadius;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: backgroundColor ?? c.surfaceBase,
         gradient: gradient,
         borderRadius: borderRadius,
-        border: Border.all(color: borderColor),
-        boxShadow: PayaboShadows.soft,
+        border: Border.all(color: borderColor ?? c.borderWarm),
+        boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.soft,
       ),
       child: Padding(
         padding: padding,
@@ -534,14 +541,15 @@ class _TodayInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
     final String message = isEmpty
         ? 'Add a bill to unlock daily insights and spending guidance.'
         : 'Dining spend is running 18% above your usual daily pace.';
 
     return _InsightCarouselCardShell(
-      backgroundColor: PayaboColors.white.withValues(alpha: 0.86),
-      borderColor: const Color(0xFFE6D8C8),
+      backgroundColor: c.surfaceBase.withValues(alpha: 0.86),
+      borderColor: c.borderWarm,
       borderRadius: const BorderRadius.all(Radius.circular(20)),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -571,12 +579,12 @@ class _TodayInsightCard extends StatelessWidget {
                     Row(
                       children: <Widget>[
                         Expanded(
-                          child: Text(
+                      child: Text(
                             "Today's Insight",
                             overflow: TextOverflow.ellipsis,
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: PayaboColors.chatTextPrimary,
+                              color: c.chatTextPrimary,
                             ),
                           ),
                         ),
@@ -584,8 +592,8 @@ class _TodayInsightCard extends StatelessWidget {
                           width: 8,
                           height: 8,
                           margin: const EdgeInsets.only(left: PayaboSpacing.sm),
-                          decoration: const BoxDecoration(
-                            color: PayaboColors.primary,
+                          decoration: BoxDecoration(
+                            color: c.primary,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -597,7 +605,7 @@ class _TodayInsightCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.bodyMedium?.copyWith(
-                        color: PayaboColors.chatTextSecondary,
+                        color: c.chatTextSecondary,
                         height: 1.35,
                       ),
                     ),
@@ -611,7 +619,7 @@ class _TodayInsightCard extends StatelessWidget {
               Text(
                 isEmpty ? 'Set up now' : 'Today',
                 style: textTheme.labelMedium?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -642,6 +650,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final TextTheme textTheme = Theme.of(context).textTheme;
     final String dueText = isEmpty
         ? 'No bills due'
@@ -744,7 +753,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: PayaboColors.white.withValues(alpha: 0.34),
+                  color: c.surfaceBase.withValues(alpha: c.isDark ? 0.16 : 0.34),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -785,11 +794,12 @@ class _NetWorthInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     return _InsightCarouselCardShell(
-      backgroundColor: const Color(0xFFFFFAF4),
-      borderColor: const Color(0xFFE8D7C2),
+      backgroundColor: c.spendingCardWarm,
+      borderColor: c.borderWarm,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -869,12 +879,14 @@ class _InsightStatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: PayaboColors.white,
+        color: c.surfaceBase,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8D8C6)),
+        border: Border.all(color: c.borderWarm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -882,7 +894,7 @@ class _InsightStatTile extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF8A725D),
+                  color: c.muted,
                 ),
           ),
           const SizedBox(height: 4),
@@ -891,7 +903,7 @@ class _InsightStatTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF3A2B1F),
+                  color: c.ink,
                 ),
           ),
         ],
@@ -911,6 +923,8 @@ class _InsightPageIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List<Widget>.generate(pageCount, (int index) {
@@ -923,8 +937,7 @@ class _InsightPageIndicator extends StatelessWidget {
             width: isActive ? 30 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color:
-                  isActive ? const Color(0xFFC99144) : const Color(0xFFD6CCBD),
+              color: isActive ? c.primary : c.borderWarm,
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -959,15 +972,20 @@ class _DashboardOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final slices = _dashboardOverviewSlices(c);
+
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
+        gradient: LinearGradient(
+          colors: c.isDark
+              ? <Color>[c.surfaceCardElevated, c.surfaceWarmElevated]
+              : const <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.all(Radius.circular(28)),
-        border: Border.all(color: const Color(0xFFEAD9C3)),
+        border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       child: ClipRRect(
@@ -981,7 +999,7 @@ class _DashboardOverviewCard extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: PayaboColors.primary.withValues(alpha: 0.08),
+                  color: c.primary.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -993,7 +1011,7 @@ class _DashboardOverviewCard extends StatelessWidget {
                 width: 144,
                 height: 144,
                 decoration: BoxDecoration(
-                  color: PayaboColors.info.withValues(alpha: 0.06),
+                  color: c.info.withValues(alpha: 0.06),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1010,7 +1028,7 @@ class _DashboardOverviewCard extends StatelessWidget {
                           'Overview',
                           style:
                               Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: PayaboColors.accentBrown,
+                                    color: c.accentBrown,
                                     fontWeight: FontWeight.w700,
                                   ),
                         ),
@@ -1019,16 +1037,20 @@ class _DashboardOverviewCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: PayaboSpacing.lg),
-                  const Center(child: _DashboardOverviewRing()),
+                  Center(
+                    child: _DashboardOverviewRing(
+                      slices: slices,
+                      trackColor: c.borderWarm,
+                    ),
+                  ),
                   const SizedBox(height: PayaboSpacing.xl),
-                  ..._dashboardOverviewSlices.asMap().entries.map(
+                  ...slices.asMap().entries.map(
                         (MapEntry<int, _DashboardOverviewSlice> entry) =>
                             Padding(
                           padding: EdgeInsets.only(
-                            bottom:
-                                entry.key == _dashboardOverviewSlices.length - 1
-                                    ? 0
-                                    : PayaboSpacing.md,
+                            bottom: entry.key == slices.length - 1
+                                ? 0
+                                : PayaboSpacing.md,
                           ),
                           child: _DashboardOverviewRow(slice: entry.value),
                         ),
@@ -1050,15 +1072,17 @@ class _DashboardOverviewMonthChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: PayaboSpacing.md,
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: PayaboColors.white.withValues(alpha: 0.82),
+        color: c.surfaceBase.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7D5BF)),
+        border: Border.all(color: c.borderWarm),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1066,15 +1090,15 @@ class _DashboardOverviewMonthChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(width: PayaboSpacing.xs),
-          const Icon(
+          Icon(
             Icons.keyboard_arrow_down_rounded,
             size: 18,
-            color: PayaboColors.accentBrown,
+            color: c.accentBrown,
           ),
         ],
       ),
@@ -1083,20 +1107,29 @@ class _DashboardOverviewMonthChip extends StatelessWidget {
 }
 
 class _DashboardOverviewRing extends StatelessWidget {
-  const _DashboardOverviewRing();
+  const _DashboardOverviewRing({
+    required this.slices,
+    required this.trackColor,
+  });
+
+  final List<_DashboardOverviewSlice> slices;
+  final Color trackColor;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return SizedBox(
       width: 220,
       height: 220,
       child: Stack(
         alignment: Alignment.center,
         children: <Widget>[
-          const CustomPaint(
-            size: Size.square(220),
+          CustomPaint(
+            size: const Size.square(220),
             painter: _DashboardOverviewRingPainter(
-              slices: _dashboardOverviewSlices,
+              slices: slices,
+              trackColor: trackColor,
             ),
           ),
           Column(
@@ -1105,7 +1138,7 @@ class _DashboardOverviewRing extends StatelessWidget {
               Text(
                 'March',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: PayaboColors.accentBrown,
+                      color: c.accentBrown,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -1113,7 +1146,7 @@ class _DashboardOverviewRing extends StatelessWidget {
               Text(
                 '2026',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: PayaboColors.muted,
+                      color: c.muted,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -1126,12 +1159,16 @@ class _DashboardOverviewRing extends StatelessWidget {
 }
 
 class _DashboardOverviewRingPainter extends CustomPainter {
-  const _DashboardOverviewRingPainter({required this.slices});
+  const _DashboardOverviewRingPainter({
+    required this.slices,
+    required this.trackColor,
+  });
 
   static const double _gapRadians = 0.22;
   static const double _strokeWidth = 16;
 
   final List<_DashboardOverviewSlice> slices;
+  final Color trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1142,7 +1179,7 @@ class _DashboardOverviewRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = _strokeWidth
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFFEADFD2);
+      ..color = trackColor;
 
     canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
 
@@ -1170,7 +1207,7 @@ class _DashboardOverviewRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DashboardOverviewRingPainter oldDelegate) {
-    return oldDelegate.slices != slices;
+    return oldDelegate.slices != slices || oldDelegate.trackColor != trackColor;
   }
 }
 
@@ -1181,6 +1218,8 @@ class _DashboardOverviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       children: <Widget>[
         Container(
@@ -1196,14 +1235,14 @@ class _DashboardOverviewRow extends StatelessWidget {
           child: Text(
             slice.label,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                 ),
           ),
         ),
         Text(
           slice.amountLabel,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: PayaboColors.accentBrown,
+                color: c.accentBrown,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -1293,14 +1332,14 @@ class _GoalsShowcaseCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
-                          color: PayaboColors.white,
+                          color: Colors.white,
                         ),
                   ),
                   _GoalProgressStat(
                     label: 'Goal\nProgress',
                     progress: isEmpty ? 0.0 : 0.5,
                     progressLabel: isEmpty ? '0%' : '50%',
-                    ringColor: PayaboColors.white,
+                    ringColor: Colors.white,
                   ),
                   const SizedBox(height: 14),
                   _GoalProgressStat(
@@ -1343,7 +1382,7 @@ class _GoalProgressStat extends StatelessWidget {
                   height: 1.1,
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
-                  color: PayaboColors.white,
+                  color: Colors.white,
                 ),
           ),
         ),
@@ -1389,7 +1428,7 @@ class _GoalProgressRing extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: PayaboColors.white,
+                  color: Colors.white,
                 ),
           ),
         ],
@@ -1405,12 +1444,16 @@ class _PayaboReminderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2B47D)),
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFFF2CCA4), Color(0xFFEAB783)],
+        border: Border.all(color: c.isDark ? c.borderWarm : const Color(0xFFE2B47D)),
+        gradient: LinearGradient(
+          colors: c.isDark
+              ? <Color>[const Color(0xFF3A2C1E), const Color(0xFF4A3522)]
+              : const <Color>[Color(0xFFF2CCA4), Color(0xFFEAB783)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -1439,14 +1482,14 @@ class _PayaboReminderCard extends StatelessWidget {
                     fontSize: 14,
                     height: 1.18,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF4B2E18),
+                    color: c.isDark ? Colors.white : const Color(0xFF4B2E18),
                   ),
             ),
             Container(
               width: double.infinity,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFFC69A70),
+                color: c.isDark ? c.primary : const Color(0xFFC69A70),
                 borderRadius: BorderRadius.circular(24),
               ),
               alignment: Alignment.center,
@@ -1454,7 +1497,7 @@ class _PayaboReminderCard extends StatelessWidget {
                 'Pay now',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFFFFF6EB),
+                      color: Colors.white,
                     ),
               ),
             ),
@@ -1470,6 +1513,8 @@ class _PayaboBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -1494,7 +1539,7 @@ class _PayaboBadge extends StatelessWidget {
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF5A3217),
+                  color: c.isDark ? Colors.white : const Color(0xFF5A3217),
                 ),
           ),
         ),
@@ -1548,17 +1593,19 @@ class _DashboardStatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3E4C8),
+        color: c.isDark ? c.surfaceWarmAccent : const Color(0xFFF3E4C8),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF7C5B25),
+              color: c.isDark ? c.primary : const Color(0xFF7C5B25),
             ),
       ),
     );
@@ -1590,6 +1637,8 @@ class _DashboardListHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Row(
       children: <Widget>[
         Expanded(
@@ -1598,7 +1647,7 @@ class _DashboardListHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontSize: 21,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF463020),
+                  color: c.accentBrown,
                 ),
           ),
         ),
@@ -1608,7 +1657,7 @@ class _DashboardListHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFFB48642),
+                  color: c.primary,
                 ),
           ),
       ],
@@ -1623,11 +1672,13 @@ class _UpcomingBillsCardV2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.white,
+        color: c.surfaceBase,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE7DDCF)),
+        border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       child: Column(
@@ -1657,12 +1708,14 @@ class _UpcomingBillRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: showDivider
-          ? const BoxDecoration(
+          ? BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: Color(0xFFF0E5D7)),
+                bottom: BorderSide(color: c.borderWarm),
               ),
             )
           : null,
@@ -1672,12 +1725,12 @@ class _UpcomingBillRow extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: const Color(0xFFFBF1E2),
+              color: c.spendingQuickActionSurface,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.description_outlined,
-              color: Color(0xFFC79448),
+              color: c.primary,
               size: 22,
             ),
           ),
@@ -1691,7 +1744,7 @@ class _UpcomingBillRow extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF2B241E),
+                        color: c.ink,
                       ),
                 ),
                 const SizedBox(height: 2),
@@ -1699,7 +1752,7 @@ class _UpcomingBillRow extends StatelessWidget {
                   item.dueDateLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontSize: 14,
-                        color: const Color(0xFF948576),
+                        color: c.muted,
                       ),
                 ),
               ],
@@ -1710,7 +1763,7 @@ class _UpcomingBillRow extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF4A3219),
+                  color: c.accentBrown,
                 ),
           ),
         ],
@@ -1724,11 +1777,13 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: PayaboColors.white,
+        color: c.surfaceBase,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE7DDCF)),
+        border: Border.all(color: c.borderWarm),
         boxShadow: PayaboShadows.soft,
       ),
       padding: const EdgeInsets.all(20),
@@ -1738,12 +1793,12 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: const Color(0xFFFBF1E2),
+              color: c.spendingQuickActionSurface,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.receipt_long_outlined,
-              color: Color(0xFFC79448),
+              color: c.primary,
             ),
           ),
           const SizedBox(width: 14),
@@ -1751,7 +1806,7 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
             child: Text(
               'No upcoming bills yet. Add a bill to start tracking due dates.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: const Color(0xFF4A3524),
+                    color: c.accentBrown,
                   ),
             ),
           ),
@@ -1772,6 +1827,8 @@ class _DashboardHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     final String dueText = isEmpty
         ? 'No bills due this week'
         : upcomingBillCount == 1
@@ -1780,13 +1837,15 @@ class _DashboardHeroCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFFFFAE58), Color(0xFFF37920)],
+        gradient: LinearGradient(
+          colors: c.isDark
+              ? <Color>[const Color(0xFF4C341B), const Color(0xFF7A4317)]
+              : const <Color>[Color(0xFFFFAE58), Color(0xFFF37920)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: const BorderRadius.all(Radius.circular(28)),
-        border: Border.all(color: const Color(0xFFF29D49)),
+        border: Border.all(color: c.primary),
         boxShadow: PayaboShadows.soft,
       ),
       child: Padding(
@@ -1802,7 +1861,7 @@ class _DashboardHeroCard extends StatelessWidget {
             Text(
               'Available to spend',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: PayaboColors.accentBrown,
+                    color: c.accentBrown,
                     fontWeight: FontWeight.w500,
                   ),
             ),
@@ -1813,7 +1872,7 @@ class _DashboardHeroCard extends StatelessWidget {
               child: Text(
                 isEmpty ? '£0.00' : '£1,285.00',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: const Color(0xFF4F220F),
+                      color: c.isDark ? Colors.white : const Color(0xFF4F220F),
                       fontSize: 52,
                       height: 1,
                       fontWeight: FontWeight.w700,
@@ -1824,7 +1883,7 @@ class _DashboardHeroCard extends StatelessWidget {
             Text(
               dueText,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: PayaboColors.accentBrown,
+                    color: c.accentBrown,
                     fontWeight: FontWeight.w500,
                   ),
             ),
@@ -1836,13 +1895,13 @@ class _DashboardHeroCard extends StatelessWidget {
                 Container(
                   width: 28,
                   height: 28,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF7C320E),
+                  decoration: BoxDecoration(
+                    color: c.isDark ? c.surfaceBase.withValues(alpha: 0.2) : const Color(0xFF7C320E),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.check,
-                    color: PayaboColors.white,
+                    color: Colors.white,
                     size: 18,
                   ),
                 ),
@@ -1855,7 +1914,7 @@ class _DashboardHeroCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: PayaboColors.accentBrown,
+                          color: c.accentBrown,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
@@ -1882,6 +1941,8 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         PayaboSpacing.xl,
@@ -1897,7 +1958,7 @@ class _SectionHeading extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: PayaboColors.accentBrown,
+                    color: c.accentBrown,
                   ),
             ),
           ),
@@ -1907,7 +1968,7 @@ class _SectionHeading extends StatelessWidget {
               child: Text(
                 actionLabel!,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: PayaboColors.primary,
+                      color: c.primary,
                     ),
               ),
             ),
@@ -1930,19 +1991,21 @@ class _EmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.all(PayaboSpacing.xl),
       child: Container(
         padding: const EdgeInsets.all(PayaboSpacing.x3),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFBF8),
+          color: c.surfaceCardElevated,
           borderRadius: PayaboRadii.radiusLg,
-          border: Border.all(color: const Color(0xFFF1DEC9)),
+          border: Border.all(color: c.borderWarm),
           boxShadow: PayaboShadows.soft,
         ),
         child: Column(
           children: <Widget>[
-            Icon(icon, size: 56, color: PayaboColors.primary),
+            Icon(icon, size: 56, color: c.primary),
             const SizedBox(height: PayaboSpacing.md),
             Text(
               message,
@@ -1950,7 +2013,7 @@ class _EmptyPanel extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .titleSmall
-                  ?.copyWith(color: PayaboColors.accentBrownMuted),
+                  ?.copyWith(color: c.accentBrownMuted),
             ),
             if (actionLabel != null) ...<Widget>[
               const SizedBox(height: PayaboSpacing.md),
@@ -1998,6 +2061,8 @@ class _OrganisationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl, PayaboSpacing.lg,
           PayaboSpacing.sm, PayaboSpacing.x2),
@@ -2029,14 +2094,14 @@ class _OrganisationCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: PayaboColors.info,
+                            color: c.info,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'SPONSORED',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: PayaboColors.white,
+                                      color: Colors.white,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 10,
                                     ),
@@ -2073,10 +2138,12 @@ class _BillList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
       child: PayaboCard(
-        backgroundColor: const Color(0xFFFFFBF8),
+        backgroundColor: c.surfaceCardElevated,
         padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.lg),
         child: Column(
           children: items
@@ -2101,10 +2168,12 @@ class _TransactionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
       child: PayaboCard(
-        backgroundColor: const Color(0xFFFFFBF8),
+        backgroundColor: c.surfaceCardElevated,
         padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.lg),
         child: Column(
           children: items
@@ -2135,11 +2204,12 @@ class _ProductRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
-      decoration: const BoxDecoration(
-        border:
-            Border(bottom: BorderSide(color: PayaboColors.border, width: 1)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: c.border, width: 1)),
       ),
       child: Row(
         children: <Widget>[
@@ -2148,10 +2218,9 @@ class _ProductRow extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              color: const Color(0xFFFFF3E8),
+              color: c.spendingQuickActionSurface,
             ),
-            child: const Icon(Icons.description_outlined,
-                color: PayaboColors.primary),
+            child: Icon(Icons.description_outlined, color: c.primary),
           ),
           const SizedBox(width: PayaboSpacing.md),
           Expanded(
@@ -2168,7 +2237,7 @@ class _ProductRow extends StatelessWidget {
             amountLabel,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: PayaboColors.accentBrown,
+                  color: c.accentBrown,
                 ),
           ),
         ],
@@ -2207,11 +2276,13 @@ class _BudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl, PayaboSpacing.lg,
           PayaboSpacing.sm, PayaboSpacing.x2),
       child: PayaboCard(
-        backgroundColor: const Color(0xFFFFFBF8),
+        backgroundColor: c.surfaceCardElevated,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -2222,9 +2293,8 @@ class _BudgetCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 minHeight: 10,
                 value: progress,
-                backgroundColor: PayaboColors.border,
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(PayaboColors.primary),
+                backgroundColor: c.border,
+                valueColor: AlwaysStoppedAnimation<Color>(c.primary),
               ),
             ),
             const SizedBox(height: PayaboSpacing.md),
@@ -2294,21 +2364,22 @@ class _AssistRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl, PayaboSpacing.lg,
           PayaboSpacing.sm, PayaboSpacing.x2),
       child: PayaboCard(
-        backgroundColor: const Color(0xFFFFFBF8),
+        backgroundColor: c.surfaceCardElevated,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
               children: <Widget>[
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 18,
-                  backgroundColor: PayaboColors.background,
-                  child:
-                      Icon(Icons.person_outline, color: PayaboColors.primary),
+                  backgroundColor: c.background,
+                  child: Icon(Icons.person_outline, color: c.primary),
                 ),
                 const SizedBox(width: PayaboSpacing.md),
                 Text(friendName, style: Theme.of(context).textTheme.titleSmall),

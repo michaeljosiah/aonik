@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_spacing.dart';
 
 class PayaboScreenTitleBar extends StatelessWidget {
@@ -24,6 +24,8 @@ class PayaboScreenTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: padding,
       child: Row(
@@ -35,10 +37,10 @@ class PayaboScreenTitleBar extends StatelessWidget {
                 : InkWell(
                     onTap: onBack,
                     borderRadius: BorderRadius.circular(20),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_back_ios_new,
                       size: 18,
-                      color: PayaboColors.primary,
+                      color: c.primary,
                     ),
                   ),
           ),
@@ -48,7 +50,7 @@ class PayaboScreenTitleBar extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: PayaboColors.headerTitle,
+                    color: c.headerTitle,
                   ),
             ),
           ),
@@ -59,10 +61,10 @@ class PayaboScreenTitleBar extends StatelessWidget {
                 : InkWell(
                     onTap: onClose,
                     borderRadius: BorderRadius.circular(20),
-                    child: const Icon(
+                    child: Icon(
                       Icons.close,
                       size: 22,
-                      color: PayaboColors.primary,
+                      color: c.primary,
                     ),
                   ),
           ),

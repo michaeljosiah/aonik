@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
 import 'profile_scaffold.dart';
@@ -13,6 +13,7 @@ class MarketingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final state = ref.watch(profileMarketingProvider);
 
     void showError(String message) {
@@ -59,7 +60,7 @@ class MarketingScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: PayaboColors.muted),
+                  Icon(Icons.chevron_right, color: c.muted),
                 ],
               ),
             ),
@@ -104,6 +105,8 @@ class _ToggleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
       child: PayaboCard(
@@ -127,10 +130,10 @@ class _ToggleCard extends StatelessWidget {
                 child: Switch.adaptive(
                   value: value,
                   onChanged: onChanged,
-                  activeThumbColor: PayaboColors.white,
-                  activeTrackColor: PayaboColors.success,
-                  inactiveThumbColor: PayaboColors.white,
-                  inactiveTrackColor: PayaboColors.background,
+                  activeThumbColor: c.surfaceBase,
+                  activeTrackColor: c.success,
+                  inactiveThumbColor: c.surfaceBase,
+                  inactiveTrackColor: c.background,
                 ),
               ),
             ),

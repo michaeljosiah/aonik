@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/startup/app_startup_controller.dart';
 import '../../../app/startup/offline_mode_provider.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -26,6 +26,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final startupState = ref.watch(appStartupControllerProvider);
 
     // React to health-check completion.
@@ -59,7 +60,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: c.surfaceBase,
       body: SafeArea(
         child: Center(
           child: InkWell(
@@ -82,7 +83,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: isOfflineFallback
-                          ? PayaboColors.brandPrimary
+                          ? c.primary
                           : null,
                       fontWeight: isOfflineFallback
                           ? FontWeight.w600

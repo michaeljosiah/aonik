@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
@@ -15,6 +15,7 @@ class PaymentSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final orderId = ref.watch(paymentOrderIdProvider);
     final summary = ref.watch(paymentOrderSummaryProvider);
 
@@ -53,8 +54,7 @@ class PaymentSelectionScreen extends ConsumerWidget {
           PayaboListRow(
             title: 'Pay with debit or credit card',
             subtitle: 'Use your saved card or a new card at checkout',
-            leading: const Icon(Icons.credit_card_outlined,
-                color: PayaboColors.muted),
+            leading: Icon(Icons.credit_card_outlined, color: c.muted),
             onTap: () {
               ref
                   .read(paymentFlowControllerProvider.notifier)
@@ -66,8 +66,7 @@ class PaymentSelectionScreen extends ConsumerWidget {
           PayaboListRow(
             title: 'Request help with payment',
             subtitle: 'Ask your friends and family for help',
-            leading: const Icon(Icons.volunteer_activism_outlined,
-                color: PayaboColors.muted),
+            leading: Icon(Icons.volunteer_activism_outlined, color: c.muted),
             onTap: () {
               ref
                   .read(paymentFlowControllerProvider.notifier)
@@ -124,13 +123,15 @@ class _SummaryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(
-                bottom: BorderSide(color: PayaboColors.border, width: 1),
+            : Border(
+                bottom: BorderSide(color: c.border, width: 1),
               ),
       ),
       child: Row(

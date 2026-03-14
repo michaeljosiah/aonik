@@ -1,9 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 
 const String spendingBudgetMonthLabel = 'March 2026';
+
+enum SpendingBudgetColorRole {
+  primary,
+  success,
+  warning,
+  danger,
+  info,
+  accent,
+}
+
+extension SpendingBudgetColorRoleX on SpendingBudgetColorRole {
+  Color resolve(PayaboColorResolver colors) {
+    switch (this) {
+      case SpendingBudgetColorRole.primary:
+        return colors.primary;
+      case SpendingBudgetColorRole.success:
+        return colors.success;
+      case SpendingBudgetColorRole.warning:
+        return colors.warning;
+      case SpendingBudgetColorRole.danger:
+        return colors.danger;
+      case SpendingBudgetColorRole.info:
+        return colors.info;
+      case SpendingBudgetColorRole.accent:
+        return colors.headerIconAccent;
+    }
+  }
+}
 
 const List<SpendingBudgetCategory> spendingBudgetCategories =
     <SpendingBudgetCategory>[
@@ -11,7 +39,7 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
     id: 'housing',
     name: 'Housing',
     icon: Icons.home_work_outlined,
-    accentColor: PayaboColors.primary,
+    accentRole: SpendingBudgetColorRole.primary,
     linkedSpendingCategoryId: 'finances',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
@@ -52,7 +80,7 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
     id: 'groceries',
     name: 'Food & Groceries',
     icon: Icons.local_grocery_store_outlined,
-    accentColor: PayaboColors.success,
+    accentRole: SpendingBudgetColorRole.success,
     linkedSpendingCategoryId: 'groceries',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
@@ -93,7 +121,7 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
     id: 'transport',
     name: 'Transport',
     icon: Icons.directions_bus_outlined,
-    accentColor: PayaboColors.warning,
+    accentRole: SpendingBudgetColorRole.warning,
     linkedSpendingCategoryId: 'transport',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
@@ -134,7 +162,7 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
     id: 'utilities',
     name: 'Utilities',
     icon: Icons.lightbulb_outline_rounded,
-    accentColor: PayaboColors.info,
+    accentRole: SpendingBudgetColorRole.info,
     linkedSpendingCategoryId: 'finances',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
@@ -175,7 +203,7 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
     id: 'personal',
     name: 'Personal care',
     icon: Icons.spa_outlined,
-    accentColor: PayaboColors.headerIconAccent,
+    accentRole: SpendingBudgetColorRole.accent,
     linkedSpendingCategoryId: 'shopping',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
@@ -281,20 +309,20 @@ class SpendingBudgetSummary {
     return 'On track';
   }
 
-  Color get statusColor {
+  SpendingBudgetColorRole get statusColorRole {
     if (categoryCount == 0) {
-      return PayaboColors.primary;
+      return SpendingBudgetColorRole.primary;
     }
 
     if (remaining < 0) {
-      return PayaboColors.danger;
+      return SpendingBudgetColorRole.danger;
     }
 
     if (progress >= 0.9) {
-      return PayaboColors.warning;
+      return SpendingBudgetColorRole.warning;
     }
 
-    return PayaboColors.success;
+    return SpendingBudgetColorRole.success;
   }
 
   String get description {
@@ -313,12 +341,14 @@ class SpendingBudgetSummary {
     return '${formatSpendingBudgetCurrency(remaining.abs())} over';
   }
 
-  Color get leftToSpendColor {
+  SpendingBudgetColorRole get leftToSpendColorRole {
     if (categoryCount == 0) {
-      return PayaboColors.primary;
+      return SpendingBudgetColorRole.primary;
     }
 
-    return remaining >= 0 ? PayaboColors.success : PayaboColors.danger;
+    return remaining >= 0
+        ? SpendingBudgetColorRole.success
+        : SpendingBudgetColorRole.danger;
   }
 
   String get progressLabel {
@@ -335,7 +365,7 @@ class SpendingBudgetCategory {
     required this.id,
     required this.name,
     required this.icon,
-    required this.accentColor,
+    required this.accentRole,
     required this.lineItems,
     required this.history,
     this.linkedSpendingCategoryId,
@@ -344,7 +374,7 @@ class SpendingBudgetCategory {
   final String id;
   final String name;
   final IconData icon;
-  final Color accentColor;
+  final SpendingBudgetColorRole accentRole;
   final String? linkedSpendingCategoryId;
   final List<SpendingBudgetLineItem> lineItems;
   final List<SpendingBudgetHistoryPoint> history;
@@ -353,7 +383,7 @@ class SpendingBudgetCategory {
     String? id,
     String? name,
     IconData? icon,
-    Color? accentColor,
+    SpendingBudgetColorRole? accentRole,
     String? linkedSpendingCategoryId,
     bool clearLinkedSpendingCategoryId = false,
     List<SpendingBudgetLineItem>? lineItems,
@@ -363,7 +393,7 @@ class SpendingBudgetCategory {
       id: id ?? this.id,
       name: name ?? this.name,
       icon: icon ?? this.icon,
-      accentColor: accentColor ?? this.accentColor,
+      accentRole: accentRole ?? this.accentRole,
       linkedSpendingCategoryId: clearLinkedSpendingCategoryId
           ? null
           : (linkedSpendingCategoryId ?? this.linkedSpendingCategoryId),
@@ -426,10 +456,10 @@ class SpendingBudgetHistoryPoint {
 class SpendingBudgetState {
   const SpendingBudgetState({
     required this.progress,
-    required this.progressColor,
+    required this.progressColorRole,
     required this.statusLabel,
     required this.remainingLabel,
-    required this.remainingColor,
+    required this.remainingColorRole,
     required this.percentUsedLabel,
     required this.remainingAmount,
   });
@@ -443,11 +473,11 @@ class SpendingBudgetState {
     final bool isOver = remaining < 0;
     final bool isClose = !isOver && progress >= 0.9;
 
-    final Color progressColor = isOver
-        ? PayaboColors.danger
+    final SpendingBudgetColorRole progressColorRole = isOver
+        ? SpendingBudgetColorRole.danger
         : isClose
-            ? PayaboColors.warning
-            : PayaboColors.primary;
+            ? SpendingBudgetColorRole.warning
+            : SpendingBudgetColorRole.primary;
 
     final String remainingLabel = isOver
         ? '${formatSpendingBudgetCurrency(remaining.abs())} over'
@@ -455,24 +485,26 @@ class SpendingBudgetState {
 
     return SpendingBudgetState(
       progress: progress,
-      progressColor: progressColor,
+      progressColorRole: progressColorRole,
       statusLabel: isOver
           ? 'Overspent'
           : isClose
               ? 'Close'
               : 'On track',
       remainingLabel: remainingLabel,
-      remainingColor: isOver ? PayaboColors.danger : PayaboColors.success,
+      remainingColorRole: isOver
+          ? SpendingBudgetColorRole.danger
+          : SpendingBudgetColorRole.success,
       percentUsedLabel: '${(progress.clamp(0, 1) * 100).toStringAsFixed(0)}%',
       remainingAmount: remaining,
     );
   }
 
   final double progress;
-  final Color progressColor;
+  final SpendingBudgetColorRole progressColorRole;
   final String statusLabel;
   final String remainingLabel;
-  final Color remainingColor;
+  final SpendingBudgetColorRole remainingColorRole;
   final String percentUsedLabel;
   final double remainingAmount;
 }

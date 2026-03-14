@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_borders.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import 'auth_flow_scaffold.dart';
@@ -37,6 +36,7 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final onboarding = ref.watch(onboardingControllerProvider);
     final phoneCountry = onboarding.phoneCountry;
     final canVerify =
@@ -54,7 +54,7 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
             style: Theme.of(context)
                 .textTheme
                 .titleSmall
-                ?.copyWith(color: PayaboColors.muted),
+                ?.copyWith(color: c.muted),
           ),
           const SizedBox(height: PayaboSpacing.sm),
           Row(
@@ -65,9 +65,9 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
                     context.go('/auth/register/phone-country-selection'),
                 child: Container(
                   padding: const EdgeInsets.only(bottom: 8, right: 12, top: 6),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     border: Border(
-                      bottom: PayaboBorders.defaultBorder,
+                      bottom: BorderSide(color: c.border),
                     ),
                   ),
                   child: Row(
@@ -94,17 +94,20 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w400,
                       ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: '123 456 789',
                     filled: false,
                     isDense: true,
-                    contentPadding: EdgeInsets.only(bottom: 10),
+                    contentPadding: const EdgeInsets.only(bottom: 10),
                     border: UnderlineInputBorder(
-                        borderSide: PayaboBorders.defaultBorder),
+                      borderSide: BorderSide(color: c.border),
+                    ),
                     enabledBorder: UnderlineInputBorder(
-                        borderSide: PayaboBorders.defaultBorder),
+                      borderSide: BorderSide(color: c.border),
+                    ),
                     focusedBorder: UnderlineInputBorder(
-                        borderSide: PayaboBorders.activeBorder),
+                      borderSide: BorderSide(color: c.primary),
+                    ),
                   ),
                   onChanged: (value) {
                     ref

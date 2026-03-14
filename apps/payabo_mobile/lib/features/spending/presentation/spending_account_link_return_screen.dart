@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
+import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'spending_accounts_state.dart';
 
@@ -76,11 +76,13 @@ class _SpendingAccountLinkReturnScreenState
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceWarm,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
+        decoration: BoxDecoration(
+          gradient: c.warmScreenGradient,
         ),
         child: SafeArea(
           child: Padding(
@@ -88,14 +90,8 @@ class _SpendingAccountLinkReturnScreenState
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: PayaboColors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: PayaboColors.spendingQuickActionBorder,
-                    ),
-                  ),
+                child: PayaboCard(
+                  backgroundColor: c.surfaceCardElevated,
                   child: Padding(
                     padding: const EdgeInsets.all(PayaboSpacing.xl),
                     child: Column(
@@ -108,7 +104,7 @@ class _SpendingAccountLinkReturnScreenState
                               .textTheme
                               .headlineSmall
                               ?.copyWith(
-                                color: PayaboColors.accentBrown,
+                                color: c.accentBrown,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -130,13 +126,15 @@ class _SpendingAccountLinkReturnScreenState
   }
 
   List<Widget> _buildBody(BuildContext context) {
+    final c = context.colors;
+
     switch (_status) {
       case _AccountLinkReturnStatus.loading:
         return <Widget>[
           Text(
             'Finishing the secure provider handoff and syncing your linked accounts back into Spend.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.accentBrownMuted,
+                  color: c.accentBrownMuted,
                   height: 1.45,
                 ),
           ),
@@ -157,11 +155,13 @@ class _SpendingAccountLinkReturnScreenState
     BuildContext context, {
     required String actionLabel,
   }) {
+    final c = context.colors;
+
     return <Widget>[
       Text(
         _message ?? '',
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: PayaboColors.accentBrownMuted,
+              color: c.accentBrownMuted,
               height: 1.45,
             ),
       ),

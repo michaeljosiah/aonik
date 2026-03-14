@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_radii.dart';
 import '../theme/payabo_shadows.dart';
 import '../theme/payabo_spacing.dart';
@@ -23,11 +23,14 @@ class PayaboListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: PayaboColors.white,
+      decoration: BoxDecoration(
+        color: c.surfaceBase,
         borderRadius: PayaboRadii.radiusSm,
-        boxShadow: PayaboShadows.medium,
+        border: Border.all(color: c.borderStrong),
+        boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.medium,
       ),
       child: Material(
         color: Colors.transparent,
@@ -49,20 +52,24 @@ class PayaboListRow extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleSmall,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: c.textPrimary,
+                            ),
                       ),
                       if (subtitle != null) ...<Widget>[
                         const SizedBox(height: PayaboSpacing.xs),
                         Text(
                           subtitle!,
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: c.textMuted,
+                              ),
                         ),
                       ],
                     ],
                   ),
                 ),
                 trailing ??
-                    const Icon(Icons.chevron_right, color: PayaboColors.muted),
+                    Icon(Icons.chevron_right, color: c.muted),
               ],
             ),
           ),

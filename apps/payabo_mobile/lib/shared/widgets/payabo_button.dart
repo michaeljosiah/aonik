@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_borders.dart';
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_radii.dart';
 import '../theme/payabo_spacing.dart';
 
@@ -105,14 +104,16 @@ class PayaboButton extends StatelessWidget {
   }
 
   ButtonStyle _primaryStyle(BuildContext context, PayaboButtonSize size) {
+    final c = context.colors;
+
     return ElevatedButton.styleFrom(
-      foregroundColor: PayaboColors.white,
-      backgroundColor: PayaboColors.primary,
-      disabledForegroundColor: PayaboColors.muted,
-      disabledBackgroundColor: PayaboColors.background,
+      foregroundColor: Colors.white,
+      backgroundColor: c.primary,
+      disabledForegroundColor: c.textMuted,
+      disabledBackgroundColor: c.surfaceMuted,
       shape: const RoundedRectangleBorder(
         borderRadius: PayaboRadii.radiusSm,
-        side: PayaboBorders.buttonBorder,
+        side: BorderSide.none,
       ),
       elevation: 0,
       shadowColor: Colors.transparent,
@@ -121,106 +122,133 @@ class PayaboButton extends StatelessWidget {
     ).copyWith(
       backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return PayaboColors.background;
+          return c.surfaceMuted;
         }
 
         if (states.contains(WidgetState.pressed) ||
             states.contains(WidgetState.hovered)) {
-          return PayaboColors.primaryHover;
+          return c.primaryHover;
         }
 
-        return PayaboColors.primary;
+        return c.primary;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return c.textMuted;
+        }
+
+        return Colors.white;
       }),
       side: WidgetStateProperty.resolveWith<BorderSide>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return const BorderSide(color: PayaboColors.background, width: 2);
+          return BorderSide(color: c.surfaceMuted, width: 2);
         }
 
         if (states.contains(WidgetState.pressed) ||
             states.contains(WidgetState.hovered)) {
-          return const BorderSide(color: PayaboColors.primaryHover, width: 2);
+          return BorderSide(color: c.primaryHover, width: 2);
         }
 
-        return PayaboBorders.buttonBorder;
+        return BorderSide(color: c.primary, width: 2);
       }),
     );
   }
 
   ButtonStyle _secondaryStyle(BuildContext context, PayaboButtonSize size) {
+    final c = context.colors;
+
     return OutlinedButton.styleFrom(
-      foregroundColor: PayaboColors.primary,
-      disabledForegroundColor: PayaboColors.muted,
+      foregroundColor: c.primary,
+      disabledForegroundColor: c.textMuted,
       shape: const RoundedRectangleBorder(borderRadius: PayaboRadii.radiusSm),
-      side: PayaboBorders.buttonBorder,
+      side: BorderSide(color: c.primary, width: 2),
       textStyle: Theme.of(context).textTheme.labelLarge,
       padding: _resolvePadding(size),
     ).copyWith(
+      backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.pressed) ||
+            states.contains(WidgetState.hovered)) {
+          return c.primary.withValues(alpha: c.isDark ? 0.16 : 0.08);
+        }
+
+        return Colors.transparent;
+      }),
       foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return PayaboColors.muted;
+          return c.textMuted;
         }
 
         if (states.contains(WidgetState.pressed) ||
             states.contains(WidgetState.hovered)) {
-          return PayaboColors.primaryHover;
+          return c.primaryHover;
         }
 
-        return PayaboColors.primary;
+        return c.primary;
       }),
       side: WidgetStateProperty.resolveWith<BorderSide>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return const BorderSide(color: PayaboColors.muted, width: 2);
+          return BorderSide(color: c.textMuted, width: 2);
         }
 
         if (states.contains(WidgetState.pressed) ||
             states.contains(WidgetState.hovered)) {
-          return const BorderSide(color: PayaboColors.primaryHover, width: 2);
+          return BorderSide(color: c.primaryHover, width: 2);
         }
 
-        return PayaboBorders.buttonBorder;
+        return BorderSide(color: c.primary, width: 2);
       }),
       overlayColor:
-          const WidgetStatePropertyAll<Color>(PayaboColors.transparent),
+          const WidgetStatePropertyAll<Color>(Colors.transparent),
     );
   }
 
   ButtonStyle _linkStyle(BuildContext context, PayaboButtonSize size) {
+    final c = context.colors;
+
     return OutlinedButton.styleFrom(
-      foregroundColor: PayaboColors.primary,
-      backgroundColor: PayaboColors.white,
-      disabledForegroundColor: PayaboColors.muted,
-      disabledBackgroundColor: PayaboColors.white,
+      foregroundColor: c.primary,
+      backgroundColor: c.surfaceBase,
+      disabledForegroundColor: c.textMuted,
+      disabledBackgroundColor: c.surfaceBase,
       shape: const RoundedRectangleBorder(borderRadius: PayaboRadii.radiusSm),
-      side: const BorderSide(color: PayaboColors.primary, width: 1),
+      side: BorderSide(color: c.primary, width: 1),
       textStyle: Theme.of(context).textTheme.bodyLarge,
       padding: _resolvePadding(size),
     ).copyWith(
       foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return PayaboColors.muted;
+          return c.textMuted;
         }
 
         if (states.contains(WidgetState.pressed) ||
             states.contains(WidgetState.hovered)) {
-          return PayaboColors.primaryHover;
+          return c.primaryHover;
         }
 
-        return PayaboColors.primary;
+        return c.primary;
+      }),
+      backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.pressed) ||
+            states.contains(WidgetState.hovered)) {
+          return c.surfaceWarmElevated;
+        }
+
+        return c.surfaceBase;
       }),
       side: WidgetStateProperty.resolveWith<BorderSide>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return const BorderSide(color: PayaboColors.muted, width: 1);
+          return BorderSide(color: c.textMuted, width: 1);
         }
 
         if (states.contains(WidgetState.pressed) ||
             states.contains(WidgetState.hovered)) {
-          return const BorderSide(color: PayaboColors.primaryHover, width: 1);
+          return BorderSide(color: c.primaryHover, width: 1);
         }
 
-        return const BorderSide(color: PayaboColors.primary, width: 1);
+        return BorderSide(color: c.primary, width: 1);
       }),
       overlayColor:
-          const WidgetStatePropertyAll<Color>(PayaboColors.transparent),
+          const WidgetStatePropertyAll<Color>(Colors.transparent),
     );
   }
 }

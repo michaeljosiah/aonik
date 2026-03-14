@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/repository_providers.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
@@ -62,6 +62,7 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final flowState = ref.watch(paymentFlowControllerProvider);
     final canContinue = _canSubmit(flowState);
 
@@ -232,7 +233,7 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
             Text(
               _validationMessage!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: PayaboColors.danger,
+                    color: c.danger,
                   ),
             ),
           ],

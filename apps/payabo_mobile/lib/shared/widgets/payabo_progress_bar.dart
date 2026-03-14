@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_colors.dart';
+import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_spacing.dart';
 
 class PayaboStepProgressBar extends StatelessWidget {
@@ -86,14 +86,12 @@ class _ProgressNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final bool highlighted = isActive || isCurrent;
 
-    final Color labelColor =
-        highlighted ? PayaboColors.ink : PayaboColors.border;
-    final Color circleFill =
-        highlighted ? PayaboColors.primary : PayaboColors.background;
-    final Color circleBorder =
-        highlighted ? PayaboColors.primary : PayaboColors.border;
+    final Color labelColor = highlighted ? c.ink : c.border;
+    final Color circleFill = highlighted ? c.primary : c.background;
+    final Color circleBorder = highlighted ? c.primary : c.border;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -116,7 +114,7 @@ class _ProgressNode extends StatelessWidget {
                 left: size / 2,
                 right: -size / 2,
                 child: Divider(
-                  color: PayaboColors.border,
+                  color: c.border,
                   height: 2,
                   thickness: 2,
                   indent: connectorInset,
@@ -136,7 +134,7 @@ class _ProgressNode extends StatelessWidget {
                   ? Icon(
                       Icons.check,
                       size: size * 0.56,
-                      color: PayaboColors.white,
+                      color: Colors.white,
                     )
                   : null,
             ),

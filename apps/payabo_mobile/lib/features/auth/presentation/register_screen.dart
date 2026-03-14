@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_borders.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import 'auth_flow_scaffold.dart';
@@ -15,6 +14,7 @@ class RegisterScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final onboardingState = ref.watch(onboardingControllerProvider);
     final selectedCountry = onboardingState.registrationCountry;
 
@@ -28,7 +28,7 @@ class RegisterScreen extends ConsumerWidget {
         style: Theme.of(context)
             .textTheme
             .bodySmall
-            ?.copyWith(color: PayaboColors.ink),
+            ?.copyWith(color: c.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -38,16 +38,16 @@ class RegisterScreen extends ConsumerWidget {
             style: Theme.of(context)
                 .textTheme
                 .titleSmall
-                ?.copyWith(color: PayaboColors.muted),
+                ?.copyWith(color: c.muted),
           ),
           const SizedBox(height: PayaboSpacing.sm),
           InkWell(
             onTap: () => context.go('/auth/register/country-selection'),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.sm),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  bottom: PayaboBorders.defaultBorder,
+                  bottom: BorderSide(color: c.border),
                 ),
               ),
               child: Row(
@@ -64,8 +64,7 @@ class RegisterScreen extends ConsumerWidget {
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ),
-                  const Icon(Icons.keyboard_arrow_down,
-                      color: PayaboColors.muted),
+                  Icon(Icons.keyboard_arrow_down, color: c.muted),
                 ],
               ),
             ),

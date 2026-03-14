@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/catalog_repository.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
@@ -37,6 +37,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final selectedCategory = ref.watch(paymentCategoryProvider);
     final providersValue = ref.watch(paymentProvidersProvider);
 
@@ -70,9 +71,10 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
                 return ChoiceChip(
                   label: Text(category),
                   selected: selected,
-                  selectedColor: PayaboColors.primary,
+                  selectedColor: c.primary,
+                  backgroundColor: c.surfaceBase,
                   labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: selected ? PayaboColors.white : PayaboColors.ink,
+                        color: selected ? Colors.white : c.ink,
                         fontWeight:
                             selected ? FontWeight.w700 : FontWeight.w400,
                       ),
@@ -81,7 +83,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
                       .setCategory(category),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(PayaboRadii.pill),
-                    side: const BorderSide(color: PayaboColors.border),
+                    side: BorderSide(color: c.border),
                   ),
                 );
               },
@@ -154,7 +156,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
                                             vertical: 3,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: PayaboColors.primary,
+                                            color: c.primary,
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                           ),
@@ -162,12 +164,12 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
                                             'SPONSORED',
                                             style: Theme.of(context)
                                                 .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color: PayaboColors.white,
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 10,
-                                                ),
+                                                 .bodySmall
+                                                 ?.copyWith(
+                                                   color: Colors.white,
+                                                   fontWeight: FontWeight.w700,
+                                                   fontSize: 10,
+                                                 ),
                                           ),
                                         )
                                       : const SizedBox.shrink(),
@@ -249,6 +251,8 @@ class _ProviderPlaceholderList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Column(
       children: List<Widget>.generate(3, (int index) {
         return Padding(
@@ -260,12 +264,12 @@ class _ProviderPlaceholderList extends StatelessWidget {
               children: <Widget>[
                 Container(
                   height: 120,
-                  decoration: const BoxDecoration(
-                    borderRadius: BorderRadius.only(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(PayaboRadii.sm),
                       topRight: Radius.circular(PayaboRadii.sm),
                     ),
-                    color: PayaboColors.background,
+                    color: c.background,
                   ),
                 ),
                 Padding(

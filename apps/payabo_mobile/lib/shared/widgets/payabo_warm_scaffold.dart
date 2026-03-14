@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/payabo_colors.dart';
-import '../theme/payabo_gradients.dart';
+import '../theme/payabo_color_resolver.dart';
 
 class PayaboWarmScaffold extends StatelessWidget {
   const PayaboWarmScaffold({
@@ -15,12 +14,14 @@ class PayaboWarmScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceWarm,
       bottomNavigationBar: bottomNavigationBar,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
+        decoration: BoxDecoration(
+          gradient: c.warmScreenGradient,
         ),
         child: SafeArea(
           child: body,

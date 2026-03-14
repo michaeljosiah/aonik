@@ -10,8 +10,9 @@ import '../../../app/demo/demo_data_mode.dart';
 import '../../../app/environment/environment_provider.dart';
 import '../../../app/startup/offline_mode_provider.dart';
 import '../../../data/api/api_exception.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/theme/theme_mode_provider.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
@@ -62,6 +63,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(profileCoreProvider);
     final demoDataMode = ref.watch(demoDataModeProvider);
+    final themeMode = ref.watch(themeModeProvider);
     final environment = ref.watch(appEnvironmentProvider);
     final isOfflineMode = ref.watch(offlineModeProvider);
     final showDemoDataPreferences =
@@ -76,11 +78,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               state,
               showDemoDataPreferences: showDemoDataPreferences,
               demoDataMode: demoDataMode,
+              themeMode: themeMode,
             )
-          : const Center(
+            : const Center(
               child: Padding(
                 padding: EdgeInsets.only(top: 80),
-                child: CircularProgressIndicator(color: PayaboColors.primary),
+                child: CircularProgressIndicator(),
               ),
             ),
     );
@@ -91,7 +94,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ProfileCoreState state, {
     required bool showDemoDataPreferences,
     required DemoDataMode demoDataMode,
+    required ThemeMode themeMode,
   }) {
+    final c = context.colors;
+    final isDarkMode = themeMode == ThemeMode.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -107,8 +114,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 onTap: _openPhotoPicker,
                 child: Text(
                   state.photoLabel,
-                  style: const TextStyle(
-                    color: PayaboColors.primary,
+                  style: TextStyle(
+                    color: c.primary,
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
@@ -145,6 +152,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           leading: const _MenuIcon(Icons.campaign_outlined),
           onTap: () => context.go('/profile/marketing'),
         ),
+        const SizedBox(height: PayaboSpacing.sm),
+        PayaboListRow(
+          title: 'Dark theme',
+          subtitle: isDarkMode
+              ? 'Using the night palette across Payabo'
+              : 'Using the warm light palette across Payabo',
+          leading: const _MenuIcon(Icons.dark_mode_outlined),
+          trailing: Switch.adaptive(
+            value: isDarkMode,
+            activeThumbColor: c.surfaceBase,
+            activeTrackColor: c.primary,
+            onChanged: (bool value) {
+              ref.read(themeModeProvider.notifier).setMode(
+                    value ? ThemeMode.dark : ThemeMode.light,
+                  );
+            },
+          ),
+          onTap: () {
+            ref.read(themeModeProvider.notifier).setMode(
+                  isDarkMode ? ThemeMode.light : ThemeMode.dark,
+                );
+          },
+        ),
         if (showDemoDataPreferences) ...<Widget>[
           const SizedBox(height: PayaboSpacing.sm),
           PayaboListRow(
@@ -165,13 +195,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             context.go('/intro');
           },
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: PayaboSpacing.md),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
             child: Center(
               child: Text(
                 'LOG OUT',
                 style: TextStyle(
-                  color: PayaboColors.primary,
+                  color: c.primary,
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                 ),
@@ -180,10 +210,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
         const SizedBox(height: PayaboSpacing.xs),
-        const Center(
+        Center(
           child: Text(
             'Version 22.0001.01',
-            style: TextStyle(color: PayaboColors.muted, fontSize: 12),
+            style: TextStyle(color: c.muted, fontSize: 12),
           ),
         ),
       ],
@@ -191,6 +221,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _openPhotoPicker() async {
+    final c = context.colors;
     final state = ref.read(profileCoreProvider);
     final hasPhoto = state.photoUrl != null;
 
@@ -209,7 +240,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               _takePhoto();
             },
           ),
-          const Divider(height: 1, color: PayaboColors.border),
+          Divider(height: 1, color: c.border),
           _ModalOption(
             label: 'CHOOSE PHOTO',
             onTap: () {
@@ -218,10 +249,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             },
           ),
           if (hasPhoto) ...<Widget>[
-            const Divider(height: 1, color: PayaboColors.border),
+            Divider(height: 1, color: c.border),
             _ModalOption(
               label: 'DELETE PHOTO',
-              color: PayaboColors.primary,
+              color: c.primary,
               onTap: () async {
                 Navigator.of(context).pop();
                 try {
@@ -296,7 +327,7 @@ class _MenuIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Icon(icon, size: 24, color: PayaboColors.muted);
+    return Icon(icon, size: 24, color: context.colors.muted);
   }
 }
 
@@ -314,20 +345,22 @@ class _ModalOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.lg),
         child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: color ?? PayaboColors.ink,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: color ?? c.ink,
+              ),
             ),
           ),
-        ),
       ),
     );
   }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
 import 'profile_scaffold.dart';
@@ -157,7 +157,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: PayaboColors.muted),
+                    Icon(Icons.chevron_right, color: context.colors.muted),
                   ],
                 ),
               ),
@@ -205,6 +205,8 @@ class _ToggleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
       child: PayaboCard(
@@ -219,10 +221,10 @@ class _ToggleCard extends StatelessWidget {
                 child: Switch.adaptive(
                   value: value,
                   onChanged: onChanged,
-                  activeThumbColor: PayaboColors.white,
-                  activeTrackColor: PayaboColors.success,
-                  inactiveThumbColor: PayaboColors.white,
-                  inactiveTrackColor: PayaboColors.background,
+                  activeThumbColor: c.surfaceBase,
+                  activeTrackColor: c.success,
+                  inactiveThumbColor: c.surfaceBase,
+                  inactiveTrackColor: c.background,
                 ),
               ),
             ),
@@ -252,6 +254,7 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final borderRadius = BorderRadius.only(
       topLeft: isFirst ? const Radius.circular(6) : Radius.zero,
       bottomLeft: isFirst ? const Radius.circular(6) : Radius.zero,
@@ -265,14 +268,14 @@ class _TabButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? PayaboColors.primary : PayaboColors.background,
+          color: selected ? c.primary : c.background,
           borderRadius: borderRadius,
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: selected ? PayaboColors.white : PayaboColors.ink,
+                color: selected ? Colors.white : c.ink,
                 fontWeight: FontWeight.w700,
               ),
         ),

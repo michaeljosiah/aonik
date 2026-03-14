@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
 import '../../../shared/reference/payabo_country_reference.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
@@ -143,6 +143,8 @@ class _CountryCodePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return InkWell(
       onTap: () => _showPicker(context),
       borderRadius: BorderRadius.circular(4),
@@ -151,9 +153,9 @@ class _CountryCodePicker extends StatelessWidget {
           horizontal: PayaboSpacing.sm,
           vertical: PayaboSpacing.sm,
         ),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: PayaboColors.border, width: 1),
+            bottom: BorderSide(color: c.border, width: 1),
           ),
         ),
         child: Row(
@@ -166,11 +168,10 @@ class _CountryCodePicker extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .bodyLarge
-                  ?.copyWith(color: PayaboColors.ink),
+                  ?.copyWith(color: c.ink),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.arrow_drop_down,
-                size: 20, color: PayaboColors.muted),
+            Icon(Icons.arrow_drop_down, size: 20, color: c.muted),
           ],
         ),
       ),
@@ -178,17 +179,22 @@ class _CountryCodePicker extends StatelessWidget {
   }
 
   Future<void> _showPicker(BuildContext context) async {
+    final c = context.colors;
+
     final result = await showModalBottomSheet<PayaboCountryReference>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: c.surfaceBase,
       builder: (ctx) {
+        final sheetColors = ctx.colors;
+
         return SafeArea(
           child: ListView.separated(
             shrinkWrap: true,
             physics: const ClampingScrollPhysics(),
             itemCount: payaboCountries.length,
             separatorBuilder: (_, __) =>
-                const Divider(height: 1, color: PayaboColors.border),
+                Divider(height: 1, color: sheetColors.border),
             itemBuilder: (ctx, index) {
               final entry = payaboCountries[index];
               final isSelected = entry.code == selected.code;
@@ -199,8 +205,7 @@ class _CountryCodePicker extends StatelessWidget {
                 trailing: Text(
                   entry.dialCode,
                   style: TextStyle(
-                    color:
-                        isSelected ? PayaboColors.primary : PayaboColors.muted,
+                    color: isSelected ? sheetColors.primary : sheetColors.muted,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                   ),
                 ),

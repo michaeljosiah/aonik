@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../shared/theme/payabo_colors.dart';
-import '../../../shared/theme/payabo_gradients.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -29,6 +28,7 @@ class _SpendingCategoryDetailScreenState
     extends ConsumerState<SpendingCategoryDetailScreen> {
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final _SpendingCategoryDetailData detail =
         _SpendingCategoryDetailData.fromId(widget.categoryId);
@@ -36,10 +36,10 @@ class _SpendingCategoryDetailScreenState
         isFreshDemo ? null : detail.transactions.first;
 
     return Scaffold(
-      backgroundColor: PayaboColors.surfaceWarm,
+      backgroundColor: c.surfaceWarm,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: PayaboGradients.warmScreen,
+        decoration: BoxDecoration(
+          gradient: c.warmScreenGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -67,21 +67,20 @@ class _SpendingCategoryDetailScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                Text(
-                                  detail.monthLabel,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(color: PayaboColors.muted),
-                                ),
-                                const SizedBox(height: PayaboSpacing.xs),
-                                Text(
-                                  detail.totalAmount,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium
-                                      ?.copyWith(fontSize: 56),
-                                ),
+                                 Text(
+                                   detail.monthLabel,
+                                   style: Theme.of(context)
+                                       .textTheme
+                                       .titleMedium
+                                       ?.copyWith(color: c.muted),
+                                 ),
+                                 const SizedBox(height: PayaboSpacing.xs),
+                                 Text(
+                                   detail.totalAmount,
+                                   style: Theme.of(context)
+                                       .textTheme
+                                       .displayMedium,
+                                 ),
                                 const SizedBox(height: PayaboSpacing.xs),
                                 Row(
                                   children: <Widget>[
@@ -89,34 +88,34 @@ class _SpendingCategoryDetailScreenState
                                       detail.deltaAmount,
                                       style: Theme.of(context)
                                           .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            color: detail.isDecrease
-                                                ? PayaboColors.success
-                                                : PayaboColors.danger,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                    Icon(
-                                      detail.isDecrease
-                                          ? Icons.arrow_drop_down
-                                          : Icons.arrow_drop_up,
-                                      color: detail.isDecrease
-                                          ? PayaboColors.success
-                                          : PayaboColors.danger,
-                                      size: 20,
-                                    ),
+                                             .titleMedium
+                                             ?.copyWith(
+                                               color: detail.isDecrease
+                                                 ? c.success
+                                                 : c.danger,
+                                               fontWeight: FontWeight.w700,
+                                             ),
+                                     ),
+                                     Icon(
+                                       detail.isDecrease
+                                           ? Icons.arrow_drop_down
+                                           : Icons.arrow_drop_up,
+                                       color: detail.isDecrease
+                                           ? c.success
+                                           : c.danger,
+                                       size: 20,
+                                     ),
                                     Expanded(
                                       child: Text(
                                         detail.deltaReference,
                                         style: Theme.of(context)
                                             .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              color: PayaboColors.muted,
-                                            ),
-                                      ),
-                                    ),
+                                             .titleMedium
+                                             ?.copyWith(
+                                               color: c.muted,
+                                             ),
+                                       ),
+                                     ),
                                   ],
                                 ),
                               ],
@@ -127,13 +126,13 @@ class _SpendingCategoryDetailScreenState
                             width: 120,
                             height: 120,
                             decoration: BoxDecoration(
-                              color: PayaboColors.background,
+                              color: c.background,
                               shape: BoxShape.circle,
-                              border: Border.all(color: PayaboColors.border),
+                              border: Border.all(color: c.border),
                             ),
                             child: Icon(
                               detail.icon,
-                              color: PayaboColors.primary,
+                              color: c.primary,
                               size: 56,
                             ),
                           ),
@@ -155,13 +154,13 @@ class _SpendingCategoryDetailScreenState
                       const SizedBox(height: PayaboSpacing.xl),
                       _ActiveAlertBanner(alertCount: detail.activeAlertCount),
                       const SizedBox(height: PayaboSpacing.xl),
-                      Text(
-                        detail.transactionCountLabel,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(color: PayaboColors.muted),
-                      ),
+                       Text(
+                         detail.transactionCountLabel,
+                         style: Theme.of(context)
+                             .textTheme
+                             .titleLarge
+                             ?.copyWith(color: c.muted),
+                       ),
                       const SizedBox(height: PayaboSpacing.md),
                       _TransactionDateRow(
                         dateLabel: transaction!.dateLabel,
@@ -175,7 +174,7 @@ class _SpendingCategoryDetailScreenState
                           style: Theme.of(context)
                               .textTheme
                               .titleLarge
-                              ?.copyWith(color: PayaboColors.muted),
+                              ?.copyWith(color: c.muted),
                         ),
                       ),
                     ],
@@ -200,9 +199,11 @@ class _FreshSpendingDetailState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: PayaboColors.white,
+      decoration: BoxDecoration(
+        color: c.surfaceBase,
         borderRadius: PayaboRadii.radiusLg,
         boxShadow: PayaboShadows.soft,
       ),
@@ -216,13 +217,13 @@ class _FreshSpendingDetailState extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: PayaboColors.background,
+                  color: c.background,
                   shape: BoxShape.circle,
-                  border: Border.all(color: PayaboColors.border),
+                  border: Border.all(color: c.border),
                 ),
                 child: Icon(
                   detail.icon,
-                  color: PayaboColors.primary,
+                  color: c.primary,
                   size: 28,
                 ),
               ),
@@ -231,7 +232,7 @@ class _FreshSpendingDetailState extends StatelessWidget {
                 child: Text(
                   'No ${detail.title.toLowerCase()} transactions yet',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: PayaboColors.accentBrown,
+                        color: c.accentBrown,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -242,7 +243,7 @@ class _FreshSpendingDetailState extends StatelessWidget {
           Text(
             'Fresh demo mode removes sample charts, alerts, and transaction rows for this spending detail view.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                   height: 1.45,
                 ),
           ),
@@ -250,7 +251,7 @@ class _FreshSpendingDetailState extends StatelessWidget {
           Text(
             'Switch to Populated demo data in Profile if you want sample category or merchant insights here.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.chatTextSecondary,
+                  color: c.chatTextSecondary,
                 ),
           ),
         ],
@@ -270,11 +271,13 @@ class _CategoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Color(0xFFF9F0E2),
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: c.surfaceWarmAccent,
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(32),
           bottomRight: Radius.circular(32),
         ),
@@ -302,16 +305,15 @@ class _CategoryHeader extends StatelessWidget {
                 IconButton(
                   onPressed: onBackTap,
                   icon: const Icon(Icons.arrow_back_ios_new),
-                  color: PayaboColors.primary,
+                  color: c.primary,
                 ),
                 const SizedBox(width: PayaboSpacing.xs),
                 Expanded(
                   child: Text(
                     title,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontSize: 42,
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF4D3120),
+                          color: c.accentBrown,
                         ),
                   ),
                 ),
@@ -337,12 +339,13 @@ class _DetailComparisonChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final Color amountColor =
-        isDecrease ? PayaboColors.success : PayaboColors.danger;
+        isDecrease ? c.success : c.danger;
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: PayaboColors.white,
+      decoration: BoxDecoration(
+        color: c.surfaceBase,
         borderRadius: PayaboRadii.radiusLg,
         boxShadow: PayaboShadows.soft,
       ),
@@ -370,7 +373,7 @@ class _DetailComparisonChip extends StatelessWidget {
               Text(
                 deltaReference,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: PayaboColors.muted,
+                      color: c.muted,
                     ),
               ),
             ],
@@ -408,6 +411,8 @@ class _CategorySpendingChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return LineChart(
       LineChartData(
         minX: 1,
@@ -420,7 +425,7 @@ class _CategorySpendingChart extends StatelessWidget {
           verticalLines: <VerticalLine>[
             VerticalLine(
               x: 5,
-              color: PayaboColors.borderStrong,
+              color: c.borderStrong,
               strokeWidth: 1,
               dashArray: <int>[4, 4],
             ),
@@ -441,19 +446,20 @@ class _CategorySpendingChart extends StatelessWidget {
               showTitles: true,
               reservedSize: 30,
               interval: 1,
-              getTitlesWidget: _buildBottomTitle,
+              getTitlesWidget: (double value, TitleMeta meta) =>
+                  _buildBottomTitle(value, meta, c.muted),
             ),
           ),
         ),
         borderData: FlBorderData(
           show: true,
-          border: const Border(bottom: BorderSide(color: PayaboColors.border)),
+          border: Border(bottom: BorderSide(color: c.border)),
         ),
         lineBarsData: <LineChartBarData>[
           LineChartBarData(
             spots: _previousMonthSpots,
             isCurved: false,
-            color: PayaboColors.muted.withValues(alpha: 0.4),
+            color: c.muted.withValues(alpha: 0.4),
             barWidth: 3,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(show: false),
@@ -461,7 +467,7 @@ class _CategorySpendingChart extends StatelessWidget {
           LineChartBarData(
             spots: _currentMonthSpots,
             isCurved: false,
-            color: PayaboColors.ink,
+            color: c.ink,
             barWidth: 3,
             dotData: FlDotData(
               show: true,
@@ -476,9 +482,9 @@ class _CategorySpendingChart extends StatelessWidget {
               ) {
                 return FlDotCirclePainter(
                   radius: 7,
-                  color: PayaboColors.success,
+                  color: c.success,
                   strokeWidth: 2,
-                  strokeColor: PayaboColors.successSoft,
+                  strokeColor: c.successSoft,
                 );
               },
             ),
@@ -489,7 +495,7 @@ class _CategorySpendingChart extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomTitle(double value, TitleMeta meta) {
+  Widget _buildBottomTitle(double value, TitleMeta meta, Color textColor) {
     String? label;
     final int day = value.round();
 
@@ -510,10 +516,10 @@ class _CategorySpendingChart extends StatelessWidget {
       space: PayaboSpacing.sm,
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: PayaboColors.muted,
+          color: textColor,
         ),
       ),
     );
@@ -527,9 +533,11 @@ class _ActiveAlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: PayaboColors.white,
+      decoration: BoxDecoration(
+        color: c.surfaceBase,
         borderRadius: PayaboRadii.radiusLg,
         boxShadow: PayaboShadows.soft,
       ),
@@ -544,13 +552,13 @@ class _ActiveAlertBanner extends StatelessWidget {
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                border: Border.all(color: PayaboColors.primary, width: 2),
+                border: Border.all(color: c.primary, width: 2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.currency_pound,
                 size: 18,
-                color: PayaboColors.primary,
+                color: c.primary,
               ),
             ),
             const SizedBox(width: PayaboSpacing.md),
@@ -558,7 +566,7 @@ class _ActiveAlertBanner extends StatelessWidget {
               child: Text(
                 '$alertCount active spending alert',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: PayaboColors.primary,
+                      color: c.primary,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -581,26 +589,28 @@ class _TransactionDateRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: PayaboSpacing.lg,
         vertical: PayaboSpacing.sm,
       ),
-      color: PayaboColors.background,
+      color: c.background,
       child: Row(
         children: <Widget>[
           Expanded(
             child: Text(
               dateLabel,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: PayaboColors.muted,
+                    color: c.muted,
                   ),
             ),
           ),
           Text(
             totalAmount,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                 ),
           ),
         ],
@@ -616,14 +626,16 @@ class _TransactionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: PayaboSpacing.lg,
         vertical: PayaboSpacing.lg,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: PayaboColors.border),
+          bottom: BorderSide(color: c.border),
         ),
       ),
       child: Row(
@@ -660,7 +672,7 @@ class _TransactionListItem extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
-                      ?.copyWith(color: PayaboColors.muted),
+                      ?.copyWith(color: c.muted),
                 ),
               ],
             ),
@@ -673,8 +685,7 @@ class _TransactionListItem extends StatelessWidget {
                 transaction.amount,
                 style: Theme.of(context)
                     .textTheme
-                    .headlineMedium
-                    ?.copyWith(fontSize: 42),
+                    .displaySmall,
               ),
               const SizedBox(height: PayaboSpacing.sm),
               Row(
@@ -685,21 +696,21 @@ class _TransactionListItem extends StatelessWidget {
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
-                        ?.copyWith(color: PayaboColors.muted),
+                        ?.copyWith(color: c.muted),
                   ),
                   const SizedBox(width: PayaboSpacing.sm),
                   Container(
                     width: 34,
                     height: 34,
-                    decoration: const BoxDecoration(
-                      color: PayaboColors.ink,
+                    decoration: BoxDecoration(
+                      color: c.ink,
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       transaction.accountBadge,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: PayaboColors.success,
+                            color: c.success,
                             fontWeight: FontWeight.w700,
                           ),
                     ),

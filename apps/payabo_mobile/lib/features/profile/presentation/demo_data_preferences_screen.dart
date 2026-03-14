@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import 'profile_scaffold.dart';
@@ -13,6 +13,7 @@ class DemoDataPreferencesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
     final demoDataMode = ref.watch(demoDataModeProvider);
 
     Future<void> selectMode(DemoDataMode mode) async {
@@ -64,7 +65,7 @@ class DemoDataPreferencesScreen extends ConsumerWidget {
           Text(
             'Applies to supported demo areas such as profile, dashboard, and checkout setup.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: PayaboColors.muted,
+                  color: c.muted,
                 ),
           ),
         ],
@@ -90,13 +91,15 @@ class _DemoDataOptionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return PayaboListRow(
       title: title,
       subtitle: subtitle,
-      leading: Icon(icon, size: 24, color: PayaboColors.muted),
+      leading: Icon(icon, size: 24, color: c.muted),
       trailing: Icon(
         selected ? Icons.radio_button_checked : Icons.radio_button_off,
-        color: selected ? PayaboColors.primary : PayaboColors.muted,
+        color: selected ? c.primary : c.muted,
       ),
       onTap: onTap,
     );
