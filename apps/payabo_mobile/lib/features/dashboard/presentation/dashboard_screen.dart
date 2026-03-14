@@ -50,6 +50,63 @@ List<_DashboardOverviewSlice> _dashboardOverviewSlices(PayaboColorResolver c) =>
       ),
     ];
 
+String _dashboardAvatarLabel(String text) {
+  final parts = text
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((String part) => part.isNotEmpty)
+      .toList(growable: false);
+
+  if (parts.isEmpty) {
+    return 'NA';
+  }
+
+  if (parts.length == 1) {
+    final word = parts.first.toUpperCase();
+    return word.substring(0, math.min(2, word.length));
+  }
+
+  return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+}
+
+String _dashboardFirstName(String displayName) {
+  final parts = displayName
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((String part) => part.isNotEmpty)
+      .toList(growable: false);
+
+  if (parts.isEmpty) {
+    return 'there';
+  }
+
+  return parts.first;
+}
+
+String _dashboardGreeting(DateTime now) {
+  if (now.hour < 12) {
+    return 'Good morning';
+  }
+
+  if (now.hour < 17) {
+    return 'Good afternoon';
+  }
+
+  return 'Good evening';
+}
+
+String _dashboardDueBillPhrase(int dueBillCount) {
+  if (dueBillCount <= 0) {
+    return 'no bills';
+  }
+
+  if (dueBillCount == 1) {
+    return '1 bill';
+  }
+
+  return '$dueBillCount bills';
+}
+
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({
     super.key,
@@ -85,12 +142,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return PayaboWarmScaffold(
       body: Column(
         children: <Widget>[
-          _DashboardHeader(
-            onProfileTap: () => context.go('/profile'),
-            onNotificationsTap: () => context.push('/notifications'),
-            photoUrl: profileState.photoUrl,
-            displayName: profileState.displayName,
-          ),
           Expanded(
             child: summaryValue.when(
               data: (summary) {
@@ -102,6 +153,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: _DashboardContent(
                     summary: summary,
                     isEmpty: isEmpty,
+                    displayName: profileState.displayName,
+                    photoUrl: profileState.photoUrl,
+                    onProfileTap: () => context.go('/profile'),
+                    onNotificationsTap: () => context.push('/notifications'),
                   ),
                 );
               },
@@ -321,12 +376,21 @@ class _DashboardContent extends StatelessWidget {
   const _DashboardContent({
     required this.summary,
     required this.isEmpty,
+    required this.displayName,
+    required this.photoUrl,
+    required this.onProfileTap,
+    required this.onNotificationsTap,
   });
 
   static const int _upcomingBillPreviewLimit = 5;
+  static const int _recentActivityPreviewLimit = 2;
 
   final DashboardSummary summary;
   final bool isEmpty;
+  final String displayName;
+  final String? photoUrl;
+  final VoidCallback onProfileTap;
+  final VoidCallback onNotificationsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -335,35 +399,757 @@ class _DashboardContent extends StatelessWidget {
     final bills = allUpcomingBills
         .take(_upcomingBillPreviewLimit)
         .toList(growable: false);
+    final recentTransactions = isEmpty
+        ? const <DashboardTransaction>[]
+        : summary.recentTransactions
+            .take(_recentActivityPreviewLimit)
+            .toList(growable: false);
 
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        PayaboSpacing.xl,
-        0,
-        PayaboSpacing.xl,
-        PayaboSpacing.x2,
-      ),
+    return _DashboardHeroInsightsSection(
+      displayName: displayName,
+      photoUrl: photoUrl,
+      onProfileTap: onProfileTap,
+      onNotificationsTap: onNotificationsTap,
+      dueBillCount: allUpcomingBills.length,
+      recentTransactions: recentTransactions,
+      upcomingBills: bills,
+      isEmpty: isEmpty,
+    );
+  }
+}
+
+class _DashboardHeroInsightsSection extends StatefulWidget {
+  const _DashboardHeroInsightsSection({
+    required this.displayName,
+    required this.photoUrl,
+    required this.onProfileTap,
+    required this.onNotificationsTap,
+    required this.dueBillCount,
+    required this.recentTransactions,
+    required this.upcomingBills,
+    required this.isEmpty,
+  });
+
+  static const double _minHeroHeight = 248;
+  static const double _maxHeroHeight = 300;
+  static const double _maxSheetSize = 1.0;
+  static const double _pinnedHeaderHeight = 76;
+  static const double _sheetTopGap = 10;
+
+  final String displayName;
+  final String? photoUrl;
+  final VoidCallback onProfileTap;
+  final VoidCallback onNotificationsTap;
+  final int dueBillCount;
+  final List<DashboardTransaction> recentTransactions;
+  final List<DashboardUpcomingBill> upcomingBills;
+  final bool isEmpty;
+
+  @override
+  State<_DashboardHeroInsightsSection> createState() =>
+      _DashboardHeroInsightsSectionState();
+}
+
+class _DashboardHeroInsightsSectionState
+    extends State<_DashboardHeroInsightsSection> {
+  late final DraggableScrollableController _sheetController;
+  late final ValueNotifier<double> _sheetExtentNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _sheetController = DraggableScrollableController();
+    _sheetExtentNotifier = ValueNotifier<double>(0);
+    _sheetController.addListener(_syncSheetExtent);
+  }
+
+  void _syncSheetExtent() {
+    if (!_sheetController.isAttached) {
+      return;
+    }
+
+    final double nextExtent = _sheetController.size;
+
+    if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
+      _sheetExtentNotifier.value = nextExtent;
+    }
+  }
+
+  @override
+  void dispose() {
+    _sheetController.removeListener(_syncSheetExtent);
+    _sheetController.dispose();
+    _sheetExtentNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double viewportHeight =
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 640;
+        final double heroHeight = math.min(
+          _DashboardHeroInsightsSection._maxHeroHeight,
+          math.max(
+            _DashboardHeroInsightsSection._minHeroHeight,
+            viewportHeight * 0.37,
+          ),
+        );
+        const double pinnedSheetTop =
+            _DashboardHeroInsightsSection._pinnedHeaderHeight +
+                _DashboardHeroInsightsSection._sheetTopGap;
+        final double sheetViewportHeight = math.max(
+          1,
+          viewportHeight - pinnedSheetTop,
+        );
+        final double collapsedSheetTop = math.max(
+          pinnedSheetTop + 132,
+          heroHeight - PayaboSpacing.lg,
+        );
+        final double initialSheetSize =
+            (1 - ((collapsedSheetTop - pinnedSheetTop) / sheetViewportHeight))
+                .clamp(0.72, 0.84)
+                .toDouble();
+        final double minSheetSize =
+            (initialSheetSize - 0.12).clamp(0.60, initialSheetSize).toDouble();
+        final double heroBottomPadding = math.max(
+          72,
+          heroHeight - collapsedSheetTop + 56,
+        );
+
+        return Stack(
+          children: <Widget>[
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: heroHeight,
+              child: _DashboardHeroBanner(
+                displayName: widget.displayName,
+                dueBillCount: widget.dueBillCount,
+                isEmpty: widget.isEmpty,
+                bottomPadding: heroBottomPadding,
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: _DashboardHeroInsightsSection._pinnedHeaderHeight,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _sheetExtentNotifier,
+                builder: (
+                  BuildContext context,
+                  double sheetExtent,
+                  Widget? child,
+                ) {
+                  final double effectiveSheetExtent =
+                      (sheetExtent <= 0 ? initialSheetSize : sheetExtent)
+                          .clamp(
+                            minSheetSize,
+                            _DashboardHeroInsightsSection._maxSheetSize,
+                          )
+                          .toDouble();
+                  final double sheetRange = math.max(
+                    0.0001,
+                    _DashboardHeroInsightsSection._maxSheetSize -
+                        initialSheetSize,
+                  );
+                  final double headerBackgroundProgress =
+                      Curves.easeOut.transform(
+                    ((effectiveSheetExtent - initialSheetSize) / sheetRange)
+                        .clamp(0, 1)
+                        .toDouble(),
+                  );
+
+                  return _DashboardPinnedHeader(
+                    backgroundProgress: headerBackgroundProgress,
+                    photoUrl: widget.photoUrl,
+                    onProfileTap: widget.onProfileTap,
+                    onNotificationsTap: widget.onNotificationsTap,
+                  );
+                },
+              ),
+            ),
+            Positioned(
+              top: pinnedSheetTop,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: DraggableScrollableSheet(
+                controller: _sheetController,
+                initialChildSize: initialSheetSize,
+                minChildSize: minSheetSize,
+                maxChildSize: _DashboardHeroInsightsSection._maxSheetSize,
+                snap: true,
+                snapSizes: <double>[
+                  initialSheetSize,
+                  _DashboardHeroInsightsSection._maxSheetSize,
+                ],
+                builder: (
+                  BuildContext context,
+                  ScrollController scrollController,
+                ) {
+                  return _DashboardStatsSheet(
+                    scrollController: scrollController,
+                    dueBillCount: widget.dueBillCount,
+                    recentTransactions: widget.recentTransactions,
+                    upcomingBills: widget.upcomingBills,
+                    isEmpty: widget.isEmpty,
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DashboardPinnedHeader extends StatelessWidget {
+  const _DashboardPinnedHeader({
+    required this.backgroundProgress,
+    required this.photoUrl,
+    required this.onProfileTap,
+    required this.onNotificationsTap,
+  });
+
+  final double backgroundProgress;
+  final String? photoUrl;
+  final VoidCallback onProfileTap;
+  final VoidCallback onNotificationsTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Stack(
+      fit: StackFit.expand,
       children: <Widget>[
-        _InsightCarouselSection(
-          dueBillCount: allUpcomingBills.length,
-          isEmpty: isEmpty,
+        IgnorePointer(
+          child: Opacity(
+            opacity: backgroundProgress,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: c.warmScreenGradient,
+                boxShadow: backgroundProgress > 0
+                    ? const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x12000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : const <BoxShadow>[],
+              ),
+            ),
+          ),
         ),
-        const SizedBox(height: PayaboSpacing.md),
-        _DashboardFeatureRow(isEmpty: isEmpty),
-        const SizedBox(height: PayaboSpacing.xl),
-        const _DashboardOverviewCard(),
-        const SizedBox(height: PayaboSpacing.xl),
-        _DashboardListHeader(
-          title: 'Upcoming bills',
-          actionLabel: isEmpty ? null : 'View all',
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            PayaboSpacing.xl,
+            PayaboSpacing.md,
+            PayaboSpacing.xl,
+            0,
+          ),
+          child: Row(
+            children: <Widget>[
+              _DashboardProfileAvatar(
+                onTap: onProfileTap,
+                photoUrl: photoUrl,
+              ),
+              const Spacer(),
+              _DashboardNotificationButton(onTap: onNotificationsTap),
+            ],
+          ),
         ),
-        const SizedBox(height: PayaboSpacing.md),
-        if (bills.isEmpty)
-          const _DashboardEmptyBillsCard()
-        else
-          _UpcomingBillsCardV2(items: bills),
       ],
+    );
+  }
+}
+
+class _DashboardHeroBanner extends StatelessWidget {
+  const _DashboardHeroBanner({
+    required this.displayName,
+    required this.dueBillCount,
+    required this.isEmpty,
+    required this.bottomPadding,
+  });
+
+  final String displayName;
+  final int dueBillCount;
+  final bool isEmpty;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final String firstName = _dashboardFirstName(displayName);
+    final String greeting = _dashboardGreeting(DateTime.now());
+    final String dueBillPhrase = _dashboardDueBillPhrase(dueBillCount);
+    final TextStyle baseMessageStyle = textTheme.bodyLarge?.copyWith(
+          color: Colors.white.withValues(alpha: 0.76),
+          height: 1.45,
+        ) ??
+        const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          height: 1.45,
+        );
+    final TextStyle emphasisStyle = baseMessageStyle.copyWith(
+      color: const Color(0xFFF3A85C),
+      fontWeight: FontWeight.w700,
+    );
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[Color(0xFF2D2421), Color(0xFF171313)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: -56,
+            right: -28,
+            child: Container(
+              width: 176,
+              height: 176,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF37920).withValues(alpha: 0.16),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -48,
+            bottom: 24,
+            child: Container(
+              width: 148,
+              height: 148,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF2FA36B).withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              PayaboSpacing.xl,
+              0,
+              PayaboSpacing.xl,
+              bottomPadding,
+            ),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 360),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Today\'s insight',
+                      style: textTheme.labelLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.64),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.sm),
+                    Text(
+                      '$greeting, $firstName.',
+                      style: textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.md),
+                    Text.rich(
+                      TextSpan(
+                        style: baseMessageStyle,
+                        children: isEmpty
+                            ? <InlineSpan>[
+                                const TextSpan(
+                                    text: 'This might interest you. '),
+                                const TextSpan(
+                                  text:
+                                      'Add your first bill to unlock daily insights, spendable balance guidance, and due reminders.',
+                                ),
+                              ]
+                            : <InlineSpan>[
+                                const TextSpan(
+                                    text: 'This might interest you. '),
+                                const TextSpan(text: 'You have '),
+                                TextSpan(
+                                  text: 'GHS 1,285.00',
+                                  style: emphasisStyle,
+                                ),
+                                const TextSpan(text: ' available to spend, '),
+                                TextSpan(
+                                  text: dueBillPhrase,
+                                  style: emphasisStyle,
+                                ),
+                                const TextSpan(text: ' due this week, and '),
+                                TextSpan(
+                                  text: 'GHS 620',
+                                  style: emphasisStyle,
+                                ),
+                                const TextSpan(
+                                  text: ' added to your net worth this month.',
+                                ),
+                              ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardStatsSheet extends StatelessWidget {
+  const _DashboardStatsSheet({
+    required this.scrollController,
+    required this.dueBillCount,
+    required this.recentTransactions,
+    required this.upcomingBills,
+    required this.isEmpty,
+  });
+
+  final ScrollController scrollController;
+  final int dueBillCount;
+  final List<DashboardTransaction> recentTransactions;
+  final List<DashboardUpcomingBill> upcomingBills;
+  final bool isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final Color sheetBackground =
+        c.isDark ? const Color(0xFFF4EDE3) : c.surfaceWarmElevated;
+    final Color sheetBorder = c.isDark ? const Color(0xFFE2D4C4) : c.borderWarm;
+    final Color handleColor = c.isDark ? const Color(0xFFCCBCAA) : c.borderWarm;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: sheetBackground,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(32),
+          topRight: Radius.circular(32),
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+        border: Border.all(color: sheetBorder),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1F000000),
+            blurRadius: 24,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      child: ListView(
+        controller: scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          PayaboSpacing.md,
+          PayaboSpacing.xl,
+          PayaboSpacing.x4,
+        ),
+        children: <Widget>[
+          Center(
+            child: Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
+                color: handleColor,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          _DashboardMetricSummary(
+            dueBillCount: dueBillCount,
+            isEmpty: isEmpty,
+          ),
+          if (recentTransactions.isNotEmpty) ...<Widget>[
+            const SizedBox(height: PayaboSpacing.lg),
+            const _DashboardListHeader(title: 'Recent activity'),
+            const SizedBox(height: PayaboSpacing.md),
+            _RecentActivityCard(items: recentTransactions),
+          ],
+          const SizedBox(height: PayaboSpacing.xl),
+          _DashboardFeatureRow(isEmpty: isEmpty),
+          const SizedBox(height: PayaboSpacing.xl),
+          const _DashboardOverviewCard(),
+          const SizedBox(height: PayaboSpacing.xl),
+          _DashboardListHeader(
+            title: 'Upcoming bills',
+            actionLabel: isEmpty ? null : 'View all',
+          ),
+          const SizedBox(height: PayaboSpacing.md),
+          if (upcomingBills.isEmpty)
+            const _DashboardEmptyBillsCard()
+          else
+            _UpcomingBillsCardV2(items: upcomingBills),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardMetricSummary extends StatelessWidget {
+  const _DashboardMetricSummary({
+    required this.dueBillCount,
+    required this.isEmpty,
+  });
+
+  final int dueBillCount;
+  final bool isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                'Today at a glance',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: const Color(0xFF2C2017),
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+            _DashboardStatusPill(label: isEmpty ? 'set up' : 'updated today'),
+          ],
+        ),
+        const SizedBox(height: PayaboSpacing.md),
+        _DashboardSpendableBalanceCard(isEmpty: isEmpty),
+        const SizedBox(height: PayaboSpacing.md),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _DashboardMiniStatCard(
+                icon: Icons.receipt_long_outlined,
+                label: 'Bills due',
+                value: isEmpty ? '0' : dueBillCount.toString(),
+                detail: isEmpty ? 'Nothing scheduled yet' : 'Due this week',
+                accentColor: const Color(0xFFD97A1D),
+              ),
+            ),
+            const SizedBox(width: PayaboSpacing.md),
+            Expanded(
+              child: _DashboardMiniStatCard(
+                icon: Icons.trending_up_rounded,
+                label: 'Net worth',
+                value: isEmpty ? 'GHS 0.00' : 'GHS 18.4k',
+                detail: isEmpty
+                    ? 'Link balances to track growth'
+                    : '+GHS 620 this month',
+                accentColor: const Color(0xFF2FA36B),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardSpendableBalanceCard extends StatelessWidget {
+  const _DashboardSpendableBalanceCard({required this.isEmpty});
+
+  final bool isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: c.spendingSafeToSpendGradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: PayaboShadows.medium,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(PayaboSpacing.lg),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Available to spend',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Colors.white,
+                        ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.xs),
+                  Text(
+                    isEmpty ? 'GHS 0.00' : 'GHS 1,285.00',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.xs),
+                  Text(
+                    isEmpty
+                        ? 'Add bills and budgets to unlock your spendable balance.'
+                        : 'After bills, savings, and your weekly safety buffer.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.82),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: PayaboSpacing.lg),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.account_balance_wallet_outlined,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardMiniStatCard extends StatelessWidget {
+  const _DashboardMiniStatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.accentColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    const Color titleColor = Color(0xFF2F2118);
+    const Color subtitleColor = Color(0xFF79695C);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFAF5),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6D8C7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: accentColor, size: 20),
+              ),
+              const SizedBox(width: PayaboSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: subtitleColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: PayaboSpacing.md),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: titleColor,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.xs),
+          Text(
+            detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: subtitleColor,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentActivityCard extends StatelessWidget {
+  const _RecentActivityCard({required this.items});
+
+  final List<DashboardTransaction> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF7),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE6D8C7)),
+      ),
+      child: Column(
+        children: items
+            .asMap()
+            .entries
+            .map(
+              (MapEntry<int, DashboardTransaction> entry) => _ProductRow(
+                title: entry.value.title,
+                subtitle: entry.value.status,
+                amountLabel: entry.value.amountLabel,
+                showDivider: entry.key != items.length - 1,
+                useLightSurface: true,
+              ),
+            )
+            .toList(growable: false),
+      ),
     );
   }
 }
@@ -579,7 +1365,7 @@ class _TodayInsightCard extends StatelessWidget {
                     Row(
                       children: <Widget>[
                         Expanded(
-                      child: Text(
+                          child: Text(
                             "Today's Insight",
                             overflow: TextOverflow.ellipsis,
                             style: textTheme.titleMedium?.copyWith(
@@ -753,7 +1539,8 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: c.surfaceBase.withValues(alpha: c.isDark ? 0.16 : 0.34),
+                  color:
+                      c.surfaceBase.withValues(alpha: c.isDark ? 0.16 : 0.34),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -1449,7 +2236,8 @@ class _PayaboReminderCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.isDark ? c.borderWarm : const Color(0xFFE2B47D)),
+        border: Border.all(
+            color: c.isDark ? c.borderWarm : const Color(0xFFE2B47D)),
         gradient: LinearGradient(
           colors: c.isDark
               ? <Color>[const Color(0xFF3A2C1E), const Color(0xFF4A3522)]
@@ -1637,7 +2425,7 @@ class _DashboardListHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
+    const Color titleColor = Color(0xFF2C2017);
 
     return Row(
       children: <Widget>[
@@ -1645,9 +2433,9 @@ class _DashboardListHeader extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontSize: 21,
+                  fontSize: 18,
                   fontWeight: FontWeight.w500,
-                  color: c.accentBrown,
+                  color: titleColor,
                 ),
           ),
         ),
@@ -1655,9 +2443,9 @@ class _DashboardListHeader extends StatelessWidget {
           Text(
             actionLabel!,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: c.primary,
+                  color: const Color(0xFFD97A1D),
                 ),
           ),
       ],
@@ -1672,14 +2460,11 @@ class _UpcomingBillsCardV2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-
     return Container(
       decoration: BoxDecoration(
-        color: c.surfaceBase,
+        color: const Color(0xFFFFFBF7),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.borderWarm),
-        boxShadow: PayaboShadows.soft,
+        border: Border.all(color: const Color(0xFFE6D8C7)),
       ),
       child: Column(
         children: items
@@ -1689,6 +2474,7 @@ class _UpcomingBillsCardV2 extends StatelessWidget {
               (entry) => _UpcomingBillRow(
                 item: entry.value,
                 showDivider: entry.key != items.length - 1,
+                useLightSurface: true,
               ),
             )
             .toList(growable: false),
@@ -1701,69 +2487,90 @@ class _UpcomingBillRow extends StatelessWidget {
   const _UpcomingBillRow({
     required this.item,
     required this.showDivider,
+    this.useLightSurface = false,
   });
 
   final DashboardUpcomingBill item;
   final bool showDivider;
+  final bool useLightSurface;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final avatarLabel = _dashboardAvatarLabel(item.biller);
+    final Color dividerColor = useLightSurface
+        ? const Color(0xFFE8DDD1)
+        : c.borderStrong.withValues(alpha: 0.6);
+    final Color titleColor = useLightSurface ? const Color(0xFF332319) : c.ink;
+    final Color subtitleColor =
+        useLightSurface ? const Color(0xFF7A6A5D) : c.muted;
+    final Color amountColor =
+        useLightSurface ? const Color(0xFF5A3217) : c.accentBrown;
+    final Color avatarSurface = useLightSurface
+        ? const Color(0xFFF2E4D2)
+        : c.spendingQuickActionSurface;
+    final Color avatarTextColor =
+        useLightSurface ? const Color(0xFFD97A1D) : c.primary;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: PayaboSpacing.lg,
+        vertical: PayaboSpacing.md,
+      ),
       decoration: showDivider
           ? BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: c.borderWarm),
+                bottom: BorderSide(
+                  color: dividerColor,
+                ),
               ),
             )
           : null,
       child: Row(
         children: <Widget>[
           Container(
-            width: 42,
-            height: 42,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: c.spendingQuickActionSurface,
-              borderRadius: BorderRadius.circular(12),
+              color: avatarSurface,
+              shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.description_outlined,
-              color: c.primary,
-              size: 22,
+            alignment: Alignment.center,
+            child: Text(
+              avatarLabel,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: avatarTextColor,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: PayaboSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
                   item.biller,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: c.ink,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: titleColor,
                       ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: PayaboSpacing.xxs),
                 Text(
                   item.dueDateLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 14,
-                        color: c.muted,
+                        color: subtitleColor,
                       ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: PayaboSpacing.md),
           Text(
             item.amountLabel,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: c.accentBrown,
+                  color: amountColor,
                 ),
           ),
         ],
@@ -1777,14 +2584,11 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-
     return Container(
       decoration: BoxDecoration(
-        color: c.surfaceBase,
+        color: const Color(0xFFFFFBF7),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.borderWarm),
-        boxShadow: PayaboShadows.soft,
+        border: Border.all(color: const Color(0xFFE6D8C7)),
       ),
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -1793,12 +2597,12 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: c.spendingQuickActionSurface,
+              color: const Color(0xFFF2E4D2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.receipt_long_outlined,
-              color: c.primary,
+              color: Color(0xFFD97A1D),
             ),
           ),
           const SizedBox(width: 14),
@@ -1806,7 +2610,7 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
             child: Text(
               'No upcoming bills yet. Add a bill to start tracking due dates.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: c.accentBrown,
+                    color: const Color(0xFF5A3217),
                   ),
             ),
           ),
@@ -1896,7 +2700,9 @@ class _DashboardHeroCard extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: c.isDark ? c.surfaceBase.withValues(alpha: 0.2) : const Color(0xFF7C320E),
+                    color: c.isDark
+                        ? c.surfaceBase.withValues(alpha: 0.2)
+                        : const Color(0xFF7C320E),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -2173,15 +2979,18 @@ class _TransactionList extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
       child: PayaboCard(
-        backgroundColor: c.surfaceCardElevated,
+        backgroundColor: c.spendingCardWarmElevated,
         padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.lg),
         child: Column(
           children: items
+              .asMap()
+              .entries
               .map(
-                (transaction) => _ProductRow(
-                  title: transaction.title,
-                  subtitle: transaction.status,
-                  amountLabel: transaction.amountLabel,
+                (entry) => _ProductRow(
+                  title: entry.value.title,
+                  subtitle: entry.value.status,
+                  amountLabel: entry.value.amountLabel,
+                  showDivider: entry.key != items.length - 1,
                 ),
               )
               .toList(growable: false),
@@ -2196,48 +3005,91 @@ class _ProductRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.amountLabel,
+    this.showDivider = true,
+    this.useLightSurface = false,
   });
 
   final String title;
   final String subtitle;
   final String amountLabel;
+  final bool showDivider;
+  final bool useLightSurface;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final avatarLabel = _dashboardAvatarLabel(title);
+    final Color dividerColor = useLightSurface
+        ? const Color(0xFFE8DDD1)
+        : c.borderStrong.withValues(alpha: 0.6);
+    final Color titleColor = useLightSurface ? const Color(0xFF332319) : c.ink;
+    final Color subtitleColor =
+        useLightSurface ? const Color(0xFF7A6A5D) : c.muted;
+    final Color amountColor =
+        useLightSurface ? const Color(0xFF5A3217) : c.accentBrown;
+    final Color avatarSurface = useLightSurface
+        ? const Color(0xFFF2E4D2)
+        : c.spendingQuickActionSurface;
+    final Color avatarTextColor =
+        useLightSurface ? const Color(0xFFD97A1D) : c.primary;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: c.border, width: 1)),
-      ),
+      decoration: showDivider
+          ? BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: dividerColor,
+                  width: 1,
+                ),
+              ),
+            )
+          : null,
       child: Row(
         children: <Widget>[
           Container(
-            width: 42,
-            height: 42,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: c.spendingQuickActionSurface,
+              color: avatarSurface,
+              shape: BoxShape.circle,
             ),
-            child: Icon(Icons.description_outlined, color: c.primary),
+            alignment: Alignment.center,
+            child: Text(
+              avatarLabel,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: avatarTextColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
           ),
           const SizedBox(width: PayaboSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(title, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 2),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: titleColor,
+                      ),
+                ),
+                const SizedBox(height: PayaboSpacing.xxs),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: subtitleColor,
+                      ),
+                ),
               ],
             ),
           ),
+          const SizedBox(width: PayaboSpacing.md),
           Text(
             amountLabel,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: c.accentBrown,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: amountColor,
                 ),
           ),
         ],
