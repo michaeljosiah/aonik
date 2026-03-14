@@ -4,6 +4,7 @@ import '../../app/auth/auth_session_store.dart';
 import '../../app/demo/demo_data_mode.dart';
 import '../../app/environment/environment_provider.dart';
 import '../../app/startup/offline_mode_provider.dart';
+import '../../features/setup_journey/domain/setup_journey_repository.dart';
 import '../../mock/repositories/mock_account_links_repository.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_budget_repository.dart';
@@ -12,6 +13,7 @@ import '../../mock/repositories/mock_dashboard_repository.dart';
 import '../../mock/repositories/mock_order_repository.dart';
 import '../../mock/repositories/mock_payment_repository.dart';
 import '../../mock/repositories/mock_profile_repository.dart';
+import '../../mock/repositories/mock_setup_journey_repository.dart';
 import '../api/api_client.dart';
 import 'account_links_repository.dart';
 import 'auth_repository.dart';
@@ -122,5 +124,13 @@ final Provider<ProfileRepository> profileRepositoryProvider =
 
     final apiClient = ref.watch(apiClientProvider);
     return LiveProfileRepository(apiClient: apiClient);
+  },
+);
+
+final Provider<SetupJourneyRepository> setupJourneyRepositoryProvider =
+    Provider<SetupJourneyRepository>(
+  (Ref ref) {
+    // Setup journey remains mock-backed until a live repository is implemented.
+    return MockSetupJourneyRepository();
   },
 );

@@ -1,0 +1,126 @@
+import 'package:flutter/material.dart';
+
+import 'setup_enums.dart';
+
+// ── Step configuration ──────────────────────────────────────
+
+/// A single selectable option within a setup step.
+class SetupOption {
+  const SetupOption({
+    required this.id,
+    required this.label,
+    this.icon,
+  });
+
+  final String id;
+  final String label;
+  final IconData? icon;
+}
+
+/// Configuration for one step of the setup journey.
+class SetupStepConfig {
+  const SetupStepConfig({
+    required this.id,
+    required this.message,
+    required this.type,
+    required this.options,
+    this.helperText,
+    this.canSkip = false,
+  });
+
+  final String id;
+  final String message;
+  final String? helperText;
+  final SetupStepType type;
+  final List<SetupOption> options;
+  final bool canSkip;
+}
+
+// ── Setup profile (collected data) ──────────────────────────
+
+/// The complete setup profile collected during the journey.
+///
+/// This model captures user intent and context for downstream
+/// dashboard personalisation and future AI recommendations.
+/// It does NOT execute any financially material action.
+class PayaboSetupProfile {
+  const PayaboSetupProfile({
+    this.selectedUseCases = const <SetupUseCase>[],
+    this.accountSourceTypes = const <AccountSourceType>[],
+    this.connectChoice,
+    this.responsibilities = const <ResponsibilityType>[],
+    this.supportType,
+    this.financialGoals = const <FinancialGoalType>[],
+    this.completed = false,
+  });
+
+  final List<SetupUseCase> selectedUseCases;
+  final List<AccountSourceType> accountSourceTypes;
+  final SetupConnectChoice? connectChoice;
+  final List<ResponsibilityType> responsibilities;
+  final SupportType? supportType;
+  final List<FinancialGoalType> financialGoals;
+  final bool completed;
+
+  factory PayaboSetupProfile.empty() {
+    return const PayaboSetupProfile();
+  }
+
+  bool get accountConnectionSkipped =>
+      connectChoice == null || connectChoice == SetupConnectChoice.skipForNow;
+
+  PayaboSetupProfile copyWith({
+    List<SetupUseCase>? selectedUseCases,
+    List<AccountSourceType>? accountSourceTypes,
+    SetupConnectChoice? connectChoice,
+    bool clearConnectChoice = false,
+    List<ResponsibilityType>? responsibilities,
+    SupportType? supportType,
+    bool clearSupportType = false,
+    List<FinancialGoalType>? financialGoals,
+    bool? completed,
+  }) {
+    return PayaboSetupProfile(
+      selectedUseCases: selectedUseCases ?? this.selectedUseCases,
+      accountSourceTypes: accountSourceTypes ?? this.accountSourceTypes,
+      connectChoice:
+          clearConnectChoice ? null : connectChoice ?? this.connectChoice,
+      responsibilities: responsibilities ?? this.responsibilities,
+      supportType:
+          clearSupportType ? null : supportType ?? this.supportType,
+      financialGoals: financialGoals ?? this.financialGoals,
+      completed: completed ?? this.completed,
+    );
+  }
+}
+
+// ── Dashboard handoff ───────────────────────────────────────
+
+/// Structured seed data for personalising the dashboard immediately
+/// after setup completion.
+///
+/// This is placeholder logic today. It will be replaced by AI-driven
+/// personalisation from the AONIK Agent framework (AiRun / Proposal
+/// pattern) when the recommendation pipeline is available.
+class DashboardSetupSeed {
+  const DashboardSetupSeed({
+    required this.greetingVariant,
+    required this.suggestedModules,
+    required this.quickActions,
+    required this.nudges,
+  });
+
+  final String greetingVariant;
+  final List<String> suggestedModules;
+  final List<String> quickActions;
+  final List<String> nudges;
+
+  factory DashboardSetupSeed.empty() {
+    return const DashboardSetupSeed(
+      greetingVariant: 'default',
+      suggestedModules: <String>[],
+      quickActions: <String>[],
+      nudges: <String>[],
+    );
+  }
+}

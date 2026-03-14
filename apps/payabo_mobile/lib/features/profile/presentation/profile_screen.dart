@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../app/auth/auth_controller.dart';
 import '../../../app/demo/demo_data_mode.dart';
@@ -17,6 +18,7 @@ import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
+import '../../setup_journey/application/setup_journey_controller.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
 
@@ -154,6 +156,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         const SizedBox(height: PayaboSpacing.sm),
         PayaboListRow(
+          title: 'Personalisation setup',
+          subtitle: 'Re-run the guided setup journey',
+          leading: const _MenuIcon(Icons.auto_awesome_outlined),
+          onTap: () => _startSetupJourney(context),
+        ),
+        const SizedBox(height: PayaboSpacing.sm),
+        PayaboListRow(
           title: 'Dark theme',
           subtitle: isDarkMode
               ? 'Using the night palette across Payabo'
@@ -218,6 +227,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _startSetupJourney(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('payabo.setup.completed');
+
+    ref.read(setupJourneyControllerProvider.notifier).reset();
+    ref.invalidate(setupCompletedProvider);
+
+    if (!context.mounted) {
+      return;
+    }
+
+    context.go('/setup');
   }
 
   Future<void> _openPhotoPicker() async {
