@@ -14,7 +14,7 @@ public sealed class FinanceDomainAgent : AonikDomainAgent
     public override string Name => "finance-agent";
 
     public override string Description =>
-        "Manages invoices, ledger accounts, journal entries, and payment intents for the current tenant.";
+        "Manages invoices, ledger accounts, journal entries, payment intents, and personal-finance graph context for the current tenant.";
 
     protected override string Instructions =>
         """
@@ -25,6 +25,7 @@ public sealed class FinanceDomainAgent : AonikDomainAgent
         - **Billing**: Create, issue, cancel, and query invoices
         - **Ledger**: List ledgers, accounts, and journal entries; create new ledgers and accounts
         - **Payments**: Create, capture, cancel, and query payment intents
+        - **Financial Life Graph**: Summarize user graph context and upcoming obligations
 
         Rules:
         1. Always confirm destructive actions (cancel, mark paid) before executing them.
@@ -40,6 +41,7 @@ public sealed class FinanceDomainAgent : AonikDomainAgent
         // Aggregate tools from all Finance sub-domain tool classes
         return InvoiceTools.CreateAll(serviceProvider)
             .Concat(LedgerTools.CreateAll(serviceProvider))
-            .Concat(PaymentTools.CreateAll(serviceProvider));
+            .Concat(PaymentTools.CreateAll(serviceProvider))
+            .Concat(FinancialLifeGraphTools.CreateAll(serviceProvider));
     }
 }

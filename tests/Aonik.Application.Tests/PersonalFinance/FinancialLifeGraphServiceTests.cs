@@ -430,4 +430,65 @@ public class FinancialLifeGraphServiceTests
         // Assert
         refreshedGraph.Nodes.Should().Contain(item => item.DisplayName == "Fresh annotation");
     }
+
+    [Fact]
+    public async Task InferenceService_Should_CreateProposedRecurringMerchantAnnotations()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var aiRunId = Guid.NewGuid();
+
+        await using var context = CreateDbContext(tenantId);
+        context.PersonalProfiles.Add(new PersonalProfile
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PartyId = partyId
+        });
+
+        for (var index = 0; index < 3; index++)
+        {
+            context.PersonalTransactions.Add(new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = DateTime.UtcNow.AddDays(-(index + 1)),
+                Amount = -25m,
+                Currency = "USD",
+                Merchant = "Family Transfer",
+                Description = "Support payment",
+                TagsJson = "[]",
+                ReviewStatus = "Pending"
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        var currentUserProvider = new TestCurrentUserProvider(userId);
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new FinancialLifeGraphInferenceService(
+            context,
+            tenantProvider,
+            currentUserProvider,
+            new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, cache));
+
+        // Act
+        var proposals = await service.ProposeRecurringMerchantAnnotationsAsync(
+            new Aonik.Finance.Contracts.Models.PersonalFinance.ProposeRecurringMerchantGraphAnnotationsRequest(aiRunId, 3, 30));
+
+        // Assert
+        proposals.Should().ContainSingle();
+        proposals[0].Status.Should().Be("Proposed");
+
+        var node = await context.FinancialLifeGraphNodes.SingleAsync();
+        var edge = await context.FinancialLifeGraphEdges.SingleAsync();
+        node.Status.Should().Be("Proposed");
+        node.AiRunId.Should().Be(aiRunId);
+        edge.Status.Should().Be("Proposed");
+    }
 }

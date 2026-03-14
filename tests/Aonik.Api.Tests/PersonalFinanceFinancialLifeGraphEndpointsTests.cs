@@ -173,6 +173,73 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         deletedNode!.IsDeleted.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task ProposalEndpoints_Should_CreateAndApproveRecurringMerchantProposal()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        await SeedGraphDataAsync(tenantId, userId, partyId);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+            tenantContext.TenantId = tenantId;
+
+            financeDbContext.PersonalTransactions.AddRange(
+                Enumerable.Range(1, 3).Select(index => new PersonalTransaction
+                {
+                    TenantId = tenantId,
+                    UserId = userId,
+                    SourceType = "manual",
+                    SourceId = Guid.NewGuid(),
+                    OccurredAt = DateTime.UtcNow.AddDays(-index),
+                    Amount = -20m,
+                    Currency = "USD",
+                    Merchant = "Family Transfer",
+                    Description = "Support",
+                    TagsJson = "[]",
+                    ReviewStatus = "Pending"
+                }));
+
+            await financeDbContext.SaveChangesAsync();
+        }
+
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            new TestAuthOptions
+            {
+                UserId = userId,
+                TenantId = tenantId
+            }.WithRoles("PersonalUser"));
+
+        // Act
+        var proposalResponse = await client.PostAsJsonAsync(
+            "/personal-finance/graph/proposals/recurring-merchants",
+            new ProposeRecurringMerchantGraphAnnotationsRequest(Guid.NewGuid(), 3, 30));
+
+        // Assert proposal created
+        proposalResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var proposals = await proposalResponse.Content.ReadFromJsonAsync<List<InferenceProposalPayload>>();
+        proposals.Should().NotBeNull();
+        proposals!.Should().ContainSingle();
+
+        var pendingResponse = await client.GetAsync("/personal-finance/graph/proposals/pending");
+        pendingResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var pending = await pendingResponse.Content.ReadFromJsonAsync<List<PendingProposalPayload>>();
+        pending.Should().NotBeNull();
+        pending!.Should().ContainSingle();
+
+        var approveResponse = await client.PostAsync($"/personal-finance/graph/proposals/{pending[0].GraphNodeId}/approve", null);
+        approveResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var graphResponse = await client.GetAsync("/personal-finance/graph");
+        graphResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var graph = await graphResponse.Content.ReadFromJsonAsync<GraphPayload>();
+        graph!.Nodes.Should().Contain(item => item.DisplayName == pending[0].DisplayName);
+    }
+
     private async Task SeedGraphDataAsync(Guid tenantId, Guid userId, Guid partyId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -279,4 +346,22 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         List<GraphNodePayload> Nodes,
         List<object> Edges,
         List<object> SourceCoverage);
+
+    private sealed record InferenceProposalPayload(
+        Guid GraphNodeId,
+        Guid GraphEdgeId,
+        string DisplayName,
+        string Reasoning,
+        int OccurrenceCount,
+        string Status);
+
+    private sealed record PendingProposalPayload(
+        Guid GraphNodeId,
+        Guid GraphEdgeId,
+        string NodeType,
+        string DisplayName,
+        string Predicate,
+        string Status,
+        Guid AiRunId,
+        string MetadataJson);
 }

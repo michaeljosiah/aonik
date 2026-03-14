@@ -480,3 +480,26 @@ public record CreateFinancialLifeGraphEdgeRequest(
     Guid? AiRunId);
 
 public record FinancialLifeGraphEdgeWriteResponse(Guid GraphEdgeId);
+
+public record ProposeRecurringMerchantGraphAnnotationsRequest(
+    Guid AiRunId,
+    int MinOccurrences = 3,
+    int WithinDays = 90);
+
+public record FinancialLifeGraphInferenceProposalResponse(
+    Guid GraphNodeId,
+    Guid GraphEdgeId,
+    string DisplayName,
+    string Reasoning,
+    int OccurrenceCount,
+    string Status);
+
+public record PendingFinancialLifeGraphProposalResponse(
+    Guid GraphNodeId,
+    Guid GraphEdgeId,
+    string NodeType,
+    string DisplayName,
+    string Predicate,
+    string Status,
+    Guid AiRunId,
+    string MetadataJson);

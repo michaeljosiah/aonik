@@ -1,0 +1,46 @@
+using System.ComponentModel;
+using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Aonik.Finance.Agents.Tools;
+
+internal sealed class FinancialLifeGraphTools
+{
+    private readonly IFinancialLifeGraphService _financialLifeGraphService;
+
+    private FinancialLifeGraphTools(IFinancialLifeGraphService financialLifeGraphService)
+    {
+        _financialLifeGraphService = financialLifeGraphService;
+    }
+
+    [Description("Returns a compact financial life graph summary for the current user, including accounts, transactions, bills, goals, subscriptions, household membership, and related parties.")]
+    public async Task<FinancialLifeGraphSummaryResponse> GetFinancialLifeGraphSummary(CancellationToken cancellationToken = default)
+    {
+        return await _financialLifeGraphService.GetGraphSummaryAsync(cancellationToken);
+    }
+
+    [Description("Returns upcoming financial obligations for the current user across bills, subscriptions, and dated goals.")]
+    public async Task<IReadOnlyList<UpcomingObligationResponse>> GetUpcomingObligations(
+        [Description("Number of days ahead to inspect for upcoming obligations")] int withinDays = 30,
+        CancellationToken cancellationToken = default)
+    {
+        return await _financialLifeGraphService.GetUpcomingObligationsAsync(withinDays, cancellationToken);
+    }
+
+    [Description("Returns the full financial life graph read model for the current user, including nodes, edges, and source coverage.")]
+    public async Task<FinancialLifeGraphResponse> GetFinancialLifeGraph(CancellationToken cancellationToken = default)
+    {
+        return await _financialLifeGraphService.GetGraphAsync(cancellationToken);
+    }
+
+    public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
+    {
+        var tools = new FinancialLifeGraphTools(serviceProvider.GetRequiredService<IFinancialLifeGraphService>());
+
+        yield return AIFunctionFactory.Create(tools.GetFinancialLifeGraphSummary, name: "finance_get_financial_life_graph_summary");
+        yield return AIFunctionFactory.Create(tools.GetUpcomingObligations, name: "finance_get_upcoming_obligations");
+        yield return AIFunctionFactory.Create(tools.GetFinancialLifeGraph, name: "finance_get_financial_life_graph");
+    }
+}

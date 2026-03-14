@@ -107,6 +107,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.PersonalFinance.IFinancialLifeGraphCacheInvalidator, Services.PersonalFinance.FinancialLifeGraphCacheInvalidator>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphValidationService>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphWriteService>();
+        services.AddScoped<Services.PersonalFinance.FinancialLifeGraphInferenceService>();
         services.AddTransient<Contracts.Services.PersonalFinance.IPersonalAccountLinkProviderGateway>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;
