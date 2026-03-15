@@ -133,6 +133,27 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  final ValueNotifier<double> _statusBarProgress = ValueNotifier<double>(0.0);
+
+  /// Converts a raw sheet extent (0.0–1.0) into a status-bar overlay opacity
+  /// (0.0–1.0), fading in over the last 5% of sheet travel.
+  static double _extentToStatusBarProgress(double extent) {
+    const double fadeZone = 0.05;
+    const double fadeStart =
+        _DashboardHeroInsightsSection._maxSheetSize - fadeZone;
+    return Curves.easeOut
+        .transform(
+          ((extent - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
+        );
+  }
+
+  void _handleSheetExtentChanged(double extent) {
+    final double progress = _extentToStatusBarProgress(extent);
+    if ((_statusBarProgress.value - progress).abs() > 0.001) {
+      _statusBarProgress.value = progress;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -146,6 +167,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   @override
+  void dispose() {
+    _statusBarProgress.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final summaryValue = ref.watch(dashboardSummaryProvider);
     final profileState = ref.watch(profileHeaderProvider);
@@ -156,6 +183,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       backgroundDecoration: BoxDecoration(
         gradient: _dashboardBackgroundGradient(context),
       ),
+      statusBarColorNotifier: _statusBarProgress,
       body: Column(
         children: <Widget>[
           Expanded(
@@ -173,6 +201,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     photoUrl: profileState.photoUrl,
                     onProfileTap: () => context.go('/profile'),
                     onNotificationsTap: () => context.push('/notifications'),
+                    onSheetExtentChanged: _handleSheetExtentChanged,
                   ),
                 );
               },
@@ -396,6 +425,7 @@ class _DashboardContent extends StatelessWidget {
     required this.photoUrl,
     required this.onProfileTap,
     required this.onNotificationsTap,
+    this.onSheetExtentChanged,
   });
 
   static const int _upcomingBillPreviewLimit = 5;
@@ -405,6 +435,7 @@ class _DashboardContent extends StatelessWidget {
   final String? photoUrl;
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationsTap;
+  final ValueChanged<double>? onSheetExtentChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -421,6 +452,7 @@ class _DashboardContent extends StatelessWidget {
       dueBillCount: allUpcomingBills.length,
       upcomingBills: bills,
       isEmpty: isEmpty,
+      onSheetExtentChanged: onSheetExtentChanged,
     );
   }
 }
@@ -434,6 +466,7 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
     required this.dueBillCount,
     required this.upcomingBills,
     required this.isEmpty,
+    this.onSheetExtentChanged,
   });
 
   static const double _minHeroHeight = 248;
@@ -449,6 +482,10 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
   final int dueBillCount;
   final List<DashboardUpcomingBill> upcomingBills;
   final bool isEmpty;
+
+  /// Called whenever the draggable sheet extent changes.  The value is the
+  /// raw [DraggableScrollableController.size] (0.0–1.0).
+  final ValueChanged<double>? onSheetExtentChanged;
 
   @override
   State<_DashboardHeroInsightsSection> createState() =>
@@ -482,6 +519,7 @@ class _DashboardHeroInsightsSectionState
       if (schedulerPhase == SchedulerPhase.idle ||
           schedulerPhase == SchedulerPhase.postFrameCallbacks) {
         _sheetExtentNotifier.value = nextExtent;
+        widget.onSheetExtentChanged?.call(nextExtent);
         return;
       }
 
@@ -492,6 +530,7 @@ class _DashboardHeroInsightsSectionState
 
         if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
           _sheetExtentNotifier.value = nextExtent;
+          widget.onSheetExtentChanged?.call(nextExtent);
         }
       });
     }
@@ -549,9 +588,6 @@ class _DashboardHeroInsightsSectionState
         );
 
         return Stack(
-          // Clip.none lets the status-bar overlay overflow above the SafeArea
-          // boundary so the background change reaches all the way to the top.
-          clipBehavior: Clip.none,
           children: <Widget>[
             Positioned(
               top: 0,
@@ -656,53 +692,6 @@ class _DashboardHeroInsightsSectionState
                   );
                 },
                      ),
-            ),
-            // Status-bar background overlay.  Fades in over the last 5% of
-            // sheet travel so the surfaceBase colour extends all the way to
-            // the very top of the screen, matching the pinned header.
-            // MediaQuery.viewPaddingOf is used because SafeArea zeros out
-            // the regular padding; viewPadding is always the real value.
-            //
-            // Wrapped in Positioned so the ValueListenableBuilder does not
-            // become an un-positioned Stack child (which would absorb hit
-            // tests across the entire Stack).
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 0,
-              child: ValueListenableBuilder<double>(
-                valueListenable: _sheetExtentNotifier,
-                builder: (
-                  BuildContext context,
-                  double extent,
-                  Widget? child,
-                ) {
-                  const double fadeZone = 0.05;
-                  final double progress = ((extent -
-                              (_DashboardHeroInsightsSection._maxSheetSize -
-                                  fadeZone)) /
-                          fadeZone)
-                      .clamp(0.0, 1.0);
-                  if (progress <= 0) return const SizedBox.shrink();
-                  final double statusBarHeight =
-                      MediaQuery.viewPaddingOf(context).top;
-                  return OverflowBox(
-                    alignment: Alignment.bottomCenter,
-                    maxHeight: statusBarHeight,
-                    child: Opacity(
-                      opacity: progress,
-                      child: ColoredBox(
-                        color: context.colors.surfaceBase,
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: statusBarHeight,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
             ),
           ],
         );
