@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -261,11 +259,6 @@ class SetupJourneyScreen extends ConsumerWidget {
   ) {
     final step = state.currentStep;
 
-    developer.log(
-      'Setup action tapped for step=${step.id}, type=${step.type.name}, index=${state.currentStepIndex}, selected=${_getSelectedIds(state).join(',')}',
-      name: 'Payabo.SetupJourney',
-    );
-
     // Handle account connection hooks (Step 4)
     if (step.id == 'connect_account') {
       final choice = state.profile.connectChoice;
@@ -291,17 +284,9 @@ class SetupJourneyScreen extends ConsumerWidget {
   void _onCompleteSetup(
     BuildContext context,
     SetupJourneyController controller,
-    SetupJourneyState state,
+    SetupJourneyState _,
   ) {
-    developer.log(
-      'Completing setup from summary step with profileCompleted=${state.profile.completed}',
-      name: 'Payabo.SetupJourney',
-    );
     controller.completeSetupLocally();
-    developer.log(
-      'Requested navigation to /dashboard after setup completion',
-      name: 'Payabo.SetupJourney',
-    );
     context.go('/dashboard');
   }
 

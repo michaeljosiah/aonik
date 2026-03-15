@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -146,13 +144,6 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           location: state.uri.path,
           setupDone: setupDone,
         );
-
-        if (state.uri.path == '/setup' || state.uri.path == '/dashboard') {
-          developer.log(
-            'Router redirect check location=${state.uri.path}, setupAsync=${setupAsync.runtimeType}, setupAsyncValue=${setupAsync.asData?.value}, localProfileCompleted=$localProfileCompleted, setupDone=$setupDone, authenticated=${authState.isAuthenticated}, redirect=${redirect ?? 'none'}',
-            name: 'Payabo.Router',
-          );
-        }
 
         return redirect;
       },

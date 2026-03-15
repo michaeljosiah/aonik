@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -187,11 +186,6 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
     state = state.copyWith(profile: completedProfile);
     _ref.invalidate(setupCompletedProvider);
 
-    developer.log(
-      'Marked setup complete locally and invalidated setupCompletedProvider',
-      name: 'Payabo.SetupJourneyController',
-    );
-
     return completedProfile;
   }
 
@@ -203,27 +197,13 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
   Future<void> _persistSetupCompletedFlag() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_setupCompletedKey, true);
-    developer.log(
-      'Persisted local setup completion flag',
-      name: 'Payabo.SetupJourneyController',
-    );
   }
 
   Future<void> _persistSetupProfile(PayaboSetupProfile profile) async {
     try {
       final repository = _ref.read(setupJourneyRepositoryProvider);
       await repository.saveSetupProfile(profile);
-      developer.log(
-        'Persisted setup profile to repository',
-        name: 'Payabo.SetupJourneyController',
-      );
-    } catch (error, stackTrace) {
-      developer.log(
-        'Failed to persist setup profile to repository',
-        name: 'Payabo.SetupJourneyController',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    } catch (_) {
       // Graceful degradation — preserve local completion state if the
       // backend call cannot be completed right now.
     }
