@@ -6,7 +6,17 @@ public abstract class AuditableEntity : Entity
     public Guid? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public Guid? UpdatedBy { get; set; }
-    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
+    /// <summary>
+    /// Optimistic concurrency token. On SQL Server this is mapped to the native
+    /// <c>rowversion</c> type, which the database auto-increments on every INSERT
+    /// and UPDATE. EF Core includes this value in the WHERE clause of UPDATE/DELETE
+    /// commands to detect concurrent modifications.
+    /// Configured via <see cref="AonikDbContextBase.ConfigureRowVersions"/> in the
+    /// model builder rather than by attribute, so that InMemory tests are not affected.
+    /// </summary>
+    public byte[] RowVersion { get; set; } = [];
+
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
     public Guid? DeletedBy { get; set; }

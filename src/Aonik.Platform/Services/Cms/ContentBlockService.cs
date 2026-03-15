@@ -192,6 +192,8 @@ internal class ContentBlockService : IContentBlockService
             LinkUrl = request.LinkUrl
         };
 
+        // Explicitly add to DbSet so EF Core tracks this as Added (INSERT).
+        _dbContext.ContentBlockMedia.Add(media);
         contentBlock.Media.Add(media);
         await _dbContext.SaveChangesAsync(cancellationToken);
 

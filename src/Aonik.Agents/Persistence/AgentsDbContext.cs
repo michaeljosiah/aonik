@@ -36,6 +36,9 @@ internal class AgentsDbContext : AonikDbContextBase
 
         ApplyDboPrefixedTableNames(modelBuilder);
 
+        // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
+        ConfigureRowVersions(modelBuilder);
+
         // Apply tenant query filters for ITenantScoped entities (AgentRun, Proposal)
         ApplyTenantQueryFilters(modelBuilder);
 

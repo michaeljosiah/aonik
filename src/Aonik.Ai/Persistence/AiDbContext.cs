@@ -60,6 +60,9 @@ internal class AiDbContext : AonikDbContextBase
 
         ApplyDboPrefixedTableNames(modelBuilder);
 
+        // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
+        ConfigureRowVersions(modelBuilder);
+
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
 

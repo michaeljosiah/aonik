@@ -63,6 +63,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<ExternalAccount> ExternalAccounts { get; set; } = null!;
     public virtual DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
     public virtual DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
+    public virtual DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
+    public virtual DbSet<MarketingPreference> MarketingPreferences { get; set; } = null!;
 
     // CMS
     public virtual DbSet<ContentBlock> ContentBlocks { get; set; } = null!;
@@ -147,6 +149,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         // Apply Agents configurations from Agents assembly (required for EF migrations)
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Agents.Entities.Agent).Assembly);
 
+        // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
+        ConfigureRowVersions(modelBuilder);
+
         // Apply tenant query filters
         ApplyTenantQueryFilters(modelBuilder);
 
@@ -197,6 +202,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapPlatformTable<ExternalAccount>(modelBuilder, "ExternalAccounts");
         MapPlatformTable<PartyRoleAssignment>(modelBuilder, "PartyRoleAssignments");
         MapPlatformTable<PartyRelationship>(modelBuilder, "PartyRelationships");
+        MapPlatformTable<NotificationPreference>(modelBuilder, "NotificationPreferences");
+        MapPlatformTable<MarketingPreference>(modelBuilder, "MarketingPreferences");
 
         MapPlatformTable<ContentBlock>(modelBuilder, "ContentBlocks");
         MapPlatformTable<ContentBlockMedia>(modelBuilder, "ContentBlockMedia");

@@ -269,9 +269,17 @@ internal class OrderService : IOrderService
         var nextIndex = order.Items.Count == 0 ? 0 : order.Items.Max(item => item.ItemIndex) + 1;
         var created = await BuildOrderItemAsync(order, request, nextIndex, cancellationToken);
 
+        // Explicitly add to DbSets so EF Core tracks these as Added (INSERT).
+        // Adding only to navigation collections can cause EF to treat entities
+        // as Modified (UPDATE) when the primary key is client-generated.
+        _dbContext.OrderItems.Add(created.OrderItem);
+        _dbContext.OrderPartyRoles.Add(created.ReceiverRole);
+        var addedEvent = BuildHistoryEvent(order.Id, "ItemAdded");
+        _dbContext.OrderHistoryEvents.Add(addedEvent);
+
         order.Items.Add(created.OrderItem);
         order.PartyRoles.Add(created.ReceiverRole);
-        order.HistoryEvents.Add(BuildHistoryEvent(order.Id, "ItemAdded"));
+        order.HistoryEvents.Add(addedEvent);
 
         UpdateOrderTotals(order, await LoadPricingQuotesAsync(order.Items, cancellationToken));
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -348,7 +356,9 @@ internal class OrderService : IOrderService
 
         item.DetailsJson = JsonSerializer.Serialize(details, JsonOptions);
         UpdateOrderTotals(order, await LoadPricingQuotesAsync(order.Items, cancellationToken));
-        order.HistoryEvents.Add(BuildHistoryEvent(order.Id, "ItemUpdated"));
+        var updatedEvent = BuildHistoryEvent(order.Id, "ItemUpdated");
+        _dbContext.OrderHistoryEvents.Add(updatedEvent);
+        order.HistoryEvents.Add(updatedEvent);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -391,7 +401,9 @@ internal class OrderService : IOrderService
             order.PartyRoles.Remove(role);
         }
 
-        order.HistoryEvents.Add(BuildHistoryEvent(order.Id, "ItemRemoved"));
+        var removedEvent = BuildHistoryEvent(order.Id, "ItemRemoved");
+        _dbContext.OrderHistoryEvents.Add(removedEvent);
+        order.HistoryEvents.Add(removedEvent);
         UpdateOrderTotals(order, await LoadPricingQuotesAsync(order.Items, cancellationToken));
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -430,7 +442,9 @@ internal class OrderService : IOrderService
 
         var requiresReview = await _complianceService.RequiresComplianceReviewAsync(order.Id, cancellationToken);
         order.Status = requiresReview ? "PendingCompliance" : "Submitted";
-        order.HistoryEvents.Add(BuildHistoryEvent(order.Id, "OrderSubmitted"));
+        var submittedEvent = BuildHistoryEvent(order.Id, "OrderSubmitted");
+        _dbContext.OrderHistoryEvents.Add(submittedEvent);
+        order.HistoryEvents.Add(submittedEvent);
 
         if (requiresReview)
         {
@@ -464,7 +478,9 @@ internal class OrderService : IOrderService
         }
 
         order.Status = "Cancelled";
-        order.HistoryEvents.Add(BuildHistoryEvent(order.Id, "OrderCancelled", reason));
+        var cancelledEvent = BuildHistoryEvent(order.Id, "OrderCancelled", reason);
+        _dbContext.OrderHistoryEvents.Add(cancelledEvent);
+        order.HistoryEvents.Add(cancelledEvent);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
@@ -810,13 +826,15 @@ internal class OrderService : IOrderService
 
         if (role == null)
         {
-            order.PartyRoles.Add(new OrderPartyRole
+            var newRole = new OrderPartyRole
             {
                 OrderId = order.Id,
                 PartyId = receiverPartyId,
                 Role = OrderPartyRoles.Receiver,
                 DetailsJson = JsonSerializer.Serialize(new { orderItemId }, JsonOptions)
-            });
+            };
+            _dbContext.OrderPartyRoles.Add(newRole);
+            order.PartyRoles.Add(newRole);
             return;
         }
 

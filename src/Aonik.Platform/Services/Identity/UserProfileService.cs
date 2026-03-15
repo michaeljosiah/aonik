@@ -355,6 +355,166 @@ internal class UserProfileService : IUserProfileService
         return new CustomerPhotoDeleteResponse("ok");
     }
 
+    public async Task<NotificationPreferencesResponse?> GetNotificationPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync(userId, "UserInfo.Read", cancellationToken);
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var prefs = await GetOrCreateNotificationPreferenceAsync(party.Id, user.Email ?? string.Empty, cancellationToken);
+        return MapNotificationPreferences(prefs);
+    }
+
+    public async Task<NotificationPreferencesResponse?> UpdateNotificationPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateNotificationPreferencesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var prefs = await GetOrCreateNotificationPreferenceAsync(party.Id, user.Email ?? string.Empty, cancellationToken);
+
+        var now = _clock.UtcNow;
+        var actorId = _currentUserProvider.GetCurrentUserId();
+
+        prefs.Email = !string.IsNullOrWhiteSpace(request.Email) ? request.Email.Trim() : prefs.Email;
+        prefs.NewBillsPush = request.NewBillsPush;
+        prefs.BillUpdatesPush = request.BillUpdatesPush;
+        prefs.BillAssistPush = request.BillAssistPush;
+        prefs.MbaMessagesPush = request.MbaMessagesPush;
+        prefs.OrgMessagesPush = request.OrgMessagesPush;
+        prefs.FriendsMessagesPush = request.FriendsMessagesPush;
+        prefs.NewBillsEmail = request.NewBillsEmail;
+        prefs.BillUpdatesEmail = request.BillUpdatesEmail;
+        prefs.BillAssistEmail = request.BillAssistEmail;
+        prefs.MbaMessagesEmail = request.MbaMessagesEmail;
+        prefs.OrgMessagesEmail = request.OrgMessagesEmail;
+        prefs.UpdatedAt = now;
+        prefs.UpdatedBy = actorId;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerProfileUpdated,
+            "NotificationPreference",
+            prefs.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { PartyId = party.Id, Type = "NotificationPreferences" }),
+            cancellationToken);
+
+        return MapNotificationPreferences(prefs);
+    }
+
+    public async Task<MarketingPreferencesResponse?> GetMarketingPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync(userId, "UserInfo.Read", cancellationToken);
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var prefs = await GetOrCreateMarketingPreferenceAsync(party.Id, user.Email ?? string.Empty, cancellationToken);
+        return MapMarketingPreferences(prefs);
+    }
+
+    public async Task<MarketingPreferencesResponse?> UpdateMarketingPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateMarketingPreferencesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync(userId, "UserInfo.Update", cancellationToken);
+
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken);
+        if (party == null)
+        {
+            return null;
+        }
+
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        var prefs = await GetOrCreateMarketingPreferenceAsync(party.Id, user.Email ?? string.Empty, cancellationToken);
+
+        var now = _clock.UtcNow;
+        var actorId = _currentUserProvider.GetCurrentUserId();
+
+        prefs.Email = !string.IsNullOrWhiteSpace(request.Email) ? request.Email.Trim() : prefs.Email;
+        prefs.News = request.News;
+        prefs.Offers = request.Offers;
+        prefs.Surveys = request.Surveys;
+        prefs.UpdatedAt = now;
+        prefs.UpdatedBy = actorId;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await _auditLogWriter.LogAsync(
+            AuditEventNames.CustomerProfileUpdated,
+            "MarketingPreference",
+            prefs.Id,
+            tenantId,
+            userId,
+            _correlationContext.CorrelationId,
+            JsonSerializer.Serialize(new { PartyId = party.Id, Type = "MarketingPreferences" }),
+            cancellationToken);
+
+        return MapMarketingPreferences(prefs);
+    }
+
     private async Task<PartyEntity?> GetPrimaryPartyAsync(
         Guid userId,
         Guid tenantId,
@@ -558,7 +718,7 @@ internal class UserProfileService : IUserProfileService
         }
     }
 
-    private static void UpsertContact(
+    private void UpsertContact(
         PartyEntity party,
         string type,
         string value,
@@ -581,6 +741,11 @@ internal class UserProfileService : IUserProfileService
                 CreatedBy = actorId
             };
 
+            // Explicitly add to DbSet so EF Core tracks this as Added (INSERT).
+            // Adding only to the navigation collection can cause EF to treat the
+            // entity as Modified (UPDATE) when the primary key is client-generated,
+            // leading to DbUpdateConcurrencyException.
+            _dbContext.PartyContacts.Add(contact);
             party.Contacts.Add(contact);
             return;
         }
@@ -632,5 +797,83 @@ internal class UserProfileService : IUserProfileService
         {
             throw new InvalidOperationException($"Permission {permissionKey} is required.");
         }
+    }
+
+    private async Task<NotificationPreference> GetOrCreateNotificationPreferenceAsync(
+        Guid partyId,
+        string defaultEmail,
+        CancellationToken cancellationToken)
+    {
+        var prefs = await _dbContext.NotificationPreferences
+            .FirstOrDefaultAsync(p => p.PartyId == partyId, cancellationToken);
+
+        if (prefs != null)
+        {
+            return prefs;
+        }
+
+        prefs = new NotificationPreference
+        {
+            PartyId = partyId,
+            Email = defaultEmail,
+            CreatedAt = _clock.UtcNow,
+            CreatedBy = _currentUserProvider.GetCurrentUserId()
+        };
+
+        _dbContext.NotificationPreferences.Add(prefs);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return prefs;
+    }
+
+    private async Task<MarketingPreference> GetOrCreateMarketingPreferenceAsync(
+        Guid partyId,
+        string defaultEmail,
+        CancellationToken cancellationToken)
+    {
+        var prefs = await _dbContext.MarketingPreferences
+            .FirstOrDefaultAsync(p => p.PartyId == partyId, cancellationToken);
+
+        if (prefs != null)
+        {
+            return prefs;
+        }
+
+        prefs = new MarketingPreference
+        {
+            PartyId = partyId,
+            Email = defaultEmail,
+            CreatedAt = _clock.UtcNow,
+            CreatedBy = _currentUserProvider.GetCurrentUserId()
+        };
+
+        _dbContext.MarketingPreferences.Add(prefs);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return prefs;
+    }
+
+    private static NotificationPreferencesResponse MapNotificationPreferences(NotificationPreference prefs)
+    {
+        return new NotificationPreferencesResponse(
+            prefs.Email,
+            prefs.NewBillsPush,
+            prefs.BillUpdatesPush,
+            prefs.BillAssistPush,
+            prefs.MbaMessagesPush,
+            prefs.OrgMessagesPush,
+            prefs.FriendsMessagesPush,
+            prefs.NewBillsEmail,
+            prefs.BillUpdatesEmail,
+            prefs.BillAssistEmail,
+            prefs.MbaMessagesEmail,
+            prefs.OrgMessagesEmail);
+    }
+
+    private static MarketingPreferencesResponse MapMarketingPreferences(MarketingPreference prefs)
+    {
+        return new MarketingPreferencesResponse(
+            prefs.Email,
+            prefs.News,
+            prefs.Offers,
+            prefs.Surveys);
     }
 }

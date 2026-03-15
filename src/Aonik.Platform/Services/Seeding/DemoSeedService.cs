@@ -435,6 +435,7 @@ internal class DemoSeedService : IDemoSeedService
                     CreatedAt = now
                 };
 
+                _dbContext.PartyContacts.Add(existingEmail);
                 party.Contacts.Add(existingEmail);
             }
             else
@@ -466,14 +467,16 @@ internal class DemoSeedService : IDemoSeedService
             existingPhone = party.Contacts.FirstOrDefault(contact => contact.Type == "Phone");
             if (existingPhone == null)
             {
-                party.Contacts.Add(new PartyContact
+                var newPhone = new PartyContact
                 {
                     PartyId = party.Id,
                     Type = "Phone",
                     Value = normalizedPhone,
                     IsPrimary = false,
                     CreatedAt = now
-                });
+                };
+                _dbContext.PartyContacts.Add(newPhone);
+                party.Contacts.Add(newPhone);
             }
             else
             {
@@ -1101,7 +1104,7 @@ internal class DemoSeedService : IDemoSeedService
         var address = party.Addresses.FirstOrDefault(item => item.Type == type);
         if (address == null)
         {
-            party.Addresses.Add(new PartyAddress
+            var newAddress = new PartyAddress
             {
                 PartyId = party.Id,
                 Type = type,
@@ -1111,7 +1114,9 @@ internal class DemoSeedService : IDemoSeedService
                 Postcode = postcode,
                 Country = country,
                 CreatedAt = now
-            });
+            };
+            _dbContext.PartyAddresses.Add(newAddress);
+            party.Addresses.Add(newAddress);
             return;
         }
 

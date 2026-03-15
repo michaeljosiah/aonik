@@ -50,4 +50,26 @@ public interface IUserProfileService
         Guid userId,
         Guid tenantId,
         CancellationToken cancellationToken = default);
+
+    Task<NotificationPreferencesResponse?> GetNotificationPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken cancellationToken = default);
+
+    Task<NotificationPreferencesResponse?> UpdateNotificationPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateNotificationPreferencesRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<MarketingPreferencesResponse?> GetMarketingPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        CancellationToken cancellationToken = default);
+
+    Task<MarketingPreferencesResponse?> UpdateMarketingPreferencesAsync(
+        Guid userId,
+        Guid tenantId,
+        UpdateMarketingPreferencesRequest request,
+        CancellationToken cancellationToken = default);
 }

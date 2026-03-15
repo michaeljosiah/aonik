@@ -48,6 +48,8 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<ExternalAccount> ExternalAccounts { get; set; } = null!;
     public DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
     public DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
+    public DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
+    public DbSet<MarketingPreference> MarketingPreferences { get; set; } = null!;
 
     // Compliance
     public DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
@@ -109,6 +111,9 @@ internal class PlatformDbContext : AonikDbContextBase
 
         ApplyDboPrefixedTableNames(modelBuilder);
 
+        // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
+        ConfigureRowVersions(modelBuilder);
+
         // Apply tenant query filters for all ITenantScoped entities in this context
         ApplyTenantQueryFilters(modelBuilder);
 
@@ -148,6 +153,8 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<ExternalAccount>(modelBuilder, "ExternalAccounts");
         MapTable<PartyRoleAssignment>(modelBuilder, "PartyRoleAssignments");
         MapTable<PartyRelationship>(modelBuilder, "PartyRelationships");
+        MapTable<NotificationPreference>(modelBuilder, "NotificationPreferences");
+        MapTable<MarketingPreference>(modelBuilder, "MarketingPreferences");
 
         MapTable<ScreeningCheck>(modelBuilder, "ScreeningChecks");
         MapTable<ComplianceCase>(modelBuilder, "ComplianceCases");

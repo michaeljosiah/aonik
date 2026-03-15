@@ -36,3 +36,43 @@ public record CustomerProfileResponse(
     string? Phone,
     string? CountryCode,
     string? PhotoUrl);
+
+public record NotificationPreferencesResponse(
+    string Email,
+    bool NewBillsPush,
+    bool BillUpdatesPush,
+    bool BillAssistPush,
+    bool MbaMessagesPush,
+    bool OrgMessagesPush,
+    bool FriendsMessagesPush,
+    bool NewBillsEmail,
+    bool BillUpdatesEmail,
+    bool BillAssistEmail,
+    bool MbaMessagesEmail,
+    bool OrgMessagesEmail);
+
+public record UpdateNotificationPreferencesRequest(
+    string? Email,
+    bool NewBillsPush,
+    bool BillUpdatesPush,
+    bool BillAssistPush,
+    bool MbaMessagesPush,
+    bool OrgMessagesPush,
+    bool FriendsMessagesPush,
+    bool NewBillsEmail,
+    bool BillUpdatesEmail,
+    bool BillAssistEmail,
+    bool MbaMessagesEmail,
+    bool OrgMessagesEmail);
+
+public record MarketingPreferencesResponse(
+    string Email,
+    bool News,
+    bool Offers,
+    bool Surveys);
+
+public record UpdateMarketingPreferencesRequest(
+    string? Email,
+    bool News,
+    bool Offers,
+    bool Surveys);

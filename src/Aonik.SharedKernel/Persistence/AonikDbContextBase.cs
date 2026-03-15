@@ -72,6 +72,26 @@ public abstract class AonikDbContextBase : DbContext
     }
 
     /// <summary>
+    /// Configures <see cref="AuditableEntity.RowVersion"/> as an optimistic concurrency token
+    /// on every entity inheriting from <see cref="AuditableEntity"/>.
+    /// On SQL Server the column is mapped to the native <c>rowversion</c> type (8-byte,
+    /// auto-incremented by the database engine on every INSERT/UPDATE).
+    /// Call this from <see cref="DbContext.OnModelCreating"/> in every derived context.
+    /// </summary>
+    protected static void ConfigureRowVersions(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (typeof(AuditableEntity).IsAssignableFrom(entityType.ClrType))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property(nameof(AuditableEntity.RowVersion))
+                    .IsRowVersion();
+            }
+        }
+    }
+
+    /// <summary>
     /// Applies <see cref="ITenantScoped"/> query filters to all tenant-scoped entities
     /// registered in the model. Call this from <see cref="DbContext.OnModelCreating"/>.
     /// 

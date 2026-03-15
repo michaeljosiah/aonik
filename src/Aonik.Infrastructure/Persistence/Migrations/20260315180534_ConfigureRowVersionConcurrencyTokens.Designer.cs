@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    partial class AonikDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260315180534_ConfigureRowVersionConcurrencyTokens")]
+    partial class ConfigureRowVersionConcurrencyTokens
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -7457,148 +7460,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.ToTable("AnkExternalAccounts", "dbo");
                 });
 
-            modelBuilder.Entity("Aonik.Platform.Entities.Party.MarketingPreference", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(320)
-                        .HasColumnType("nvarchar(320)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("News")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("Offers")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("PartyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<bool>("Surveys")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PartyId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_MarketingPreference_PartyId");
-
-                    b.ToTable("AnkMarketingPreferences", "dbo");
-                });
-
-            modelBuilder.Entity("Aonik.Platform.Entities.Party.NotificationPreference", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("BillAssistEmail")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("BillAssistPush")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("BillUpdatesEmail")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("BillUpdatesPush")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(320)
-                        .HasColumnType("nvarchar(320)");
-
-                    b.Property<bool>("FriendsMessagesPush")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("MbaMessagesEmail")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("MbaMessagesPush")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("NewBillsEmail")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("NewBillsPush")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("OrgMessagesEmail")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("OrgMessagesPush")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("PartyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PartyId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_NotificationPreference_PartyId");
-
-                    b.ToTable("AnkNotificationPreferences", "dbo");
-                });
-
             modelBuilder.Entity("Aonik.Platform.Entities.Party.Party", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8619,28 +8480,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasOne("Aonik.Platform.Entities.Party.Party", "Party")
                         .WithMany()
                         .HasForeignKey("PartyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Party");
-                });
-
-            modelBuilder.Entity("Aonik.Platform.Entities.Party.MarketingPreference", b =>
-                {
-                    b.HasOne("Aonik.Platform.Entities.Party.Party", "Party")
-                        .WithOne()
-                        .HasForeignKey("Aonik.Platform.Entities.Party.MarketingPreference", "PartyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Party");
-                });
-
-            modelBuilder.Entity("Aonik.Platform.Entities.Party.NotificationPreference", b =>
-                {
-                    b.HasOne("Aonik.Platform.Entities.Party.Party", "Party")
-                        .WithOne()
-                        .HasForeignKey("Aonik.Platform.Entities.Party.NotificationPreference", "PartyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
