@@ -64,6 +64,10 @@ public class PersonalAccountLinkServiceTests
         public void InvalidateCurrentUserGraph()
         {
         }
+
+        public Task InvalidateCurrentUserGraphAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FakeAccountLinkProviderGateway : IPersonalAccountLinkProviderGateway

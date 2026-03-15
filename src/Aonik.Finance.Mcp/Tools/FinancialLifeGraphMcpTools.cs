@@ -32,4 +32,20 @@ public static class FinancialLifeGraphMcpTools
     {
         return await financialLifeGraphService.GetGraphAsync(cancellationToken);
     }
+
+    [McpServerTool(Name = "finance_get_household_finance_context"), Description("Returns household-specific finance graph context for the current user.")]
+    public static async Task<HouseholdFinanceContextResponse> GetHouseholdFinanceContext(
+        IFinancialLifeGraphService financialLifeGraphService,
+        CancellationToken cancellationToken = default)
+    {
+        return await financialLifeGraphService.GetHouseholdFinanceContextAsync(cancellationToken);
+    }
+
+    [McpServerTool(Name = "finance_get_related_party_finance_context"), Description("Returns related-party finance context for the current user.")]
+    public static async Task<RelatedPartyFinanceContextResponse> GetRelatedPartyFinanceContext(
+        IFinancialLifeGraphService financialLifeGraphService,
+        CancellationToken cancellationToken = default)
+    {
+        return await financialLifeGraphService.GetRelatedPartyFinanceContextAsync(cancellationToken);
+    }
 }

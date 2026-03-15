@@ -1,30 +1,37 @@
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Microsoft.Extensions.Caching.Memory;
+using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal interface IFinancialLifeGraphCacheInvalidator
 {
     void InvalidateCurrentUserGraph();
+    Task InvalidateCurrentUserGraphAsync(CancellationToken cancellationToken = default);
+    Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default);
 }
 
 internal sealed class FinancialLifeGraphCacheInvalidator : IFinancialLifeGraphCacheInvalidator
 {
     private readonly ITenantProvider _tenantProvider;
     private readonly Aonik.SharedKernel.Abstractions.ICurrentUserProvider _currentUserProvider;
-    private readonly IMemoryCache _memoryCache;
+    private readonly ICacheInvalidationPublisher _cacheInvalidationPublisher;
 
     public FinancialLifeGraphCacheInvalidator(
         ITenantProvider tenantProvider,
         Aonik.SharedKernel.Abstractions.ICurrentUserProvider currentUserProvider,
-        IMemoryCache memoryCache)
+        ICacheInvalidationPublisher cacheInvalidationPublisher)
     {
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
-        _memoryCache = memoryCache;
+        _cacheInvalidationPublisher = cacheInvalidationPublisher;
     }
 
     public void InvalidateCurrentUserGraph()
+    {
+        InvalidateCurrentUserGraphAsync().GetAwaiter().GetResult();
+    }
+
+    public async Task InvalidateCurrentUserGraphAsync(CancellationToken cancellationToken = default)
     {
         if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
         {
@@ -32,7 +39,16 @@ internal sealed class FinancialLifeGraphCacheInvalidator : IFinancialLifeGraphCa
         }
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        _memoryCache.Remove(GetCacheKey(tenantId, userId));
+        await _cacheInvalidationPublisher.PublishAsync(
+            new CacheInvalidationEvent(FinancialLifeGraphService.CacheSet, GetCacheKey(tenantId, userId)),
+            cancellationToken);
+    }
+
+    public async Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default)
+    {
+        await _cacheInvalidationPublisher.PublishAsync(
+            new CacheInvalidationEvent(FinancialLifeGraphService.CacheSet),
+            cancellationToken);
     }
 
     internal static string GetCacheKey(Guid tenantId, Guid userId) => $"personal-finance:graph:{tenantId:D}:{userId:D}";

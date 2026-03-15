@@ -52,6 +52,10 @@ public class TransactionClassificationServiceTests
         public void InvalidateCurrentUserGraph()
         {
         }
+
+        public Task InvalidateCurrentUserGraphAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private static FinanceDbContext CreateDbContext(Guid tenantId)

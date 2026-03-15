@@ -48,6 +48,50 @@ internal sealed class GetFinancialLifeGraphSummaryEndpoint : EndpointWithoutRequ
     }
 }
 
+internal sealed class GetHouseholdFinanceContextEndpoint : EndpointWithoutRequest<HouseholdFinanceContextResponse>
+{
+    private readonly IFinancialLifeGraphService _financialLifeGraphService;
+
+    public GetHouseholdFinanceContextEndpoint(IFinancialLifeGraphService financialLifeGraphService)
+    {
+        _financialLifeGraphService = financialLifeGraphService;
+    }
+
+    public override void Configure()
+    {
+        Get("/personal-finance/graph/household-context");
+        Policies("UserPolicy");
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var response = await _financialLifeGraphService.GetHouseholdFinanceContextAsync(ct);
+        await Send.OkAsync(response, ct);
+    }
+}
+
+internal sealed class GetRelatedPartyFinanceContextEndpoint : EndpointWithoutRequest<RelatedPartyFinanceContextResponse>
+{
+    private readonly IFinancialLifeGraphService _financialLifeGraphService;
+
+    public GetRelatedPartyFinanceContextEndpoint(IFinancialLifeGraphService financialLifeGraphService)
+    {
+        _financialLifeGraphService = financialLifeGraphService;
+    }
+
+    public override void Configure()
+    {
+        Get("/personal-finance/graph/related-party-context");
+        Policies("UserPolicy");
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var response = await _financialLifeGraphService.GetRelatedPartyFinanceContextAsync(ct);
+        await Send.OkAsync(response, ct);
+    }
+}
+
 internal sealed class UpcomingObligationsRequest
 {
     public int WithinDays { get; set; } = 30;
@@ -268,7 +312,7 @@ internal sealed class ApproveFinancialLifeGraphProposalEndpoint : EndpointWithou
 
     public override void Configure()
     {
-        Post("/personal-finance/graph/proposals/{graphNodeId:guid}/approve");
+        Post("/personal-finance/graph/proposals/{proposalId:guid}/approve");
         Policies("UserPolicy");
     }
 
@@ -276,7 +320,7 @@ internal sealed class ApproveFinancialLifeGraphProposalEndpoint : EndpointWithou
     {
         try
         {
-            await _inferenceService.ApproveProposalAsync(Route<Guid>("graphNodeId"), ct);
+            await _inferenceService.ApproveProposalAsync(Route<Guid>("proposalId"), ct);
             await Send.NoContentAsync(ct);
         }
         catch (InvalidOperationException ex)

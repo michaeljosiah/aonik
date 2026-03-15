@@ -4,6 +4,7 @@ using Aonik.Platform.Contracts.Services.ReferenceData;
 using Aonik.Platform.Contracts.Models.ReferenceData;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Infrastructure.Caching;
+using Aonik.SharedKernel.Caching;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Infrastructure.ReferenceData;

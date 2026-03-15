@@ -1,10 +1,6 @@
-namespace Aonik.Infrastructure.Caching;
+using Aonik.SharedKernel.Caching;
 
-public interface ICacheInvalidationPublisher
-{
-    event Func<CacheInvalidationEvent, CancellationToken, Task>? Invalidated;
-    Task PublishAsync(CacheInvalidationEvent cacheInvalidationEvent, CancellationToken cancellationToken = default);
-}
+namespace Aonik.Infrastructure.Caching;
 
 public class CacheInvalidationPublisher : ICacheInvalidationPublisher
 {

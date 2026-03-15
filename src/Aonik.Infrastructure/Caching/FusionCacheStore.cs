@@ -1,16 +1,7 @@
 using ZiggyCreatures.Caching.Fusion;
+using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Infrastructure.Caching;
-
-public interface ICacheStore
-{
-    Task<T?> GetOrSetAsync<T>(
-        string key,
-        CachePolicy policy,
-        Func<CancellationToken, Task<T?>> factory,
-        string cacheSet,
-        CancellationToken cancellationToken = default);
-}
 
 public class FusionCacheStore : ICacheStore
 {

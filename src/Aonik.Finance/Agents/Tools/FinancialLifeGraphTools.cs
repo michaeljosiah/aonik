@@ -35,6 +35,18 @@ internal sealed class FinancialLifeGraphTools
         return await _financialLifeGraphService.GetGraphAsync(cancellationToken);
     }
 
+    [Description("Returns household-specific finance graph context for the current user, including household and member nodes when a household exists.")]
+    public async Task<HouseholdFinanceContextResponse> GetHouseholdFinanceContext(CancellationToken cancellationToken = default)
+    {
+        return await _financialLifeGraphService.GetHouseholdFinanceContextAsync(cancellationToken);
+    }
+
+    [Description("Returns related-party finance context for the current user, including related parties and relationship metadata.")]
+    public async Task<RelatedPartyFinanceContextResponse> GetRelatedPartyFinanceContext(CancellationToken cancellationToken = default)
+    {
+        return await _financialLifeGraphService.GetRelatedPartyFinanceContextAsync(cancellationToken);
+    }
+
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
         var tools = new FinancialLifeGraphTools(serviceProvider.GetRequiredService<IFinancialLifeGraphService>());
@@ -42,5 +54,7 @@ internal sealed class FinancialLifeGraphTools
         yield return AIFunctionFactory.Create(tools.GetFinancialLifeGraphSummary, name: "finance_get_financial_life_graph_summary");
         yield return AIFunctionFactory.Create(tools.GetUpcomingObligations, name: "finance_get_upcoming_obligations");
         yield return AIFunctionFactory.Create(tools.GetFinancialLifeGraph, name: "finance_get_financial_life_graph");
+        yield return AIFunctionFactory.Create(tools.GetHouseholdFinanceContext, name: "finance_get_household_finance_context");
+        yield return AIFunctionFactory.Create(tools.GetRelatedPartyFinanceContext, name: "finance_get_related_party_finance_context");
     }
 }

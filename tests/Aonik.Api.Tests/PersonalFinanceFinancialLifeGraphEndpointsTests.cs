@@ -231,7 +231,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         pending.Should().NotBeNull();
         pending!.Should().ContainSingle();
 
-        var approveResponse = await client.PostAsync($"/personal-finance/graph/proposals/{pending[0].GraphNodeId}/approve", null);
+        var approveResponse = await client.PostAsync($"/personal-finance/graph/proposals/{pending[0].ProposalId}/approve", null);
         approveResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var graphResponse = await client.GetAsync("/personal-finance/graph");
@@ -240,7 +240,44 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         graph!.Nodes.Should().Contain(item => item.DisplayName == pending[0].DisplayName);
     }
 
-    private async Task SeedGraphDataAsync(Guid tenantId, Guid userId, Guid partyId)
+    [Fact]
+    public async Task ContextEndpoints_Should_ReturnHouseholdAndRelatedPartyViews()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        await SeedGraphDataAsync(tenantId, userId, partyId, householdId);
+
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            new TestAuthOptions
+            {
+                UserId = userId,
+                TenantId = tenantId
+            }.WithRoles("PersonalUser"));
+
+        // Act
+        var householdResponse = await client.GetAsync("/personal-finance/graph/household-context");
+        var relatedPartyResponse = await client.GetAsync("/personal-finance/graph/related-party-context");
+
+        // Assert
+        householdResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        relatedPartyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var household = await householdResponse.Content.ReadFromJsonAsync<HouseholdContextPayload>();
+        var relatedParty = await relatedPartyResponse.Content.ReadFromJsonAsync<RelatedPartyContextPayload>();
+
+        household.Should().NotBeNull();
+        household!.HasHousehold.Should().BeTrue();
+        household.MemberCount.Should().BeGreaterThan(0);
+
+        relatedParty.Should().NotBeNull();
+        relatedParty!.Parties.Should().Contain(item => item.DisplayName == "Dad");
+    }
+
+    private async Task SeedGraphDataAsync(Guid tenantId, Guid userId, Guid partyId, Guid? householdId = null)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
@@ -251,8 +288,25 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         {
             TenantId = tenantId,
             UserId = userId,
-            PartyId = partyId
+            PartyId = partyId,
+            HouseholdId = householdId
         });
+        if (householdId.HasValue)
+        {
+            financeDbContext.Households.Add(new Household
+            {
+                Id = householdId.Value,
+                TenantId = tenantId,
+                Name = "Family Home"
+            });
+            financeDbContext.HouseholdMembers.Add(new HouseholdMember
+            {
+                HouseholdId = householdId.Value,
+                UserId = userId,
+                Role = "Owner",
+                PermissionsJson = "[]"
+            });
+        }
         financeDbContext.PersonalAccounts.Add(new PersonalAccount
         {
             TenantId = tenantId,
@@ -348,6 +402,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         List<object> SourceCoverage);
 
     private sealed record InferenceProposalPayload(
+        Guid ProposalId,
         Guid GraphNodeId,
         Guid GraphEdgeId,
         string DisplayName,
@@ -356,6 +411,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         string Status);
 
     private sealed record PendingProposalPayload(
+        Guid ProposalId,
         Guid GraphNodeId,
         Guid GraphEdgeId,
         string NodeType,
@@ -364,4 +420,20 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         string Status,
         Guid AiRunId,
         string MetadataJson);
+
+    private sealed record HouseholdContextPayload(
+        bool HasHousehold,
+        Guid? HouseholdId,
+        int MemberCount,
+        List<GraphNodePayload> Nodes,
+        List<object> Edges);
+
+    private sealed record RelatedPartyContextItemPayload(
+        Guid PartyId,
+        string DisplayName,
+        string? RelationshipTypeCode,
+        string? Notes);
+
+    private sealed record RelatedPartyContextPayload(
+        List<RelatedPartyContextItemPayload> Parties);
 }

@@ -9,6 +9,7 @@
 
   <!-- Boundary enforcement: only Api, Infrastructure, and test projects may access internals -->
   <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Finance" />
     <InternalsVisibleTo Include="Aonik.Api" />
     <InternalsVisibleTo Include="Aonik.Infrastructure" />
     <InternalsVisibleTo Include="Aonik.Agents.Tests" />

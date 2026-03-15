@@ -8,6 +8,7 @@ using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Entities.Party;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Platform.Services.Party;
 
@@ -22,17 +23,20 @@ internal class PartyService : IPartyService
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
+    private readonly ICacheInvalidationPublisher _cacheInvalidationPublisher;
 
     public PartyService(
         PlatformDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        ICacheInvalidationPublisher cacheInvalidationPublisher)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _auditLogWriter = auditLogWriter;
+        _cacheInvalidationPublisher = cacheInvalidationPublisher;
     }
 
     public async Task<PartyResponse> CreatePartyAsync(
@@ -191,6 +195,7 @@ internal class PartyService : IPartyService
 
         _dbContext.PartyRelationships.Add(relationship);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _cacheInvalidationPublisher.PublishAsync(new CacheInvalidationEvent("personal-finance-graph"), cancellationToken);
 
         var parties = await LoadPartyNamesAsync(request.CustomerPartyId, party.Id, cancellationToken);
         var relationshipResponse = new PartyRelationshipResponse(
@@ -236,6 +241,7 @@ internal class PartyService : IPartyService
 
         _dbContext.PartyRelationships.Add(relationship);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await _cacheInvalidationPublisher.PublishAsync(new CacheInvalidationEvent("personal-finance-graph"), cancellationToken);
 
         var parties = await LoadPartyNamesAsync(request.FromPartyId, request.ToPartyId, cancellationToken);
         return new PartyRelationshipResponse(

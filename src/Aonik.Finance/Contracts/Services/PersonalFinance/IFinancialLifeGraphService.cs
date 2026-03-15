@@ -11,4 +11,8 @@ public interface IFinancialLifeGraphService
     Task<IReadOnlyList<UpcomingObligationResponse>> GetUpcomingObligationsAsync(
         int withinDays = 30,
         CancellationToken cancellationToken = default);
+
+    Task<HouseholdFinanceContextResponse> GetHouseholdFinanceContextAsync(CancellationToken cancellationToken = default);
+
+    Task<RelatedPartyFinanceContextResponse> GetRelatedPartyFinanceContextAsync(CancellationToken cancellationToken = default);
 }

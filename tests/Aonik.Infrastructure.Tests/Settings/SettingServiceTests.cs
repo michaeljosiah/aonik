@@ -15,6 +15,7 @@ using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Services.Settings;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Infrastructure.Tests.Settings;
 

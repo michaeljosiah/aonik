@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Aonik.Agents.Entities;
+using Aonik.Agents.Persistence;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
@@ -11,17 +13,20 @@ namespace Aonik.Finance.Services.PersonalFinance;
 internal sealed class FinancialLifeGraphInferenceService
 {
     private readonly FinanceDbContext _financeDbContext;
+    private readonly AgentsDbContext _agentsDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialLifeGraphInferenceService(
         FinanceDbContext financeDbContext,
+        AgentsDbContext agentsDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
+        _agentsDbContext = agentsDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
@@ -120,10 +125,34 @@ internal sealed class FinancialLifeGraphInferenceService
                 AiRunId = request.AiRunId
             };
 
+            var proposalPayloadJson = JsonSerializer.Serialize(new
+            {
+                graphNodeId = node.Id,
+                graphEdgeId = edge.Id,
+                nodeType = node.NodeType,
+                displayName,
+                metadataJson,
+                inferenceType = "RecurringMerchant"
+            });
+
+            var proposal = new Proposal
+            {
+                TenantId = tenantId,
+                ProposalType = "FinancialLifeGraphAnnotation",
+                ProposedByAgentId = Guid.Empty,
+                AiRunId = request.AiRunId,
+                ImpactSummary = $"Proposed graph annotation for recurring merchant {group.Merchant}.",
+                RiskTier = "Low",
+                Status = "Proposed",
+                PayloadJson = proposalPayloadJson
+            };
+
             _financeDbContext.FinancialLifeGraphNodes.Add(node);
             _financeDbContext.FinancialLifeGraphEdges.Add(edge);
+            _agentsDbContext.Proposals.Add(proposal);
 
             results.Add(new FinancialLifeGraphInferenceProposalResponse(
+                proposal.Id,
                 node.Id,
                 edge.Id,
                 displayName,
@@ -135,7 +164,7 @@ internal sealed class FinancialLifeGraphInferenceService
         if (results.Count > 0)
         {
             await _financeDbContext.SaveChangesAsync(cancellationToken);
-            _cacheInvalidator.InvalidateCurrentUserGraph();
+            await _agentsDbContext.SaveChangesAsync(cancellationToken);
         }
 
         return results;
@@ -157,10 +186,18 @@ internal sealed class FinancialLifeGraphInferenceService
             .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == "Proposed" && item.AiRunId.HasValue)
             .ToListAsync(cancellationToken);
 
+        var proposals = await _agentsDbContext.Proposals
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.Status == "Proposed")
+            .OrderBy(item => item.CreatedAt)
+            .ToListAsync(cancellationToken);
+
         return nodes.Select(node =>
         {
             var edge = edgeLookup.First(item => item.ToNodeKey == $"native-node:{node.Id:D}");
+            var proposal = proposals.First(item => item.PayloadJson.Contains(node.Id.ToString(), StringComparison.OrdinalIgnoreCase));
             return new PendingFinancialLifeGraphProposalResponse(
+                proposal.Id,
                 node.Id,
                 edge.Id,
                 node.NodeType,
@@ -172,19 +209,26 @@ internal sealed class FinancialLifeGraphInferenceService
         }).ToList();
     }
 
-    public async Task ApproveProposalAsync(Guid graphNodeId, CancellationToken cancellationToken = default)
+    public async Task ApproveProposalAsync(Guid proposalId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
 
-        var node = await _financeDbContext.FinancialLifeGraphNodes
-            .FirstOrDefaultAsync(item => item.Id == graphNodeId && item.TenantId == tenantId && item.UserId == userId, cancellationToken)
-            ?? throw new InvalidOperationException("Financial life graph proposal not found.");
+        var proposal = await _agentsDbContext.Proposals
+            .FirstOrDefaultAsync(item => item.Id == proposalId && item.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("Financial life graph proposal record not found.");
 
-        if (!string.Equals(node.Status, "Proposed", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(proposal.Status, "Proposed", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Only proposed graph annotations can be approved.");
         }
+
+        using var payload = JsonDocument.Parse(proposal.PayloadJson);
+        var graphNodeId = payload.RootElement.GetProperty("graphNodeId").GetGuid();
+
+        var node = await _financeDbContext.FinancialLifeGraphNodes
+            .FirstOrDefaultAsync(item => item.Id == graphNodeId && item.TenantId == tenantId && item.UserId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Financial life graph proposal not found.");
 
         var edge = await _financeDbContext.FinancialLifeGraphEdges
             .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == userId && item.ToNodeKey == $"native-node:{node.Id:D}", cancellationToken)
@@ -192,8 +236,12 @@ internal sealed class FinancialLifeGraphInferenceService
 
         node.Status = "Active";
         edge.Status = "Active";
+        proposal.Status = "Approved";
+        proposal.ApprovedAt = DateTime.UtcNow;
+        proposal.ApprovedByUserId = userId;
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _agentsDbContext.SaveChangesAsync(cancellationToken);
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
     private Guid GetCurrentUserId()

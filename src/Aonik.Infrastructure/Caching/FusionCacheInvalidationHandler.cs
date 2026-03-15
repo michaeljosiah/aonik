@@ -1,4 +1,5 @@
 using ZiggyCreatures.Caching.Fusion;
+using Aonik.SharedKernel.Caching;
 
 namespace Aonik.Infrastructure.Caching;
 

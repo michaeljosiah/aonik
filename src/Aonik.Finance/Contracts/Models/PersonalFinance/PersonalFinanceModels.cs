@@ -487,6 +487,7 @@ public record ProposeRecurringMerchantGraphAnnotationsRequest(
     int WithinDays = 90);
 
 public record FinancialLifeGraphInferenceProposalResponse(
+    Guid ProposalId,
     Guid GraphNodeId,
     Guid GraphEdgeId,
     string DisplayName,
@@ -495,6 +496,7 @@ public record FinancialLifeGraphInferenceProposalResponse(
     string Status);
 
 public record PendingFinancialLifeGraphProposalResponse(
+    Guid ProposalId,
     Guid GraphNodeId,
     Guid GraphEdgeId,
     string NodeType,
@@ -503,3 +505,19 @@ public record PendingFinancialLifeGraphProposalResponse(
     string Status,
     Guid AiRunId,
     string MetadataJson);
+
+public record HouseholdFinanceContextResponse(
+    bool HasHousehold,
+    Guid? HouseholdId,
+    int MemberCount,
+    IReadOnlyList<FinancialLifeGraphNodeResponse> Nodes,
+    IReadOnlyList<FinancialLifeGraphEdgeResponse> Edges);
+
+public record RelatedPartyFinanceContextItemResponse(
+    Guid PartyId,
+    string DisplayName,
+    string? RelationshipTypeCode,
+    string? Notes);
+
+public record RelatedPartyFinanceContextResponse(
+    IReadOnlyList<RelatedPartyFinanceContextItemResponse> Parties);

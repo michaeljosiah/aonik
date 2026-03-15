@@ -1,4 +1,4 @@
-namespace Aonik.Infrastructure.Caching;
+namespace Aonik.SharedKernel.Caching;
 
 public record CacheInvalidationEvent(
     string CacheSet,

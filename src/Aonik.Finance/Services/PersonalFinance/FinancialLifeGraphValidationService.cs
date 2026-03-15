@@ -58,6 +58,36 @@ internal sealed class FinancialLifeGraphValidationService
             throw new ArgumentException("AiRunId is required for inferred nodes.", nameof(request.AiRunId));
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+
+        var duplicateDisplayNameExists = await _financeDbContext.FinancialLifeGraphNodes
+            .AnyAsync(item => item.TenantId == tenantId
+                && item.UserId == userId
+                && item.NodeType == request.NodeType
+                && item.DisplayName == request.DisplayName.Trim()
+                && item.Status != "Rejected", cancellationToken);
+
+        if (duplicateDisplayNameExists)
+        {
+            throw new InvalidOperationException("A graph node with the same type and display name already exists.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SourceEntity) && request.SourceId.HasValue)
+        {
+            var duplicateSourceExists = await _financeDbContext.FinancialLifeGraphNodes
+                .AnyAsync(item => item.TenantId == tenantId
+                    && item.UserId == userId
+                    && item.SourceEntity == request.SourceEntity.Trim()
+                    && item.SourceId == request.SourceId.Value
+                    && item.Status != "Rejected", cancellationToken);
+
+            if (duplicateSourceExists)
+            {
+                throw new InvalidOperationException("A graph node for the same source entity already exists.");
+            }
+        }
+
         await ValidateHouseholdAccessAsync(request.HouseholdId, cancellationToken);
     }
 
@@ -84,6 +114,23 @@ internal sealed class FinancialLifeGraphValidationService
         if (request.IsInferred && !request.AiRunId.HasValue)
         {
             throw new ArgumentException("AiRunId is required for inferred edges.", nameof(request.AiRunId));
+        }
+
+        ValidateEdgeShape(request);
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var duplicateEdgeExists = await _financeDbContext.FinancialLifeGraphEdges
+            .AnyAsync(item => item.TenantId == tenantId
+                && item.UserId == userId
+                && item.FromNodeKey == request.FromNodeKey.Trim()
+                && item.Predicate == request.Predicate.Trim()
+                && item.ToNodeKey == request.ToNodeKey.Trim()
+                && item.Status != "Rejected", cancellationToken);
+
+        if (duplicateEdgeExists)
+        {
+            throw new InvalidOperationException("A graph edge with the same shape already exists.");
         }
 
         await ValidateHouseholdAccessAsync(request.HouseholdId, cancellationToken);
@@ -147,5 +194,32 @@ internal sealed class FinancialLifeGraphValidationService
         }
 
         return userId;
+    }
+
+    private static void ValidateEdgeShape(CreateFinancialLifeGraphEdgeRequest request)
+    {
+        var predicate = request.Predicate.Trim();
+        var fromNodeKey = request.FromNodeKey.Trim();
+        var toNodeKey = request.ToNodeKey.Trim();
+
+        if (string.Equals(predicate, "ANNOTATED_AS", StringComparison.OrdinalIgnoreCase)
+            && !toNodeKey.StartsWith("native-node:", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("ANNOTATED_AS edges must target a native graph node.");
+        }
+
+        if (string.Equals(predicate, "RELATED_TO_PARTY", StringComparison.OrdinalIgnoreCase)
+            && !toNodeKey.StartsWith("party:", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("RELATED_TO_PARTY edges must target a party node.");
+        }
+
+        if (string.Equals(predicate, "FUNDED_BY_ACCOUNT", StringComparison.OrdinalIgnoreCase)
+            && (!fromNodeKey.StartsWith("goal:", StringComparison.OrdinalIgnoreCase)
+                && !fromNodeKey.StartsWith("bill:", StringComparison.OrdinalIgnoreCase)
+                || !toNodeKey.StartsWith("personal-account:", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("FUNDED_BY_ACCOUNT edges must link a goal or bill node to a personal account node.");
+        }
     }
 }

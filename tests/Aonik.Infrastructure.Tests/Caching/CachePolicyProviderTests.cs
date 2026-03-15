@@ -1,4 +1,5 @@
 using Aonik.Infrastructure.Caching;
+using Aonik.SharedKernel.Caching;
 using FluentAssertions;
 
 namespace Aonik.Infrastructure.Tests.Caching;

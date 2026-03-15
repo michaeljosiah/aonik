@@ -6,30 +6,30 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Microsoft.Extensions.Caching.Memory;
+using Aonik.SharedKernel.Caching;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 {
-    private static readonly TimeSpan GraphCacheDuration = TimeSpan.FromMinutes(5);
+    internal const string CacheSet = "personal-finance-graph";
 
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
-    private readonly IMemoryCache _memoryCache;
+    private readonly ICacheStore _cacheStore;
 
     public FinancialLifeGraphService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IMemoryCache memoryCache)
+        ICacheStore cacheStore)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
-        _memoryCache = memoryCache;
+        _cacheStore = cacheStore;
     }
 
     public async Task<FinancialLifeGraphResponse> GetGraphAsync(CancellationToken cancellationToken = default)
@@ -57,26 +57,59 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         return BuildUpcomingObligations(snapshot, withinDays);
     }
 
+    public async Task<HouseholdFinanceContextResponse> GetHouseholdFinanceContextAsync(CancellationToken cancellationToken = default)
+    {
+        var snapshot = await GetSnapshotAsync(cancellationToken);
+
+        if (snapshot.Household == null)
+        {
+            return new HouseholdFinanceContextResponse(false, null, 0, [], []);
+        }
+
+        var graph = BuildGraph(snapshot);
+        var householdPrefix = $"household:{snapshot.Household.Id:D}";
+        var memberPrefix = "household-member:";
+
+        return new HouseholdFinanceContextResponse(
+            true,
+            snapshot.Household.Id,
+            snapshot.HouseholdMembers.Count,
+            graph.Nodes.Where(item => item.NodeId == householdPrefix || item.NodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)).ToList(),
+            graph.Edges.Where(item => item.FromNodeId == householdPrefix || item.ToNodeId == householdPrefix || item.FromNodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase) || item.ToNodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)).ToList());
+    }
+
+    public async Task<RelatedPartyFinanceContextResponse> GetRelatedPartyFinanceContextAsync(CancellationToken cancellationToken = default)
+    {
+        var snapshot = await GetSnapshotAsync(cancellationToken);
+        var response = snapshot.RelatedParties
+            .Select(party =>
+            {
+                var relationship = snapshot.PartyRelationships.FirstOrDefault(item => item.FromPartyId == party.Id || item.ToPartyId == party.Id);
+                return new RelatedPartyFinanceContextItemResponse(
+                    party.Id,
+                    party.DisplayName,
+                    relationship?.RelationshipTypeCode,
+                    relationship?.Notes);
+            })
+            .ToList();
+
+        return new RelatedPartyFinanceContextResponse(response);
+    }
+
     private async Task<FinancialLifeGraphSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
         var cacheKey = FinancialLifeGraphCacheInvalidator.GetCacheKey(tenantId, userId);
 
-        if (_memoryCache.TryGetValue(cacheKey, out FinancialLifeGraphSnapshot? cachedSnapshot)
-            && cachedSnapshot is not null)
-        {
-            return cachedSnapshot;
-        }
+        var snapshot = await _cacheStore.GetOrSetAsync(
+            cacheKey,
+            CachePolicy.Medium,
+            async ct => await LoadSnapshotAsync(ct),
+            CacheSet,
+            cancellationToken);
 
-        var snapshot = await LoadSnapshotAsync(cancellationToken);
-        _memoryCache.Set(cacheKey, snapshot, new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = GraphCacheDuration,
-            SlidingExpiration = TimeSpan.FromMinutes(2)
-        });
-
-        return snapshot;
+        return snapshot ?? await LoadSnapshotAsync(cancellationToken);
     }
 
     private async Task<FinancialLifeGraphSnapshot> LoadSnapshotAsync(CancellationToken cancellationToken)
@@ -187,13 +220,13 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         var nativeNodes = await _financeDbContext.FinancialLifeGraphNodes
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId)
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == "Active")
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var nativeEdges = await _financeDbContext.FinancialLifeGraphEdges
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId)
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == "Active")
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 
