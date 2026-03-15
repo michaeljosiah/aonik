@@ -56,7 +56,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
         await EnsurePersonalProfileAsync(userId, tenantId, cancellationToken);
 
         var alreadyMember = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.UserId == userId, cancellationToken);
+            .AnyAsync(member => member.TenantId == tenantId && member.UserId == userId, cancellationToken);
 
         if (alreadyMember)
         {
@@ -73,6 +73,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
 
         var member = new HouseholdMember
         {
+            TenantId = tenantId,
             HouseholdId = household.Id,
             UserId = userId,
             Role = OwnerRole,
@@ -135,7 +136,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
         }
 
         var inviterIsMember = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.HouseholdId == household.Id && member.UserId == currentUserId, cancellationToken);
+            .AnyAsync(member => member.TenantId == tenantId && member.HouseholdId == household.Id && member.UserId == currentUserId, cancellationToken);
 
         if (!inviterIsMember)
         {
@@ -153,7 +154,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
         }
 
         var alreadyMember = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.HouseholdId == household.Id && member.UserId == request.UserId, cancellationToken);
+            .AnyAsync(member => member.TenantId == tenantId && member.HouseholdId == household.Id && member.UserId == request.UserId, cancellationToken);
 
         if (alreadyMember)
         {
@@ -161,7 +162,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
         }
 
         var anyMembership = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.UserId == request.UserId, cancellationToken);
+            .AnyAsync(member => member.TenantId == tenantId && member.UserId == request.UserId, cancellationToken);
 
         if (anyMembership)
         {
@@ -172,6 +173,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
 
         var member = new HouseholdMember
         {
+            TenantId = tenantId,
             HouseholdId = household.Id,
             UserId = request.UserId,
             Role = request.Role.Trim(),

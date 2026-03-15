@@ -107,7 +107,7 @@ internal sealed class FinancialLifeGraphInferenceService
                 NodeType = "InferredAnnotation",
                 DisplayName = displayName,
                 PropertiesJson = metadataJson,
-                Status = "Proposed",
+                Status = FinancialLifeGraphEntityStatuses.Proposed,
                 IsInferred = true,
                 AiRunId = request.AiRunId
             };
@@ -120,7 +120,7 @@ internal sealed class FinancialLifeGraphInferenceService
                 Predicate = "ANNOTATED_AS",
                 ToNodeKey = $"native-node:{node.Id:D}",
                 PropertiesJson = metadataJson,
-                Status = "Proposed",
+                Status = FinancialLifeGraphEntityStatuses.Proposed,
                 IsInferred = true,
                 AiRunId = request.AiRunId
             };
@@ -143,7 +143,7 @@ internal sealed class FinancialLifeGraphInferenceService
                 AiRunId = request.AiRunId,
                 ImpactSummary = $"Proposed graph annotation for recurring merchant {group.Merchant}.",
                 RiskTier = "Low",
-                Status = "Proposed",
+                Status = FinancialLifeGraphProposalStatuses.Proposed,
                 PayloadJson = proposalPayloadJson
             };
 
@@ -158,7 +158,7 @@ internal sealed class FinancialLifeGraphInferenceService
                 displayName,
                 $"Detected {group.Count} recurring transactions for {group.Merchant} over the last {request.WithinDays} days.",
                 group.Count,
-                "Proposed"));
+                FinancialLifeGraphEntityStatuses.Proposed));
         }
 
         if (results.Count > 0)
@@ -177,18 +177,18 @@ internal sealed class FinancialLifeGraphInferenceService
 
         var nodes = await _financeDbContext.FinancialLifeGraphNodes
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == "Proposed" && item.AiRunId.HasValue)
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == FinancialLifeGraphEntityStatuses.Proposed && item.AiRunId.HasValue)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var edgeLookup = await _financeDbContext.FinancialLifeGraphEdges
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == "Proposed" && item.AiRunId.HasValue)
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == FinancialLifeGraphEntityStatuses.Proposed && item.AiRunId.HasValue)
             .ToListAsync(cancellationToken);
 
         var proposals = await _agentsDbContext.Proposals
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.Status == "Proposed")
+            .Where(item => item.TenantId == tenantId && item.Status == FinancialLifeGraphProposalStatuses.Proposed)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -218,7 +218,7 @@ internal sealed class FinancialLifeGraphInferenceService
             .FirstOrDefaultAsync(item => item.Id == proposalId && item.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException("Financial life graph proposal record not found.");
 
-        if (!string.Equals(proposal.Status, "Proposed", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(proposal.Status, FinancialLifeGraphProposalStatuses.Proposed, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("Only proposed graph annotations can be approved.");
         }
@@ -234,9 +234,9 @@ internal sealed class FinancialLifeGraphInferenceService
             .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == userId && item.ToNodeKey == $"native-node:{node.Id:D}", cancellationToken)
             ?? throw new InvalidOperationException("Financial life graph proposal edge not found.");
 
-        node.Status = "Active";
-        edge.Status = "Active";
-        proposal.Status = "Approved";
+        node.Status = FinancialLifeGraphEntityStatuses.Active;
+        edge.Status = FinancialLifeGraphEntityStatuses.Active;
+        proposal.Status = FinancialLifeGraphProposalStatuses.Approved;
         proposal.ApprovedAt = DateTime.UtcNow;
         proposal.ApprovedByUserId = userId;
         await _financeDbContext.SaveChangesAsync(cancellationToken);

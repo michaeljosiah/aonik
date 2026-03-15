@@ -1,0 +1,27 @@
+using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Finance.Contracts.Services.PersonalFinance;
+using FastEndpoints;
+
+namespace Aonik.Finance.Endpoints.PersonalFinance;
+
+internal sealed class GetFinancialLifeGraphEndpoint : EndpointWithoutRequest<FinancialLifeGraphResponse>
+{
+    private readonly IFinancialLifeGraphService _financialLifeGraphService;
+
+    public GetFinancialLifeGraphEndpoint(IFinancialLifeGraphService financialLifeGraphService)
+    {
+        _financialLifeGraphService = financialLifeGraphService;
+    }
+
+    public override void Configure()
+    {
+        Get("/personal-finance/graph");
+        Policies("UserPolicy");
+    }
+
+    public override async Task HandleAsync(CancellationToken ct)
+    {
+        var response = await _financialLifeGraphService.GetGraphAsync(ct);
+        await Send.OkAsync(response, ct);
+    }
+}

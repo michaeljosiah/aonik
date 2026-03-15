@@ -1,3 +1,4 @@
+using System.Data;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
@@ -13,7 +14,6 @@ internal sealed class FinancialLifeGraphWriteService
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly FinancialLifeGraphValidationService _validationService;
-    private readonly Contracts.Services.PersonalFinance.IFinancialLifeGraphService _graphService;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
 
     public FinancialLifeGraphWriteService(
@@ -21,14 +21,12 @@ internal sealed class FinancialLifeGraphWriteService
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         FinancialLifeGraphValidationService validationService,
-        Contracts.Services.PersonalFinance.IFinancialLifeGraphService graphService,
         IFinancialLifeGraphCacheInvalidator cacheInvalidator)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _validationService = validationService;
-        _graphService = graphService;
         _cacheInvalidator = cacheInvalidator;
     }
 
@@ -48,7 +46,7 @@ internal sealed class FinancialLifeGraphWriteService
             SourceEntity = string.IsNullOrWhiteSpace(request.SourceEntity) ? null : request.SourceEntity.Trim(),
             SourceId = request.SourceId,
             PropertiesJson = string.IsNullOrWhiteSpace(request.MetadataJson) ? "{}" : request.MetadataJson,
-            Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+            Status = string.IsNullOrWhiteSpace(request.Status) ? FinancialLifeGraphEntityStatuses.Active : request.Status.Trim(),
             IsInferred = request.IsInferred,
             AiRunId = request.AiRunId
         };
@@ -64,10 +62,15 @@ internal sealed class FinancialLifeGraphWriteService
         CreateFinancialLifeGraphEdgeRequest request,
         CancellationToken cancellationToken = default)
     {
-        var graph = await _graphService.GetGraphAsync(cancellationToken);
-        var availableNodeKeys = graph.Nodes.Select(item => item.NodeId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var useTransaction = _financeDbContext.Database.IsRelational();
+        await using var transaction = useTransaction
+            ? await _financeDbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            : null;
 
-        await _validationService.ValidateEdgeCreateAsync(request, availableNodeKeys, cancellationToken);
+        var requestedNodeKeys = new[] { request.FromNodeKey, request.ToNodeKey };
+        var availableNodeTypesByKey = await _validationService.ResolveAccessibleNodeTypesAsync(requestedNodeKeys, cancellationToken);
+
+        await _validationService.ValidateEdgeCreateAsync(request, availableNodeTypesByKey, cancellationToken);
 
         var edge = new FinancialLifeGraphEdge
         {
@@ -78,14 +81,33 @@ internal sealed class FinancialLifeGraphWriteService
             Predicate = request.Predicate.Trim(),
             ToNodeKey = request.ToNodeKey.Trim(),
             PropertiesJson = string.IsNullOrWhiteSpace(request.MetadataJson) ? "{}" : request.MetadataJson,
-            Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+            Status = string.IsNullOrWhiteSpace(request.Status) ? FinancialLifeGraphEntityStatuses.Active : request.Status.Trim(),
             IsInferred = request.IsInferred,
             AiRunId = request.AiRunId
         };
 
         _financeDbContext.FinancialLifeGraphEdges.Add(edge);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+
+        var revalidatedNodeTypes = await _validationService.ResolveAccessibleNodeTypesAsync(requestedNodeKeys, cancellationToken);
+        if (!revalidatedNodeTypes.ContainsKey(request.FromNodeKey.Trim())
+            || !revalidatedNodeTypes.ContainsKey(request.ToNodeKey.Trim()))
+        {
+            if (!useTransaction)
+            {
+                _financeDbContext.FinancialLifeGraphEdges.Remove(edge);
+                await _financeDbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            throw new InvalidOperationException("One or more graph edge targets no longer exist in the current graph scope.");
+        }
+
+        if (transaction != null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return new FinancialLifeGraphEdgeWriteResponse(edge.Id);
     }

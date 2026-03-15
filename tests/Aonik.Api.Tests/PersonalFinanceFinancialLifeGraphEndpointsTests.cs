@@ -301,6 +301,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
             });
             financeDbContext.HouseholdMembers.Add(new HouseholdMember
             {
+                TenantId = tenantId,
                 HouseholdId = householdId.Value,
                 UserId = userId,
                 Role = "Owner",

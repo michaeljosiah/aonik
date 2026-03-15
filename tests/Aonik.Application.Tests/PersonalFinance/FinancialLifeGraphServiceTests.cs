@@ -3,11 +3,13 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.Agents.Persistence;
+using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Caching;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.PersonalFinance;
 
@@ -145,6 +147,7 @@ public class FinancialLifeGraphServiceTests
         });
         context.HouseholdMembers.Add(new HouseholdMember
         {
+            TenantId = tenantId,
             HouseholdId = householdId,
             UserId = userId,
             Role = "Owner",
@@ -247,7 +250,8 @@ public class FinancialLifeGraphServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            cacheStore);
+            cacheStore,
+            NullLogger<FinancialLifeGraphService>.Instance);
 
         // Act
         var graph = await service.GetGraphAsync();
@@ -261,6 +265,155 @@ public class FinancialLifeGraphServiceTests
         graph.Nodes.Should().Contain(node => node.NodeType == "Party" && node.DisplayName == "Mum");
         graph.Edges.Should().Contain(edge => edge.Predicate == "OWNS_ACCOUNT");
         graph.Edges.Should().Contain(edge => edge.Predicate == "RELATED_TO_PARTY");
+    }
+
+    [Fact]
+    public async Task GetGraphAsync_Should_LimitTransactionsToRecentWindow()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+
+        await using var context = CreateDbContext(tenantId);
+        context.PersonalProfiles.Add(new PersonalProfile
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PartyId = partyId
+        });
+        context.PersonalTransactions.Add(new PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow.AddDays(-(FinancialLifeGraphService.TransactionWindowDays + 5)),
+            Amount = -10m,
+            Currency = "USD",
+            Merchant = "Old Merchant",
+            Description = "Old transaction",
+            TagsJson = "[]",
+            ReviewStatus = "Pending"
+        });
+        context.PersonalTransactions.Add(new PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow.AddDays(-5),
+            Amount = -12m,
+            Currency = "USD",
+            Merchant = "Recent Merchant",
+            Description = "Recent transaction",
+            TagsJson = "[]",
+            ReviewStatus = "Pending"
+        });
+        await context.SaveChangesAsync();
+
+        var service = new FinancialLifeGraphService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new TestCacheStore(),
+            NullLogger<FinancialLifeGraphService>.Instance);
+
+        // Act
+        var graph = await service.GetGraphAsync();
+
+        // Assert
+        graph.Summary.TransactionsCount.Should().Be(1);
+        graph.Nodes.Should().Contain(node => node.NodeType == "PersonalTransaction" && node.DisplayName == "Recent Merchant");
+        graph.Nodes.Should().NotContain(node => node.NodeType == "PersonalTransaction" && node.DisplayName == "Old Merchant");
+    }
+
+    [Fact]
+    public async Task GetGraphAsync_Should_Only_ProjectRelevantFxQuotes_ForUserAccountCurrencies()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+
+        await using var context = CreateDbContext(tenantId);
+        context.PersonalProfiles.Add(new PersonalProfile
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PartyId = partyId
+        });
+        context.PersonalAccounts.AddRange(
+            new PersonalAccount
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                Name = "USD Account",
+                AccountType = "Bank",
+                Currency = "USD",
+                Status = "Active"
+            },
+            new PersonalAccount
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                Name = "NGN Account",
+                AccountType = "Bank",
+                Currency = "NGN",
+                Status = "Active"
+            });
+        context.FxQuotes.AddRange(
+            new Aonik.Finance.Entities.Pricing.FxQuote
+            {
+                TenantId = tenantId,
+                BaseCurrency = "USD",
+                TargetCurrency = "NGN",
+                Rate = 1500m,
+                ExpiresAt = DateTime.UtcNow.AddHours(1)
+            },
+            new Aonik.Finance.Entities.Pricing.FxQuote
+            {
+                TenantId = tenantId,
+                BaseCurrency = "NGN",
+                TargetCurrency = "USD",
+                Rate = 0.0007m,
+                ExpiresAt = DateTime.UtcNow.AddHours(2)
+            },
+            new Aonik.Finance.Entities.Pricing.FxQuote
+            {
+                TenantId = tenantId,
+                BaseCurrency = "EUR",
+                TargetCurrency = "USD",
+                Rate = 1.08m,
+                ExpiresAt = DateTime.UtcNow.AddHours(3)
+            },
+            new Aonik.Finance.Entities.Pricing.FxQuote
+            {
+                TenantId = tenantId,
+                BaseCurrency = "GBP",
+                TargetCurrency = "EUR",
+                Rate = 1.17m,
+                ExpiresAt = DateTime.UtcNow.AddHours(4)
+            });
+        await context.SaveChangesAsync();
+
+        var service = new FinancialLifeGraphService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new TestCacheStore(),
+            NullLogger<FinancialLifeGraphService>.Instance);
+
+        // Act
+        var graph = await service.GetGraphAsync();
+
+        // Assert
+        graph.Nodes.Count(item => item.NodeType == "FxQuote").Should().Be(2);
+        graph.Nodes.Should().Contain(item => item.NodeType == "FxQuote" && item.DisplayName == "USD/NGN");
+        graph.Nodes.Should().Contain(item => item.NodeType == "FxQuote" && item.DisplayName == "NGN/USD");
+        graph.Nodes.Should().NotContain(item => item.NodeType == "FxQuote" && item.DisplayName == "EUR/USD");
+        graph.Nodes.Should().NotContain(item => item.NodeType == "FxQuote" && item.DisplayName == "GBP/EUR");
+        graph.Edges.Count(item => item.Predicate == "HAS_FX_CONTEXT").Should().Be(2);
     }
 
     [Fact]
@@ -306,7 +459,8 @@ public class FinancialLifeGraphServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            cacheStore);
+            cacheStore,
+            NullLogger<FinancialLifeGraphService>.Instance);
 
         // Act
         var obligations = await service.GetUpcomingObligationsAsync(14);
@@ -340,7 +494,7 @@ public class FinancialLifeGraphServiceTests
             NodeType = "NativeAnnotation",
             DisplayName = "Supports Mum",
             PropertiesJson = "{\"tag\":\"family\"}",
-            Status = "Active"
+            Status = FinancialLifeGraphEntityStatuses.Active
         };
 
         context.FinancialLifeGraphNodes.Add(nativeNode);
@@ -354,7 +508,7 @@ public class FinancialLifeGraphServiceTests
             Predicate = "ANNOTATED_AS",
             ToNodeKey = $"native-node:{nativeNode.Id:D}",
             PropertiesJson = "{}",
-            Status = "Active"
+            Status = FinancialLifeGraphEntityStatuses.Active
         });
         await context.SaveChangesAsync();
 
@@ -363,14 +517,16 @@ public class FinancialLifeGraphServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            cacheStore);
+            cacheStore,
+            NullLogger<FinancialLifeGraphService>.Instance);
 
         // Act
         var graph = await service.GetGraphAsync();
 
         // Assert
         graph.Nodes.Should().Contain(item => item.NodeType == "NativeAnnotation" && item.DisplayName == "Supports Mum");
-        graph.Edges.Should().Contain(item => item.Predicate == "ANNOTATED_AS");
+        graph.Edges.Should().ContainSingle(item => item.Predicate == "ANNOTATED_AS");
+        graph.Edges.Single(item => item.Predicate == "ANNOTATED_AS").MetadataJson.Should().BeNull();
     }
 
     [Fact]
@@ -395,14 +551,13 @@ public class FinancialLifeGraphServiceTests
         var invalidationPublisher = new TestCacheInvalidationPublisher();
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
-        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, cacheStore);
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider);
+        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, cacheStore, NullLogger<FinancialLifeGraphService>.Instance);
+        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
         var writeService = new FinancialLifeGraphWriteService(
             context,
             tenantProvider,
             currentUserProvider,
             validationService,
-            graphService,
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
 
         // Act
@@ -413,17 +568,17 @@ public class FinancialLifeGraphServiceTests
             null,
             null,
             null,
-            "Active",
+            FinancialLifeGraphEntityStatuses.Active,
             false,
             null));
 
         var edgeResult = await writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(
-            nodeResult.NodeKey,
+            $"user:{userId:D}",
             "ANNOTATED_AS",
             nodeResult.NodeKey,
             "{}",
             null,
-            "Active",
+            FinancialLifeGraphEntityStatuses.Active,
             false,
             null));
 
@@ -465,14 +620,13 @@ public class FinancialLifeGraphServiceTests
             return Task.CompletedTask;
         };
 
-        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, cacheStore);
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider);
+        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, cacheStore, NullLogger<FinancialLifeGraphService>.Instance);
+        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
         var writeService = new FinancialLifeGraphWriteService(
             context,
             tenantProvider,
             currentUserProvider,
             validationService,
-            graphService,
             new FinancialLifeGraphCacheInvalidator(tenantProvider, currentUserProvider, invalidationPublisher));
 
         var initialGraph = await graphService.GetGraphAsync();
@@ -551,16 +705,16 @@ public class FinancialLifeGraphServiceTests
 
         // Assert
         proposals.Should().ContainSingle();
-        proposals[0].Status.Should().Be("Proposed");
+        proposals[0].Status.Should().Be(FinancialLifeGraphEntityStatuses.Proposed);
         proposals[0].ProposalId.Should().NotBeEmpty();
 
         var node = await context.FinancialLifeGraphNodes.SingleAsync();
         var edge = await context.FinancialLifeGraphEdges.SingleAsync();
         var proposal = await agentsContext.Proposals.SingleAsync();
-        node.Status.Should().Be("Proposed");
+        node.Status.Should().Be(FinancialLifeGraphEntityStatuses.Proposed);
         node.AiRunId.Should().Be(aiRunId);
-        edge.Status.Should().Be("Proposed");
-        proposal.Status.Should().Be("Proposed");
+        edge.Status.Should().Be(FinancialLifeGraphEntityStatuses.Proposed);
+        proposal.Status.Should().Be(FinancialLifeGraphProposalStatuses.Proposed);
     }
 
     [Fact]
@@ -585,15 +739,15 @@ public class FinancialLifeGraphServiceTests
             NodeType = "NativeAnnotation",
             DisplayName = "Support note",
             PropertiesJson = "{}",
-            Status = "Active"
+            Status = FinancialLifeGraphEntityStatuses.Active
         });
         await context.SaveChangesAsync();
 
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
-        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, new TestCacheStore());
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider);
-        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, graphService, new NoOpGraphCacheInvalidator());
+        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, new TestCacheStore(), NullLogger<FinancialLifeGraphService>.Instance);
+        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
+        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
         Func<Task> action = () => writeService.CreateNodeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphNodeRequest(
@@ -603,7 +757,7 @@ public class FinancialLifeGraphServiceTests
             null,
             null,
             null,
-            "Active",
+            FinancialLifeGraphEntityStatuses.Active,
             false,
             null));
 
@@ -660,7 +814,7 @@ public class FinancialLifeGraphServiceTests
 
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
-        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, cacheStore);
+        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, cacheStore, NullLogger<FinancialLifeGraphService>.Instance);
         var inferenceService = new FinancialLifeGraphInferenceService(
             context,
             agentsContext,
@@ -682,7 +836,7 @@ public class FinancialLifeGraphServiceTests
         graphAfterApproval.Nodes.Should().Contain(item => item.DisplayName == proposals[0].DisplayName);
 
         var approvedProposal = await agentsContext.Proposals.SingleAsync();
-        approvedProposal.Status.Should().Be("Approved");
+        approvedProposal.Status.Should().Be(FinancialLifeGraphProposalStatuses.Approved);
         approvedProposal.ApprovedByUserId.Should().Be(userId);
     }
 
@@ -709,7 +863,7 @@ public class FinancialLifeGraphServiceTests
             NodeType = "NativeAnnotation",
             DisplayName = "Support note",
             PropertiesJson = "{}",
-            Status = "Active"
+            Status = FinancialLifeGraphEntityStatuses.Active
         };
         context.FinancialLifeGraphNodes.Add(node);
         await context.SaveChangesAsync();
@@ -722,15 +876,15 @@ public class FinancialLifeGraphServiceTests
             Predicate = "ANNOTATED_AS",
             ToNodeKey = $"native-node:{node.Id:D}",
             PropertiesJson = "{}",
-            Status = "Active"
+            Status = FinancialLifeGraphEntityStatuses.Active
         });
         await context.SaveChangesAsync();
 
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
-        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, new TestCacheStore());
-        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider);
-        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, graphService, new NoOpGraphCacheInvalidator());
+        var graphService = new FinancialLifeGraphService(context, tenantProvider, currentUserProvider, new TestCacheStore(), NullLogger<FinancialLifeGraphService>.Instance);
+        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
+        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, new NoOpGraphCacheInvalidator());
 
         // Act
         Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(
@@ -739,13 +893,78 @@ public class FinancialLifeGraphServiceTests
             $"native-node:{node.Id:D}",
             "{}",
             null,
-            "Active",
+            FinancialLifeGraphEntityStatuses.Active,
             false,
             null));
 
         // Assert
         await action.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*same shape already exists*");
+    }
+
+    [Fact]
+    public async Task CreateEdgeAsync_Should_ValidateAgainstDatabase_Not_StaleCachedGraph()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+
+        await using var context = CreateDbContext(tenantId);
+        context.PersonalProfiles.Add(new PersonalProfile
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PartyId = partyId
+        });
+
+        var node = new FinancialLifeGraphNode
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            NodeType = "NativeAnnotation",
+            DisplayName = "Temporary annotation",
+            PropertiesJson = "{}",
+            Status = FinancialLifeGraphEntityStatuses.Active
+        };
+        context.FinancialLifeGraphNodes.Add(node);
+        await context.SaveChangesAsync();
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        var currentUserProvider = new TestCurrentUserProvider(userId);
+        var cacheStore = new TestCacheStore();
+        var graphService = new FinancialLifeGraphService(
+            context,
+            tenantProvider,
+            currentUserProvider,
+            cacheStore,
+            NullLogger<FinancialLifeGraphService>.Instance);
+
+        // Prime the cache with the active node.
+        var cachedGraph = await graphService.GetGraphAsync();
+        cachedGraph.Nodes.Should().Contain(item => item.NodeId == $"native-node:{node.Id:D}");
+
+        // Change database state after the snapshot has been cached.
+        node.Status = FinancialLifeGraphEntityStatuses.Rejected;
+        await context.SaveChangesAsync();
+
+        var validationService = new FinancialLifeGraphValidationService(context, tenantProvider, currentUserProvider, new FinancialLifeGraphSchema());
+        var writeService = new FinancialLifeGraphWriteService(context, tenantProvider, currentUserProvider, validationService, new NoOpGraphCacheInvalidator());
+
+        // Act
+        Func<Task> action = () => writeService.CreateEdgeAsync(new Aonik.Finance.Contracts.Models.PersonalFinance.CreateFinancialLifeGraphEdgeRequest(
+            $"user:{userId:D}",
+            "ANNOTATED_AS",
+            $"native-node:{node.Id:D}",
+            "{}",
+            null,
+            FinancialLifeGraphEntityStatuses.Active,
+            false,
+            null));
+
+        // Assert
+        await action.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*ToNodeKey does not exist in the current graph*");
     }
 
     [Fact]
@@ -774,6 +993,7 @@ public class FinancialLifeGraphServiceTests
         });
         context.HouseholdMembers.Add(new HouseholdMember
         {
+            TenantId = tenantId,
             HouseholdId = householdId,
             UserId = userId,
             Role = "Owner",
@@ -800,7 +1020,8 @@ public class FinancialLifeGraphServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new TestCacheStore());
+            new TestCacheStore(),
+            NullLogger<FinancialLifeGraphService>.Instance);
 
         // Act
         var householdContext = await service.GetHouseholdFinanceContextAsync();

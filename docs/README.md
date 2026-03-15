@@ -30,6 +30,7 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 - [Payments](features/payments.md) - Payment processing
 - [Ledger](features/ledger.md) - Double-entry accounting
 - [AI Integration](features/ai-integration.md) - AI workflows
+- [Financial Life Graph](features/financial-life-graph.md) - Personal-finance graph context and reasoning layer
 
 ### 🏗️ Architecture
 - [Architecture Overview](architecture/overview.md) - Modular monolith design

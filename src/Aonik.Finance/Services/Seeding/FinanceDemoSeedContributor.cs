@@ -997,13 +997,14 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             }
 
             var existingMember = await _financeDbContext.HouseholdMembers
-                .FirstOrDefaultAsync(item => item.HouseholdId == household.Id && item.UserId == userId.Value, cancellationToken);
+                .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.HouseholdId == household.Id && item.UserId == userId.Value, cancellationToken);
 
             if (existingMember == null)
             {
                 existingMember = new HouseholdMember
                 {
                     Id = seed.MemberId,
+                    TenantId = tenantId,
                     HouseholdId = household.Id,
                     UserId = userId.Value,
                     Role = seed.Role,
@@ -1015,6 +1016,7 @@ internal sealed class FinanceDemoSeedContributor : IDemoSeedContributor
             }
             else
             {
+                existingMember.TenantId = tenantId;
                 existingMember.Role = seed.Role;
                 existingMember.PermissionsJson = seed.PermissionsJson;
                 existingMember.UpdatedAt = now;

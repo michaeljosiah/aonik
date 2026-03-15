@@ -8,28 +8,34 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Caching;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 {
     internal const string CacheSet = "personal-finance-graph";
+    internal const int TransactionWindowDays = 120;
+    internal const int WarningThresholdCount = 1000;
 
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ICacheStore _cacheStore;
+    private readonly ILogger<FinancialLifeGraphService> _logger;
 
     public FinancialLifeGraphService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        ICacheStore cacheStore)
+        ICacheStore cacheStore,
+        ILogger<FinancialLifeGraphService> logger)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheStore = cacheStore;
+        _logger = logger;
     }
 
     public async Task<FinancialLifeGraphResponse> GetGraphAsync(CancellationToken cancellationToken = default)
@@ -136,7 +142,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
             householdMembers = await _financeDbContext.HouseholdMembers
                 .AsNoTracking()
-                .Where(item => item.HouseholdId == householdId)
+                .Where(item => item.TenantId == tenantId && item.HouseholdId == householdId)
                 .OrderBy(item => item.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
@@ -157,9 +163,17 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 .OrderBy(item => item.Name)
                 .ToListAsync(cancellationToken);
 
-        var transactions = await _financeDbContext.PersonalTransactions
+        var relevantAccountCurrencies = GetRelevantAccountCurrencies(accounts, linkedAccounts);
+
+        var transactionCutoff = DateTime.UtcNow.Date.AddDays(-TransactionWindowDays);
+        var totalTransactionCount = await _financeDbContext.PersonalTransactions
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.UserId == userId)
+            .CountAsync(cancellationToken);
+
+        var transactions = await _financeDbContext.PersonalTransactions
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.OccurredAt >= transactionCutoff)
             .OrderByDescending(item => item.OccurredAt)
             .ToListAsync(cancellationToken);
 
@@ -182,13 +196,18 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             .OrderBy(item => item.RenewalDate)
             .ToListAsync(cancellationToken);
 
-        var fxQuotes = await _financeDbContext.FxQuotes
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId)
-            .OrderByDescending(item => item.ExpiresAt)
-            .ThenByDescending(item => item.UpdatedAt ?? item.CreatedAt)
-            .Take(10)
-            .ToListAsync(cancellationToken);
+        var fxQuotes = relevantAccountCurrencies.Count < 2
+            ? new List<Entities.Pricing.FxQuote>()
+            : await _financeDbContext.FxQuotes
+                .AsNoTracking()
+                .Where(item => item.TenantId == tenantId
+                    && item.BaseCurrency != item.TargetCurrency
+                    && relevantAccountCurrencies.Contains(item.BaseCurrency)
+                    && relevantAccountCurrencies.Contains(item.TargetCurrency))
+                .OrderByDescending(item => item.ExpiresAt)
+                .ThenByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+                .Take(10)
+                .ToListAsync(cancellationToken);
 
         var selfPartyId = personalProfile?.PartyId;
         var relatedParties = new List<PartyReadModel>();
@@ -220,15 +239,27 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         var nativeNodes = await _financeDbContext.FinancialLifeGraphNodes
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == "Active")
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == FinancialLifeGraphEntityStatuses.Active)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var nativeEdges = await _financeDbContext.FinancialLifeGraphEdges
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == "Active")
+            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == FinancialLifeGraphEntityStatuses.Active)
             .OrderBy(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
+
+        LogSnapshotMetrics(
+            tenantId,
+            userId,
+            totalTransactionCount,
+            transactions.Count,
+            bills.Count,
+            goals.Count,
+            subscriptions.Count,
+            nativeNodes.Count,
+            nativeEdges.Count,
+            transactionCutoff);
 
         return new FinancialLifeGraphSnapshot(
             tenantId,
@@ -248,6 +279,60 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             partyRelationships,
             nativeNodes,
             nativeEdges);
+    }
+
+    private void LogSnapshotMetrics(
+        Guid tenantId,
+        Guid userId,
+        int totalTransactionCount,
+        int loadedTransactionCount,
+        int billsCount,
+        int goalsCount,
+        int subscriptionsCount,
+        int nativeNodesCount,
+        int nativeEdgesCount,
+        DateTime transactionCutoff)
+    {
+        _logger.LogInformation(
+            "Financial life graph snapshot loaded for tenant {TenantId} user {UserId}. Loaded {LoadedTransactions} of {TotalTransactions} transactions since {TransactionCutoff}. Bills={BillsCount}, Goals={GoalsCount}, Subscriptions={SubscriptionsCount}, NativeNodes={NativeNodesCount}, NativeEdges={NativeEdgesCount}",
+            tenantId,
+            userId,
+            loadedTransactionCount,
+            totalTransactionCount,
+            transactionCutoff,
+            billsCount,
+            goalsCount,
+            subscriptionsCount,
+            nativeNodesCount,
+            nativeEdgesCount);
+
+        if (totalTransactionCount > loadedTransactionCount)
+        {
+            _logger.LogWarning(
+                "Financial life graph transaction history truncated for tenant {TenantId} user {UserId}. Loaded {LoadedTransactions} of {TotalTransactions} transactions using a {TransactionWindowDays}-day window.",
+                tenantId,
+                userId,
+                loadedTransactionCount,
+                totalTransactionCount,
+                TransactionWindowDays);
+        }
+
+        if (billsCount > WarningThresholdCount
+            || goalsCount > WarningThresholdCount
+            || subscriptionsCount > WarningThresholdCount
+            || nativeNodesCount > WarningThresholdCount
+            || nativeEdgesCount > WarningThresholdCount)
+        {
+            _logger.LogWarning(
+                "Financial life graph snapshot volume is high for tenant {TenantId} user {UserId}. Bills={BillsCount}, Goals={GoalsCount}, Subscriptions={SubscriptionsCount}, NativeNodes={NativeNodesCount}, NativeEdges={NativeEdgesCount}",
+                tenantId,
+                userId,
+                billsCount,
+                goalsCount,
+                subscriptionsCount,
+                nativeNodesCount,
+                nativeEdgesCount);
+        }
     }
 
     private static FinancialLifeGraphResponse BuildGraph(FinancialLifeGraphSnapshot snapshot)
@@ -505,7 +590,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 node.DisplayName,
                 node.SourceEntity ?? nameof(FinancialLifeGraphNode),
                 node.SourceId ?? node.Id,
-                string.IsNullOrWhiteSpace(node.PropertiesJson) ? null : node.PropertiesJson));
+                NormalizeMetadataJson(node.PropertiesJson)));
         }
 
         foreach (var edge in snapshot.NativeEdges)
@@ -514,7 +599,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 edge.FromNodeKey,
                 edge.Predicate,
                 edge.ToNodeKey,
-                string.IsNullOrWhiteSpace(edge.PropertiesJson) ? null : edge.PropertiesJson));
+                NormalizeMetadataJson(edge.PropertiesJson)));
         }
 
         var summary = BuildSummary(snapshot);
@@ -621,7 +706,39 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
     private static string BuildNodeId(string prefix, Guid id) => $"{prefix}:{id:D}";
 
-    private static string SerializeMetadata(object value) => JsonSerializer.Serialize(value);
+    private static List<string> GetRelevantAccountCurrencies(
+        IReadOnlyList<PersonalAccount> accounts,
+        IReadOnlyList<FinancialLinkedAccount> linkedAccounts)
+    {
+        return accounts
+            .Select(item => item.Currency)
+            .Concat(linkedAccounts.Select(item => item.Currency))
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string? SerializeMetadata(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        return NormalizeMetadataJson(JsonSerializer.Serialize(value));
+    }
+
+    private static string? NormalizeMetadataJson(string? metadataJson)
+    {
+        if (string.IsNullOrWhiteSpace(metadataJson))
+        {
+            return null;
+        }
+
+        var normalized = metadataJson.Trim();
+        return normalized is "null" or "{}" ? null : normalized;
+    }
 
     private sealed record FinancialLifeGraphSnapshot(
         Guid TenantId,

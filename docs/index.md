@@ -7,6 +7,7 @@ Welcome to the AONIK documentation. The main navigation hub is [README.md](READM
 - **[README.md](README.md)** — Full documentation navigation
 - **[Getting Started](guides/getting-started.md)** — Setup and first run
 - **[Architecture Overview](architecture/overview.md)** — Modular monolith design
+- **[Financial Life Graph](features/financial-life-graph.md)** — Personal-finance graph context and reasoning layer
 - **[AGENTS.md](../AGENTS.md)** — Coding guidelines for AI agents and developers
 
 ## Common Tasks
