@@ -287,7 +287,7 @@ class SetupJourneyScreen extends ConsumerWidget {
     SetupJourneyState _,
   ) {
     controller.completeSetupLocally();
-    context.go('/dashboard');
+    context.go('/setup/processing');
   }
 
   // ── Placeholder integration hooks ───────────────────────

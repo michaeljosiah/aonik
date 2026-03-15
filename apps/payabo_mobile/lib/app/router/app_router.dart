@@ -46,7 +46,9 @@ import '../../features/profile/presentation/photo_selection_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/setup_journey/application/setup_journey_controller.dart';
 import '../../features/setup_journey/presentation/setup_journey_screen.dart';
+import '../../features/setup_journey/presentation/setup_processing_screen.dart';
 import '../../features/spending/presentation/spending_account_link_return_screen.dart';
+import '../../features/support_planning/presentation/add_beneficiary_screen.dart';
 import '../../features/spending/presentation/spending_accounts_screen.dart';
 import '../../features/spending/presentation/spending_budget_detail_screen.dart';
 import '../../features/spending/presentation/spending_budget_screen.dart';
@@ -64,7 +66,8 @@ String? resolveAppRedirect({
 }) {
   final bool isAuthArea =
       location == '/' || location == '/intro' || location.startsWith('/auth');
-  final bool isSetupArea = location == '/setup';
+  final bool isSetupArea =
+      location == '/setup' || location == '/setup/processing';
   final bool isDesignSystemArea = location == '/design-system';
   final bool isRegistrationArea =
       location == '/auth/register' || location.startsWith('/auth/register/');
@@ -89,6 +92,9 @@ String? resolveAppRedirect({
   }
 
   if (authState.isAuthenticated && isSetupArea && setupDone) {
+    // Allow the processing screen to finish its animation sequence
+    // before it self-navigates to /dashboard.
+    if (location == '/setup/processing') return null;
     return '/dashboard';
   }
 
@@ -242,6 +248,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           builder: (context, state) => const SetupJourneyScreen(),
         ),
         GoRoute(
+          path: '/setup/processing',
+          name: 'setup-processing',
+          builder: (context, state) => const SetupProcessingScreen(),
+        ),
+        GoRoute(
           path: '/dashboard',
           name: 'dashboard',
           builder: (context, state) => const DashboardScreen(),
@@ -390,6 +401,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/payments/return',
           name: 'payment-return-placeholder',
           builder: (context, state) => const PaymentReturnPlaceholderScreen(),
+        ),
+        GoRoute(
+          path: '/support/add-beneficiary',
+          name: 'support-add-beneficiary',
+          builder: (context, state) => const AddBeneficiaryScreen(),
         ),
         GoRoute(
           path: '/profile',

@@ -94,6 +94,31 @@ class PayaboSetupProfile {
   }
 }
 
+// ── Processing sequence ─────────────────────────────────────
+
+/// A single step in the post-setup AI processing animation.
+///
+/// Each step represents Simi analysing a different aspect of
+/// the onboarding data. Steps that are conditional on specific
+/// setup signals use [showWhen] to determine visibility.
+class SetupProcessingStep {
+  const SetupProcessingStep({
+    required this.id,
+    required this.message,
+    this.showWhen,
+  });
+
+  /// Unique identifier for the step.
+  final String id;
+
+  /// The message Simi displays during this step.
+  final String message;
+
+  /// Optional predicate that determines whether this step appears
+  /// in the sequence. When `null`, the step always appears.
+  final bool Function(PayaboSetupProfile)? showWhen;
+}
+
 // ── Dashboard handoff ───────────────────────────────────────
 
 /// Structured seed data for personalising the dashboard immediately

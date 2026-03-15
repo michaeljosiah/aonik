@@ -18,6 +18,7 @@ class MockDashboardRepository implements DashboardRepository {
       return const DashboardSummary(
         upcomingBills: <DashboardUpcomingBill>[],
         recentTransactions: <DashboardTransaction>[],
+        supportObligations: <DashboardSupportObligation>[],
       );
     }
 
@@ -102,6 +103,32 @@ class MockDashboardRepository implements DashboardRepository {
           title: 'Ghana Water Postpaid',
           amountLabel: 'GHS 78.50',
           status: 'Pending',
+        ),
+      ],
+      supportObligations: <DashboardSupportObligation>[
+        DashboardSupportObligation(
+          id: 'sup_001',
+          beneficiaryName: 'Mama Akua',
+          category: 'Living Expenses',
+          amountLabel: 'GHS 500.00',
+          dueDateLabel: '2026-03-15',
+          frequencyLabel: 'Monthly',
+        ),
+        DashboardSupportObligation(
+          id: 'sup_002',
+          beneficiaryName: 'Kwame (Brother)',
+          category: 'Education',
+          amountLabel: 'GHS 800.00',
+          dueDateLabel: '2026-03-20',
+          frequencyLabel: 'Quarterly',
+        ),
+        DashboardSupportObligation(
+          id: 'sup_003',
+          beneficiaryName: 'Auntie Esi',
+          category: 'Medical',
+          amountLabel: 'GHS 200.00',
+          dueDateLabel: '2026-03-25',
+          frequencyLabel: 'Monthly',
         ),
       ],
     );

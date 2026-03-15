@@ -7,6 +7,7 @@ import '../../app/demo/demo_data_mode.dart';
 import '../../app/demo/demo_mode.dart';
 import '../../app/environment/environment_provider.dart';
 import '../../features/setup_journey/domain/setup_journey_repository.dart';
+import '../../features/support_planning/domain/support_planning_repository.dart';
 import '../../mock/repositories/mock_account_links_repository.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_budget_repository.dart';
@@ -16,6 +17,7 @@ import '../../mock/repositories/mock_order_repository.dart';
 import '../../mock/repositories/mock_payment_repository.dart';
 import '../../mock/repositories/mock_profile_repository.dart';
 import '../../mock/repositories/mock_setup_journey_repository.dart';
+import '../../mock/repositories/mock_support_planning_repository.dart';
 import '../api/api_client.dart';
 import 'account_links_repository.dart';
 import 'auth_repository.dart';
@@ -141,5 +143,16 @@ final Provider<SetupJourneyRepository> setupJourneyRepositoryProvider =
 
     final apiClient = ref.watch(apiClientProvider);
     return LiveSetupJourneyRepository(apiClient: apiClient);
+  },
+);
+
+final Provider<SupportPlanningRepository> supportPlanningRepositoryProvider =
+    Provider<SupportPlanningRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    // Support planning remains mock-backed until a live repository is
+    // implemented.
+    return MockSupportPlanningRepository(demoDataMode: demoDataMode);
   },
 );

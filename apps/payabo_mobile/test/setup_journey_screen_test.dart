@@ -6,7 +6,6 @@ import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
-import 'package:payabo_mobile/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_journey_controller.dart';
 import 'package:payabo_mobile/features/setup_journey/presentation/setup_journey_screen.dart';
 import 'package:payabo_mobile/mock/repositories/mock_setup_journey_repository.dart';
@@ -91,7 +90,7 @@ void main() {
   });
 
   group('SetupJourneyScreen — dark mode completion', () {
-    testWidgets('navigates to dashboard from summary step in dark mode',
+    testWidgets('navigates to processing screen from summary step in dark mode',
         (WidgetTester tester) async {
       final container = ProviderContainer(
         overrides: [
@@ -117,8 +116,16 @@ void main() {
             builder: (context, state) => const SetupJourneyScreen(),
           ),
           GoRoute(
+            path: '/setup/processing',
+            builder: (context, state) => const Scaffold(
+              body: Center(child: Text('Processing')),
+            ),
+          ),
+          GoRoute(
             path: '/dashboard',
-            builder: (context, state) => const DashboardScreen(),
+            builder: (context, state) => const Scaffold(
+              body: Center(child: Text('Dashboard')),
+            ),
           ),
         ],
       );
@@ -145,7 +152,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
 
-      expect(find.byType(DashboardScreen), findsOneWidget);
+      expect(find.text('Processing'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

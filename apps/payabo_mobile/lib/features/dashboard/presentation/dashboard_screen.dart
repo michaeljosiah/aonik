@@ -20,6 +20,7 @@ import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import '../../profile/presentation/profile_state.dart';
+import '../widgets/simi_dashboard_card.dart';
 
 final FutureProvider<DashboardSummary> dashboardSummaryProvider =
     FutureProvider<DashboardSummary>((Ref ref) async {
@@ -444,6 +445,9 @@ class _DashboardContent extends StatelessWidget {
     final bills = allUpcomingBills
         .take(_upcomingBillPreviewLimit)
         .toList(growable: false);
+    final supportObligations = isEmpty
+        ? const <DashboardSupportObligation>[]
+        : summary.supportObligations;
     return _DashboardHeroInsightsSection(
       displayName: displayName,
       photoUrl: photoUrl,
@@ -451,6 +455,7 @@ class _DashboardContent extends StatelessWidget {
       onNotificationsTap: onNotificationsTap,
       dueBillCount: allUpcomingBills.length,
       upcomingBills: bills,
+      supportObligations: supportObligations,
       isEmpty: isEmpty,
       onSheetExtentChanged: onSheetExtentChanged,
     );
@@ -465,6 +470,7 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
     required this.onNotificationsTap,
     required this.dueBillCount,
     required this.upcomingBills,
+    required this.supportObligations,
     required this.isEmpty,
     this.onSheetExtentChanged,
   });
@@ -481,6 +487,7 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
   final VoidCallback onNotificationsTap;
   final int dueBillCount;
   final List<DashboardUpcomingBill> upcomingBills;
+  final List<DashboardSupportObligation> supportObligations;
   final bool isEmpty;
 
   /// Called whenever the draggable sheet extent changes.  The value is the
@@ -686,6 +693,7 @@ class _DashboardHeroInsightsSectionState
                         topBorderRadius: 24.0 * (1.0 - fadeFraction),
                         dueBillCount: widget.dueBillCount,
                         upcomingBills: widget.upcomingBills,
+                        supportObligations: widget.supportObligations,
                         isEmpty: widget.isEmpty,
                       );
                     },
@@ -891,6 +899,7 @@ class _DashboardStatsSheet extends StatelessWidget {
     required this.scrollController,
     required this.dueBillCount,
     required this.upcomingBills,
+    required this.supportObligations,
     required this.isEmpty,
     this.topBorderRadius = 24.0,
   });
@@ -898,6 +907,7 @@ class _DashboardStatsSheet extends StatelessWidget {
   final ScrollController scrollController;
   final int dueBillCount;
   final List<DashboardUpcomingBill> upcomingBills;
+  final List<DashboardSupportObligation> supportObligations;
   final bool isEmpty;
 
   /// Radius applied to the top corners of the sheet.  Animated to 0 when the
@@ -952,6 +962,7 @@ class _DashboardStatsSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: PayaboSpacing.lg),
+          const SimiDashboardCard(),
           _InsightCarouselSection(
             dueBillCount: dueBillCount,
             isEmpty: isEmpty,
@@ -972,6 +983,15 @@ class _DashboardStatsSheet extends StatelessWidget {
             const _DashboardEmptyBillsCard()
           else
             _UpcomingBillsCardV2(items: upcomingBills),
+          if (supportObligations.isNotEmpty) ...[
+            const SizedBox(height: PayaboSpacing.xl),
+            const _DashboardListHeader(
+              title: 'Family support',
+              actionLabel: 'Manage',
+            ),
+            const SizedBox(height: PayaboSpacing.md),
+            _SupportObligationsCard(items: supportObligations),
+          ],
         ],
       ),
     );
@@ -2139,6 +2159,115 @@ class _UpcomingBillRow extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: theme.colorScheme.onSurface,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportObligationsCard extends StatelessWidget {
+  const _SupportObligationsCard({required this.items});
+
+  final List<DashboardSupportObligation> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: items
+          .asMap()
+          .entries
+          .map(
+            (entry) => Column(
+              children: <Widget>[
+                _SupportObligationRow(item: entry.value),
+                if (entry.key != items.length - 1)
+                  Divider(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.3,
+                    ),
+                  ),
+              ],
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+}
+
+class _SupportObligationRow extends StatelessWidget {
+  const _SupportObligationRow({required this.item});
+
+  final DashboardSupportObligation item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = context.colors;
+    final iconSurface = c.isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : c.info.withValues(alpha: 0.08);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: iconSurface,
+              borderRadius: const BorderRadius.all(Radius.circular(10)),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.favorite_outline_rounded,
+              size: 18,
+              color: c.info,
+            ),
+          ),
+          const SizedBox(width: PayaboSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  item.beneficiaryName,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${item.category} · ${item.frequencyLabel}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: c.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: PayaboSpacing.md),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                item.amountLabel,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.dueDateLabel,
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
           ),
         ],
       ),
