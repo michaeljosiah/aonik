@@ -114,7 +114,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         return MapSessionToResponse(session, gateway.DisplayName);
     }
 
-    public async Task<AccountLinkExchangeResponse?> ExchangeSessionAsync(
+    public async Task<AccountLinkExchangeResponse> ExchangeSessionAsync(
         ExchangeAccountLinkSessionRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -133,7 +133,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
         if (session == null)
         {
-            return null;
+            throw new InvalidOperationException("Account link session not found or has expired.");
         }
 
         if (session.ExpiresAt <= utcNow)
@@ -244,7 +244,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         if (string.Equals(connection.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase)
             || string.Equals(connection.ConsentStatus, "ActionRequired", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Reconnect this account link before requesting a refresh.");
+            throw CreateActionRequiredException(connection);
         }
 
         var gateway = ResolveProvider(connection.Provider);
@@ -268,6 +268,12 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+
+        if (string.Equals(connection.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(connection.ConsentStatus, "ActionRequired", StringComparison.OrdinalIgnoreCase))
+        {
+            throw CreateActionRequiredException(connection);
+        }
 
         return await BuildConnectionResponseAsync(connection, gateway.DisplayName, cancellationToken);
     }
@@ -333,7 +339,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             tenantId,
             userId,
             connectionId,
-            "manual",
+            LinkedAccountSyncSourceType,
             cancellationToken);
     }
 
@@ -549,19 +555,43 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 && item.FinancialConnectionId == connection.Id)
             .ToDictionaryAsync(item => item.ProviderAccountReference, cancellationToken);
 
+        // Collect all PersonalAccount IDs already linked so we can bulk-fetch them.
+        var linkedPersonalAccountIds = linkedAccountsByReference.Values
+            .Select(item => item.PersonalAccountId)
+            .Distinct()
+            .ToList();
+
+        // Collect provider account references that are NOT yet linked so we can
+        // bulk-fetch any orphaned PersonalAccounts that share the same ExternalReference.
+        var providerReferences = providerState.Accounts
+            .Select(item => item.ProviderAccountReference)
+            .ToList();
+
+        var unlinkedProviderReferences = providerReferences
+            .Where(r => !linkedAccountsByReference.ContainsKey(r))
+            .ToList();
+
+        // Single query: PersonalAccounts keyed by Id (covers existing-linked-account update path
+        // and the error short-circuit path below).
+        var personalAccountsById = linkedPersonalAccountIds.Count == 0
+            ? new Dictionary<Guid, PersonalAccount>()
+            : await _financeDbContext.PersonalAccounts
+                .Where(item => linkedPersonalAccountIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        // Single query: PersonalAccounts keyed by ExternalReference (covers new-linked-account
+        // path where a PersonalAccount may already exist for a provider reference not yet linked).
+        var personalAccountsByExternalRef = unlinkedProviderReferences.Count == 0
+            ? new Dictionary<string, PersonalAccount>()
+            : await _financeDbContext.PersonalAccounts
+                .Where(item => item.TenantId == tenantId
+                    && item.UserId == userId
+                    && item.ExternalReference != null
+                    && unlinkedProviderReferences.Contains(item.ExternalReference))
+                .ToDictionaryAsync(item => item.ExternalReference!, cancellationToken);
+
         if (providerState.Accounts.Count == 0 && !string.IsNullOrWhiteSpace(providerState.LastError))
         {
-            var existingPersonalAccountIds = linkedAccountsByReference.Values
-                .Select(item => item.PersonalAccountId)
-                .Distinct()
-                .ToList();
-
-            var personalAccountsById = existingPersonalAccountIds.Count == 0
-                ? new Dictionary<Guid, PersonalAccount>()
-                : await _financeDbContext.PersonalAccounts
-                    .Where(item => existingPersonalAccountIds.Contains(item.Id))
-                    .ToDictionaryAsync(item => item.Id, cancellationToken);
-
             foreach (var linkedAccount in linkedAccountsByReference.Values)
             {
                 linkedAccount.Status = "ActionRequired";
@@ -577,15 +607,16 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
         foreach (var providerAccount in providerState.Accounts)
         {
-            await UpsertLinkedAccountAsync(
+            UpsertLinkedAccount(
                 providerAccount,
                 connection,
                 linkedAccountsByReference,
+                personalAccountsByExternalRef,
+                personalAccountsById,
                 tenantId,
                 userId,
                 providerState,
-                utcNow,
-                cancellationToken);
+                utcNow);
         }
 
         return connection;
@@ -845,26 +876,21 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         return null;
     }
 
-    private async Task UpsertLinkedAccountAsync(
+    private void UpsertLinkedAccount(
         AccountLinkProviderAccountResult providerAccount,
         FinancialConnection connection,
         IDictionary<string, FinancialLinkedAccount> linkedAccountsByReference,
+        IDictionary<string, PersonalAccount> personalAccountsByExternalRef,
+        IDictionary<Guid, PersonalAccount> personalAccountsById,
         Guid tenantId,
         Guid userId,
         AccountLinkProviderExchangeResult providerExchange,
-        DateTime utcNow,
-        CancellationToken cancellationToken)
+        DateTime utcNow)
     {
         if (!linkedAccountsByReference.TryGetValue(providerAccount.ProviderAccountReference, out var linkedAccount))
         {
-            var personalAccount = await _financeDbContext.PersonalAccounts
-                .FirstOrDefaultAsync(
-                    item => item.TenantId == tenantId
-                        && item.UserId == userId
-                        && item.ExternalReference == providerAccount.ProviderAccountReference,
-                    cancellationToken);
-
-            if (personalAccount == null)
+            // No linked account yet — find or create the backing PersonalAccount.
+            if (!personalAccountsByExternalRef.TryGetValue(providerAccount.ProviderAccountReference, out var personalAccount))
             {
                 personalAccount = new PersonalAccount
                 {
@@ -883,6 +909,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 };
 
                 _financeDbContext.PersonalAccounts.Add(personalAccount);
+                personalAccountsByExternalRef[providerAccount.ProviderAccountReference] = personalAccount;
             }
             else
             {
@@ -921,8 +948,10 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             return;
         }
 
-        var linkedPersonalAccount = await _financeDbContext.PersonalAccounts
-            .FirstAsync(item => item.Id == linkedAccount.PersonalAccountId, cancellationToken);
+        // Existing linked account — update the backing PersonalAccount from the pre-fetched dictionary.
+        if (!personalAccountsById.TryGetValue(linkedAccount.PersonalAccountId, out var linkedPersonalAccount))
+            throw new InvalidOperationException(
+                $"PersonalAccount {linkedAccount.PersonalAccountId} not found for linked account {linkedAccount.Id}.");
 
         linkedPersonalAccount.Name = providerAccount.Name;
         linkedPersonalAccount.AccountType = NormalizePersonalAccountType(providerAccount.AccountType);
@@ -949,6 +978,20 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private static string? DetermineAccountError(AccountLinkProviderExchangeResult providerExchange)
     {
         return DetermineConnectionError(providerExchange);
+    }
+
+    private static AccountLinkActionRequiredException CreateActionRequiredException(FinancialConnection connection)
+    {
+        var providerErrorCode = TrimNullable(connection.LastSyncStatus);
+        var message = TrimNullable(connection.LastError)
+            ?? "Reconnect this account link before requesting a refresh.";
+
+        return new AccountLinkActionRequiredException(
+            connection.Id,
+            connection.Provider,
+            "reconnect",
+            message,
+            providerErrorCode);
     }
 
     private async Task<AccountLinkConnectionResponse> BuildConnectionResponseAsync(

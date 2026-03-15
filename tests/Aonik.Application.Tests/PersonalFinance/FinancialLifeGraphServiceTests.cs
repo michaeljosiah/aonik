@@ -124,12 +124,14 @@ public class FinancialLifeGraphServiceTests
     {
         var tenantProvider = new TestTenantProvider(tenantId);
         var currentUserProvider = new TestCurrentUserProvider(userId);
+        var loader = new FinancialLifeGraphLoader(context);
+        var metrics = new FinancialLifeGraphSnapshotMetrics(NullLogger<FinancialLifeGraphSnapshotMetrics>.Instance);
         var hydrationService = new FinancialLifeGraphHydrationService(
-            context,
             tenantProvider,
             currentUserProvider,
             cacheStore,
-            NullLogger<FinancialLifeGraphHydrationService>.Instance);
+            loader,
+            metrics);
 
         return new FinancialLifeGraphService(hydrationService);
     }
@@ -149,6 +151,9 @@ public class FinancialLifeGraphServiceTests
         var goalId = Guid.NewGuid();
         var subscriptionId = Guid.NewGuid();
         var relatedPartyId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        var paymentIntentId = Guid.NewGuid();
 
         await using var context = CreateDbContext(tenantId);
         context.PersonalProfiles.Add(new PersonalProfile
@@ -216,6 +221,8 @@ public class FinancialLifeGraphServiceTests
             TenantId = tenantId,
             UserId = userId,
             PaidFromAccountId = accountId,
+            LinkedOrderId = orderId,
+            LinkedInvoiceId = invoiceId,
             Payee = "Utility",
             Frequency = "Monthly",
             NextDueDate = DateTime.UtcNow.AddDays(5),
@@ -264,6 +271,44 @@ public class FinancialLifeGraphServiceTests
             IsActive = true,
             Notes = "Family support"
         });
+        context.Orders.Add(new Aonik.Finance.Entities.Orders.Order
+        {
+            Id = orderId,
+            TenantId = tenantId,
+            OrderType = "BillPayment",
+            AmountIn = 80m,
+            CurrencyIn = "USD",
+            Status = "Draft"
+        });
+        context.Invoices.Add(new Aonik.Finance.Entities.Billing.Invoice
+        {
+            Id = invoiceId,
+            TenantId = tenantId,
+            OrderId = orderId,
+            CustomerAccountId = Guid.NewGuid(),
+            IssueDate = DateTime.UtcNow,
+            DueDate = DateTime.UtcNow.AddDays(5),
+            Currency = "USD",
+            Subtotal = 80m,
+            TaxTotal = 0m,
+            DiscountTotal = 0m,
+            Total = 80m,
+            Status = "Issued"
+        });
+        context.PaymentIntents.Add(new Aonik.Finance.Entities.Payments.PaymentIntent
+        {
+            Id = paymentIntentId,
+            TenantId = tenantId,
+            Amount = 80m,
+            Currency = "USD",
+            PayerPartyId = partyId,
+            OrderId = orderId,
+            InvoiceId = invoiceId,
+            PurposeType = "BillPayment",
+            PurposeId = billId,
+            PaymentMethodType = "BankTransfer",
+            Status = "Pending"
+        });
         await context.SaveChangesAsync();
 
         var cacheStore = new TestCacheStore();
@@ -280,13 +325,19 @@ public class FinancialLifeGraphServiceTests
         graph.Summary.FundingRelationshipCount.Should().Be(2);
         graph.Summary.InferredAnnotationCount.Should().Be(0);
         graph.Nodes.Should().Contain(node => node.NodeType == "PersonalAccount" && node.DisplayName == "Main Account");
-        graph.Nodes.Should().Contain(node => node.NodeType == "Party" && node.DisplayName == "Mum");
+        graph.Nodes.Should().Contain(node => node.NodeType == "Party" && node.DisplayName == "Mum (Mother)");
         graph.Edges.Should().Contain(edge => edge.Predicate == "OWNS_ACCOUNT");
         graph.Edges.Should().Contain(edge => edge.Predicate == "RELATED_TO_PARTY");
         graph.Edges.Should().Contain(edge => edge.Predicate == "USES_ACCOUNT" && edge.FromNodeId == $"personal-transaction:{transactionId:D}" && edge.ToNodeId == $"personal-account:{accountId:D}");
         graph.Edges.Should().Contain(edge => edge.Predicate == "USES_LINKED_ACCOUNT" && edge.FromNodeId == $"personal-account:{accountId:D}" && edge.ToNodeId == $"linked-account:{linkedAccountId:D}");
         graph.Edges.Should().Contain(edge => edge.Predicate == "FUNDED_BY_ACCOUNT" && edge.FromNodeId == $"bill:{billId:D}" && edge.ToNodeId == $"personal-account:{accountId:D}");
         graph.Edges.Should().Contain(edge => edge.Predicate == "FUNDED_BY_ACCOUNT" && edge.FromNodeId == $"goal:{goalId:D}" && edge.ToNodeId == $"personal-account:{accountId:D}");
+        graph.Nodes.Should().Contain(node => node.NodeType == FinancialLifeGraphNodeTypes.OrderRef && node.SourceId == orderId);
+        graph.Nodes.Should().Contain(node => node.NodeType == FinancialLifeGraphNodeTypes.InvoiceRef && node.SourceId == invoiceId);
+        graph.Nodes.Should().Contain(node => node.NodeType == FinancialLifeGraphNodeTypes.PaymentIntentRef && node.SourceId == paymentIntentId);
+        graph.Edges.Should().Contain(edge => edge.Predicate == FinancialLifeGraphPredicates.LinkedToOrder && edge.FromNodeId == $"bill:{billId:D}" && edge.ToNodeId == $"order-ref:{orderId:D}");
+        graph.Edges.Should().Contain(edge => edge.Predicate == FinancialLifeGraphPredicates.LinkedToInvoice && edge.FromNodeId == $"bill:{billId:D}" && edge.ToNodeId == $"invoice-ref:{invoiceId:D}");
+        graph.Edges.Should().Contain(edge => edge.Predicate == FinancialLifeGraphPredicates.LinkedToPaymentIntent && edge.FromNodeId == $"bill:{billId:D}" && edge.ToNodeId == $"payment-intent-ref:{paymentIntentId:D}");
     }
 
     [Fact]
@@ -720,8 +771,8 @@ public class FinancialLifeGraphServiceTests
         proposal.Status.Should().Be(Aonik.Agents.Entities.ProposalStatus.Proposed);
 
         using var payload = JsonDocument.Parse(proposal.PayloadJson);
-        payload.RootElement.GetProperty("graphNodeId").GetGuid().Should().Be(node.Id);
-        payload.RootElement.GetProperty("graphEdgeId").GetGuid().Should().Be(edge.Id);
+        payload.RootElement.GetProperty("GraphNodeId").GetGuid().Should().Be(node.Id);
+        payload.RootElement.GetProperty("GraphEdgeId").GetGuid().Should().Be(edge.Id);
     }
 
     [Fact]
@@ -1030,5 +1081,73 @@ public class FinancialLifeGraphServiceTests
         householdContext.MemberCount.Should().Be(1);
         relatedPartyContext.Parties.Should().ContainSingle();
         relatedPartyContext.Parties[0].DisplayName.Should().Be("Sibling");
+    }
+
+    [Fact]
+    public async Task GetGraphAsync_Should_UseProfileDisplayNames_ForNonCurrentHouseholdMembers()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var otherPartyId = Guid.NewGuid();
+        var householdId = Guid.NewGuid();
+
+        await using var context = CreateDbContext(tenantId);
+        context.PersonalProfiles.AddRange(
+            new PersonalProfile
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                PartyId = partyId,
+                HouseholdId = householdId
+            },
+            new PersonalProfile
+            {
+                TenantId = tenantId,
+                UserId = otherUserId,
+                PartyId = otherPartyId,
+                HouseholdId = householdId
+            });
+        context.Households.Add(new Household
+        {
+            Id = householdId,
+            TenantId = tenantId,
+            Name = "Home"
+        });
+        context.HouseholdMembers.AddRange(
+            new HouseholdMember
+            {
+                TenantId = tenantId,
+                HouseholdId = householdId,
+                UserId = userId,
+                Role = "Owner",
+                PermissionsJson = "[]"
+            },
+            new HouseholdMember
+            {
+                TenantId = tenantId,
+                HouseholdId = householdId,
+                UserId = otherUserId,
+                Role = "Member",
+                PermissionsJson = "[]"
+            });
+        context.Parties.Add(new PartyReadModel
+        {
+            Id = otherPartyId,
+            TenantId = tenantId,
+            DisplayName = "Brother Joe",
+            Status = "Active"
+        });
+        await context.SaveChangesAsync();
+
+        var graphService = CreateGraphService(context, tenantId, userId, new TestCacheStore());
+
+        // Act
+        var graph = await graphService.GetGraphAsync();
+
+        // Assert
+        graph.Nodes.Should().Contain(item => item.NodeType == FinancialLifeGraphNodeTypes.HouseholdMember && item.DisplayName == "Brother Joe");
     }
 }

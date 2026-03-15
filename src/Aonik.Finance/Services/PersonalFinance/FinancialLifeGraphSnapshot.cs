@@ -1,4 +1,7 @@
 using Aonik.Finance.Entities;
+using Aonik.Finance.Entities.Billing;
+using Aonik.Finance.Entities.Orders;
+using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Entities.PersonalFinance;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -9,6 +12,7 @@ internal sealed record FinancialLifeGraphSnapshot(
     PersonalProfile? PersonalProfile,
     Household? Household,
     IReadOnlyList<HouseholdMember> HouseholdMembers,
+    IReadOnlyDictionary<Guid, string> HouseholdMemberDisplayNames,
     IReadOnlyList<PersonalAccount> Accounts,
     IReadOnlyList<FinancialLinkedAccount> LinkedAccounts,
     IReadOnlyList<PersonalTransaction> Transactions,
@@ -16,6 +20,9 @@ internal sealed record FinancialLifeGraphSnapshot(
     IReadOnlyList<Goal> Goals,
     IReadOnlyList<Subscription> Subscriptions,
     IReadOnlyList<Entities.Pricing.FxQuote> FxQuotes,
+    IReadOnlyList<Order> Orders,
+    IReadOnlyList<Invoice> Invoices,
+    IReadOnlyList<PaymentIntent> PaymentIntents,
     Guid? SelfPartyId,
     IReadOnlyList<PartyReadModel> RelatedParties,
     IReadOnlyList<PartyRelationshipReadModel> PartyRelationships,

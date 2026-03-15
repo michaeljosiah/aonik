@@ -1,6 +1,9 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities;
+using Aonik.Finance.Entities.Orders;
+using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Entities.PersonalFinance;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -50,7 +53,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         }
 
         var graph = BuildGraph(snapshot);
-        var householdPrefix = FinancialLifeGraphFormatting.BuildNodeId("household", snapshot.Household.Id);
+        var householdPrefix = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.Household, snapshot.Household.Id);
         var memberPrefix = "household-member:";
 
         return new HouseholdFinanceContextResponse(
@@ -87,7 +90,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         var nodes = new List<FinancialLifeGraphNodeResponse>();
         var edges = new List<FinancialLifeGraphEdgeResponse>();
 
-        var userNodeId = FinancialLifeGraphFormatting.BuildNodeId("user", snapshot.UserId);
+        var userNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.User, snapshot.UserId);
         nodes.Add(new FinancialLifeGraphNodeResponse(
             userNodeId,
             FinancialLifeGraphNodeTypes.UserRoot,
@@ -104,7 +107,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         if (snapshot.Household != null)
         {
-            var householdNodeId = FinancialLifeGraphFormatting.BuildNodeId("household", snapshot.Household.Id);
+            var householdNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.Household, snapshot.Household.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 householdNodeId,
                 FinancialLifeGraphNodeTypes.Household,
@@ -120,11 +123,13 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
             foreach (var member in snapshot.HouseholdMembers)
             {
-                var memberNodeId = FinancialLifeGraphFormatting.BuildNodeId("household-member", member.Id);
+                var memberNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.HouseholdMember, member.Id);
                 nodes.Add(new FinancialLifeGraphNodeResponse(
                     memberNodeId,
                     FinancialLifeGraphNodeTypes.HouseholdMember,
-                    member.UserId == snapshot.UserId ? "You" : $"Member {member.UserId}",
+                    snapshot.HouseholdMemberDisplayNames.TryGetValue(member.Id, out var householdMemberName)
+                        ? householdMemberName
+                        : member.UserId == snapshot.UserId ? "You" : $"Member {member.UserId}",
                     nameof(HouseholdMember),
                     member.Id,
                     FinancialLifeGraphFormatting.SerializeMetadata(new
@@ -139,7 +144,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         foreach (var account in snapshot.Accounts)
         {
-            var accountNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-account", account.Id);
+            var accountNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalAccount, account.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 accountNodeId,
                 FinancialLifeGraphNodeTypes.PersonalAccount,
@@ -161,8 +166,8 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         foreach (var linkedAccount in snapshot.LinkedAccounts)
         {
-            var linkedAccountNodeId = FinancialLifeGraphFormatting.BuildNodeId("linked-account", linkedAccount.Id);
-            var parentAccountNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-account", linkedAccount.PersonalAccountId);
+            var linkedAccountNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.LinkedAccount, linkedAccount.Id);
+            var parentAccountNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalAccount, linkedAccount.PersonalAccountId);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 linkedAccountNodeId,
                 FinancialLifeGraphNodeTypes.FinancialLinkedAccount,
@@ -185,7 +190,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         foreach (var transaction in snapshot.Transactions)
         {
-            var transactionNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-transaction", transaction.Id);
+            var transactionNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalTransaction, transaction.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 transactionNodeId,
                 FinancialLifeGraphNodeTypes.PersonalTransaction,
@@ -205,7 +210,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
             if (transaction.PersonalAccountId.HasValue)
             {
-                var accountNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-account", transaction.PersonalAccountId.Value);
+                var accountNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalAccount, transaction.PersonalAccountId.Value);
                 edges.Add(new FinancialLifeGraphEdgeResponse(
                     accountNodeId,
                     FinancialLifeGraphPredicates.HasTransaction,
@@ -225,7 +230,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         foreach (var bill in snapshot.Bills)
         {
-            var billNodeId = FinancialLifeGraphFormatting.BuildNodeId("bill", bill.Id);
+            var billNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.Bill, bill.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 billNodeId,
                 FinancialLifeGraphNodeTypes.Bill,
@@ -251,14 +256,97 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 edges.Add(new FinancialLifeGraphEdgeResponse(
                     billNodeId,
                     FinancialLifeGraphPredicates.FundedByAccount,
-                    FinancialLifeGraphFormatting.BuildNodeId("personal-account", bill.PaidFromAccountId.Value),
+                    FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalAccount, bill.PaidFromAccountId.Value),
+                    null));
+            }
+
+            if (bill.LinkedOrderId.HasValue)
+            {
+                var order = snapshot.Orders.FirstOrDefault(item => item.Id == bill.LinkedOrderId.Value);
+                if (order != null)
+                {
+                    var orderNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.OrderRef, order.Id);
+                    nodes.Add(new FinancialLifeGraphNodeResponse(
+                        orderNodeId,
+                        FinancialLifeGraphNodeTypes.OrderRef,
+                        $"Order {order.Id}",
+                        nameof(Order),
+                        order.Id,
+                        FinancialLifeGraphFormatting.SerializeMetadata(new
+                        {
+                            order.OrderType,
+                            order.Status,
+                            order.CurrencyIn,
+                            order.AmountIn,
+                            order.CurrencyOut,
+                            order.AmountOut
+                        })));
+                    edges.Add(new FinancialLifeGraphEdgeResponse(
+                        billNodeId,
+                        FinancialLifeGraphPredicates.LinkedToOrder,
+                        orderNodeId,
+                        null));
+                }
+            }
+
+            if (bill.LinkedInvoiceId.HasValue)
+            {
+                var invoice = snapshot.Invoices.FirstOrDefault(item => item.Id == bill.LinkedInvoiceId.Value);
+                if (invoice != null)
+                {
+                    var invoiceNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.InvoiceRef, invoice.Id);
+                    nodes.Add(new FinancialLifeGraphNodeResponse(
+                        invoiceNodeId,
+                        FinancialLifeGraphNodeTypes.InvoiceRef,
+                        $"Invoice {invoice.Id}",
+                        nameof(Invoice),
+                        invoice.Id,
+                        FinancialLifeGraphFormatting.SerializeMetadata(new
+                        {
+                            invoice.Status,
+                            invoice.Currency,
+                            invoice.Total,
+                            invoice.DueDate,
+                            invoice.OrderId
+                        })));
+                    edges.Add(new FinancialLifeGraphEdgeResponse(
+                        billNodeId,
+                        FinancialLifeGraphPredicates.LinkedToInvoice,
+                        invoiceNodeId,
+                        null));
+                }
+            }
+
+            foreach (var paymentIntent in snapshot.PaymentIntents.Where(item => item.OrderId == bill.LinkedOrderId || item.InvoiceId == bill.LinkedInvoiceId))
+            {
+                var paymentIntentNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PaymentIntentRef, paymentIntent.Id);
+                nodes.Add(new FinancialLifeGraphNodeResponse(
+                    paymentIntentNodeId,
+                    FinancialLifeGraphNodeTypes.PaymentIntentRef,
+                    $"Payment Intent {paymentIntent.Id}",
+                    nameof(PaymentIntent),
+                    paymentIntent.Id,
+                    FinancialLifeGraphFormatting.SerializeMetadata(new
+                    {
+                        paymentIntent.Status,
+                        paymentIntent.Currency,
+                        paymentIntent.Amount,
+                        paymentIntent.OrderId,
+                        paymentIntent.InvoiceId,
+                        paymentIntent.PurposeType,
+                        paymentIntent.PurposeId
+                    })));
+                edges.Add(new FinancialLifeGraphEdgeResponse(
+                    billNodeId,
+                    FinancialLifeGraphPredicates.LinkedToPaymentIntent,
+                    paymentIntentNodeId,
                     null));
             }
         }
 
         foreach (var goal in snapshot.Goals)
         {
-            var goalNodeId = FinancialLifeGraphFormatting.BuildNodeId("goal", goal.Id);
+            var goalNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.Goal, goal.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 goalNodeId,
                 FinancialLifeGraphNodeTypes.Goal,
@@ -281,14 +369,14 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 edges.Add(new FinancialLifeGraphEdgeResponse(
                     goalNodeId,
                     FinancialLifeGraphPredicates.FundedByAccount,
-                    FinancialLifeGraphFormatting.BuildNodeId("personal-account", goal.FundingAccountId.Value),
+                    FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalAccount, goal.FundingAccountId.Value),
                     null));
             }
         }
 
         foreach (var subscription in snapshot.Subscriptions)
         {
-            var subscriptionNodeId = FinancialLifeGraphFormatting.BuildNodeId("subscription", subscription.Id);
+            var subscriptionNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.Subscription, subscription.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 subscriptionNodeId,
                 FinancialLifeGraphNodeTypes.Subscription,
@@ -308,7 +396,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         foreach (var quote in snapshot.FxQuotes)
         {
-            var fxNodeId = FinancialLifeGraphFormatting.BuildNodeId("fx-quote", quote.Id);
+            var fxNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.FxQuote, quote.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 fxNodeId,
                 FinancialLifeGraphNodeTypes.FxQuote,
@@ -329,13 +417,15 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         foreach (var party in snapshot.RelatedParties)
         {
-            var partyNodeId = FinancialLifeGraphFormatting.BuildNodeId("party", party.Id);
+            var partyNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.Party, party.Id);
             var relationship = snapshot.PartyRelationships
                 .FirstOrDefault(item => item.FromPartyId == party.Id || item.ToPartyId == party.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 partyNodeId,
                 FinancialLifeGraphNodeTypes.Party,
-                party.DisplayName,
+                !string.IsNullOrWhiteSpace(relationship?.RelationshipTypeCode)
+                    ? $"{party.DisplayName} ({relationship.RelationshipTypeCode})"
+                    : party.DisplayName,
                 FinancialLifeGraphNodeTypes.Party,
                 party.Id,
                 FinancialLifeGraphFormatting.SerializeMetadata(new
@@ -343,7 +433,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                     party.Status,
                     party.CustomerTierCode,
                     RelationshipTypeCode = relationship?.RelationshipTypeCode,
-                    relationship?.Notes
+                    RelationshipNotes = relationship?.Notes
                 })));
             edges.Add(new FinancialLifeGraphEdgeResponse(
                 userNodeId,
@@ -359,7 +449,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         foreach (var node in snapshot.NativeNodes)
         {
             nodes.Add(new FinancialLifeGraphNodeResponse(
-                FinancialLifeGraphFormatting.BuildNodeId("native-node", node.Id),
+                FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.NativeNode, node.Id),
                 node.NodeType,
                 node.DisplayName,
                 node.SourceEntity ?? nameof(FinancialLifeGraphNode),
@@ -386,6 +476,9 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             new(FinancialLifeGraphNodeTypes.Goal, snapshot.Goals.Count),
             new(FinancialLifeGraphNodeTypes.Subscription, snapshot.Subscriptions.Count),
             new(FinancialLifeGraphNodeTypes.FxQuote, snapshot.FxQuotes.Count),
+            new(FinancialLifeGraphNodeTypes.OrderRef, snapshot.Orders.Count),
+            new(FinancialLifeGraphNodeTypes.InvoiceRef, snapshot.Invoices.Count),
+            new(FinancialLifeGraphNodeTypes.PaymentIntentRef, snapshot.PaymentIntents.Count),
             new("PartyRelationship", snapshot.PartyRelationships.Count),
             new("FinancialLifeGraphNode", snapshot.NativeNodes.Count),
             new("FinancialLifeGraphEdge", snapshot.NativeEdges.Count)

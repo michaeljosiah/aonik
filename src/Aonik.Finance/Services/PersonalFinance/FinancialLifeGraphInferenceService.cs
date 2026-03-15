@@ -97,11 +97,11 @@ internal sealed class FinancialLifeGraphInferenceService
 
             var metadataJson = JsonSerializer.Serialize(new
             {
-                merchant = group.Merchant,
-                occurrenceCount = group.Count,
-                averageAmount = decimal.Round(group.AverageAmount, 2),
-                windowDays = request.WithinDays,
-                inferenceType = "RecurringMerchant"
+                Merchant = group.Merchant,
+                OccurrenceCount = group.Count,
+                AverageAmount = decimal.Round(group.AverageAmount, 2),
+                WindowDays = request.WithinDays,
+                InferenceType = "RecurringMerchant"
             });
 
             var node = new FinancialLifeGraphNode
@@ -133,12 +133,12 @@ internal sealed class FinancialLifeGraphInferenceService
 
             var proposalPayloadJson = JsonSerializer.Serialize(new
             {
-                graphNodeId = nodeId,
-                graphEdgeId = edgeId,
-                nodeType = node.NodeType,
-                displayName,
-                metadataJson,
-                inferenceType = "RecurringMerchant"
+                GraphNodeId = nodeId,
+                GraphEdgeId = edgeId,
+                NodeType = node.NodeType,
+                DisplayName = displayName,
+                MetadataJson = metadataJson,
+                InferenceType = "RecurringMerchant"
             });
 
             var proposal = new Proposal
@@ -231,7 +231,7 @@ internal sealed class FinancialLifeGraphInferenceService
         }
 
         using var payload = JsonDocument.Parse(proposal.PayloadJson);
-        var graphNodeId = payload.RootElement.GetProperty("graphNodeId").GetGuid();
+        var graphNodeId = payload.RootElement.GetProperty("GraphNodeId").GetGuid();
 
         var node = await _financeDbContext.FinancialLifeGraphNodes
             .FirstOrDefaultAsync(item => item.Id == graphNodeId && item.TenantId == tenantId && item.UserId == userId, cancellationToken)
@@ -246,6 +246,44 @@ internal sealed class FinancialLifeGraphInferenceService
         proposal.Status = ProposalStatus.Approved;
         proposal.ApprovedAt = DateTime.UtcNow;
         proposal.ApprovedByUserId = userId;
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _agentsDbContext.SaveChangesAsync(cancellationToken);
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+    }
+
+    public async Task RejectProposalAsync(Guid proposalId, string? reason = null, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var proposal = await _agentsDbContext.Proposals
+            .FirstOrDefaultAsync(item => item.Id == proposalId && item.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("Financial life graph proposal record not found.");
+
+        if (proposal.Status != ProposalStatus.Proposed)
+        {
+            throw new InvalidOperationException("Only proposed graph annotations can be rejected.");
+        }
+
+        using var payload = JsonDocument.Parse(proposal.PayloadJson);
+        var graphNodeId = payload.RootElement.GetProperty("GraphNodeId").GetGuid();
+        var graphEdgeId = payload.RootElement.GetProperty("GraphEdgeId").GetGuid();
+
+        var node = await _financeDbContext.FinancialLifeGraphNodes
+            .FirstOrDefaultAsync(item => item.Id == graphNodeId && item.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("Financial life graph proposal node not found.");
+
+        var edge = await _financeDbContext.FinancialLifeGraphEdges
+            .FirstOrDefaultAsync(item => item.Id == graphEdgeId && item.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("Financial life graph proposal edge not found.");
+
+        node.Status = FinancialLifeGraphEntityStatus.Rejected;
+        edge.Status = FinancialLifeGraphEntityStatus.Rejected;
+        proposal.Status = ProposalStatus.Rejected;
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            proposal.ImpactSummary = $"{proposal.ImpactSummary} Rejected: {reason.Trim()}";
+        }
+
         await _financeDbContext.SaveChangesAsync(cancellationToken);
         await _agentsDbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);

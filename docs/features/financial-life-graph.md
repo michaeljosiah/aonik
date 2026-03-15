@@ -57,12 +57,17 @@ flowchart LR
 ### Core Services
 
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphHydrationService.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphLoader.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphSnapshotMetrics.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphService.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphWriteService.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphValidationService.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphSchema.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphInferenceService.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphFormatting.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphNodeKeys.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphNodeKey.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphMetadata.cs`
 
 ### Persistence
 
@@ -101,7 +106,7 @@ flowchart LR
 
 ## Snapshot Loading Pipeline
 
-The current graph is built on demand by `FinancialLifeGraphHydrationService`, and `FinancialLifeGraphService` focuses on transforming hydrated snapshots into API read models.
+The current graph is built on demand by `FinancialLifeGraphHydrationService`, which orchestrates caching and delegates database loading to `FinancialLifeGraphLoader` and metrics logging to `FinancialLifeGraphSnapshotMetrics`. `FinancialLifeGraphService` then focuses on transforming hydrated snapshots into API read models.
 
 ```mermaid
 sequenceDiagram
@@ -173,6 +178,11 @@ Every projected node gets a graph node key.
 | `fx-quote:` | `fx-quote:GUID` | `FxQuote` |
 | `party:` | `party:GUID` | `PartyReadModel` |
 | `native-node:` | `native-node:GUID` | `FinancialLifeGraphNode` |
+| `order-ref:` | `order-ref:GUID` | `Order` |
+| `invoice-ref:` | `invoice-ref:GUID` | `Invoice` |
+| `payment-intent-ref:` | `payment-intent-ref:GUID` | `PaymentIntent` |
+
+Node key parsing and construction are centralized in `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphNodeKeys.cs` and wrapped by the `FinancialLifeGraphNodeKey` value object in `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphNodeKey.cs`.
 
 ### Projection Matrix
 
@@ -180,7 +190,7 @@ Every projected node gets a graph node key.
 | --- | --- | --- | --- | --- |
 | authenticated user | `UserRoot` | `Current User` | `TenantId`, `UserId`, `PartyId`, `HouseholdId` | root node only |
 | `Household` | `Household` | `Household.Name` | `MemberCount`, `CreatedAt` | `UserRoot --BELONGS_TO_HOUSEHOLD--> Household` |
-| `HouseholdMember` | `HouseholdMember` | `You` or `Member {UserId}` | `UserId`, `Role`, `PermissionsJson` | `Household --HOUSEHOLD_HAS_MEMBER--> HouseholdMember` |
+| `HouseholdMember` | `HouseholdMember` | `You`, party display name, user email fallback, or `Member {UserId}` | `UserId`, `Role`, `PermissionsJson` | `Household --HOUSEHOLD_HAS_MEMBER--> HouseholdMember` |
 | `PersonalAccount` | `PersonalAccount` | `PersonalAccount.Name` | `AccountType`, `Currency`, `InstitutionName`, `Status`, `AccountSubtype`, `Last4`, `IsArchived` | `UserRoot --OWNS_ACCOUNT--> PersonalAccount` |
 | `FinancialLinkedAccount` | `FinancialLinkedAccount` | `FinancialLinkedAccount.Name` | `ProviderAccountReference`, `AccountType`, `AccountSubtype`, `Currency`, `Status`, `Last4`, `LastSyncedAt`, `LastSyncStatus` | `PersonalAccount --USES_LINKED_ACCOUNT--> FinancialLinkedAccount` |
 | `PersonalTransaction` | `PersonalTransaction` | `Merchant ?? Description ?? fallback id label` | `Amount`, `Currency`, `OccurredAt`, `Category`, `SourceType`, `ClassificationMethod`, `ReviewStatus` | `PersonalAccount --HAS_TRANSACTION--> PersonalTransaction` when `PersonalAccountId` exists, otherwise `UserRoot --HAS_TRANSACTION--> PersonalTransaction`; additionally `PersonalTransaction --USES_ACCOUNT--> PersonalAccount` when `PersonalAccountId` exists |
@@ -188,7 +198,7 @@ Every projected node gets a graph node key.
 | `Goal` | `Goal` | `Goal.Name` | `FundingAccountId`, `TargetAmount`, `ProgressAmount`, `Currency`, `TargetDate`, `Status` | `UserRoot --HAS_GOAL--> Goal`; additionally `Goal --FUNDED_BY_ACCOUNT--> PersonalAccount` when `FundingAccountId` exists and points to a loaded user account |
 | `Subscription` | `Subscription` | `Subscription.Merchant` | `ExpectedAmount`, `Currency`, `RenewalDate`, `Status`, `DetectedBy` | `UserRoot --HAS_SUBSCRIPTION--> Subscription` |
 | `FxQuote` | `FxQuote` | `{BaseCurrency}/{TargetCurrency}` | `BaseCurrency`, `TargetCurrency`, `Rate`, `QuotedAt`, `ExpiresAt`, `Provider` | `UserRoot --HAS_FX_CONTEXT--> FxQuote` |
-| `PartyReadModel` + `PartyRelationshipReadModel` | `Party` | `Party.DisplayName` | `Status`, `CustomerTierCode`, `RelationshipTypeCode`, `Notes` | `UserRoot --RELATED_TO_PARTY--> Party` |
+| `PartyReadModel` + `PartyRelationshipReadModel` | `Party` | `Party.DisplayName (RelationshipTypeCode)` when available | `Status`, `CustomerTierCode`, `RelationshipTypeCode`, `RelationshipNotes` | `UserRoot --RELATED_TO_PARTY--> Party` |
 | `FinancialLifeGraphNode` | native node type from row | `DisplayName` | `PropertiesJson` (normalized) | none by itself |
 | `FinancialLifeGraphEdge` | no node; edge only | n/a | `PropertiesJson` (normalized) | emitted exactly as stored |
 
@@ -253,12 +263,34 @@ flowchart TD
 | `Goal` | yes | no |
 | `Subscription` | yes | no |
 | `FxQuote` | yes | no |
-| `OrderRef` | reserved | no |
-| `InvoiceRef` | reserved | no |
-| `PaymentIntentRef` | reserved | no |
+| `OrderRef` | yes | no |
+| `InvoiceRef` | yes | no |
+| `PaymentIntentRef` | yes | no |
 | `NativeAnnotation` | no | yes |
 | `RelationshipAnnotation` | no | yes |
 | `InferredAnnotation` | no | yes |
+
+### Node Type Semantics
+
+| Node type | Meaning | Typical usage |
+| --- | --- | --- |
+| `UserRoot` | root context for the current authenticated user | anchor for most user-owned edges |
+| `Household` | shared household grouping | household context and member traversal |
+| `HouseholdMember` | a member of the user's household | shared finance context |
+| `Party` | related person/business from canonical Party relationships | support/family/related-party reasoning |
+| `PersonalAccount` | user-owned personal finance account | funding, transaction, and balance context |
+| `FinancialLinkedAccount` | externally linked provider account backing a personal account | source connectivity and sync context |
+| `PersonalTransaction` | recent transaction inside the projection window | spend and transaction reasoning |
+| `Bill` | recurring or scheduled payment obligation | obligations and payment planning |
+| `Goal` | savings or target goal | future commitments and trade-offs |
+| `Subscription` | recurring merchant subscription | obligations and spend optimization |
+| `FxQuote` | relevant FX quote enrichment | cross-currency context |
+| `OrderRef` | mirror reference to a linked order | order-aware bill reasoning |
+| `InvoiceRef` | mirror reference to a linked invoice | billing-aware bill reasoning |
+| `PaymentIntentRef` | mirror reference to a linked payment intent | payment-execution context |
+| `NativeAnnotation` | user-created graph-native annotation | manual context not represented in canonical tables |
+| `RelationshipAnnotation` | user-created relationship annotation | non-canonical relationship meaning |
+| `InferredAnnotation` | AI-proposed annotation awaiting approval | policy-governed inference workflow |
 
 ### Current Predicate Matrix
 
@@ -274,9 +306,9 @@ flowchart TD
 | `BELONGS_TO_HOUSEHOLD` | `UserRoot -> Household` | yes | no |
 | `HOUSEHOLD_HAS_MEMBER` | `Household -> HouseholdMember` | yes | no |
 | `RELATED_TO_PARTY` | `UserRoot -> Party` | yes | yes |
-| `LINKED_TO_ORDER` | `Bill -> OrderRef` | not yet emitted | no |
-| `LINKED_TO_INVOICE` | `Bill -> InvoiceRef` | not yet emitted | no |
-| `LINKED_TO_PAYMENT_INTENT` | `Bill -> PaymentIntentRef` | not yet emitted | no |
+| `LINKED_TO_ORDER` | `Bill -> OrderRef` | yes, when `Bill.LinkedOrderId` resolves to a loaded order | no |
+| `LINKED_TO_INVOICE` | `Bill -> InvoiceRef` | yes, when `Bill.LinkedInvoiceId` resolves to a loaded invoice | no |
+| `LINKED_TO_PAYMENT_INTENT` | `Bill -> PaymentIntentRef` | yes, when a payment intent references the bill's linked order or invoice | no |
 | `FUNDED_BY_ACCOUNT` | `Goal -> PersonalAccount`, `Bill -> PersonalAccount` | yes, when the funding account fields are populated | yes |
 | `HAS_FX_CONTEXT` | `UserRoot -> FxQuote` | yes | no |
 | `ANNOTATED_AS` | annotatable mirror node -> annotation node | only for persisted/inferred native edges | yes |
@@ -395,6 +427,8 @@ Graph caching uses the shared cache stack rather than ad-hoc in-memory state.
 - `src/Aonik.Infrastructure/Caching/FusionCacheInvalidationHandler.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/IFinancialLifeGraphCacheInvalidator.cs`
 - `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphHydrationService.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphLoader.cs`
+- `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphSnapshotMetrics.cs`
 
 ### Cache Behavior
 
@@ -409,6 +443,12 @@ Graph caching uses the shared cache stack rather than ad-hoc in-memory state.
   - upcoming obligations
 
 FX quotes are cached separately with a shorter cache policy than the core snapshot because they change more quickly than the rest of the projected graph.
+
+### Metadata Handling
+
+- Graph metadata is normalized through `FinancialLifeGraphMetadata` in `src/Aonik.Finance/Services/PersonalFinance/FinancialLifeGraphMetadata.cs`
+- Empty metadata, whitespace, `{}`, and serialized `null` all normalize to no metadata
+- This keeps node and edge metadata consistent for API, agent, and MCP consumers
 
 ### Invalidation Sources
 
@@ -446,6 +486,8 @@ It also happens on Platform party relationship writes via `PartyService`, becaus
 | `DELETE /personal-finance/graph/nodes/{id}` | delete native graph node | `src/Aonik.Finance/Endpoints/PersonalFinance/DeleteFinancialLifeGraphNodeEndpoint.cs` |
 | `DELETE /personal-finance/graph/edges/{id}` | delete native graph edge | `src/Aonik.Finance/Endpoints/PersonalFinance/DeleteFinancialLifeGraphEdgeEndpoint.cs` |
 
+Current deletion behavior relies on the platform's soft-delete infrastructure in `AonikDbContextBase`, so audit history is preserved even when graph-native annotations are removed from active reads.
+
 ### Inference / Approval Endpoints
 
 | Route | Purpose | File |
@@ -453,6 +495,7 @@ It also happens on Platform party relationship writes via `PartyService`, becaus
 | `POST /personal-finance/graph/proposals/recurring-merchants` | create inferred proposals | `src/Aonik.Finance/Endpoints/PersonalFinance/ProposeRecurringMerchantGraphAnnotationsEndpoint.cs` |
 | `GET /personal-finance/graph/proposals/pending` | list pending graph proposals | `src/Aonik.Finance/Endpoints/PersonalFinance/GetPendingFinancialLifeGraphProposalsEndpoint.cs` |
 | `POST /personal-finance/graph/proposals/{proposalId}/approve` | approve a proposal | `src/Aonik.Finance/Endpoints/PersonalFinance/ApproveFinancialLifeGraphProposalEndpoint.cs` |
+| `POST /personal-finance/graph/proposals/{proposalId}/reject` | reject a proposal | `src/Aonik.Finance/Endpoints/PersonalFinance/RejectFinancialLifeGraphProposalEndpoint.cs` |
 
 ## Agent and MCP Tooling
 
@@ -513,24 +556,12 @@ The full graph response also returns `SourceCoverage` counts for the snapshot bu
 - FX quotes are tenant-scoped and further filtered by the user's relevant account currencies
 - related-party projection is anchored to the current user's `PersonalProfile.PartyId` and tenant-scoped relationship rows
 
-## What Is Implemented vs Reserved
-
-The schema currently includes some reserved node types and predicates that are not yet emitted by the graph builder. This is intentional so validation can stay ahead of future expansion.
-
-### Reserved but Not Yet Auto-Projected
-
-- `OrderRef`
-- `InvoiceRef`
-- `PaymentIntentRef`
-- `LINKED_TO_ORDER`
-- `LINKED_TO_INVOICE`
-- `LINKED_TO_PAYMENT_INTENT`
-
-Current conditional projection notes:
+## Conditional Projection Notes
 
 - `FUNDED_BY_ACCOUNT` is emitted only when `Goal.FundingAccountId` or `Bill.PaidFromAccountId` is populated and matches a loaded user account
 - `USES_ACCOUNT` is emitted for transactions that have `PersonalAccountId`
 - `USES_LINKED_ACCOUNT` is emitted for linked accounts attached to a loaded personal account
+- `LINKED_TO_ORDER`, `LINKED_TO_INVOICE`, and `LINKED_TO_PAYMENT_INTENT` are emitted only when the underlying bill links resolve to loaded order, invoice, and payment-intent rows
 
 ## Current Tests
 

@@ -141,6 +141,8 @@ internal sealed class FinancialLifeGraphValidationService
                 $"Edge combination '{fromNodeType} -> {predicate} -> {toNodeType}' is not permitted by the Financial Life Graph schema.");
         }
 
+        await ValidateCanonicalRelationshipConflictsAsync(request, fromNodeType, toNodeType, cancellationToken);
+
         await EnsureEdgeDoesNotAlreadyExistAsync(request, cancellationToken);
 
         await ValidateHouseholdAccessAsync(request.HouseholdId, cancellationToken);
@@ -192,12 +194,12 @@ internal sealed class FinancialLifeGraphValidationService
 
         foreach (var nodeKey in normalizedKeys)
         {
-            if (!TryParseNodeKey(nodeKey, out var prefix, out var nodeId))
+            if (!FinancialLifeGraphNodeKey.TryParse(nodeKey, out var parsedNodeKey))
             {
                 continue;
             }
 
-            var nodeType = await ResolveNodeTypeAsync(prefix, nodeId, tenantId, userId, profile, cancellationToken);
+            var nodeType = await ResolveNodeTypeAsync(parsedNodeKey.Prefix, parsedNodeKey.Id, tenantId, userId, profile, cancellationToken);
             if (!string.IsNullOrWhiteSpace(nodeType))
             {
                 result[nodeKey] = nodeType;
@@ -267,6 +269,49 @@ internal sealed class FinancialLifeGraphValidationService
         return userId;
     }
 
+    private async Task ValidateCanonicalRelationshipConflictsAsync(
+        CreateFinancialLifeGraphEdgeRequest request,
+        string fromNodeType,
+        string toNodeType,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(request.Predicate.Trim(), FinancialLifeGraphPredicates.RelatedToParty, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(fromNodeType, FinancialLifeGraphNodeTypes.UserRoot, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(toNodeType, FinancialLifeGraphNodeTypes.Party, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var profile = await _financeDbContext.PersonalProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == userId, cancellationToken);
+
+        if (profile?.PartyId is not Guid selfPartyId)
+        {
+            return;
+        }
+
+        if (!FinancialLifeGraphNodeKey.TryParse(request.ToNodeKey.Trim(), out var partyNodeKey)
+            || !string.Equals(partyNodeKey.Prefix, FinancialLifeGraphNodeKeys.Party, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var canonicalExists = await _financeDbContext.PartyRelationships
+            .AsNoTracking()
+            .AnyAsync(item => item.TenantId == tenantId
+                && item.IsActive
+                && ((item.FromPartyId == selfPartyId && item.ToPartyId == partyNodeKey.Id)
+                    || (item.ToPartyId == selfPartyId && item.FromPartyId == partyNodeKey.Id)), cancellationToken);
+
+        if (canonicalExists)
+        {
+            throw new InvalidOperationException("A canonical PartyRelationship already represents this related party link; native RELATED_TO_PARTY edges are not allowed for it.");
+        }
+    }
+
     private async Task<string?> ResolveNodeTypeAsync(
         string prefix,
         Guid nodeId,
@@ -277,10 +322,10 @@ internal sealed class FinancialLifeGraphValidationService
     {
         switch (prefix)
         {
-            case "user":
+            case FinancialLifeGraphNodeKeys.User:
                 return nodeId == userId ? FinancialLifeGraphNodeTypes.UserRoot : null;
 
-            case "household":
+            case FinancialLifeGraphNodeKeys.Household:
                 if (profile?.HouseholdId != nodeId)
                 {
                     return null;
@@ -292,7 +337,7 @@ internal sealed class FinancialLifeGraphValidationService
                     ? FinancialLifeGraphNodeTypes.Household
                     : null;
 
-            case "household-member":
+            case FinancialLifeGraphNodeKeys.HouseholdMember:
                 if (profile?.HouseholdId is not Guid currentHouseholdId)
                 {
                     return null;
@@ -304,7 +349,7 @@ internal sealed class FinancialLifeGraphValidationService
                     ? FinancialLifeGraphNodeTypes.HouseholdMember
                     : null;
 
-            case "party":
+            case FinancialLifeGraphNodeKeys.Party:
                 if (profile?.PartyId is not Guid currentPartyId)
                 {
                     return null;
@@ -328,71 +373,77 @@ internal sealed class FinancialLifeGraphValidationService
                     ? FinancialLifeGraphNodeTypes.Party
                     : null;
 
-            case "personal-account":
+            case FinancialLifeGraphNodeKeys.PersonalAccount:
                 return await _financeDbContext.PersonalAccounts
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.PersonalAccount
                     : null;
 
-            case "linked-account":
+            case FinancialLifeGraphNodeKeys.LinkedAccount:
                 return await _financeDbContext.FinancialLinkedAccounts
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.FinancialLinkedAccount
                     : null;
 
-            case "personal-transaction":
+            case FinancialLifeGraphNodeKeys.PersonalTransaction:
                 return await _financeDbContext.PersonalTransactions
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.PersonalTransaction
                     : null;
 
-            case "bill":
+            case FinancialLifeGraphNodeKeys.Bill:
                 return await _financeDbContext.Bills
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.Bill
                     : null;
 
-            case "goal":
+            case FinancialLifeGraphNodeKeys.Goal:
                 return await _financeDbContext.Goals
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.Goal
                     : null;
 
-            case "subscription":
+            case FinancialLifeGraphNodeKeys.Subscription:
                 return await _financeDbContext.Subscriptions
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.Subscription
                     : null;
 
-            case "native-node":
+            case FinancialLifeGraphNodeKeys.NativeNode:
                 var nativeNode = await _financeDbContext.FinancialLifeGraphNodes
                     .AsNoTracking()
                     .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId && item.Status == FinancialLifeGraphEntityStatus.Active, cancellationToken);
                 return nativeNode?.NodeType;
 
+            case FinancialLifeGraphNodeKeys.OrderRef:
+                return await _financeDbContext.Orders
+                    .AsNoTracking()
+                    .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId, cancellationToken)
+                    ? FinancialLifeGraphNodeTypes.OrderRef
+                    : null;
+
+            case FinancialLifeGraphNodeKeys.InvoiceRef:
+                return await _financeDbContext.Invoices
+                    .AsNoTracking()
+                    .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId, cancellationToken)
+                    ? FinancialLifeGraphNodeTypes.InvoiceRef
+                    : null;
+
+            case FinancialLifeGraphNodeKeys.PaymentIntentRef:
+                return await _financeDbContext.PaymentIntents
+                    .AsNoTracking()
+                    .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId, cancellationToken)
+                    ? FinancialLifeGraphNodeTypes.PaymentIntentRef
+                    : null;
+
             default:
                 return null;
         }
-    }
-
-    private static bool TryParseNodeKey(string nodeKey, out string prefix, out Guid nodeId)
-    {
-        prefix = string.Empty;
-        nodeId = Guid.Empty;
-
-        var parts = nodeKey.Split(':', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length != 2 || !Guid.TryParse(parts[1], out nodeId))
-        {
-            return false;
-        }
-
-        prefix = parts[0].Trim().ToLowerInvariant();
-        return true;
     }
 }

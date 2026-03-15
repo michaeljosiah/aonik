@@ -8,7 +8,7 @@ public interface IPersonalAccountLinkService
         CreateAccountLinkSessionRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<AccountLinkExchangeResponse?> ExchangeSessionAsync(
+    Task<AccountLinkExchangeResponse> ExchangeSessionAsync(
         ExchangeAccountLinkSessionRequest request,
         CancellationToken cancellationToken = default);
 

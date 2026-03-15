@@ -127,6 +127,15 @@ public record AccountLinkActionResponse(
     string Action,
     AccountLinkConnectionResponse Connection);
 
+public record AccountLinkActionRequiredErrorResponse(
+    string Error,
+    string Message,
+    string RequiredAction,
+    bool RequiresReconnect,
+    Guid ConnectionId,
+    string Provider,
+    string? ProviderErrorCode);
+
 public record AccountLinkWebhookResponse(string Status);
 
 public record AccountLinkTransactionSyncResponse(
@@ -507,6 +516,8 @@ public record PendingFinancialLifeGraphProposalResponse(
     FinancialLifeGraphProposalStatus Status,
     Guid AiRunId,
     string MetadataJson);
+
+public record RejectFinancialLifeGraphProposalRequest(string? Reason);
 
 public record HouseholdFinanceContextResponse(
     bool HasHousehold,

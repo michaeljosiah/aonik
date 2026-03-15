@@ -460,6 +460,43 @@ public class PersonalAccountLinkServiceTests
     }
 
     [Fact]
+    public async Task RefreshConnectionAsync_Should_ThrowActionRequiredException_WhenReconnectIsRequired()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
+
+        var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+        var exchange = await service.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "pending-refresh"));
+
+        tenantContext.TenantId = null;
+        tenantContext.ResolutionSource = null;
+
+        await service.ProcessPlaidWebhookAsync(new PlaidAccountLinkWebhookRequest
+        {
+            WebhookType = "ITEM",
+            WebhookCode = "PENDING_DISCONNECT",
+            ItemId = exchange.Connection.ProviderConnectionReference
+        });
+
+        tenantContext.TenantId = tenantId;
+        tenantContext.ResolutionSource = "Test";
+
+        // Act
+        var action = () => service.RefreshConnectionAsync(exchange.Connection.ConnectionId);
+
+        // Assert
+        var exception = await action.Should().ThrowAsync<AccountLinkActionRequiredException>();
+        exception.Which.RequiredAction.Should().Be("reconnect");
+        exception.Which.Provider.Should().Be("Plaid");
+        exception.Which.ProviderErrorCode.Should().Be("PENDING_DISCONNECT");
+    }
+
+    [Fact]
     public async Task ProcessPlaidWebhookAsync_Should_DisconnectConnection_WhenPermissionRevokedReceived()
     {
         // Arrange

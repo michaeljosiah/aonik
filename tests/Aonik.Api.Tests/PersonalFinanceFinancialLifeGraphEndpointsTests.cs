@@ -241,6 +241,74 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
     }
 
     [Fact]
+    public async Task ProposalEndpoints_Should_CreateAndRejectRecurringMerchantProposal()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        await SeedGraphDataAsync(tenantId, userId, partyId);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+            tenantContext.TenantId = tenantId;
+
+            financeDbContext.PersonalTransactions.AddRange(
+                Enumerable.Range(1, 3).Select(index => new PersonalTransaction
+                {
+                    TenantId = tenantId,
+                    UserId = userId,
+                    SourceType = "manual",
+                    SourceId = Guid.NewGuid(),
+                    OccurredAt = DateTime.UtcNow.AddDays(-index),
+                    Amount = -20m,
+                    Currency = "USD",
+                    Merchant = "Reject Merchant",
+                    Description = "Support",
+                    TagsJson = "[]",
+                    ReviewStatus = "Pending"
+                }));
+
+            await financeDbContext.SaveChangesAsync();
+        }
+
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            new TestAuthOptions
+            {
+                UserId = userId,
+                TenantId = tenantId
+            }.WithRoles("PersonalUser"));
+
+        var proposalResponse = await client.PostAsJsonAsync(
+            "/personal-finance/graph/proposals/recurring-merchants",
+            new ProposeRecurringMerchantGraphAnnotationsRequest(Guid.NewGuid(), 3, 30));
+
+        proposalResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var proposals = await proposalResponse.Content.ReadFromJsonAsync<List<InferenceProposalPayload>>();
+        proposals.Should().NotBeNull();
+        proposals!.Should().ContainSingle();
+
+        // Act
+        var rejectResponse = await client.PostAsJsonAsync(
+            $"/personal-finance/graph/proposals/{proposals[0].ProposalId}/reject",
+            new RejectFinancialLifeGraphProposalRequest("User declined suggestion"));
+
+        // Assert
+        rejectResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var pendingResponse = await client.GetAsync("/personal-finance/graph/proposals/pending");
+        var pending = await pendingResponse.Content.ReadFromJsonAsync<List<PendingProposalPayload>>();
+        pending.Should().NotBeNull();
+        pending!.Should().BeEmpty();
+
+        var graphResponse = await client.GetAsync("/personal-finance/graph");
+        var graph = await graphResponse.Content.ReadFromJsonAsync<GraphPayload>();
+        graph!.Nodes.Should().NotContain(item => item.DisplayName == proposals[0].DisplayName);
+    }
+
+    [Fact]
     public async Task ContextEndpoints_Should_ReturnHouseholdAndRelatedPartyViews()
     {
         // Arrange

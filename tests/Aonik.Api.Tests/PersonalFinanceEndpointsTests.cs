@@ -260,6 +260,48 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task AccountLinks_Refresh_ReturnsStructuredReconnectError_WhenActionIsRequired()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+
+        var sessionResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/sessions",
+            new CreateAccountLinkSessionRequest("Plaid"));
+        var session = await sessionResponse.Content.ReadFromJsonAsync<AccountLinkSessionResponse>();
+
+        var exchangeResponse = await client.PostAsJsonAsync(
+            "/personal-finance/account-links/exchanges",
+            new ExchangeAccountLinkSessionRequest(session!.AccountLinkSessionId, "sandbox-public-token-006"));
+        var exchanged = await exchangeResponse.Content.ReadFromJsonAsync<AccountLinkExchangeResponse>();
+
+        await client.PostAsJsonAsync(
+            "/personal-finance/account-links/webhooks/plaid",
+            new PlaidAccountLinkWebhookRequest
+            {
+                WebhookType = "ITEM",
+                WebhookCode = "PENDING_DISCONNECT",
+                ItemId = exchanged!.Connection.ProviderConnectionReference
+            });
+
+        // Act
+        var refreshResponse = await client.PostAsync(
+            $"/personal-finance/account-links/{exchanged.Connection.ConnectionId}/refresh",
+            null);
+        var error = await refreshResponse.Content.ReadFromJsonAsync<AccountLinkActionRequiredErrorResponse>();
+
+        // Assert
+        refreshResponse.StatusCode.Should().Be((HttpStatusCode)422);
+        error.Should().NotBeNull();
+        error!.Error.Should().Be("account_link_action_required");
+        error.RequiredAction.Should().Be("reconnect");
+        error.RequiresReconnect.Should().BeTrue();
+        error.ConnectionId.Should().Be(exchanged.Connection.ConnectionId);
+        error.Provider.Should().Be("Plaid");
+        error.ProviderErrorCode.Should().Be("PENDING_DISCONNECT");
+    }
+
+    [Fact]
     public async Task AccountLinks_TransactionSync_PersistsLinkedTransactions()
     {
         // Arrange

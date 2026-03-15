@@ -215,4 +215,59 @@ public class FinancialLifeGraphSchemaTests
         // Assert
         await action.Should().NotThrowAsync();
     }
+
+    [Fact]
+    public async Task ValidateEdgeCreateAsync_Should_Reject_RelatedPartyEdge_WhenCanonicalRelationshipExists()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var selfPartyId = Guid.NewGuid();
+        var relatedPartyId = Guid.NewGuid();
+        await using var context = CreateDbContext(tenantId);
+        context.PersonalProfiles.Add(new Aonik.Finance.Entities.PersonalFinance.PersonalProfile
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PartyId = selfPartyId
+        });
+        context.PartyRelationships.Add(new Aonik.Finance.Entities.PartyRelationshipReadModel
+        {
+            TenantId = tenantId,
+            FromPartyId = selfPartyId,
+            ToPartyId = relatedPartyId,
+            RelationshipTypeCode = "Sibling",
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+
+        var service = new FinancialLifeGraphValidationService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new FinancialLifeGraphSchema());
+
+        var nodeTypesByKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [$"user:{userId:D}"] = FinancialLifeGraphNodeTypes.UserRoot,
+            [$"party:{relatedPartyId:D}"] = FinancialLifeGraphNodeTypes.Party
+        };
+
+        // Act
+        Func<Task> action = () => service.ValidateEdgeCreateAsync(
+            new CreateFinancialLifeGraphEdgeRequest(
+                $"user:{userId:D}",
+                FinancialLifeGraphPredicates.RelatedToParty,
+                $"party:{relatedPartyId:D}",
+                "{}",
+                null,
+                FinancialLifeGraphEntityStatus.Active,
+                false,
+                null),
+            nodeTypesByKey);
+
+        // Assert
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*canonical PartyRelationship already represents this related party link*");
+    }
 }

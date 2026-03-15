@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -63,12 +64,6 @@ internal sealed class ExchangeAccountLinkSessionEndpoint : Endpoint<ExchangeAcco
         try
         {
             var response = await _personalAccountLinkService.ExchangeSessionAsync(req, ct);
-            if (response == null)
-            {
-                await Send.NotFoundAsync(ct);
-                return;
-            }
-
             await Send.OkAsync(response, ct);
         }
         catch (ArgumentException ex)
@@ -154,6 +149,19 @@ internal sealed class RefreshAccountLinkEndpoint : EndpointWithoutRequest<Accoun
             }
 
             await Send.OkAsync(new AccountLinkActionResponse("refresh", response), ct);
+        }
+        catch (AccountLinkActionRequiredException ex)
+        {
+            var response = new AccountLinkActionRequiredErrorResponse(
+                "account_link_action_required",
+                ex.Message,
+                ex.RequiredAction,
+                ex.RequiresReconnect,
+                ex.ConnectionId,
+                ex.Provider,
+                ex.ProviderErrorCode);
+
+            await TypedResults.UnprocessableEntity(response).ExecuteAsync(HttpContext);
         }
         catch (InvalidOperationException ex)
         {
