@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -168,22 +171,62 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
   // ── Completion ──────────────────────────────────────────
 
   Future<void> completeSetup() async {
+    final completedProfile = _markSetupCompleted();
+    await _persistSetupCompletedFlag();
+    unawaited(_persistSetupProfile(completedProfile));
+  }
+
+  void completeSetupLocally() {
+    final completedProfile = _markSetupCompleted();
+    unawaited(_persistCompletedProfile(completedProfile));
+  }
+
+  PayaboSetupProfile _markSetupCompleted() {
     final completedProfile = state.profile.copyWith(completed: true);
 
     state = state.copyWith(profile: completedProfile);
+    _ref.invalidate(setupCompletedProvider);
 
+    developer.log(
+      'Marked setup complete locally and invalidated setupCompletedProvider',
+      name: 'Payabo.SetupJourneyController',
+    );
+
+    return completedProfile;
+  }
+
+  Future<void> _persistCompletedProfile(PayaboSetupProfile profile) async {
+    await _persistSetupCompletedFlag();
+    await _persistSetupProfile(profile);
+  }
+
+  Future<void> _persistSetupCompletedFlag() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_setupCompletedKey, true);
+    developer.log(
+      'Persisted local setup completion flag',
+      name: 'Payabo.SetupJourneyController',
+    );
+  }
 
+  Future<void> _persistSetupProfile(PayaboSetupProfile profile) async {
     try {
       final repository = _ref.read(setupJourneyRepositoryProvider);
-      await repository.saveSetupProfile(completedProfile);
-    } catch (_) {
+      await repository.saveSetupProfile(profile);
+      developer.log(
+        'Persisted setup profile to repository',
+        name: 'Payabo.SetupJourneyController',
+      );
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to persist setup profile to repository',
+        name: 'Payabo.SetupJourneyController',
+        error: error,
+        stackTrace: stackTrace,
+      );
       // Graceful degradation — preserve local completion state if the
       // backend call cannot be completed right now.
     }
-
-    _ref.invalidate(setupCompletedProvider);
   }
 
   void reset() {

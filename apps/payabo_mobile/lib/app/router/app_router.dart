@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -86,6 +88,13 @@ String? resolveAppRedirect({
   return null;
 }
 
+bool resolveSetupCompletionState({
+  required AsyncValue<bool> setupAsync,
+  required bool localProfileCompleted,
+}) {
+  return (setupAsync.asData?.value ?? false) || localProfileCompleted;
+}
+
 class RouterRefreshNotifier extends ChangeNotifier {
   RouterRefreshNotifier(this._ref) {
     _ref.listen<AuthState>(
@@ -125,13 +134,27 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
         }
 
         final setupAsync = ref.read(setupCompletedProvider);
-        final bool setupDone = setupAsync.value ?? false;
+        final bool localProfileCompleted =
+            ref.read(setupJourneyControllerProvider).profile.completed;
+        final bool setupDone = resolveSetupCompletionState(
+          setupAsync: setupAsync,
+          localProfileCompleted: localProfileCompleted,
+        );
 
-        return resolveAppRedirect(
+        final redirect = resolveAppRedirect(
           authState: authState,
           location: state.uri.path,
           setupDone: setupDone,
         );
+
+        if (state.uri.path == '/setup' || state.uri.path == '/dashboard') {
+          developer.log(
+            'Router redirect check location=${state.uri.path}, setupAsync=${setupAsync.runtimeType}, setupAsyncValue=${setupAsync.asData?.value}, localProfileCompleted=$localProfileCompleted, setupDone=$setupDone, authenticated=${authState.isAuthenticated}, redirect=${redirect ?? 'none'}',
+            name: 'Payabo.Router',
+          );
+        }
+
+        return redirect;
       },
       routes: <GoRoute>[
         GoRoute(

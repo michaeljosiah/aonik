@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:payabo_mobile/app/auth/auth_controller.dart';
 import 'package:payabo_mobile/app/router/app_router.dart';
@@ -70,6 +71,26 @@ void main() {
       );
 
       expect(redirect, '/dashboard');
+    });
+  });
+
+  group('resolveSetupCompletionState', () {
+    test('uses provider value when available', () {
+      final result = resolveSetupCompletionState(
+        setupAsync: const AsyncData<bool>(true),
+        localProfileCompleted: false,
+      );
+
+      expect(result, isTrue);
+    });
+
+    test('falls back to local completion while provider reloads', () {
+      final result = resolveSetupCompletionState(
+        setupAsync: const AsyncLoading<bool>(),
+        localProfileCompleted: true,
+      );
+
+      expect(result, isTrue);
     });
   });
 }

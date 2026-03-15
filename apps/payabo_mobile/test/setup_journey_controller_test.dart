@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,8 +12,28 @@ import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_journey_controller.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_step_configs.dart';
 import 'package:payabo_mobile/features/setup_journey/domain/setup_enums.dart';
+import 'package:payabo_mobile/features/setup_journey/domain/setup_journey_repository.dart';
 import 'package:payabo_mobile/features/setup_journey/domain/setup_models.dart';
 import 'package:payabo_mobile/mock/repositories/mock_setup_journey_repository.dart';
+
+class _BlockingSetupJourneyRepository implements SetupJourneyRepository {
+  @override
+  Future<void> clearSetupProfile() async {}
+
+  @override
+  Future<PayaboSetupProfile?> loadSetupProfile() async => null;
+
+  @override
+  Future<void> saveSetupProfile(PayaboSetupProfile profile) {
+    return Completer<void>().future;
+  }
+
+  @override
+  Future<void> triggerNigeriaAccountLink() async {}
+
+  @override
+  Future<void> triggerUkAccountLink() async {}
+}
 
 void main() {
   late ProviderContainer container;
@@ -209,6 +231,68 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('payabo.setup.completed'), isTrue);
+    });
+
+    test('completeSetup does not wait for repository persistence', () async {
+      final blockingContainer = ProviderContainer(
+        overrides: [
+          setupJourneyRepositoryProvider
+              .overrideWithValue(_BlockingSetupJourneyRepository()),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: false,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+              tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => false),
+        ],
+      );
+      addTearDown(blockingContainer.dispose);
+
+      final blockingController =
+          blockingContainer.read(setupJourneyControllerProvider.notifier);
+
+      await blockingController.completeSetup().timeout(
+            const Duration(milliseconds: 250),
+          );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('payabo.setup.completed'), isTrue);
+      expect(
+        blockingContainer.read(setupJourneyControllerProvider).profile.completed,
+        isTrue,
+      );
+    });
+
+    test('completeSetupLocally marks setup complete immediately', () async {
+      final blockingContainer = ProviderContainer(
+        overrides: [
+          setupJourneyRepositoryProvider
+              .overrideWithValue(_BlockingSetupJourneyRepository()),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: false,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+              tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
+            ),
+          ),
+          offlineModeProvider.overrideWith((Ref ref) => false),
+        ],
+      );
+      addTearDown(blockingContainer.dispose);
+
+      final blockingController =
+          blockingContainer.read(setupJourneyControllerProvider.notifier);
+
+      blockingController.completeSetupLocally();
+
+      expect(
+        blockingContainer.read(setupJourneyControllerProvider).profile.completed,
+        isTrue,
+      );
     });
 
     test('setupCompletedProvider reflects SharedPreferences', () async {
