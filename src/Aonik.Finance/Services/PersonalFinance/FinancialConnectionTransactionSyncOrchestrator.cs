@@ -101,8 +101,12 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
 
             var personalAccountsById = personalAccounts.ToDictionary(item => item.Id);
             var linkedAccountsByReference = linkedAccounts.ToDictionary(item => item.ProviderAccountReference, StringComparer.Ordinal);
+            var linkedAccountsByPersonalAccountId = linkedAccounts
+                .GroupBy(item => item.PersonalAccountId)
+                .ToDictionary(group => group.Key, group => group.First());
 
             var gateway = ResolveProvider(connection.Provider);
+            var previousDisconnectedAt = connection.DisconnectedAt;
             var syncResult = await gateway.SyncTransactionsAsync(
                 new AccountLinkProviderTransactionsSyncRequest(
                     tenantId,
@@ -156,9 +160,8 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
 
             foreach (var personalAccount in personalAccounts)
             {
-                personalAccount.Status = "Connected";
-                personalAccount.IsArchived = false;
-                personalAccount.ClosedAt = null;
+                linkedAccountsByPersonalAccountId.TryGetValue(personalAccount.Id, out var linkedAccount);
+                ApplyConnectedPersonalAccountState(personalAccount, linkedAccount, previousDisconnectedAt);
             }
 
             var transactionIds = syncResult.Transactions
@@ -394,5 +397,39 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
         }
 
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private static void ApplyConnectedPersonalAccountState(
+        PersonalAccount personalAccount,
+        FinancialLinkedAccount? linkedAccount,
+        DateTime? previousDisconnectedAt)
+    {
+        if (!personalAccount.IsArchived)
+        {
+            personalAccount.Status = "Connected";
+            return;
+        }
+
+        if (!ShouldRestoreArchivedPersonalAccount(personalAccount, linkedAccount, previousDisconnectedAt))
+        {
+            return;
+        }
+
+        personalAccount.Status = "Connected";
+        personalAccount.IsArchived = false;
+        personalAccount.ClosedAt = null;
+    }
+
+    private static bool ShouldRestoreArchivedPersonalAccount(
+        PersonalAccount personalAccount,
+        FinancialLinkedAccount? linkedAccount,
+        DateTime? previousDisconnectedAt)
+    {
+        return personalAccount.IsArchived
+            && previousDisconnectedAt.HasValue
+            && personalAccount.ClosedAt == previousDisconnectedAt
+            && string.Equals(personalAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase)
+            && linkedAccount != null
+            && string.Equals(linkedAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -543,6 +543,8 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             _financeDbContext.FinancialConnections.Add(connection);
         }
 
+        var previousDisconnectedAt = connection.DisconnectedAt;
+
         UpdateConnectionState(connection, providerState);
         EnsureRecurringSyncDefaults(connection);
         connection.NextScheduledSyncAt = DetermineConnectionStatus(providerState) == "Connected"
@@ -613,6 +615,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 linkedAccountsByReference,
                 personalAccountsByExternalRef,
                 personalAccountsById,
+                previousDisconnectedAt,
                 tenantId,
                 userId,
                 providerState,
@@ -882,6 +885,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         IDictionary<string, FinancialLinkedAccount> linkedAccountsByReference,
         IDictionary<string, PersonalAccount> personalAccountsByExternalRef,
         IDictionary<Guid, PersonalAccount> personalAccountsById,
+        DateTime? previousDisconnectedAt,
         Guid tenantId,
         Guid userId,
         AccountLinkProviderExchangeResult providerExchange,
@@ -918,11 +922,9 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 personalAccount.Currency = providerAccount.Currency.Trim().ToUpperInvariant();
                 personalAccount.InstitutionName = providerExchange.InstitutionName;
                 personalAccount.ExternalReference = providerAccount.ProviderAccountReference;
-                personalAccount.Status = providerAccount.Status;
                 personalAccount.AccountSubtype = TrimNullable(providerAccount.AccountSubtype);
                 personalAccount.Last4 = NormalizeLast4(providerAccount.Last4);
-                personalAccount.IsArchived = false;
-                personalAccount.ClosedAt = null;
+                ApplyConnectedPersonalAccountState(personalAccount, null, previousDisconnectedAt, providerAccount.Status);
             }
 
             linkedAccount = new FinancialLinkedAccount
@@ -958,11 +960,9 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         linkedPersonalAccount.Currency = providerAccount.Currency.Trim().ToUpperInvariant();
         linkedPersonalAccount.InstitutionName = providerExchange.InstitutionName;
         linkedPersonalAccount.ExternalReference = providerAccount.ProviderAccountReference;
-        linkedPersonalAccount.Status = providerAccount.Status;
         linkedPersonalAccount.AccountSubtype = TrimNullable(providerAccount.AccountSubtype);
         linkedPersonalAccount.Last4 = NormalizeLast4(providerAccount.Last4);
-        linkedPersonalAccount.IsArchived = false;
-        linkedPersonalAccount.ClosedAt = null;
+        ApplyConnectedPersonalAccountState(linkedPersonalAccount, linkedAccount, previousDisconnectedAt, providerAccount.Status);
 
         linkedAccount.Name = providerAccount.Name;
         linkedAccount.AccountType = NormalizePersonalAccountType(providerAccount.AccountType);
@@ -978,6 +978,41 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private static string? DetermineAccountError(AccountLinkProviderExchangeResult providerExchange)
     {
         return DetermineConnectionError(providerExchange);
+    }
+
+    private static void ApplyConnectedPersonalAccountState(
+        PersonalAccount personalAccount,
+        FinancialLinkedAccount? linkedAccount,
+        DateTime? previousDisconnectedAt,
+        string connectedStatus)
+    {
+        if (!personalAccount.IsArchived)
+        {
+            personalAccount.Status = connectedStatus;
+            return;
+        }
+
+        if (!ShouldRestoreArchivedPersonalAccount(personalAccount, linkedAccount, previousDisconnectedAt))
+        {
+            return;
+        }
+
+        personalAccount.Status = connectedStatus;
+        personalAccount.IsArchived = false;
+        personalAccount.ClosedAt = null;
+    }
+
+    private static bool ShouldRestoreArchivedPersonalAccount(
+        PersonalAccount personalAccount,
+        FinancialLinkedAccount? linkedAccount,
+        DateTime? previousDisconnectedAt)
+    {
+        return personalAccount.IsArchived
+            && previousDisconnectedAt.HasValue
+            && personalAccount.ClosedAt == previousDisconnectedAt
+            && string.Equals(personalAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase)
+            && linkedAccount != null
+            && string.Equals(linkedAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase);
     }
 
     private static AccountLinkActionRequiredException CreateActionRequiredException(FinancialConnection connection)
@@ -1222,12 +1257,9 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             return null;
         }
 
-        if (normalized.Length > 4)
-        {
-            throw new ArgumentException("Last4 cannot exceed 4 characters.", nameof(value));
-        }
-
-        return normalized;
+        return normalized.Length <= 4
+            ? normalized
+            : normalized[^4..];
     }
 
     private const string LinkedAccountSyncSourceType = "linked_account_sync";

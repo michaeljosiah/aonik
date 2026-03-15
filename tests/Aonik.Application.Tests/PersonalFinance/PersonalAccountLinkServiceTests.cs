@@ -109,25 +109,7 @@ public class PersonalAccountLinkServiceTests
                 DateTime.UtcNow,
                 request.Mode == "update" ? "UpdateModeComplete" : "InitialSyncComplete",
                 null,
-                new List<AccountLinkProviderAccountResult>
-                {
-                    new(
-                        $"acct-{suffix}-current",
-                        "Current account",
-                        "bank",
-                        "current",
-                        "USD",
-                        "1234",
-                        "Connected"),
-                    new(
-                        $"acct-{suffix}-savings",
-                        "Savings account",
-                        "bank",
-                        "savings",
-                        "USD",
-                        "5678",
-                        "Connected")
-                }));
+                BuildAccounts(suffix)));
         }
 
         public Task<AccountLinkProviderExchangeResult> RefreshConnectionAsync(
@@ -149,25 +131,7 @@ public class PersonalAccountLinkServiceTests
                 DateTime.UtcNow,
                 "RefreshComplete",
                 null,
-                new List<AccountLinkProviderAccountResult>
-                {
-                    new(
-                        $"acct-{suffix}-current",
-                        "Current account",
-                        "bank",
-                        "current",
-                        "USD",
-                        "1234",
-                        "Connected"),
-                    new(
-                        $"acct-{suffix}-savings",
-                        "Savings account",
-                        "bank",
-                        "savings",
-                        "USD",
-                        "5678",
-                        "Connected")
-                }));
+                BuildAccounts(suffix)));
         }
 
         public Task DisconnectConnectionAsync(
@@ -216,6 +180,33 @@ public class PersonalAccountLinkServiceTests
                         false)
                 },
                 []));
+        }
+
+        private static IReadOnlyList<AccountLinkProviderAccountResult> BuildAccounts(string suffix)
+        {
+            var currentLast4 = suffix.Contains("mask", StringComparison.OrdinalIgnoreCase)
+                ? "*****1234"
+                : "1234";
+
+            return new List<AccountLinkProviderAccountResult>
+            {
+                new(
+                    $"acct-{suffix}-current",
+                    "Current account",
+                    "bank",
+                    "current",
+                    "USD",
+                    currentLast4,
+                    "Connected"),
+                new(
+                    $"acct-{suffix}-savings",
+                    "Savings account",
+                    "bank",
+                    "savings",
+                    "USD",
+                    "5678",
+                    "Connected")
+            };
         }
     }
 
@@ -397,6 +388,60 @@ public class PersonalAccountLinkServiceTests
         refreshed.Should().NotBeNull();
         refreshed!.ConnectionId.Should().Be(exchange.Connection.ConnectionId);
         refreshed.LastSyncStatus.Should().Be("RefreshComplete");
+    }
+
+    [Fact]
+    public async Task RefreshConnectionAsync_Should_PreserveManualArchive_WhenPersonalAccountWasArchivedByUser()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
+
+        var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+        var exchange = await service.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "archive1"));
+
+        var personalAccount = context.PersonalAccounts
+            .Single(item => item.ExternalReference == "acct-archive1-current");
+        var archivedAt = DateTime.UtcNow.AddDays(-3);
+        personalAccount.IsArchived = true;
+        personalAccount.Status = "Archived";
+        personalAccount.ClosedAt = archivedAt;
+        await context.SaveChangesAsync();
+
+        // Act
+        var refreshed = await service.RefreshConnectionAsync(exchange.Connection.ConnectionId);
+
+        // Assert
+        refreshed.Should().NotBeNull();
+        var reloaded = context.PersonalAccounts.Single(item => item.Id == personalAccount.Id);
+        reloaded.IsArchived.Should().BeTrue();
+        reloaded.Status.Should().Be("Archived");
+        reloaded.ClosedAt.Should().Be(archivedAt);
+    }
+
+    [Fact]
+    public async Task ExchangeSessionAsync_Should_UseTrailingCharacters_WhenProviderReturnsMaskedLast4()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var tenantContext = new TestTenantContext { TenantId = tenantId };
+        var service = CreateService(context, tenantId, userId, tenantContext);
+
+        var session = await service.CreateSessionAsync(new CreateAccountLinkSessionRequest("Plaid"));
+
+        // Act
+        var exchange = await service.ExchangeSessionAsync(
+            new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "mask1234"));
+
+        // Assert
+        exchange.Connection.Accounts.Should().Contain(item => item.Last4 == "1234");
+        context.PersonalAccounts.Should().Contain(item => item.Last4 == "1234");
     }
 
     [Fact]
