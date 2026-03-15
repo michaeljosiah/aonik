@@ -56,7 +56,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
 
         _financeDbContext.PersonalAccounts.Add(account);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapToResponse(account);
     }
@@ -120,7 +120,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         }
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
         return MapToResponse(account);
     }
 
@@ -136,7 +136,7 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         account.ClosedAt ??= DateTime.UtcNow;
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
     private Guid GetCurrentUserId()

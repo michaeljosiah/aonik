@@ -1,3 +1,5 @@
+using Aonik.Finance.Contracts.Models.PersonalFinance;
+
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialLifeGraphSchema
@@ -56,23 +58,23 @@ internal sealed class FinancialLifeGraphSchema
     {
         var items = new List<FinancialLifeGraphNodeTypeDefinition>
         {
-            new("UserRoot", false, true),
-            new("Household", false, true),
-            new("HouseholdMember", false, true),
-            new("Party", false, true),
-            new("PersonalAccount", false, true),
-            new("FinancialLinkedAccount", false, true),
-            new("PersonalTransaction", false, true),
-            new("Bill", false, true),
-            new("Goal", false, true),
-            new("Subscription", false, true),
-            new("FxQuote", false, true),
-            new("OrderRef", false, true),
-            new("InvoiceRef", false, true),
-            new("PaymentIntentRef", false, true),
-            new("NativeAnnotation", true, false),
-            new("RelationshipAnnotation", true, false),
-            new("InferredAnnotation", true, false)
+            new(FinancialLifeGraphNodeTypes.UserRoot, false, true),
+            new(FinancialLifeGraphNodeTypes.Household, false, true),
+            new(FinancialLifeGraphNodeTypes.HouseholdMember, false, true),
+            new(FinancialLifeGraphNodeTypes.Party, false, true),
+            new(FinancialLifeGraphNodeTypes.PersonalAccount, false, true),
+            new(FinancialLifeGraphNodeTypes.FinancialLinkedAccount, false, true),
+            new(FinancialLifeGraphNodeTypes.PersonalTransaction, false, true),
+            new(FinancialLifeGraphNodeTypes.Bill, false, true),
+            new(FinancialLifeGraphNodeTypes.Goal, false, true),
+            new(FinancialLifeGraphNodeTypes.Subscription, false, true),
+            new(FinancialLifeGraphNodeTypes.FxQuote, false, true),
+            new(FinancialLifeGraphNodeTypes.OrderRef, false, true),
+            new(FinancialLifeGraphNodeTypes.InvoiceRef, false, true),
+            new(FinancialLifeGraphNodeTypes.PaymentIntentRef, false, true),
+            new(FinancialLifeGraphNodeTypes.NativeAnnotation, true, false),
+            new(FinancialLifeGraphNodeTypes.RelationshipAnnotation, true, false),
+            new(FinancialLifeGraphNodeTypes.InferredAnnotation, true, false)
         };
 
         return items.ToDictionary(item => item.NodeType, item => item, StringComparer.OrdinalIgnoreCase);
@@ -82,52 +84,51 @@ internal sealed class FinancialLifeGraphSchema
     {
         var edges = new List<FinancialLifeGraphEdgeDefinition>
         {
-            new("OWNS_ACCOUNT", "UserRoot", "PersonalAccount", false),
-            new("HAS_TRANSACTION", "UserRoot", "PersonalTransaction", false),
-            new("HAS_TRANSACTION", "PersonalAccount", "PersonalTransaction", false),
-            new("USES_ACCOUNT", "PersonalTransaction", "PersonalAccount", false),
-            new("USES_ACCOUNT", "PersonalAccount", "FinancialLinkedAccount", false),
-            new("USES_LINKED_ACCOUNT", "PersonalAccount", "FinancialLinkedAccount", false),
-            new("HAS_BILL", "UserRoot", "Bill", false),
-            new("HAS_GOAL", "UserRoot", "Goal", false),
-            new("HAS_SUBSCRIPTION", "UserRoot", "Subscription", false),
-            new("BELONGS_TO_HOUSEHOLD", "UserRoot", "Household", false),
-            new("HOUSEHOLD_HAS_MEMBER", "Household", "HouseholdMember", false),
-            new("RELATED_TO_PARTY", "UserRoot", "Party", true),
-            new("LINKED_TO_ORDER", "Bill", "OrderRef", false),
-            new("LINKED_TO_INVOICE", "Bill", "InvoiceRef", false),
-            new("LINKED_TO_PAYMENT_INTENT", "Bill", "PaymentIntentRef", false),
-            new("FUNDED_BY_ACCOUNT", "Goal", "PersonalAccount", true),
-            new("FUNDED_BY_ACCOUNT", "Bill", "PersonalAccount", true),
-            new("HAS_FX_CONTEXT", "UserRoot", "FxQuote", false)
+            new(FinancialLifeGraphPredicates.OwnsAccount, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.PersonalAccount, false),
+            new(FinancialLifeGraphPredicates.HasTransaction, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.PersonalTransaction, false),
+            new(FinancialLifeGraphPredicates.HasTransaction, FinancialLifeGraphNodeTypes.PersonalAccount, FinancialLifeGraphNodeTypes.PersonalTransaction, false),
+            new(FinancialLifeGraphPredicates.UsesAccount, FinancialLifeGraphNodeTypes.PersonalTransaction, FinancialLifeGraphNodeTypes.PersonalAccount, false),
+            new(FinancialLifeGraphPredicates.UsesLinkedAccount, FinancialLifeGraphNodeTypes.PersonalAccount, FinancialLifeGraphNodeTypes.FinancialLinkedAccount, false),
+            new(FinancialLifeGraphPredicates.HasBill, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.Bill, false),
+            new(FinancialLifeGraphPredicates.HasGoal, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.Goal, false),
+            new(FinancialLifeGraphPredicates.HasSubscription, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.Subscription, false),
+            new(FinancialLifeGraphPredicates.BelongsToHousehold, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.Household, false),
+            new(FinancialLifeGraphPredicates.HouseholdHasMember, FinancialLifeGraphNodeTypes.Household, FinancialLifeGraphNodeTypes.HouseholdMember, false),
+            new(FinancialLifeGraphPredicates.RelatedToParty, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.Party, true),
+            new(FinancialLifeGraphPredicates.LinkedToOrder, FinancialLifeGraphNodeTypes.Bill, FinancialLifeGraphNodeTypes.OrderRef, false),
+            new(FinancialLifeGraphPredicates.LinkedToInvoice, FinancialLifeGraphNodeTypes.Bill, FinancialLifeGraphNodeTypes.InvoiceRef, false),
+            new(FinancialLifeGraphPredicates.LinkedToPaymentIntent, FinancialLifeGraphNodeTypes.Bill, FinancialLifeGraphNodeTypes.PaymentIntentRef, false),
+            new(FinancialLifeGraphPredicates.FundedByAccount, FinancialLifeGraphNodeTypes.Goal, FinancialLifeGraphNodeTypes.PersonalAccount, true),
+            new(FinancialLifeGraphPredicates.FundedByAccount, FinancialLifeGraphNodeTypes.Bill, FinancialLifeGraphNodeTypes.PersonalAccount, true),
+            new(FinancialLifeGraphPredicates.HasFxContext, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.FxQuote, false)
         };
 
         var annotatableTypes = new[]
         {
-            "UserRoot",
-            "Household",
-            "HouseholdMember",
-            "Party",
-            "PersonalAccount",
-            "FinancialLinkedAccount",
-            "PersonalTransaction",
-            "Bill",
-            "Goal",
-            "Subscription"
+            FinancialLifeGraphNodeTypes.UserRoot,
+            FinancialLifeGraphNodeTypes.Household,
+            FinancialLifeGraphNodeTypes.HouseholdMember,
+            FinancialLifeGraphNodeTypes.Party,
+            FinancialLifeGraphNodeTypes.PersonalAccount,
+            FinancialLifeGraphNodeTypes.FinancialLinkedAccount,
+            FinancialLifeGraphNodeTypes.PersonalTransaction,
+            FinancialLifeGraphNodeTypes.Bill,
+            FinancialLifeGraphNodeTypes.Goal,
+            FinancialLifeGraphNodeTypes.Subscription
         };
 
         var annotationTypes = new[]
         {
-            "NativeAnnotation",
-            "RelationshipAnnotation",
-            "InferredAnnotation"
+            FinancialLifeGraphNodeTypes.NativeAnnotation,
+            FinancialLifeGraphNodeTypes.RelationshipAnnotation,
+            FinancialLifeGraphNodeTypes.InferredAnnotation
         };
 
         foreach (var fromNodeType in annotatableTypes)
         {
             foreach (var toNodeType in annotationTypes)
             {
-                edges.Add(new FinancialLifeGraphEdgeDefinition("ANNOTATED_AS", fromNodeType, toNodeType, true));
+                edges.Add(new FinancialLifeGraphEdgeDefinition(FinancialLifeGraphPredicates.AnnotatedAs, fromNodeType, toNodeType, true));
             }
         }
 

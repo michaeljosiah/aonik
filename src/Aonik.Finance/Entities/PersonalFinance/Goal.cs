@@ -6,6 +6,7 @@ public class Goal : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
+    public Guid? FundingAccountId { get; set; }
     public string Name { get; set; } = string.Empty;
     public decimal TargetAmount { get; set; }
     public string Currency { get; set; } = string.Empty;

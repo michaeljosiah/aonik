@@ -1,0 +1,23 @@
+using Aonik.Finance.Entities;
+using Aonik.Finance.Entities.PersonalFinance;
+
+namespace Aonik.Finance.Services.PersonalFinance;
+
+internal sealed record FinancialLifeGraphSnapshot(
+    Guid TenantId,
+    Guid UserId,
+    PersonalProfile? PersonalProfile,
+    Household? Household,
+    IReadOnlyList<HouseholdMember> HouseholdMembers,
+    IReadOnlyList<PersonalAccount> Accounts,
+    IReadOnlyList<FinancialLinkedAccount> LinkedAccounts,
+    IReadOnlyList<PersonalTransaction> Transactions,
+    IReadOnlyList<Bill> Bills,
+    IReadOnlyList<Goal> Goals,
+    IReadOnlyList<Subscription> Subscriptions,
+    IReadOnlyList<Entities.Pricing.FxQuote> FxQuotes,
+    Guid? SelfPartyId,
+    IReadOnlyList<PartyReadModel> RelatedParties,
+    IReadOnlyList<PartyRelationshipReadModel> PartyRelationships,
+    IReadOnlyList<FinancialLifeGraphNode> NativeNodes,
+    IReadOnlyList<FinancialLifeGraphEdge> NativeEdges);

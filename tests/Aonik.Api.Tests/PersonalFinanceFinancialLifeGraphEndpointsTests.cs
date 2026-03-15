@@ -102,7 +102,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
             null,
             null,
             null,
-            "Active",
+            FinancialLifeGraphEntityStatus.Active,
             false,
             null));
 
@@ -142,7 +142,7 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
                 NodeType = "NativeAnnotation",
                 DisplayName = "Temporary annotation",
                 PropertiesJson = "{}",
-                Status = "Active"
+                Status = FinancialLifeGraphEntityStatus.Active
             };
 
             financeDbContext.FinancialLifeGraphNodes.Add(node);
@@ -368,6 +368,8 @@ public class PersonalFinanceFinancialLifeGraphEndpointsTests : IClassFixture<Cus
         int BillsCount,
         int GoalsCount,
         int SubscriptionsCount,
+        int FundingRelationshipCount,
+        int InferredAnnotationCount,
         bool HasHousehold,
         int HouseholdMembersCount,
         int RelatedPartiesCount,

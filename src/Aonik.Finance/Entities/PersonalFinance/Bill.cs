@@ -6,6 +6,7 @@ public class Bill : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
+    public Guid? PaidFromAccountId { get; set; }
     public string Payee { get; set; } = string.Empty;
     public string Frequency { get; set; } = string.Empty;
     public DateTime NextDueDate { get; set; }

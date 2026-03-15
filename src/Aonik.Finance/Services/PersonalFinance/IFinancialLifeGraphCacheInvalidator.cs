@@ -40,16 +40,26 @@ internal sealed class FinancialLifeGraphCacheInvalidator : IFinancialLifeGraphCa
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         await _cacheInvalidationPublisher.PublishAsync(
-            new CacheInvalidationEvent(FinancialLifeGraphService.CacheSet, GetCacheKey(tenantId, userId)),
+            new CacheInvalidationEvent(FinancialLifeGraphHydrationService.CoreCacheSet, GetCoreCacheKey(tenantId, userId)),
+            cancellationToken);
+
+        await _cacheInvalidationPublisher.PublishAsync(
+            new CacheInvalidationEvent(FinancialLifeGraphHydrationService.FxCacheSet, GetFxCacheKey(tenantId, userId)),
             cancellationToken);
     }
 
     public async Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default)
     {
         await _cacheInvalidationPublisher.PublishAsync(
-            new CacheInvalidationEvent(FinancialLifeGraphService.CacheSet),
+            new CacheInvalidationEvent(FinancialLifeGraphHydrationService.CoreCacheSet),
+            cancellationToken);
+
+        await _cacheInvalidationPublisher.PublishAsync(
+            new CacheInvalidationEvent(FinancialLifeGraphHydrationService.FxCacheSet),
             cancellationToken);
     }
 
-    internal static string GetCacheKey(Guid tenantId, Guid userId) => $"personal-finance:graph:{tenantId:D}:{userId:D}";
+    internal static string GetCoreCacheKey(Guid tenantId, Guid userId) => $"personal-finance:graph:{tenantId:D}:{userId:D}";
+
+    internal static string GetFxCacheKey(Guid tenantId, Guid userId) => $"personal-finance:graph:fx:{tenantId:D}:{userId:D}";
 }

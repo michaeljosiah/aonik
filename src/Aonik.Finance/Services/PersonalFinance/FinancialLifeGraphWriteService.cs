@@ -46,14 +46,14 @@ internal sealed class FinancialLifeGraphWriteService
             SourceEntity = string.IsNullOrWhiteSpace(request.SourceEntity) ? null : request.SourceEntity.Trim(),
             SourceId = request.SourceId,
             PropertiesJson = string.IsNullOrWhiteSpace(request.MetadataJson) ? "{}" : request.MetadataJson,
-            Status = string.IsNullOrWhiteSpace(request.Status) ? FinancialLifeGraphEntityStatuses.Active : request.Status.Trim(),
+            Status = request.Status ?? FinancialLifeGraphEntityStatus.Active,
             IsInferred = request.IsInferred,
             AiRunId = request.AiRunId
         };
 
         _financeDbContext.FinancialLifeGraphNodes.Add(node);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return new FinancialLifeGraphNodeWriteResponse(node.Id, $"native-node:{node.Id:D}");
     }
@@ -63,53 +63,72 @@ internal sealed class FinancialLifeGraphWriteService
         CancellationToken cancellationToken = default)
     {
         var useTransaction = _financeDbContext.Database.IsRelational();
+        var committed = false;
         await using var transaction = useTransaction
             ? await _financeDbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             : null;
 
-        var requestedNodeKeys = new[] { request.FromNodeKey, request.ToNodeKey };
-        var availableNodeTypesByKey = await _validationService.ResolveAccessibleNodeTypesAsync(requestedNodeKeys, cancellationToken);
-
-        await _validationService.ValidateEdgeCreateAsync(request, availableNodeTypesByKey, cancellationToken);
-
-        var edge = new FinancialLifeGraphEdge
+        try
         {
-            TenantId = _tenantProvider.GetCurrentTenantId(),
-            UserId = GetCurrentUserId(),
-            HouseholdId = request.HouseholdId,
-            FromNodeKey = request.FromNodeKey.Trim(),
-            Predicate = request.Predicate.Trim(),
-            ToNodeKey = request.ToNodeKey.Trim(),
-            PropertiesJson = string.IsNullOrWhiteSpace(request.MetadataJson) ? "{}" : request.MetadataJson,
-            Status = string.IsNullOrWhiteSpace(request.Status) ? FinancialLifeGraphEntityStatuses.Active : request.Status.Trim(),
-            IsInferred = request.IsInferred,
-            AiRunId = request.AiRunId
-        };
+            var requestedNodeKeys = new[] { request.FromNodeKey, request.ToNodeKey };
+            var availableNodeTypesByKey = await _validationService.ResolveAccessibleNodeTypesAsync(requestedNodeKeys, cancellationToken);
 
-        _financeDbContext.FinancialLifeGraphEdges.Add(edge);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
+            await _validationService.ValidateEdgeCreateAsync(request, availableNodeTypesByKey, cancellationToken);
 
-        var revalidatedNodeTypes = await _validationService.ResolveAccessibleNodeTypesAsync(requestedNodeKeys, cancellationToken);
-        if (!revalidatedNodeTypes.ContainsKey(request.FromNodeKey.Trim())
-            || !revalidatedNodeTypes.ContainsKey(request.ToNodeKey.Trim()))
-        {
-            if (!useTransaction)
+            var edge = new FinancialLifeGraphEdge
             {
-                _financeDbContext.FinancialLifeGraphEdges.Remove(edge);
-                await _financeDbContext.SaveChangesAsync(cancellationToken);
+                TenantId = _tenantProvider.GetCurrentTenantId(),
+                UserId = GetCurrentUserId(),
+                HouseholdId = request.HouseholdId,
+                FromNodeKey = request.FromNodeKey.Trim(),
+                Predicate = request.Predicate.Trim(),
+                ToNodeKey = request.ToNodeKey.Trim(),
+                PropertiesJson = string.IsNullOrWhiteSpace(request.MetadataJson) ? "{}" : request.MetadataJson,
+                Status = request.Status ?? FinancialLifeGraphEntityStatus.Active,
+                IsInferred = request.IsInferred,
+                AiRunId = request.AiRunId
+            };
+
+            _financeDbContext.FinancialLifeGraphEdges.Add(edge);
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+            var revalidatedNodeTypes = await _validationService.ResolveAccessibleNodeTypesAsync(requestedNodeKeys, cancellationToken);
+            if (!revalidatedNodeTypes.ContainsKey(request.FromNodeKey.Trim())
+                || !revalidatedNodeTypes.ContainsKey(request.ToNodeKey.Trim()))
+            {
+                if (!useTransaction)
+                {
+                    _financeDbContext.FinancialLifeGraphEdges.Remove(edge);
+                    await _financeDbContext.SaveChangesAsync(cancellationToken);
+                }
+
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+
+                throw new InvalidOperationException("One or more graph edge targets no longer exist in the current graph scope.");
             }
 
-            throw new InvalidOperationException("One or more graph edge targets no longer exist in the current graph scope.");
-        }
+            if (transaction != null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                committed = true;
+            }
 
-        if (transaction != null)
+            await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+
+            return new FinancialLifeGraphEdgeWriteResponse(edge.Id);
+        }
+        catch
         {
-            await transaction.CommitAsync(cancellationToken);
+            if (transaction != null && !committed)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+
+            throw;
         }
-
-        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
-
-        return new FinancialLifeGraphEdgeWriteResponse(edge.Id);
     }
 
     public async Task DeleteNodeAsync(Guid nodeId, CancellationToken cancellationToken = default)
@@ -131,7 +150,7 @@ internal sealed class FinancialLifeGraphWriteService
 
         _financeDbContext.FinancialLifeGraphNodes.Remove(node);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
     public async Task DeleteEdgeAsync(Guid edgeId, CancellationToken cancellationToken = default)
@@ -144,7 +163,7 @@ internal sealed class FinancialLifeGraphWriteService
 
         _financeDbContext.FinancialLifeGraphEdges.Remove(edge);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
     private Guid GetCurrentUserId()

@@ -84,7 +84,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
 
         await AssignHouseholdToProfileAsync(userId, tenantId, household.Id, cancellationToken);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         var ownerResponse = new HouseholdMemberResponse(
             member.Id,
@@ -184,7 +184,7 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
 
         await AssignHouseholdToProfileAsync(request.UserId, tenantId, household.Id, cancellationToken);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return new HouseholdMemberResponse(
             member.Id,

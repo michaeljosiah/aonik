@@ -174,7 +174,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         session.ConsumedAt = utcNow;
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         var response = await BuildConnectionResponseAsync(
             connection,
@@ -267,7 +267,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             cancellationToken);
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return await BuildConnectionResponseAsync(connection, gateway.DisplayName, cancellationToken);
     }
@@ -316,7 +316,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             ApplyLocalDisconnectState(connection, linkedAccounts, personalAccounts, utcNow, "Disconnected");
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
-            _cacheInvalidator.InvalidateCurrentUserGraph();
+            await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
         }
 
         return MapConnectionToResponse(connection, linkedAccounts, ResolveProvider(connection.Provider).DisplayName);
@@ -366,7 +366,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 webhookEvent.Error = "Plaid webhook did not include item_id.";
                 webhookEvent.ProcessedAt = utcNow;
                 await _financeDbContext.SaveChangesAsync(cancellationToken);
-                _cacheInvalidator.InvalidateCurrentUserGraph();
+                await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
                 return;
             }
 
@@ -382,7 +382,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 webhookEvent.Error = $"No financial connection found for Plaid item {request.ItemId.Trim()}.";
                 webhookEvent.ProcessedAt = utcNow;
                 await _financeDbContext.SaveChangesAsync(cancellationToken);
-                _cacheInvalidator.InvalidateCurrentUserGraph();
+                await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
                 return;
             }
 
@@ -415,7 +415,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             webhookEvent.ProcessedAt = utcNow;
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
-            _cacheInvalidator.InvalidateCurrentUserGraph();
+            await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -424,7 +424,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             webhookEvent.ProcessedAt = DateTime.UtcNow;
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
-            _cacheInvalidator.InvalidateCurrentUserGraph();
+            await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
             throw;
         }
         finally

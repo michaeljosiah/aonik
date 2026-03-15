@@ -127,7 +127,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
                     syncResult.LastError);
 
                 await _financeDbContext.SaveChangesAsync(cancellationToken);
-                _cacheInvalidator.InvalidateCurrentUserGraph();
+                await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
                 return new AccountLinkTransactionSyncResponse(
                     connection.Id,
@@ -241,7 +241,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
             }
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
-            _cacheInvalidator.InvalidateCurrentUserGraph();
+            await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
             return new AccountLinkTransactionSyncResponse(
                 connection.Id,
@@ -265,7 +265,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
             connection.LastError = LimitText(ex.Message, 1000);
             connection.NextScheduledSyncAt = ComputeFailureRetryAt(connection, DateTime.UtcNow);
             await _financeDbContext.SaveChangesAsync(cancellationToken);
-            _cacheInvalidator.InvalidateCurrentUserGraph();
+            await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
             throw;
         }
         finally

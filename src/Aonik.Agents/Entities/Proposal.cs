@@ -10,7 +10,7 @@ public class Proposal : AuditableEntity, ITenantScoped
     public Guid AiRunId { get; set; }
     public string ImpactSummary { get; set; } = string.Empty;
     public string RiskTier { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
+    public ProposalStatus Status { get; set; }
     public Guid? ApprovedByUserId { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public string PayloadJson { get; set; } = string.Empty;

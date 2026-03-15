@@ -72,7 +72,7 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
 
         _financeDbContext.PersonalTransactions.Add(transaction);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapToResponse(transaction, tags);
     }
@@ -183,7 +183,7 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         ApplyCategorisation(transaction);
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapToResponse(transaction, tags);
     }

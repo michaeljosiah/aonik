@@ -1,52 +1,29 @@
-using System.Text.Json;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.PersonalFinance;
-using Aonik.Finance.Persistence;
-using Aonik.SharedKernel.Abstractions;
-using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Aonik.SharedKernel.Caching;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 {
-    internal const string CacheSet = "personal-finance-graph";
-    internal const int TransactionWindowDays = 120;
-    internal const int WarningThresholdCount = 1000;
-
-    private readonly FinanceDbContext _financeDbContext;
-    private readonly ITenantProvider _tenantProvider;
-    private readonly ICurrentUserProvider _currentUserProvider;
-    private readonly ICacheStore _cacheStore;
-    private readonly ILogger<FinancialLifeGraphService> _logger;
+    private readonly FinancialLifeGraphHydrationService _hydrationService;
 
     public FinancialLifeGraphService(
-        FinanceDbContext financeDbContext,
-        ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider,
-        ICacheStore cacheStore,
-        ILogger<FinancialLifeGraphService> logger)
+        FinancialLifeGraphHydrationService hydrationService)
     {
-        _financeDbContext = financeDbContext;
-        _tenantProvider = tenantProvider;
-        _currentUserProvider = currentUserProvider;
-        _cacheStore = cacheStore;
-        _logger = logger;
+        _hydrationService = hydrationService;
     }
 
     public async Task<FinancialLifeGraphResponse> GetGraphAsync(CancellationToken cancellationToken = default)
     {
-        var snapshot = await GetSnapshotAsync(cancellationToken);
+        var snapshot = await _hydrationService.GetSnapshotAsync(cancellationToken);
         return BuildGraph(snapshot);
     }
 
     public async Task<FinancialLifeGraphSummaryResponse> GetGraphSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var snapshot = await GetSnapshotAsync(cancellationToken);
+        var snapshot = await _hydrationService.GetSnapshotAsync(cancellationToken);
         return BuildSummary(snapshot);
     }
 
@@ -59,13 +36,13 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             throw new ArgumentException("withinDays must be greater than 0.", nameof(withinDays));
         }
 
-        var snapshot = await GetSnapshotAsync(cancellationToken);
+        var snapshot = await _hydrationService.GetSnapshotAsync(cancellationToken);
         return BuildUpcomingObligations(snapshot, withinDays);
     }
 
     public async Task<HouseholdFinanceContextResponse> GetHouseholdFinanceContextAsync(CancellationToken cancellationToken = default)
     {
-        var snapshot = await GetSnapshotAsync(cancellationToken);
+        var snapshot = await _hydrationService.GetSnapshotAsync(cancellationToken);
 
         if (snapshot.Household == null)
         {
@@ -73,20 +50,23 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         }
 
         var graph = BuildGraph(snapshot);
-        var householdPrefix = $"household:{snapshot.Household.Id:D}";
+        var householdPrefix = FinancialLifeGraphFormatting.BuildNodeId("household", snapshot.Household.Id);
         var memberPrefix = "household-member:";
 
         return new HouseholdFinanceContextResponse(
             true,
             snapshot.Household.Id,
             snapshot.HouseholdMembers.Count,
-            graph.Nodes.Where(item => item.NodeId == householdPrefix || item.NodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)).ToList(),
-            graph.Edges.Where(item => item.FromNodeId == householdPrefix || item.ToNodeId == householdPrefix || item.FromNodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase) || item.ToNodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)).ToList());
+            graph.Nodes.Where(item => string.Equals(item.NodeId, householdPrefix, StringComparison.OrdinalIgnoreCase) || item.NodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)).ToList(),
+            graph.Edges.Where(item => string.Equals(item.FromNodeId, householdPrefix, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.ToNodeId, householdPrefix, StringComparison.OrdinalIgnoreCase)
+                || item.FromNodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)
+                || item.ToNodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)).ToList());
     }
 
     public async Task<RelatedPartyFinanceContextResponse> GetRelatedPartyFinanceContextAsync(CancellationToken cancellationToken = default)
     {
-        var snapshot = await GetSnapshotAsync(cancellationToken);
+        var snapshot = await _hydrationService.GetSnapshotAsync(cancellationToken);
         var response = snapshot.RelatedParties
             .Select(party =>
             {
@@ -102,252 +82,19 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         return new RelatedPartyFinanceContextResponse(response);
     }
 
-    private async Task<FinancialLifeGraphSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
-    {
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-        var userId = GetCurrentUserId();
-        var cacheKey = FinancialLifeGraphCacheInvalidator.GetCacheKey(tenantId, userId);
-
-        var snapshot = await _cacheStore.GetOrSetAsync(
-            cacheKey,
-            CachePolicy.Medium,
-            async ct => await LoadSnapshotAsync(ct),
-            CacheSet,
-            cancellationToken);
-
-        return snapshot ?? await LoadSnapshotAsync(cancellationToken);
-    }
-
-    private async Task<FinancialLifeGraphSnapshot> LoadSnapshotAsync(CancellationToken cancellationToken)
-    {
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-        var userId = GetCurrentUserId();
-
-        var personalProfile = await _financeDbContext.PersonalProfiles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                profile => profile.TenantId == tenantId && profile.UserId == userId,
-                cancellationToken);
-
-        Household? household = null;
-        List<HouseholdMember> householdMembers = new();
-
-        if (personalProfile?.HouseholdId is Guid householdId)
-        {
-            household = await _financeDbContext.Households
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    item => item.TenantId == tenantId && item.Id == householdId,
-                    cancellationToken);
-
-            householdMembers = await _financeDbContext.HouseholdMembers
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId && item.HouseholdId == householdId)
-                .OrderBy(item => item.CreatedAt)
-                .ToListAsync(cancellationToken);
-        }
-
-        var accounts = await _financeDbContext.PersonalAccounts
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId)
-            .OrderBy(item => item.Name)
-            .ToListAsync(cancellationToken);
-
-        var accountIds = accounts.Select(item => item.Id).ToList();
-
-        var linkedAccounts = accountIds.Count == 0
-            ? new List<FinancialLinkedAccount>()
-            : await _financeDbContext.FinancialLinkedAccounts
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId && item.UserId == userId && accountIds.Contains(item.PersonalAccountId))
-                .OrderBy(item => item.Name)
-                .ToListAsync(cancellationToken);
-
-        var relevantAccountCurrencies = GetRelevantAccountCurrencies(accounts, linkedAccounts);
-
-        var transactionCutoff = DateTime.UtcNow.Date.AddDays(-TransactionWindowDays);
-        var totalTransactionCount = await _financeDbContext.PersonalTransactions
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId)
-            .CountAsync(cancellationToken);
-
-        var transactions = await _financeDbContext.PersonalTransactions
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.OccurredAt >= transactionCutoff)
-            .OrderByDescending(item => item.OccurredAt)
-            .ToListAsync(cancellationToken);
-
-        var bills = await _financeDbContext.Bills
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId)
-            .OrderBy(item => item.NextDueDate)
-            .ToListAsync(cancellationToken);
-
-        var goals = await _financeDbContext.Goals
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId)
-            .OrderBy(item => item.TargetDate ?? DateTime.MaxValue)
-            .ThenBy(item => item.Name)
-            .ToListAsync(cancellationToken);
-
-        var subscriptions = await _financeDbContext.Subscriptions
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId)
-            .OrderBy(item => item.RenewalDate)
-            .ToListAsync(cancellationToken);
-
-        var fxQuotes = relevantAccountCurrencies.Count < 2
-            ? new List<Entities.Pricing.FxQuote>()
-            : await _financeDbContext.FxQuotes
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId
-                    && item.BaseCurrency != item.TargetCurrency
-                    && relevantAccountCurrencies.Contains(item.BaseCurrency)
-                    && relevantAccountCurrencies.Contains(item.TargetCurrency))
-                .OrderByDescending(item => item.ExpiresAt)
-                .ThenByDescending(item => item.UpdatedAt ?? item.CreatedAt)
-                .Take(10)
-                .ToListAsync(cancellationToken);
-
-        var selfPartyId = personalProfile?.PartyId;
-        var relatedParties = new List<PartyReadModel>();
-        var partyRelationships = new List<PartyRelationshipReadModel>();
-
-        if (selfPartyId.HasValue)
-        {
-            partyRelationships = await _financeDbContext.Set<PartyRelationshipReadModel>()
-                .AsNoTracking()
-                .Where(item => item.TenantId == tenantId && item.IsActive
-                    && (item.FromPartyId == selfPartyId.Value || item.ToPartyId == selfPartyId.Value))
-                .OrderBy(item => item.RelationshipTypeCode)
-                .ToListAsync(cancellationToken);
-
-            var relatedPartyIds = partyRelationships
-                .Select(item => item.FromPartyId == selfPartyId.Value ? item.ToPartyId : item.FromPartyId)
-                .Distinct()
-                .ToList();
-
-            if (relatedPartyIds.Count > 0)
-            {
-                relatedParties = await _financeDbContext.Parties
-                    .AsNoTracking()
-                    .Where(item => item.TenantId == tenantId && relatedPartyIds.Contains(item.Id))
-                    .OrderBy(item => item.DisplayName)
-                    .ToListAsync(cancellationToken);
-            }
-        }
-
-        var nativeNodes = await _financeDbContext.FinancialLifeGraphNodes
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == FinancialLifeGraphEntityStatuses.Active)
-            .OrderBy(item => item.CreatedAt)
-            .ToListAsync(cancellationToken);
-
-        var nativeEdges = await _financeDbContext.FinancialLifeGraphEdges
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.UserId == userId && item.Status == FinancialLifeGraphEntityStatuses.Active)
-            .OrderBy(item => item.CreatedAt)
-            .ToListAsync(cancellationToken);
-
-        LogSnapshotMetrics(
-            tenantId,
-            userId,
-            totalTransactionCount,
-            transactions.Count,
-            bills.Count,
-            goals.Count,
-            subscriptions.Count,
-            nativeNodes.Count,
-            nativeEdges.Count,
-            transactionCutoff);
-
-        return new FinancialLifeGraphSnapshot(
-            tenantId,
-            userId,
-            personalProfile,
-            household,
-            householdMembers,
-            accounts,
-            linkedAccounts,
-            transactions,
-            bills,
-            goals,
-            subscriptions,
-            fxQuotes,
-            selfPartyId,
-            relatedParties,
-            partyRelationships,
-            nativeNodes,
-            nativeEdges);
-    }
-
-    private void LogSnapshotMetrics(
-        Guid tenantId,
-        Guid userId,
-        int totalTransactionCount,
-        int loadedTransactionCount,
-        int billsCount,
-        int goalsCount,
-        int subscriptionsCount,
-        int nativeNodesCount,
-        int nativeEdgesCount,
-        DateTime transactionCutoff)
-    {
-        _logger.LogInformation(
-            "Financial life graph snapshot loaded for tenant {TenantId} user {UserId}. Loaded {LoadedTransactions} of {TotalTransactions} transactions since {TransactionCutoff}. Bills={BillsCount}, Goals={GoalsCount}, Subscriptions={SubscriptionsCount}, NativeNodes={NativeNodesCount}, NativeEdges={NativeEdgesCount}",
-            tenantId,
-            userId,
-            loadedTransactionCount,
-            totalTransactionCount,
-            transactionCutoff,
-            billsCount,
-            goalsCount,
-            subscriptionsCount,
-            nativeNodesCount,
-            nativeEdgesCount);
-
-        if (totalTransactionCount > loadedTransactionCount)
-        {
-            _logger.LogWarning(
-                "Financial life graph transaction history truncated for tenant {TenantId} user {UserId}. Loaded {LoadedTransactions} of {TotalTransactions} transactions using a {TransactionWindowDays}-day window.",
-                tenantId,
-                userId,
-                loadedTransactionCount,
-                totalTransactionCount,
-                TransactionWindowDays);
-        }
-
-        if (billsCount > WarningThresholdCount
-            || goalsCount > WarningThresholdCount
-            || subscriptionsCount > WarningThresholdCount
-            || nativeNodesCount > WarningThresholdCount
-            || nativeEdgesCount > WarningThresholdCount)
-        {
-            _logger.LogWarning(
-                "Financial life graph snapshot volume is high for tenant {TenantId} user {UserId}. Bills={BillsCount}, Goals={GoalsCount}, Subscriptions={SubscriptionsCount}, NativeNodes={NativeNodesCount}, NativeEdges={NativeEdgesCount}",
-                tenantId,
-                userId,
-                billsCount,
-                goalsCount,
-                subscriptionsCount,
-                nativeNodesCount,
-                nativeEdgesCount);
-        }
-    }
-
     private static FinancialLifeGraphResponse BuildGraph(FinancialLifeGraphSnapshot snapshot)
     {
         var nodes = new List<FinancialLifeGraphNodeResponse>();
         var edges = new List<FinancialLifeGraphEdgeResponse>();
 
-        var userNodeId = BuildNodeId("user", snapshot.UserId);
+        var userNodeId = FinancialLifeGraphFormatting.BuildNodeId("user", snapshot.UserId);
         nodes.Add(new FinancialLifeGraphNodeResponse(
             userNodeId,
-            "UserRoot",
+            FinancialLifeGraphNodeTypes.UserRoot,
             "Current User",
             "User",
             snapshot.UserId,
-            SerializeMetadata(new
+            FinancialLifeGraphFormatting.SerializeMetadata(new
             {
                 snapshot.TenantId,
                 snapshot.UserId,
@@ -357,49 +104,49 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
         if (snapshot.Household != null)
         {
-            var householdNodeId = BuildNodeId("household", snapshot.Household.Id);
+            var householdNodeId = FinancialLifeGraphFormatting.BuildNodeId("household", snapshot.Household.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 householdNodeId,
-                "Household",
+                FinancialLifeGraphNodeTypes.Household,
                 snapshot.Household.Name,
                 nameof(Household),
                 snapshot.Household.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     MemberCount = snapshot.HouseholdMembers.Count,
                     snapshot.Household.CreatedAt
                 })));
-            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, "BELONGS_TO_HOUSEHOLD", householdNodeId, null));
+            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, FinancialLifeGraphPredicates.BelongsToHousehold, householdNodeId, null));
 
             foreach (var member in snapshot.HouseholdMembers)
             {
-                var memberNodeId = BuildNodeId("household-member", member.Id);
+                var memberNodeId = FinancialLifeGraphFormatting.BuildNodeId("household-member", member.Id);
                 nodes.Add(new FinancialLifeGraphNodeResponse(
                     memberNodeId,
-                    "HouseholdMember",
+                    FinancialLifeGraphNodeTypes.HouseholdMember,
                     member.UserId == snapshot.UserId ? "You" : $"Member {member.UserId}",
                     nameof(HouseholdMember),
                     member.Id,
-                    SerializeMetadata(new
+                    FinancialLifeGraphFormatting.SerializeMetadata(new
                     {
                         member.UserId,
                         member.Role,
                         member.PermissionsJson
                     })));
-                edges.Add(new FinancialLifeGraphEdgeResponse(householdNodeId, "HOUSEHOLD_HAS_MEMBER", memberNodeId, null));
+                edges.Add(new FinancialLifeGraphEdgeResponse(householdNodeId, FinancialLifeGraphPredicates.HouseholdHasMember, memberNodeId, null));
             }
         }
 
         foreach (var account in snapshot.Accounts)
         {
-            var accountNodeId = BuildNodeId("personal-account", account.Id);
+            var accountNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-account", account.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 accountNodeId,
-                "PersonalAccount",
+                FinancialLifeGraphNodeTypes.PersonalAccount,
                 account.Name,
                 nameof(PersonalAccount),
                 account.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     account.AccountType,
                     account.Currency,
@@ -409,20 +156,20 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                     account.Last4,
                     account.IsArchived
                 })));
-            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, "OWNS_ACCOUNT", accountNodeId, null));
+            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, FinancialLifeGraphPredicates.OwnsAccount, accountNodeId, null));
         }
 
         foreach (var linkedAccount in snapshot.LinkedAccounts)
         {
-            var linkedAccountNodeId = BuildNodeId("linked-account", linkedAccount.Id);
-            var parentAccountNodeId = BuildNodeId("personal-account", linkedAccount.PersonalAccountId);
+            var linkedAccountNodeId = FinancialLifeGraphFormatting.BuildNodeId("linked-account", linkedAccount.Id);
+            var parentAccountNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-account", linkedAccount.PersonalAccountId);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 linkedAccountNodeId,
-                "FinancialLinkedAccount",
+                FinancialLifeGraphNodeTypes.FinancialLinkedAccount,
                 linkedAccount.Name,
                 nameof(FinancialLinkedAccount),
                 linkedAccount.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     linkedAccount.ProviderAccountReference,
                     linkedAccount.AccountType,
@@ -431,21 +178,21 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                     linkedAccount.Status,
                     linkedAccount.Last4,
                     linkedAccount.LastSyncedAt,
-                    linkedAccount.LastSyncStatus
+                        linkedAccount.LastSyncStatus
                 })));
-            edges.Add(new FinancialLifeGraphEdgeResponse(parentAccountNodeId, "USES_LINKED_ACCOUNT", linkedAccountNodeId, null));
+            edges.Add(new FinancialLifeGraphEdgeResponse(parentAccountNodeId, FinancialLifeGraphPredicates.UsesLinkedAccount, linkedAccountNodeId, null));
         }
 
         foreach (var transaction in snapshot.Transactions)
         {
-            var transactionNodeId = BuildNodeId("personal-transaction", transaction.Id);
+            var transactionNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-transaction", transaction.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 transactionNodeId,
-                "PersonalTransaction",
+                FinancialLifeGraphNodeTypes.PersonalTransaction,
                 transaction.Merchant ?? transaction.Description ?? $"Transaction {transaction.Id}",
                 nameof(PersonalTransaction),
                 transaction.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     transaction.Amount,
                     transaction.Currency,
@@ -458,29 +205,36 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
 
             if (transaction.PersonalAccountId.HasValue)
             {
+                var accountNodeId = FinancialLifeGraphFormatting.BuildNodeId("personal-account", transaction.PersonalAccountId.Value);
                 edges.Add(new FinancialLifeGraphEdgeResponse(
-                    BuildNodeId("personal-account", transaction.PersonalAccountId.Value),
-                    "HAS_TRANSACTION",
+                    accountNodeId,
+                    FinancialLifeGraphPredicates.HasTransaction,
                     transactionNodeId,
+                    null));
+                edges.Add(new FinancialLifeGraphEdgeResponse(
+                    transactionNodeId,
+                    FinancialLifeGraphPredicates.UsesAccount,
+                    accountNodeId,
                     null));
             }
             else
             {
-                edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, "HAS_TRANSACTION", transactionNodeId, null));
+                edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, FinancialLifeGraphPredicates.HasTransaction, transactionNodeId, null));
             }
         }
 
         foreach (var bill in snapshot.Bills)
         {
-            var billNodeId = BuildNodeId("bill", bill.Id);
+            var billNodeId = FinancialLifeGraphFormatting.BuildNodeId("bill", bill.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 billNodeId,
-                "Bill",
+                FinancialLifeGraphNodeTypes.Bill,
                 bill.Payee,
                 nameof(Bill),
                 bill.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
+                    bill.PaidFromAccountId,
                     bill.ExpectedAmount,
                     bill.Currency,
                     bill.NextDueDate,
@@ -490,39 +244,58 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                     bill.LinkedOrderId,
                     bill.LinkedInvoiceId
                 })));
-            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, "HAS_BILL", billNodeId, null));
+            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, FinancialLifeGraphPredicates.HasBill, billNodeId, null));
+
+            if (bill.PaidFromAccountId.HasValue && snapshot.Accounts.Any(item => item.Id == bill.PaidFromAccountId.Value))
+            {
+                edges.Add(new FinancialLifeGraphEdgeResponse(
+                    billNodeId,
+                    FinancialLifeGraphPredicates.FundedByAccount,
+                    FinancialLifeGraphFormatting.BuildNodeId("personal-account", bill.PaidFromAccountId.Value),
+                    null));
+            }
         }
 
         foreach (var goal in snapshot.Goals)
         {
-            var goalNodeId = BuildNodeId("goal", goal.Id);
+            var goalNodeId = FinancialLifeGraphFormatting.BuildNodeId("goal", goal.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 goalNodeId,
-                "Goal",
+                FinancialLifeGraphNodeTypes.Goal,
                 goal.Name,
                 nameof(Goal),
                 goal.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
+                    goal.FundingAccountId,
                     goal.TargetAmount,
                     goal.ProgressAmount,
                     goal.Currency,
                     goal.TargetDate,
                     goal.Status
                 })));
-            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, "HAS_GOAL", goalNodeId, null));
+            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, FinancialLifeGraphPredicates.HasGoal, goalNodeId, null));
+
+            if (goal.FundingAccountId.HasValue && snapshot.Accounts.Any(item => item.Id == goal.FundingAccountId.Value))
+            {
+                edges.Add(new FinancialLifeGraphEdgeResponse(
+                    goalNodeId,
+                    FinancialLifeGraphPredicates.FundedByAccount,
+                    FinancialLifeGraphFormatting.BuildNodeId("personal-account", goal.FundingAccountId.Value),
+                    null));
+            }
         }
 
         foreach (var subscription in snapshot.Subscriptions)
         {
-            var subscriptionNodeId = BuildNodeId("subscription", subscription.Id);
+            var subscriptionNodeId = FinancialLifeGraphFormatting.BuildNodeId("subscription", subscription.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 subscriptionNodeId,
-                "Subscription",
+                FinancialLifeGraphNodeTypes.Subscription,
                 subscription.Merchant,
                 nameof(Subscription),
                 subscription.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     subscription.ExpectedAmount,
                     subscription.Currency,
@@ -530,41 +303,42 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                     subscription.Status,
                     subscription.DetectedBy
                 })));
-            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, "HAS_SUBSCRIPTION", subscriptionNodeId, null));
+            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, FinancialLifeGraphPredicates.HasSubscription, subscriptionNodeId, null));
         }
 
         foreach (var quote in snapshot.FxQuotes)
         {
-            var fxNodeId = BuildNodeId("fx-quote", quote.Id);
+            var fxNodeId = FinancialLifeGraphFormatting.BuildNodeId("fx-quote", quote.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 fxNodeId,
-                "FxQuote",
+                FinancialLifeGraphNodeTypes.FxQuote,
                 $"{quote.BaseCurrency}/{quote.TargetCurrency}",
                 nameof(Entities.Pricing.FxQuote),
                 quote.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     quote.BaseCurrency,
                     quote.TargetCurrency,
                     quote.Rate,
+                    QuotedAt = quote.UpdatedAt ?? quote.CreatedAt,
                     quote.ExpiresAt,
                     quote.Provider
                 })));
-            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, "HAS_FX_CONTEXT", fxNodeId, null));
+            edges.Add(new FinancialLifeGraphEdgeResponse(userNodeId, FinancialLifeGraphPredicates.HasFxContext, fxNodeId, null));
         }
 
         foreach (var party in snapshot.RelatedParties)
         {
-            var partyNodeId = BuildNodeId("party", party.Id);
+            var partyNodeId = FinancialLifeGraphFormatting.BuildNodeId("party", party.Id);
             var relationship = snapshot.PartyRelationships
                 .FirstOrDefault(item => item.FromPartyId == party.Id || item.ToPartyId == party.Id);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 partyNodeId,
-                "Party",
+                FinancialLifeGraphNodeTypes.Party,
                 party.DisplayName,
-                "Party",
+                FinancialLifeGraphNodeTypes.Party,
                 party.Id,
-                SerializeMetadata(new
+                FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     party.Status,
                     party.CustomerTierCode,
@@ -573,9 +347,9 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 })));
             edges.Add(new FinancialLifeGraphEdgeResponse(
                 userNodeId,
-                "RELATED_TO_PARTY",
+                FinancialLifeGraphPredicates.RelatedToParty,
                 partyNodeId,
-                relationship == null ? null : SerializeMetadata(new
+                relationship == null ? null : FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
                     relationship.RelationshipTypeCode,
                     relationship.Notes
@@ -585,12 +359,12 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         foreach (var node in snapshot.NativeNodes)
         {
             nodes.Add(new FinancialLifeGraphNodeResponse(
-                BuildNodeId("native-node", node.Id),
+                FinancialLifeGraphFormatting.BuildNodeId("native-node", node.Id),
                 node.NodeType,
                 node.DisplayName,
                 node.SourceEntity ?? nameof(FinancialLifeGraphNode),
                 node.SourceId ?? node.Id,
-                NormalizeMetadataJson(node.PropertiesJson)));
+                FinancialLifeGraphFormatting.NormalizeMetadataJson(node.PropertiesJson)));
         }
 
         foreach (var edge in snapshot.NativeEdges)
@@ -599,19 +373,19 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 edge.FromNodeKey,
                 edge.Predicate,
                 edge.ToNodeKey,
-                NormalizeMetadataJson(edge.PropertiesJson)));
+                FinancialLifeGraphFormatting.NormalizeMetadataJson(edge.PropertiesJson)));
         }
 
         var summary = BuildSummary(snapshot);
         var sourceCoverage = new List<FinancialLifeGraphSourceCoverageItemResponse>
         {
-            new("PersonalAccount", snapshot.Accounts.Count),
-            new("FinancialLinkedAccount", snapshot.LinkedAccounts.Count),
-            new("PersonalTransaction", snapshot.Transactions.Count),
-            new("Bill", snapshot.Bills.Count),
-            new("Goal", snapshot.Goals.Count),
-            new("Subscription", snapshot.Subscriptions.Count),
-            new("FxQuote", snapshot.FxQuotes.Count),
+            new(FinancialLifeGraphNodeTypes.PersonalAccount, snapshot.Accounts.Count),
+            new(FinancialLifeGraphNodeTypes.FinancialLinkedAccount, snapshot.LinkedAccounts.Count),
+            new(FinancialLifeGraphNodeTypes.PersonalTransaction, snapshot.Transactions.Count),
+            new(FinancialLifeGraphNodeTypes.Bill, snapshot.Bills.Count),
+            new(FinancialLifeGraphNodeTypes.Goal, snapshot.Goals.Count),
+            new(FinancialLifeGraphNodeTypes.Subscription, snapshot.Subscriptions.Count),
+            new(FinancialLifeGraphNodeTypes.FxQuote, snapshot.FxQuotes.Count),
             new("PartyRelationship", snapshot.PartyRelationships.Count),
             new("FinancialLifeGraphNode", snapshot.NativeNodes.Count),
             new("FinancialLifeGraphEdge", snapshot.NativeEdges.Count)
@@ -637,6 +411,8 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             snapshot.Bills.Count,
             snapshot.Goals.Count,
             snapshot.Subscriptions.Count,
+            CountFundingRelationships(snapshot),
+            snapshot.NativeNodes.Count(item => item.IsInferred),
             snapshot.Household != null,
             snapshot.HouseholdMembers.Count,
             snapshot.RelatedParties.Count,
@@ -655,7 +431,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         items.AddRange(snapshot.Bills
             .Where(item => item.NextDueDate.Date <= latestDate)
             .Select(item => new UpcomingObligationResponse(
-                "Bill",
+                FinancialLifeGraphNodeTypes.Bill,
                 item.Id,
                 item.Payee,
                 item.ExpectedAmount,
@@ -667,7 +443,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         items.AddRange(snapshot.Subscriptions
             .Where(item => item.RenewalDate.Date <= latestDate)
             .Select(item => new UpcomingObligationResponse(
-                "Subscription",
+                FinancialLifeGraphNodeTypes.Subscription,
                 item.Id,
                 item.Merchant,
                 item.ExpectedAmount,
@@ -677,9 +453,11 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                 item.Status)));
 
         items.AddRange(snapshot.Goals
-            .Where(item => item.TargetDate.HasValue && item.TargetDate.Value.Date <= latestDate && item.Status != "Completed")
+            .Where(item => item.TargetDate.HasValue
+                && item.TargetDate.Value.Date <= latestDate
+                && !string.Equals(item.Status, "Completed", StringComparison.OrdinalIgnoreCase))
             .Select(item => new UpcomingObligationResponse(
-                "Goal",
+                FinancialLifeGraphNodeTypes.Goal,
                 item.Id,
                 item.Name,
                 item.TargetAmount - item.ProgressAmount,
@@ -694,68 +472,9 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             .ToList();
     }
 
-    private Guid GetCurrentUserId()
+    private static int CountFundingRelationships(FinancialLifeGraphSnapshot snapshot)
     {
-        if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
-        return userId;
+        return snapshot.Bills.Count(item => item.PaidFromAccountId.HasValue)
+               + snapshot.Goals.Count(item => item.FundingAccountId.HasValue);
     }
-
-    private static string BuildNodeId(string prefix, Guid id) => $"{prefix}:{id:D}";
-
-    private static List<string> GetRelevantAccountCurrencies(
-        IReadOnlyList<PersonalAccount> accounts,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts)
-    {
-        return accounts
-            .Select(item => item.Currency)
-            .Concat(linkedAccounts.Select(item => item.Currency))
-            .Where(item => !string.IsNullOrWhiteSpace(item))
-            .Select(item => item.Trim().ToUpperInvariant())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static string? SerializeMetadata(object? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        return NormalizeMetadataJson(JsonSerializer.Serialize(value));
-    }
-
-    private static string? NormalizeMetadataJson(string? metadataJson)
-    {
-        if (string.IsNullOrWhiteSpace(metadataJson))
-        {
-            return null;
-        }
-
-        var normalized = metadataJson.Trim();
-        return normalized is "null" or "{}" ? null : normalized;
-    }
-
-    private sealed record FinancialLifeGraphSnapshot(
-        Guid TenantId,
-        Guid UserId,
-        PersonalProfile? PersonalProfile,
-        Household? Household,
-        IReadOnlyList<HouseholdMember> HouseholdMembers,
-        IReadOnlyList<PersonalAccount> Accounts,
-        IReadOnlyList<FinancialLinkedAccount> LinkedAccounts,
-        IReadOnlyList<PersonalTransaction> Transactions,
-        IReadOnlyList<Bill> Bills,
-        IReadOnlyList<Goal> Goals,
-        IReadOnlyList<Subscription> Subscriptions,
-        IReadOnlyList<Entities.Pricing.FxQuote> FxQuotes,
-        Guid? SelfPartyId,
-        IReadOnlyList<PartyReadModel> RelatedParties,
-        IReadOnlyList<PartyRelationshipReadModel> PartyRelationships,
-        IReadOnlyList<FinancialLifeGraphNode> NativeNodes,
-        IReadOnlyList<FinancialLifeGraphEdge> NativeEdges);
 }

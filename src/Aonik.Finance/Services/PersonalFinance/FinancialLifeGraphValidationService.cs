@@ -58,23 +58,21 @@ internal sealed class FinancialLifeGraphValidationService
             throw new ArgumentException("AiRunId is required for inferred nodes.", nameof(request.AiRunId));
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Status)
-            && !FinancialLifeGraphEntityStatuses.All.Contains(request.Status.Trim(), StringComparer.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException(
-                $"Status '{request.Status.Trim()}' is invalid. Allowed values: {string.Join(", ", FinancialLifeGraphEntityStatuses.All)}.",
-                nameof(request.Status));
-        }
-
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
+        var normalizedDisplayName = request.DisplayName.Trim();
 
-        var duplicateDisplayNameExists = await _financeDbContext.FinancialLifeGraphNodes
-            .AnyAsync(item => item.TenantId == tenantId
+        var existingDisplayNames = await _financeDbContext.FinancialLifeGraphNodes
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId
                 && item.UserId == userId
                 && item.NodeType == nodeType
-                && item.DisplayName == request.DisplayName.Trim()
-                && item.Status != FinancialLifeGraphEntityStatuses.Rejected, cancellationToken);
+                && item.Status != FinancialLifeGraphEntityStatus.Rejected)
+            .Select(item => item.DisplayName)
+            .ToListAsync(cancellationToken);
+
+        var duplicateDisplayNameExists = existingDisplayNames
+            .Any(item => string.Equals(item?.Trim(), normalizedDisplayName, StringComparison.OrdinalIgnoreCase));
 
         if (duplicateDisplayNameExists)
         {
@@ -83,12 +81,19 @@ internal sealed class FinancialLifeGraphValidationService
 
         if (!string.IsNullOrWhiteSpace(request.SourceEntity) && request.SourceId.HasValue)
         {
-            var duplicateSourceExists = await _financeDbContext.FinancialLifeGraphNodes
-                .AnyAsync(item => item.TenantId == tenantId
+            var normalizedSourceEntity = request.SourceEntity.Trim();
+            var existingSourceEntities = await _financeDbContext.FinancialLifeGraphNodes
+                .AsNoTracking()
+                .Where(item => item.TenantId == tenantId
                     && item.UserId == userId
-                    && item.SourceEntity == request.SourceEntity.Trim()
                     && item.SourceId == request.SourceId.Value
-                    && item.Status != FinancialLifeGraphEntityStatuses.Rejected, cancellationToken);
+                    && item.Status != FinancialLifeGraphEntityStatus.Rejected)
+                .Select(item => item.SourceEntity)
+                .ToListAsync(cancellationToken);
+
+            var duplicateSourceExists = existingSourceEntities
+                .Any(item => !string.IsNullOrWhiteSpace(item)
+                    && string.Equals(item.Trim(), normalizedSourceEntity, StringComparison.OrdinalIgnoreCase));
 
             if (duplicateSourceExists)
             {
@@ -130,14 +135,6 @@ internal sealed class FinancialLifeGraphValidationService
             throw new ArgumentException("AiRunId is required for inferred edges.", nameof(request.AiRunId));
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Status)
-            && !FinancialLifeGraphEntityStatuses.All.Contains(request.Status.Trim(), StringComparer.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException(
-                $"Status '{request.Status.Trim()}' is invalid. Allowed values: {string.Join(", ", FinancialLifeGraphEntityStatuses.All)}.",
-                nameof(request.Status));
-        }
-
         if (!_schema.IsAllowedEdge(fromNodeType, predicate, toNodeType, requireNativeCreatable: true))
         {
             throw new InvalidOperationException(
@@ -163,7 +160,7 @@ internal sealed class FinancialLifeGraphValidationService
                 && item.FromNodeKey == request.FromNodeKey.Trim()
                 && item.Predicate == predicate
                 && item.ToNodeKey == request.ToNodeKey.Trim()
-                && item.Status != FinancialLifeGraphEntityStatuses.Rejected, cancellationToken);
+                && item.Status != FinancialLifeGraphEntityStatus.Rejected, cancellationToken);
 
         if (duplicateEdgeExists)
         {
@@ -281,7 +278,7 @@ internal sealed class FinancialLifeGraphValidationService
         switch (prefix)
         {
             case "user":
-                return nodeId == userId ? "UserRoot" : null;
+                return nodeId == userId ? FinancialLifeGraphNodeTypes.UserRoot : null;
 
             case "household":
                 if (profile?.HouseholdId != nodeId)
@@ -292,7 +289,7 @@ internal sealed class FinancialLifeGraphValidationService
                 return await _financeDbContext.Households
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId, cancellationToken)
-                    ? "Household"
+                    ? FinancialLifeGraphNodeTypes.Household
                     : null;
 
             case "household-member":
@@ -304,7 +301,7 @@ internal sealed class FinancialLifeGraphValidationService
                 return await _financeDbContext.HouseholdMembers
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId && item.HouseholdId == currentHouseholdId, cancellationToken)
-                    ? "HouseholdMember"
+                    ? FinancialLifeGraphNodeTypes.HouseholdMember
                     : null;
 
             case "party":
@@ -328,55 +325,55 @@ internal sealed class FinancialLifeGraphValidationService
                 return await _financeDbContext.Parties
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId, cancellationToken)
-                    ? "Party"
+                    ? FinancialLifeGraphNodeTypes.Party
                     : null;
 
             case "personal-account":
                 return await _financeDbContext.PersonalAccounts
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
-                    ? "PersonalAccount"
+                    ? FinancialLifeGraphNodeTypes.PersonalAccount
                     : null;
 
             case "linked-account":
                 return await _financeDbContext.FinancialLinkedAccounts
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
-                    ? "FinancialLinkedAccount"
+                    ? FinancialLifeGraphNodeTypes.FinancialLinkedAccount
                     : null;
 
             case "personal-transaction":
                 return await _financeDbContext.PersonalTransactions
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
-                    ? "PersonalTransaction"
+                    ? FinancialLifeGraphNodeTypes.PersonalTransaction
                     : null;
 
             case "bill":
                 return await _financeDbContext.Bills
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
-                    ? "Bill"
+                    ? FinancialLifeGraphNodeTypes.Bill
                     : null;
 
             case "goal":
                 return await _financeDbContext.Goals
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
-                    ? "Goal"
+                    ? FinancialLifeGraphNodeTypes.Goal
                     : null;
 
             case "subscription":
                 return await _financeDbContext.Subscriptions
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
-                    ? "Subscription"
+                    ? FinancialLifeGraphNodeTypes.Subscription
                     : null;
 
             case "native-node":
                 var nativeNode = await _financeDbContext.FinancialLifeGraphNodes
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId && item.Status == FinancialLifeGraphEntityStatuses.Active, cancellationToken);
+                    .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId && item.Status == FinancialLifeGraphEntityStatus.Active, cancellationToken);
                 return nativeNode?.NodeType;
 
             default:

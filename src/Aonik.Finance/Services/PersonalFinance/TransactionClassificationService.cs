@@ -68,7 +68,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
 
         _financeDbContext.CategorisationRules.Add(rule);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapRule(rule);
     }
@@ -125,7 +125,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         rule.ApprovalStatus = request.ApprovalStatus.Trim();
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapRule(rule);
     }
@@ -143,7 +143,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
 
         rule.IsActive = false;
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<ClassificationReviewItemResponse>> GetReviewQueueAsync(
@@ -200,7 +200,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         }
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
         return MapReviewItem(transaction);
     }
 
@@ -256,7 +256,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         }
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
         return MapReviewItem(transaction);
     }
 

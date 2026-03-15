@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Primitives;
+using Aonik.Finance.Contracts.Models.PersonalFinance;
 
 namespace Aonik.Finance.Entities.PersonalFinance;
 
@@ -12,7 +13,7 @@ public class FinancialLifeGraphNode : AuditableEntity, ITenantScoped
     public string? SourceEntity { get; set; }
     public Guid? SourceId { get; set; }
     public string PropertiesJson { get; set; } = "{}";
-    public string Status { get; set; } = string.Empty;
+    public FinancialLifeGraphEntityStatus Status { get; set; }
     public bool IsInferred { get; set; }
     public Guid? AiRunId { get; set; }
 }

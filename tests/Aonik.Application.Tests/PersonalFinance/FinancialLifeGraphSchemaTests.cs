@@ -90,6 +90,7 @@ public class FinancialLifeGraphSchemaTests
             "HOUSEHOLD_HAS_MEMBER",
             "RELATED_TO_PARTY",
             "USES_ACCOUNT",
+            "USES_LINKED_ACCOUNT",
             "LINKED_TO_ORDER",
             "LINKED_TO_INVOICE",
             "LINKED_TO_PAYMENT_INTENT",
@@ -133,43 +134,13 @@ public class FinancialLifeGraphSchemaTests
             null,
             null,
             null,
-            "Active",
+            FinancialLifeGraphEntityStatus.Active,
             false,
             null));
 
         // Assert
         await action.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*reserved for mirror projection*");
-    }
-
-    [Fact]
-    public async Task ValidateNodeCreateAsync_Should_Reject_Unknown_Status()
-    {
-        // Arrange
-        var tenantId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-        await using var context = CreateDbContext(tenantId);
-        var service = new FinancialLifeGraphValidationService(
-            context,
-            new TestTenantProvider(tenantId),
-            new TestCurrentUserProvider(userId),
-            new FinancialLifeGraphSchema());
-
-        // Act
-        Func<Task> action = () => service.ValidateNodeCreateAsync(new CreateFinancialLifeGraphNodeRequest(
-            "NativeAnnotation",
-            "Invalid status",
-            "{}",
-            null,
-            null,
-            null,
-            "Archived",
-            false,
-            null));
-
-        // Assert
-        await action.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*Allowed values*Active*Proposed*Rejected*");
     }
 
     [Fact]
@@ -199,7 +170,7 @@ public class FinancialLifeGraphSchemaTests
                 "party:11111111-1111-1111-1111-111111111111",
                 "{}",
                 null,
-                "Active",
+                FinancialLifeGraphEntityStatus.Active,
                 false,
                 null),
             nodeTypesByKey);
@@ -236,7 +207,7 @@ public class FinancialLifeGraphSchemaTests
                 "personal-account:22222222-2222-2222-2222-222222222222",
                 "{}",
                 null,
-                "Active",
+                FinancialLifeGraphEntityStatus.Active,
                 false,
                 null),
             nodeTypesByKey);

@@ -334,7 +334,7 @@ internal sealed class StatementImportService : IStatementImportService
         statementImport.FailureReason = null;
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        _cacheInvalidator.InvalidateCurrentUserGraph();
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
         return MapApplyResponse(statementImport);
     }

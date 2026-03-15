@@ -428,6 +428,8 @@ public record FinancialLifeGraphSummaryResponse(
     int BillsCount,
     int GoalsCount,
     int SubscriptionsCount,
+    int FundingRelationshipCount,
+    int InferredAnnotationCount,
     bool HasHousehold,
     int HouseholdMembersCount,
     int RelatedPartiesCount,
@@ -461,7 +463,7 @@ public record CreateFinancialLifeGraphNodeRequest(
     string? SourceEntity,
     Guid? SourceId,
     Guid? HouseholdId,
-    string? Status,
+    FinancialLifeGraphEntityStatus? Status,
     bool IsInferred,
     Guid? AiRunId);
 
@@ -475,7 +477,7 @@ public record CreateFinancialLifeGraphEdgeRequest(
     string ToNodeKey,
     string? MetadataJson,
     Guid? HouseholdId,
-    string? Status,
+    FinancialLifeGraphEntityStatus? Status,
     bool IsInferred,
     Guid? AiRunId);
 
@@ -493,7 +495,7 @@ public record FinancialLifeGraphInferenceProposalResponse(
     string DisplayName,
     string Reasoning,
     int OccurrenceCount,
-    string Status);
+    FinancialLifeGraphProposalStatus Status);
 
 public record PendingFinancialLifeGraphProposalResponse(
     Guid ProposalId,
@@ -502,7 +504,7 @@ public record PendingFinancialLifeGraphProposalResponse(
     string NodeType,
     string DisplayName,
     string Predicate,
-    string Status,
+    FinancialLifeGraphProposalStatus Status,
     Guid AiRunId,
     string MetadataJson);
 

@@ -1,5 +1,6 @@
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.SharedKernel.Persistence;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -29,6 +30,7 @@ internal sealed class FinancialLifeGraphNodeConfiguration : IEntityTypeConfigura
 
         builder.Property(x => x.Status)
             .IsRequired()
+            .HasConversion<string>()
             .HasMaxLength(50);
 
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.NodeType });
