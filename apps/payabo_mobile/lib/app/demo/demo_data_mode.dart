@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'demo_mode.dart';
+
 const String _demoDataModeKey = 'app.demoDataMode';
 
 enum DemoDataMode {
@@ -73,7 +75,16 @@ class DemoDataModeController extends StateNotifier<DemoDataMode> {
 }
 
 final StateNotifierProvider<DemoDataModeController, DemoDataMode>
-    demoDataModeProvider =
+    demoDataModePreferenceProvider =
     StateNotifierProvider<DemoDataModeController, DemoDataMode>(
   (Ref ref) => DemoDataModeController(ref.read(initialDemoDataModeProvider)),
+);
+
+final Provider<DemoDataMode> demoDataModeProvider = Provider<DemoDataMode>(
+  (Ref ref) {
+    final storedMode = ref.watch(demoDataModePreferenceProvider);
+    final isDemo = ref.watch(isDemoProvider);
+
+    return isDemo ? storedMode : DemoDataMode.populated;
+  },
 );

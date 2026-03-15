@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../data/api/dio_transport.dart';
+import '../demo/demo_mode.dart';
 import '../environment/environment_provider.dart';
 
 class AppStartupState {
@@ -55,6 +56,7 @@ class AppStartupController extends StateNotifier<AppStartupState> {
     }
 
     _isRunning = true;
+    _ref.read(isDemoProvider.notifier).state = false;
     state = state.copyWith(
       isChecking: true,
       hasChecked: true,
@@ -79,6 +81,7 @@ class AppStartupController extends StateNotifier<AppStartupState> {
         baseUrl: baseUrl,
         connectTimeout: const Duration(seconds: 8),
         receiveTimeout: const Duration(seconds: 8),
+        validateStatus: (int? _) => true,
       ),
     );
     configureDioTransport(dio, environment, baseUrl: baseUrl);
@@ -93,18 +96,17 @@ class AppStartupController extends StateNotifier<AppStartupState> {
         ),
       );
 
-      final isSuccessful = response.statusCode != null &&
-          response.statusCode! >= 200 &&
-          response.statusCode! < 300;
-
       state = state.copyWith(
         isChecking: false,
-        isHealthy: isSuccessful,
-        message: isSuccessful
+        isHealthy: true,
+        message: response.statusCode != null &&
+                response.statusCode! >= 200 &&
+                response.statusCode! < 300
             ? 'Tap logo to continue'
-            : 'Startup check failed with status ${response.statusCode}.',
+            : 'API reachable. Tap logo to continue.',
       );
     } on DioException catch (exception) {
+      _ref.read(isDemoProvider.notifier).state = true;
       state = state.copyWith(
         isChecking: false,
         isHealthy: false,

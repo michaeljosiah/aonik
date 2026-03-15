@@ -18,9 +18,25 @@ class PayaboPrimaryAppShell extends StatelessWidget {
   const PayaboPrimaryAppShell({
     super.key,
     required this.destination,
+    this.backgroundOverride,
+    this.borderOverride,
+    this.shadowOverride,
+    this.selectedOverride,
+    this.unselectedOverride,
+    this.fabBackgroundOverride,
+    this.fabShadowOverride,
   });
 
   final PayaboPrimaryDestination destination;
+
+  /// Optional color overrides forwarded to [PayaboBottomNav].
+  final Color? backgroundOverride;
+  final Color? borderOverride;
+  final Color? shadowOverride;
+  final Color? selectedOverride;
+  final Color? unselectedOverride;
+  final Color? fabBackgroundOverride;
+  final Color? fabShadowOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +50,13 @@ class PayaboPrimaryAppShell extends StatelessWidget {
       currentIndex: _currentIndexFor(destination),
       onTap: (int index) => _handleNavTap(context, index),
       onCenterTap: () => _showQuickActions(context),
+      backgroundOverride: backgroundOverride,
+      borderOverride: borderOverride,
+      shadowOverride: shadowOverride,
+      selectedOverride: selectedOverride,
+      unselectedOverride: unselectedOverride,
+      fabBackgroundOverride: fabBackgroundOverride,
+      fabShadowOverride: fabShadowOverride,
     );
   }
 

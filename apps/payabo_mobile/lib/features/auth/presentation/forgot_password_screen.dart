@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/auth/auth_controller.dart';
+import '../../../app/demo/demo_mode.dart';
 import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -30,12 +31,22 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
-    final canSubmit = isValidEmail(_emailController.text) && !authState.isBusy;
+    final isDemo = ref.watch(isDemoProvider);
+    final canSubmit =
+        !isDemo && isValidEmail(_emailController.text) && !authState.isBusy;
 
     return AuthFlowScaffold(
       title: 'Forgot password',
       description:
           "Please enter the email address used to register on MyBillAfrica, and we'll send you an email with instructions to recover your password.",
+      notice: isDemo
+          ? const AuthModeNoticeCard(
+              title: 'Password recovery is unavailable',
+              message:
+                  'Demo mode does not connect to live accounts, so password reset is disabled until the API is reachable again.',
+              icon: Icons.lock_reset_rounded,
+            )
+          : null,
       onClose: () => context.go('/auth/login'),
       useWarmBackground: true,
       child: Column(
@@ -45,6 +56,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             label: 'Email',
             variant: PayaboInputVariant.floating,
             controller: _emailController,
+            enabled: !isDemo,
             keyboardType: TextInputType.emailAddress,
             onChanged: (_) => setState(() {}),
           ),

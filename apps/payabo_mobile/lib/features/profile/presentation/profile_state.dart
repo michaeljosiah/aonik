@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app/errors/api_error_notifier.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 
@@ -425,6 +426,10 @@ class ProfileNotificationsController
         stackTrace: stackTrace,
       );
 
+      if (mounted) {
+        _ref.read(apiErrorNotifierProvider.notifier).report(error);
+      }
+
       return NotificationPreferences(
         email: fallbackEmail,
         newBillsPush: state.newBillsPush,
@@ -582,6 +587,10 @@ class ProfileMarketingController extends StateNotifier<ProfileMarketingState> {
         error: error,
         stackTrace: stackTrace,
       );
+
+      if (mounted) {
+        _ref.read(apiErrorNotifierProvider.notifier).report(error);
+      }
 
       return MarketingPreferences(
         email: fallbackEmail,

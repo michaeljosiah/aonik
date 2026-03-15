@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../app/environment/environment_provider.dart';
-import '../../../app/startup/offline_mode_provider.dart';
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../app/demo/demo_mode.dart';
+import '../../../app/environment/environment_provider.dart';
+import '../../../app/errors/api_error_notifier.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../domain/setup_enums.dart';
 import '../domain/setup_models.dart';
@@ -203,9 +204,12 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
     try {
       final repository = _ref.read(setupJourneyRepositoryProvider);
       await repository.saveSetupProfile(profile);
-    } catch (_) {
-      // Graceful degradation — preserve local completion state if the
-      // backend call cannot be completed right now.
+    } catch (error) {
+      // Preserve local completion state if the backend call fails, but surface
+      // the error so it is visible in the UI.
+      if (mounted) {
+        _ref.read(apiErrorNotifierProvider.notifier).report(error);
+      }
     }
   }
 
@@ -233,9 +237,8 @@ final Provider<DashboardSetupSeed> setupDashboardSeedProvider =
 
 /// Whether setup has been completed. Read from SharedPreferences.
 ///
-/// When demo data mode is [DemoDataMode.fresh], this always returns
-/// `false` so that the user is guided through setup again — matching
-/// the "clean slate" experience the fresh mode represents.
+/// When the current demo session uses [DemoDataMode.fresh], this always
+/// returns `false` so the user is guided through setup again.
 ///
 /// This provider is async; the router should treat a loading state
 /// as "not yet known" and avoid redirecting prematurely.
@@ -270,7 +273,7 @@ final FutureProvider<bool> setupCompletedProvider =
 
 bool _useLocalSetupPersistence(Ref ref) {
   return ref.watch(appEnvironmentProvider).useMocks ||
-      ref.watch(offlineModeProvider);
+      ref.watch(isDemoProvider);
 }
 
 /// Clears the setup-completed flag and resets the controller state

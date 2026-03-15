@@ -21,6 +21,13 @@ class PayaboBottomNav extends StatelessWidget {
     required this.onTap,
     required this.onCenterTap,
     this.centerIcon = Icons.add,
+    this.backgroundOverride,
+    this.borderOverride,
+    this.shadowOverride,
+    this.selectedOverride,
+    this.unselectedOverride,
+    this.fabBackgroundOverride,
+    this.fabShadowOverride,
   });
 
   final List<PayaboBottomNavItem> items;
@@ -29,28 +36,43 @@ class PayaboBottomNav extends StatelessWidget {
   final VoidCallback onCenterTap;
   final IconData centerIcon;
 
+  /// Optional color overrides — when provided these take precedence over the
+  /// resolved theme colors, allowing pages like the chat screen to blend
+  /// the nav bar into their own visual language.
+  final Color? backgroundOverride;
+  final Color? borderOverride;
+  final Color? shadowOverride;
+  final Color? selectedOverride;
+  final Color? unselectedOverride;
+  final Color? fabBackgroundOverride;
+  final Color? fabShadowOverride;
+
   @override
   Widget build(BuildContext context) {
     assert(items.length == 4,
         'PayaboBottomNav expects 4 items around center action.');
 
     final c = context.colors;
-    final navColor = Theme.of(context).scaffoldBackgroundColor;
+    final bgColor = backgroundOverride ?? c.navBackground;
+    final brColor = borderOverride ?? c.navBorder;
+    final shColor = shadowOverride ?? c.navShadow;
+    final fabBg = fabBackgroundOverride ?? c.navFabBackground;
+    final fabSh = fabShadowOverride ?? c.navFabShadow;
 
     return SafeArea(
       top: false,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: c.navBackground,
+          color: bgColor,
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: c.navShadow,
+              color: shColor,
               offset: const Offset(0, -1),
               blurRadius: 10,
             ),
           ],
           border: Border(
-            top: BorderSide(color: c.navBorder),
+            top: BorderSide(color: brColor),
           ),
         ),
         child: SizedBox(
@@ -71,7 +93,7 @@ class PayaboBottomNav extends StatelessWidget {
               Positioned(
                 top: -18,
                 child: Material(
-                  color: navColor,
+                  color: bgColor,
                   shape: const CircleBorder(),
                   child: InkWell(
                     onTap: onCenterTap,
@@ -80,11 +102,11 @@ class PayaboBottomNav extends StatelessWidget {
                       width: 58,
                       height: 58,
                       decoration: BoxDecoration(
-                        color: c.navFabBackground,
+                        color: fabBg,
                         shape: BoxShape.circle,
                         boxShadow: <BoxShadow>[
                           BoxShadow(
-                            color: c.navFabShadow,
+                            color: fabSh,
                             offset: const Offset(0, 4),
                             blurRadius: 12,
                           ),
@@ -109,6 +131,8 @@ class PayaboBottomNav extends StatelessWidget {
     final item = items[index];
     final selected = currentIndex == index;
     final c = context.colors;
+    final selColor = selectedOverride ?? c.navSelected;
+    final unselColor = unselectedOverride ?? c.navUnselected;
 
     return InkWell(
       onTap: () => onTap(index),
@@ -119,14 +143,14 @@ class PayaboBottomNav extends StatelessWidget {
           children: <Widget>[
             Icon(
               item.icon,
-              color: selected ? c.navSelected : c.navUnselected,
+              color: selected ? selColor : unselColor,
               size: 21,
             ),
             const SizedBox(height: PayaboSpacing.xs),
             Text(
               item.label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: selected ? c.navSelected : c.navUnselected,
+                    color: selected ? selColor : unselColor,
                     fontSize: 12,
                   ),
             ),

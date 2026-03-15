@@ -153,6 +153,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isEmptyDemoMode = demoDataMode == DemoDataMode.fresh;
 
     return PayaboWarmScaffold(
+      backgroundDecoration: BoxDecoration(
+        gradient: _dashboardBackgroundGradient(context),
+      ),
       body: Column(
         children: <Widget>[
           Expanded(
@@ -515,19 +518,27 @@ class _DashboardHeroInsightsSectionState
             viewportHeight * 0.37,
           ),
         );
+        const double pinnedHeaderHeight =
+            _DashboardHeroInsightsSection._pinnedHeaderHeight;
+        // pinnedSheetTop is still used to compute the initial collapsed position
+        // of the sheet (absolute y within the Stack).
         const double pinnedSheetTop =
-            _DashboardHeroInsightsSection._pinnedHeaderHeight +
-                _DashboardHeroInsightsSection._sheetTopGap;
+            pinnedHeaderHeight + _DashboardHeroInsightsSection._sheetTopGap;
+        // The DraggableScrollableSheet's Positioned widget starts at
+        // pinnedHeaderHeight so that at maxChildSize=1.0 the sheet extends flush
+        // to the bottom of the pinned header with no gap.
         final double sheetViewportHeight = math.max(
           1,
-          viewportHeight - pinnedSheetTop,
+          viewportHeight - pinnedHeaderHeight,
         );
         final double collapsedSheetTop = math.max(
           pinnedSheetTop + 164,
           heroHeight + PayaboSpacing.sm,
         );
         final double initialSheetSize =
-            (1 - ((collapsedSheetTop - pinnedSheetTop) / sheetViewportHeight))
+            (1 -
+                    ((collapsedSheetTop - pinnedHeaderHeight) /
+                        sheetViewportHeight))
                 .clamp(0.62, 0.76)
                 .toDouble();
         final double minSheetSize =
@@ -538,14 +549,10 @@ class _DashboardHeroInsightsSectionState
         );
 
         return Stack(
+          // Clip.none lets the status-bar overlay overflow above the SafeArea
+          // boundary so the background change reaches all the way to the top.
+          clipBehavior: Clip.none,
           children: <Widget>[
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: _dashboardBackgroundGradient(context),
-                ),
-              ),
-            ),
             Positioned(
               top: 0,
               left: 0,
@@ -577,15 +584,20 @@ class _DashboardHeroInsightsSectionState
                             _DashboardHeroInsightsSection._maxSheetSize,
                           )
                           .toDouble();
-                  final double sheetRange = math.max(
-                    0.0001,
+                  // Only fade the header background in the last 5% of sheet
+                  // travel (i.e. only when the panel is almost/fully at the
+                  // top) so the header colour does not change while the user
+                  // is merely scrolling up.
+                  const double headerFadeZone = 0.05;
+                  final double headerFadeStart = math.max(
+                    0.0,
                     _DashboardHeroInsightsSection._maxSheetSize -
-                        initialSheetSize,
+                        headerFadeZone,
                   );
                   final double headerBackgroundProgress =
                       Curves.easeOut.transform(
-                    ((effectiveSheetExtent - initialSheetSize) / sheetRange)
-                        .clamp(0, 1)
+                    ((effectiveSheetExtent - headerFadeStart) / headerFadeZone)
+                        .clamp(0.0, 1.0)
                         .toDouble(),
                   );
 
@@ -600,7 +612,7 @@ class _DashboardHeroInsightsSectionState
               ),
             ),
             Positioned(
-              top: pinnedSheetTop,
+              top: pinnedHeaderHeight,
               left: 0,
               right: 0,
               bottom: 0,
@@ -618,11 +630,76 @@ class _DashboardHeroInsightsSectionState
                   BuildContext context,
                   ScrollController scrollController,
                 ) {
-                  return _DashboardStatsSheet(
-                    scrollController: scrollController,
-                    dueBillCount: widget.dueBillCount,
-                    upcomingBills: widget.upcomingBills,
-                    isEmpty: widget.isEmpty,
+                  return ValueListenableBuilder<double>(
+                    valueListenable: _sheetExtentNotifier,
+                    builder: (
+                      BuildContext context,
+                      double extent,
+                      Widget? child,
+                    ) {
+                      // Animate the top corners from 24 → 0 in the last 5% of
+                      // sheet travel so the panel merges flush with the header.
+                      const double fadeZone = 0.05;
+                      final double fadeFraction = ((extent -
+                                  (_DashboardHeroInsightsSection._maxSheetSize -
+                                      fadeZone)) /
+                              fadeZone)
+                          .clamp(0.0, 1.0);
+                      return _DashboardStatsSheet(
+                        scrollController: scrollController,
+                        topBorderRadius: 24.0 * (1.0 - fadeFraction),
+                        dueBillCount: widget.dueBillCount,
+                        upcomingBills: widget.upcomingBills,
+                        isEmpty: widget.isEmpty,
+                      );
+                    },
+                  );
+                },
+                     ),
+            ),
+            // Status-bar background overlay.  Fades in over the last 5% of
+            // sheet travel so the surfaceBase colour extends all the way to
+            // the very top of the screen, matching the pinned header.
+            // MediaQuery.viewPaddingOf is used because SafeArea zeros out
+            // the regular padding; viewPadding is always the real value.
+            //
+            // Wrapped in Positioned so the ValueListenableBuilder does not
+            // become an un-positioned Stack child (which would absorb hit
+            // tests across the entire Stack).
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 0,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _sheetExtentNotifier,
+                builder: (
+                  BuildContext context,
+                  double extent,
+                  Widget? child,
+                ) {
+                  const double fadeZone = 0.05;
+                  final double progress = ((extent -
+                              (_DashboardHeroInsightsSection._maxSheetSize -
+                                  fadeZone)) /
+                          fadeZone)
+                      .clamp(0.0, 1.0);
+                  if (progress <= 0) return const SizedBox.shrink();
+                  final double statusBarHeight =
+                      MediaQuery.viewPaddingOf(context).top;
+                  return OverflowBox(
+                    alignment: Alignment.bottomCenter,
+                    maxHeight: statusBarHeight,
+                    child: Opacity(
+                      opacity: progress,
+                      child: ColoredBox(
+                        color: context.colors.surfaceBase,
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: statusBarHeight,
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),
@@ -661,16 +738,9 @@ class _DashboardPinnedHeader extends StatelessWidget {
             opacity: backgroundProgress,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: c.warmScreenGradient,
-                boxShadow: backgroundProgress > 0
-                    ? const <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x12000000),
-                          blurRadius: 10,
-                          offset: Offset(0, 2),
-                        ),
-                      ]
-                    : const <BoxShadow>[],
+                // Use surfaceBase (the same colour as the sheet) so the header
+                // blends seamlessly into the panel when fully extended.
+                color: c.surfaceBase,
               ),
             ),
           ),
@@ -833,6 +903,7 @@ class _DashboardStatsSheet extends StatelessWidget {
     required this.dueBillCount,
     required this.upcomingBills,
     required this.isEmpty,
+    this.topBorderRadius = 24.0,
   });
 
   final ScrollController scrollController;
@@ -840,32 +911,34 @@ class _DashboardStatsSheet extends StatelessWidget {
   final List<DashboardUpcomingBill> upcomingBills;
   final bool isEmpty;
 
+  /// Radius applied to the top corners of the sheet.  Animated to 0 when the
+  /// sheet reaches full extension so it merges flush with the pinned header.
+  final double topBorderRadius;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final Color sheetBackground = c.surfaceBase;
-    final Color sheetBorder =
-        c.isDark ? c.borderStrong.withValues(alpha: 0.52) : c.border;
     final Color handleColor = c.borderStrong;
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: sheetBackground,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(topBorderRadius),
+          topRight: Radius.circular(topBorderRadius),
         ),
-        border: Border.all(color: sheetBorder),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        boxShadow: topBorderRadius > 0
+            ? <BoxShadow>[
+                BoxShadow(
+                  color:
+                      Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, -4),
+                ),
+              ]
+            : const <BoxShadow>[],
       ),
       child: ListView(
         controller: scrollController,

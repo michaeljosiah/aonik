@@ -99,11 +99,11 @@ class LiveProfileRepository implements ProfileRepository {
 
       final data = response.data ?? const <String, dynamic>{};
       final resolvedUrl = _resolveUrl(
-            (data['photoUrl'] as String?) ??
-                (data['PhotoUrl'] as String?) ??
-                (data['url'] as String?) ??
-                (data['Url'] as String?),
-          );
+        (data['photoUrl'] as String?) ??
+            (data['PhotoUrl'] as String?) ??
+            (data['url'] as String?) ??
+            (data['Url'] as String?),
+      );
 
       developer.log(
         'uploadPhoto response payload: $data | resolvedUrl: ${resolvedUrl ?? '<empty>'}',

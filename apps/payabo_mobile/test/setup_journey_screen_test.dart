@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
+import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_journey_controller.dart';
-import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/setup_journey/presentation/setup_journey_screen.dart';
 import 'package:payabo_mobile/mock/repositories/mock_setup_journey_repository.dart';
 import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'test_helpers.dart';
 
@@ -38,6 +37,7 @@ void main() {
 
       // The welcome step should show the Payabo brand mark
       expect(find.text('Payabo'), findsOneWidget);
+      expect(find.textContaining("Hi, I'm Simi"), findsOneWidget);
 
       // Should show the AI message for the welcome step
       expect(find.byType(SetupJourneyScreen), findsOneWidget);
@@ -74,8 +74,7 @@ void main() {
   });
 
   group('SetupJourneyScreen — structure', () {
-    testWidgets('uses Scaffold with Stack layout',
-        (WidgetTester tester) async {
+    testWidgets('uses Scaffold with Stack layout', (WidgetTester tester) async {
       await tester.pumpWidget(buildSetupScreen());
       await tester.pumpAndSettle();
 
@@ -83,8 +82,7 @@ void main() {
       expect(find.byType(Stack), findsWidgets);
     });
 
-    testWidgets('has SafeArea for top content',
-        (WidgetTester tester) async {
+    testWidgets('has SafeArea for top content', (WidgetTester tester) async {
       await tester.pumpWidget(buildSetupScreen());
       await tester.pumpAndSettle();
 

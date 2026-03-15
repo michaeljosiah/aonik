@@ -7,10 +7,16 @@ class PayaboWarmScaffold extends StatelessWidget {
     super.key,
     required this.body,
     this.bottomNavigationBar,
+    this.backgroundDecoration,
   });
 
   final Widget body;
   final Widget? bottomNavigationBar;
+
+  /// Override the default warm-screen gradient with a custom decoration.
+  /// The decoration is painted behind the status bar so the colour is
+  /// consistent all the way to the top of the screen.
+  final BoxDecoration? backgroundDecoration;
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +26,8 @@ class PayaboWarmScaffold extends StatelessWidget {
       backgroundColor: c.surfaceWarm,
       bottomNavigationBar: bottomNavigationBar,
       body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: c.warmScreenGradient,
-        ),
+        decoration:
+            backgroundDecoration ?? BoxDecoration(gradient: c.warmScreenGradient),
         child: SafeArea(
           child: body,
         ),

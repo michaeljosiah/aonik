@@ -4,14 +4,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/auth/auth_controller.dart';
-import '../../../app/environment/environment_provider.dart';
-import '../../../app/startup/offline_mode_provider.dart';
+import '../../../app/demo/demo_mode.dart';
 import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_text_field.dart';
+import '../../setup_journey/application/setup_journey_controller.dart';
 import 'auth_flow_scaffold.dart';
 import 'onboarding_flow_state.dart';
 
@@ -37,14 +37,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
-    final environment = ref.watch(appEnvironmentProvider);
-    final isOfflineDemoMode = ref.watch(offlineModeProvider);
-    final canSubmit = isValidEmail(_emailController.text) &&
+    final isDemo = ref.watch(isDemoProvider);
+    final canSubmit = !isDemo &&
+        isValidEmail(_emailController.text) &&
         _passwordController.text.isNotEmpty &&
         !authState.isBusy;
 
     return AuthFlowScaffold(
       title: 'Nice to see you again.',
+      notice: isDemo
+          ? const AuthModeNoticeCard(
+              title: 'Demo mode is active',
+              message:
+                  'Payabo could not reach the API, so live sign-in is unavailable. Use Access in demo mode to continue through the guided setup.',
+              icon: Icons.wifi_off_rounded,
+            )
+          : null,
       onClose: () => context.go('/intro'),
       useWarmBackground: true,
       child: Column(
@@ -54,6 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             controller: _emailController,
             variant: PayaboInputVariant.floating,
             label: 'Email',
+            enabled: !isDemo,
             keyboardType: TextInputType.emailAddress,
             onChanged: (_) => setState(() {}),
           ),
@@ -62,14 +71,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             controller: _passwordController,
             variant: PayaboInputVariant.floating,
             label: 'Password',
+            enabled: !isDemo,
             obscureText: !_isPasswordVisible,
             onChanged: (_) => setState(() {}),
             suffixIcon: IconButton(
-              onPressed: () {
-                setState(() {
-                  _isPasswordVisible = !_isPasswordVisible;
-                });
-              },
+              onPressed: isDemo
+                  ? null
+                  : () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
               icon: Icon(_isPasswordVisible
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined),
@@ -112,46 +124,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 : null,
           ),
           const SizedBox(height: PayaboSpacing.md),
-          _GoogleLoginButton(
-            enabled: !authState.isBusy,
-            onPressed: authState.isBusy
-                ? null
-                : () async {
-                    if (environment.useMocks || isOfflineDemoMode) {
-                      await ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithPassword(
-                            email: 'google.demo@payabo.app',
-                            password: 'demo-google-sign-in',
-                          );
-
-                      if (!context.mounted) {
-                        return;
-                      }
-
-                      context.go('/');
-                      return;
-                    }
-
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Google sign-in is not wired up yet.',
-                          ),
-                        ),
-                      );
-                  },
+          PayaboButton(
+            label: 'Access in demo mode',
+            variant: PayaboButtonVariant.secondary,
+            onPressed: authState.isBusy ? null : _accessDemoMode,
+          ),
+          const SizedBox(height: PayaboSpacing.md),
+          const _GoogleLoginButton(
+            enabled: false,
+            onPressed: null,
           ),
           const SizedBox(height: PayaboSpacing.lg),
           TextButton(
-            onPressed: () => context.go('/auth/forgot-password'),
+            onPressed:
+                isDemo ? null : () => context.go('/auth/forgot-password'),
             child: const Text('Forgot your password?'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _accessDemoMode() async {
+    ref.read(isDemoProvider.notifier).state = true;
+    await clearSetupCompleted(ref);
+
+    try {
+      await ref.read(authControllerProvider.notifier).signInWithPassword(
+            email: 'demo@payabo.app',
+            password: 'demo-access',
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      context.go('/setup');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to start demo mode right now. Please try again.';
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+    }
   }
 }
 

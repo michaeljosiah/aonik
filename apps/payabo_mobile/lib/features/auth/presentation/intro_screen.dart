@@ -1,20 +1,24 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_mode.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
+import 'auth_flow_scaffold.dart';
 
-class IntroScreen extends StatefulWidget {
+class IntroScreen extends ConsumerStatefulWidget {
   const IntroScreen({super.key});
 
   @override
-  State<IntroScreen> createState() => _IntroScreenState();
+  ConsumerState<IntroScreen> createState() => _IntroScreenState();
 }
 
-class _IntroScreenState extends State<IntroScreen> {
+class _IntroScreenState extends ConsumerState<IntroScreen> {
   final PageController _pageController = PageController();
   Timer? _autoScrollTimer;
   int _activeIndex = 0;
@@ -62,6 +66,8 @@ class _IntroScreenState extends State<IntroScreen> {
   Widget build(BuildContext context) {
     final slide = _slides[_activeIndex];
     final screenHeight = MediaQuery.of(context).size.height;
+    final isDemo = ref.watch(isDemoProvider);
+    final c = context.colors;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -121,6 +127,15 @@ class _IntroScreenState extends State<IntroScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  if (isDemo) ...<Widget>[
+                    const AuthModeNoticeCard(
+                      title: 'Demo mode is active',
+                      message:
+                          'Live sign-in and account creation are unavailable right now. Continue to login and use Access in demo mode to open the guided experience.',
+                      icon: Icons.wifi_off_rounded,
+                    ),
+                    const SizedBox(height: PayaboSpacing.xl),
+                  ],
                   // Subtitle
                   Text(
                     slide.subtitle,
@@ -165,8 +180,19 @@ class _IntroScreenState extends State<IntroScreen> {
                   PayaboButton(
                     label: 'Create an account',
                     variant: PayaboButtonVariant.link,
-                    onPressed: () => context.go('/auth/register'),
+                    onPressed:
+                        isDemo ? null : () => context.go('/auth/register'),
                   ),
+                  if (isDemo) ...<Widget>[
+                    const SizedBox(height: PayaboSpacing.sm),
+                    Text(
+                      'Account creation is unavailable in demo mode.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: c.surfaceWarm,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                   const SizedBox(height: PayaboSpacing.lg),
                 ],
               ),

@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/auth/auth_session_store.dart';
 import '../../app/demo/demo_data_mode.dart';
+import '../../app/demo/demo_mode.dart';
 import '../../app/environment/environment_provider.dart';
-import '../../app/startup/offline_mode_provider.dart';
 import '../../features/setup_journey/domain/setup_journey_repository.dart';
 import '../../mock/repositories/mock_account_links_repository.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
@@ -30,18 +30,17 @@ import 'order_repository.dart';
 import 'payment_repository.dart';
 import 'profile_repository.dart';
 
-/// True when the app should use mock implementations -- either because the
-/// compile-time USE_MOCKS flag is set or because the API was unreachable at
-/// startup and we fell back to demo mode.
+/// True when the app should use mock implementations for unfinished modules or
+/// because the current session is running in demo mode.
 bool _shouldMock(Ref ref) {
   return ref.watch(appEnvironmentProvider).useMocks ||
-      ref.watch(offlineModeProvider);
+      ref.watch(isDemoProvider);
 }
 
 final Provider<AuthRepository> authRepositoryProvider =
     Provider<AuthRepository>(
   (Ref ref) {
-    if (_shouldMock(ref)) {
+    if (ref.watch(isDemoProvider)) {
       return MockAuthRepository();
     }
 

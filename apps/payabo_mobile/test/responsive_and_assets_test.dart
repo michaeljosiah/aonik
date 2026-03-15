@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
+import 'package:payabo_mobile/app/demo/demo_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/data/repositories/profile_repository.dart';
@@ -102,6 +103,7 @@ void main() {
               apiBaseUrl: 'https://api.dev.payabo.local',
             ),
           ),
+          isDemoProvider.overrideWith((Ref ref) => true),
           initialDemoDataModeProvider.overrideWithValue(DemoDataMode.fresh),
           profileRepositoryProvider.overrideWithValue(
             _ImmediateFreshProfileRepository(),
@@ -188,12 +190,22 @@ void main() {
 
   testWidgets('profile screens keep the bottom menu visible',
       (WidgetTester tester) async {
-    await tester.pumpWidget(buildTestApp(const ProfileScreen()));
+    await tester.pumpWidget(
+      buildTestApp(
+        const ProfileScreen(),
+        isDemo: false,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(PayaboBottomNav), findsOneWidget);
 
-    await tester.pumpWidget(buildTestApp(const ProfilePersonalDetailsScreen()));
+    await tester.pumpWidget(
+      buildTestApp(
+        const ProfilePersonalDetailsScreen(),
+        isDemo: false,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(PayaboBottomNav), findsOneWidget);
@@ -201,20 +213,30 @@ void main() {
 
   testWidgets('profile screens use the compact settings layout',
       (WidgetTester tester) async {
-    await tester.pumpWidget(buildTestApp(const ProfileScreen()));
+    await tester.pumpWidget(
+      buildTestApp(
+        const ProfileScreen(),
+        isDemo: false,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(PayaboAppHeader), findsNothing);
     expect(find.text('Profile'), findsOneWidget);
-    expect(find.text('Demo data preferences'), findsOneWidget);
+    expect(find.text('Demo data preferences'), findsNothing);
 
-    await tester.pumpWidget(buildTestApp(const ProfilePersonalDetailsScreen()));
+    await tester.pumpWidget(
+      buildTestApp(
+        const ProfilePersonalDetailsScreen(),
+        isDemo: false,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(PayaboAppHeader), findsNothing);
   });
 
-  testWidgets('shared profile and bell header appears on main app pages',
+  testWidgets('main app pages use their expected top chrome',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const SpendingScreen()));
     await tester.pumpAndSettle();
@@ -232,7 +254,8 @@ void main() {
 
     await tester.pumpWidget(buildTestApp(const ChatScreen()));
     await tester.pumpAndSettle();
-    expect(find.byType(PayaboAppHeader), findsOneWidget);
+    expect(find.byType(PayaboAppHeader), findsNothing);
+    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
 
     await tester.pumpWidget(buildTestApp(const PaymentCountryScreen()));
     await tester.pumpAndSettle();

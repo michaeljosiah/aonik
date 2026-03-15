@@ -2,12 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
+import 'package:payabo_mobile/app/demo/demo_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
-import 'package:payabo_mobile/app/startup/offline_mode_provider.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_journey_controller.dart';
 import 'package:payabo_mobile/features/setup_journey/application/setup_step_configs.dart';
@@ -15,6 +13,7 @@ import 'package:payabo_mobile/features/setup_journey/domain/setup_enums.dart';
 import 'package:payabo_mobile/features/setup_journey/domain/setup_journey_repository.dart';
 import 'package:payabo_mobile/features/setup_journey/domain/setup_models.dart';
 import 'package:payabo_mobile/mock/repositories/mock_setup_journey_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _BlockingSetupJourneyRepository implements SetupJourneyRepository {
   @override
@@ -52,7 +51,7 @@ void main() {
             apiBaseUrl: 'https://api.dev.payabo.local',
           ),
         ),
-        offlineModeProvider.overrideWith((Ref ref) => false),
+        isDemoProvider.overrideWith((Ref ref) => false),
       ],
     );
   });
@@ -246,7 +245,7 @@ void main() {
               tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => false),
+          isDemoProvider.overrideWith((Ref ref) => false),
         ],
       );
       addTearDown(blockingContainer.dispose);
@@ -261,7 +260,10 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('payabo.setup.completed'), isTrue);
       expect(
-        blockingContainer.read(setupJourneyControllerProvider).profile.completed,
+        blockingContainer
+            .read(setupJourneyControllerProvider)
+            .profile
+            .completed,
         isTrue,
       );
     });
@@ -279,7 +281,7 @@ void main() {
               tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => false),
+          isDemoProvider.overrideWith((Ref ref) => false),
         ],
       );
       addTearDown(blockingContainer.dispose);
@@ -290,7 +292,10 @@ void main() {
       blockingController.completeSetupLocally();
 
       expect(
-        blockingContainer.read(setupJourneyControllerProvider).profile.completed,
+        blockingContainer
+            .read(setupJourneyControllerProvider)
+            .profile
+            .completed,
         isTrue,
       );
     });
@@ -410,7 +415,7 @@ void main() {
               apiBaseUrl: 'https://api.dev.payabo.local',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => false),
+          isDemoProvider.overrideWith((Ref ref) => true),
           initialDemoDataModeProvider.overrideWithValue(DemoDataMode.fresh),
         ],
       );
@@ -437,7 +442,7 @@ void main() {
               apiBaseUrl: 'https://api.dev.payabo.local',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => false),
+          isDemoProvider.overrideWith((Ref ref) => true),
           initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
         ],
       );
@@ -463,7 +468,7 @@ void main() {
               apiBaseUrl: 'https://api.dev.payabo.local',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => false),
+          isDemoProvider.overrideWith((Ref ref) => true),
           initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
         ],
       );
@@ -498,7 +503,7 @@ void main() {
               tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => false),
+          isDemoProvider.overrideWith((Ref ref) => false),
           initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
         ],
       );
@@ -521,7 +526,7 @@ void main() {
               tenantId: '2E0392C5-9E3E-4B1F-B8A5-CD442C8C0821',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => false),
+          isDemoProvider.overrideWith((Ref ref) => false),
           initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
         ],
       );

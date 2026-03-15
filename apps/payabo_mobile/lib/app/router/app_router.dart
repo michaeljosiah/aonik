@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -53,16 +54,24 @@ import '../../features/spending/presentation/spending_category_detail_screen.dar
 import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
 import '../../features/spending/presentation/spending_screen.dart';
 import '../auth/auth_controller.dart';
+import '../demo/demo_mode.dart';
 
 String? resolveAppRedirect({
   required AuthState authState,
   required String location,
   required bool setupDone,
+  required bool isDemo,
 }) {
   final bool isAuthArea =
       location == '/' || location == '/intro' || location.startsWith('/auth');
   final bool isSetupArea = location == '/setup';
   final bool isDesignSystemArea = location == '/design-system';
+  final bool isRegistrationArea =
+      location == '/auth/register' || location.startsWith('/auth/register/');
+
+  if (isDemo && isRegistrationArea) {
+    return '/auth/login';
+  }
 
   if (!authState.isAuthenticated && !isAuthArea && !isDesignSystemArea) {
     return '/auth/login';
@@ -103,6 +112,10 @@ class RouterRefreshNotifier extends ChangeNotifier {
       setupCompletedProvider,
       (_, __) => notifyListeners(),
     );
+    _ref.listen<bool>(
+      isDemoProvider,
+      (_, __) => notifyListeners(),
+    );
   }
 
   final Ref _ref;
@@ -117,11 +130,16 @@ final Provider<RouterRefreshNotifier> routerRefreshNotifierProvider =
   },
 );
 
+/// Key for the root navigator, shared with [ApiErrorListener] so that
+/// dialogs can be displayed from above the router.
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
   (Ref ref) {
     final refreshNotifier = ref.watch(routerRefreshNotifierProvider);
 
     return GoRouter(
+      navigatorKey: rootNavigatorKey,
       initialLocation: '/',
       refreshListenable: refreshNotifier,
       redirect: (context, state) {
@@ -138,11 +156,13 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           setupAsync: setupAsync,
           localProfileCompleted: localProfileCompleted,
         );
+        final bool isDemo = ref.read(isDemoProvider);
 
         final redirect = resolveAppRedirect(
           authState: authState,
           location: state.uri.path,
           setupDone: setupDone,
+          isDemo: isDemo,
         );
 
         return redirect;

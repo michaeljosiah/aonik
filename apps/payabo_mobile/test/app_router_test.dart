@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 import 'package:payabo_mobile/app/auth/auth_controller.dart';
 import 'package:payabo_mobile/app/router/app_router.dart';
@@ -23,6 +23,7 @@ void main() {
         authState: unauthenticated,
         location: '/dashboard',
         setupDone: false,
+        isDemo: false,
       );
 
       expect(redirect, '/auth/login');
@@ -34,6 +35,7 @@ void main() {
         authState: authenticated,
         location: '/auth/login',
         setupDone: false,
+        isDemo: false,
       );
 
       expect(redirect, '/setup');
@@ -46,6 +48,7 @@ void main() {
         authState: authenticated,
         location: '/dashboard',
         setupDone: false,
+        isDemo: false,
       );
 
       expect(redirect, '/setup');
@@ -58,6 +61,7 @@ void main() {
         authState: authenticated,
         location: '/auth/login',
         setupDone: true,
+        isDemo: false,
       );
 
       expect(redirect, '/dashboard');
@@ -68,9 +72,21 @@ void main() {
         authState: authenticated,
         location: '/setup',
         setupDone: true,
+        isDemo: false,
       );
 
       expect(redirect, '/dashboard');
+    });
+
+    test('redirects demo sessions away from registration flows', () {
+      final redirect = resolveAppRedirect(
+        authState: unauthenticated,
+        location: '/auth/register/personal-details',
+        setupDone: false,
+        isDemo: true,
+      );
+
+      expect(redirect, '/auth/login');
     });
   });
 

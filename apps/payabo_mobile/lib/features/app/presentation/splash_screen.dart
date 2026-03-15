@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/startup/app_startup_controller.dart';
-import '../../../app/startup/offline_mode_provider.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -34,8 +33,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (prev == null || prev.isChecking != true || next.isChecking) return;
 
       if (!next.isHealthy && !_navigating) {
-        // API unreachable -- activate offline / demo mode.
-        ref.read(offlineModeProvider.notifier).state = true;
         _navigating = true;
         Future<void>.delayed(const Duration(seconds: 2), () {
           if (mounted) {
@@ -47,8 +44,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     final isOfflineFallback =
         !startupState.isChecking && !startupState.isHealthy && _navigating;
-    final canContinue =
-        startupState.isHealthy && !startupState.isChecking;
+    final canContinue = startupState.isHealthy && !startupState.isChecking;
 
     final String statusText;
     if (startupState.isChecking) {
@@ -67,8 +63,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             onTap: canContinue ? () => context.go('/intro') : null,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -82,9 +77,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     statusText,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: isOfflineFallback
-                          ? c.primary
-                          : null,
+                      color: isOfflineFallback ? c.primary : null,
                       fontWeight: isOfflineFallback
                           ? FontWeight.w600
                           : FontWeight.normal,

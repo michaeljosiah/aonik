@@ -14,14 +14,14 @@ class DemoDataPreferencesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    final demoDataMode = ref.watch(demoDataModeProvider);
+    final demoDataMode = ref.watch(demoDataModePreferenceProvider);
 
     Future<void> selectMode(DemoDataMode mode) async {
       if (demoDataMode == mode) {
         return;
       }
 
-      await ref.read(demoDataModeProvider.notifier).setMode(mode);
+      await ref.read(demoDataModePreferenceProvider.notifier).setMode(mode);
       await ref.read(profileDataCoordinatorProvider).reload();
 
       if (!context.mounted) {

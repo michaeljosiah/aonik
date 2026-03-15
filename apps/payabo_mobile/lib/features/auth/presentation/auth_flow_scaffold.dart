@@ -9,6 +9,7 @@ class AuthFlowScaffold extends StatelessWidget {
     required this.title,
     required this.child,
     this.description,
+    this.notice,
     this.footer,
     this.onBack,
     this.onClose,
@@ -18,6 +19,7 @@ class AuthFlowScaffold extends StatelessWidget {
 
   final String title;
   final String? description;
+  final Widget? notice;
   final Widget child;
   final Widget? footer;
   final VoidCallback? onBack;
@@ -80,6 +82,10 @@ class AuthFlowScaffold extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ],
+                  if (notice != null) ...<Widget>[
+                    const SizedBox(height: PayaboSpacing.lg),
+                    notice!,
+                  ],
                   const SizedBox(height: PayaboSpacing.xl),
                   child,
                   SizedBox(height: bottomSpacing),
@@ -102,8 +108,7 @@ class AuthFlowScaffold extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor:
-          useWarmBackground ? c.surfaceWarm : c.surfaceBase,
+      backgroundColor: useWarmBackground ? c.surfaceWarm : c.surfaceBase,
       body: useWarmBackground
           ? DecoratedBox(
               decoration: BoxDecoration(
@@ -112,6 +117,60 @@ class AuthFlowScaffold extends StatelessWidget {
               child: content,
             )
           : content,
+    );
+  }
+}
+
+class AuthModeNoticeCard extends StatelessWidget {
+  const AuthModeNoticeCard({
+    super.key,
+    required this.title,
+    required this.message,
+    this.icon = Icons.info_outline,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: c.surfaceWarmElevated.withValues(alpha: c.isDark ? 0.72 : 0.92),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: c.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(PayaboSpacing.lg),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(icon, color: c.primary),
+            const SizedBox(width: PayaboSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.xs),
+                  Text(
+                    message,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

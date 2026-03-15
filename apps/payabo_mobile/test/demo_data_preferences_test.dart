@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
+import 'package:payabo_mobile/app/demo/demo_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/features/payments/presentation/payment_flow_state.dart';
@@ -23,6 +24,7 @@ void main() {
             apiBaseUrl: 'https://api.dev.payabo.local',
           ),
         ),
+        isDemoProvider.overrideWith((Ref ref) => true),
         initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
       ],
     );
@@ -39,12 +41,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(container.read(demoDataModeProvider), DemoDataMode.populated);
+    expect(
+        container.read(demoDataModePreferenceProvider), DemoDataMode.populated);
 
     await tester.tap(find.text('Fresh demo state'));
     await tester.pumpAndSettle();
 
-    expect(container.read(demoDataModeProvider), DemoDataMode.fresh);
+    expect(container.read(demoDataModePreferenceProvider), DemoDataMode.fresh);
   });
 
   test('fresh demo mode clears seeded checkout helpers', () {
@@ -52,6 +55,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        isDemoProvider.overrideWith((Ref ref) => true),
         initialDemoDataModeProvider.overrideWithValue(DemoDataMode.fresh),
       ],
     );

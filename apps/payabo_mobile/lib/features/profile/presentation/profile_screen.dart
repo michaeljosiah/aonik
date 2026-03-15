@@ -7,8 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../app/auth/auth_controller.dart';
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../app/environment/environment_provider.dart';
-import '../../../app/startup/offline_mode_provider.dart';
+import '../../../app/demo/demo_mode.dart';
 import '../../../data/api/api_exception.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -65,10 +64,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final state = ref.watch(profileCoreProvider);
     final demoDataMode = ref.watch(demoDataModeProvider);
     final themeMode = ref.watch(themeModeProvider);
-    final environment = ref.watch(appEnvironmentProvider);
-    final isOfflineMode = ref.watch(offlineModeProvider);
-    final showDemoDataPreferences =
-        environment.useMocks || isOfflineMode || !environment.isProduction;
+    final isDemo = ref.watch(isDemoProvider);
 
     return ProfileScaffold(
       title: 'Profile',
@@ -77,7 +73,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ? _buildContent(
               context,
               state,
-              showDemoDataPreferences: showDemoDataPreferences,
+              showDemoDataPreferences: isDemo,
               demoDataMode: demoDataMode,
               themeMode: themeMode,
             )

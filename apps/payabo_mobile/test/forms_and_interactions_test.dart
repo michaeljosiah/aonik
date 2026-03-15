@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:payabo_mobile/app/demo/demo_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
-import 'package:payabo_mobile/app/startup/offline_mode_provider.dart';
 import 'package:payabo_mobile/data/api/api_exception.dart';
 import 'package:payabo_mobile/data/repositories/auth_repository.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
+import 'package:payabo_mobile/features/auth/presentation/forgot_password_screen.dart';
+import 'package:payabo_mobile/features/auth/presentation/intro_screen.dart';
 import 'package:payabo_mobile/features/auth/presentation/login_screen.dart';
 import 'package:payabo_mobile/features/auth/presentation/phone_code_screen.dart';
 import 'package:payabo_mobile/features/payments/presentation/provider_list_screen.dart';
@@ -19,7 +21,12 @@ import 'test_helpers.dart';
 void main() {
   testWidgets('login validation enables button only for valid credentials',
       (WidgetTester tester) async {
-    await tester.pumpWidget(buildTestApp(const LoginScreen()));
+    await tester.pumpWidget(
+      buildTestApp(
+        const LoginScreen(),
+        isDemo: false,
+      ),
+    );
 
     final ElevatedButton loginButton = tester.widget<ElevatedButton>(
       find.widgetWithText(ElevatedButton, 'LOGIN'),
@@ -83,27 +90,44 @@ void main() {
     expect(find.text('We couldn\'t sign you in'), findsNothing);
   });
 
-  testWidgets('google login returns to root route in demo mode',
+  testWidgets('intro disables registration while demo mode is active',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const IntroScreen(),
+        isDemo: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final OutlinedButton registerButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'CREATE AN ACCOUNT'),
+    );
+
+    expect(registerButton.onPressed, isNull);
+    expect(
+      find.text('Account creation is unavailable in demo mode.'),
+      findsOneWidget,
+    );
+    expect(find.text('Demo mode is active'), findsOneWidget);
+  });
+
+  testWidgets(
+      'access in demo mode routes to setup when live sign-in is available',
       (WidgetTester tester) async {
     final router = GoRouter(
       initialLocation: '/auth/login',
       routes: <RouteBase>[
         GoRoute(
-          path: '/',
+          path: '/setup',
           builder: (BuildContext context, GoRouterState state) {
-            return const Scaffold(body: Text('Root'));
+            return const Scaffold(body: Text('Setup'));
           },
         ),
         GoRoute(
           path: '/auth/login',
           builder: (BuildContext context, GoRouterState state) {
             return const LoginScreen();
-          },
-        ),
-        GoRoute(
-          path: '/dashboard',
-          builder: (BuildContext context, GoRouterState state) {
-            return const Scaffold(body: Text('Dashboard'));
           },
         ),
       ],
@@ -127,38 +151,14 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Continue with Google'));
+    await tester.tap(find.text('ACCESS IN DEMO MODE'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Root'), findsOneWidget);
+    expect(find.text('Setup'), findsOneWidget);
   });
 
-  testWidgets('google login returns to root route in offline demo mode',
+  testWidgets('login screen disables live auth controls in demo mode',
       (WidgetTester tester) async {
-    final router = GoRouter(
-      initialLocation: '/auth/login',
-      routes: <RouteBase>[
-        GoRoute(
-          path: '/',
-          builder: (BuildContext context, GoRouterState state) {
-            return const Scaffold(body: Text('Root'));
-          },
-        ),
-        GoRoute(
-          path: '/auth/login',
-          builder: (BuildContext context, GoRouterState state) {
-            return const LoginScreen();
-          },
-        ),
-        GoRoute(
-          path: '/dashboard',
-          builder: (BuildContext context, GoRouterState state) {
-            return const Scaffold(body: Text('Dashboard'));
-          },
-        ),
-      ],
-    );
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -169,19 +169,56 @@ void main() {
               apiBaseUrl: 'https://api.dev.payabo.local',
             ),
           ),
-          offlineModeProvider.overrideWith((Ref ref) => true),
+          isDemoProvider.overrideWith((Ref ref) => true),
         ],
-        child: MaterialApp.router(
+        child: MaterialApp(
           theme: buildPayaboTheme(),
-          routerConfig: router,
+          home: const LoginScreen(),
         ),
       ),
     );
 
-    await tester.tap(find.text('Continue with Google'));
+    final emailField = tester.widget<TextField>(find.byType(TextField).first);
+    final passwordField = tester.widget<TextField>(find.byType(TextField).last);
+    final ElevatedButton loginButton = tester.widget<ElevatedButton>(
+      find.widgetWithText(ElevatedButton, 'LOGIN'),
+    );
+
+    expect(emailField.enabled, isFalse);
+    expect(passwordField.enabled, isFalse);
+    expect(loginButton.onPressed, isNull);
+    expect(find.text('Demo mode is active'), findsOneWidget);
+
+    final Material googleButton = tester.widget<Material>(
+      find
+          .ancestor(
+            of: find.text('Continue with Google'),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+
+    expect(googleButton.color, const Color(0xFFF4F4F4));
+  });
+
+  testWidgets('forgot password explains demo limitations when active',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const ForgotPasswordScreen(),
+        isDemo: true,
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('Root'), findsOneWidget);
+    final emailField = tester.widget<TextField>(find.byType(TextField).first);
+    final ElevatedButton recoverButton = tester.widget<ElevatedButton>(
+      find.widgetWithText(ElevatedButton, 'RECOVER PASSWORD'),
+    );
+
+    expect(emailField.enabled, isFalse);
+    expect(recoverButton.onPressed, isNull);
+    expect(find.text('Password recovery is unavailable'), findsOneWidget);
   });
 
   testWidgets('phone code disabled state shows countdown then unlocks',

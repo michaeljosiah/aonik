@@ -9,10 +9,9 @@ import '../domain/setup_models.dart';
 /// pattern, and structured options that map to domain enums.
 final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 1: Welcome ──────────────────────────────────────
-  SetupStepConfig(
+  const SetupStepConfig(
     id: 'welcome',
-    message:
-        'Hi, I\'m Payabo \u{1F44B}\n\n'
+    message: 'Hi, I\'m Simi \u{1F44B}\n\n'
         'I\'ll help you organise your finances, track what matters, '
         'and make smarter money decisions across all your accounts.\n\n'
         'Let\'s get you set up.',
@@ -29,8 +28,7 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 2: What do you want help with? ──────────────────
   SetupStepConfig(
     id: 'use_cases',
-    message:
-        'What would you like help with first?\n\n'
+    message: 'What would you like help with first?\n\n'
         'I can tailor Payabo around how you manage your money.',
     type: SetupStepType.multiSelect,
     options: <SetupOption>[
@@ -65,8 +63,7 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 3: Where do you keep your money? ────────────────
   SetupStepConfig(
     id: 'account_sources',
-    message:
-        'Where do you currently keep your money?\n\n'
+    message: 'Where do you currently keep your money?\n\n'
         'You can connect multiple account types so I can give you '
         'a complete financial picture.',
     type: SetupStepType.multiSelect,
@@ -97,8 +94,7 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 4: Connect your first account ───────────────────
   SetupStepConfig(
     id: 'connect_account',
-    message:
-        'Connecting at least one account helps me automatically track '
+    message: 'Connecting at least one account helps me automatically track '
         'your finances and give you useful recommendations straight away.\n\n'
         'You can always add more later.',
     helperText: 'You remain in control. Accounts can be connected later.',
@@ -126,8 +122,7 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 5: Bills and responsibilities ───────────────────
   SetupStepConfig(
     id: 'responsibilities',
-    message:
-        'What regular things do you usually pay for?\n\n'
+    message: 'What regular things do you usually pay for?\n\n'
         'I can help you keep track of these and remind you before '
         'they become urgent.',
     type: SetupStepType.multiSelect,
@@ -163,8 +158,7 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 6: Family and community support ─────────────────
   SetupStepConfig(
     id: 'family_support',
-    message:
-        'Do you regularly support anyone financially?\n\n'
+    message: 'Do you regularly support anyone financially?\n\n'
         'This helps me plan around the commitments that matter in real '
         'life, not just personal spending.',
     type: SetupStepType.singleSelect,
@@ -200,8 +194,7 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 7: Financial goals ──────────────────────────────
   SetupStepConfig(
     id: 'financial_goals',
-    message:
-        'What are you working toward right now?\n\n'
+    message: 'What are you working toward right now?\n\n'
         'Choose the goals that matter most to you.',
     type: SetupStepType.multiSelect,
     options: <SetupOption>[
@@ -234,14 +227,12 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   ),
 
   // ── Step 8: Summary ──────────────────────────────────────
-  SetupStepConfig(
+  const SetupStepConfig(
     id: 'summary',
-    message:
-        'Great, I have enough to start helping you.\n\n'
+    message: 'Great, I have enough to start helping you.\n\n'
         'I\'ll use this setup to organise your dashboard, track what '
         'matters, and suggest the right next actions for your finances.',
-    helperText:
-        'Payabo helps organise your finances. You stay in control, '
+    helperText: 'Payabo helps organise your finances. You stay in control, '
         'and recommendations always come before any action.',
     type: SetupStepType.summary,
     options: <SetupOption>[],
