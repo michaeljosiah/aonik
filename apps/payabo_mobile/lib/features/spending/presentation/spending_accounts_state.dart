@@ -97,7 +97,10 @@ class SimulatedAccountLinkLauncher implements AccountLinkLauncher {
 }
 
 class PlaidAccountLinkLauncher implements AccountLinkLauncher {
-  const PlaidAccountLinkLauncher();
+  const PlaidAccountLinkLauncher({required AppEnvironment environment})
+      : _environment = environment;
+
+  final AppEnvironment _environment;
 
   @override
   bool get isNativeProviderFlow => true;
@@ -118,6 +121,9 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
       );
     }
 
+    final String androidPackageName =
+        _environment.resolvedAccountLinkAndroidPackageName;
+
     final _PlaidLinkAwaiter awaiter = _PlaidLinkAwaiter();
 
     try {
@@ -136,8 +142,8 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
         rethrow;
       }
 
-      throw const AccountLinkLaunchException(
-        'We could not open the secure Plaid connection right now. Check your Plaid mobile configuration and try again.',
+      throw AccountLinkLaunchException(
+        'We could not open the secure Plaid connection right now. Check the mobile token setup for $androidPackageName and try again.',
       );
     }
   }
@@ -212,10 +218,10 @@ final Provider<AccountLinkLauncher> accountLinkLauncherProvider =
 
   if (!environment.useMocks &&
       environment.accountLinkUseNativeLauncher &&
-      environment.accountLinkProvider.toLowerCase() == 'plaid' &&
+      environment.usesPlaidAccountLinkProvider &&
       !kIsWeb &&
       defaultTargetPlatform == TargetPlatform.android) {
-    return const PlaidAccountLinkLauncher();
+    return PlaidAccountLinkLauncher(environment: environment);
   }
 
   return const SimulatedAccountLinkLauncher();
@@ -279,7 +285,7 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
       _ref.read(accountLinkSessionPersistenceProvider);
 
   Future<AccountLinkExchangeResult?> connect({
-    String provider = 'Plaid',
+    String? provider,
     String mode = 'connect',
     String? connectionId,
   }) async {
@@ -298,17 +304,19 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
     try {
       final AppEnvironment environment = _ref.read(appEnvironmentProvider);
       final AccountLinkLauncher launcher = _launcher;
+      final String resolvedProvider =
+          environment.resolveAccountLinkProvider(provider);
       final String? androidPackageName = launcher.isNativeProviderFlow &&
               !kIsWeb &&
               defaultTargetPlatform == TargetPlatform.android
-          ? environment.accountLinkAndroidPackageName
+          ? environment.resolvedAccountLinkAndroidPackageName
           : null;
       final String? redirectUri = launcher.supportsOAuthResume
-          ? environment.accountLinkRedirectUri
+          ? environment.configuredAccountLinkRedirectUri
           : null;
 
       final AccountLinkSession session = await _repository.createSession(
-        provider: provider,
+        provider: resolvedProvider,
         mode: mode,
         connectionId: connectionId,
         androidPackageName: androidPackageName,

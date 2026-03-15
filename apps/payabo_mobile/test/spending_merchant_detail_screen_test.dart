@@ -27,6 +27,12 @@ void main() {
       scrollable: primaryScrollable,
     );
 
+    await tester.scrollUntilVisible(
+      find.text("That's all your transactions."),
+      260,
+      scrollable: primaryScrollable,
+    );
+
     expect(find.text('Current Account'), findsOneWidget);
     expect(find.text("That's all your transactions."), findsOneWidget);
   });

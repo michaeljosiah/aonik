@@ -61,7 +61,15 @@ abstract class AccountLinkSessionPersistence {
 
 class SharedPreferencesAccountLinkSessionPersistence
     implements AccountLinkSessionPersistence {
+  SharedPreferencesAccountLinkSessionPersistence({
+    DateTime Function()? now,
+    Duration minimumValidityWindow = const Duration(seconds: 30),
+  })  : _now = now ?? DateTime.now,
+        _minimumValidityWindow = minimumValidityWindow;
+
   static const String _storageKey = 'payabo.account_link.pending_session.v1';
+  final DateTime Function() _now;
+  final Duration _minimumValidityWindow;
 
   @override
   Future<PersistedAccountLinkSessionSnapshot?> read() async {
@@ -83,6 +91,11 @@ class SharedPreferencesAccountLinkSessionPersistence
       return null;
     }
 
+    if (!_isStillValid(expiresAt)) {
+      await prefs.remove(_storageKey);
+      return null;
+    }
+
     return PersistedAccountLinkSessionSnapshot(
       sessionId: decoded['sessionId'] as String? ?? '',
       provider: decoded['provider'] as String? ?? 'Plaid',
@@ -97,6 +110,11 @@ class SharedPreferencesAccountLinkSessionPersistence
   @override
   Future<void> write(AccountLinkSession session) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (!_isStillValid(session.expiresAt)) {
+      await prefs.remove(_storageKey);
+      return;
+    }
+
     final Map<String, dynamic> payload = <String, dynamic>{
       'sessionId': session.sessionId,
       'provider': session.provider,
@@ -114,6 +132,10 @@ class SharedPreferencesAccountLinkSessionPersistence
   Future<void> clear() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove(_storageKey);
+  }
+
+  bool _isStillValid(DateTime expiresAt) {
+    return expiresAt.isAfter(_now().add(_minimumValidityWindow));
   }
 }
 

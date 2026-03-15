@@ -7,11 +7,14 @@ import '../api/api_exception.dart';
 import 'account_links_repository.dart';
 
 class LiveAccountLinksRepository implements AccountLinksRepository {
-  LiveAccountLinksRepository({required Dio apiClient}) : _apiClient = apiClient;
-
-  static final DateFormat _dateFormat = DateFormat('d MMM');
+  LiveAccountLinksRepository({
+    required Dio apiClient,
+    String? dateLocale,
+  })  : _apiClient = apiClient,
+        _dateFormat = _createDateFormat(dateLocale);
 
   final Dio _apiClient;
+  final DateFormat _dateFormat;
 
   @override
   Future<AccountLinksSummary> getSummary() async {
@@ -501,6 +504,20 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
     return '$prefix ${_dateFormat.format(reference.toLocal())}';
   }
 
+  static DateFormat _createDateFormat(String? locale) {
+    final String normalizedLocale = locale?.trim() ?? '';
+
+    try {
+      if (normalizedLocale.isNotEmpty) {
+        return DateFormat.MMMd(normalizedLocale);
+      }
+
+      return DateFormat.MMMd();
+    } catch (_) {
+      return DateFormat('d MMM', 'en_GB');
+    }
+  }
+
   DateTime? _parseDate(Object? value) {
     final String? raw = _readString(value);
     if (raw == null) {
@@ -524,9 +541,8 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
     final int? statusCode = exception.response?.statusCode;
 
     developer.log(
-      '$operation failed for ${request.method} ${request.path}${statusCode != null ? ' (HTTP $statusCode)' : ''}.',
+      '$operation failed for ${request.method} ${request.path}${statusCode != null ? ' (HTTP $statusCode)' : ''} [${exception.type.name}]. Response payload omitted to avoid leaking provider metadata.',
       name: 'Payabo.LiveAccountLinksRepository',
-      error: exception.response?.data ?? exception.message ?? exception,
       stackTrace: exception.stackTrace,
     );
   }

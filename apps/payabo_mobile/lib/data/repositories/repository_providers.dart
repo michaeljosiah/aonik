@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/auth/auth_session_store.dart';
@@ -84,7 +86,10 @@ final Provider<AccountLinksRepository> accountLinksRepositoryProvider =
     }
 
     final apiClient = ref.watch(apiClientProvider);
-    return LiveAccountLinksRepository(apiClient: apiClient);
+    return LiveAccountLinksRepository(
+      apiClient: apiClient,
+      dateLocale: PlatformDispatcher.instance.locale.toLanguageTag(),
+    );
   },
 );
 

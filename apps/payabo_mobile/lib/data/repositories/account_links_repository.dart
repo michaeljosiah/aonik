@@ -50,6 +50,14 @@ class AccountLinkItem {
 
   bool get needsReconnect => status == AccountLinkStatus.actionRequired;
 
+  bool get hasProvider => (providerCode?.trim().isNotEmpty ?? false);
+
+  bool get canReconnect =>
+      source == AccountLinkSource.linked &&
+      connectionId != null &&
+      hasProvider &&
+      needsReconnect;
+
   bool get canRefresh =>
       source == AccountLinkSource.linked &&
       connectionId != null &&

@@ -24,9 +24,9 @@ void main() {
     expect(find.text('Overview'), findsNothing);
     expect(find.text('Your spending'), findsNothing);
     expect(find.text('Your budget'), findsNothing);
-    expect(find.text('February spend'), findsOneWidget);
+    expect(find.text('Spent this month'), findsOneWidget);
 
-    final Finder primaryList = find.byType(ListView).first;
+    final Finder primaryList = find.byType(Scrollable).last;
 
     await tester.drag(primaryList, const Offset(0, -520));
     await tester.pumpAndSettle();

@@ -29,6 +29,29 @@ class AppEnvironment {
   final String accountLinkAndroidPackageName;
   final String accountLinkRedirectUri;
 
+  String get resolvedAccountLinkProvider {
+    final String normalized = accountLinkProvider.trim();
+    return normalized.isEmpty ? 'Plaid' : normalized;
+  }
+
+  bool get usesPlaidAccountLinkProvider =>
+      resolvedAccountLinkProvider.toLowerCase() == 'plaid';
+
+  String get resolvedAccountLinkAndroidPackageName {
+    final String normalized = accountLinkAndroidPackageName.trim();
+    return normalized.isEmpty ? 'com.payabo.mobile' : normalized;
+  }
+
+  String? get configuredAccountLinkRedirectUri {
+    final String normalized = accountLinkRedirectUri.trim();
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  String resolveAccountLinkProvider(String? providerCode) {
+    final String normalized = providerCode?.trim() ?? '';
+    return normalized.isEmpty ? resolvedAccountLinkProvider : normalized;
+  }
+
   String get runtimeApiBaseUrl {
     final normalized = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(normalized);

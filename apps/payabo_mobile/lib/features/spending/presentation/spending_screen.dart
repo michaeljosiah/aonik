@@ -233,7 +233,7 @@ class _SpendingHeader extends StatelessWidget {
     final theme = Theme.of(context);
 
     return PayaboAppHeader(
-      title: 'Spending',
+      title: 'Spend',
       titleStyle: theme.textTheme.headlineLarge?.copyWith(
         fontWeight: FontWeight.w700,
         color: theme.colorScheme.onSurface,
@@ -365,9 +365,8 @@ class _SpentThisMonthCard extends StatelessWidget {
     final cardColor = isDark
         ? theme.colorScheme.surfaceContainerHighest
         : const Color(0xFFFFFBF8);
-    final borderColor = isDark
-        ? theme.colorScheme.outlineVariant
-        : const Color(0xFFF1DEC9);
+    final borderColor =
+        isDark ? theme.colorScheme.outlineVariant : const Color(0xFFF1DEC9);
 
     return Container(
       width: double.infinity,
@@ -548,9 +547,8 @@ class _BreakdownSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sheetBg = isDark
-        ? theme.colorScheme.surface
-        : const Color(0xFFFFFCF9);
+    final sheetBg =
+        isDark ? theme.colorScheme.surface : const Color(0xFFFFFCF9);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.38,
@@ -586,7 +584,8 @@ class _BreakdownSheet extends StatelessWidget {
                       width: 36,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.15),
                         borderRadius:
                             const BorderRadius.all(Radius.circular(2)),
                       ),
@@ -642,7 +641,8 @@ class _BreakdownSheet extends StatelessWidget {
                   itemCount: breakdownItems.length,
                   separatorBuilder: (_, __) => Divider(
                     height: 1,
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    color:
+                        theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
                   ),
                   itemBuilder: (BuildContext context, int index) {
                     final item = breakdownItems[index];
@@ -740,9 +740,7 @@ class _SegmentOption extends StatelessWidget {
         ? theme.colorScheme.onSurface
         : theme.textTheme.bodySmall?.color ?? theme.colorScheme.onSurface;
     final borderColor = selected
-        ? (isDark
-            ? theme.colorScheme.outlineVariant
-            : const Color(0xFFE7D8CC))
+        ? (isDark ? theme.colorScheme.outlineVariant : const Color(0xFFE7D8CC))
         : (isDark
             ? theme.colorScheme.outlineVariant.withValues(alpha: 0.4)
             : const Color(0xFFE7D8CC));
@@ -906,6 +904,14 @@ class _FreshTransactionsEmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: PayaboSpacing.md),
+            Text(
+              'Fresh spending state',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: PayaboSpacing.sm),
             Text(
               'No spending activity yet',
               style: theme.textTheme.titleLarge?.copyWith(

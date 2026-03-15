@@ -9,18 +9,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 Widget buildTestApp(
   Widget child, {
   DemoDataMode demoDataMode = DemoDataMode.populated,
+  AppEnvironment environment = const AppEnvironment(
+    flavor: AppFlavor.dev,
+    useMocks: true,
+    apiBaseUrl: 'https://api.dev.payabo.local',
+  ),
 }) {
   SharedPreferences.setMockInitialValues(<String, Object>{});
 
   return ProviderScope(
     overrides: [
-      appEnvironmentProvider.overrideWithValue(
-        const AppEnvironment(
-          flavor: AppFlavor.dev,
-          useMocks: true,
-          apiBaseUrl: 'https://api.dev.payabo.local',
-        ),
-      ),
+      appEnvironmentProvider.overrideWithValue(environment),
       initialDemoDataModeProvider.overrideWithValue(demoDataMode),
     ],
     child: MaterialApp(
