@@ -122,6 +122,67 @@ public class PlaidAccountLinkProviderGatewayTests
     }
 
     [Fact]
+    public async Task CreateSessionAsync_Should_OmitAndroidPackageName_WhenNotProvided()
+    {
+        // Arrange
+        var handler = new RecordingHttpMessageHandler();
+        handler.EnqueueJsonResponse(new
+        {
+            link_token = "link-sandbox-token-ios",
+            expiration = DateTime.UtcNow.AddMinutes(30),
+            request_id = "req-link-token-ios"
+        });
+        var gateway = CreateGateway(handler);
+
+        // Act
+        var result = await gateway.CreateSessionAsync(
+            new AccountLinkProviderSessionRequest(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                null,
+                null,
+                null,
+                "connect",
+                null, // No AndroidPackageName (iOS / web)
+                null,
+                "US",
+                "Payabo iOS"));
+
+        // Assert
+        result.LaunchToken.Should().Be("link-sandbox-token-ios");
+        handler.LastRequest.Should().NotBeNull();
+        handler.LastRequest!.RequestUri!.ToString().Should().EndWith("/link/token/create");
+        handler.LastRequestBody.Should().NotContain("android_package_name");
+        handler.LastRequestBody.Should().Contain("\"client_user_id\"");
+    }
+
+    [Fact]
+    public async Task ExchangeSessionAsync_Should_RejectSimulatedToken_WhenUsingRealGateway()
+    {
+        // Arrange
+        var handler = new RecordingHttpMessageHandler();
+        var gateway = CreateGateway(handler);
+
+        // Act
+        var act = () => gateway.ExchangeSessionAsync(
+            new AccountLinkProviderExchangeRequest(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                null,
+                null,
+                "link-sandbox-token",
+                "mobile-plaid-1234567890",
+                "connect"));
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<InvalidOperationException>();
+        ex.WithMessage("*Invalid public token format*");
+        ex.WithMessage("*UseRealPlaidApi*");
+    }
+
+    [Fact]
     public async Task ExchangeSessionAsync_Should_ProtectAccessTokenAndMapAccounts()
     {
         // Arrange

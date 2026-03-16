@@ -168,14 +168,6 @@ internal class UserIdentityService : IUserIdentityService
             return;
         }
 
-        var hasAnyRole = await _dbContext.UserRoles
-            .AnyAsync(userRole => userRole.UserId == userId, ct);
-
-        if (hasAnyRole)
-        {
-            return;
-        }
-
         var personalUserRole = await _dbContext.Roles
             .AsNoTracking()
             .FirstOrDefaultAsync(
@@ -183,6 +175,19 @@ internal class UserIdentityService : IUserIdentityService
                 ct);
 
         if (personalUserRole == null)
+        {
+            _logger.LogWarning(
+                "PersonalUser role not found for tenant {TenantId}. Cannot assign default role to user {UserId}",
+                tenantId, userId);
+            return;
+        }
+
+        var hasPersonalUserRole = await _dbContext.UserRoles
+            .AnyAsync(
+                userRole => userRole.UserId == userId && userRole.RoleId == personalUserRole.Id,
+                ct);
+
+        if (hasPersonalUserRole)
         {
             return;
         }
@@ -195,6 +200,10 @@ internal class UserIdentityService : IUserIdentityService
         });
 
         await _dbContext.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Assigned PersonalUser role to user {UserId} in tenant {TenantId}",
+            userId, tenantId);
     }
 
     public async Task<IReadOnlyCollection<string>> GetRoleNamesAsync(

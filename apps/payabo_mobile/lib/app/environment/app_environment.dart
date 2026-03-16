@@ -14,7 +14,6 @@ class AppEnvironment {
     this.tenantId = '',
     this.authClientId = 'Xw3xY2u7FhoLcdc1VjfS0J7Zz6o0jN3R',
     this.accountLinkProvider = 'Plaid',
-    this.accountLinkUseNativeLauncher = false,
     this.accountLinkAndroidPackageName = 'com.payabo.mobile',
     this.accountLinkRedirectUri = '',
   });
@@ -25,7 +24,6 @@ class AppEnvironment {
   final String tenantId;
   final String authClientId;
   final String accountLinkProvider;
-  final bool accountLinkUseNativeLauncher;
   final String accountLinkAndroidPackageName;
   final String accountLinkRedirectUri;
 
@@ -108,10 +106,6 @@ class AppEnvironment {
       'ACCOUNT_LINK_PROVIDER',
       defaultValue: 'Plaid',
     );
-    const bool accountLinkUseNativeLauncher = bool.fromEnvironment(
-      'ACCOUNT_LINK_USE_NATIVE_LAUNCHER',
-      defaultValue: false,
-    );
     const String accountLinkAndroidPackageName = String.fromEnvironment(
       'ACCOUNT_LINK_ANDROID_PACKAGE_NAME',
       defaultValue: 'com.payabo.mobile',
@@ -149,7 +143,6 @@ class AppEnvironment {
       accountLinkProvider: normalizedAccountLinkProvider.isEmpty
           ? 'Plaid'
           : normalizedAccountLinkProvider,
-      accountLinkUseNativeLauncher: accountLinkUseNativeLauncher,
       accountLinkAndroidPackageName:
           normalizedAccountLinkAndroidPackageName.isEmpty
               ? 'com.payabo.mobile'

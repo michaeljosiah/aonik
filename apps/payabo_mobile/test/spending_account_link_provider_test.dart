@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
+import 'package:payabo_mobile/app/demo/demo_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/data/repositories/account_links_repository.dart';
@@ -379,10 +380,10 @@ void main() {
             useMocks: false,
             apiBaseUrl: 'https://api.dev.payabo.local',
             accountLinkProvider: 'Plaid',
-            accountLinkUseNativeLauncher: true,
             accountLinkAndroidPackageName: 'com.example.payabo',
           ),
         ),
+        isDemoProvider.overrideWith((ref) => false),
         accountLinksRepositoryProvider.overrideWithValue(repository),
         accountLinkLauncherProvider.overrideWithValue(
           const _ImmediateAccountLinkLauncher(native: true),
@@ -402,7 +403,8 @@ void main() {
     );
   });
 
-  test('native Plaid launcher is selected on Android when enabled', () {
+  test('native Plaid launcher is selected on Android when not in demo mode',
+      () {
     final TargetPlatform? previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() {
@@ -417,9 +419,9 @@ void main() {
             useMocks: false,
             apiBaseUrl: 'https://api.dev.payabo.local',
             accountLinkProvider: 'Plaid',
-            accountLinkUseNativeLauncher: true,
           ),
         ),
+        isDemoProvider.overrideWith((ref) => false),
       ],
     );
     addTearDown(container.dispose);

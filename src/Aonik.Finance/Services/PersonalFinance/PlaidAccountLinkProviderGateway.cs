@@ -44,7 +44,10 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
     {
         EnsureConfigured();
 
-        var androidPackageName = NormalizeRequiredAndroidPackageName(request.AndroidPackageName);
+        var androidPackageName = NormalizeOptionalAndroidPackageName(request.AndroidPackageName);
+        _logger.LogDebug(
+            "Creating Plaid link token for user {UserId}, mode={Mode}, androidPackageName={HasAndroidPkg}",
+            request.UserId, request.Mode ?? "create", androidPackageName != null ? "provided" : "omitted");
         var plaidRequest = new PlaidLinkTokenCreateRequest
         {
             ClientId = _options.ClientId.Trim(),
@@ -91,6 +94,7 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
         CancellationToken cancellationToken = default)
     {
         EnsureConfigured();
+        ValidatePublicTokenFormat(request.TemporaryCode);
 
         var exchangeResponse = await PostAsync<PlaidItemPublicTokenExchangeRequest, PlaidItemPublicTokenExchangeResponse>(
             "item/public_token/exchange",
@@ -378,6 +382,33 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
         }
     }
 
+    private void ValidatePublicTokenFormat(string? publicToken)
+    {
+        var trimmed = TrimNullable(publicToken);
+        if (trimmed == null)
+        {
+            throw new InvalidOperationException(
+                "Public token is required to exchange a Plaid session.");
+        }
+
+        if (!trimmed.StartsWith("public-", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogError(
+                "Received non-Plaid public token format: '{TokenPrefix}...'. " +
+                "The backend is configured with UseRealPlaidApi=true but the client sent a simulated token. " +
+                "Either enable the native Plaid launcher on the mobile client (accountLinkUseNativeLauncher=true) " +
+                "or set Finance:PersonalFinance:Plaid:UseRealPlaidApi=false on the backend to use the simulated gateway.",
+                trimmed.Length > 20 ? trimmed[..20] : trimmed);
+
+            throw new InvalidOperationException(
+                $"Invalid public token format. Plaid expects 'public-<environment>-<identifier>' " +
+                $"but received '{(trimmed.Length > 30 ? trimmed[..30] + "..." : trimmed)}'. " +
+                $"This typically means the mobile client is using the simulated launcher while the backend " +
+                $"has UseRealPlaidApi=true. Either enable the native Plaid SDK on the client or disable " +
+                $"real Plaid on the backend.");
+        }
+    }
+
     private static bool IsSafeDisconnectFailure(PlaidAccountLinkProviderException exception)
     {
         return string.Equals(exception.PlaidErrorCode, "INVALID_ACCESS_TOKEN", StringComparison.OrdinalIgnoreCase)
@@ -420,16 +451,9 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
         return language ?? "en";
     }
 
-    private static string NormalizeRequiredAndroidPackageName(string? value)
+    private static string? NormalizeOptionalAndroidPackageName(string? value)
     {
-        var normalized = TrimNullable(value);
-        if (normalized == null)
-        {
-            throw new InvalidOperationException(
-                "AndroidPackageName is required when creating a Plaid mobile link token.");
-        }
-
-        return normalized;
+        return TrimNullable(value);
     }
 
     private string ProtectAccessToken(string accessToken)

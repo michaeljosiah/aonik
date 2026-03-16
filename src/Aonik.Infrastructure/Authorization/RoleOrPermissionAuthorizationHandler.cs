@@ -28,9 +28,13 @@ public class RoleOrPermissionAuthorizationHandler : AuthorizationHandler<RoleOrP
         AuthorizationHandlerContext context,
         RoleOrPermissionRequirement requirement)
     {
+        var requestPath = _httpContextAccessor.HttpContext?.Request.Path.Value;
+        var requiredRoles = string.Join(", ", requirement.RoleNames);
+        var requiredPermissions = string.Join(", ", requirement.PermissionKeys);
+
         if (HasRequiredRole(requirement))
         {
-            _logger.LogDebug("Authorization granted via role for policy");
+            _logger.LogDebug("Authorization granted via role for {Path}", requestPath);
             context.Succeed(requirement);
             return;
         }
@@ -38,7 +42,9 @@ public class RoleOrPermissionAuthorizationHandler : AuthorizationHandler<RoleOrP
         var userId = _currentUserContext.UserId;
         if (userId == null)
         {
-            _logger.LogWarning("Authorization denied: missing user id");
+            _logger.LogWarning(
+                "Authorization denied for {Path}: missing user id. Required roles: [{RequiredRoles}]",
+                requestPath, requiredRoles);
             return;
         }
 
@@ -73,12 +79,17 @@ public class RoleOrPermissionAuthorizationHandler : AuthorizationHandler<RoleOrP
 
         if (requirement.PermissionKeys.Any(permission => permissions.Contains(permission)))
         {
-            _logger.LogDebug("Authorization granted via permission for policy");
+            _logger.LogDebug("Authorization granted via permission for {Path}", requestPath);
             context.Succeed(requirement);
         }
         else
         {
-            _logger.LogWarning("Authorization denied: missing required role/permission");
+            var actualRoles = string.Join(", ", _currentUserContext.Roles);
+            var actualPermissions = string.Join(", ", permissions);
+            _logger.LogWarning(
+                "Authorization denied for {Path}: user {UserId} has roles [{ActualRoles}] and permissions [{ActualPermissions}], " +
+                "but requires one of roles [{RequiredRoles}] or permissions [{RequiredPermissions}]",
+                requestPath, userId, actualRoles, actualPermissions, requiredRoles, requiredPermissions);
         }
     }
 

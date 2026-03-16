@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:plaid_flutter/plaid_flutter.dart';
 
+import '../../../app/demo/demo_mode.dart';
 import '../../../app/environment/app_environment.dart';
 import '../../../app/environment/environment_provider.dart';
 import '../../../data/api/api_exception.dart';
@@ -215,9 +216,9 @@ class _PlaidLinkAwaiter {
 final Provider<AccountLinkLauncher> accountLinkLauncherProvider =
     Provider<AccountLinkLauncher>((Ref ref) {
   final environment = ref.watch(appEnvironmentProvider);
+  final isDemo = ref.watch(isDemoProvider);
 
-  if (!environment.useMocks &&
-      environment.accountLinkUseNativeLauncher &&
+  if (!isDemo &&
       environment.usesPlaidAccountLinkProvider &&
       !kIsWeb &&
       defaultTargetPlatform == TargetPlatform.android) {
