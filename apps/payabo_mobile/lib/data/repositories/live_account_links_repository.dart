@@ -71,6 +71,7 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
     String? connectionId,
     String? androidPackageName,
     String? redirectUri,
+    String? countryCode,
   }) async {
     try {
       final response = await _apiClient.post<Map<String, dynamic>>(
@@ -83,6 +84,8 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
             'androidPackageName': androidPackageName,
           if (redirectUri != null && redirectUri.isNotEmpty)
             'redirectUri': redirectUri,
+          if (countryCode != null && countryCode.isNotEmpty)
+            'countryCode': countryCode,
         },
       );
 

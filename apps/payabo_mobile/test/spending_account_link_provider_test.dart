@@ -26,6 +26,7 @@ class _RecordingAccountLinksRepository implements AccountLinksRepository {
   String? lastCreateSessionMode;
   String? lastCreateSessionConnectionId;
   String? lastCreateSessionAndroidPackageName;
+  String? lastCreateSessionCountryCode;
 
   @override
   Future<AccountLinksSummary> getSummary() async {
@@ -41,11 +42,13 @@ class _RecordingAccountLinksRepository implements AccountLinksRepository {
     String? connectionId,
     String? androidPackageName,
     String? redirectUri,
+    String? countryCode,
   }) async {
     lastCreateSessionProvider = provider;
     lastCreateSessionMode = mode;
     lastCreateSessionConnectionId = connectionId;
     lastCreateSessionAndroidPackageName = androidPackageName;
+    lastCreateSessionCountryCode = countryCode;
 
     return AccountLinkSession(
       sessionId: 'test-session',

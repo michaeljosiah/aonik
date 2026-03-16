@@ -33,6 +33,7 @@ class MockAccountLinksRepository implements AccountLinksRepository {
     String? connectionId,
     String? androidPackageName,
     String? redirectUri,
+    String? countryCode,
   }) async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('accountLinks.createSession');

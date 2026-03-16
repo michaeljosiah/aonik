@@ -11,6 +11,7 @@ import '../../../app/environment/environment_provider.dart';
 import '../../../data/api/api_exception.dart';
 import '../../../data/repositories/account_links_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
+import '../../profile/presentation/profile_state.dart';
 import 'spending_account_link_persistence.dart';
 
 final FutureProvider<AccountLinksSummary> accountLinksSummaryProvider =
@@ -315,6 +316,10 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
       final String? redirectUri = launcher.supportsOAuthResume
           ? environment.configuredAccountLinkRedirectUri
           : null;
+      final String? countryCode =
+          _ref.read(profileCoreProvider).countryCode.isNotEmpty
+              ? _ref.read(profileCoreProvider).countryCode
+              : null;
 
       final AccountLinkSession session = await _repository.createSession(
         provider: resolvedProvider,
@@ -322,6 +327,7 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
         connectionId: connectionId,
         androidPackageName: androidPackageName,
         redirectUri: redirectUri,
+        countryCode: countryCode,
       );
 
       if (launcher.supportsOAuthResume) {

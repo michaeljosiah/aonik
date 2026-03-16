@@ -193,6 +193,7 @@ abstract class AccountLinksRepository {
     String? connectionId,
     String? androidPackageName,
     String? redirectUri,
+    String? countryCode,
   });
 
   Future<AccountLinkExchangeResult> exchangeSession({
