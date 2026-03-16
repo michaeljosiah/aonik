@@ -16,7 +16,11 @@ internal sealed class PlaidAccountLinkOptions
 
     public List<string> Products { get; set; } = ["transactions"];
 
-    public List<string> CountryCodes { get; set; } = ["US"];
+    public List<string> CountryCodes { get; set; } = ["GB"];
+
+    public string? LinkCustomizationName { get; set; }
+
+    public string? RedirectUri { get; set; }
 
     public string? WebhookUrl { get; set; }
 

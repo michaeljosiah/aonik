@@ -45,9 +45,23 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
         EnsureConfigured();
 
         var androidPackageName = NormalizeOptionalAndroidPackageName(request.AndroidPackageName);
-        _logger.LogDebug(
-            "Creating Plaid link token for user {UserId}, mode={Mode}, androidPackageName={HasAndroidPkg}",
-            request.UserId, request.Mode ?? "create", androidPackageName != null ? "provided" : "omitted");
+        var resolvedCountryCodes = DetermineCountryCodes(request.CountryCode);
+        var resolvedProducts = DetermineProducts();
+        var resolvedLanguage = NormalizeLanguage();
+        var resolvedCustomization = TrimNullable(_options.LinkCustomizationName);
+
+        _logger.LogInformation(
+            "Plaid link/token/create — user={UserId}, mode={Mode}, countryCodes=[{CountryCodes}], products=[{Products}], "
+            + "language={Language}, customization={Customization}, androidPkg={HasAndroidPkg}, requestedCountry={RequestedCountry}",
+            request.UserId,
+            request.Mode ?? "create",
+            string.Join(",", resolvedCountryCodes),
+            string.Join(",", resolvedProducts),
+            resolvedLanguage,
+            resolvedCustomization ?? "(none)",
+            androidPackageName != null ? "provided" : "omitted",
+            request.CountryCode ?? "(null — using configured default)");
+
         var plaidRequest = new PlaidLinkTokenCreateRequest
         {
             ClientId = _options.ClientId.Trim(),
@@ -55,12 +69,28 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
             ClientName = string.IsNullOrWhiteSpace(request.ClientName)
                 ? _options.ClientName.Trim()
                 : request.ClientName.Trim(),
-            Language = NormalizeLanguage(),
-            CountryCodes = DetermineCountryCodes(request.CountryCode),
-            Products = DetermineProducts(),
+            Language = resolvedLanguage,
+            CountryCodes = resolvedCountryCodes,
+            Products = resolvedProducts,
             AndroidPackageName = androidPackageName,
-            User = new PlaidLinkTokenCreateUser(request.UserId.ToString("N"))
+            LinkCustomizationName = resolvedCustomization,
+            User = new PlaidLinkTokenCreateUser
+            {
+                ClientUserId = request.UserId.ToString("N"),
+                PhoneNumber = TrimNullable(request.PhoneNumber),
+            }
         };
+
+        // Per Plaid docs: when android_package_name is provided, redirect_uri must NOT be sent.
+        // The Android SDK derives its own redirect URI from the registered package name.
+        if (androidPackageName == null)
+        {
+            var redirectUri = TrimNullable(request.RedirectUri) ?? TrimNullable(_options.RedirectUri);
+            if (redirectUri != null)
+            {
+                plaidRequest.RedirectUri = redirectUri;
+            }
+        }
 
         var webhookUrl = TrimNullable(_options.WebhookUrl);
         if (webhookUrl != null)
@@ -630,10 +660,19 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
 
         [JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
+
+        [JsonPropertyName("link_customization_name")]
+        public string? LinkCustomizationName { get; set; }
     }
 
-    private sealed record PlaidLinkTokenCreateUser(
-        [property: JsonPropertyName("client_user_id")] string ClientUserId);
+    private sealed class PlaidLinkTokenCreateUser
+    {
+        [JsonPropertyName("client_user_id")]
+        public string ClientUserId { get; set; } = string.Empty;
+
+        [JsonPropertyName("phone_number")]
+        public string? PhoneNumber { get; set; }
+    }
 
     private sealed class PlaidLinkTokenCreateResponse
     {

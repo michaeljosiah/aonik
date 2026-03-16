@@ -101,7 +101,8 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 TrimNullable(request.AndroidPackageName),
                 TrimNullable(request.RedirectUri),
                 TrimNullable(request.CountryCode),
-                TrimNullable(request.ClientName)),
+                TrimNullable(request.ClientName),
+                TrimNullable(request.PhoneNumber)),
             cancellationToken);
 
         session.SessionToken = providerSession.LaunchToken;

@@ -139,6 +139,9 @@ class _ImmediateAccountLinkLauncher implements AccountLinkLauncher {
   bool get supportsOAuthResume => false;
 
   @override
+  bool get supportsEmbeddedLink => false;
+
+  @override
   String get experienceLabel => native ? 'Plaid Link' : 'Test handoff';
 
   @override
@@ -166,6 +169,9 @@ class _ThrowingAccountLinkLauncher implements AccountLinkLauncher {
 
   @override
   bool get supportsOAuthResume => false;
+
+  @override
+  bool get supportsEmbeddedLink => false;
 
   @override
   String get experienceLabel => 'Test handoff';

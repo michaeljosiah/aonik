@@ -466,6 +466,28 @@ class _AccountLinkConnectSheetState
     ref.read(accountLinkFlowControllerProvider.notifier).reset();
   }
 
+  /// Uses the full-screen [PlaidLink.open()] approach via
+  /// [AccountLinkFlowController.connect]. Shows consent pane first,
+  /// then bank selection.
+  Future<void> _handleConnect() async {
+    try {
+      final AccountLinkExchangeResult? result =
+          await ref.read(accountLinkFlowControllerProvider.notifier).connect(
+                provider: widget.provider,
+                mode: widget.mode,
+                connectionId: widget.connectionId,
+              );
+
+      if (!mounted || result == null) {
+        return;
+      }
+
+      Navigator.of(context).pop(result);
+    } catch (_) {
+      // The controller already exposes a friendly message for the sheet.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -494,25 +516,6 @@ class _AccountLinkConnectSheetState
         : isReconnect
             ? 'Payabo uses a targeted update session so the existing link can be restored.'
             : 'The app receives only a temporary launch token for the provider handoff.';
-
-    Future<void> handleConnect() async {
-      try {
-        final AccountLinkExchangeResult? result =
-            await ref.read(accountLinkFlowControllerProvider.notifier).connect(
-                  provider: widget.provider,
-                  mode: widget.mode,
-                  connectionId: widget.connectionId,
-                );
-
-        if (!context.mounted || result == null) {
-          return;
-        }
-
-        Navigator.of(context).pop(result);
-      } catch (_) {
-        // The controller already exposes a friendly message for the sheet.
-      }
-    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -607,7 +610,7 @@ class _AccountLinkConnectSheetState
               child: PayaboButton(
                 key: const Key('accounts-connect-continue'),
                 label: flowState.isSubmitting ? 'Connecting...' : 'Continue',
-                onPressed: flowState.isSubmitting ? null : handleConnect,
+                onPressed: flowState.isSubmitting ? null : _handleConnect,
               ),
             ),
           ],

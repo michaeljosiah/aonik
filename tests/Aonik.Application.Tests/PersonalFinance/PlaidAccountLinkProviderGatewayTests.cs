@@ -111,7 +111,8 @@ public class PlaidAccountLinkProviderGatewayTests
                 "com.payabo.mobile",
                 null,
                 "US",
-                "Payabo Android"));
+                "Payabo Android",
+                null));
 
         // Assert
         result.LaunchToken.Should().Be("link-sandbox-token");
@@ -147,7 +148,8 @@ public class PlaidAccountLinkProviderGatewayTests
                 null, // No AndroidPackageName (iOS / web)
                 null,
                 "US",
-                "Payabo iOS"));
+                "Payabo iOS",
+                null));
 
         // Assert
         result.LaunchToken.Should().Be("link-sandbox-token-ios");

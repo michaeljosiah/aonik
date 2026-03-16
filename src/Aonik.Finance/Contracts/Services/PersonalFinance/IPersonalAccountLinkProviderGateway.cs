@@ -38,7 +38,8 @@ public record AccountLinkProviderSessionRequest(
     string? AndroidPackageName,
     string? RedirectUri,
     string? CountryCode,
-    string? ClientName);
+    string? ClientName,
+    string? PhoneNumber);
 
 public record AccountLinkProviderSessionResult(
     string LaunchToken,

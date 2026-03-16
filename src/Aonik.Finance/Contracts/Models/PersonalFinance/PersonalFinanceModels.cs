@@ -69,7 +69,8 @@ public record CreateAccountLinkSessionRequest(
     string? AndroidPackageName = null,
     string? RedirectUri = null,
     string? CountryCode = null,
-    string? ClientName = null);
+    string? ClientName = null,
+    string? PhoneNumber = null);
 
 public record AccountLinkSessionResponse(
     Guid AccountLinkSessionId,

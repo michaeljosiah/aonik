@@ -48,6 +48,8 @@ abstract class AccountLinkLauncher {
 
   bool get supportsOAuthResume;
 
+  bool get supportsEmbeddedLink;
+
   String get experienceLabel;
 
   Future<AccountLinkLaunchResult?> launch(AccountLinkLaunchRequest request);
@@ -72,6 +74,9 @@ class SimulatedAccountLinkLauncher implements AccountLinkLauncher {
 
   @override
   bool get supportsOAuthResume => false;
+
+  @override
+  bool get supportsEmbeddedLink => false;
 
   @override
   String get experienceLabel => 'Simulated provider handoff';
@@ -109,6 +114,9 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
 
   @override
   bool get supportsOAuthResume => false;
+
+  @override
+  bool get supportsEmbeddedLink => false;
 
   @override
   String get experienceLabel => 'Plaid Link';
