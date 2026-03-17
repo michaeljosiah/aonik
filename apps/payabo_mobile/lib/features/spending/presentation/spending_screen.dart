@@ -57,7 +57,7 @@ const List<_AccountCardData> _demoAccounts = <_AccountCardData>[
   ),
 ];
 
-const List<_TransactionRowData> _demoTransactionsForCurrent =
+final List<_TransactionRowData> _demoTransactionsForCurrent =
     <_TransactionRowData>[
   _TransactionRowData(
     id: 't1',
@@ -68,6 +68,7 @@ const List<_TransactionRowData> _demoTransactionsForCurrent =
     amountMinor: '.00',
     currencySymbol: '\u00A3',
     isCredit: true,
+    date: DateTime(2025, 3, 1),
     iconText: null,
     icon: Icons.home_outlined,
   ),
@@ -80,6 +81,7 @@ const List<_TransactionRowData> _demoTransactionsForCurrent =
     amountMinor: '.00',
     currencySymbol: '\u00A3',
     isCredit: true,
+    date: DateTime(2025, 3, 1),
     iconText: null,
     icon: Icons.home_outlined,
   ),
@@ -92,6 +94,7 @@ const List<_TransactionRowData> _demoTransactionsForCurrent =
     amountMinor: '.00',
     currencySymbol: '\u00A3',
     isCredit: true,
+    date: DateTime(2025, 2, 15),
     iconText: null,
     icon: Icons.home_outlined,
   ),
@@ -104,6 +107,7 @@ const List<_TransactionRowData> _demoTransactionsForCurrent =
     amountMinor: '.99',
     currencySymbol: '\u00A3',
     isCredit: false,
+    date: DateTime(2025, 2, 12),
     iconText: 'a',
     icon: null,
   ),
@@ -116,6 +120,7 @@ const List<_TransactionRowData> _demoTransactionsForCurrent =
     amountMinor: '.12',
     currencySymbol: '\u00A3',
     isCredit: false,
+    date: DateTime(2025, 1, 28),
     iconText: 'T',
     icon: null,
   ),
@@ -128,12 +133,13 @@ const List<_TransactionRowData> _demoTransactionsForCurrent =
     amountMinor: '.20',
     currencySymbol: '\u00A3',
     isCredit: false,
+    date: DateTime(2025, 1, 20),
     iconText: 'U',
     icon: null,
   ),
 ];
 
-const List<_TransactionRowData> _demoTransactionsForCredit =
+final List<_TransactionRowData> _demoTransactionsForCredit =
     <_TransactionRowData>[
   _TransactionRowData(
     id: 'c1',
@@ -144,6 +150,7 @@ const List<_TransactionRowData> _demoTransactionsForCredit =
     amountMinor: '.99',
     currencySymbol: '\u00A3',
     isCredit: false,
+    date: DateTime(2025, 3, 5),
     iconText: 'N',
     icon: null,
   ),
@@ -156,6 +163,7 @@ const List<_TransactionRowData> _demoTransactionsForCredit =
     amountMinor: '.99',
     currencySymbol: '\u00A3',
     isCredit: false,
+    date: DateTime(2025, 2, 20),
     iconText: 'S',
     icon: null,
   ),
@@ -218,7 +226,7 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
     if (isEmpty) {
       return Scaffold(
         backgroundColor: c.surfaceWarm,
-        body: _EmptyStateFullScreen(isFreshDemo: isFreshDemo),
+        body: const _EmptyStateFullScreen(),
         bottomNavigationBar: const PayaboPrimaryAppShell(
           destination: PayaboPrimaryDestination.spending,
         ),
@@ -286,27 +294,20 @@ const String _simiMessageLive =
     'To track your spending, link a bank account or add one manually. '
     'I\u2019ll help you stay on top of everything.';
 
-const String _simiMessageFreshDemo =
-    'You\u2019re exploring Payabo in demo mode with a clean slate. '
-    'Switch to populated data in Profile, or try the options below.';
-
 /// Full-screen Stack layout for the empty spending state.
 ///
 /// Mirrors the setup journey screen pattern: hero background fills
 /// the entire screen, header overlays on top, Simi AI message in
 /// the middle area, and action panel pinned to the bottom.
 class _EmptyStateFullScreen extends ConsumerWidget {
-  const _EmptyStateFullScreen({required this.isFreshDemo});
-
-  final bool isFreshDemo;
+  const _EmptyStateFullScreen();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
 
-    final String simiMessage =
-        isFreshDemo ? _simiMessageFreshDemo : _simiMessageLive;
+    const String simiMessage = _simiMessageLive;
 
     return Stack(
       children: <Widget>[
@@ -374,8 +375,7 @@ class _EmptyStateFullScreen extends ConsumerWidget {
                           horizontal: PayaboSpacing.x2,
                         ),
                         child: PayaboTypewriterText(
-                          animationKey:
-                              isFreshDemo ? 'fresh-demo' : 'live-empty',
+                          animationKey: 'spending-empty',
                           message: simiMessage,
                           helperText: 'Simi, your AI assistant',
                           messageStyle: textTheme.headlineMedium?.copyWith(
@@ -413,9 +413,7 @@ class _EmptyStateFullScreen extends ConsumerWidget {
               ),
               const SizedBox(height: PayaboSpacing.sm),
               Text(
-                isFreshDemo
-                    ? 'Switch to populated demo data to explore, or try the options below.'
-                    : 'Connect your bank or add an account manually to start tracking.',
+                'Connect your bank or add an account manually to start tracking.',
                 style: textTheme.bodyMedium?.copyWith(
                   color: c.muted,
                   height: 1.4,
@@ -447,23 +445,6 @@ class _EmptyStateFullScreen extends ConsumerWidget {
                     'Create an account and enter transactions yourself.',
                 onTap: () => context.go('/spending/accounts'),
               ),
-
-              // ── Fresh-demo helper link ──────────────────
-              if (isFreshDemo) ...<Widget>[
-                const SizedBox(height: PayaboSpacing.x2),
-                Center(
-                  child: TextButton(
-                    onPressed: () => context.go('/profile'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: c.primary,
-                      textStyle: textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    child: const Text('Open profile settings'),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -807,39 +788,106 @@ class _SpendingTransactionsSheet extends StatelessWidget {
           if (transactions.isEmpty)
             const _EmptyTransactionsState()
           else
-            PayaboCard(
-              backgroundColor: c.spendingCardWarmElevated,
-              padding: const EdgeInsets.symmetric(
-                horizontal: PayaboSpacing.lg,
-                vertical: PayaboSpacing.md,
-              ),
-              child: Column(
-                children: transactions
-                    .asMap()
-                    .entries
-                    .map(
-                      (MapEntry<int, _TransactionRowData> entry) {
-                        final bool isLast =
-                            entry.key == transactions.length - 1;
-                        return Column(
-                          children: <Widget>[
-                            _TransactionRow(transaction: entry.value),
-                            if (!isLast)
-                              Divider(
-                                height: PayaboSpacing.xl,
-                                color:
-                                    c.borderStrong.withValues(alpha: 0.6),
-                              ),
-                          ],
-                        );
-                      },
-                    )
-                    .toList(growable: false),
-              ),
-            ),
+            ..._buildGroupedTransactions(context, transactions, c),
         ],
       ),
     );
+  }
+
+  /// Groups transactions by month/year and builds section headers + cards.
+  List<Widget> _buildGroupedTransactions(
+    BuildContext context,
+    List<_TransactionRowData> transactions,
+    PayaboColorResolver c,
+  ) {
+    const List<String> monthNames = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+
+    // Sort transactions by date descending (newest first).
+    final List<_TransactionRowData> sorted =
+        List<_TransactionRowData>.from(transactions)
+          ..sort((_TransactionRowData a, _TransactionRowData b) =>
+              b.date.compareTo(a.date));
+
+    // Group by year-month key.
+    final Map<String, List<_TransactionRowData>> grouped =
+        <String, List<_TransactionRowData>>{};
+    for (final _TransactionRowData tx in sorted) {
+      final String key = '${tx.date.year}-${tx.date.month}';
+      grouped.putIfAbsent(key, () => <_TransactionRowData>[]).add(tx);
+    }
+
+    final List<Widget> widgets = <Widget>[];
+
+    for (final MapEntry<String, List<_TransactionRowData>> entry
+        in grouped.entries) {
+      final _TransactionRowData first = entry.value.first;
+      final String label =
+          '${monthNames[first.date.month - 1]} ${first.date.year}';
+
+      // ── Month/year section header
+      if (widgets.isNotEmpty) {
+        widgets.add(const SizedBox(height: PayaboSpacing.xl));
+      }
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: c.muted,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
+      );
+
+      // ── Transaction card for this month
+      widgets.add(
+        PayaboCard(
+          backgroundColor: c.spendingCardWarmElevated,
+          padding: const EdgeInsets.symmetric(
+            horizontal: PayaboSpacing.lg,
+            vertical: PayaboSpacing.md,
+          ),
+          child: Column(
+            children: entry.value
+                .asMap()
+                .entries
+                .map(
+                  (MapEntry<int, _TransactionRowData> e) {
+                    final bool isLast = e.key == entry.value.length - 1;
+                    return Column(
+                      children: <Widget>[
+                        _TransactionRow(transaction: e.value),
+                        if (!isLast)
+                          Divider(
+                            height: PayaboSpacing.xl,
+                            color: c.borderStrong.withValues(alpha: 0.6),
+                          ),
+                      ],
+                    );
+                  },
+                )
+                .toList(growable: false),
+          ),
+        ),
+      );
+    }
+
+    return widgets;
   }
 }
 
@@ -936,7 +984,7 @@ class _AccountCard extends StatelessWidget {
                           text: account.currencySymbol,
                           style: (compact
                                   ? Theme.of(context).textTheme.titleMedium
-                                  : Theme.of(context).textTheme.titleLarge)
+                                  : Theme.of(context).textTheme.headlineMedium)
                               ?.copyWith(
                             color: c.spendingAccountAccentPrimary,
                             fontWeight: FontWeight.w700,
@@ -946,7 +994,7 @@ class _AccountCard extends StatelessWidget {
                           text: account.balanceMajor,
                           style: (compact
                                   ? Theme.of(context).textTheme.headlineMedium
-                                  : Theme.of(context).textTheme.displayMedium)
+                                  : Theme.of(context).textTheme.displayLarge)
                               ?.copyWith(
                             color: c.spendingAccountAccentPrimary,
                             fontWeight: FontWeight.w800,
@@ -957,7 +1005,7 @@ class _AccountCard extends StatelessWidget {
                           text: account.balanceMinor,
                           style: (compact
                                   ? Theme.of(context).textTheme.titleSmall
-                                  : Theme.of(context).textTheme.titleLarge)
+                                  : Theme.of(context).textTheme.headlineSmall)
                               ?.copyWith(
                             color: c.spendingAccountAccentPrimary
                                 .withValues(alpha: 0.7),
@@ -1054,86 +1102,106 @@ class _TransactionRow extends StatelessWidget {
         ? c.primary.withValues(alpha: 0.12)
         : c.spendingMerchantIconWarmSurface;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.sm),
-      child: Row(
-        children: <Widget>[
-          // ── Icon circle ──────────────────────────
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: () {
+        context.push(
+          '/spending/transaction/${transaction.id}',
+          extra: <String, dynamic>{
+            'merchant': transaction.merchant,
+            'category': transaction.category,
+            'amountLabel': transaction.amountLabel,
+            'amountMajor': transaction.amountMajor,
+            'amountMinor': transaction.amountMinor,
+            'currencySymbol': transaction.currencySymbol,
+            'isCredit': transaction.isCredit,
+            'iconText': transaction.iconText,
+            'icon': transaction.icon,
+            'date': transaction.date,
+          },
+        );
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.sm),
+        child: Row(
+          children: <Widget>[
+            // ── Icon circle ──────────────────────────
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: iconBg,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: iconContent,
             ),
-            alignment: Alignment.center,
-            child: iconContent,
-          ),
 
-          const SizedBox(width: PayaboSpacing.md),
+            const SizedBox(width: PayaboSpacing.md),
 
-          // ── Merchant + category ──────────────────
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  transaction.merchant,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: c.ink,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: PayaboSpacing.xxs),
-                Text(
-                  transaction.category,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: c.muted,
-                      ),
-                ),
-              ],
+            // ── Merchant + category ──────────────────
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    transaction.merchant,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: c.ink,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.xxs),
+                  Text(
+                    transaction.category,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: c.muted,
+                        ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          const SizedBox(width: PayaboSpacing.md),
+            const SizedBox(width: PayaboSpacing.md),
 
-          // ── Amount (Cleo-style split rendering) ──
-          RichText(
-            text: TextSpan(
-              children: <InlineSpan>[
-                TextSpan(
-                  text: transaction.isCredit ? '+' : '',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: transaction.isCredit ? c.success : c.accentBrown,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                TextSpan(
-                  text: transaction.currencySymbol,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: transaction.isCredit ? c.success : c.accentBrown,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                TextSpan(
-                  text: transaction.amountMajor,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: transaction.isCredit ? c.success : c.accentBrown,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                TextSpan(
-                  text: transaction.amountMinor,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: (transaction.isCredit ? c.success : c.accentBrown)
-                            .withValues(alpha: 0.6),
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
+            // ── Amount (Cleo-style split rendering) ──
+            RichText(
+              text: TextSpan(
+                children: <InlineSpan>[
+                  TextSpan(
+                    text: transaction.isCredit ? '+' : '',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: transaction.isCredit ? c.success : c.accentBrown,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  TextSpan(
+                    text: transaction.currencySymbol,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: transaction.isCredit ? c.success : c.accentBrown,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  TextSpan(
+                    text: transaction.amountMajor,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: transaction.isCredit ? c.success : c.accentBrown,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  TextSpan(
+                    text: transaction.amountMinor,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: (transaction.isCredit ? c.success : c.accentBrown)
+                              .withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1215,6 +1283,7 @@ class _TransactionRowData {
     required this.amountMinor,
     required this.currencySymbol,
     required this.isCredit,
+    required this.date,
     this.iconText,
     this.icon,
   });
@@ -1227,6 +1296,7 @@ class _TransactionRowData {
   final String amountMinor;
   final String currencySymbol;
   final bool isCredit;
+  final DateTime date;
   final String? iconText;
   final IconData? icon;
 }
