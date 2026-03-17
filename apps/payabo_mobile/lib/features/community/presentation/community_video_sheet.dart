@@ -63,11 +63,12 @@ class _CommunityVideoSheetState extends State<_CommunityVideoSheet>
 
     _controller = YoutubePlayerController.fromVideoId(
       videoId: widget.video.youtubeVideoId,
-      autoPlay: false,
+      autoPlay: true,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
         mute: false,
+        origin: 'https://www.youtube-nocookie.com',
       ),
     );
 
