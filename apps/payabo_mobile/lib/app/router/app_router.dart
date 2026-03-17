@@ -16,6 +16,7 @@ import '../../features/auth/presentation/phone_code_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/chat/presentation/chat_history_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
+import '../../features/community/presentation/community_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/notifications/presentation/notification_center_screen.dart';
 import '../../features/payments/presentation/add_friend_screen.dart';
@@ -55,6 +56,7 @@ import '../../features/spending/presentation/spending_budget_screen.dart';
 import '../../features/spending/presentation/spending_category_detail_screen.dart';
 import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
 import '../../features/spending/presentation/spending_screen.dart';
+import '../../features/spending/presentation/transaction_detail_screen.dart';
 import '../auth/auth_controller.dart';
 import '../demo/demo_mode.dart';
 
@@ -264,6 +266,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
               const DashboardScreen(showEmptyState: true),
         ),
         GoRoute(
+          path: '/community',
+          name: 'community',
+          builder: (context, state) => const CommunityScreen(),
+        ),
+        GoRoute(
           path: '/spending',
           name: 'spending',
           builder: (context, state) => const SpendingScreen(),
@@ -319,6 +326,26 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           builder: (context, state) => SpendingMerchantDetailScreen(
             merchantId: state.pathParameters['merchantId'] ?? 'amazon',
           ),
+        ),
+        GoRoute(
+          path: '/spending/transaction/:transactionId',
+          name: 'spending-transaction-detail',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? const <String, dynamic>{};
+            return TransactionDetailScreen(
+              transactionId: state.pathParameters['transactionId'] ?? '',
+              merchant: extra['merchant'] as String?,
+              category: extra['category'] as String?,
+              amountLabel: extra['amountLabel'] as String?,
+              amountMajor: extra['amountMajor'] as String?,
+              amountMinor: extra['amountMinor'] as String?,
+              currencySymbol: extra['currencySymbol'] as String?,
+              isCredit: extra['isCredit'] as bool?,
+              iconText: extra['iconText'] as String?,
+              icon: extra['icon'] as IconData?,
+              date: extra['date'] as DateTime?,
+            );
+          },
         ),
         GoRoute(
           path: '/chat',

@@ -992,6 +992,8 @@ class _DashboardStatsSheet extends StatelessWidget {
             const SizedBox(height: PayaboSpacing.md),
             _SupportObligationsCard(items: supportObligations),
           ],
+          const SizedBox(height: PayaboSpacing.xl),
+          const _DashboardCommunityCard(),
         ],
       ),
     );
@@ -2526,6 +2528,79 @@ class _EmptyPanel extends StatelessWidget {
                 onPressed: () {},
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardCommunityCard extends StatelessWidget {
+  const _DashboardCommunityCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    return GestureDetector(
+      onTap: () => context.push('/community'),
+      child: Container(
+        padding: const EdgeInsets.all(PayaboSpacing.xl),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: <Color>[
+              c.primary.withValues(alpha: 0.12),
+              c.primary.withValues(alpha: 0.04),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: PayaboRadii.radiusLg,
+          border: Border.all(color: c.primary.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: c.primary.withValues(alpha: 0.15),
+                borderRadius: PayaboRadii.radiusLg,
+              ),
+              child: Icon(
+                Icons.play_circle_outline_rounded,
+                color: c.primary,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: PayaboSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Community & Guides',
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: c.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.xxs),
+                  Text(
+                    'Video guides, tips and latest news',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: c.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: c.primary,
+            ),
           ],
         ),
       ),
