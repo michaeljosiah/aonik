@@ -329,7 +329,11 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
         // Assert
         syncResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         synced.Should().NotBeNull();
-        synced!.TransactionsAdded.Should().Be(2);
+        // The initial sync during exchange already persisted transactions and advanced
+        // the cursor, so a subsequent sync returns no new data from the provider.
+        synced!.TransactionsAdded.Should().Be(0);
+        synced.TransactionsUpdated.Should().Be(0);
+        synced.TransactionsRemoved.Should().Be(0);
         synced.SyncStatus.Should().Be("TransactionsSyncComplete");
 
         transactionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);

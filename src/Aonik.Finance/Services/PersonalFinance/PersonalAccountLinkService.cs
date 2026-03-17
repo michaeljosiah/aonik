@@ -9,6 +9,7 @@ using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
@@ -22,6 +23,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private readonly FinancialConnectionTransactionSyncOrchestrator _transactionSyncOrchestrator;
     private readonly FinancialConnectionSyncOptions _syncOptions;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
+    private readonly ILogger<PersonalAccountLinkService> _logger;
 
     public PersonalAccountLinkService(
         FinanceDbContext financeDbContext,
@@ -31,7 +33,8 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
         FinancialConnectionTransactionSyncOrchestrator transactionSyncOrchestrator,
         Microsoft.Extensions.Options.IOptions<FinancialConnectionSyncOptions> syncOptions,
-        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator,
+        ILogger<PersonalAccountLinkService> logger)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
@@ -41,6 +44,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         _transactionSyncOrchestrator = transactionSyncOrchestrator;
         _syncOptions = syncOptions.Value;
         _cacheInvalidator = cacheInvalidator;
+        _logger = logger;
     }
 
     public async Task<AccountLinkSessionResponse> CreateSessionAsync(
@@ -176,6 +180,26 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+
+        // Trigger initial transaction sync so transactions are available immediately
+        // after linking. Failures are non-fatal — transactions will arrive on the
+        // next scheduled sync or via provider webhook.
+        try
+        {
+            await _transactionSyncOrchestrator.SyncConnectionTransactionsAsync(
+                tenantId,
+                userId,
+                connection.Id,
+                "initial_link",
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Initial transaction sync failed for connection {ConnectionId}; " +
+                "transactions will arrive on next scheduled sync.",
+                connection.Id);
+        }
 
         var response = await BuildConnectionResponseAsync(
             connection,

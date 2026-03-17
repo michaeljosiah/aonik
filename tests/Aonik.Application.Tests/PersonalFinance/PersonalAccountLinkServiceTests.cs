@@ -253,7 +253,8 @@ public class PersonalAccountLinkServiceTests
             new[] { gateway },
             orchestrator,
             syncOptions,
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            NullLogger<PersonalAccountLinkService>.Instance);
     }
 
     [Fact]
@@ -618,13 +619,16 @@ public class PersonalAccountLinkServiceTests
         var exchange = await service.ExchangeSessionAsync(
             new ExchangeAccountLinkSessionRequest(session.AccountLinkSessionId, "sync1234"));
 
+        // The initial sync during exchange already persisted transactions.
+        // A subsequent sync sees them as existing and updates rather than adds.
+
         // Act
         var syncResult = await service.SyncConnectionTransactionsAsync(exchange!.Connection.ConnectionId);
 
         // Assert
         syncResult.Should().NotBeNull();
-        syncResult!.TransactionsAdded.Should().Be(2);
-        syncResult.TransactionsUpdated.Should().Be(0);
+        syncResult!.TransactionsUpdated.Should().Be(2);
+        syncResult.TransactionsAdded.Should().Be(0);
         syncResult.TransactionsRemoved.Should().Be(0);
         syncResult.NextCursor.Should().Be("cursor-sync1234-1");
 
