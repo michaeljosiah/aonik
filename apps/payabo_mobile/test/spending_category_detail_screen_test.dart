@@ -57,4 +57,34 @@ void main() {
     expect(find.text('No shopping transactions yet'), findsOneWidget);
     expect(find.byType(LineChart), findsNothing);
   });
+
+  testWidgets(
+      'spending category detail shows live empty state when not in demo mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const SpendingCategoryDetailScreen(categoryId: 'shopping'),
+        isDemo: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Header should still show the category title.
+    expect(find.text('Shopping'), findsOneWidget);
+
+    // Should show the live-mode empty state card.
+    expect(find.text('No shopping data yet'), findsOneWidget);
+    expect(
+      find.text(
+        'Connect a bank account to see your spending insights for shopping here.',
+      ),
+      findsOneWidget,
+    );
+
+    // Should NOT show any populated demo data.
+    expect(find.text('March spend'), findsNothing);
+    expect(find.byType(LineChart), findsNothing);
+    expect(find.text('Uber Eats'), findsNothing);
+    expect(find.text('1 active spending alert'), findsNothing);
+  });
 }

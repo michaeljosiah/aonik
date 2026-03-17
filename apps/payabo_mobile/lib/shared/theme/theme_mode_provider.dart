@@ -36,13 +36,13 @@ Future<ThemeMode> loadInitialThemeMode() async {
     case 'light':
       return ThemeMode.light;
     default:
-      return ThemeMode.light;
+      return ThemeMode.dark;
   }
 }
 
 /// Override this in [ProviderScope.overrides] during bootstrap.
 final Provider<ThemeMode> initialThemeModeProvider = Provider<ThemeMode>(
-  (Ref ref) => ThemeMode.light,
+  (Ref ref) => ThemeMode.dark,
 );
 
 /// The live theme-mode provider used by [PayaboApp].

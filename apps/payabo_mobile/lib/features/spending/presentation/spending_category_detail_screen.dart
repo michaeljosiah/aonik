@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../app/demo/demo_mode.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
@@ -29,11 +30,12 @@ class _SpendingCategoryDetailScreenState
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final isDemo = ref.watch(isDemoProvider);
     final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final _SpendingCategoryDetailData detail =
         _SpendingCategoryDetailData.fromId(widget.categoryId);
     final _SpendingCategoryTransaction? transaction =
-        isFreshDemo ? null : detail.transactions.first;
+        (isDemo && !isFreshDemo) ? detail.transactions.first : null;
 
     return Scaffold(
       backgroundColor: c.surfaceWarm,
@@ -57,7 +59,9 @@ class _SpendingCategoryDetailScreenState
                     PayaboSpacing.x4,
                   ),
                   children: <Widget>[
-                    if (isFreshDemo)
+                    if (!isDemo)
+                      _LiveModeEmptyState(detail: detail)
+                    else if (isFreshDemo)
                       _FreshSpendingDetailState(detail: detail)
                     else ...<Widget>[
                       Row(
@@ -187,6 +191,74 @@ class _SpendingCategoryDetailScreenState
       ),
       bottomNavigationBar: const PayaboPrimaryAppShell(
         destination: PayaboPrimaryDestination.spending,
+      ),
+    );
+  }
+}
+
+class _LiveModeEmptyState extends StatelessWidget {
+  const _LiveModeEmptyState({required this.detail});
+
+  final _SpendingCategoryDetailData detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surfaceBase,
+        borderRadius: PayaboRadii.radiusLg,
+        boxShadow: PayaboShadows.soft,
+      ),
+      padding: const EdgeInsets.all(PayaboSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: c.background,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c.border),
+                ),
+                child: Icon(
+                  detail.icon,
+                  color: c.primary,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: PayaboSpacing.md),
+              Expanded(
+                child: Text(
+                  'No ${detail.title.toLowerCase()} data yet',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: c.accentBrown,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'Connect a bank account to see your spending insights for ${detail.title.toLowerCase()} here.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: c.muted,
+                  height: 1.45,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'Once your transactions are imported, charts, alerts, and breakdowns will appear automatically.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: c.chatTextSecondary,
+                ),
+          ),
+        ],
       ),
     );
   }

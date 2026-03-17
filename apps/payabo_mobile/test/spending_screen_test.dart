@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
+import 'package:payabo_mobile/app/demo/demo_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_accounts_screen.dart';
@@ -14,27 +15,27 @@ import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 import 'test_helpers.dart';
 
 void main() {
-  testWidgets('spending screen renders mocked sections',
+  testWidgets('spending screen shows account cards and transactions in demo mode',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const SpendingScreen()));
     await tester.pumpAndSettle();
 
+    // Header + section pills
     expect(find.text('Spend'), findsOneWidget);
     expect(find.text('Transactions'), findsOneWidget);
-    expect(find.text('Overview'), findsNothing);
-    expect(find.text('Your spending'), findsNothing);
-    expect(find.text('Your budget'), findsNothing);
-    expect(find.text('Spent this month'), findsOneWidget);
 
-    final Finder primaryList = find.byType(Scrollable).last;
+    // Account card content — both cards may be partially visible in PageView
+    expect(find.text('Current'), findsAtLeast(1));
+    expect(find.text('Balance'), findsAtLeast(1));
 
-    await tester.drag(primaryList, const Offset(0, -520));
-    await tester.pumpAndSettle();
-    expect(find.text('Categories'), findsOneWidget);
+    // "Recent transactions" heading
+    expect(find.text('Recent transactions'), findsOneWidget);
 
-    await tester.drag(primaryList, const Offset(0, -240));
-    await tester.pumpAndSettle();
-    expect(find.text('Finances'), findsOneWidget);
+    // First batch of demo transactions (current account)
+    expect(find.text('Open Rent'), findsAtLeast(1));
+    expect(find.text('Housing'), findsAtLeast(1));
+    expect(find.text('Amazon'), findsOneWidget);
+    expect(find.text('Shopping'), findsOneWidget);
   });
 
   testWidgets('spending screen shows empty state in fresh demo mode',
@@ -47,9 +48,71 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Fresh spending state'), findsOneWidget);
-    expect(find.text('No spending activity yet'), findsOneWidget);
-    expect(find.text('Finances'), findsNothing);
+    // Simi top bar label present (empty state shows "Simi" instead of "Spend").
+    // Section tabs are hidden in the empty state.
+    expect(find.text('Simi'), findsOneWidget);
+    expect(find.text('Transactions'), findsNothing);
+    expect(find.text('Budgets'), findsNothing);
+
+    // Simi AI typewriter message should be fully revealed after pumpAndSettle
+    // (the fresh-demo message mentions "demo mode" and "clean slate").
+    expect(find.textContaining('demo mode'), findsOneWidget);
+
+    // Simi attribution helper text
+    expect(find.text('Simi, your AI assistant'), findsOneWidget);
+
+    // Fixed bottom panel — no scrolling needed, panel is static.
+    expect(find.text('Get started'), findsOneWidget);
+    expect(find.text('Link an account'), findsOneWidget);
+    expect(find.text('Add account manually'), findsOneWidget);
+
+    // Fresh-demo helper link
+    expect(find.text('Open profile settings'), findsOneWidget);
+
+    // No account cards or transactions should appear
+    expect(find.text('Current'), findsNothing);
+    expect(find.text('Open Rent'), findsNothing);
+  });
+
+  testWidgets('spending screen shows live empty state when not in demo mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const SpendingScreen(),
+        isDemo: false,
+        environment: const AppEnvironment(
+          flavor: AppFlavor.dev,
+          useMocks: false,
+          apiBaseUrl: 'https://api.dev.payabo.local',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Simi top bar label present (empty state shows "Simi" instead of "Spend").
+    // Section tabs are hidden in the empty state.
+    expect(find.text('Simi'), findsOneWidget);
+    expect(find.text('Transactions'), findsNothing);
+
+    // Simi AI typewriter message should be fully revealed after pumpAndSettle
+    // (the live-empty message mentions "link a bank account").
+    expect(find.textContaining('link a bank account'), findsOneWidget);
+
+    // Simi attribution helper text
+    expect(find.text('Simi, your AI assistant'), findsOneWidget);
+
+    // Fixed bottom panel — all actions visible without scrolling.
+    expect(find.text('Get started'), findsOneWidget);
+    expect(find.text('Link an account'), findsOneWidget);
+    expect(find.text('Add account manually'), findsOneWidget);
+
+    // No fresh-demo link in live mode
+    expect(find.text('Open profile settings'), findsNothing);
+
+    // No demo data should leak through
+    expect(find.text('Open Rent'), findsNothing);
+    expect(find.text('Amazon'), findsNothing);
+    expect(find.text('Current'), findsNothing);
   });
 
   testWidgets('budgets pill opens the budget screen',
@@ -73,6 +136,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          isDemoProvider.overrideWith((_) => true),
           appEnvironmentProvider.overrideWithValue(
             const AppEnvironment(
               flavor: AppFlavor.dev,
@@ -124,6 +188,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          isDemoProvider.overrideWith((_) => true),
           appEnvironmentProvider.overrideWithValue(
             const AppEnvironment(
               flavor: AppFlavor.dev,

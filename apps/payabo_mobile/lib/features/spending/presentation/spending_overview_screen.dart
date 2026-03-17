@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../app/demo/demo_mode.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
@@ -15,29 +16,43 @@ import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'widgets/spending_section_pills.dart';
 
-List<_AccountSnapshot> _accountSnapshots(PayaboColorResolver c) =>
+// ─────────────────────────────────────────────────────────
+//  Section visibility
+// ─────────────────────────────────────────────────────────
+
+const List<SpendingSection> _visibleOverviewSections = <SpendingSection>[
+  SpendingSection.transactions,
+  SpendingSection.budgets,
+  SpendingSection.accounts,
+];
+
+// ─────────────────────────────────────────────────────────
+//  Demo data — only used when isDemoProvider is true
+// ─────────────────────────────────────────────────────────
+
+List<_AccountSnapshot> _demoAccountSnapshots(PayaboColorResolver c) =>
     <_AccountSnapshot>[
       _AccountSnapshot(
         label: 'Current account',
-        balanceLabel: '£3,842.16',
+        balanceLabel: '\u00A33,842.16',
         statusLabel: 'Primary',
-        changeLabel: '+£186.40 this week',
+        changeLabel: '+\u00A3186.40 this week',
         gradientColors: c.spendingAccountGradientPrimary,
         accentColor: c.spendingAccountAccentPrimary,
         icon: Icons.account_balance_wallet_outlined,
       ),
       _AccountSnapshot(
         label: 'Rainy day fund',
-        balanceLabel: '£6,240.00',
+        balanceLabel: '\u00A36,240.00',
         statusLabel: 'Savings',
-        changeLabel: '+£120.00 auto-saved',
+        changeLabel: '+\u00A3120.00 auto-saved',
         gradientColors: c.spendingAccountGradientSavings,
         accentColor: c.spendingAccountAccentSavings,
         icon: Icons.savings_outlined,
       ),
       _AccountSnapshot(
         label: 'Bills pocket',
-        balanceLabel: '£1,090.30',
+        balanceLabel: '\u00A31,090.30',
         statusLabel: 'Bills',
         changeLabel: 'Covers 6 upcoming payments',
         gradientColors: c.spendingAccountGradientBills,
@@ -46,46 +61,48 @@ List<_AccountSnapshot> _accountSnapshots(PayaboColorResolver c) =>
       ),
     ];
 
-List<_BreakdownSlice> _breakdownSlices(PayaboColorResolver c) =>
+List<_BreakdownSlice> _demoBreakdownSlices(PayaboColorResolver c) =>
     <_BreakdownSlice>[
       _BreakdownSlice(
         label: 'Food',
-        amountLabel: '£570',
+        amountLabel: '\u00A3570',
         value: 31,
         color: c.primary,
       ),
       _BreakdownSlice(
         label: 'Bills',
-        amountLabel: '£410',
+        amountLabel: '\u00A3410',
         value: 22,
         color: c.spendingSliceBills,
       ),
       _BreakdownSlice(
         label: 'Transport',
-        amountLabel: '£312',
+        amountLabel: '\u00A3312',
         value: 17,
         color: c.success,
       ),
       _BreakdownSlice(
         label: 'Shopping',
-        amountLabel: '£260',
+        amountLabel: '\u00A3260',
         value: 14,
         color: c.info,
       ),
       _BreakdownSlice(
         label: 'Other',
-        amountLabel: '£288',
+        amountLabel: '\u00A3288',
         value: 16,
         color: c.spendingSliceOther,
       ),
     ];
 
-List<_RecentTransactionPreview> _recentTransactions(PayaboColorResolver c) =>
+List<_RecentTransactionPreview> _demoRecentTransactions(
+  PayaboColorResolver c,
+) =>
     <_RecentTransactionPreview>[
       _RecentTransactionPreview(
         merchant: 'Uber',
         category: 'Pending ride',
-        amountLabel: '£14.20',
+        amountLabel: '\u00A314.20',
         iconText: 'U',
         iconBackground: c.spendingMerchantIconDark,
         iconForeground: c.surfaceBase,
@@ -93,7 +110,7 @@ List<_RecentTransactionPreview> _recentTransactions(PayaboColorResolver c) =>
       _RecentTransactionPreview(
         merchant: 'Amazon',
         category: 'Shopping',
-        amountLabel: '£11.00',
+        amountLabel: '\u00A311.00',
         iconText: 'a',
         iconBackground: c.spendingMerchantIconWarmSurface,
         iconForeground: c.spendingMerchantIconDark,
@@ -101,36 +118,40 @@ List<_RecentTransactionPreview> _recentTransactions(PayaboColorResolver c) =>
       _RecentTransactionPreview(
         merchant: 'Nando\'s',
         category: 'Food and dining',
-        amountLabel: '£28.45',
+        amountLabel: '\u00A328.45',
         iconText: 'N',
         iconBackground: c.spendingMerchantIconWarmAccent,
         iconForeground: c.spendingMerchantIconWarmText,
       ),
     ];
 
-List<_OverviewAllocationSlice> _overviewAllocationSlices(
+List<_OverviewAllocationSlice> _demoOverviewAllocationSlices(
   PayaboColorResolver c,
 ) =>
     <_OverviewAllocationSlice>[
       _OverviewAllocationSlice(
         label: 'Income',
-        amountLabel: '£4,232.24',
+        amountLabel: '\u00A34,232.24',
         value: 4232.24,
         color: c.success,
       ),
       _OverviewAllocationSlice(
         label: 'Expenses',
-        amountLabel: '£2,660.12',
+        amountLabel: '\u00A32,660.12',
         value: 2660.12,
         color: c.primary,
       ),
       _OverviewAllocationSlice(
         label: 'Investments',
-        amountLabel: '£1,754.64',
+        amountLabel: '\u00A31,754.64',
         value: 1754.64,
         color: c.info,
       ),
     ];
+
+// ─────────────────────────────────────────────────────────
+//  Screen
+// ─────────────────────────────────────────────────────────
 
 class SpendingOverviewScreen extends ConsumerStatefulWidget {
   const SpendingOverviewScreen({super.key});
@@ -160,17 +181,31 @@ class _SpendingOverviewScreenState
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
-    final accountSnapshots = _accountSnapshots(c);
-    final breakdownSlices = _breakdownSlices(c);
-    final transactions = _recentTransactions(c);
-    final allocationSlices = _overviewAllocationSlices(c);
+    final isDemo = ref.watch(isDemoProvider);
+    final isFreshDemo =
+        isDemo && ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
+
+    // In non-demo mode these would come from the API via a repository.
+    // For now the screen shows empty states when not in demo mode.
+    final bool showPopulated = isDemo && !isFreshDemo;
+
+    final accountSnapshots =
+        showPopulated ? _demoAccountSnapshots(c) : <_AccountSnapshot>[];
+    final breakdownSlices =
+        showPopulated ? _demoBreakdownSlices(c) : <_BreakdownSlice>[];
+    final transactions = showPopulated
+        ? _demoRecentTransactions(c)
+        : <_RecentTransactionPreview>[];
+    final allocationSlices = showPopulated
+        ? _demoOverviewAllocationSlices(c)
+        : <_OverviewAllocationSlice>[];
 
     return Scaffold(
       backgroundColor: c.surfaceWarm,
       body: DecoratedBox(
         decoration: BoxDecoration(gradient: c.warmScreenGradient),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: <Widget>[
               _OverviewHeader(onSectionSelected: _handleSectionSelected),
@@ -182,107 +217,17 @@ class _SpendingOverviewScreenState
                     PayaboSpacing.xl,
                     PayaboSpacing.x4,
                   ),
-                  children: isFreshDemo
-                      ? const <Widget>[
-                          _FreshOverviewStateCard(),
-                        ]
-                      : <Widget>[
-                          SizedBox(
-                            height: 204,
-                            child: PageView.builder(
-                              controller: _accountController,
-                              itemCount: accountSnapshots.length,
-                              onPageChanged: (int index) {
-                                setState(() => _accountPage = index);
-                              },
-                              itemBuilder: (BuildContext context, int index) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(
-                                    right: PayaboSpacing.md,
-                                  ),
-                                  child: _AccountSnapshotCard(
-                                    snapshot: accountSnapshots[index],
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          _AccountPagerDots(
-                            count: accountSnapshots.length,
-                            activeIndex: _accountPage,
-                          ),
-                          const SizedBox(height: PayaboSpacing.x2),
-                          _OverviewQuickActions(
-                            onAddAccountTap: () => context.go('/spending/accounts'),
-                            onManageAccountsTap: () =>
-                                context.go('/spending/accounts'),
-                          ),
-                          const SizedBox(height: PayaboSpacing.xl),
-                          const _SectionHeading(
-                            title: 'Snapshot',
-                            subtitle: 'The numbers that matter this month',
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          const Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: _MetricCard(
-                                  label: 'Total balance',
-                                  amountLabel: '£11,172.46',
-                                  trendLabel: '+4.6% vs last month',
-                                  icon: Icons.stacked_line_chart,
-                                ),
-                              ),
-                              SizedBox(width: PayaboSpacing.md),
-                              Expanded(
-                                child: _MetricCard(
-                                  label: 'Net worth',
-                                  amountLabel: '£18,406.20',
-                                  trendLabel: '+£620 this month',
-                                  icon: Icons.diamond_outlined,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          const _SafeToSpendCard(),
-                          const SizedBox(height: PayaboSpacing.xl),
-                          const _SectionHeading(
-                            title: 'Monthly breakdown',
-                            subtitle: 'Where this month is going so far',
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          _MonthlyBreakdownCard(slices: breakdownSlices),
-                          const SizedBox(height: PayaboSpacing.xl),
-                          const _SectionHeading(
-                            title: 'Spending trend',
-                            subtitle: 'Week-by-week movement this month',
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          const _TrendCard(),
-                          const SizedBox(height: PayaboSpacing.xl),
-                          const _SectionHeading(
-                            title: 'Quick insights',
-                            subtitle:
-                                'AI-generated nudges from your spending patterns',
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          const _InsightCard(),
-                          const SizedBox(height: PayaboSpacing.xl),
-                          _MonthlyOverviewCard(slices: allocationSlices),
-                          const SizedBox(height: PayaboSpacing.xl),
-                          const _SectionHeading(
-                            title: 'Recent transactions',
-                            subtitle:
-                                'A quick preview before you dive into everything',
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          _RecentTransactionsCard(
-                            transactions: transactions,
-                            onViewAllTap: () => context.go('/spending'),
-                          ),
-                        ],
+                  children: _buildBody(
+                    context: context,
+                    c: c,
+                    isDemo: isDemo,
+                    isFreshDemo: isFreshDemo,
+                    showPopulated: showPopulated,
+                    accountSnapshots: accountSnapshots,
+                    breakdownSlices: breakdownSlices,
+                    transactions: transactions,
+                    allocationSlices: allocationSlices,
+                  ),
                 ),
               ),
             ],
@@ -293,6 +238,120 @@ class _SpendingOverviewScreenState
         destination: PayaboPrimaryDestination.spending,
       ),
     );
+  }
+
+  List<Widget> _buildBody({
+    required BuildContext context,
+    required PayaboColorResolver c,
+    required bool isDemo,
+    required bool isFreshDemo,
+    required bool showPopulated,
+    required List<_AccountSnapshot> accountSnapshots,
+    required List<_BreakdownSlice> breakdownSlices,
+    required List<_RecentTransactionPreview> transactions,
+    required List<_OverviewAllocationSlice> allocationSlices,
+  }) {
+    // Fresh demo → single explanatory card
+    if (isFreshDemo) {
+      return const <Widget>[_FreshOverviewStateCard()];
+    }
+
+    // Live mode with no data → empty state
+    if (!isDemo) {
+      return const <Widget>[_LiveEmptyOverviewState()];
+    }
+
+    // Populated demo mode → full showcase
+    return <Widget>[
+      SizedBox(
+        height: 204,
+        child: PageView.builder(
+          controller: _accountController,
+          itemCount: accountSnapshots.length,
+          onPageChanged: (int index) {
+            setState(() => _accountPage = index);
+          },
+          itemBuilder: (BuildContext context, int index) {
+            return Padding(
+              padding: const EdgeInsets.only(right: PayaboSpacing.md),
+              child: _AccountSnapshotCard(snapshot: accountSnapshots[index]),
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: PayaboSpacing.md),
+      _AccountPagerDots(
+        count: accountSnapshots.length,
+        activeIndex: _accountPage,
+      ),
+      const SizedBox(height: PayaboSpacing.x2),
+      _OverviewQuickActions(
+        onAddAccountTap: () => context.go('/spending/accounts'),
+        onManageAccountsTap: () => context.go('/spending/accounts'),
+      ),
+      const SizedBox(height: PayaboSpacing.xl),
+      const _SectionHeading(
+        title: 'Snapshot',
+        subtitle: 'The numbers that matter this month',
+      ),
+      const SizedBox(height: PayaboSpacing.md),
+      const Row(
+        children: <Widget>[
+          Expanded(
+            child: _MetricCard(
+              label: 'Total balance',
+              amountLabel: '\u00A311,172.46',
+              trendLabel: '+4.6% vs last month',
+              icon: Icons.stacked_line_chart,
+            ),
+          ),
+          SizedBox(width: PayaboSpacing.md),
+          Expanded(
+            child: _MetricCard(
+              label: 'Net worth',
+              amountLabel: '\u00A318,406.20',
+              trendLabel: '+\u00A3620 this month',
+              icon: Icons.diamond_outlined,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: PayaboSpacing.md),
+      const _SafeToSpendCard(),
+      const SizedBox(height: PayaboSpacing.xl),
+      const _SectionHeading(
+        title: 'Monthly breakdown',
+        subtitle: 'Where this month is going so far',
+      ),
+      const SizedBox(height: PayaboSpacing.md),
+      _MonthlyBreakdownCard(slices: breakdownSlices),
+      const SizedBox(height: PayaboSpacing.xl),
+      const _SectionHeading(
+        title: 'Spending trend',
+        subtitle: 'Week-by-week movement this month',
+      ),
+      const SizedBox(height: PayaboSpacing.md),
+      const _TrendCard(),
+      const SizedBox(height: PayaboSpacing.xl),
+      const _SectionHeading(
+        title: 'Quick insights',
+        subtitle: 'AI-generated nudges from your spending patterns',
+      ),
+      const SizedBox(height: PayaboSpacing.md),
+      const _InsightCard(),
+      const SizedBox(height: PayaboSpacing.xl),
+      _MonthlyOverviewCard(slices: allocationSlices),
+      const SizedBox(height: PayaboSpacing.xl),
+      const _SectionHeading(
+        title: 'Recent transactions',
+        subtitle: 'A quick preview before you dive into everything',
+      ),
+      const SizedBox(height: PayaboSpacing.md),
+      _RecentTransactionsCard(
+        transactions: transactions,
+        onViewAllTap: () => context.go('/spending'),
+      ),
+    ];
   }
 
   void _handleSectionSelected(SpendingSection section) {
@@ -312,6 +371,10 @@ class _SpendingOverviewScreenState
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Header
+// ─────────────────────────────────────────────────────────
+
 class _OverviewHeader extends StatelessWidget {
   const _OverviewHeader({required this.onSectionSelected});
 
@@ -329,11 +392,16 @@ class _OverviewHeader extends StatelessWidget {
           ),
       bottom: SpendingSectionPills(
         selectedSection: SpendingSection.overview,
+        sections: _visibleOverviewSections,
         onSelected: onSectionSelected,
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Empty states
+// ─────────────────────────────────────────────────────────
 
 class _FreshOverviewStateCard extends StatelessWidget {
   const _FreshOverviewStateCard();
@@ -389,6 +457,75 @@ class _FreshOverviewStateCard extends StatelessWidget {
     );
   }
 }
+
+class _LiveEmptyOverviewState extends StatelessWidget {
+  const _LiveEmptyOverviewState();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return PayaboCard(
+      backgroundColor: c.surfaceCardElevated,
+      padding: const EdgeInsets.all(PayaboSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: c.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              Icons.insights_outlined,
+              color: c.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+          Text(
+            'No spending data yet',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: c.accentBrown,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.sm),
+          Text(
+            'Link a bank account to see your balances, monthly breakdowns, spending trends, and AI insights here.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: c.muted,
+                  height: 1.45,
+                ),
+          ),
+          const SizedBox(height: PayaboSpacing.xl),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: FilledButton.icon(
+              onPressed: () => context.go('/spending/accounts'),
+              icon: const Icon(Icons.add),
+              label: const Text('Link account'),
+              style: FilledButton.styleFrom(
+                backgroundColor: c.primary,
+                foregroundColor: c.surfaceBase,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Accounts + Pager dots
+// ─────────────────────────────────────────────────────────
 
 class _AccountPagerDots extends StatelessWidget {
   const _AccountPagerDots({required this.count, required this.activeIndex});
@@ -496,6 +633,10 @@ class _OverviewQuickAction extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Section heading
+// ─────────────────────────────────────────────────────────
+
 class _SectionHeading extends StatelessWidget {
   const _SectionHeading({required this.title, required this.subtitle});
 
@@ -526,6 +667,10 @@ class _SectionHeading extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Account snapshot card
+// ─────────────────────────────────────────────────────────
 
 class _AccountSnapshotCard extends StatelessWidget {
   const _AccountSnapshotCard({required this.snapshot});
@@ -612,6 +757,10 @@ class _AccountSnapshotCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Metric cards
+// ─────────────────────────────────────────────────────────
+
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.label,
@@ -665,6 +814,10 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Safe to spend
+// ─────────────────────────────────────────────────────────
+
 class _SafeToSpendCard extends StatelessWidget {
   const _SafeToSpendCard();
 
@@ -694,7 +847,7 @@ class _SafeToSpendCard extends StatelessWidget {
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
                   Text(
-                    '£820.00',
+                    '\u00A3820.00',
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -730,6 +883,10 @@ class _SafeToSpendCard extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Monthly breakdown (pie chart)
+// ─────────────────────────────────────────────────────────
 
 class _MonthlyBreakdownCard extends StatelessWidget {
   const _MonthlyBreakdownCard({required this.slices});
@@ -773,7 +930,7 @@ class _MonthlyBreakdownCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
                     Text(
-                      '£1,840',
+                      '\u00A31,840',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: c.accentBrown,
                             fontWeight: FontWeight.w800,
@@ -845,6 +1002,10 @@ class _BreakdownLegendRow extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Spending trend chart
+// ─────────────────────────────────────────────────────────
 
 class _TrendCard extends StatelessWidget {
   const _TrendCard();
@@ -946,7 +1107,8 @@ class _OverviewTrendChart extends StatelessWidget {
           LineChartBarData(
             spots: _spots,
             isCurved: true,
-            gradient: LinearGradient(colors: <Color>[c.primary, c.primaryHover]),
+            gradient:
+                LinearGradient(colors: <Color>[c.primary, c.primaryHover]),
             barWidth: 4,
             isStrokeCapRound: true,
             dotData: FlDotData(
@@ -959,7 +1121,8 @@ class _OverviewTrendChart extends StatelessWidget {
               ) {
                 return FlDotCirclePainter(
                   radius: 4,
-                  color: index == _spots.length - 1 ? c.accentBrown : c.primary,
+                  color:
+                      index == _spots.length - 1 ? c.accentBrown : c.primary,
                   strokeWidth: 2,
                   strokeColor: c.surfaceBase,
                 );
@@ -990,7 +1153,7 @@ class _OverviewTrendChart extends StatelessWidget {
     return SideTitleWidget(
       meta: meta,
       child: Text(
-        '£${value.toInt()}',
+        '\u00A3${value.toInt()}',
         style: TextStyle(
           color: textColor,
           fontSize: 11,
@@ -1021,6 +1184,10 @@ class _OverviewTrendChart extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  AI insight card
+// ─────────────────────────────────────────────────────────
 
 class _InsightCard extends StatelessWidget {
   const _InsightCard();
@@ -1088,6 +1255,10 @@ class _InsightCard extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Monthly overview card (allocation ring)
+// ─────────────────────────────────────────────────────────
 
 class _MonthlyOverviewCard extends StatelessWidget {
   const _MonthlyOverviewCard({required this.slices});
@@ -1356,6 +1527,10 @@ class _OverviewAllocationRow extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Recent transactions
+// ─────────────────────────────────────────────────────────
+
 class _RecentTransactionsCard extends StatelessWidget {
   const _RecentTransactionsCard({
     required this.transactions,
@@ -1486,6 +1661,10 @@ class _RecentTransactionRow extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Data models
+// ─────────────────────────────────────────────────────────
 
 class _AccountSnapshot {
   const _AccountSnapshot({

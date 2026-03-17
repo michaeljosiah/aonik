@@ -36,4 +36,27 @@ void main() {
     expect(find.text('Current Account'), findsOneWidget);
     expect(find.text("That's all your transactions."), findsOneWidget);
   });
+
+  testWidgets(
+      'spending merchant detail shows live empty state when not in demo mode',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        const SpendingMerchantDetailScreen(merchantId: 'uber'),
+        isDemo: false,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Header should still show the merchant title.
+    expect(find.text('Uber'), findsOneWidget);
+
+    // Should show the live-mode empty state card.
+    expect(find.text('No uber data yet'), findsOneWidget);
+
+    // Should NOT show any populated demo data.
+    expect(find.text('March spend'), findsNothing);
+    expect(find.byType(LineChart), findsNothing);
+    expect(find.text('Current Account'), findsNothing);
+  });
 }
