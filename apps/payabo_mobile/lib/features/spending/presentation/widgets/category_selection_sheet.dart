@@ -238,84 +238,91 @@ class _CategorySelectionSheetState extends State<_CategorySelectionSheet> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      hintText: 'Category name',
-                      hintStyle: textTheme.bodyMedium?.copyWith(
-                        color: c.muted,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: c.borderWarm),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: c.primary),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: PayaboSpacing.lg,
-                        vertical: PayaboSpacing.md,
+              // Wrap content in a fixed-width SizedBox so that
+              // AlertDialog's internal IntrinsicWidth never queries
+              // the GridView (viewports can't return intrinsic sizes).
+              content: SizedBox(
+                width: 280,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    TextField(
+                      controller: controller,
+                      decoration: InputDecoration(
+                        hintText: 'Category name',
+                        hintStyle: textTheme.bodyMedium?.copyWith(
+                          color: c.muted,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: c.borderWarm),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: c.primary),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: PayaboSpacing.lg,
+                          vertical: PayaboSpacing.md,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: PayaboSpacing.lg),
+                    const SizedBox(height: PayaboSpacing.lg),
 
-                  Text(
-                    'Choose an icon',
-                    style: textTheme.titleSmall?.copyWith(
-                      color: c.accentBrown,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: PayaboSpacing.md),
-
-                  // Icon picker grid
-                  SizedBox(
-                    height: 180,
-                    child: GridView.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 5,
-                        mainAxisSpacing: PayaboSpacing.sm,
-                        crossAxisSpacing: PayaboSpacing.sm,
+                    Text(
+                      'Choose an icon',
+                      style: textTheme.titleSmall?.copyWith(
+                        color: c.accentBrown,
+                        fontWeight: FontWeight.w600,
                       ),
-                      itemCount: _availableIcons.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        final IconData iconData = _availableIcons[index];
-                        final bool isSelected = iconData == selectedIcon;
+                    ),
+                    const SizedBox(height: PayaboSpacing.md),
 
-                        return GestureDetector(
-                          onTap: () {
-                            setDialogState(
-                              () => selectedIcon = iconData,
-                            );
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? c.primary.withValues(alpha: 0.12)
-                                  : c.surfaceMuted,
-                              borderRadius: BorderRadius.circular(10),
-                              border: isSelected
-                                  ? Border.all(color: c.primary, width: 2)
-                                  : null,
+                    // Icon picker grid — height-constrained so it
+                    // scrolls within the fixed-width container.
+                    SizedBox(
+                      height: 180,
+                      child: GridView.builder(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          mainAxisSpacing: PayaboSpacing.sm,
+                          crossAxisSpacing: PayaboSpacing.sm,
+                        ),
+                        itemCount: _availableIcons.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final IconData iconData = _availableIcons[index];
+                          final bool isSelected = iconData == selectedIcon;
+
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(
+                                () => selectedIcon = iconData,
+                              );
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? c.primary.withValues(alpha: 0.12)
+                                    : c.surfaceMuted,
+                                borderRadius: BorderRadius.circular(10),
+                                border: isSelected
+                                    ? Border.all(color: c.primary, width: 2)
+                                    : null,
+                              ),
+                              child: Icon(
+                                iconData,
+                                size: 22,
+                                color:
+                                    isSelected ? c.primary : c.accentBrown,
+                              ),
                             ),
-                            child: Icon(
-                              iconData,
-                              size: 22,
-                              color:
-                                  isSelected ? c.primary : c.accentBrown,
-                            ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               actions: <Widget>[
                 TextButton(
@@ -331,14 +338,15 @@ class _CategorySelectionSheetState extends State<_CategorySelectionSheet> {
                   onPressed: () {
                     final String name = controller.text.trim();
                     if (name.isNotEmpty) {
+                      // Close the dialog first, then pop the sheet
+                      // on the next frame to avoid concurrent rebuild
+                      // + navigation causing semantics assertion.
                       Navigator.of(dialogContext).pop();
-                      setState(() {
-                        _categories.add(
-                          CategoryItem(name: name, icon: selectedIcon),
-                        );
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          Navigator.of(this.context).pop(name);
+                        }
                       });
-                      // Return the new category to the caller
-                      Navigator.of(this.context).pop(name);
                     }
                   },
                   style: FilledButton.styleFrom(
