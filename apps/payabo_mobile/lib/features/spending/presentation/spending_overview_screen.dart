@@ -15,6 +15,7 @@ import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
+import 'spending_accounts_state.dart';
 import 'widgets/spending_section_pills.dart';
 
 // ─────────────────────────────────────────────────────────
@@ -32,9 +33,13 @@ const List<SpendingSection> _visibleOverviewSections = <SpendingSection>[
 // ─────────────────────────────────────────────────────────
 
 /// Provides overview data from the spending repository.
+/// Watches [accountLinksSummaryProvider] so that connect / disconnect
+/// actions automatically invalidate this provider, causing the screen
+/// to re-query the repository (which filters by active connections).
 final _spendingOverviewFutureProvider =
     FutureProvider<SpendingOverviewData>((Ref ref) async {
   ref.watch(demoDataModeProvider);
+  ref.watch(accountLinksSummaryProvider);
   final repository = ref.watch(spendingRepositoryProvider);
   return repository.getOverview();
 });

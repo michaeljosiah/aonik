@@ -16,6 +16,20 @@ class MockAccountLinksRepository implements AccountLinksRepository {
 
   int _connectionSequence = 0;
 
+  /// Returns the set of connection IDs that are currently active (i.e. have at
+  /// least one linked account present in the mutable list). This synchronous
+  /// accessor avoids the need to `await getSummary()` when constructing
+  /// downstream mock repositories that filter by active connections.
+  Set<String> getActiveConnectionIds() {
+    final Set<String> ids = <String>{};
+    for (final AccountLinkItem item in _accounts) {
+      if (item.connectionId != null) {
+        ids.add(item.connectionId!);
+      }
+    }
+    return ids;
+  }
+
   @override
   Future<AccountLinksSummary> getSummary() async {
     await MockBehavior.delay();

@@ -9,6 +9,7 @@ import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
+import 'spending_accounts_state.dart';
 import 'widgets/category_selection_sheet.dart';
 
 // ─────────────────────────────────────────────────────────
@@ -16,10 +17,14 @@ import 'widgets/category_selection_sheet.dart';
 // ─────────────────────────────────────────────────────────
 
 /// Provides merchant history stats from the spending repository.
+///
+/// Watches [accountLinksSummaryProvider] so that connect / disconnect
+/// actions automatically invalidate this provider.
 final _merchantHistoryFutureProvider =
     FutureProvider.family<SpendingMerchantHistory, String>(
   (Ref ref, String merchantName) async {
     ref.watch(demoDataModeProvider);
+    ref.watch(accountLinksSummaryProvider);
     final repository = ref.watch(spendingRepositoryProvider);
     return repository.getMerchantHistory(merchantName);
   },

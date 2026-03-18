@@ -5,9 +5,48 @@ import '../mock_behavior.dart';
 class MockSpendingRepository implements SpendingRepository {
   MockSpendingRepository({
     this.demoDataMode = DemoDataMode.populated,
-  });
+    Set<String> Function()? activeConnectionIdsGetter,
+  })  : _activeConnectionIdsGetter = activeConnectionIdsGetter,
+        _accounts = demoDataMode == DemoDataMode.fresh
+            ? <SpendingAccountCard>[]
+            : List<SpendingAccountCard>.of(_seedAccounts),
+        _transactions = demoDataMode == DemoDataMode.fresh
+            ? <String, List<SpendingTransaction>>{}
+            : Map<String, List<SpendingTransaction>>.fromEntries(
+                _seedTransactions.entries.map(
+                  (MapEntry<String, List<SpendingTransaction>> entry) =>
+                      MapEntry<String, List<SpendingTransaction>>(
+                    entry.key,
+                    List<SpendingTransaction>.of(entry.value),
+                  ),
+                ),
+              ),
+        _overviewSnapshots = demoDataMode == DemoDataMode.fresh
+            ? <SpendingAccountSnapshot>[]
+            : List<SpendingAccountSnapshot>.of(_seedOverviewSnapshots);
 
   final DemoDataMode demoDataMode;
+
+  /// When non-null, called at query time to resolve the current set of active
+  /// connection IDs. Only accounts/transactions whose [connectionId] appears
+  /// in the returned set (or whose connectionId is null) are returned. This
+  /// enables cross-repository coordination: when an account link is
+  /// disconnected, the spending repository automatically filters out its data.
+  final Set<String> Function()? _activeConnectionIdsGetter;
+
+  final List<SpendingAccountCard> _accounts;
+  final Map<String, List<SpendingTransaction>> _transactions;
+  final List<SpendingAccountSnapshot> _overviewSnapshots;
+
+  // ─────────────────────────────────────────────────────────
+  //  Filtering helper
+  // ─────────────────────────────────────────────────────────
+
+  bool _isConnectionActive(String? connectionId) {
+    if (_activeConnectionIdsGetter == null) return true;
+    if (connectionId == null) return true;
+    return _activeConnectionIdsGetter().contains(connectionId);
+  }
 
   // ─────────────────────────────────────────────────────────
   //  Icon code points (MaterialIcons font family)
@@ -25,8 +64,6 @@ class MockSpendingRepository implements SpendingRepository {
   static const int _iconWalletOutlined = 0xee33;
   // Icons.savings_outlined
   static const int _iconSavingsOutlined = 0xf336;
-  // Icons.receipt_long_outlined
-  static const int _iconReceiptLongOutlined = 0xf2ef;
   // Icons.stacked_line_chart
   static const int _iconStackedLineChart = 0xe5f7;
   // Icons.diamond_outlined
@@ -37,10 +74,20 @@ class MockSpendingRepository implements SpendingRepository {
   static const int _iconCurrencyExchange = 0xf05b4;
 
   // ─────────────────────────────────────────────────────────
-  //  getAccounts
+  //  Connection IDs (must match mock_account_links_repository)
   // ─────────────────────────────────────────────────────────
 
-  static const List<SpendingAccountCard> _accounts = <SpendingAccountCard>[
+  static const String _connStarling = 'mock-connection-starling';
+  static const String _connAmex = 'mock-connection-amex';
+  static const String _connGtbank = 'mock-connection-gtbank';
+  static const String _connKuda = 'mock-connection-kuda';
+  static const String _connAccess = 'mock-connection-access';
+
+  // ─────────────────────────────────────────────────────────
+  //  Seed data — accounts
+  // ─────────────────────────────────────────────────────────
+
+  static const List<SpendingAccountCard> _seedAccounts = <SpendingAccountCard>[
     // ── UK accounts ──
     SpendingAccountCard(
       id: 'uk-current',
@@ -52,6 +99,7 @@ class MockSpendingRepository implements SpendingRepository {
       balanceMajor: '3,842',
       balanceMinor: '.16',
       currencySymbol: '\u00A3',
+      connectionId: _connStarling,
     ),
     SpendingAccountCard(
       id: 'uk-savings',
@@ -63,6 +111,7 @@ class MockSpendingRepository implements SpendingRepository {
       balanceMajor: '6,240',
       balanceMinor: '.00',
       currencySymbol: '\u00A3',
+      connectionId: _connStarling,
     ),
     SpendingAccountCard(
       id: 'uk-credit',
@@ -74,6 +123,7 @@ class MockSpendingRepository implements SpendingRepository {
       balanceMajor: '-842',
       balanceMinor: '.30',
       currencySymbol: '\u00A3',
+      connectionId: _connAmex,
     ),
     // ── Nigeria accounts ──
     SpendingAccountCard(
@@ -86,6 +136,7 @@ class MockSpendingRepository implements SpendingRepository {
       balanceMajor: '485,200',
       balanceMinor: '.00',
       currencySymbol: '\u20A6',
+      connectionId: _connGtbank,
     ),
     SpendingAccountCard(
       id: 'ng-savings',
@@ -97,6 +148,7 @@ class MockSpendingRepository implements SpendingRepository {
       balanceMajor: '1,240,000',
       balanceMinor: '.00',
       currencySymbol: '\u20A6',
+      connectionId: _connKuda,
     ),
     SpendingAccountCard(
       id: 'ng-domiciliary',
@@ -108,8 +160,13 @@ class MockSpendingRepository implements SpendingRepository {
       balanceMajor: '2,150',
       balanceMinor: '.00',
       currencySymbol: '\$',
+      connectionId: _connAccess,
     ),
   ];
+
+  // ─────────────────────────────────────────────────────────
+  //  getAccounts
+  // ─────────────────────────────────────────────────────────
 
   @override
   Future<List<SpendingAccountCard>> getAccounts() async {
@@ -120,14 +177,16 @@ class MockSpendingRepository implements SpendingRepository {
       return const <SpendingAccountCard>[];
     }
 
-    return _accounts;
+    return _accounts
+        .where((SpendingAccountCard a) => _isConnectionActive(a.connectionId))
+        .toList();
   }
 
   // ─────────────────────────────────────────────────────────
-  //  getTransactions
+  //  Seed data — transactions
   // ─────────────────────────────────────────────────────────
 
-  static final Map<String, List<SpendingTransaction>> _transactions =
+  static final Map<String, List<SpendingTransaction>> _seedTransactions =
       <String, List<SpendingTransaction>>{
     // ── UK Current (15 transactions) ──
     'uk-current': <SpendingTransaction>[
@@ -143,6 +202,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 17),
         iconCodePoint: _iconHomeOutlined,
         iconFontFamily: _mi,
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t02',
@@ -155,6 +215,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 16),
         iconText: 'T',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t03',
@@ -167,6 +228,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 16),
         iconText: 'U',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t04',
@@ -179,6 +241,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 15),
         iconText: 'a',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t05',
@@ -191,6 +254,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 14),
         iconText: 'N',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t06',
@@ -203,6 +267,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 13),
         iconText: 'TL',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t07',
@@ -215,6 +280,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 12),
         iconText: 'S',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t08',
@@ -227,6 +293,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 11),
         iconText: 'SH',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t09',
@@ -239,6 +306,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 10),
         iconText: 'GG',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t10',
@@ -251,6 +319,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 9),
         iconText: 'B',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t11',
@@ -263,6 +332,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 8),
         iconText: 'D',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t12',
@@ -275,6 +345,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 7),
         iconText: 'BG',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t13',
@@ -287,6 +358,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 6),
         iconText: 'P',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t14',
@@ -299,6 +371,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 5),
         iconText: 'V',
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uk-t15',
@@ -311,6 +384,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 4),
         iconText: 'JL',
+        connectionId: _connStarling,
       ),
     ],
     // ── UK Savings (3 transactions) ──
@@ -327,6 +401,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 15),
         iconCodePoint: _iconSavingsOutlined,
         iconFontFamily: _mi,
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uks-t02',
@@ -340,6 +415,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 1),
         iconCodePoint: _iconSavingsOutlined,
         iconFontFamily: _mi,
+        connectionId: _connStarling,
       ),
       SpendingTransaction(
         id: 'uks-t03',
@@ -353,6 +429,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 2, 15),
         iconCodePoint: _iconSavingsOutlined,
         iconFontFamily: _mi,
+        connectionId: _connStarling,
       ),
     ],
     // ── UK Credit Card (6 transactions) ──
@@ -368,6 +445,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 15),
         iconText: 'N',
+        connectionId: _connAmex,
       ),
       SpendingTransaction(
         id: 'ukc-t02',
@@ -380,6 +458,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 14),
         iconText: 'S',
+        connectionId: _connAmex,
       ),
       SpendingTransaction(
         id: 'ukc-t03',
@@ -392,6 +471,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 12),
         iconText: 'A',
+        connectionId: _connAmex,
       ),
       SpendingTransaction(
         id: 'ukc-t04',
@@ -404,6 +484,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 10),
         iconText: 'AP',
+        connectionId: _connAmex,
       ),
       SpendingTransaction(
         id: 'ukc-t05',
@@ -416,6 +497,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 8),
         iconText: 'AS',
+        connectionId: _connAmex,
       ),
       SpendingTransaction(
         id: 'ukc-t06',
@@ -428,6 +510,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 5),
         iconText: 'EJ',
+        connectionId: _connAmex,
       ),
     ],
     // ── Nigeria Current (12 transactions) ──
@@ -443,6 +526,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 17),
         iconText: 'SR',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t02',
@@ -455,6 +539,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 16),
         iconText: 'EE',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t03',
@@ -467,6 +552,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 15),
         iconText: 'BT',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t04',
@@ -479,6 +565,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 14),
         iconText: 'MT',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t05',
@@ -491,6 +578,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 13),
         iconText: 'CR',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t06',
@@ -504,6 +592,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 12),
         iconCodePoint: _iconAccountBalanceOutlined,
         iconFontFamily: _mi,
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t07',
@@ -516,6 +605,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 11),
         iconText: 'LW',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t08',
@@ -528,6 +618,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 10),
         iconText: 'J',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t09',
@@ -540,6 +631,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 9),
         iconText: 'DS',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t10',
@@ -552,6 +644,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 8),
         iconText: 'MP',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t11',
@@ -564,6 +657,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 7),
         iconText: 'U',
+        connectionId: _connGtbank,
       ),
       SpendingTransaction(
         id: 'ng-t12',
@@ -576,6 +670,7 @@ class MockSpendingRepository implements SpendingRepository {
         isCredit: false,
         date: DateTime(2026, 3, 6),
         iconText: 'TF',
+        connectionId: _connGtbank,
       ),
     ],
     // ── Nigeria Savings (2 transactions) ──
@@ -592,6 +687,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 13),
         iconCodePoint: _iconSavingsOutlined,
         iconFontFamily: _mi,
+        connectionId: _connKuda,
       ),
       SpendingTransaction(
         id: 'ngs-t02',
@@ -605,6 +701,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 1),
         iconCodePoint: _iconSavingsOutlined,
         iconFontFamily: _mi,
+        connectionId: _connKuda,
       ),
     ],
     // ── Dollar Domiciliary (2 transactions) ──
@@ -621,6 +718,7 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 10),
         iconCodePoint: _iconCurrencyExchange,
         iconFontFamily: _mi,
+        connectionId: _connAccess,
       ),
       SpendingTransaction(
         id: 'ngd-t02',
@@ -634,9 +732,14 @@ class MockSpendingRepository implements SpendingRepository {
         date: DateTime(2026, 3, 8),
         iconCodePoint: _iconCurrencyExchange,
         iconFontFamily: _mi,
+        connectionId: _connAccess,
       ),
     ],
   };
+
+  // ─────────────────────────────────────────────────────────
+  //  getTransactions
+  // ─────────────────────────────────────────────────────────
 
   @override
   Future<List<SpendingTransaction>> getTransactions(String accountId) async {
@@ -647,199 +750,86 @@ class MockSpendingRepository implements SpendingRepository {
       return const <SpendingTransaction>[];
     }
 
-    return _transactions[accountId] ?? const <SpendingTransaction>[];
+    final List<SpendingTransaction> txns =
+        _transactions[accountId] ?? const <SpendingTransaction>[];
+
+    return txns
+        .where(
+            (SpendingTransaction t) => _isConnectionActive(t.connectionId))
+        .toList();
   }
+
+  // ─────────────────────────────────────────────────────────
+  //  Seed data — overview
+  // ─────────────────────────────────────────────────────────
+
+  static const List<SpendingAccountSnapshot> _seedOverviewSnapshots =
+      <SpendingAccountSnapshot>[
+    SpendingAccountSnapshot(
+      label: 'UK Current',
+      balanceLabel: '\u00A33,842.16',
+      statusLabel: 'Primary',
+      changeLabel: '+\u00A3186.40 this week',
+      gradientKey: 'primary',
+      iconCodePoint: _iconWalletOutlined,
+      iconFontFamily: _mi,
+      connectionId: _connStarling,
+    ),
+    SpendingAccountSnapshot(
+      label: 'UK Savings',
+      balanceLabel: '\u00A36,240.00',
+      statusLabel: 'Savings',
+      changeLabel: '+\u00A3120.00 auto-saved',
+      gradientKey: 'savings',
+      iconCodePoint: _iconSavingsOutlined,
+      iconFontFamily: _mi,
+      connectionId: _connStarling,
+    ),
+    SpendingAccountSnapshot(
+      label: 'Bills card',
+      balanceLabel: '-\u00A3842.30',
+      statusLabel: 'Credit',
+      changeLabel: 'Payment due 28 Mar',
+      gradientKey: 'bills',
+      iconCodePoint: _iconCreditCardOutlined,
+      iconFontFamily: _mi,
+      connectionId: _connAmex,
+    ),
+    SpendingAccountSnapshot(
+      label: 'Naira Current',
+      balanceLabel: '\u20A6485,200',
+      statusLabel: 'Nigeria',
+      changeLabel: '+\u20A632,500 this week',
+      gradientKey: 'primary',
+      iconCodePoint: _iconAccountBalanceOutlined,
+      iconFontFamily: _mi,
+      connectionId: _connGtbank,
+    ),
+    SpendingAccountSnapshot(
+      label: 'Naira Savings',
+      balanceLabel: '\u20A61,240,000',
+      statusLabel: 'Savings',
+      changeLabel: '+\u20A650,000 auto-saved',
+      gradientKey: 'savings',
+      iconCodePoint: _iconSavingsOutlined,
+      iconFontFamily: _mi,
+      connectionId: _connKuda,
+    ),
+    SpendingAccountSnapshot(
+      label: 'Dollar Dom.',
+      balanceLabel: '\$2,150.00',
+      statusLabel: 'Domiciliary',
+      changeLabel: '+\$1,200 freelance',
+      gradientKey: 'bills',
+      iconCodePoint: _iconCurrencyExchange,
+      iconFontFamily: _mi,
+      connectionId: _connAccess,
+    ),
+  ];
 
   // ─────────────────────────────────────────────────────────
   //  getOverview
   // ─────────────────────────────────────────────────────────
-
-  static const SpendingOverviewData _populatedOverview = SpendingOverviewData(
-    accountSnapshots: <SpendingAccountSnapshot>[
-      SpendingAccountSnapshot(
-        label: 'UK Current',
-        balanceLabel: '\u00A33,842.16',
-        statusLabel: 'Primary',
-        changeLabel: '+\u00A3186.40 this week',
-        gradientKey: 'primary',
-        iconCodePoint: _iconWalletOutlined,
-        iconFontFamily: _mi,
-      ),
-      SpendingAccountSnapshot(
-        label: 'UK Savings',
-        balanceLabel: '\u00A36,240.00',
-        statusLabel: 'Savings',
-        changeLabel: '+\u00A3120.00 auto-saved',
-        gradientKey: 'savings',
-        iconCodePoint: _iconSavingsOutlined,
-        iconFontFamily: _mi,
-      ),
-      SpendingAccountSnapshot(
-        label: 'Bills card',
-        balanceLabel: '-\u00A3842.30',
-        statusLabel: 'Credit',
-        changeLabel: 'Payment due 28 Mar',
-        gradientKey: 'bills',
-        iconCodePoint: _iconCreditCardOutlined,
-        iconFontFamily: _mi,
-      ),
-      SpendingAccountSnapshot(
-        label: 'Naira Current',
-        balanceLabel: '\u20A6485,200',
-        statusLabel: 'Nigeria',
-        changeLabel: '+\u20A632,500 this week',
-        gradientKey: 'primary',
-        iconCodePoint: _iconAccountBalanceOutlined,
-        iconFontFamily: _mi,
-      ),
-      SpendingAccountSnapshot(
-        label: 'Naira Savings',
-        balanceLabel: '\u20A61,240,000',
-        statusLabel: 'Savings',
-        changeLabel: '+\u20A650,000 auto-saved',
-        gradientKey: 'savings',
-        iconCodePoint: _iconSavingsOutlined,
-        iconFontFamily: _mi,
-      ),
-      SpendingAccountSnapshot(
-        label: 'Dollar Dom.',
-        balanceLabel: '\$2,150.00',
-        statusLabel: 'Domiciliary',
-        changeLabel: '+\$1,200 freelance',
-        gradientKey: 'bills',
-        iconCodePoint: _iconCurrencyExchange,
-        iconFontFamily: _mi,
-      ),
-    ],
-    totalBalanceMetric: SpendingMetric(
-      label: 'Total balance',
-      amountLabel: '\u00A314,826.46',
-      trendLabel: '+4.6% vs last month',
-      iconCodePoint: _iconStackedLineChart,
-      iconFontFamily: _mi,
-    ),
-    netWorthMetric: SpendingMetric(
-      label: 'Net worth',
-      amountLabel: '\u00A322,180.64',
-      trendLabel: '+\u00A3920 this month',
-      iconCodePoint: _iconDiamondOutlined,
-      iconFontFamily: _mi,
-    ),
-    safeToSpendLabel: '\u00A3820.00',
-    safeToSpendSubtitle:
-        'After bills, goals, and your weekly safety buffer.',
-    breakdownSlices: <SpendingBreakdownSlice>[
-      SpendingBreakdownSlice(
-        label: 'Food',
-        amountLabel: '\u00A3570',
-        value: 31,
-        colorKey: 'primary',
-      ),
-      SpendingBreakdownSlice(
-        label: 'Bills',
-        amountLabel: '\u00A3410',
-        value: 22,
-        colorKey: 'bills',
-      ),
-      SpendingBreakdownSlice(
-        label: 'Transport',
-        amountLabel: '\u00A3312',
-        value: 17,
-        colorKey: 'success',
-      ),
-      SpendingBreakdownSlice(
-        label: 'Shopping',
-        amountLabel: '\u00A3260',
-        value: 14,
-        colorKey: 'info',
-      ),
-      SpendingBreakdownSlice(
-        label: 'Other',
-        amountLabel: '\u00A3288',
-        value: 16,
-        colorKey: 'other',
-      ),
-    ],
-    breakdownTotalLabel: '\u00A31,840',
-    trendSummaryLabel: 'Spend is tracking 6% lower than last month.',
-    trendSpots: <SpendingTrendSpot>[
-      SpendingTrendSpot(x: 0, y: 360),
-      SpendingTrendSpot(x: 1, y: 410),
-      SpendingTrendSpot(x: 2, y: 325),
-      SpendingTrendSpot(x: 3, y: 298),
-      SpendingTrendSpot(x: 4, y: 340),
-    ],
-    trendBottomLabels: <String>['W1', 'W2', 'W3', 'W4', 'Now'],
-    insightTitle:
-        'Your food spending is 12% higher than usual this week.',
-    insightBody:
-        'Most of the lift came from weekday deliveries after 8pm.',
-    allocationSlices: <SpendingAllocationSlice>[
-      SpendingAllocationSlice(
-        label: 'Income',
-        amountLabel: '\u00A34,232.24',
-        value: 4232.24,
-        colorKey: 'success',
-      ),
-      SpendingAllocationSlice(
-        label: 'Expenses',
-        amountLabel: '\u00A32,660.12',
-        value: 2660.12,
-        colorKey: 'primary',
-      ),
-      SpendingAllocationSlice(
-        label: 'Investments',
-        amountLabel: '\u00A31,754.64',
-        value: 1754.64,
-        colorKey: 'info',
-      ),
-    ],
-    allocationMonthLabel: 'March',
-    allocationYearLabel: '2026',
-    allocationChipLabel: 'Mar',
-    recentTransactions: <SpendingRecentTransaction>[
-      SpendingRecentTransaction(
-        merchant: 'Uber',
-        category: 'Transport',
-        amountLabel: '\u00A314.20',
-        iconText: 'U',
-        iconBackgroundKey: 'dark',
-        iconForegroundKey: 'surfaceBase',
-      ),
-      SpendingRecentTransaction(
-        merchant: 'Amazon',
-        category: 'Shopping',
-        amountLabel: '\u00A327.99',
-        iconText: 'a',
-        iconBackgroundKey: 'warmSurface',
-        iconForegroundKey: 'dark',
-      ),
-      SpendingRecentTransaction(
-        merchant: "Nando's",
-        category: 'Dining',
-        amountLabel: '\u00A328.45',
-        iconText: 'N',
-        iconBackgroundKey: 'warmAccent',
-        iconForegroundKey: 'warmText',
-      ),
-      SpendingRecentTransaction(
-        merchant: 'Shoprite Lekki',
-        category: 'Groceries',
-        amountLabel: '\u20A618,500',
-        iconText: 'SR',
-        iconBackgroundKey: 'dark',
-        iconForegroundKey: 'surfaceBase',
-      ),
-      SpendingRecentTransaction(
-        merchant: 'Eko Electricity',
-        category: 'Utilities',
-        amountLabel: '\u20A612,000',
-        iconText: 'EE',
-        iconBackgroundKey: 'warmSurface',
-        iconForegroundKey: 'dark',
-      ),
-    ],
-  );
 
   static const SpendingOverviewData _freshOverview = SpendingOverviewData(
     accountSnapshots: <SpendingAccountSnapshot>[],
@@ -882,7 +872,148 @@ class MockSpendingRepository implements SpendingRepository {
       return _freshOverview;
     }
 
-    return _populatedOverview;
+    // Filter overview snapshots by active connections.
+    final List<SpendingAccountSnapshot> filteredSnapshots = _overviewSnapshots
+        .where((SpendingAccountSnapshot s) =>
+            _isConnectionActive(s.connectionId))
+        .toList();
+
+    // If all accounts were disconnected, return an empty overview.
+    if (filteredSnapshots.isEmpty) {
+      return _freshOverview;
+    }
+
+    return SpendingOverviewData(
+      accountSnapshots: filteredSnapshots,
+      totalBalanceMetric: SpendingMetric(
+        label: 'Total balance',
+        amountLabel: '\u00A314,826.46',
+        trendLabel: '+4.6% vs last month',
+        iconCodePoint: _iconStackedLineChart,
+        iconFontFamily: _mi,
+      ),
+      netWorthMetric: SpendingMetric(
+        label: 'Net worth',
+        amountLabel: '\u00A322,180.64',
+        trendLabel: '+\u00A3920 this month',
+        iconCodePoint: _iconDiamondOutlined,
+        iconFontFamily: _mi,
+      ),
+      safeToSpendLabel: '\u00A3820.00',
+      safeToSpendSubtitle:
+          'After bills, goals, and your weekly safety buffer.',
+      breakdownSlices: const <SpendingBreakdownSlice>[
+        SpendingBreakdownSlice(
+          label: 'Food',
+          amountLabel: '\u00A3570',
+          value: 31,
+          colorKey: 'primary',
+        ),
+        SpendingBreakdownSlice(
+          label: 'Bills',
+          amountLabel: '\u00A3410',
+          value: 22,
+          colorKey: 'bills',
+        ),
+        SpendingBreakdownSlice(
+          label: 'Transport',
+          amountLabel: '\u00A3312',
+          value: 17,
+          colorKey: 'success',
+        ),
+        SpendingBreakdownSlice(
+          label: 'Shopping',
+          amountLabel: '\u00A3260',
+          value: 14,
+          colorKey: 'info',
+        ),
+        SpendingBreakdownSlice(
+          label: 'Other',
+          amountLabel: '\u00A3288',
+          value: 16,
+          colorKey: 'other',
+        ),
+      ],
+      breakdownTotalLabel: '\u00A31,840',
+      trendSummaryLabel: 'Spend is tracking 6% lower than last month.',
+      trendSpots: const <SpendingTrendSpot>[
+        SpendingTrendSpot(x: 0, y: 360),
+        SpendingTrendSpot(x: 1, y: 410),
+        SpendingTrendSpot(x: 2, y: 325),
+        SpendingTrendSpot(x: 3, y: 298),
+        SpendingTrendSpot(x: 4, y: 340),
+      ],
+      trendBottomLabels: const <String>['W1', 'W2', 'W3', 'W4', 'Now'],
+      insightTitle:
+          'Your food spending is 12% higher than usual this week.',
+      insightBody:
+          'Most of the lift came from weekday deliveries after 8pm.',
+      allocationSlices: const <SpendingAllocationSlice>[
+        SpendingAllocationSlice(
+          label: 'Income',
+          amountLabel: '\u00A34,232.24',
+          value: 4232.24,
+          colorKey: 'success',
+        ),
+        SpendingAllocationSlice(
+          label: 'Expenses',
+          amountLabel: '\u00A32,660.12',
+          value: 2660.12,
+          colorKey: 'primary',
+        ),
+        SpendingAllocationSlice(
+          label: 'Investments',
+          amountLabel: '\u00A31,754.64',
+          value: 1754.64,
+          colorKey: 'info',
+        ),
+      ],
+      allocationMonthLabel: 'March',
+      allocationYearLabel: '2026',
+      allocationChipLabel: 'Mar',
+      recentTransactions: const <SpendingRecentTransaction>[
+        SpendingRecentTransaction(
+          merchant: 'Uber',
+          category: 'Transport',
+          amountLabel: '\u00A314.20',
+          iconText: 'U',
+          iconBackgroundKey: 'dark',
+          iconForegroundKey: 'surfaceBase',
+        ),
+        SpendingRecentTransaction(
+          merchant: 'Amazon',
+          category: 'Shopping',
+          amountLabel: '\u00A327.99',
+          iconText: 'a',
+          iconBackgroundKey: 'warmSurface',
+          iconForegroundKey: 'dark',
+        ),
+        SpendingRecentTransaction(
+          merchant: "Nando's",
+          category: 'Dining',
+          amountLabel: '\u00A328.45',
+          iconText: 'N',
+          iconBackgroundKey: 'warmAccent',
+          iconForegroundKey: 'warmText',
+        ),
+        SpendingRecentTransaction(
+          merchant: 'Shoprite Lekki',
+          category: 'Groceries',
+          amountLabel: '\u20A618,500',
+          iconText: 'SR',
+          iconBackgroundKey: 'dark',
+          iconForegroundKey: 'surfaceBase',
+        ),
+        SpendingRecentTransaction(
+          merchant: 'Eko Electricity',
+          category: 'Utilities',
+          amountLabel: '\u20A612,000',
+          iconText: 'EE',
+          iconBackgroundKey: 'warmSurface',
+          iconForegroundKey: 'dark',
+        ),
+      ],
+    );
   }
 
   // ─────────────────────────────────────────────────────────

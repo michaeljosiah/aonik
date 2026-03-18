@@ -36,20 +36,29 @@ const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
 // ─────────────────────────────────────────────────────────
 
 /// Provides the list of spending accounts from the repository.
+///
+/// Watches [accountLinksSummaryProvider] so that connect / disconnect
+/// actions automatically invalidate this provider, causing the screen
+/// to re-query the repository (which filters by active connections).
 final _spendingAccountsFutureProvider =
     FutureProvider<List<SpendingAccountCard>>(
   (Ref ref) async {
     ref.watch(demoDataModeProvider);
+    ref.watch(accountLinksSummaryProvider);
     final repository = ref.watch(spendingRepositoryProvider);
     return repository.getAccounts();
   },
 );
 
 /// Provides transactions for a given account id from the repository.
+///
+/// Watches [accountLinksSummaryProvider] so that connect / disconnect
+/// actions automatically invalidate this provider.
 final _spendingTransactionsFutureProvider =
     FutureProvider.family<List<SpendingTransaction>, String>(
   (Ref ref, String accountId) async {
     ref.watch(demoDataModeProvider);
+    ref.watch(accountLinksSummaryProvider);
     final repository = ref.watch(spendingRepositoryProvider);
     return repository.getTransactions(accountId);
   },

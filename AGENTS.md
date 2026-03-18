@@ -459,6 +459,40 @@ Before committing code, ensure:
 
 ---
 
+## 🛠️ Known Build Issues & Fixes
+
+### Flutter: `PathAccessException` / "Access is denied" during `flutter build apk`
+
+**Symptom:** The build fails with an error like:
+
+```
+PathAccessException: Cannot copy file to '...\build\app\intermediates\flutter\debug\flutter_assets\assets/images/slider-img-01.png'
+(OS Error: Access is denied, errno = 5)
+```
+
+**Cause:** A stale or locked file in the Gradle build cache on Windows. Typically caused by an emulator, IDE, antivirus, or another process holding a file handle in the `build/` directory.
+
+**Fix:** Manually copy the blocked file into the target directory, then re-run the build:
+
+```bash
+# 1. Copy the file that failed (adjust the filename from the error message)
+cp "apps/payabo_mobile/assets/images/<filename>.png" \
+   "apps/payabo_mobile/build/app/intermediates/flutter/debug/flutter_assets/assets/images/<filename>.png"
+
+# 2. Re-run the build
+flutter build apk --debug
+```
+
+If multiple files are blocked, or the issue persists, try a full clean first:
+
+```bash
+flutter clean && flutter pub get && flutter build apk --debug
+```
+
+If the clean build still hits the same error, the manual copy step above resolves it.
+
+---
+
 ## 📚 Additional Resources
 
 - **[Testing Guide](docs/Testing.md)** - Comprehensive testing patterns and examples

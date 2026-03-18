@@ -52,6 +52,20 @@ bool _shouldMock(Ref ref) {
       ref.watch(isDemoProvider);
 }
 
+/// Returns a callback that resolves the current set of active connection IDs
+/// from the [MockAccountLinksRepository] instance, or `null` if the account
+/// links repository is not a mock. This enables cross-repository coordination
+/// in demo mode: when an account link is disconnected, spending/category/
+/// transactions repositories automatically filter out that connection's data.
+Set<String> Function()? _activeConnectionIdsGetter(Ref ref) {
+  final AccountLinksRepository accountLinksRepo =
+      ref.watch(accountLinksRepositoryProvider);
+  if (accountLinksRepo is MockAccountLinksRepository) {
+    return accountLinksRepo.getActiveConnectionIds;
+  }
+  return null;
+}
+
 final Provider<AuthRepository> authRepositoryProvider =
     Provider<AuthRepository>(
   (Ref ref) {
@@ -170,7 +184,10 @@ final Provider<PersonalTransactionsRepository>
     final demoDataMode = ref.watch(demoDataModeProvider);
 
     if (_shouldMock(ref)) {
-      return MockPersonalTransactionsRepository(demoDataMode: demoDataMode);
+      return MockPersonalTransactionsRepository(
+        demoDataMode: demoDataMode,
+        activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+      );
     }
 
     final apiClient = ref.watch(apiClientProvider);
@@ -211,7 +228,10 @@ final Provider<SpendingCategoryRepository> spendingCategoryRepositoryProvider =
 
     // Spending categories remain mock-backed until a live repository is
     // implemented.
-    return MockSpendingCategoryRepository(demoDataMode: demoDataMode);
+    return MockSpendingCategoryRepository(
+      demoDataMode: demoDataMode,
+      activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+    );
   },
 );
 
@@ -221,7 +241,10 @@ final Provider<SpendingRepository> spendingRepositoryProvider =
     final demoDataMode = ref.watch(demoDataModeProvider);
 
     // Spending remains mock-backed until a live repository is implemented.
-    return MockSpendingRepository(demoDataMode: demoDataMode);
+    return MockSpendingRepository(
+      demoDataMode: demoDataMode,
+      activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+    );
   },
 );
 

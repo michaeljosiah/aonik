@@ -56,6 +56,7 @@ class SpendingCategoryTransaction {
     required this.avatarLabel,
     required this.avatarBackgroundValue,
     required this.avatarForegroundValue,
+    this.connectionId,
   });
 
   final String dateLabel;
@@ -71,6 +72,10 @@ class SpendingCategoryTransaction {
 
   /// ARGB colour value for the avatar foreground (e.g. `0xFF4ACB64`).
   final int avatarForegroundValue;
+
+  /// The account-links connection this transaction belongs to.
+  /// Used to filter transactions when a connection is disconnected.
+  final String? connectionId;
 
   Color get avatarBackground => Color(avatarBackgroundValue);
   Color get avatarForeground => Color(avatarForegroundValue);

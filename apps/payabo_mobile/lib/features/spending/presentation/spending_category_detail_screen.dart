@@ -13,15 +13,20 @@ import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
+import 'spending_accounts_state.dart';
 
 // ─────────────────────────────────────────────────────────
 //  Provider
 // ─────────────────────────────────────────────────────────
 
+/// Watches [accountLinksSummaryProvider] so that connect / disconnect
+/// actions automatically invalidate this provider, causing the screen
+/// to re-query the repository (which filters by active connections).
 final spendingCategoryDetailProvider =
     FutureProvider.family<SpendingCategoryDetail?, String>(
   (Ref ref, String categoryId) async {
     ref.watch(demoDataModeProvider);
+    ref.watch(accountLinksSummaryProvider);
     final repository = ref.watch(spendingCategoryRepositoryProvider);
     return repository.getCategoryDetail(categoryId);
   },

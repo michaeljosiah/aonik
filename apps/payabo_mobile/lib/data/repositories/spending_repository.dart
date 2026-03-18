@@ -22,6 +22,7 @@ class SpendingAccountCard {
     required this.balanceMajor,
     required this.balanceMinor,
     required this.currencySymbol,
+    this.connectionId,
   });
 
   final String id;
@@ -33,6 +34,10 @@ class SpendingAccountCard {
   final String balanceMajor;
   final String balanceMinor;
   final String currencySymbol;
+
+  /// The account-links connection this account belongs to.
+  /// Used to filter accounts when a connection is disconnected.
+  final String? connectionId;
 }
 
 /// A transaction row displayed in the spending transactions sheet.
@@ -50,6 +55,7 @@ class SpendingTransaction {
     this.iconText,
     this.iconCodePoint,
     this.iconFontFamily,
+    this.connectionId,
   });
 
   final String id;
@@ -64,6 +70,9 @@ class SpendingTransaction {
   final String? iconText;
   final int? iconCodePoint;
   final String? iconFontFamily;
+
+  /// The account-links connection this transaction belongs to.
+  final String? connectionId;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -84,6 +93,7 @@ class SpendingAccountSnapshot {
     required this.gradientKey,
     required this.iconCodePoint,
     required this.iconFontFamily,
+    this.connectionId,
   });
 
   final String label;
@@ -97,6 +107,9 @@ class SpendingAccountSnapshot {
 
   final int iconCodePoint;
   final String iconFontFamily;
+
+  /// The account-links connection this snapshot belongs to.
+  final String? connectionId;
 }
 
 /// A slice of the monthly breakdown pie chart.

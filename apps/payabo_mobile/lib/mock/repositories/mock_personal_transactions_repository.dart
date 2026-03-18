@@ -6,13 +6,57 @@ class MockPersonalTransactionsRepository
     implements PersonalTransactionsRepository {
   MockPersonalTransactionsRepository({
     this.demoDataMode = DemoDataMode.populated,
-  }) : _transactions = demoDataMode == DemoDataMode.fresh
+    Set<String> Function()? activeConnectionIdsGetter,
+  }) : _activeConnectionIdsGetter = activeConnectionIdsGetter,
+       _transactions = demoDataMode == DemoDataMode.fresh
             ? <PersonalTransactionItem>[]
             : List<PersonalTransactionItem>.of(_seedTransactions);
 
   final DemoDataMode demoDataMode;
 
+  /// When non-null, called at query time to resolve the current set of active
+  /// connection IDs. Only transactions whose personal account maps to an active
+  /// connection (or has no connection mapping at all) are returned. This enables
+  /// cross-repository coordination: when an account link is disconnected, the
+  /// personal transactions repository automatically filters out its data.
+  final Set<String> Function()? _activeConnectionIdsGetter;
+
   final List<PersonalTransactionItem> _transactions;
+
+  // ─────────────────────────────────────────────────────────
+  //  Connection mapping
+  //
+  //  Maps personalAccountId → connectionId from
+  //  mock_account_links_repository. Accounts without a mapping
+  //  (e.g. Ghana accounts) are always visible — there is no
+  //  account link to disconnect.
+  // ─────────────────────────────────────────────────────────
+
+  static const Map<String, String> _accountToConnection =
+      <String, String>{
+    'acc-uk-current': 'mock-connection-starling',
+    'acc-uk-savings': 'mock-connection-starling',
+    'acc-uk-credit': 'mock-connection-amex',
+    'acc-ng-current': 'mock-connection-gtbank',
+    'acc-ng-savings': 'mock-connection-kuda',
+    'acc-ng-dom': 'mock-connection-access',
+  };
+
+  // ─────────────────────────────────────────────────────────
+  //  Filtering helper
+  // ─────────────────────────────────────────────────────────
+
+  bool _isTransactionActive(PersonalTransactionItem t) {
+    if (_activeConnectionIdsGetter == null) return true;
+    final Set<String> activeIds = _activeConnectionIdsGetter();
+    final String? connectionId =
+        t.personalAccountId != null
+            ? _accountToConnection[t.personalAccountId!]
+            : null;
+    // No mapping → always visible (e.g. Ghana accounts).
+    if (connectionId == null) return true;
+    return activeIds.contains(connectionId);
+  }
 
   // ─────────────────────────────────────────────────────────
   //  Seed data (populated mode)
@@ -686,6 +730,11 @@ class MockPersonalTransactionsRepository
     List<PersonalTransactionItem> filtered =
         List<PersonalTransactionItem>.of(_transactions);
 
+    // Filter by active connections.
+    filtered = filtered
+        .where((PersonalTransactionItem t) => _isTransactionActive(t))
+        .toList();
+
     // Filter by account
     if (query.personalAccountId != null) {
       filtered = filtered
@@ -763,7 +812,7 @@ class MockPersonalTransactionsRepository
     MockBehavior.throwIfEnabled('personalTransactions.getTransaction');
 
     for (final PersonalTransactionItem item in _transactions) {
-      if (item.id == transactionId) {
+      if (item.id == transactionId && _isTransactionActive(item)) {
         return item;
       }
     }
