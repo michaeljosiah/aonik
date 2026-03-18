@@ -35,4 +35,41 @@ class MockCatalogRepository implements CatalogRepository {
             provider.countryCode == countryCode.toUpperCase())
         .toList(growable: false);
   }
+
+  @override
+  Future<List<String>> getServiceTypes() async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('catalog.getServiceTypes');
+    return const <String>[
+      'Montage Cable TV',
+      'Internet Data Bundle',
+      'Electricity Prepaid',
+    ];
+  }
+
+  @override
+  Future<List<String>> getRecurringFrequencies() async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('catalog.getRecurringFrequencies');
+    return const <String>[
+      'Daily',
+      'Weekly',
+      'Monthly',
+      'Quarterly',
+    ];
+  }
+
+  @override
+  Future<List<String>> getProviderCategories() async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('catalog.getProviderCategories');
+    return const <String>[
+      'All',
+      'Education',
+      'Hospital',
+      'TV providers',
+      'Electricity',
+      'Others',
+    ];
+  }
 }

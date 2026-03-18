@@ -29,27 +29,18 @@ final FutureProvider<DashboardSummary> dashboardSummaryProvider =
   return repository.getSummary();
 });
 
-List<_DashboardOverviewSlice> _dashboardOverviewSlices(PayaboColorResolver c) =>
-    <_DashboardOverviewSlice>[
-      _DashboardOverviewSlice(
-        label: 'Income',
-        amountLabel: '₵4,232.24',
-        value: 4232.24,
-        color: c.success,
-      ),
-      _DashboardOverviewSlice(
-        label: 'Expenses',
-        amountLabel: '₵2,660.12',
-        value: 2660.12,
-        color: c.primary,
-      ),
-      _DashboardOverviewSlice(
-        label: 'Investments',
-        amountLabel: '₵1,754.64',
-        value: 1754.64,
-        color: c.info,
-      ),
-    ];
+Color _resolveOverviewSliceColor(PayaboColorResolver c, String key) {
+  switch (key) {
+    case 'success':
+      return c.success;
+    case 'primary':
+      return c.primary;
+    case 'info':
+      return c.info;
+    default:
+      return c.primary;
+  }
+}
 
 String _dashboardAvatarLabel(String text) {
   final parts = text
@@ -457,6 +448,7 @@ class _DashboardContent extends StatelessWidget {
       upcomingBills: bills,
       supportObligations: supportObligations,
       isEmpty: isEmpty,
+      summary: summary,
       onSheetExtentChanged: onSheetExtentChanged,
     );
   }
@@ -472,6 +464,7 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
     required this.upcomingBills,
     required this.supportObligations,
     required this.isEmpty,
+    required this.summary,
     this.onSheetExtentChanged,
   });
 
@@ -489,6 +482,7 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
   final List<DashboardUpcomingBill> upcomingBills;
   final List<DashboardSupportObligation> supportObligations;
   final bool isEmpty;
+  final DashboardSummary summary;
 
   /// Called whenever the draggable sheet extent changes.  The value is the
   /// raw [DraggableScrollableController.size] (0.0–1.0).
@@ -606,6 +600,7 @@ class _DashboardHeroInsightsSectionState
                 dueBillCount: widget.dueBillCount,
                 isEmpty: widget.isEmpty,
                 bottomPadding: heroBottomPadding,
+                metrics: widget.summary.metrics,
               ),
             ),
             Positioned(
@@ -695,6 +690,7 @@ class _DashboardHeroInsightsSectionState
                         upcomingBills: widget.upcomingBills,
                         supportObligations: widget.supportObligations,
                         isEmpty: widget.isEmpty,
+                        summary: widget.summary,
                       );
                     },
                   );
@@ -774,12 +770,14 @@ class _DashboardHeroBanner extends StatelessWidget {
     required this.dueBillCount,
     required this.isEmpty,
     required this.bottomPadding,
+    required this.metrics,
   });
 
   final String displayName;
   final int dueBillCount;
   final bool isEmpty;
   final double bottomPadding;
+  final DashboardMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -861,7 +859,7 @@ class _DashboardHeroBanner extends StatelessWidget {
                                     text: 'This might interest you. '),
                                 const TextSpan(text: 'You have '),
                                 TextSpan(
-                                  text: '₵1,285.00',
+                                  text: metrics.spendableLabel,
                                   style: emphasisStyle,
                                 ),
                                 const TextSpan(text: ' available to spend, '),
@@ -871,7 +869,7 @@ class _DashboardHeroBanner extends StatelessWidget {
                                 ),
                                 const TextSpan(text: ' due this week, and '),
                                 TextSpan(
-                                  text: '₵620',
+                                  text: metrics.netWorthChangeLabel,
                                   style: emphasisStyle,
                                 ),
                                 const TextSpan(
@@ -901,6 +899,7 @@ class _DashboardStatsSheet extends StatelessWidget {
     required this.upcomingBills,
     required this.supportObligations,
     required this.isEmpty,
+    required this.summary,
     this.topBorderRadius = 24.0,
   });
 
@@ -909,6 +908,7 @@ class _DashboardStatsSheet extends StatelessWidget {
   final List<DashboardUpcomingBill> upcomingBills;
   final List<DashboardSupportObligation> supportObligations;
   final bool isEmpty;
+  final DashboardSummary summary;
 
   /// Radius applied to the top corners of the sheet.  Animated to 0 when the
   /// sheet reaches full extension so it merges flush with the pinned header.
@@ -966,13 +966,16 @@ class _DashboardStatsSheet extends StatelessWidget {
           _InsightCarouselSection(
             dueBillCount: dueBillCount,
             isEmpty: isEmpty,
+            todayInsight: summary.todayInsight,
+            metrics: summary.metrics,
           ),
           const SizedBox(height: PayaboSpacing.xl),
           _DashboardMetricSummary(
             isEmpty: isEmpty,
+            metrics: summary.metrics,
           ),
           const SizedBox(height: PayaboSpacing.xl),
-          const _DashboardOverviewCard(),
+          _DashboardOverviewCard(summary: summary),
           const SizedBox(height: PayaboSpacing.xl),
           _DashboardListHeader(
             title: 'Upcoming bills',
@@ -1003,9 +1006,11 @@ class _DashboardStatsSheet extends StatelessWidget {
 class _DashboardMetricSummary extends StatelessWidget {
   const _DashboardMetricSummary({
     required this.isEmpty,
+    required this.metrics,
   });
 
   final bool isEmpty;
+  final DashboardMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -1027,16 +1032,20 @@ class _DashboardMetricSummary extends StatelessWidget {
           ],
         ),
         const SizedBox(height: PayaboSpacing.md),
-        _DashboardSpendableBalanceCard(isEmpty: isEmpty),
+        _DashboardSpendableBalanceCard(isEmpty: isEmpty, metrics: metrics),
       ],
     );
   }
 }
 
 class _DashboardSpendableBalanceCard extends StatelessWidget {
-  const _DashboardSpendableBalanceCard({required this.isEmpty});
+  const _DashboardSpendableBalanceCard({
+    required this.isEmpty,
+    required this.metrics,
+  });
 
   final bool isEmpty;
+  final DashboardMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -1064,7 +1073,7 @@ class _DashboardSpendableBalanceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
                   Text(
-                    isEmpty ? '₵0.00' : '₵1,285.00',
+                    isEmpty ? '₵0.00' : metrics.spendableLabel,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -1074,7 +1083,7 @@ class _DashboardSpendableBalanceCard extends StatelessWidget {
                   Text(
                     isEmpty
                         ? 'Add bills and budgets to unlock your spendable balance.'
-                        : 'After bills, savings, and your weekly safety buffer.',
+                        : metrics.spendableSubtitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1109,10 +1118,14 @@ class _InsightCarouselSection extends StatefulWidget {
   const _InsightCarouselSection({
     required this.dueBillCount,
     required this.isEmpty,
+    required this.todayInsight,
+    required this.metrics,
   });
 
   final int dueBillCount;
   final bool isEmpty;
+  final DashboardTodayInsight todayInsight;
+  final DashboardMetrics metrics;
 
   @override
   State<_InsightCarouselSection> createState() =>
@@ -1200,12 +1213,19 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = <Widget>[
-      _TodayInsightCard(isEmpty: widget.isEmpty),
+      _TodayInsightCard(
+        isEmpty: widget.isEmpty,
+        todayInsight: widget.todayInsight,
+      ),
       _AvailableToSpendInsightCard(
         dueBillCount: widget.dueBillCount,
         isEmpty: widget.isEmpty,
+        metrics: widget.metrics,
       ),
-      _NetWorthInsightCard(isEmpty: widget.isEmpty),
+      _NetWorthInsightCard(
+        isEmpty: widget.isEmpty,
+        metrics: widget.metrics,
+      ),
     ];
 
     return Column(
@@ -1298,9 +1318,13 @@ class _InsightCarouselCardShell extends StatelessWidget {
 }
 
 class _TodayInsightCard extends StatelessWidget {
-  const _TodayInsightCard({required this.isEmpty});
+  const _TodayInsightCard({
+    required this.isEmpty,
+    required this.todayInsight,
+  });
 
   final bool isEmpty;
+  final DashboardTodayInsight todayInsight;
 
   @override
   Widget build(BuildContext context) {
@@ -1308,7 +1332,7 @@ class _TodayInsightCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final String message = isEmpty
         ? 'Add a bill to unlock daily insights and spending guidance.'
-        : 'Dining spend is running 18% above your usual daily pace.';
+        : todayInsight.message;
 
     return _InsightCarouselCardShell(
       borderRadius: PayaboRadii.radiusSm,
@@ -1378,7 +1402,7 @@ class _TodayInsightCard extends StatelessWidget {
           Row(
             children: <Widget>[
               Text(
-                isEmpty ? 'Set up now' : 'Today',
+                isEmpty ? 'Set up now' : todayInsight.timestampLabel,
                 style: textTheme.labelMedium?.copyWith(
                   color: c.muted,
                   fontWeight: FontWeight.w600,
@@ -1386,7 +1410,7 @@ class _TodayInsightCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                isEmpty ? 'Add first bill' : 'Review dining',
+                isEmpty ? 'Add first bill' : todayInsight.actionLabel,
                 style: textTheme.labelLarge?.copyWith(
                   color: c.primary,
                   fontWeight: FontWeight.w700,
@@ -1404,10 +1428,12 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
   const _AvailableToSpendInsightCard({
     required this.dueBillCount,
     required this.isEmpty,
+    required this.metrics,
   });
 
   final int dueBillCount;
   final bool isEmpty;
+  final DashboardMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -1448,7 +1474,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                isEmpty ? '₵0.00' : '₵1,285.00',
+                isEmpty ? '₵0.00' : metrics.spendableLabel,
                 style: textTheme.headlineMedium?.copyWith(
                   fontSize: 36,
                   height: 1,
@@ -1460,7 +1486,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
               Text(
                 isEmpty
                     ? 'Add bills and budgets to unlock your spendable balance.'
-                    : 'After bills, savings, and your weekly buffer.',
+                    : metrics.spendableSubtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.bodyMedium?.copyWith(
@@ -1477,7 +1503,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
                   minHeight: 8,
-                  value: isEmpty ? 0 : 0.78,
+                  value: isEmpty ? 0 : metrics.spendableProgress,
                   backgroundColor: c.border.withValues(alpha: 0.5),
                   valueColor: AlwaysStoppedAnimation<Color>(c.primary),
                 ),
@@ -1486,7 +1512,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
               Row(
                 children: <Widget>[
                   Text(
-                    isEmpty ? '0% free' : '78% free',
+                    isEmpty ? '0% free' : metrics.spendableProgressLabel,
                     style: textTheme.labelLarge?.copyWith(
                       color: c.accentBrown,
                       fontWeight: FontWeight.w700,
@@ -1548,9 +1574,13 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
 }
 
 class _NetWorthInsightCard extends StatelessWidget {
-  const _NetWorthInsightCard({required this.isEmpty});
+  const _NetWorthInsightCard({
+    required this.isEmpty,
+    required this.metrics,
+  });
 
   final bool isEmpty;
+  final DashboardMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -1579,14 +1609,14 @@ class _NetWorthInsightCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _DashboardStatusPill(label: isEmpty ? 'add data' : 'up 3.5%'),
+              _DashboardStatusPill(label: isEmpty ? 'add data' : metrics.netWorthTrendLabel),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                isEmpty ? '₵0.00' : '₵18,406.20',
+                isEmpty ? '₵0.00' : metrics.netWorthLabel,
                 style: textTheme.headlineMedium?.copyWith(
                   fontSize: 34,
                   height: 1,
@@ -1598,7 +1628,7 @@ class _NetWorthInsightCard extends StatelessWidget {
               Text(
                 isEmpty
                     ? 'Link balances to see your full financial picture.'
-                    : '+₵620 since last month across your linked balances.',
+                    : '${metrics.netWorthChangeLabel} since last month across your linked balances.',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.bodyMedium?.copyWith(
@@ -1613,14 +1643,14 @@ class _NetWorthInsightCard extends StatelessWidget {
               Expanded(
                 child: _InsightStatTile(
                   label: 'Assets',
-                  value: isEmpty ? '₵0.00' : '₵20.1k',
+                  value: isEmpty ? '₵0.00' : metrics.assetsLabel,
                 ),
               ),
               const SizedBox(width: PayaboSpacing.sm),
               Expanded(
                 child: _InsightStatTile(
                   label: 'Bills',
-                  value: isEmpty ? '₵0.00' : '₵1.7k',
+                  value: isEmpty ? '₵0.00' : metrics.billsLabel,
                 ),
               ),
             ],
@@ -1711,12 +1741,14 @@ class _InsightPageIndicator extends StatelessWidget {
 }
 
 class _DashboardOverviewCard extends StatelessWidget {
-  const _DashboardOverviewCard();
+  const _DashboardOverviewCard({required this.summary});
+
+  final DashboardSummary summary;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final slices = _dashboardOverviewSlices(c);
+    final slices = summary.overviewSlices;
     final Color cardBackground =
         c.isDark ? c.surfaceCardElevated : const Color(0xFF171D26);
     final Color cardBorder = c.isDark
@@ -1750,7 +1782,7 @@ class _DashboardOverviewCard extends StatelessWidget {
                     ),
                   ),
                   _DashboardOverviewMonthChip(
-                    label: 'Mar',
+                    label: summary.overviewMonthShortLabel,
                     backgroundColor: Colors.white.withValues(
                       alpha: c.isDark ? 0.08 : 0.06,
                     ),
@@ -1763,16 +1795,18 @@ class _DashboardOverviewCard extends StatelessWidget {
               ),
               const SizedBox(height: PayaboSpacing.lg),
               Center(
-                child: _DashboardOverviewRing(
-                  slices: slices,
-                  trackColor: Colors.white.withValues(alpha: 0.12),
-                  titleColor: titleColor,
-                  subtitleColor: mutedColor,
-                ),
+                  child: _DashboardOverviewRing(
+                    slices: slices,
+                    trackColor: Colors.white.withValues(alpha: 0.12),
+                    titleColor: titleColor,
+                    subtitleColor: mutedColor,
+                    monthLabel: summary.overviewMonthLabel,
+                    yearLabel: summary.overviewYearLabel,
+                  ),
               ),
               const SizedBox(height: PayaboSpacing.xl),
               ...slices.asMap().entries.map(
-                    (MapEntry<int, _DashboardOverviewSlice> entry) => Padding(
+                    (MapEntry<int, DashboardOverviewSlice> entry) => Padding(
                       padding: EdgeInsets.only(
                         bottom: entry.key == slices.length - 1
                             ? 0
@@ -1846,15 +1880,21 @@ class _DashboardOverviewRing extends StatelessWidget {
     required this.trackColor,
     required this.titleColor,
     required this.subtitleColor,
+    required this.monthLabel,
+    required this.yearLabel,
   });
 
-  final List<_DashboardOverviewSlice> slices;
+  final List<DashboardOverviewSlice> slices;
   final Color trackColor;
   final Color titleColor;
   final Color subtitleColor;
+  final String monthLabel;
+  final String yearLabel;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+
     return SizedBox(
       width: 220,
       height: 220,
@@ -1866,13 +1906,14 @@ class _DashboardOverviewRing extends StatelessWidget {
             painter: _DashboardOverviewRingPainter(
               slices: slices,
               trackColor: trackColor,
+              colorResolver: c,
             ),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(
-                'March',
+                monthLabel,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: titleColor,
                       fontWeight: FontWeight.w700,
@@ -1880,7 +1921,7 @@ class _DashboardOverviewRing extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '2026',
+                yearLabel,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: subtitleColor,
                       fontWeight: FontWeight.w600,
@@ -1898,13 +1939,15 @@ class _DashboardOverviewRingPainter extends CustomPainter {
   const _DashboardOverviewRingPainter({
     required this.slices,
     required this.trackColor,
+    required this.colorResolver,
   });
 
   static const double _gapRadians = 0.22;
   static const double _strokeWidth = 16;
 
-  final List<_DashboardOverviewSlice> slices;
+  final List<DashboardOverviewSlice> slices;
   final Color trackColor;
+  final PayaboColorResolver colorResolver;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1921,20 +1964,20 @@ class _DashboardOverviewRingPainter extends CustomPainter {
 
     final double total = slices.fold<double>(
       0,
-      (double sum, _DashboardOverviewSlice slice) => sum + slice.value,
+      (double sum, DashboardOverviewSlice slice) => sum + slice.value,
     );
 
     final double totalSweep = (math.pi * 2) - (slices.length * _gapRadians);
     double startAngle = -math.pi / 2;
 
-    for (final _DashboardOverviewSlice slice in slices) {
+    for (final DashboardOverviewSlice slice in slices) {
       final double sweepAngle =
           total == 0 ? 0 : totalSweep * (slice.value / total).clamp(0.0, 1.0);
       final Paint slicePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = _strokeWidth
         ..strokeCap = StrokeCap.round
-        ..color = slice.color;
+        ..color = _resolveOverviewSliceColor(colorResolver, slice.colorKey);
 
       canvas.drawArc(rect, startAngle, sweepAngle, false, slicePaint);
       startAngle += sweepAngle + _gapRadians;
@@ -1954,19 +1997,22 @@ class _DashboardOverviewRow extends StatelessWidget {
     required this.amountColor,
   });
 
-  final _DashboardOverviewSlice slice;
+  final DashboardOverviewSlice slice;
   final Color labelColor;
   final Color amountColor;
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final Color sliceColor = _resolveOverviewSliceColor(c, slice.colorKey);
+
     return Row(
       children: <Widget>[
         Container(
           width: 12,
           height: 12,
           decoration: BoxDecoration(
-            color: slice.color,
+            color: sliceColor,
             shape: BoxShape.circle,
           ),
         ),
@@ -2015,20 +2061,6 @@ class _DashboardStatusPill extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DashboardOverviewSlice {
-  const _DashboardOverviewSlice({
-    required this.label,
-    required this.amountLabel,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String amountLabel;
-  final double value;
-  final Color color;
 }
 
 class _DashboardListHeader extends StatelessWidget {
@@ -2322,10 +2354,12 @@ class _DashboardHeroCard extends StatelessWidget {
   const _DashboardHeroCard({
     required this.upcomingBillCount,
     required this.isEmpty,
+    required this.metrics,
   });
 
   final int upcomingBillCount;
   final bool isEmpty;
+  final DashboardMetrics metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -2372,7 +2406,7 @@ class _DashboardHeroCard extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                isEmpty ? '₵0.00' : '₵1,285.00',
+                isEmpty ? '₵0.00' : metrics.spendableLabel,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: c.isDark ? Colors.white : const Color(0xFF4F220F),
                       fontSize: 52,

@@ -10,19 +10,6 @@ import '../../../shared/widgets/payabo_text_field.dart';
 import 'payment_flow_scaffold.dart';
 import 'payment_flow_state.dart';
 
-const List<String> _serviceTypes = <String>[
-  'Montage Cable TV',
-  'Internet Data Bundle',
-  'Electricity Prepaid',
-];
-
-const List<String> _recurringFrequencies = <String>[
-  'Daily',
-  'Weekly',
-  'Monthly',
-  'Quarterly',
-];
-
 class ServiceDetailsScreen extends ConsumerStatefulWidget {
   const ServiceDetailsScreen({super.key});
 
@@ -36,7 +23,7 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
   late final TextEditingController _contactController;
   late final TextEditingController _amountController;
 
-  String _serviceType = _serviceTypes.first;
+  String _serviceType = '';
   bool _isSubmitting = false;
   String? _validationMessage;
 
@@ -45,8 +32,7 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
     super.initState();
     final state = ref.read(paymentFlowControllerProvider);
 
-    _serviceType =
-        state.serviceType.isNotEmpty ? state.serviceType : _serviceTypes.first;
+    _serviceType = state.serviceType;
     _smartCardController = TextEditingController(text: state.smartCardId);
     _contactController = TextEditingController(text: state.contactReference);
     _amountController = TextEditingController(text: state.amount);
@@ -64,7 +50,16 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final flowState = ref.watch(paymentFlowControllerProvider);
+    final serviceTypes =
+        ref.watch(paymentServiceTypesProvider).value ?? const <String>[];
+    final recurringFrequencies =
+        ref.watch(paymentRecurringFrequenciesProvider).value ?? const <String>[];
     final canContinue = _canSubmit(flowState);
+
+    // Default to first service type if not yet set.
+    if (_serviceType.isEmpty && serviceTypes.isNotEmpty) {
+      _serviceType = serviceTypes.first;
+    }
 
     if (_smartCardController.text.isEmpty && flowState.smartCardId.isNotEmpty) {
       _smartCardController.text = flowState.smartCardId;
@@ -97,9 +92,9 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
             decoration: const InputDecoration(
               labelText: 'Service type',
             ),
-            items: _serviceTypes
+            items: serviceTypes
                 .map(
-                  (type) => DropdownMenuItem<String>(
+                  (String type) => DropdownMenuItem<String>(
                     value: type,
                     child: Text(type),
                   ),
@@ -180,9 +175,9 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
             DropdownButtonFormField<String>(
               initialValue: flowState.recurringFrequency,
               decoration: const InputDecoration(labelText: 'Frequency'),
-              items: _recurringFrequencies
+              items: recurringFrequencies
                   .map(
-                    (frequency) => DropdownMenuItem<String>(
+                    (String frequency) => DropdownMenuItem<String>(
                       value: frequency,
                       child: Text(frequency),
                     ),

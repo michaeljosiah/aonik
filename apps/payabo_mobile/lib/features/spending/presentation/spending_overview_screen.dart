@@ -6,7 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../app/demo/demo_mode.dart';
+import '../../../data/repositories/repository_providers.dart';
+import '../../../data/repositories/spending_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
@@ -27,127 +28,84 @@ const List<SpendingSection> _visibleOverviewSections = <SpendingSection>[
 ];
 
 // ─────────────────────────────────────────────────────────
-//  Demo data — only used when isDemoProvider is true
+//  Provider
 // ─────────────────────────────────────────────────────────
 
-List<_AccountSnapshot> _demoAccountSnapshots(PayaboColorResolver c) =>
-    <_AccountSnapshot>[
-      _AccountSnapshot(
-        label: 'Current account',
-        balanceLabel: '\u00A33,842.16',
-        statusLabel: 'Primary',
-        changeLabel: '+\u00A3186.40 this week',
-        gradientColors: c.spendingAccountGradientPrimary,
-        accentColor: c.spendingAccountAccentPrimary,
-        icon: Icons.account_balance_wallet_outlined,
-      ),
-      _AccountSnapshot(
-        label: 'Rainy day fund',
-        balanceLabel: '\u00A36,240.00',
-        statusLabel: 'Savings',
-        changeLabel: '+\u00A3120.00 auto-saved',
-        gradientColors: c.spendingAccountGradientSavings,
-        accentColor: c.spendingAccountAccentSavings,
-        icon: Icons.savings_outlined,
-      ),
-      _AccountSnapshot(
-        label: 'Bills pocket',
-        balanceLabel: '\u00A31,090.30',
-        statusLabel: 'Bills',
-        changeLabel: 'Covers 6 upcoming payments',
-        gradientColors: c.spendingAccountGradientBills,
-        accentColor: c.spendingAccountAccentBills,
-        icon: Icons.receipt_long_outlined,
-      ),
-    ];
+/// Provides overview data from the spending repository.
+final _spendingOverviewFutureProvider =
+    FutureProvider<SpendingOverviewData>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
+  final repository = ref.watch(spendingRepositoryProvider);
+  return repository.getOverview();
+});
 
-List<_BreakdownSlice> _demoBreakdownSlices(PayaboColorResolver c) =>
-    <_BreakdownSlice>[
-      _BreakdownSlice(
-        label: 'Food',
-        amountLabel: '\u00A3570',
-        value: 31,
-        color: c.primary,
-      ),
-      _BreakdownSlice(
-        label: 'Bills',
-        amountLabel: '\u00A3410',
-        value: 22,
-        color: c.spendingSliceBills,
-      ),
-      _BreakdownSlice(
-        label: 'Transport',
-        amountLabel: '\u00A3312',
-        value: 17,
-        color: c.success,
-      ),
-      _BreakdownSlice(
-        label: 'Shopping',
-        amountLabel: '\u00A3260',
-        value: 14,
-        color: c.info,
-      ),
-      _BreakdownSlice(
-        label: 'Other',
-        amountLabel: '\u00A3288',
-        value: 16,
-        color: c.spendingSliceOther,
-      ),
-    ];
+// ─────────────────────────────────────────────────────────
+//  Color-key resolution helpers
+// ─────────────────────────────────────────────────────────
 
-List<_RecentTransactionPreview> _demoRecentTransactions(
-  PayaboColorResolver c,
-) =>
-    <_RecentTransactionPreview>[
-      _RecentTransactionPreview(
-        merchant: 'Uber',
-        category: 'Pending ride',
-        amountLabel: '\u00A314.20',
-        iconText: 'U',
-        iconBackground: c.spendingMerchantIconDark,
-        iconForeground: c.surfaceBase,
-      ),
-      _RecentTransactionPreview(
-        merchant: 'Amazon',
-        category: 'Shopping',
-        amountLabel: '\u00A311.00',
-        iconText: 'a',
-        iconBackground: c.spendingMerchantIconWarmSurface,
-        iconForeground: c.spendingMerchantIconDark,
-      ),
-      _RecentTransactionPreview(
-        merchant: 'Nando\'s',
-        category: 'Food and dining',
-        amountLabel: '\u00A328.45',
-        iconText: 'N',
-        iconBackground: c.spendingMerchantIconWarmAccent,
-        iconForeground: c.spendingMerchantIconWarmText,
-      ),
-    ];
+List<Color> _resolveGradient(String key, PayaboColorResolver c) {
+  switch (key) {
+    case 'savings':
+      return c.spendingAccountGradientSavings;
+    case 'bills':
+      return c.spendingAccountGradientBills;
+    case 'primary':
+    default:
+      return c.spendingAccountGradientPrimary;
+  }
+}
 
-List<_OverviewAllocationSlice> _demoOverviewAllocationSlices(
-  PayaboColorResolver c,
-) =>
-    <_OverviewAllocationSlice>[
-      _OverviewAllocationSlice(
-        label: 'Income',
-        amountLabel: '\u00A34,232.24',
-        value: 4232.24,
-        color: c.success,
-      ),
-      _OverviewAllocationSlice(
-        label: 'Expenses',
-        amountLabel: '\u00A32,660.12',
-        value: 2660.12,
-        color: c.primary,
-      ),
-      _OverviewAllocationSlice(
-        label: 'Investments',
-        amountLabel: '\u00A31,754.64',
-        value: 1754.64,
-        color: c.info,
-      ),
-    ];
+Color _resolveAccent(String key, PayaboColorResolver c) {
+  switch (key) {
+    case 'savings':
+      return c.spendingAccountAccentSavings;
+    case 'bills':
+      return c.spendingAccountAccentBills;
+    case 'primary':
+    default:
+      return c.spendingAccountAccentPrimary;
+  }
+}
+
+Color _resolveSliceColor(String key, PayaboColorResolver c) {
+  switch (key) {
+    case 'bills':
+      return c.spendingSliceBills;
+    case 'success':
+      return c.success;
+    case 'info':
+      return c.info;
+    case 'other':
+      return c.spendingSliceOther;
+    case 'primary':
+    default:
+      return c.primary;
+  }
+}
+
+Color _resolveIconBackground(String key, PayaboColorResolver c) {
+  switch (key) {
+    case 'warmSurface':
+      return c.spendingMerchantIconWarmSurface;
+    case 'warmAccent':
+      return c.spendingMerchantIconWarmAccent;
+    case 'dark':
+    default:
+      return c.spendingMerchantIconDark;
+  }
+}
+
+Color _resolveIconForeground(String key, PayaboColorResolver c) {
+  switch (key) {
+    case 'dark':
+      return c.spendingMerchantIconDark;
+    case 'warmText':
+      return c.spendingMerchantIconWarmText;
+    case 'surfaceBase':
+    default:
+      return c.surfaceBase;
+  }
+}
 
 // ─────────────────────────────────────────────────────────
 //  Screen
@@ -181,24 +139,7 @@ class _SpendingOverviewScreenState
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isDemo = ref.watch(isDemoProvider);
-    final isFreshDemo =
-        isDemo && ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
-
-    // In non-demo mode these would come from the API via a repository.
-    // For now the screen shows empty states when not in demo mode.
-    final bool showPopulated = isDemo && !isFreshDemo;
-
-    final accountSnapshots =
-        showPopulated ? _demoAccountSnapshots(c) : <_AccountSnapshot>[];
-    final breakdownSlices =
-        showPopulated ? _demoBreakdownSlices(c) : <_BreakdownSlice>[];
-    final transactions = showPopulated
-        ? _demoRecentTransactions(c)
-        : <_RecentTransactionPreview>[];
-    final allocationSlices = showPopulated
-        ? _demoOverviewAllocationSlices(c)
-        : <_OverviewAllocationSlice>[];
+    final asyncOverview = ref.watch(_spendingOverviewFutureProvider);
 
     return Scaffold(
       backgroundColor: c.surfaceWarm,
@@ -210,24 +151,37 @@ class _SpendingOverviewScreenState
             children: <Widget>[
               _OverviewHeader(onSectionSelected: _handleSectionSelected),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    PayaboSpacing.sm,
-                    PayaboSpacing.xl,
-                    PayaboSpacing.x4,
+                child: asyncOverview.when(
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(),
                   ),
-                  children: _buildBody(
-                    context: context,
-                    c: c,
-                    isDemo: isDemo,
-                    isFreshDemo: isFreshDemo,
-                    showPopulated: showPopulated,
-                    accountSnapshots: accountSnapshots,
-                    breakdownSlices: breakdownSlices,
-                    transactions: transactions,
-                    allocationSlices: allocationSlices,
+                  error: (Object error, StackTrace stack) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(PayaboSpacing.xl),
+                      child: Text(
+                        'Something went wrong loading your overview.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: c.muted,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
+                  data: (SpendingOverviewData overview) {
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        PayaboSpacing.xl,
+                        PayaboSpacing.sm,
+                        PayaboSpacing.xl,
+                        PayaboSpacing.x4,
+                      ),
+                      children: _buildBody(
+                        context: context,
+                        c: c,
+                        overview: overview,
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -243,45 +197,42 @@ class _SpendingOverviewScreenState
   List<Widget> _buildBody({
     required BuildContext context,
     required PayaboColorResolver c,
-    required bool isDemo,
-    required bool isFreshDemo,
-    required bool showPopulated,
-    required List<_AccountSnapshot> accountSnapshots,
-    required List<_BreakdownSlice> breakdownSlices,
-    required List<_RecentTransactionPreview> transactions,
-    required List<_OverviewAllocationSlice> allocationSlices,
+    required SpendingOverviewData overview,
   }) {
-    // Fresh demo → single explanatory card
-    if (isFreshDemo) {
-      return const <Widget>[_FreshOverviewStateCard()];
-    }
-
-    // Live mode with no data → empty state
-    if (!isDemo) {
+    // Fresh / empty data → single explanatory card
+    if (overview.accountSnapshots.isEmpty &&
+        overview.breakdownSlices.isEmpty &&
+        overview.recentTransactions.isEmpty) {
+      final demoMode = ref.read(demoDataModeProvider);
+      if (demoMode == DemoDataMode.fresh) {
+        return const <Widget>[_FreshOverviewStateCard()];
+      }
       return const <Widget>[_LiveEmptyOverviewState()];
     }
 
-    // Populated demo mode → full showcase
+    // Populated → full showcase
     return <Widget>[
       SizedBox(
         height: 204,
         child: PageView.builder(
           controller: _accountController,
-          itemCount: accountSnapshots.length,
+          itemCount: overview.accountSnapshots.length,
           onPageChanged: (int index) {
             setState(() => _accountPage = index);
           },
           itemBuilder: (BuildContext context, int index) {
             return Padding(
               padding: const EdgeInsets.only(right: PayaboSpacing.md),
-              child: _AccountSnapshotCard(snapshot: accountSnapshots[index]),
+              child: _AccountSnapshotCard(
+                snapshot: overview.accountSnapshots[index],
+              ),
             );
           },
         ),
       ),
       const SizedBox(height: PayaboSpacing.md),
       _AccountPagerDots(
-        count: accountSnapshots.length,
+        count: overview.accountSnapshots.length,
         activeIndex: _accountPage,
       ),
       const SizedBox(height: PayaboSpacing.x2),
@@ -295,52 +246,60 @@ class _SpendingOverviewScreenState
         subtitle: 'The numbers that matter this month',
       ),
       const SizedBox(height: PayaboSpacing.md),
-      const Row(
+      Row(
         children: <Widget>[
           Expanded(
-            child: _MetricCard(
-              label: 'Total balance',
-              amountLabel: '\u00A311,172.46',
-              trendLabel: '+4.6% vs last month',
-              icon: Icons.stacked_line_chart,
-            ),
+            child: _MetricCard(metric: overview.totalBalanceMetric),
           ),
-          SizedBox(width: PayaboSpacing.md),
+          const SizedBox(width: PayaboSpacing.md),
           Expanded(
-            child: _MetricCard(
-              label: 'Net worth',
-              amountLabel: '\u00A318,406.20',
-              trendLabel: '+\u00A3620 this month',
-              icon: Icons.diamond_outlined,
-            ),
+            child: _MetricCard(metric: overview.netWorthMetric),
           ),
         ],
       ),
       const SizedBox(height: PayaboSpacing.md),
-      const _SafeToSpendCard(),
+      _SafeToSpendCard(
+        amountLabel: overview.safeToSpendLabel,
+        subtitle: overview.safeToSpendSubtitle,
+      ),
       const SizedBox(height: PayaboSpacing.xl),
       const _SectionHeading(
         title: 'Monthly breakdown',
         subtitle: 'Where this month is going so far',
       ),
       const SizedBox(height: PayaboSpacing.md),
-      _MonthlyBreakdownCard(slices: breakdownSlices),
+      _MonthlyBreakdownCard(
+        slices: overview.breakdownSlices,
+        totalLabel: overview.breakdownTotalLabel,
+      ),
       const SizedBox(height: PayaboSpacing.xl),
       const _SectionHeading(
         title: 'Spending trend',
         subtitle: 'Week-by-week movement this month',
       ),
       const SizedBox(height: PayaboSpacing.md),
-      const _TrendCard(),
+      _TrendCard(
+        summaryLabel: overview.trendSummaryLabel,
+        spots: overview.trendSpots,
+        bottomLabels: overview.trendBottomLabels,
+      ),
       const SizedBox(height: PayaboSpacing.xl),
       const _SectionHeading(
         title: 'Quick insights',
         subtitle: 'AI-generated nudges from your spending patterns',
       ),
       const SizedBox(height: PayaboSpacing.md),
-      const _InsightCard(),
+      _InsightCard(
+        title: overview.insightTitle,
+        body: overview.insightBody,
+      ),
       const SizedBox(height: PayaboSpacing.xl),
-      _MonthlyOverviewCard(slices: allocationSlices),
+      _MonthlyOverviewCard(
+        slices: overview.allocationSlices,
+        monthLabel: overview.allocationMonthLabel,
+        yearLabel: overview.allocationYearLabel,
+        chipLabel: overview.allocationChipLabel,
+      ),
       const SizedBox(height: PayaboSpacing.xl),
       const _SectionHeading(
         title: 'Recent transactions',
@@ -348,7 +307,7 @@ class _SpendingOverviewScreenState
       ),
       const SizedBox(height: PayaboSpacing.md),
       _RecentTransactionsCard(
-        transactions: transactions,
+        transactions: overview.recentTransactions,
         onViewAllTap: () => context.go('/spending'),
       ),
     ];
@@ -675,21 +634,27 @@ class _SectionHeading extends StatelessWidget {
 class _AccountSnapshotCard extends StatelessWidget {
   const _AccountSnapshotCard({required this.snapshot});
 
-  final _AccountSnapshot snapshot;
+  final SpendingAccountSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final gradientColors = _resolveGradient(snapshot.gradientKey, c);
+    final accentColor = _resolveAccent(snapshot.gradientKey, c);
+    final icon = IconData(
+      snapshot.iconCodePoint,
+      fontFamily: snapshot.iconFontFamily,
+    );
 
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: snapshot.gradientColors,
+          colors: gradientColors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(color: snapshot.accentColor.withValues(alpha: 0.18)),
+        border: Border.all(color: accentColor.withValues(alpha: 0.18)),
         boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.medium,
       ),
       child: Padding(
@@ -707,7 +672,7 @@ class _AccountSnapshotCard extends StatelessWidget {
                     color: c.surfaceBase.withValues(alpha: 0.72),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(snapshot.icon, color: snapshot.accentColor),
+                  child: Icon(icon, color: accentColor),
                 ),
                 const Spacer(),
                 Container(
@@ -722,7 +687,7 @@ class _AccountSnapshotCard extends StatelessWidget {
                   child: Text(
                     snapshot.statusLabel,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: snapshot.accentColor,
+                          color: accentColor,
                           fontWeight: FontWeight.w700,
                         ),
                   ),
@@ -732,7 +697,7 @@ class _AccountSnapshotCard extends StatelessWidget {
             Text(
               snapshot.balanceLabel,
               style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    color: snapshot.accentColor,
+                    color: accentColor,
                     height: 1,
                     fontWeight: FontWeight.w800,
                   ),
@@ -740,14 +705,14 @@ class _AccountSnapshotCard extends StatelessWidget {
             Text(
               snapshot.label,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: snapshot.accentColor,
+                    color: accentColor,
                     fontWeight: FontWeight.w600,
                   ),
             ),
             Text(
               snapshot.changeLabel,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: snapshot.accentColor.withValues(alpha: 0.8),
+                    color: accentColor.withValues(alpha: 0.8),
                   ),
             ),
           ],
@@ -762,21 +727,17 @@ class _AccountSnapshotCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.label,
-    required this.amountLabel,
-    required this.trendLabel,
-    required this.icon,
-  });
+  const _MetricCard({required this.metric});
 
-  final String label;
-  final String amountLabel;
-  final String trendLabel;
-  final IconData icon;
+  final SpendingMetric metric;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final icon = IconData(
+      metric.iconCodePoint,
+      fontFamily: metric.iconFontFamily,
+    );
 
     return PayaboCard(
       backgroundColor: c.surfaceCardElevated,
@@ -787,14 +748,14 @@ class _MetricCard extends StatelessWidget {
           Icon(icon, color: c.primary),
           const SizedBox(height: PayaboSpacing.md),
           Text(
-            label,
+            metric.label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: c.muted,
                 ),
           ),
           const SizedBox(height: PayaboSpacing.xs),
           Text(
-            amountLabel,
+            metric.amountLabel,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: c.accentBrown,
                   fontWeight: FontWeight.w800,
@@ -802,7 +763,7 @@ class _MetricCard extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.xs),
           Text(
-            trendLabel,
+            metric.trendLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: c.success,
                   fontWeight: FontWeight.w700,
@@ -819,7 +780,13 @@ class _MetricCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 class _SafeToSpendCard extends StatelessWidget {
-  const _SafeToSpendCard();
+  const _SafeToSpendCard({
+    required this.amountLabel,
+    required this.subtitle,
+  });
+
+  final String amountLabel;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -847,7 +814,7 @@ class _SafeToSpendCard extends StatelessWidget {
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
                   Text(
-                    '\u00A3820.00',
+                    amountLabel,
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -855,7 +822,7 @@ class _SafeToSpendCard extends StatelessWidget {
                   ),
                   const SizedBox(height: PayaboSpacing.sm),
                   Text(
-                    'After bills, goals, and your weekly safety buffer.',
+                    subtitle,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.82),
                         ),
@@ -889,9 +856,13 @@ class _SafeToSpendCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 class _MonthlyBreakdownCard extends StatelessWidget {
-  const _MonthlyBreakdownCard({required this.slices});
+  const _MonthlyBreakdownCard({
+    required this.slices,
+    required this.totalLabel,
+  });
 
-  final List<_BreakdownSlice> slices;
+  final List<SpendingBreakdownSlice> slices;
+  final String totalLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -916,9 +887,10 @@ class _MonthlyBreakdownCard extends StatelessWidget {
                     startDegreeOffset: -90,
                     sections: slices
                         .map(
-                          (_BreakdownSlice slice) => PieChartSectionData(
+                          (SpendingBreakdownSlice slice) =>
+                              PieChartSectionData(
                             value: slice.value,
-                            color: slice.color,
+                            color: _resolveSliceColor(slice.colorKey, c),
                             radius: 18,
                             title: '',
                           ),
@@ -930,7 +902,7 @@ class _MonthlyBreakdownCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
                     Text(
-                      '\u00A31,840',
+                      totalLabel,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: c.accentBrown,
                             fontWeight: FontWeight.w800,
@@ -952,7 +924,7 @@ class _MonthlyBreakdownCard extends StatelessWidget {
             child: Column(
               children: slices
                   .map(
-                    (_BreakdownSlice slice) => Padding(
+                    (SpendingBreakdownSlice slice) => Padding(
                       padding: const EdgeInsets.only(bottom: PayaboSpacing.md),
                       child: _BreakdownLegendRow(slice: slice),
                     ),
@@ -969,18 +941,19 @@ class _MonthlyBreakdownCard extends StatelessWidget {
 class _BreakdownLegendRow extends StatelessWidget {
   const _BreakdownLegendRow({required this.slice});
 
-  final _BreakdownSlice slice;
+  final SpendingBreakdownSlice slice;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final color = _resolveSliceColor(slice.colorKey, c);
 
     return Row(
       children: <Widget>[
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(color: slice.color, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: PayaboSpacing.sm),
         Expanded(
@@ -1008,7 +981,15 @@ class _BreakdownLegendRow extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 class _TrendCard extends StatelessWidget {
-  const _TrendCard();
+  const _TrendCard({
+    required this.summaryLabel,
+    required this.spots,
+    required this.bottomLabels,
+  });
+
+  final String summaryLabel;
+  final List<SpendingTrendSpot> spots;
+  final List<String> bottomLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -1026,13 +1007,19 @@ class _TrendCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Spend is tracking 6% lower than last month.',
+            summaryLabel,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: c.accentBrown,
                 ),
           ),
           const SizedBox(height: PayaboSpacing.lg),
-          const SizedBox(height: 220, child: _OverviewTrendChart()),
+          SizedBox(
+            height: 220,
+            child: _OverviewTrendChart(
+              spots: spots,
+              bottomLabels: bottomLabels,
+            ),
+          ),
         ],
       ),
     );
@@ -1040,24 +1027,25 @@ class _TrendCard extends StatelessWidget {
 }
 
 class _OverviewTrendChart extends StatelessWidget {
-  const _OverviewTrendChart();
+  const _OverviewTrendChart({
+    required this.spots,
+    required this.bottomLabels,
+  });
 
-  static const List<FlSpot> _spots = <FlSpot>[
-    FlSpot(0, 360),
-    FlSpot(1, 410),
-    FlSpot(2, 325),
-    FlSpot(3, 298),
-    FlSpot(4, 340),
-  ];
+  final List<SpendingTrendSpot> spots;
+  final List<String> bottomLabels;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final flSpots = spots
+        .map((SpendingTrendSpot s) => FlSpot(s.x, s.y))
+        .toList(growable: false);
 
     return LineChart(
       LineChartData(
         minX: 0,
-        maxX: 4,
+        maxX: spots.isEmpty ? 4 : spots.last.x,
         minY: 0,
         maxY: 500,
         lineTouchData: const LineTouchData(enabled: false),
@@ -1105,7 +1093,7 @@ class _OverviewTrendChart extends StatelessWidget {
         ),
         lineBarsData: <LineChartBarData>[
           LineChartBarData(
-            spots: _spots,
+            spots: flSpots,
             isCurved: true,
             gradient:
                 LinearGradient(colors: <Color>[c.primary, c.primaryHover]),
@@ -1121,8 +1109,9 @@ class _OverviewTrendChart extends StatelessWidget {
               ) {
                 return FlDotCirclePainter(
                   radius: 4,
-                  color:
-                      index == _spots.length - 1 ? c.accentBrown : c.primary,
+                  color: index == flSpots.length - 1
+                      ? c.accentBrown
+                      : c.primary,
                   strokeWidth: 2,
                   strokeColor: c.surfaceBase,
                 );
@@ -1164,17 +1153,16 @@ class _OverviewTrendChart extends StatelessWidget {
   }
 
   Widget _buildBottomTitle(double value, TitleMeta meta, Color textColor) {
-    const List<String> labels = <String>['W1', 'W2', 'W3', 'W4', 'Now'];
     final int index = value.toInt();
 
-    if (index < 0 || index >= labels.length) {
+    if (index < 0 || index >= bottomLabels.length) {
       return const SizedBox.shrink();
     }
 
     return SideTitleWidget(
       meta: meta,
       child: Text(
-        labels[index],
+        bottomLabels[index],
         style: TextStyle(
           color: textColor,
           fontSize: 11,
@@ -1190,7 +1178,13 @@ class _OverviewTrendChart extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 class _InsightCard extends StatelessWidget {
-  const _InsightCard();
+  const _InsightCard({
+    required this.title,
+    required this.body,
+  });
+
+  final String title;
+  final String body;
 
   @override
   Widget build(BuildContext context) {
@@ -1233,7 +1227,7 @@ class _InsightCard extends StatelessWidget {
                   ),
                   const SizedBox(height: PayaboSpacing.xs),
                   Text(
-                    'Your food spending is 12% higher than usual this week.',
+                    title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: c.accentBrown,
                           height: 1.45,
@@ -1241,7 +1235,7 @@ class _InsightCard extends StatelessWidget {
                   ),
                   const SizedBox(height: PayaboSpacing.sm),
                   Text(
-                    'Most of the lift came from weekday deliveries after 8pm.',
+                    body,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: c.accentBrownMuted,
                         ),
@@ -1261,9 +1255,17 @@ class _InsightCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 class _MonthlyOverviewCard extends StatelessWidget {
-  const _MonthlyOverviewCard({required this.slices});
+  const _MonthlyOverviewCard({
+    required this.slices,
+    required this.monthLabel,
+    required this.yearLabel,
+    required this.chipLabel,
+  });
 
-  final List<_OverviewAllocationSlice> slices;
+  final List<SpendingAllocationSlice> slices;
+  final String monthLabel;
+  final String yearLabel;
+  final String chipLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1327,14 +1329,20 @@ class _MonthlyOverviewCard extends StatelessWidget {
                                   ),
                         ),
                       ),
-                      const _OverviewMonthChip(label: 'Mar'),
+                      _OverviewMonthChip(label: chipLabel),
                     ],
                   ),
                   const SizedBox(height: PayaboSpacing.lg),
-                  Center(child: _OverviewAllocationRing(slices: slices)),
+                  Center(
+                    child: _OverviewAllocationRing(
+                      slices: slices,
+                      monthLabel: monthLabel,
+                      yearLabel: yearLabel,
+                    ),
+                  ),
                   const SizedBox(height: PayaboSpacing.xl),
                   ...slices.map(
-                    (_OverviewAllocationSlice slice) => Padding(
+                    (SpendingAllocationSlice slice) => Padding(
                       padding: const EdgeInsets.only(bottom: PayaboSpacing.md),
                       child: _OverviewAllocationRow(slice: slice),
                     ),
@@ -1391,9 +1399,15 @@ class _OverviewMonthChip extends StatelessWidget {
 }
 
 class _OverviewAllocationRing extends StatelessWidget {
-  const _OverviewAllocationRing({required this.slices});
+  const _OverviewAllocationRing({
+    required this.slices,
+    required this.monthLabel,
+    required this.yearLabel,
+  });
 
-  final List<_OverviewAllocationSlice> slices;
+  final List<SpendingAllocationSlice> slices;
+  final String monthLabel;
+  final String yearLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1410,13 +1424,14 @@ class _OverviewAllocationRing extends StatelessWidget {
             painter: _OverviewAllocationRingPainter(
               slices: slices,
               trackColor: c.borderWarm,
+              colorResolver: c,
             ),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(
-                'March',
+                monthLabel,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: c.accentBrown,
                       fontWeight: FontWeight.w700,
@@ -1424,7 +1439,7 @@ class _OverviewAllocationRing extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '2026',
+                yearLabel,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: c.muted,
                       fontWeight: FontWeight.w600,
@@ -1442,13 +1457,15 @@ class _OverviewAllocationRingPainter extends CustomPainter {
   const _OverviewAllocationRingPainter({
     required this.slices,
     required this.trackColor,
+    required this.colorResolver,
   });
 
   static const double _gapRadians = 0.22;
   static const double _strokeWidth = 16;
 
-  final List<_OverviewAllocationSlice> slices;
+  final List<SpendingAllocationSlice> slices;
   final Color trackColor;
+  final PayaboColorResolver colorResolver;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1465,19 +1482,19 @@ class _OverviewAllocationRingPainter extends CustomPainter {
 
     final double total = slices.fold<double>(
       0,
-      (double sum, _OverviewAllocationSlice slice) => sum + slice.value,
+      (double sum, SpendingAllocationSlice slice) => sum + slice.value,
     );
     final double totalSweep = (math.pi * 2) - (slices.length * _gapRadians);
     double startAngle = -math.pi / 2;
 
-    for (final _OverviewAllocationSlice slice in slices) {
+    for (final SpendingAllocationSlice slice in slices) {
       final double sweepAngle =
           total == 0 ? 0 : totalSweep * (slice.value / total).clamp(0.0, 1.0);
       final Paint slicePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = _strokeWidth
         ..strokeCap = StrokeCap.round
-        ..color = slice.color;
+        ..color = _resolveSliceColor(slice.colorKey, colorResolver);
 
       canvas.drawArc(rect, startAngle, sweepAngle, false, slicePaint);
       startAngle += sweepAngle + _gapRadians;
@@ -1493,18 +1510,19 @@ class _OverviewAllocationRingPainter extends CustomPainter {
 class _OverviewAllocationRow extends StatelessWidget {
   const _OverviewAllocationRow({required this.slice});
 
-  final _OverviewAllocationSlice slice;
+  final SpendingAllocationSlice slice;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final color = _resolveSliceColor(slice.colorKey, c);
 
     return Row(
       children: <Widget>[
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(color: slice.color, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: PayaboSpacing.sm),
         Expanded(
@@ -1537,7 +1555,7 @@ class _RecentTransactionsCard extends StatelessWidget {
     required this.onViewAllTap,
   });
 
-  final List<_RecentTransactionPreview> transactions;
+  final List<SpendingRecentTransaction> transactions;
   final VoidCallback onViewAllTap;
 
   @override
@@ -1550,7 +1568,7 @@ class _RecentTransactionsCard extends StatelessWidget {
       child: Column(
         children: <Widget>[
           ...transactions.asMap().entries.map(
-            (MapEntry<int, _RecentTransactionPreview> entry) {
+            (MapEntry<int, SpendingRecentTransaction> entry) {
               final bool isLast = entry.key == transactions.length - 1;
 
               return Column(
@@ -1604,11 +1622,13 @@ class _RecentTransactionsCard extends StatelessWidget {
 class _RecentTransactionRow extends StatelessWidget {
   const _RecentTransactionRow({required this.transaction});
 
-  final _RecentTransactionPreview transaction;
+  final SpendingRecentTransaction transaction;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final bgColor = _resolveIconBackground(transaction.iconBackgroundKey, c);
+    final fgColor = _resolveIconForeground(transaction.iconForegroundKey, c);
 
     return Row(
       children: <Widget>[
@@ -1616,14 +1636,14 @@ class _RecentTransactionRow extends StatelessWidget {
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: transaction.iconBackground,
+            color: bgColor,
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
           child: Text(
             transaction.iconText,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: transaction.iconForeground,
+                  color: fgColor,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -1660,74 +1680,4 @@ class _RecentTransactionRow extends StatelessWidget {
       ],
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────
-//  Data models
-// ─────────────────────────────────────────────────────────
-
-class _AccountSnapshot {
-  const _AccountSnapshot({
-    required this.label,
-    required this.balanceLabel,
-    required this.statusLabel,
-    required this.changeLabel,
-    required this.gradientColors,
-    required this.accentColor,
-    required this.icon,
-  });
-
-  final String label;
-  final String balanceLabel;
-  final String statusLabel;
-  final String changeLabel;
-  final List<Color> gradientColors;
-  final Color accentColor;
-  final IconData icon;
-}
-
-class _BreakdownSlice {
-  const _BreakdownSlice({
-    required this.label,
-    required this.amountLabel,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String amountLabel;
-  final double value;
-  final Color color;
-}
-
-class _OverviewAllocationSlice {
-  const _OverviewAllocationSlice({
-    required this.label,
-    required this.amountLabel,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String amountLabel;
-  final double value;
-  final Color color;
-}
-
-class _RecentTransactionPreview {
-  const _RecentTransactionPreview({
-    required this.merchant,
-    required this.category,
-    required this.amountLabel,
-    required this.iconText,
-    required this.iconBackground,
-    required this.iconForeground,
-  });
-
-  final String merchant;
-  final String category;
-  final String amountLabel;
-  final String iconText;
-  final Color iconBackground;
-  final Color iconForeground;
 }

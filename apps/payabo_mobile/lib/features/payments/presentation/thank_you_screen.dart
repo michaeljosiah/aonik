@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/repositories/order_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
@@ -82,24 +83,7 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
           ),
           const SizedBox(height: PayaboSpacing.lg),
           if (status == PaymentResult.success)
-            PayaboCard(
-              child: Column(
-                children: <Widget>[
-                  const Text('MBA points earned in this transaction:'),
-                  const SizedBox(height: PayaboSpacing.sm),
-                  Text(
-                    '78',
-                    style: TextStyle(
-                      fontSize: 42,
-                      color: c.success,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text('TOTAL POINTS 5800'),
-                ],
-              ),
-            ),
+            _PointsCard(orderId: statusState.orderId),
           const SizedBox(height: PayaboSpacing.lg),
           if (status != PaymentResult.success)
             PayaboButton(
@@ -170,6 +154,42 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
         });
       }
     }
+  }
+}
+
+class _PointsCard extends ConsumerWidget {
+  const _PointsCard({required this.orderId});
+
+  final String orderId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final pointsAsync = ref.watch(paymentPointsSummaryProvider);
+    final points = pointsAsync.value;
+
+    if (points == null) {
+      return const SizedBox.shrink();
+    }
+
+    return PayaboCard(
+      child: Column(
+        children: <Widget>[
+          Text('${points.pointsLabel} points earned in this transaction:'),
+          const SizedBox(height: PayaboSpacing.sm),
+          Text(
+            '${points.pointsEarned}',
+            style: TextStyle(
+              fontSize: 42,
+              color: c.success,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text('TOTAL POINTS ${points.totalPoints}'),
+        ],
+      ),
+    );
   }
 }
 

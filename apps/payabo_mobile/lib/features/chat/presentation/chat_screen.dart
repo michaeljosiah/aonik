@@ -3,11 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../data/repositories/chat_repository.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/theme/payabo_theme.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../profile/presentation/profile_state.dart';
+
+final FutureProvider<List<ChatConversation>> _chatConversationsProvider =
+    FutureProvider<List<ChatConversation>>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
+  final ChatRepository repository = ref.watch(chatRepositoryProvider);
+  return repository.getConversations();
+});
 
 const List<_ComposerActionSpec> _composerActions = <_ComposerActionSpec>[
   _ComposerActionSpec(
@@ -196,86 +205,16 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<_ChatMessage> _freshMessages = <_ChatMessage>[];
-  final List<_ChatConversation> _conversations = <_ChatConversation>[
-    _ChatConversation(
-      id: 'sunday-reset',
-      title: 'Sunday reset',
-      dateLabel: 'Today',
-      messages: <_ChatMessage>[
-        const _ChatMessage(
-          sender: _ChatSender.user,
-          lines: <String>['My finances are hot garbage.'],
-        ),
-        const _ChatMessage(
-          sender: _ChatSender.assistant,
-          lines: <String>[
-            'You say this every Sunday.',
-            'It is time to fix this financial broken record.',
-            'I will create a plan.',
-          ],
-          planTitle: 'Sunday reset',
-          planItems: <String>[
-            'Round up every bill due in the next 7 days.',
-            'Separate non-negotiables before casual spending starts.',
-            'Cut one repeat expense before tomorrow night.',
-          ],
-        ),
-      ],
-    ),
-    _ChatConversation(
-      id: 'bill-rescue',
-      title: 'Bill rescue plan',
-      dateLabel: '08 Mar 2026',
-      messages: <_ChatMessage>[
-        const _ChatMessage(
-          sender: _ChatSender.user,
-          lines: <String>['I keep missing my due dates.'],
-        ),
-        const _ChatMessage(
-          sender: _ChatSender.assistant,
-          lines: <String>[
-            'That is recoverable.',
-            'Let us lock the next few bill dates and reduce late fees.',
-          ],
-          planTitle: 'Bill rescue plan',
-          planItems: <String>[
-            'Sort bills by due date and urgency.',
-            'Enable reminders two days before due date.',
-            'Pay essentials first, then spread the rest.',
-          ],
-        ),
-      ],
-    ),
-    _ChatConversation(
-      id: 'goal-sprint',
-      title: 'Goal sprint',
-      dateLabel: '03 Mar 2026',
-      messages: <_ChatMessage>[
-        const _ChatMessage(
-          sender: _ChatSender.user,
-          lines: <String>['Help me save for travel by summer.'],
-        ),
-        const _ChatMessage(
-          sender: _ChatSender.assistant,
-          lines: <String>[
-            'Great goal.',
-            'We will break this into weekly actions.',
-          ],
-          planTitle: 'Goal sprint',
-          planItems: <String>[
-            'Set a target amount and date.',
-            'Automate one weekly transfer.',
-            'Pause one non-essential subscription.',
-          ],
-        ),
-      ],
-    ),
-  ];
+  final List<ChatMessage> _freshMessages = <ChatMessage>[];
+  List<ChatConversation> _conversations = <ChatConversation>[];
   int _activeConversationIndex = 0;
 
-  List<_ChatMessage> get _messages =>
-      _conversations[_activeConversationIndex].messages;
+  List<ChatMessage> get _messages {
+    if (_conversations.isEmpty) {
+      return const <ChatMessage>[];
+    }
+    return _conversations[_activeConversationIndex].messages;
+  }
 
   @override
   void initState() {
@@ -297,7 +236,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final bool isFreshDemo =
         ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final ProfileHeaderState profileState = ref.watch(profileHeaderProvider);
-    final List<_ChatMessage> visibleMessages =
+
+    // Sync conversations from provider into local mutable state.
+    final AsyncValue<List<ChatConversation>> conversationsAsync =
+        ref.watch(_chatConversationsProvider);
+    conversationsAsync.whenData((List<ChatConversation> data) {
+      if (_conversations.isEmpty && data.isNotEmpty) {
+        _conversations = data;
+      }
+    });
+
+    final List<ChatMessage> visibleMessages =
         isFreshDemo ? _freshMessages : _messages;
     final bool showHero = visibleMessages.isEmpty;
 
@@ -423,7 +372,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     final int selectedIndex = _conversations.indexWhere(
-      (_ChatConversation conversation) => conversation.id == selectedId,
+      (ChatConversation conversation) => conversation.id == selectedId,
     );
     if (selectedIndex < 0) {
       return;
@@ -458,22 +407,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     FocusScope.of(context).unfocus();
     _controller.clear();
 
-    final List<_ChatMessage> targetMessages =
+    final List<ChatMessage> targetMessages =
         isFreshDemo ? _freshMessages : _messages;
 
     setState(() {
       targetMessages.add(
-        _ChatMessage(
-          sender: _ChatSender.user,
+        ChatMessage(
+          sender: ChatSender.user,
           lines: <String>[prompt],
         ),
       );
     });
     _scrollToBottom();
 
-    final _ChatMessage reply = _buildReply(prompt);
-
-    Future<void>.delayed(const Duration(milliseconds: 220), () {
+    final ChatRepository repository = ref.read(chatRepositoryProvider);
+    repository.getReply(prompt).then((ChatMessage reply) {
       if (!mounted) {
         return;
       }
@@ -483,72 +431,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       });
       _scrollToBottom();
     });
-  }
-
-  _ChatMessage _buildReply(String prompt) {
-    final String lowerPrompt = prompt.toLowerCase();
-
-    if (lowerPrompt.contains('bill')) {
-      return const _ChatMessage(
-        sender: _ChatSender.assistant,
-        lines: <String>[
-          'We can stop the bill pile-up before it turns into panic.',
-          'I will sort due dates first, then I will flag what can wait.',
-        ],
-        planTitle: 'Bill rescue plan',
-        planItems: <String>[
-          'Pin every due date in one list.',
-          'Protect essentials before optional services.',
-          'Set one reminder 48 hours before each payment.',
-        ],
-      );
-    }
-
-    if (lowerPrompt.contains('spend') || lowerPrompt.contains('budget')) {
-      return const _ChatMessage(
-        sender: _ChatSender.assistant,
-        lines: <String>[
-          'Your money is talking. We just need to make the patterns louder.',
-          'I will map what is fixed, what is flexible, and what is leaking.',
-        ],
-        planTitle: 'Spend reset',
-        planItems: <String>[
-          'Lock in a weekly spend cap.',
-          'Name two categories that always run hot.',
-          'Trim one habit before the next payday.',
-        ],
-      );
-    }
-
-    if (lowerPrompt.contains('save') || lowerPrompt.contains('goal')) {
-      return const _ChatMessage(
-        sender: _ChatSender.assistant,
-        lines: <String>[
-          'Saving gets easier when the goal feels close enough to touch.',
-          'Let us shrink it into a weekly target instead of one giant number.',
-        ],
-        planTitle: 'Goal sprint',
-        planItems: <String>[
-          'Choose the exact amount and target date.',
-          'Automate a small weekly move.',
-          'Create one rule for skipping impulse spend.',
-        ],
-      );
-    }
-
-    return const _ChatMessage(
-      sender: _ChatSender.assistant,
-      lines: <String>[
-        'That is fixable.',
-        'Give me the mess in plain language and I will turn it into next steps.',
-      ],
-      planTitle: 'First move',
-      planItems: <String>[
-        'Name what feels urgent.',
-        'Tell me what is due next.',
-        'Pick one thing to improve this week.',
-      ],
-    );
   }
 
   void _scrollToBottom() {
@@ -709,7 +591,7 @@ class _ConversationStage extends StatelessWidget {
 
   final ScrollController controller;
   final String displayName;
-  final List<_ChatMessage> messages;
+  final List<ChatMessage> messages;
 
   @override
   Widget build(BuildContext context) {
@@ -725,7 +607,7 @@ class _ConversationStage extends StatelessWidget {
         _CompactChatIntroCard(displayName: displayName),
         const SizedBox(height: PayaboSpacing.xl),
         ...messages.map(
-          (_ChatMessage message) => Padding(
+          (ChatMessage message) => Padding(
             padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
             child: _ChatMessageBlock(message: message),
           ),
@@ -778,11 +660,11 @@ class _CompactChatIntroCard extends StatelessWidget {
 class _ChatMessageBlock extends StatelessWidget {
   const _ChatMessageBlock({required this.message});
 
-  final _ChatMessage message;
+  final ChatMessage message;
 
   @override
   Widget build(BuildContext context) {
-    if (message.sender == _ChatSender.user) {
+    if (message.sender == ChatSender.user) {
       return Align(
         alignment: Alignment.centerRight,
         child: ConstrainedBox(
@@ -1341,39 +1223,4 @@ class _ComposerActionSpec {
 
   final String label;
   final IconData icon;
-}
-
-class _ChatConversation {
-  _ChatConversation({
-    required this.id,
-    required this.title,
-    required this.dateLabel,
-    required this.messages,
-  });
-
-  final String id;
-  final String title;
-  final String dateLabel;
-  final List<_ChatMessage> messages;
-}
-
-class _ChatMessage {
-  const _ChatMessage({
-    required this.sender,
-    required this.lines,
-    this.planTitle,
-    this.planItems = const <String>[],
-  });
-
-  final _ChatSender sender;
-  final List<String> lines;
-  final String? planTitle;
-  final List<String> planItems;
-
-  bool get hasPlan => planTitle != null && planItems.isNotEmpty;
-}
-
-enum _ChatSender {
-  user,
-  assistant,
 }

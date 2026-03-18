@@ -10,15 +10,6 @@ import '../../../shared/widgets/payabo_card.dart';
 import 'payment_flow_scaffold.dart';
 import 'payment_flow_state.dart';
 
-const List<String> _providerCategories = <String>[
-  'All',
-  'Education',
-  'Hospital',
-  'TV providers',
-  'Electricity',
-  'Others',
-];
-
 class ProviderListScreen extends ConsumerStatefulWidget {
   const ProviderListScreen({super.key});
 
@@ -40,6 +31,8 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
     final c = context.colors;
     final selectedCategory = ref.watch(paymentCategoryProvider);
     final providersValue = ref.watch(paymentProvidersProvider);
+    final providerCategories =
+        ref.watch(paymentProviderCategoriesProvider).value ?? const <String>[];
 
     return PaymentFlowScaffold(
       title: 'Select the service provider',
@@ -61,11 +54,11 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
             height: 44,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _providerCategories.length,
+              itemCount: providerCategories.length,
               separatorBuilder: (_, __) =>
                   const SizedBox(width: PayaboSpacing.sm),
               itemBuilder: (BuildContext context, int index) {
-                final category = _providerCategories[index];
+                final category = providerCategories[index];
                 final selected = selectedCategory == category;
 
                 return ChoiceChip(

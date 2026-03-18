@@ -3,68 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
+import '../notification_data.dart';
 
-const List<_NotificationSection> _notificationSections = <_NotificationSection>[
-  _NotificationSection(
-    title: 'Today',
-    items: <_NotificationItem>[
-      _NotificationItem(
-        title: 'Electricity bill reminder',
-        message: 'ECG Power is due tomorrow. Pay now to avoid late fees.',
-        timeLabel: '09:42 AM',
-        icon: Icons.bolt_rounded,
-        iconColor: Color(0xFFB35E17),
-        unread: true,
-      ),
-      _NotificationItem(
-        title: 'Spend alert',
-        message: 'Dining spend is 18% above your monthly pace.',
-        timeLabel: '07:15 AM',
-        icon: Icons.show_chart_rounded,
-        iconColor: Color(0xFF355F3E),
-        unread: true,
-      ),
-    ],
-  ),
-  _NotificationSection(
-    title: 'Yesterday',
-    items: <_NotificationItem>[
-      _NotificationItem(
-        title: 'Transfer completed',
-        message: 'Your GHS 300 transfer to Ama Boafo was successful.',
-        timeLabel: '08:03 PM',
-        icon: Icons.compare_arrows_rounded,
-        iconColor: Color(0xFF31518A),
-        unread: false,
-      ),
-      _NotificationItem(
-        title: 'Budget milestone',
-        message: 'You stayed under groceries budget for 3 weeks straight.',
-        timeLabel: '11:20 AM',
-        icon: Icons.emoji_events_rounded,
-        iconColor: Color(0xFF8A6325),
-        unread: false,
-      ),
-    ],
-  ),
-  _NotificationSection(
-    title: '10 Mar 2026',
-    items: <_NotificationItem>[
-      _NotificationItem(
-        title: 'New insight available',
-        message: 'Payabo found two subscriptions you may want to review.',
-        timeLabel: '04:45 PM',
-        icon: Icons.lightbulb_rounded,
-        iconColor: Color(0xFF784A34),
-        unread: false,
-      ),
-    ],
-  ),
-];
+// ─────────────────────────────────────────────────────────
+//  Notification data provider (backed by NotificationRepository)
+// ─────────────────────────────────────────────────────────
+
+final _notificationSectionsFutureProvider =
+    FutureProvider<List<NotificationSection>>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
+  final repository = ref.watch(notificationRepositoryProvider);
+  return repository.getSections();
+});
 
 class NotificationCenterScreen extends ConsumerWidget {
   const NotificationCenterScreen({super.key});
@@ -72,10 +27,11 @@ class NotificationCenterScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    final bool isFreshDemo =
-        ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
-    final sections =
-        isFreshDemo ? const <_NotificationSection>[] : _notificationSections;
+    final sections = ref.watch(_notificationSectionsFutureProvider).when(
+          data: (List<NotificationSection> data) => data,
+          loading: () => const <NotificationSection>[],
+          error: (_, __) => const <NotificationSection>[],
+        );
 
     return PayaboWarmScaffold(
       body: Column(
@@ -151,7 +107,7 @@ class NotificationCenterScreen extends ConsumerWidget {
                     ),
                     children: sections
                         .map(
-                          (_NotificationSection section) =>
+                          (NotificationSection section) =>
                               _NotificationSectionBlock(
                             section: section,
                           ),
@@ -222,7 +178,7 @@ class _NotificationEmptyState extends StatelessWidget {
 class _NotificationSectionBlock extends StatelessWidget {
   const _NotificationSectionBlock({required this.section});
 
-  final _NotificationSection section;
+  final NotificationSection section;
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +198,7 @@ class _NotificationSectionBlock extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.sm),
           ...section.items.map(
-            (_NotificationItem item) => Padding(
+            (NotificationItem item) => Padding(
               padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
               child: _NotificationCard(item: item),
             ),
@@ -256,11 +212,16 @@ class _NotificationSectionBlock extends StatelessWidget {
 class _NotificationCard extends StatelessWidget {
   const _NotificationCard({required this.item});
 
-  final _NotificationItem item;
+  final NotificationItem item;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final Color iconColor = Color(item.iconColorValue);
+    final IconData icon = IconData(
+      item.iconCodePoint,
+      fontFamily: item.iconFontFamily,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -277,10 +238,10 @@ class _NotificationCard extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: item.iconColor.withValues(alpha: 0.14),
+              color: iconColor.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
-            child: Icon(item.icon, color: item.iconColor, size: 20),
+            child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: PayaboSpacing.md),
           Expanded(
@@ -366,32 +327,4 @@ class _HeaderIconButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _NotificationSection {
-  const _NotificationSection({
-    required this.title,
-    required this.items,
-  });
-
-  final String title;
-  final List<_NotificationItem> items;
-}
-
-class _NotificationItem {
-  const _NotificationItem({
-    required this.title,
-    required this.message,
-    required this.timeLabel,
-    required this.icon,
-    required this.iconColor,
-    required this.unread,
-  });
-
-  final String title;
-  final String message;
-  final String timeLabel;
-  final IconData icon;
-  final Color iconColor;
-  final bool unread;
 }

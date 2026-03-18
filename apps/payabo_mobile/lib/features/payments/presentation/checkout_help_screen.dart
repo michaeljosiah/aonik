@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/repositories/order_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -233,28 +234,28 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _PricingBreakdown extends StatelessWidget {
+class _PricingBreakdown extends ConsumerWidget {
   const _PricingBreakdown();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final breakdownAsync = ref.watch(paymentPricingBreakdownProvider);
+    final lines = breakdownAsync.value?.lines ?? const <PricingLine>[];
 
     return PayaboCard(
       child: Column(
         children: <Widget>[
-          const _PriceLine(label: 'Rate NGN:GBP', value: '303.5770', subtle: true),
-          const _PriceLine(label: 'Sub-total', value: 'GBP 5.11', bold: true),
-          const _PriceLine(label: 'Fees', value: 'GBP 1.99'),
-          const _PriceLine(label: 'VAT', value: 'GBP 0.30'),
-          Divider(color: c.border, height: 28),
-          const _PriceLine(label: 'Total', value: 'GBP 7.40', bold: true),
-          const SizedBox(height: PayaboSpacing.md),
-          const _PriceLine(
-            label: 'You will earn',
-            value: '74 MBA POINTS',
-            accent: true,
-          ),
+          for (final line in lines) ...<Widget>[
+            if (line.isDivider) Divider(color: c.border, height: 28),
+            _PriceLine(
+              label: line.label,
+              value: line.value,
+              bold: line.bold,
+              subtle: line.subtle,
+              accent: line.accent,
+            ),
+          ],
         ],
       ),
     );

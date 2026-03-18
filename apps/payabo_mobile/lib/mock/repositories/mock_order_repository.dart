@@ -36,4 +36,33 @@ class MockOrderRepository implements OrderRepository {
     await MockBehavior.delay();
     return _ordersById[orderId];
   }
+
+  @override
+  Future<PricingBreakdown> getPricingBreakdown(String orderId) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('orders.getPricingBreakdown');
+
+    return const PricingBreakdown(
+      lines: <PricingLine>[
+        PricingLine(label: 'Rate NGN:GBP', value: '303.5770', subtle: true),
+        PricingLine(label: 'Sub-total', value: 'GBP 5.11', bold: true),
+        PricingLine(label: 'Fees', value: 'GBP 1.99'),
+        PricingLine(label: 'VAT', value: 'GBP 0.30'),
+        PricingLine(label: 'Total', value: 'GBP 7.40', bold: true, isDivider: true),
+        PricingLine(label: 'You will earn', value: '74 MBA POINTS', accent: true),
+      ],
+    );
+  }
+
+  @override
+  Future<OrderPointsSummary> getPointsSummary(String orderId) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('orders.getPointsSummary');
+
+    return const OrderPointsSummary(
+      pointsEarned: 78,
+      totalPoints: 5800,
+      pointsLabel: 'MBA',
+    );
+  }
 }

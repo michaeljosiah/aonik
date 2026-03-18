@@ -2,11 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
+import '../../../data/repositories/repository_providers.dart';
+import '../../../data/repositories/spending_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_card.dart';
 import 'widgets/category_selection_sheet.dart';
+
+// ─────────────────────────────────────────────────────────
+//  Providers
+// ─────────────────────────────────────────────────────────
+
+/// Provides merchant history stats from the spending repository.
+final _merchantHistoryFutureProvider =
+    FutureProvider.family<SpendingMerchantHistory, String>(
+  (Ref ref, String merchantName) async {
+    ref.watch(demoDataModeProvider);
+    final repository = ref.watch(spendingRepositoryProvider);
+    return repository.getMerchantHistory(merchantName);
+  },
+);
 
 // ─────────────────────────────────────────────────────────
 //  Transaction detail screen
@@ -24,7 +41,8 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
     this.currencySymbol,
     this.isCredit,
     this.iconText,
-    this.icon,
+    this.iconCodePoint,
+    this.iconFontFamily,
     this.date,
   });
 
@@ -37,7 +55,8 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
   final String? currencySymbol;
   final bool? isCredit;
   final String? iconText;
-  final IconData? icon;
+  final int? iconCodePoint;
+  final String? iconFontFamily;
   final DateTime? date;
 
   @override
@@ -115,7 +134,8 @@ class _TransactionDetailScreenState
                       amountMinor: amountMinor,
                       currencySymbol: currencySymbol,
                       isCredit: isCredit,
-                      icon: widget.icon,
+                      iconCodePoint: widget.iconCodePoint,
+                      iconFontFamily: widget.iconFontFamily,
                       iconText: widget.iconText,
                     ),
 
@@ -198,7 +218,8 @@ class _TransactionHeader extends StatelessWidget {
     required this.amountMinor,
     required this.currencySymbol,
     required this.isCredit,
-    this.icon,
+    this.iconCodePoint,
+    this.iconFontFamily,
     this.iconText,
   });
 
@@ -208,7 +229,8 @@ class _TransactionHeader extends StatelessWidget {
   final String amountMinor;
   final String currencySymbol;
   final bool isCredit;
-  final IconData? icon;
+  final int? iconCodePoint;
+  final String? iconFontFamily;
   final String? iconText;
 
   @override
@@ -216,10 +238,15 @@ class _TransactionHeader extends StatelessWidget {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
 
+    // Resolve icon from code point + font family if available.
+    final IconData? resolvedIcon = iconCodePoint != null
+        ? IconData(iconCodePoint!, fontFamily: iconFontFamily)
+        : null;
+
     // Icon circle: use merchant icon or first-letter avatar
     final Widget iconContent;
-    if (icon != null) {
-      iconContent = Icon(icon, color: c.primary, size: 28);
+    if (resolvedIcon != null) {
+      iconContent = Icon(resolvedIcon, color: c.primary, size: 28);
     } else {
       iconContent = Text(
         iconText ?? merchant[0],
@@ -230,7 +257,7 @@ class _TransactionHeader extends StatelessWidget {
       );
     }
 
-    final Color iconBg = icon != null
+    final Color iconBg = resolvedIcon != null
         ? c.primary.withValues(alpha: 0.12)
         : c.spendingMerchantIconWarmSurface;
 
@@ -533,57 +560,65 @@ class _CategoryCard extends StatelessWidget {
 //  History card
 // ─────────────────────────────────────────────────────────
 
-class _HistoryCard extends StatelessWidget {
+class _HistoryCard extends ConsumerWidget {
   const _HistoryCard({required this.merchant});
 
   final String merchant;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
+    final asyncHistory = ref.watch(_merchantHistoryFutureProvider(merchant));
 
     return PayaboCard(
       backgroundColor: c.spendingCardWarmElevated,
       padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  'History',
-                  style: textTheme.titleMedium?.copyWith(
-                    color: c.accentBrown,
-                    fontWeight: FontWeight.w700,
+      child: asyncHistory.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (Object error, StackTrace stack) => Text(
+          'Unable to load history.',
+          style: textTheme.bodyMedium?.copyWith(color: c.muted),
+        ),
+        data: (SpendingMerchantHistory history) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'History',
+                    style: textTheme.titleMedium?.copyWith(
+                      color: c.accentBrown,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: c.accentBrown,
-                size: 22,
-              ),
-            ],
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          const _HistoryRow(
-            label: 'Number of transactions',
-            value: '100',
-          ),
-          const SizedBox(height: PayaboSpacing.md),
-          const _HistoryRow(
-            label: 'Average spend',
-            value: '\u00A326.97',
-          ),
-          const SizedBox(height: PayaboSpacing.md),
-          const _HistoryRow(
-            label: 'Total spent',
-            value: '\u00A32,697.50',
-            isBold: true,
-          ),
-        ],
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: c.accentBrown,
+                  size: 22,
+                ),
+              ],
+            ),
+            const SizedBox(height: PayaboSpacing.lg),
+            _HistoryRow(
+              label: 'Number of transactions',
+              value: history.transactionCountLabel,
+            ),
+            const SizedBox(height: PayaboSpacing.md),
+            _HistoryRow(
+              label: 'Average spend',
+              value: history.averageSpendLabel,
+            ),
+            const SizedBox(height: PayaboSpacing.md),
+            _HistoryRow(
+              label: 'Total spent',
+              value: history.totalSpentLabel,
+              isBold: true,
+            ),
+          ],
+        ),
       ),
     );
   }

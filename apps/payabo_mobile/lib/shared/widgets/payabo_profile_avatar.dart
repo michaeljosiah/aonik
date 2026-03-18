@@ -37,12 +37,25 @@ class PayaboProfileAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: hasPhoto
-          ? Image.network(
-              resolvedPhotoUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _placeholder(context),
-            )
+          ? _buildImage(resolvedPhotoUrl, context)
           : _placeholder(context),
+    );
+  }
+
+  Widget _buildImage(String url, BuildContext context) {
+    if (url.startsWith('assets/') || url.startsWith('asset://')) {
+      final assetPath = url.startsWith('asset://') ? url.substring(8) : url;
+      return Image.asset(
+        assetPath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _placeholder(context),
+      );
+    }
+
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _placeholder(context),
     );
   }
 

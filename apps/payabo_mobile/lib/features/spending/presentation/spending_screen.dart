@@ -6,7 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
-import '../../../app/demo/demo_mode.dart';
+import '../../../data/repositories/repository_providers.dart';
+import '../../../data/repositories/spending_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
@@ -31,147 +32,28 @@ const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
 ];
 
 // ─────────────────────────────────────────────────────────
-//  Demo data — only used when isDemoProvider is true
-// ─────────────────────────────────────────────────────────
-
-const List<_AccountCardData> _demoAccounts = <_AccountCardData>[
-  _AccountCardData(
-    id: 'current',
-    accountName: 'Current',
-    providerName: 'Starling',
-    providerIcon: Icons.star_border_rounded,
-    balanceLabel: '\u00A35,012.90',
-    balanceMajor: '5,012',
-    balanceMinor: '.90',
-    currencySymbol: '\u00A3',
-  ),
-  _AccountCardData(
-    id: 'credit',
-    accountName: 'Credit card',
-    providerName: 'Amex',
-    providerIcon: Icons.credit_card_outlined,
-    balanceLabel: '-\u00A3842.30',
-    balanceMajor: '-842',
-    balanceMinor: '.30',
-    currencySymbol: '\u00A3',
-  ),
-];
-
-final List<_TransactionRowData> _demoTransactionsForCurrent =
-    <_TransactionRowData>[
-  _TransactionRowData(
-    id: 't1',
-    merchant: 'Open Rent',
-    category: 'Housing',
-    amountLabel: '+\u00A33,815.00',
-    amountMajor: '3,815',
-    amountMinor: '.00',
-    currencySymbol: '\u00A3',
-    isCredit: true,
-    date: DateTime(2025, 3, 1),
-    iconText: null,
-    icon: Icons.home_outlined,
-  ),
-  _TransactionRowData(
-    id: 't2',
-    merchant: 'Open Rent',
-    category: 'Housing',
-    amountLabel: '+\u00A31,040.00',
-    amountMajor: '1,040',
-    amountMinor: '.00',
-    currencySymbol: '\u00A3',
-    isCredit: true,
-    date: DateTime(2025, 3, 1),
-    iconText: null,
-    icon: Icons.home_outlined,
-  ),
-  _TransactionRowData(
-    id: 't3',
-    merchant: 'Open Rent',
-    category: 'Housing',
-    amountLabel: '+\u00A365.00',
-    amountMajor: '65',
-    amountMinor: '.00',
-    currencySymbol: '\u00A3',
-    isCredit: true,
-    date: DateTime(2025, 2, 15),
-    iconText: null,
-    icon: Icons.home_outlined,
-  ),
-  _TransactionRowData(
-    id: 't4',
-    merchant: 'Amazon',
-    category: 'Shopping',
-    amountLabel: '-\u00A327.99',
-    amountMajor: '27',
-    amountMinor: '.99',
-    currencySymbol: '\u00A3',
-    isCredit: false,
-    date: DateTime(2025, 2, 12),
-    iconText: 'a',
-    icon: null,
-  ),
-  _TransactionRowData(
-    id: 't5',
-    merchant: 'Tesco',
-    category: 'Groceries',
-    amountLabel: '-\u00A354.12',
-    amountMajor: '54',
-    amountMinor: '.12',
-    currencySymbol: '\u00A3',
-    isCredit: false,
-    date: DateTime(2025, 1, 28),
-    iconText: 'T',
-    icon: null,
-  ),
-  _TransactionRowData(
-    id: 't6',
-    merchant: 'Uber',
-    category: 'Transport',
-    amountLabel: '-\u00A314.20',
-    amountMajor: '14',
-    amountMinor: '.20',
-    currencySymbol: '\u00A3',
-    isCredit: false,
-    date: DateTime(2025, 1, 20),
-    iconText: 'U',
-    icon: null,
-  ),
-];
-
-final List<_TransactionRowData> _demoTransactionsForCredit =
-    <_TransactionRowData>[
-  _TransactionRowData(
-    id: 'c1',
-    merchant: 'Netflix',
-    category: 'Entertainment',
-    amountLabel: '-\u00A315.99',
-    amountMajor: '15',
-    amountMinor: '.99',
-    currencySymbol: '\u00A3',
-    isCredit: false,
-    date: DateTime(2025, 3, 5),
-    iconText: 'N',
-    icon: null,
-  ),
-  _TransactionRowData(
-    id: 'c2',
-    merchant: 'Spotify',
-    category: 'Entertainment',
-    amountLabel: '-\u00A310.99',
-    amountMajor: '10',
-    amountMinor: '.99',
-    currencySymbol: '\u00A3',
-    isCredit: false,
-    date: DateTime(2025, 2, 20),
-    iconText: 'S',
-    icon: null,
-  ),
-];
-
-// ─────────────────────────────────────────────────────────
 //  Screen
 // ─────────────────────────────────────────────────────────
+
+/// Provides the list of spending accounts from the repository.
+final _spendingAccountsFutureProvider =
+    FutureProvider<List<SpendingAccountCard>>(
+  (Ref ref) async {
+    ref.watch(demoDataModeProvider);
+    final repository = ref.watch(spendingRepositoryProvider);
+    return repository.getAccounts();
+  },
+);
+
+/// Provides transactions for a given account id from the repository.
+final _spendingTransactionsFutureProvider =
+    FutureProvider.family<List<SpendingTransaction>, String>(
+  (Ref ref, String accountId) async {
+    ref.watch(demoDataModeProvider);
+    final repository = ref.watch(spendingRepositoryProvider);
+    return repository.getTransactions(accountId);
+  },
+);
 
 class SpendingScreen extends ConsumerStatefulWidget {
   const SpendingScreen({super.key});
@@ -199,23 +81,38 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final isDemo = ref.watch(isDemoProvider);
-    final isFreshDemo =
-        isDemo && ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
 
-    // In non-demo mode these would come from the API via a repository.
-    // For now the screen shows empty states when not in demo mode.
-    final List<_AccountCardData> accounts =
-        isDemo && !isFreshDemo ? _demoAccounts : const <_AccountCardData>[];
+    // The repository already handles fresh vs populated branching based on
+    // the demo data mode. We use FutureProvider-based AsyncValue watches
+    // here. Mock repos resolve after a 250ms simulated delay; the screen
+    // shows an empty state during loading.
+    //
+    // TODO(live): Convert to proper loading/error states when live repos land.
+    final List<SpendingAccountCard> accounts;
+    final List<SpendingTransaction> transactions;
 
-    final List<_TransactionRowData> transactions;
-    if (isDemo && !isFreshDemo && accounts.isNotEmpty) {
+    // Eagerly resolve the futures produced by the mock repo via Riverpod's
+    // FutureProvider / AsyncValue.  When live repositories are wired up
+    // these will become proper AsyncValue watches with loading indicators.
+    final accountsSnapshot = ref.watch(_spendingAccountsFutureProvider);
+    accounts = accountsSnapshot.when(
+      data: (List<SpendingAccountCard> data) => data,
+      loading: () => const <SpendingAccountCard>[],
+      error: (_, __) => const <SpendingAccountCard>[],
+    );
+
+    if (accounts.isNotEmpty && _selectedAccountIndex < accounts.length) {
       final selectedId = accounts[_selectedAccountIndex].id;
-      transactions = selectedId == 'current'
-          ? _demoTransactionsForCurrent
-          : _demoTransactionsForCredit;
+      final txSnapshot = ref.watch(
+        _spendingTransactionsFutureProvider(selectedId),
+      );
+      transactions = txSnapshot.when(
+        data: (List<SpendingTransaction> data) => data,
+        loading: () => const <SpendingTransaction>[],
+        error: (_, __) => const <SpendingTransaction>[],
+      );
     } else {
-      transactions = const <_TransactionRowData>[];
+      transactions = const <SpendingTransaction>[];
     }
 
     final bool isEmpty = accounts.isEmpty;
@@ -500,8 +397,8 @@ class _SpendingHeroAndSheet extends StatefulWidget {
   /// Maximum fraction of viewport the sheet can occupy.
   static const double _maxSheetSize = 1.0;
 
-  final List<_AccountCardData> accounts;
-  final List<_TransactionRowData> transactions;
+  final List<SpendingAccountCard> accounts;
+  final List<SpendingTransaction> transactions;
   final int selectedAccountIndex;
   final PageController pageController;
   final ValueChanged<int> onAccountPageChanged;
@@ -654,7 +551,7 @@ class _AccountCardsHero extends StatelessWidget {
     required this.onAccountPageChanged,
   });
 
-  final List<_AccountCardData> accounts;
+  final List<SpendingAccountCard> accounts;
   final int selectedAccountIndex;
   final PageController pageController;
   final ValueChanged<int> onAccountPageChanged;
@@ -708,7 +605,7 @@ class _SpendingTransactionsSheet extends StatelessWidget {
   });
 
   final ScrollController scrollController;
-  final List<_TransactionRowData> transactions;
+  final List<SpendingTransaction> transactions;
 
   /// Top corner radius — animated to 0 at full sheet extension.
   final double topBorderRadius;
@@ -797,7 +694,7 @@ class _SpendingTransactionsSheet extends StatelessWidget {
   /// Groups transactions by month/year and builds section headers + cards.
   List<Widget> _buildGroupedTransactions(
     BuildContext context,
-    List<_TransactionRowData> transactions,
+    List<SpendingTransaction> transactions,
     PayaboColorResolver c,
   ) {
     const List<String> monthNames = <String>[
@@ -816,24 +713,24 @@ class _SpendingTransactionsSheet extends StatelessWidget {
     ];
 
     // Sort transactions by date descending (newest first).
-    final List<_TransactionRowData> sorted =
-        List<_TransactionRowData>.from(transactions)
-          ..sort((_TransactionRowData a, _TransactionRowData b) =>
+    final List<SpendingTransaction> sorted =
+        List<SpendingTransaction>.from(transactions)
+          ..sort((SpendingTransaction a, SpendingTransaction b) =>
               b.date.compareTo(a.date));
 
     // Group by year-month key.
-    final Map<String, List<_TransactionRowData>> grouped =
-        <String, List<_TransactionRowData>>{};
-    for (final _TransactionRowData tx in sorted) {
+    final Map<String, List<SpendingTransaction>> grouped =
+        <String, List<SpendingTransaction>>{};
+    for (final SpendingTransaction tx in sorted) {
       final String key = '${tx.date.year}-${tx.date.month}';
-      grouped.putIfAbsent(key, () => <_TransactionRowData>[]).add(tx);
+      grouped.putIfAbsent(key, () => <SpendingTransaction>[]).add(tx);
     }
 
     final List<Widget> widgets = <Widget>[];
 
-    for (final MapEntry<String, List<_TransactionRowData>> entry
+    for (final MapEntry<String, List<SpendingTransaction>> entry
         in grouped.entries) {
-      final _TransactionRowData first = entry.value.first;
+      final SpendingTransaction first = entry.value.first;
       final String label =
           '${monthNames[first.date.month - 1]} ${first.date.year}';
 
@@ -867,7 +764,7 @@ class _SpendingTransactionsSheet extends StatelessWidget {
                 .asMap()
                 .entries
                 .map(
-                  (MapEntry<int, _TransactionRowData> e) {
+                  (MapEntry<int, SpendingTransaction> e) {
                     final bool isLast = e.key == entry.value.length - 1;
                     return Column(
                       children: <Widget>[
@@ -901,7 +798,7 @@ class _AccountCard extends StatelessWidget {
     required this.isSelected,
   });
 
-  final _AccountCardData account;
+  final SpendingAccountCard account;
   final bool isSelected;
 
   @override
@@ -946,7 +843,10 @@ class _AccountCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(compact ? 10 : 14),
                     ),
                     child: Icon(
-                      account.providerIcon,
+                      IconData(
+                        account.providerIconCodePoint,
+                        fontFamily: account.providerIconFontFamily,
+                      ),
                       color: c.spendingAccountAccentPrimary,
                       size: compact ? 18.0 : 22.0,
                     ),
@@ -1074,17 +974,26 @@ class _PagerDots extends StatelessWidget {
 class _TransactionRow extends StatelessWidget {
   const _TransactionRow({required this.transaction});
 
-  final _TransactionRowData transaction;
+  final SpendingTransaction transaction;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
 
+    // Resolve icon from code point + font family if available.
+    final bool hasIcon = transaction.iconCodePoint != null;
+    final IconData? resolvedIcon = hasIcon
+        ? IconData(
+            transaction.iconCodePoint!,
+            fontFamily: transaction.iconFontFamily,
+          )
+        : null;
+
     // Icon circle: use merchant icon or first-letter avatar
     final Widget iconContent;
-    if (transaction.icon != null) {
+    if (resolvedIcon != null) {
       iconContent = Icon(
-        transaction.icon,
+        resolvedIcon,
         color: c.primary,
         size: 22,
       );
@@ -1098,7 +1007,7 @@ class _TransactionRow extends StatelessWidget {
       );
     }
 
-    final Color iconBg = transaction.icon != null
+    final Color iconBg = resolvedIcon != null
         ? c.primary.withValues(alpha: 0.12)
         : c.spendingMerchantIconWarmSurface;
 
@@ -1115,7 +1024,8 @@ class _TransactionRow extends StatelessWidget {
             'currencySymbol': transaction.currencySymbol,
             'isCredit': transaction.isCredit,
             'iconText': transaction.iconText,
-            'icon': transaction.icon,
+            'iconCodePoint': transaction.iconCodePoint,
+            'iconFontFamily': transaction.iconFontFamily,
             'date': transaction.date,
           },
         );
@@ -1245,58 +1155,4 @@ class _EmptyTransactionsState extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─────────────────────────────────────────────────────────
-//  Data models
-// ─────────────────────────────────────────────────────────
-
-class _AccountCardData {
-  const _AccountCardData({
-    required this.id,
-    required this.accountName,
-    required this.providerName,
-    required this.providerIcon,
-    required this.balanceLabel,
-    required this.balanceMajor,
-    required this.balanceMinor,
-    required this.currencySymbol,
-  });
-
-  final String id;
-  final String accountName;
-  final String providerName;
-  final IconData providerIcon;
-  final String balanceLabel;
-  final String balanceMajor;
-  final String balanceMinor;
-  final String currencySymbol;
-}
-
-class _TransactionRowData {
-  const _TransactionRowData({
-    required this.id,
-    required this.merchant,
-    required this.category,
-    required this.amountLabel,
-    required this.amountMajor,
-    required this.amountMinor,
-    required this.currencySymbol,
-    required this.isCredit,
-    required this.date,
-    this.iconText,
-    this.icon,
-  });
-
-  final String id;
-  final String merchant;
-  final String category;
-  final String amountLabel;
-  final String amountMajor;
-  final String amountMinor;
-  final String currencySymbol;
-  final bool isCredit;
-  final DateTime date;
-  final String? iconText;
-  final IconData? icon;
 }

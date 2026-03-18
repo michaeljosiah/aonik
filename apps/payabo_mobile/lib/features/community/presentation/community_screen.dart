@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/demo/demo_data_mode.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
@@ -10,6 +12,31 @@ import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import '../community_data.dart';
 import 'community_video_sheet.dart';
+
+// ─────────────────────────────────────────────────────────
+//  Community data providers (backed by CommunityRepository)
+// ─────────────────────────────────────────────────────────
+
+final _communityNewsFutureProvider =
+    FutureProvider<List<CommunityNewsItem>>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
+  final repository = ref.watch(communityRepositoryProvider);
+  return repository.getNews();
+});
+
+final _communityVideosFutureProvider =
+    FutureProvider<List<CommunityVideo>>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
+  final repository = ref.watch(communityRepositoryProvider);
+  return repository.getVideos();
+});
+
+final _communityCategoriesFutureProvider =
+    FutureProvider<List<CommunityVideoCategory>>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
+  final repository = ref.watch(communityRepositoryProvider);
+  return repository.getCategories();
+});
 
 class CommunityScreen extends ConsumerStatefulWidget {
   const CommunityScreen({super.key});
@@ -51,11 +78,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
     super.dispose();
   }
 
-  List<CommunityVideo> get _filteredVideos {
+  List<CommunityVideo> _filteredVideos(List<CommunityVideo> allVideos) {
     if (_selectedCategoryId == 'all') {
-      return kCommunityVideos;
+      return allVideos;
     }
-    return kCommunityVideos
+    return allVideos
         .where((v) => v.category == _selectedCategoryId)
         .toList();
   }
@@ -64,6 +91,24 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
   Widget build(BuildContext context) {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
+
+    // Resolve community data from repository-backed FutureProviders.
+    final news = ref.watch(_communityNewsFutureProvider).when(
+          data: (List<CommunityNewsItem> data) => data,
+          loading: () => const <CommunityNewsItem>[],
+          error: (_, __) => const <CommunityNewsItem>[],
+        );
+    final allVideos = ref.watch(_communityVideosFutureProvider).when(
+          data: (List<CommunityVideo> data) => data,
+          loading: () => const <CommunityVideo>[],
+          error: (_, __) => const <CommunityVideo>[],
+        );
+    final categories = ref.watch(_communityCategoriesFutureProvider).when(
+          data: (List<CommunityVideoCategory> data) => data,
+          loading: () => const <CommunityVideoCategory>[],
+          error: (_, __) => const <CommunityVideoCategory>[],
+        );
+    final filteredVideos = _filteredVideos(allVideos);
 
     return PayaboWarmScaffold(
       body: SlideTransition(
@@ -141,14 +186,14 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                         padding: const EdgeInsets.symmetric(
                           horizontal: PayaboSpacing.xl,
                         ),
-                        itemCount: kCommunityNews.length,
+                        itemCount: news.length,
                         separatorBuilder: (_, __) =>
                             const SizedBox(width: PayaboSpacing.md),
                         itemBuilder: (context, index) {
-                          final news = kCommunityNews[index];
+                          final newsItem = news[index];
                           return _StaggeredFadeItem(
                             index: index,
-                            child: _NewsCard(news: news),
+                            child: _NewsCard(news: newsItem),
                           );
                         },
                       ),
@@ -190,11 +235,11 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                     padding: const EdgeInsets.symmetric(
                       horizontal: PayaboSpacing.xl,
                     ),
-                    itemCount: kCommunityCategories.length,
+                    itemCount: categories.length,
                     separatorBuilder: (_, __) =>
                         const SizedBox(width: PayaboSpacing.sm),
                     itemBuilder: (context, index) {
-                      final cat = kCommunityCategories[index];
+                      final cat = categories[index];
                       final isSelected = cat.id == _selectedCategoryId;
                       return _CategoryChip(
                         category: cat,
@@ -212,7 +257,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
               ),
 
               // ── Video grid (with animated content switch) ───
-              _filteredVideos.isEmpty
+              filteredVideos.isEmpty
                   ? SliverToBoxAdapter(
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
@@ -232,7 +277,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            final video = _filteredVideos[index];
+                            final video = filteredVideos[index];
                             return Padding(
                               padding: const EdgeInsets.only(
                                 bottom: PayaboSpacing.lg,
@@ -241,6 +286,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                                 index: index,
                                 child: _VideoCard(
                                   video: video,
+                                  categories: categories,
                                   onTap: () => showCommunityVideoSheet(
                                     context: context,
                                     video: video,
@@ -249,7 +295,7 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                               ),
                             );
                           },
-                          childCount: _filteredVideos.length,
+                          childCount: filteredVideos.length,
                         ),
                       ),
                     ),
@@ -568,7 +614,10 @@ class _CategoryChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Icon(
-              category.icon,
+              IconData(
+                category.iconCodePoint,
+                fontFamily: category.iconFontFamily,
+              ),
               size: 16,
               color: isSelected ? Colors.white : c.textSecondary,
             ),
@@ -593,10 +642,12 @@ class _VideoCard extends StatelessWidget {
   const _VideoCard({
     required this.video,
     required this.onTap,
+    required this.categories,
   });
 
   final CommunityVideo video;
   final VoidCallback onTap;
+  final List<CommunityVideoCategory> categories;
 
   @override
   Widget build(BuildContext context) {
@@ -755,9 +806,9 @@ class _VideoCard extends StatelessWidget {
     );
   }
 
-  static String _categoryLabel(String categoryId) {
+  String _categoryLabel(String categoryId) {
     final match =
-        kCommunityCategories.where((cat) => cat.id == categoryId);
+        categories.where((cat) => cat.id == categoryId);
     return match.isNotEmpty ? match.first.label : categoryId;
   }
 }

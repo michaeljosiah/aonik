@@ -3,26 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../data/repositories/chat_repository.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 
-const List<_ChatHistoryEntry> _historyEntries = <_ChatHistoryEntry>[
-  _ChatHistoryEntry(
-    id: 'sunday-reset',
-    dateLabel: 'Today',
-    title: 'Sunday reset',
-  ),
-  _ChatHistoryEntry(
-    id: 'bill-rescue',
-    dateLabel: '1 day ago',
-    title: 'Current account balance inquiry',
-  ),
-  _ChatHistoryEntry(
-    id: 'goal-sprint',
-    dateLabel: '1 day ago',
-    title: 'Track spending to see where money goes',
-  ),
-];
+final FutureProvider<List<ChatHistoryEntry>> _chatHistoryProvider =
+    FutureProvider<List<ChatHistoryEntry>>((Ref ref) async {
+  ref.watch(demoDataModeProvider);
+  final ChatRepository repository = ref.watch(chatRepositoryProvider);
+  return repository.getHistoryEntries();
+});
 
 Color _historyBaseColor(BuildContext context) {
   final c = context.colors;
@@ -95,9 +86,12 @@ class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
     final bool isFreshDemo =
         ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final String query = _searchController.text.trim().toLowerCase();
-    final List<_ChatHistoryEntry> sourceItems =
-        isFreshDemo ? const <_ChatHistoryEntry>[] : _historyEntries;
-    final List<_ChatHistoryEntry> items = sourceItems.where((entry) {
+    final AsyncValue<List<ChatHistoryEntry>> historyAsync =
+        ref.watch(_chatHistoryProvider);
+    final List<ChatHistoryEntry> sourceItems = isFreshDemo
+        ? const <ChatHistoryEntry>[]
+        : (historyAsync.value ?? const <ChatHistoryEntry>[]);
+    final List<ChatHistoryEntry> items = sourceItems.where((entry) {
       return entry.title.toLowerCase().contains(query) ||
           entry.dateLabel.toLowerCase().contains(query);
     }).toList(growable: false);
@@ -202,7 +196,7 @@ class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
                               .asMap()
                               .entries
                               .map(
-                                (MapEntry<int, _ChatHistoryEntry> entry) =>
+                                (MapEntry<int, ChatHistoryEntry> entry) =>
                                     _HistoryListItem(
                                   item: entry.value,
                                   isSelected: entry.value.id ==
@@ -338,7 +332,7 @@ class _HistoryListItem extends StatelessWidget {
     required this.onTap,
   });
 
-  final _ChatHistoryEntry item;
+  final ChatHistoryEntry item;
   final bool isSelected;
   final bool showDivider;
   final VoidCallback onTap;
@@ -438,16 +432,4 @@ class _HistoryGlowOrb extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ChatHistoryEntry {
-  const _ChatHistoryEntry({
-    required this.id,
-    required this.dateLabel,
-    required this.title,
-  });
-
-  final String id;
-  final String dateLabel;
-  final String title;
 }

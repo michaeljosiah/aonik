@@ -342,7 +342,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
               currencySymbol: extra['currencySymbol'] as String?,
               isCredit: extra['isCredit'] as bool?,
               iconText: extra['iconText'] as String?,
-              icon: extra['icon'] as IconData?,
+              iconCodePoint: extra['iconCodePoint'] as int?,
+              iconFontFamily: extra['iconFontFamily'] as String?,
               date: extra['date'] as DateTime?,
             );
           },

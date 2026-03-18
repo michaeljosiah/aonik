@@ -32,6 +32,7 @@ class MockProfileRepository implements ProfileRepository {
           email: 'kwame.mensah@payabo.app',
           phone: '+233241000000',
           countryCode: 'GH',
+          photoUrl: 'assets/images/demo_profile.jpg',
         );
     }
   }

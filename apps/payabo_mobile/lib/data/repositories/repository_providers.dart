@@ -12,25 +12,38 @@ import '../../mock/repositories/mock_account_links_repository.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_budget_repository.dart';
 import '../../mock/repositories/mock_catalog_repository.dart';
+import '../../mock/repositories/mock_chat_repository.dart';
+import '../../mock/repositories/mock_community_repository.dart';
 import '../../mock/repositories/mock_dashboard_repository.dart';
+import '../../mock/repositories/mock_notification_repository.dart';
 import '../../mock/repositories/mock_order_repository.dart';
 import '../../mock/repositories/mock_payment_repository.dart';
+import '../../mock/repositories/mock_personal_transactions_repository.dart';
 import '../../mock/repositories/mock_profile_repository.dart';
 import '../../mock/repositories/mock_setup_journey_repository.dart';
+import '../../mock/repositories/mock_spending_category_repository.dart';
+import '../../mock/repositories/mock_spending_repository.dart';
 import '../../mock/repositories/mock_support_planning_repository.dart';
 import '../api/api_client.dart';
 import 'account_links_repository.dart';
 import 'auth_repository.dart';
 import 'budget_repository.dart';
 import 'catalog_repository.dart';
+import 'chat_repository.dart';
+import 'community_repository.dart';
 import 'dashboard_repository.dart';
+import 'notification_repository.dart';
 import 'live_account_links_repository.dart';
 import 'live_auth_repository.dart';
+import 'live_personal_transactions_repository.dart';
 import 'live_profile_repository.dart';
 import 'live_setup_journey_repository.dart';
 import 'order_repository.dart';
 import 'payment_repository.dart';
+import 'personal_transactions_repository.dart';
 import 'profile_repository.dart';
+import 'spending_category_repository.dart';
+import 'spending_repository.dart';
 
 /// True when the app should use mock implementations for unfinished modules or
 /// because the current session is running in demo mode.
@@ -64,6 +77,26 @@ final Provider<CatalogRepository> catalogRepositoryProvider =
   (Ref ref) {
     // Catalog remains mock-backed until a live repository is implemented.
     return MockCatalogRepository();
+  },
+);
+
+final Provider<ChatRepository> chatRepositoryProvider =
+    Provider<ChatRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    // Chat remains mock-backed until a live repository is implemented.
+    return MockChatRepository(demoDataMode: demoDataMode);
+  },
+);
+
+final Provider<CommunityRepository> communityRepositoryProvider =
+    Provider<CommunityRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    // Community remains mock-backed until a live repository is implemented.
+    return MockCommunityRepository(demoDataMode: demoDataMode);
   },
 );
 
@@ -104,6 +137,16 @@ final Provider<DashboardRepository> dashboardRepositoryProvider =
   },
 );
 
+final Provider<NotificationRepository> notificationRepositoryProvider =
+    Provider<NotificationRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    // Notifications remain mock-backed until a live repository is implemented.
+    return MockNotificationRepository(demoDataMode: demoDataMode);
+  },
+);
+
 final Provider<OrderRepository> orderRepositoryProvider =
     Provider<OrderRepository>(
   (Ref ref) {
@@ -117,6 +160,21 @@ final Provider<PaymentRepository> paymentRepositoryProvider =
   (Ref ref) {
     // Payments remain mock-backed until a live repository is implemented.
     return MockPaymentRepository();
+  },
+);
+
+final Provider<PersonalTransactionsRepository>
+    personalTransactionsRepositoryProvider =
+    Provider<PersonalTransactionsRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    if (_shouldMock(ref)) {
+      return MockPersonalTransactionsRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LivePersonalTransactionsRepository(apiClient: apiClient);
   },
 );
 
@@ -143,6 +201,27 @@ final Provider<SetupJourneyRepository> setupJourneyRepositoryProvider =
 
     final apiClient = ref.watch(apiClientProvider);
     return LiveSetupJourneyRepository(apiClient: apiClient);
+  },
+);
+
+final Provider<SpendingCategoryRepository> spendingCategoryRepositoryProvider =
+    Provider<SpendingCategoryRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    // Spending categories remain mock-backed until a live repository is
+    // implemented.
+    return MockSpendingCategoryRepository(demoDataMode: demoDataMode);
+  },
+);
+
+final Provider<SpendingRepository> spendingRepositoryProvider =
+    Provider<SpendingRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    // Spending remains mock-backed until a live repository is implemented.
+    return MockSpendingRepository(demoDataMode: demoDataMode);
   },
 );
 

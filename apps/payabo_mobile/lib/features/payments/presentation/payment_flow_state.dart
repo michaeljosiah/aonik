@@ -789,3 +789,45 @@ final FutureProvider<List<CatalogProvider>> paymentProvidersProvider =
     return repository.getProviders(countryCode: countryCode);
   },
 );
+
+final FutureProvider<List<String>> paymentServiceTypesProvider =
+    FutureProvider<List<String>>(
+  (Ref ref) async {
+    final repository = ref.watch(catalogRepositoryProvider);
+    return repository.getServiceTypes();
+  },
+);
+
+final FutureProvider<List<String>> paymentRecurringFrequenciesProvider =
+    FutureProvider<List<String>>(
+  (Ref ref) async {
+    final repository = ref.watch(catalogRepositoryProvider);
+    return repository.getRecurringFrequencies();
+  },
+);
+
+final FutureProvider<List<String>> paymentProviderCategoriesProvider =
+    FutureProvider<List<String>>(
+  (Ref ref) async {
+    final repository = ref.watch(catalogRepositoryProvider);
+    return repository.getProviderCategories();
+  },
+);
+
+final FutureProvider<PricingBreakdown> paymentPricingBreakdownProvider =
+    FutureProvider<PricingBreakdown>(
+  (Ref ref) async {
+    final orderId = ref.watch(paymentOrderIdProvider);
+    final repository = ref.watch(orderRepositoryProvider);
+    return repository.getPricingBreakdown(orderId);
+  },
+);
+
+final FutureProvider<OrderPointsSummary> paymentPointsSummaryProvider =
+    FutureProvider<OrderPointsSummary>(
+  (Ref ref) async {
+    final orderId = ref.watch(paymentOrderIdProvider);
+    final repository = ref.watch(orderRepositoryProvider);
+    return repository.getPointsSummary(orderId);
+  },
+);

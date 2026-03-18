@@ -5,12 +5,31 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../app/demo/demo_mode.dart';
+import '../../../data/repositories/repository_providers.dart';
+import '../../../data/repositories/spending_category_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
+
+// ─────────────────────────────────────────────────────────
+//  Provider
+// ─────────────────────────────────────────────────────────
+
+final spendingCategoryDetailProvider =
+    FutureProvider.family<SpendingCategoryDetail?, String>(
+  (Ref ref, String categoryId) async {
+    ref.watch(demoDataModeProvider);
+    final repository = ref.watch(spendingCategoryRepositoryProvider);
+    return repository.getCategoryDetail(categoryId);
+  },
+);
+
+// ─────────────────────────────────────────────────────────
+//  Screen
+// ─────────────────────────────────────────────────────────
 
 class SpendingCategoryDetailScreen extends ConsumerStatefulWidget {
   const SpendingCategoryDetailScreen({
@@ -32,10 +51,9 @@ class _SpendingCategoryDetailScreenState
     final c = context.colors;
     final isDemo = ref.watch(isDemoProvider);
     final isFreshDemo = ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
-    final _SpendingCategoryDetailData detail =
-        _SpendingCategoryDetailData.fromId(widget.categoryId);
-    final _SpendingCategoryTransaction? transaction =
-        (isDemo && !isFreshDemo) ? detail.transactions.first : null;
+    final detailAsync = ref.watch(
+      spendingCategoryDetailProvider(widget.categoryId),
+    );
 
     return Scaffold(
       backgroundColor: c.surfaceWarm,
@@ -44,148 +62,191 @@ class _SpendingCategoryDetailScreenState
           gradient: c.warmScreenGradient,
         ),
         child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              _CategoryHeader(
-                title: detail.title,
-                onBackTap: () => context.go('/spending'),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    PayaboSpacing.lg,
-                    PayaboSpacing.xl,
-                    PayaboSpacing.x4,
+          child: detailAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (Object error, StackTrace stack) => Center(
+              child: Text('Something went wrong: $error'),
+            ),
+            data: (SpendingCategoryDetail? detail) {
+              if (detail == null) {
+                return Center(
+                  child: Text(
+                    'Category not found',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: c.muted,
+                        ),
                   ),
-                  children: <Widget>[
-                    if (!isDemo)
-                      _LiveModeEmptyState(detail: detail)
-                    else if (isFreshDemo)
-                      _FreshSpendingDetailState(detail: detail)
-                    else ...<Widget>[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                 Text(
-                                   detail.monthLabel,
-                                   style: Theme.of(context)
-                                       .textTheme
-                                       .titleMedium
-                                       ?.copyWith(color: c.muted),
-                                 ),
-                                 const SizedBox(height: PayaboSpacing.xs),
-                                 Text(
-                                   detail.totalAmount,
-                                   style: Theme.of(context)
-                                       .textTheme
-                                       .displayMedium,
-                                 ),
-                                const SizedBox(height: PayaboSpacing.xs),
-                                Row(
+                );
+              }
+
+              final IconData icon = IconData(
+                detail.iconCodePoint,
+                fontFamily: detail.iconFontFamily,
+              );
+
+              final SpendingCategoryTransaction? transaction =
+                  (isDemo && !isFreshDemo && detail.transactions.isNotEmpty)
+                      ? detail.transactions.first
+                      : null;
+
+              return Column(
+                children: <Widget>[
+                  _CategoryHeader(
+                    title: detail.title,
+                    onBackTap: () => context.go('/spending'),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        PayaboSpacing.xl,
+                        PayaboSpacing.lg,
+                        PayaboSpacing.xl,
+                        PayaboSpacing.x4,
+                      ),
+                      children: <Widget>[
+                        if (!isDemo)
+                          _LiveModeEmptyState(
+                            title: detail.title,
+                            icon: icon,
+                          )
+                        else if (isFreshDemo)
+                          _FreshSpendingDetailState(
+                            title: detail.title,
+                            icon: icon,
+                          )
+                        else ...<Widget>[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                    Text(
-                                      detail.deltaAmount,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                             .titleMedium
-                                             ?.copyWith(
-                                               color: detail.isDecrease
-                                                 ? c.success
-                                                 : c.danger,
-                                               fontWeight: FontWeight.w700,
-                                             ),
+                                     Text(
+                                       detail.monthLabel,
+                                       style: Theme.of(context)
+                                           .textTheme
+                                           .titleMedium
+                                           ?.copyWith(color: c.muted),
                                      ),
-                                     Icon(
-                                       detail.isDecrease
-                                           ? Icons.arrow_drop_down
-                                           : Icons.arrow_drop_up,
-                                       color: detail.isDecrease
-                                           ? c.success
-                                           : c.danger,
-                                       size: 20,
+                                     const SizedBox(height: PayaboSpacing.xs),
+                                     Text(
+                                       detail.totalAmount,
+                                       style: Theme.of(context)
+                                           .textTheme
+                                           .displayMedium,
                                      ),
-                                    Expanded(
-                                      child: Text(
-                                        detail.deltaReference,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                             .titleMedium
-                                             ?.copyWith(
-                                               color: c.muted,
-                                             ),
-                                       ),
-                                     ),
+                                    const SizedBox(height: PayaboSpacing.xs),
+                                    Row(
+                                      children: <Widget>[
+                                        Text(
+                                          detail.deltaAmount,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                                 .titleMedium
+                                                 ?.copyWith(
+                                                   color: detail.isDecrease
+                                                     ? c.success
+                                                     : c.danger,
+                                                   fontWeight: FontWeight.w700,
+                                                 ),
+                                         ),
+                                         Icon(
+                                           detail.isDecrease
+                                               ? Icons.arrow_drop_down
+                                               : Icons.arrow_drop_up,
+                                           color: detail.isDecrease
+                                               ? c.success
+                                               : c.danger,
+                                           size: 20,
+                                         ),
+                                        Expanded(
+                                          child: Text(
+                                            detail.deltaReference,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                 .titleMedium
+                                                 ?.copyWith(
+                                                   color: c.muted,
+                                                 ),
+                                           ),
+                                         ),
+                                      ],
+                                    ),
                                   ],
                                 ),
-                              ],
+                              ),
+                              const SizedBox(width: PayaboSpacing.md),
+                              Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  color: c.background,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: c.border),
+                                ),
+                                child: Icon(
+                                  icon,
+                                  color: c.primary,
+                                  size: 56,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: PayaboSpacing.lg),
+                          Center(
+                            child: _DetailComparisonChip(
+                              deltaAmount: detail.deltaAmount,
+                              deltaReference: detail.deltaReference,
+                              isDecrease: detail.isDecrease,
                             ),
                           ),
-                          const SizedBox(width: PayaboSpacing.md),
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: c.background,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: c.border),
+                          const SizedBox(height: PayaboSpacing.xl),
+                          SizedBox(
+                            height: 250,
+                            child: _CategorySpendingChart(
+                              currentMonthSpots: detail.chartCurrentMonthSpots,
+                              previousMonthSpots:
+                                  detail.chartPreviousMonthSpots,
                             ),
-                            child: Icon(
-                              detail.icon,
-                              color: c.primary,
-                              size: 56,
+                          ),
+                          const SizedBox(height: PayaboSpacing.xl),
+                          _ActiveAlertBanner(
+                            alertCount: detail.activeAlertCount,
+                          ),
+                          const SizedBox(height: PayaboSpacing.xl),
+                           Text(
+                             detail.transactionCountLabel,
+                             style: Theme.of(context)
+                                 .textTheme
+                                 .titleLarge
+                                 ?.copyWith(color: c.muted),
+                           ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          if (transaction != null) ...<Widget>[
+                            _TransactionDateRow(
+                              dateLabel: transaction.dateLabel,
+                              totalAmount: transaction.amount,
+                            ),
+                            _TransactionListItem(transaction: transaction),
+                          ],
+                          const SizedBox(height: PayaboSpacing.x3),
+                          Center(
+                            child: Text(
+                              "That's all your transactions.",
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(color: c.muted),
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: PayaboSpacing.lg),
-                      Center(
-                        child: _DetailComparisonChip(
-                          deltaAmount: detail.deltaAmount,
-                          deltaReference: detail.deltaReference,
-                          isDecrease: detail.isDecrease,
-                        ),
-                      ),
-                      const SizedBox(height: PayaboSpacing.xl),
-                      const SizedBox(
-                        height: 250,
-                        child: _CategorySpendingChart(),
-                      ),
-                      const SizedBox(height: PayaboSpacing.xl),
-                      _ActiveAlertBanner(alertCount: detail.activeAlertCount),
-                      const SizedBox(height: PayaboSpacing.xl),
-                       Text(
-                         detail.transactionCountLabel,
-                         style: Theme.of(context)
-                             .textTheme
-                             .titleLarge
-                             ?.copyWith(color: c.muted),
-                       ),
-                      const SizedBox(height: PayaboSpacing.md),
-                      _TransactionDateRow(
-                        dateLabel: transaction!.dateLabel,
-                        totalAmount: transaction.amount,
-                      ),
-                      _TransactionListItem(transaction: transaction),
-                      const SizedBox(height: PayaboSpacing.x3),
-                      Center(
-                        child: Text(
-                          "That's all your transactions.",
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(color: c.muted),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -196,10 +257,15 @@ class _SpendingCategoryDetailScreenState
   }
 }
 
-class _LiveModeEmptyState extends StatelessWidget {
-  const _LiveModeEmptyState({required this.detail});
+// ─────────────────────────────────────────────────────────
+//  Empty states
+// ─────────────────────────────────────────────────────────
 
-  final _SpendingCategoryDetailData detail;
+class _LiveModeEmptyState extends StatelessWidget {
+  const _LiveModeEmptyState({required this.title, required this.icon});
+
+  final String title;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +292,7 @@ class _LiveModeEmptyState extends StatelessWidget {
                   border: Border.all(color: c.border),
                 ),
                 child: Icon(
-                  detail.icon,
+                  icon,
                   color: c.primary,
                   size: 28,
                 ),
@@ -234,7 +300,7 @@ class _LiveModeEmptyState extends StatelessWidget {
               const SizedBox(width: PayaboSpacing.md),
               Expanded(
                 child: Text(
-                  'No ${detail.title.toLowerCase()} data yet',
+                  'No ${title.toLowerCase()} data yet',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: c.accentBrown,
                         fontWeight: FontWeight.w700,
@@ -245,7 +311,7 @@ class _LiveModeEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.lg),
           Text(
-            'Connect a bank account to see your spending insights for ${detail.title.toLowerCase()} here.',
+            'Connect a bank account to see your spending insights for ${title.toLowerCase()} here.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: c.muted,
                   height: 1.45,
@@ -265,9 +331,10 @@ class _LiveModeEmptyState extends StatelessWidget {
 }
 
 class _FreshSpendingDetailState extends StatelessWidget {
-  const _FreshSpendingDetailState({required this.detail});
+  const _FreshSpendingDetailState({required this.title, required this.icon});
 
-  final _SpendingCategoryDetailData detail;
+  final String title;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -294,7 +361,7 @@ class _FreshSpendingDetailState extends StatelessWidget {
                   border: Border.all(color: c.border),
                 ),
                 child: Icon(
-                  detail.icon,
+                  icon,
                   color: c.primary,
                   size: 28,
                 ),
@@ -302,7 +369,7 @@ class _FreshSpendingDetailState extends StatelessWidget {
               const SizedBox(width: PayaboSpacing.md),
               Expanded(
                 child: Text(
-                  'No ${detail.title.toLowerCase()} transactions yet',
+                  'No ${title.toLowerCase()} transactions yet',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: c.accentBrown,
                         fontWeight: FontWeight.w700,
@@ -331,6 +398,10 @@ class _FreshSpendingDetailState extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Header
+// ─────────────────────────────────────────────────────────
 
 class _CategoryHeader extends StatelessWidget {
   const _CategoryHeader({
@@ -398,6 +469,10 @@ class _CategoryHeader extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Comparison chip
+// ─────────────────────────────────────────────────────────
+
 class _DetailComparisonChip extends StatelessWidget {
   const _DetailComparisonChip({
     required this.deltaAmount,
@@ -456,34 +531,27 @@ class _DetailComparisonChip extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Spending chart
+// ─────────────────────────────────────────────────────────
+
 class _CategorySpendingChart extends StatelessWidget {
-  const _CategorySpendingChart();
+  const _CategorySpendingChart({
+    required this.currentMonthSpots,
+    required this.previousMonthSpots,
+  });
 
-  static const List<FlSpot> _currentMonthSpots = <FlSpot>[
-    FlSpot(1, 0),
-    FlSpot(2, 0),
-    FlSpot(3, 8),
-    FlSpot(4, 8),
-    FlSpot(5, 12),
-    FlSpot(6, 12),
-  ];
+  final List<List<double>> currentMonthSpots;
+  final List<List<double>> previousMonthSpots;
 
-  static const List<FlSpot> _previousMonthSpots = <FlSpot>[
-    FlSpot(1, 0),
-    FlSpot(2, 4),
-    FlSpot(5, 11),
-    FlSpot(14, 11),
-    FlSpot(15, 28),
-    FlSpot(22, 28),
-    FlSpot(23, 35),
-    FlSpot(25, 35),
-    FlSpot(26, 45),
-    FlSpot(31, 45),
-  ];
+  List<FlSpot> _toFlSpots(List<List<double>> raw) =>
+      raw.map((List<double> pair) => FlSpot(pair[0], pair[1])).toList();
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final List<FlSpot> current = _toFlSpots(currentMonthSpots);
+    final List<FlSpot> previous = _toFlSpots(previousMonthSpots);
 
     return LineChart(
       LineChartData(
@@ -529,7 +597,7 @@ class _CategorySpendingChart extends StatelessWidget {
         ),
         lineBarsData: <LineChartBarData>[
           LineChartBarData(
-            spots: _previousMonthSpots,
+            spots: previous,
             isCurved: false,
             color: c.muted.withValues(alpha: 0.4),
             barWidth: 3,
@@ -537,7 +605,7 @@ class _CategorySpendingChart extends StatelessWidget {
             belowBarData: BarAreaData(show: false),
           ),
           LineChartBarData(
-            spots: _currentMonthSpots,
+            spots: current,
             isCurved: false,
             color: c.ink,
             barWidth: 3,
@@ -598,6 +666,10 @@ class _CategorySpendingChart extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Active alert banner
+// ─────────────────────────────────────────────────────────
+
 class _ActiveAlertBanner extends StatelessWidget {
   const _ActiveAlertBanner({required this.alertCount});
 
@@ -650,6 +722,10 @@ class _ActiveAlertBanner extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────
+//  Transaction rows
+// ─────────────────────────────────────────────────────────
+
 class _TransactionDateRow extends StatelessWidget {
   const _TransactionDateRow({
     required this.dateLabel,
@@ -694,7 +770,7 @@ class _TransactionDateRow extends StatelessWidget {
 class _TransactionListItem extends StatelessWidget {
   const _TransactionListItem({required this.transaction});
 
-  final _SpendingCategoryTransaction transaction;
+  final SpendingCategoryTransaction transaction;
 
   @override
   Widget build(BuildContext context) {
@@ -795,260 +871,4 @@ class _TransactionListItem extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SpendingCategoryDetailData {
-  const _SpendingCategoryDetailData({
-    required this.title,
-    required this.icon,
-    required this.monthLabel,
-    required this.totalAmount,
-    required this.deltaAmount,
-    required this.deltaReference,
-    required this.isDecrease,
-    required this.activeAlertCount,
-    required this.transactionCountLabel,
-    required this.transactions,
-  });
-
-  final String title;
-  final IconData icon;
-  final String monthLabel;
-  final String totalAmount;
-  final String deltaAmount;
-  final String deltaReference;
-  final bool isDecrease;
-  final int activeAlertCount;
-  final String transactionCountLabel;
-  final List<_SpendingCategoryTransaction> transactions;
-
-  static _SpendingCategoryDetailData fromId(String categoryId) {
-    switch (categoryId) {
-      case 'shopping':
-        return const _SpendingCategoryDetailData(
-          title: 'Shopping',
-          icon: Icons.shopping_bag_outlined,
-          monthLabel: 'March spend',
-          totalAmount: '£52.00',
-          deltaAmount: '£11.88',
-          deltaReference: 'vs. 4 February',
-          isDecrease: true,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Uber Eats',
-              amount: '£52.00',
-              time: '00:17',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'UE',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-      case 'groceries':
-        return const _SpendingCategoryDetailData(
-          title: 'Groceries',
-          icon: Icons.local_grocery_store_outlined,
-          monthLabel: 'March spend',
-          totalAmount: '£284.35',
-          deltaAmount: '£21.30',
-          deltaReference: 'vs. 4 February',
-          isDecrease: true,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Tesco',
-              amount: '£284.35',
-              time: '14:22',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'T',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-      case 'transport':
-        return const _SpendingCategoryDetailData(
-          title: 'Transport',
-          icon: Icons.directions_car_outlined,
-          monthLabel: 'March spend',
-          totalAmount: '£126.40',
-          deltaAmount: '£18.00',
-          deltaReference: 'vs. 4 February',
-          isDecrease: false,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Uber',
-              amount: '£126.40',
-              time: '09:05',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'U',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-      case 'amazon':
-        return const _SpendingCategoryDetailData(
-          title: 'Amazon',
-          icon: Icons.shopping_cart_outlined,
-          monthLabel: 'March spend',
-          totalAmount: '£410.90',
-          deltaAmount: '£98.20',
-          deltaReference: 'vs. 4 February',
-          isDecrease: false,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Amazon Marketplace',
-              amount: '£410.90',
-              time: '16:10',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'AM',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-      case 'tesco':
-        return const _SpendingCategoryDetailData(
-          title: 'Tesco',
-          icon: Icons.local_grocery_store_outlined,
-          monthLabel: 'March spend',
-          totalAmount: '£284.35',
-          deltaAmount: '£21.30',
-          deltaReference: 'vs. 4 February',
-          isDecrease: true,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Tesco',
-              amount: '£284.35',
-              time: '14:22',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'TS',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-      case 'uber':
-        return const _SpendingCategoryDetailData(
-          title: 'Uber',
-          icon: Icons.local_taxi_outlined,
-          monthLabel: 'March spend',
-          totalAmount: '£126.40',
-          deltaAmount: '£18.00',
-          deltaReference: 'vs. 4 February',
-          isDecrease: false,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Uber',
-              amount: '£126.40',
-              time: '09:05',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'UB',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-      case 'netflix':
-        return const _SpendingCategoryDetailData(
-          title: 'Netflix',
-          icon: Icons.ondemand_video_outlined,
-          monthLabel: 'March spend',
-          totalAmount: '£12.99',
-          deltaAmount: '£0.00',
-          deltaReference: 'vs. 4 February',
-          isDecrease: true,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Netflix',
-              amount: '£12.99',
-              time: '08:00',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'N',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-      case 'finances':
-      default:
-        return const _SpendingCategoryDetailData(
-          title: 'Finances',
-          icon: Icons.currency_pound,
-          monthLabel: 'March spend',
-          totalAmount: '£148.60',
-          deltaAmount: '£9.20',
-          deltaReference: 'vs. 4 February',
-          isDecrease: true,
-          activeAlertCount: 1,
-          transactionCountLabel: '1 Transaction',
-          transactions: <_SpendingCategoryTransaction>[
-            _SpendingCategoryTransaction(
-              dateLabel: 'Mon 02 Mar',
-              merchant: 'Transfer fee',
-              amount: '£148.60',
-              time: '11:45',
-              accountName: 'Current Account',
-              accountBadge: 'S',
-              avatarLabel: 'TF',
-              avatarBackground: Color(0xFF1A1C20),
-              avatarForeground: Color(0xFF4ACB64),
-            ),
-          ],
-        );
-    }
-  }
-}
-
-class _SpendingCategoryTransaction {
-  const _SpendingCategoryTransaction({
-    required this.dateLabel,
-    required this.merchant,
-    required this.amount,
-    required this.time,
-    required this.accountName,
-    required this.accountBadge,
-    required this.avatarLabel,
-    required this.avatarBackground,
-    required this.avatarForeground,
-  });
-
-  final String dateLabel;
-  final String merchant;
-  final String amount;
-  final String time;
-  final String accountName;
-  final String accountBadge;
-  final String avatarLabel;
-  final Color avatarBackground;
-  final Color avatarForeground;
 }
