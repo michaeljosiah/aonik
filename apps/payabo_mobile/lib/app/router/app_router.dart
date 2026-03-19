@@ -25,7 +25,9 @@ import '../../features/payments/presentation/checkout_card_screen.dart';
 import '../../features/payments/presentation/checkout_help_screen.dart';
 import '../../features/payments/presentation/friend_message_screen.dart';
 import '../../features/payments/presentation/friend_selection_screen.dart';
+import '../../features/payments/presentation/pay_activity_screen.dart';
 import '../../features/payments/presentation/pay_dashboard_screen.dart';
+import '../../features/payments/presentation/pay_transaction_details_screen.dart';
 import '../../features/payments/presentation/payment_country_screen.dart';
 import '../../features/payments/presentation/payment_return_placeholder_screen.dart';
 import '../../features/payments/presentation/payment_selection_screen.dart';
@@ -263,6 +265,16 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/pay',
           name: 'pay-dashboard',
           builder: (context, state) => const PayDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/payments/activity',
+          name: 'pay-activity',
+          builder: (context, state) => const PayActivityScreen(),
+        ),
+        GoRoute(
+          path: '/payments/transaction-details',
+          name: 'pay-transaction-details',
+          builder: (context, state) => const PayTransactionDetailsScreen(),
         ),
         GoRoute(
           path: '/dashboard/empty',

@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/catalog_repository.dart';
-import '../../../shared/theme/payabo_borders.dart';
-import '../../../shared/theme/payabo_colors.dart';
+import '../../../shared/theme/payabo_color_resolver.dart';
+import '../../../shared/theme/payabo_radii.dart';
+import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import 'payment_flow_scaffold.dart';
 import 'payment_flow_state.dart';
@@ -28,6 +29,7 @@ class _PaymentCountryScreenState extends ConsumerState<PaymentCountryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final selectedCountryCode = ref.watch(
       paymentFlowControllerProvider.select((state) => state.countryCode),
     );
@@ -43,9 +45,23 @@ class _PaymentCountryScreenState extends ConsumerState<PaymentCountryScreen> {
           TextField(
             controller: _searchController,
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Search for a country',
-              prefixIcon: Icon(Icons.search),
+              prefixIcon: Icon(Icons.search, color: c.textMuted),
+              filled: true,
+              fillColor: c.surfaceBase,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide(color: c.borderStrong),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide(color: c.borderStrong),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide(color: c.primary, width: 1.4),
+              ),
             ),
           ),
           const SizedBox(height: PayaboSpacing.lg),
@@ -59,57 +75,39 @@ class _PaymentCountryScreenState extends ConsumerState<PaymentCountryScreen> {
                   )
                   .toList(growable: false);
 
-              return Column(
-                children: filtered.map((country) {
-                  final selected =
-                      country.code.toUpperCase() == selectedCountryCode;
+              if (filtered.isEmpty) {
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: PayaboSpacing.xl),
+                  child: Text(
+                    'No countries match your search yet.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: c.textSecondary,
+                        ),
+                  ),
+                );
+              }
 
-                  return InkWell(
-                    onTap: () {
-                      ref
-                          .read(paymentFlowControllerProvider.notifier)
-                          .setCountryCode(country.code);
-                      context.go('/payments/providers');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: PayaboSpacing.lg),
-                      decoration: const BoxDecoration(
-                        border: Border(bottom: PayaboBorders.defaultBorder),
-                      ),
-                      child: Row(
-                        children: <Widget>[
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor: PayaboColors.background,
-                            child: Text(
-                              country.code,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: PayaboColors.ink,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ),
-                          const SizedBox(width: PayaboSpacing.md),
-                          Expanded(
-                            child: Text(
-                              country.name,
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
-                          ),
-                          if (selected)
-                            const Icon(
-                              Icons.check_circle,
-                              color: PayaboColors.primary,
-                            ),
-                        ],
-                      ),
+              return Column(
+                children: <Widget>[
+                  for (var index = 0;
+                      index < filtered.length;
+                      index++) ...<Widget>[
+                    _CountryOptionTile(
+                      country: filtered[index],
+                      selected: filtered[index].code.toUpperCase() ==
+                          selectedCountryCode,
+                      onTap: () {
+                        ref
+                            .read(paymentFlowControllerProvider.notifier)
+                            .setCountryCode(filtered[index].code);
+                        context.go('/payments/providers');
+                      },
                     ),
-                  );
-                }).toList(growable: false),
+                    if (index < filtered.length - 1)
+                      const SizedBox(height: PayaboSpacing.md),
+                  ],
+                ],
               );
             },
             loading: () => const Padding(
@@ -121,6 +119,71 @@ class _PaymentCountryScreenState extends ConsumerState<PaymentCountryScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CountryOptionTile extends StatelessWidget {
+  const _CountryOptionTile({
+    required this.country,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final CatalogCountry country;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: PayaboRadii.radiusSm,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(
+            horizontal: PayaboSpacing.lg,
+            vertical: PayaboSpacing.lg,
+          ),
+          decoration: BoxDecoration(
+            color: c.surfaceBase,
+            borderRadius: PayaboRadii.radiusSm,
+            border: Border.all(
+              color: selected ? c.primary : c.borderStrong,
+              width: selected ? 1.4 : 1,
+            ),
+            boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.medium,
+          ),
+          child: Row(
+            children: <Widget>[
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: c.surfaceWarmAccent,
+                child: Text(
+                  country.code,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: c.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              const SizedBox(width: PayaboSpacing.md),
+              Expanded(
+                child: Text(
+                  country.name,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: c.textPrimary,
+                      ),
+                ),
+              ),
+              if (selected) Icon(Icons.check_circle, color: c.primary),
+            ],
+          ),
+        ),
       ),
     );
   }

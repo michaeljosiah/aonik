@@ -542,6 +542,7 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
             TrimNullable(transaction.MerchantName),
             TrimNullable(transaction.Name),
             ResolveCategory(transaction.PersonalFinanceCategory),
+            ResolveSubCategory(transaction.PersonalFinanceCategory),
             transaction.Pending);
     }
 
@@ -562,12 +563,17 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
 
     private static string? ResolveCategory(PlaidPersonalFinanceCategory? category)
     {
-        if (string.IsNullOrWhiteSpace(category?.Primary))
+        return TransactionCategoryReference.MapPlaidPrimaryCategory(category?.Primary);
+    }
+
+    private static string? ResolveSubCategory(PlaidPersonalFinanceCategory? category)
+    {
+        if (string.IsNullOrWhiteSpace(category?.Detailed))
         {
             return null;
         }
 
-        return category!.Primary
+        return category!.Detailed
             .Replace("_", " ", StringComparison.Ordinal)
             .Trim();
     }
@@ -825,6 +831,9 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
     {
         [JsonPropertyName("primary")]
         public string? Primary { get; set; }
+
+        [JsonPropertyName("detailed")]
+        public string? Detailed { get; set; }
     }
 
     private sealed class PlaidAccountBalances

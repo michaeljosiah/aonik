@@ -85,6 +85,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Connect bank account'), findsOneWidget);
+    expect(find.byKey(const Key('accounts-country-dropdown')), findsOneWidget);
     expect(find.byKey(const Key('accounts-connect-continue')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('accounts-connect-continue')));

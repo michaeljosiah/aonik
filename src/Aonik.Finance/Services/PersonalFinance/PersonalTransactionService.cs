@@ -233,15 +233,19 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
             transaction.ReviewStatus = "Reviewed";
             transaction.ReviewedByUserId = transaction.UserId;
             transaction.ReviewedAt = DateTime.UtcNow;
-            return;
+        }
+        else
+        {
+            transaction.Confidence = 0;
+            transaction.CategorisedBy = null;
+            transaction.ClassificationMethod = null;
+            transaction.ReviewStatus = "Pending";
+            transaction.ReviewedByUserId = null;
+            transaction.ReviewedAt = null;
         }
 
-        transaction.Confidence = 0;
-        transaction.CategorisedBy = null;
-        transaction.ClassificationMethod = null;
-        transaction.ReviewStatus = "Pending";
-        transaction.ReviewedByUserId = null;
-        transaction.ReviewedAt = null;
+        transaction.TransactionType = TransactionCategoryReference.ResolveTransactionType(
+            transaction.Category, transaction.Amount);
     }
 
     private static PersonalTransactionResponse MapToResponse(
@@ -255,9 +259,11 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
             transaction.OccurredAt,
             transaction.Amount,
             transaction.Currency,
+            transaction.TransactionType,
             transaction.Merchant,
             transaction.Description,
             transaction.Category,
+            transaction.SubCategory,
             transaction.Confidence,
             transaction.CategorisedBy,
             transaction.ClassificationMethod,

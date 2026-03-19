@@ -24,9 +24,9 @@ void main() {
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Expenses'), findsOneWidget);
     expect(find.text('Investments'), findsOneWidget);
-    expect(find.text('₵4,232.24'), findsOneWidget);
-    expect(find.text('₵2,660.12'), findsOneWidget);
-    expect(find.text('₵1,754.64'), findsOneWidget);
+    expect(find.text('£4,232.24'), findsOneWidget);
+    expect(find.text('£2,660.12'), findsOneWidget);
+    expect(find.text('£1,754.64'), findsOneWidget);
 
     final double overviewTop = tester.getTopLeft(find.text('Overview')).dy;
     final double upcomingBillsTop =

@@ -51,34 +51,39 @@ class PayaboModalSheet extends StatelessWidget {
         ),
         child: SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl,
-                PayaboSpacing.lg, PayaboSpacing.xl, PayaboSpacing.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                if (title != null) ...<Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          title!,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: c.textPrimary,
-                              ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(PayaboSpacing.xl,
+                  PayaboSpacing.lg, PayaboSpacing.xl, PayaboSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (title != null) ...<Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            title!,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  color: c.textPrimary,
+                                ),
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: Icon(Icons.close, color: c.primary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: PayaboSpacing.sm),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: Icon(Icons.close, color: c.primary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: PayaboSpacing.sm),
+                  ],
+                  child,
                 ],
-                child,
-              ],
+              ),
             ),
           ),
         ),

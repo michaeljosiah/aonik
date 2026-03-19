@@ -27,8 +27,15 @@ internal sealed class PersonalTransactionConfiguration : IEntityTypeConfiguratio
         builder.Property(x => x.Description)
             .HasMaxLength(500);
 
+        builder.Property(x => x.TransactionType)
+            .IsRequired()
+            .HasMaxLength(20);
+
         builder.Property(x => x.Category)
             .HasMaxLength(100);
+
+        builder.Property(x => x.SubCategory)
+            .HasMaxLength(200);
 
         builder.Property(x => x.CategorisedBy)
             .HasMaxLength(50);

@@ -22,48 +22,92 @@ class MockDashboardRepository implements DashboardRepository {
   );
 
   static const DashboardMetrics _freshMetrics = DashboardMetrics(
-    spendableLabel: '₵0.00',
+    spendableLabel: '£0.00',
     spendableSubtitle:
         'Add bills and budgets to unlock your spendable balance.',
     spendableProgress: 0,
     spendableProgressLabel: '0% free',
-    netWorthLabel: '₵0.00',
-    netWorthChangeLabel: '₵0',
+    netWorthLabel: '£0.00',
+    netWorthChangeLabel: '£0',
     netWorthTrendLabel: 'add data',
-    assetsLabel: '₵0.00',
-    billsLabel: '₵0.00',
+    assetsLabel: '£0.00',
+    billsLabel: '£0.00',
   );
 
   static const DashboardMetrics _populatedMetrics = DashboardMetrics(
-    spendableLabel: '₵1,285.00',
+    spendableLabel: '£1,285.00',
     spendableSubtitle:
         'After bills, savings, and your weekly safety buffer.',
     spendableProgress: 0.78,
     spendableProgressLabel: '78% free',
-    netWorthLabel: '₵22,180.64',
-    netWorthChangeLabel: '+₵920',
+    netWorthLabel: '£22,180.64',
+    netWorthChangeLabel: '+£920',
     netWorthTrendLabel: 'up 4.2%',
-    assetsLabel: '₵24.6k',
-    billsLabel: '₵1.9k',
+    assetsLabel: '£24.6k',
+    billsLabel: '£1.9k',
   );
+
+  static const List<DashboardRecentOrder> _populatedRecentOrders =
+      <DashboardRecentOrder>[
+    DashboardRecentOrder(
+      id: 'ord_001',
+      beneficiaryName: 'ECG Power',
+      amountLabel: 'GHS 150.00',
+      orderType: 'Bill Payment',
+      dateLabel: '15 Mar',
+      status: 'Completed',
+    ),
+    DashboardRecentOrder(
+      id: 'ord_002',
+      beneficiaryName: 'Ama Boafo',
+      amountLabel: 'GHS 300.00',
+      orderType: 'Transfer',
+      dateLabel: '14 Mar',
+      status: 'Completed',
+    ),
+    DashboardRecentOrder(
+      id: 'ord_003',
+      beneficiaryName: 'DSTV',
+      amountLabel: 'GHS 220.00',
+      orderType: 'Bill Payment',
+      dateLabel: '13 Mar',
+      status: 'Completed',
+    ),
+    DashboardRecentOrder(
+      id: 'ord_004',
+      beneficiaryName: 'Mama Grace',
+      amountLabel: 'GHS 500.00',
+      orderType: 'Transfer',
+      dateLabel: '12 Mar',
+      status: 'Pending',
+    ),
+    DashboardRecentOrder(
+      id: 'ord_005',
+      beneficiaryName: 'Eko Electricity',
+      amountLabel: 'NGN 12,000',
+      orderType: 'Bill Payment',
+      dateLabel: '10 Mar',
+      status: 'Failed',
+    ),
+  ];
 
   static const List<DashboardOverviewSlice> _populatedOverviewSlices =
       <DashboardOverviewSlice>[
     DashboardOverviewSlice(
       label: 'Income',
-      amountLabel: '₵4,232.24',
+      amountLabel: '£4,232.24',
       value: 4232.24,
       colorKey: 'success',
     ),
     DashboardOverviewSlice(
       label: 'Expenses',
-      amountLabel: '₵2,660.12',
+      amountLabel: '£2,660.12',
       value: 2660.12,
       colorKey: 'primary',
     ),
     DashboardOverviewSlice(
       label: 'Investments',
-      amountLabel: '₵1,754.64',
+      amountLabel: '£1,754.64',
       value: 1754.64,
       colorKey: 'info',
     ),
@@ -79,6 +123,7 @@ class MockDashboardRepository implements DashboardRepository {
         upcomingBills: <DashboardUpcomingBill>[],
         recentTransactions: <DashboardTransaction>[],
         supportObligations: <DashboardSupportObligation>[],
+        recentOrders: <DashboardRecentOrder>[],
         overviewSlices: <DashboardOverviewSlice>[],
         overviewMonthLabel: 'March',
         overviewMonthShortLabel: 'Mar',
@@ -245,6 +290,7 @@ class MockDashboardRepository implements DashboardRepository {
           frequencyLabel: 'Monthly',
         ),
       ],
+      recentOrders: _populatedRecentOrders,
       overviewSlices: _populatedOverviewSlices,
       overviewMonthLabel: 'March',
       overviewMonthShortLabel: 'Mar',

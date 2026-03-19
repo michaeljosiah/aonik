@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/theme/payabo_theme.dart';
 import '../application/setup_processing_controller.dart';
 import 'widgets/setup_hero_background.dart';
 import 'widgets/setup_processing_step.dart';
@@ -44,8 +45,6 @@ class _SetupProcessingScreenState extends ConsumerState<SetupProcessingScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(setupProcessingControllerProvider);
-    final c = context.colors;
-    final textTheme = Theme.of(context).textTheme;
 
     // Navigate to dashboard when processing completes.
     ref.listen<SetupProcessingState>(
@@ -58,8 +57,17 @@ class _SetupProcessingScreenState extends ConsumerState<SetupProcessingScreen> {
       },
     );
 
+    // Force dark theme on the entire processing screen subtree so
+    // that context.colors always resolves to dark-mode tokens,
+    // matching the setup journey's cinematic look.
+    return Theme(
+      data: buildPayaboDarkTheme(),
+      child: Builder(
+        builder: (BuildContext context) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: c.surfaceWarm,
       body: Stack(
         children: <Widget>[
           // Reuse the setup journey background for visual continuity.
@@ -117,6 +125,9 @@ class _SetupProcessingScreenState extends ConsumerState<SetupProcessingScreen> {
             ),
           ),
         ],
+      ),
+    );
+        },
       ),
     );
   }

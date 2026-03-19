@@ -173,6 +173,15 @@ class PayaboColorResolver {
   // ── Chat ───────────────────────────────────────────────
   Color get chatScreenSurface =>
       isDark ? PayaboDarkColors.chatScreenSurface : PayaboColors.chatScreenSurface;
+
+  // ── Card (shared across dashboard, pay, spending) ──────
+  Color get cardWarmBackground => isDark
+      ? PayaboDarkColors.cardWarmBackground
+      : PayaboColors.cardWarmBackground;
+  Color get cardWarmBorder =>
+      isDark ? PayaboDarkColors.cardWarmBorder : PayaboColors.cardWarmBorder;
+  Color get insightAccent =>
+      isDark ? PayaboDarkColors.insightAccent : PayaboColors.insightAccent;
   Color get chatGlowPrimary =>
       isDark ? PayaboDarkColors.chatGlowPrimary : PayaboColors.chatGlowPrimary;
   Color get chatGlowSecondary =>

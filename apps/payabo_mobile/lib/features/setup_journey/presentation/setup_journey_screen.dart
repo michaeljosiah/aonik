@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/environment/environment_provider.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/theme/payabo_theme.dart';
+import '../../spending/presentation/account_link_connect_sheet.dart';
 import '../application/setup_journey_controller.dart';
 import '../domain/setup_enums.dart';
 import 'widgets/setup_action_card.dart';
@@ -22,10 +25,12 @@ import 'widgets/setup_progress_indicator.dart';
 /// redirect logic detects that setup has not been completed and sends
 /// the user to `/setup` instead of `/dashboard`.
 ///
-/// ## Where future account linking integrations should plug in
-/// Step 4 has [_onConnectUkBank] and [_onConnectNigerianBank] hooks.
-/// Wire these to the existing [AccountLinksRepository] or a new
-/// provider-specific integration when available.
+/// ## Account linking (Step 4)
+/// When the user selects a bank connection option, the existing
+/// [showAccountLinkConnectSheet] from the Spending section is
+/// presented. It shows country selection and then launches Plaid
+/// Link. Nigerian bank connectivity is a future integration and
+/// still shows a placeholder notice.
 ///
 /// ## How dashboard personalisation consumes the setup result
 /// On completion, [SetupJourneyController.completeSetup] persists
@@ -39,6 +44,15 @@ class SetupJourneyScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(setupJourneyControllerProvider);
     final controller = ref.read(setupJourneyControllerProvider.notifier);
+
+    // Force dark theme on the entire setup flow subtree so that
+    // context.colors (which reads Theme.of(context).brightness)
+    // always resolves to dark-mode tokens — regardless of system
+    // brightness. This keeps the cinematic setup look in both modes.
+    return Theme(
+      data: buildPayaboDarkTheme(),
+      child: Builder(
+        builder: (BuildContext context) {
     final c = context.colors;
 
     return PopScope(
@@ -49,7 +63,6 @@ class SetupJourneyScreen extends ConsumerWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: c.surfaceWarm,
         body: Stack(
           children: <Widget>[
             // Full-screen background
@@ -109,7 +122,7 @@ class SetupJourneyScreen extends ConsumerWidget {
                     onOptionTap: (String optionId) =>
                         _handleOptionTap(controller, state, optionId),
                     onNext: () =>
-                        _handleNext(context, controller, state),
+                        _handleNext(context, ref, controller, state),
                     onBack: state.isFirstStep
                         ? null
                         : controller.previousStep,
@@ -121,6 +134,9 @@ class SetupJourneyScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+        },
       ),
     );
   }
@@ -254,20 +270,24 @@ class SetupJourneyScreen extends ConsumerWidget {
 
   void _handleNext(
     BuildContext context,
+    WidgetRef ref,
     SetupJourneyController controller,
     SetupJourneyState state,
   ) {
     final step = state.currentStep;
 
-    // Handle account connection hooks (Step 4)
+    // Handle account connection hooks (Step 4).
+    // When a bank connection option is selected, open the connect sheet
+    // and advance to the next step once the modal is dismissed (whether
+    // the user completed the flow or cancelled).
     if (step.id == 'connect_account') {
       final choice = state.profile.connectChoice;
       if (choice == SetupConnectChoice.connectUkBank) {
-        _onConnectUkBank(context);
+        _onConnectBank(context, ref).then((_) => controller.nextStep());
+        return;
       } else if (choice == SetupConnectChoice.connectNigerianBank) {
         _onConnectNigerianBank(context);
       }
-      // Always advance to next step regardless of connection outcome
     }
 
     // Handle summary step — complete setup and go to dashboard
@@ -290,18 +310,20 @@ class SetupJourneyScreen extends ConsumerWidget {
     context.go('/setup/processing');
   }
 
-  // ── Placeholder integration hooks ───────────────────────
+  // ── Account connection hooks ────────────────────────────
 
-  /// Placeholder — wire to Plaid UK Open Banking flow when available.
-  /// The existing [AccountLinksRepository.createSession] can be extended.
-  void _onConnectUkBank(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'UK bank connection will be available soon. '
-          'You can connect your account from Settings later.',
-        ),
-      ),
+  /// Opens the existing Plaid account-link connect sheet which shows
+  /// country selection followed by the secure Plaid Link flow.
+  /// Reuses the same [showAccountLinkConnectSheet] used in Spending.
+  Future<void> _onConnectBank(BuildContext context, WidgetRef ref) async {
+    final environment = ref.read(appEnvironmentProvider);
+
+    await showAccountLinkConnectSheet(
+      context,
+      ref,
+      provider: environment.resolvedAccountLinkProvider,
+      mode: 'connect',
+      title: 'Connect bank account',
     );
   }
 

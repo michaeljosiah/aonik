@@ -25,26 +25,47 @@ extension SpendingSectionLabel on SpendingSection {
 }
 
 /// Starling-style horizontal tab bar with an underline indicator.
+///
+/// By default the colours derive from the current [Theme].  Pass
+/// [selectedColor], [unselectedColor] and [indicatorColor] to override
+/// — useful when the pills are rendered on a dark-gradient background
+/// where the standard theme values would be illegible.
 class SpendingSectionPills extends StatelessWidget {
   const SpendingSectionPills({
     super.key,
     required this.selectedSection,
     required this.onSelected,
     this.sections,
+    this.selectedColor,
+    this.unselectedColor,
+    this.indicatorColor,
   });
 
   final SpendingSection selectedSection;
   final ValueChanged<SpendingSection> onSelected;
   final List<SpendingSection>? sections;
 
+  /// Override colour for the selected tab label.
+  final Color? selectedColor;
+
+  /// Override colour for unselected tab labels.
+  final Color? unselectedColor;
+
+  /// Override colour for the underline indicator.
+  final Color? indicatorColor;
+
   @override
   Widget build(BuildContext context) {
     final List<SpendingSection> visibleSections =
         sections ?? SpendingSection.values;
     final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-    final mutedColor = theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6) ??
+    final Color resolvedSelected =
+        selectedColor ?? theme.colorScheme.onSurface;
+    final Color resolvedUnselected = unselectedColor ??
+        theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6) ??
         theme.colorScheme.onSurface.withValues(alpha: 0.5);
+    final Color resolvedIndicator =
+        indicatorColor ?? theme.colorScheme.primary;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -69,8 +90,8 @@ class SpendingSectionPills extends StatelessWidget {
                             section.label,
                             style: theme.textTheme.titleSmall?.copyWith(
                               color: selected
-                                  ? theme.colorScheme.onSurface
-                                  : mutedColor,
+                                  ? resolvedSelected
+                                  : resolvedUnselected,
                               fontWeight:
                                   selected ? FontWeight.w700 : FontWeight.w500,
                             ),
@@ -82,7 +103,9 @@ class SpendingSectionPills extends StatelessWidget {
                           height: 2.5,
                           width: selected ? 40 : 0,
                           decoration: BoxDecoration(
-                            color: selected ? primaryColor : Colors.transparent,
+                            color: selected
+                                ? resolvedIndicator
+                                : Colors.transparent,
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(2)),
                           ),

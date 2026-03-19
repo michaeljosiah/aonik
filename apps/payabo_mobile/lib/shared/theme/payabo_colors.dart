@@ -85,6 +85,11 @@ abstract final class PayaboColors {
 
   // Chat roles
   static const Color chatScreenSurface = Color(0xFFF8ECDD);
+
+  // Card roles (shared across dashboard, pay, spending)
+  static const Color cardWarmBackground = spendingCardWarmElevated; // 0xFFFFFBF8
+  static const Color cardWarmBorder = spendingQuickActionBorder; // 0xFFF1DEC9
+  static const Color insightAccent = Color(0xFFD3A04B);
   static const Color chatGlowPrimary = Color(0x22F37920);
   static const Color chatGlowSecondary = Color(0x1FD4A36A);
   static const Color chatTextPrimary = Color(0xFF4B2B1F);

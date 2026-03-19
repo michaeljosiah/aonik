@@ -2,8 +2,8 @@
 //  DashboardRepository — interface + DTOs
 //
 //  Surfaces upcoming bills, recent transactions, support
-//  obligations, overview slices, insight cards, and key
-//  financial metrics for the dashboard screen.
+//  obligations, overview slices, insight cards, recent
+//  orders, and key financial metrics for the dashboard.
 // ─────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────
@@ -63,6 +63,46 @@ class DashboardSupportObligation {
 }
 
 // ─────────────────────────────────────────────────────────
+//  DTOs — recent orders
+// ─────────────────────────────────────────────────────────
+
+/// A recent order shown in the dashboard's horizontal card list.
+///
+/// Orders represent completed or in-progress business intents such as
+/// bill payments or money transfers.
+class DashboardRecentOrder {
+  const DashboardRecentOrder({
+    required this.id,
+    required this.beneficiaryName,
+    required this.amountLabel,
+    required this.orderType,
+    required this.dateLabel,
+    required this.status,
+    this.beneficiaryPhotoUrl,
+  });
+
+  final String id;
+
+  /// Display name of the recipient / payee.
+  final String beneficiaryName;
+
+  /// Formatted amount (e.g. "GHS 150.00").
+  final String amountLabel;
+
+  /// Human-readable type label (e.g. "Bill Payment", "Transfer").
+  final String orderType;
+
+  /// Formatted date string (e.g. "18 Mar").
+  final String dateLabel;
+
+  /// Status label (e.g. "Completed", "Pending", "Failed").
+  final String status;
+
+  /// Optional profile image URL for the beneficiary.
+  final String? beneficiaryPhotoUrl;
+}
+
+// ─────────────────────────────────────────────────────────
 //  DTOs — overview & insight cards
 // ─────────────────────────────────────────────────────────
 
@@ -119,7 +159,7 @@ class DashboardMetrics {
     required this.billsLabel,
   });
 
-  /// Formatted spendable amount (e.g. "₵1,285.00").
+  /// Formatted spendable amount (e.g. "£1,285.00").
   final String spendableLabel;
 
   /// Explanation line (e.g. "After bills, savings, and your weekly buffer.").
@@ -131,19 +171,19 @@ class DashboardMetrics {
   /// Human-readable progress (e.g. "78% free").
   final String spendableProgressLabel;
 
-  /// Formatted net worth (e.g. "₵18,406.20").
+  /// Formatted net worth (e.g. "£18,406.20").
   final String netWorthLabel;
 
-  /// Net worth delta since last month (e.g. "+₵620").
+  /// Net worth delta since last month (e.g. "+£620").
   final String netWorthChangeLabel;
 
   /// Trend badge label (e.g. "up 3.5%").
   final String netWorthTrendLabel;
 
-  /// Formatted total assets (e.g. "₵20.1k").
+  /// Formatted total assets (e.g. "£20.1k").
   final String assetsLabel;
 
-  /// Formatted total bills (e.g. "₵1.7k").
+  /// Formatted total bills (e.g. "£1.7k").
   final String billsLabel;
 }
 
@@ -156,6 +196,7 @@ class DashboardSummary {
     required this.upcomingBills,
     required this.recentTransactions,
     this.supportObligations = const <DashboardSupportObligation>[],
+    this.recentOrders = const <DashboardRecentOrder>[],
     required this.overviewSlices,
     required this.overviewMonthLabel,
     required this.overviewMonthShortLabel,
@@ -167,6 +208,9 @@ class DashboardSummary {
   final List<DashboardUpcomingBill> upcomingBills;
   final List<DashboardTransaction> recentTransactions;
   final List<DashboardSupportObligation> supportObligations;
+
+  /// Recent orders (bill payments, transfers) for the horizontal card list.
+  final List<DashboardRecentOrder> recentOrders;
 
   /// Slices for the overview donut ring (e.g. Income / Expenses / Investments).
   final List<DashboardOverviewSlice> overviewSlices;

@@ -107,6 +107,7 @@ public record AccountLinkProviderTransactionResult(
     string? Merchant,
     string? Description,
     string? Category,
+    string? SubCategory,
     bool Pending);
 
 public record AccountLinkProviderTransactionsSyncResult(

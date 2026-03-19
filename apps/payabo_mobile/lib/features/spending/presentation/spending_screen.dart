@@ -6,18 +6,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../app/environment/environment_provider.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/spending_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
-import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
-import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_typewriter_text.dart';
+import '../../../shared/widgets/payabo_warm_scaffold.dart';
+import 'account_link_connect_sheet.dart';
 import 'spending_accounts_state.dart';
-import 'widgets/spending_budget_empty_state.dart';
 import 'widgets/spending_empty_action_panel.dart';
 import 'widgets/spending_hero_background.dart';
 import 'widgets/spending_section_pills.dart';
@@ -65,6 +65,23 @@ final _spendingTransactionsFutureProvider =
   },
 );
 
+/// Same dark charcoal gradient used by the Home and Pay dashboards.
+const LinearGradient _backgroundGradient = LinearGradient(
+  colors: <Color>[
+    Color(0xFF242223),
+    Color(0xFF191718),
+    Color(0xFF0F0D0E),
+  ],
+  stops: <double>[0, 0.46, 1],
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+);
+
+/// Simi AI hero message for the spending screen (populated state).
+const String _simiHeroMessage =
+    'Here\u2019s your spending overview. '
+    'I\u2019ll keep an eye on your accounts and flag anything unusual.';
+
 class SpendingScreen extends ConsumerStatefulWidget {
   const SpendingScreen({super.key});
 
@@ -76,6 +93,24 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
   late PageController _accountPageController;
   int _selectedAccountIndex = 0;
 
+  final ValueNotifier<double> _statusBarProgress = ValueNotifier<double>(0.0);
+
+  static double _extentToStatusBarProgress(double extent) {
+    const double fadeZone = 0.05;
+    const double fadeStart =
+        _SpendingHeroAndSheet._maxSheetSize - fadeZone;
+    return Curves.easeOut.transform(
+      ((extent - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
+    );
+  }
+
+  void _handleSheetExtentChanged(double extent) {
+    final double progress = _extentToStatusBarProgress(extent);
+    if ((_statusBarProgress.value - progress).abs() > 0.001) {
+      _statusBarProgress.value = progress;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +120,7 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
   @override
   void dispose() {
     _accountPageController.dispose();
+    _statusBarProgress.dispose();
     super.dispose();
   }
 
@@ -92,18 +128,9 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    // The repository already handles fresh vs populated branching based on
-    // the demo data mode. We use FutureProvider-based AsyncValue watches
-    // here. Mock repos resolve after a 250ms simulated delay; the screen
-    // shows an empty state during loading.
-    //
-    // TODO(live): Convert to proper loading/error states when live repos land.
     final List<SpendingAccountCard> accounts;
     final List<SpendingTransaction> transactions;
 
-    // Eagerly resolve the futures produced by the mock repo via Riverpod's
-    // FutureProvider / AsyncValue.  When live repositories are wired up
-    // these will become proper AsyncValue watches with loading indicators.
     final accountsSnapshot = ref.watch(_spendingAccountsFutureProvider);
     accounts = accountsSnapshot.when(
       data: (List<SpendingAccountCard> data) => data,
@@ -140,37 +167,22 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: c.surfaceWarm,
-      body: DecoratedBox(
-        decoration: BoxDecoration(gradient: c.warmScreenGradient),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: <Widget>[
-              // ── Pinned header ─────────────────────────
-              _TransactionsHeader(
-                onSectionSelected: _handleSectionSelected,
-              ),
-
-              // ── Body ──────────────────────────────────
-              Expanded(
-                child: _SpendingHeroAndSheet(
-                  accounts: accounts,
-                  transactions: transactions,
-                  selectedAccountIndex: _selectedAccountIndex,
-                  pageController: _accountPageController,
-                  onAccountPageChanged: (int index) {
-                    setState(() => _selectedAccountIndex = index);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return PayaboWarmScaffold(
+      backgroundDecoration: const BoxDecoration(gradient: _backgroundGradient),
+      statusBarColorNotifier: _statusBarProgress,
       bottomNavigationBar: const PayaboPrimaryAppShell(
         destination: PayaboPrimaryDestination.spending,
+      ),
+      body: _SpendingHeroAndSheet(
+        accounts: accounts,
+        transactions: transactions,
+        selectedAccountIndex: _selectedAccountIndex,
+        pageController: _accountPageController,
+        onAccountPageChanged: (int index) {
+          setState(() => _selectedAccountIndex = index);
+        },
+        onSectionSelected: _handleSectionSelected,
+        onSheetExtentChanged: _handleSheetExtentChanged,
       ),
     );
   }
@@ -336,9 +348,14 @@ class _EmptyStateFullScreen extends ConsumerWidget {
                 subtitle:
                     'Securely connect your bank to import transactions automatically.',
                 onTap: () {
-                  ref
-                      .read(accountLinkFlowControllerProvider.notifier)
-                      .connect(provider: null, mode: 'connect', connectionId: null);
+                  final environment = ref.read(appEnvironmentProvider);
+                  showAccountLinkConnectSheet(
+                    context,
+                    ref,
+                    provider: environment.resolvedAccountLinkProvider,
+                    mode: 'connect',
+                    title: 'Connect bank account',
+                  );
                 },
               ),
 
@@ -348,8 +365,7 @@ class _EmptyStateFullScreen extends ConsumerWidget {
               SpendingActionTile(
                 icon: Icons.edit_outlined,
                 title: 'Add account manually',
-                subtitle:
-                    'Create an account and enter transactions yourself.',
+                subtitle: 'Create an account and enter transactions yourself.',
                 onTap: () => context.go('/spending/accounts'),
               ),
             ],
@@ -361,35 +377,7 @@ class _EmptyStateFullScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────────────────
-//  Header (with section pills — used for populated state)
-// ─────────────────────────────────────────────────────────
-
-class _TransactionsHeader extends StatelessWidget {
-  const _TransactionsHeader({required this.onSectionSelected});
-
-  final ValueChanged<SpendingSection> onSectionSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return PayaboAppHeader(
-      title: 'Spend',
-      titleStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: c.accentBrown,
-          ),
-      bottom: SpendingSectionPills(
-        selectedSection: SpendingSection.transactions,
-        sections: _visibleSpendingSections,
-        onSelected: onSectionSelected,
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-//  Hero (account cards) + DraggableScrollableSheet
+//  Hero (Simi message) + Pinned Header + DraggableScrollableSheet
 // ─────────────────────────────────────────────────────────
 
 class _SpendingHeroAndSheet extends StatefulWidget {
@@ -399,19 +387,33 @@ class _SpendingHeroAndSheet extends StatefulWidget {
     required this.selectedAccountIndex,
     required this.pageController,
     required this.onAccountPageChanged,
+    required this.onSectionSelected,
+    this.onSheetExtentChanged,
   });
-
-  /// Height of the account card area including top/bottom padding.
-  static const double _heroContentHeight = 248;
 
   /// Maximum fraction of viewport the sheet can occupy.
   static const double _maxSheetSize = 1.0;
+
+  /// Height of the pinned header — profile row + bell only, matching
+  /// the Home and Pay dashboards (76px).
+  static const double _pinnedHeaderHeight = 76;
+
+  /// Small gap between the pinned header bottom and sheet viewport top.
+  static const double _sheetTopGap = 10;
+
+  /// Minimum hero height (for the Simi AI message area).
+  static const double _minHeroHeight = 200;
+
+  /// Maximum hero height.
+  static const double _maxHeroHeight = 248;
 
   final List<SpendingAccountCard> accounts;
   final List<SpendingTransaction> transactions;
   final int selectedAccountIndex;
   final PageController pageController;
   final ValueChanged<int> onAccountPageChanged;
+  final ValueChanged<SpendingSection> onSectionSelected;
+  final ValueChanged<double>? onSheetExtentChanged;
 
   @override
   State<_SpendingHeroAndSheet> createState() => _SpendingHeroAndSheetState();
@@ -434,12 +436,12 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
 
     final double nextExtent = _sheetController.size;
     if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
-      final SchedulerPhase phase =
-          WidgetsBinding.instance.schedulerPhase;
+      final SchedulerPhase phase = WidgetsBinding.instance.schedulerPhase;
 
       if (phase == SchedulerPhase.idle ||
           phase == SchedulerPhase.postFrameCallbacks) {
         _sheetExtentNotifier.value = nextExtent;
+        widget.onSheetExtentChanged?.call(nextExtent);
         return;
       }
 
@@ -447,6 +449,7 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
         if (!mounted || !_sheetController.isAttached) return;
         if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
           _sheetExtentNotifier.value = nextExtent;
+          widget.onSheetExtentChanged?.call(nextExtent);
         }
       });
     }
@@ -467,42 +470,98 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
         final double viewportHeight =
             constraints.maxHeight.isFinite ? constraints.maxHeight : 640;
 
-        // Hero area: account cards + pager dots
+        // Hero area: Simi AI message text
         final double heroHeight = math.min(
-          _SpendingHeroAndSheet._heroContentHeight,
-          viewportHeight * 0.42,
+          _SpendingHeroAndSheet._maxHeroHeight,
+          math.max(
+            _SpendingHeroAndSheet._minHeroHeight,
+            viewportHeight * 0.37,
+          ),
         );
 
-        // The sheet starts just below the hero content.
-        final double collapsedSheetTop =
-            heroHeight + PayaboSpacing.sm;
+        const double pinnedHeaderHeight =
+            _SpendingHeroAndSheet._pinnedHeaderHeight;
+        const double pinnedSheetTop =
+            pinnedHeaderHeight + _SpendingHeroAndSheet._sheetTopGap;
 
-        // Compute initial/min sheet sizes as fractions of the viewport.
-        final double initialSheetSize =
-            (1 - (collapsedSheetTop / viewportHeight))
-                .clamp(0.50, 0.78)
-                .toDouble();
+        // The sheet viewport is everything below the pinned header.
+        final double sheetViewportHeight =
+            math.max(1, viewportHeight - pinnedHeaderHeight);
+
+        // The sheet starts just below the hero content (relative to full viewport).
+        final double collapsedSheetTop = math.max(
+          pinnedSheetTop + 164,
+          heroHeight + PayaboSpacing.sm,
+        );
+
+        // Compute initial/min sheet sizes as fractions of the sheet viewport.
+        final double initialSheetSize = (1 -
+                ((collapsedSheetTop - pinnedHeaderHeight) /
+                    sheetViewportHeight))
+            .clamp(0.62, 0.76)
+            .toDouble();
         final double minSheetSize =
-            (initialSheetSize - 0.08).clamp(0.44, initialSheetSize).toDouble();
+            (initialSheetSize - 0.10).clamp(0.56, initialSheetSize).toDouble();
+
+        final double heroBottomPadding = math.max(
+          40,
+          heroHeight - collapsedSheetTop + 28,
+        );
 
         return Stack(
           children: <Widget>[
-            // ── Hero: account cards ─────────────────────
+            // ── LAYER 1: Hero — Simi AI message on dark gradient ──
             Positioned(
               top: 0,
               left: 0,
               right: 0,
               height: heroHeight,
-              child: _AccountCardsHero(
-                accounts: widget.accounts,
-                selectedAccountIndex: widget.selectedAccountIndex,
-                pageController: widget.pageController,
-                onAccountPageChanged: widget.onAccountPageChanged,
+              child: _SpendingHeroBanner(bottomPadding: heroBottomPadding),
+            ),
+
+            // ── LAYER 2: Pinned header (profile + bell only, 76px) ──
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: pinnedHeaderHeight,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _sheetExtentNotifier,
+                builder: (
+                  BuildContext context,
+                  double sheetExtent,
+                  Widget? _,
+                ) {
+                  final double eff =
+                      (sheetExtent <= 0 ? initialSheetSize : sheetExtent)
+                          .clamp(
+                            minSheetSize,
+                            _SpendingHeroAndSheet._maxSheetSize,
+                          )
+                          .toDouble();
+                  const double fadeZone = 0.05;
+                  final double fadeStart = math.max(
+                    0.0,
+                    _SpendingHeroAndSheet._maxSheetSize - fadeZone,
+                  );
+                  final double bgProgress = Curves.easeOut.transform(
+                    ((eff - fadeStart) / fadeZone)
+                        .clamp(0.0, 1.0)
+                        .toDouble(),
+                  );
+                  return _SpendingPinnedHeader(
+                    backgroundProgress: bgProgress,
+                  );
+                },
               ),
             ),
 
-            // ── Draggable sheet: transactions ──────────
-            Positioned.fill(
+            // ── LAYER 3: Draggable sheet — section pills, cards, transactions ──
+            Positioned(
+              top: pinnedHeaderHeight,
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: DraggableScrollableSheet(
                 controller: _sheetController,
                 initialChildSize: initialSheetSize,
@@ -532,10 +591,15 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
                                       fadeZone)) /
                               fadeZone)
                           .clamp(0.0, 1.0);
-                      return _SpendingTransactionsSheet(
+                      return _SpendingSheet(
                         scrollController: scrollController,
                         topBorderRadius: 24.0 * (1.0 - fadeFraction),
+                        accounts: widget.accounts,
                         transactions: widget.transactions,
+                        selectedAccountIndex: widget.selectedAccountIndex,
+                        pageController: widget.pageController,
+                        onAccountPageChanged: widget.onAccountPageChanged,
+                        onSectionSelected: widget.onSectionSelected,
                       );
                     },
                   );
@@ -550,72 +614,147 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
 }
 
 // ─────────────────────────────────────────────────────────
-//  Hero section: account cards + pager dots
+//  Pinned header — profile + notification bell only (76px)
+//  Matches the Home and Pay dashboard pinned headers.
 // ─────────────────────────────────────────────────────────
 
-class _AccountCardsHero extends StatelessWidget {
-  const _AccountCardsHero({
-    required this.accounts,
-    required this.selectedAccountIndex,
-    required this.pageController,
-    required this.onAccountPageChanged,
+class _SpendingPinnedHeader extends ConsumerWidget {
+  const _SpendingPinnedHeader({
+    required this.backgroundProgress,
   });
 
-  final List<SpendingAccountCard> accounts;
-  final int selectedAccountIndex;
-  final PageController pageController;
-  final ValueChanged<int> onAccountPageChanged;
+  final double backgroundProgress;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        const SizedBox(height: PayaboSpacing.md),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
 
-        // ── Horizontal account cards ─────────────────
-        Expanded(
-          child: PageView.builder(
-            controller: pageController,
-            itemCount: accounts.length,
-            onPageChanged: onAccountPageChanged,
-            itemBuilder: (BuildContext context, int index) {
-              return Padding(
-                padding: const EdgeInsets.only(right: PayaboSpacing.md),
-                child: _AccountCard(
-                  account: accounts[index],
-                  isSelected: index == selectedAccountIndex,
-                ),
-              );
-            },
+    return Stack(
+      children: <Widget>[
+        // ── Background fade (solid surface when sheet is at top) ──
+        Positioned.fill(
+          child: Opacity(
+            opacity: backgroundProgress,
+            child: ColoredBox(color: c.surfaceBase),
           ),
         ),
-
-        // ── Pager dots ───────────────────────────────
-        if (accounts.length > 1) ...<Widget>[
-          const SizedBox(height: PayaboSpacing.md),
-          _PagerDots(
-            count: accounts.length,
-            activeIndex: selectedAccountIndex,
+        // ── Foreground: PayaboAppHeader with NO title/bottom — just profile + bell ──
+        const Positioned.fill(
+          child: PayaboAppHeader(
+            padding: EdgeInsets.fromLTRB(
+              PayaboSpacing.xl,
+              PayaboSpacing.md,
+              PayaboSpacing.xl,
+              0,
+            ),
           ),
-        ],
+        ),
       ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────
-//  Transactions sheet (the slide-up panel)
+//  Hero banner — Simi AI message on dark gradient
+//  Matches the Home and Pay hero banner pattern.
 // ─────────────────────────────────────────────────────────
 
-class _SpendingTransactionsSheet extends StatelessWidget {
-  const _SpendingTransactionsSheet({
+class _SpendingHeroBanner extends StatelessWidget {
+  const _SpendingHeroBanner({this.bottomPadding = 40});
+
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    final TextStyle baseMessageStyle = textTheme.bodyLarge?.copyWith(
+          fontSize: 17,
+          color: Colors.white.withValues(alpha: 0.76),
+          height: 1.5,
+        ) ??
+        const TextStyle(
+          color: Colors.white,
+          fontSize: 17,
+          height: 1.5,
+        );
+
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          0,
+          PayaboSpacing.xl,
+          bottomPadding,
+        ),
+        child: Align(
+          alignment: Alignment.bottomLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints box) {
+                final bool compact = box.maxHeight < 190;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Your spending',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: (compact
+                              ? textTheme.headlineMedium
+                              : textTheme.headlineLarge)
+                          ?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
+                    ),
+                    SizedBox(
+                      height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
+                    ),
+                    Text(
+                      _simiHeroMessage,
+                      maxLines: compact ? 3 : 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: baseMessageStyle,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Sheet — section pills + account cards + flat transactions
+// ─────────────────────────────────────────────────────────
+
+class _SpendingSheet extends StatelessWidget {
+  const _SpendingSheet({
     required this.scrollController,
+    required this.accounts,
     required this.transactions,
+    required this.selectedAccountIndex,
+    required this.pageController,
+    required this.onAccountPageChanged,
+    required this.onSectionSelected,
     this.topBorderRadius = 24.0,
   });
 
   final ScrollController scrollController;
+  final List<SpendingAccountCard> accounts;
   final List<SpendingTransaction> transactions;
+  final int selectedAccountIndex;
+  final PageController pageController;
+  final ValueChanged<int> onAccountPageChanged;
+  final ValueChanged<SpendingSection> onSectionSelected;
 
   /// Top corner radius — animated to 0 at full sheet extension.
   final double topBorderRadius;
@@ -637,8 +776,7 @@ class _SpendingTransactionsSheet extends StatelessWidget {
         boxShadow: topBorderRadius > 0
             ? <BoxShadow>[
                 BoxShadow(
-                  color:
-                      Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
+                  color: Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
                   blurRadius: 18,
                   offset: const Offset(0, -4),
                 ),
@@ -670,6 +808,44 @@ class _SpendingTransactionsSheet extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.lg),
 
+          // ── Section pills (Transactions / Budgets / Accounts) ──
+          SpendingSectionPills(
+            selectedSection: SpendingSection.transactions,
+            sections: _visibleSpendingSections,
+            onSelected: onSectionSelected,
+          ),
+          const SizedBox(height: PayaboSpacing.xl),
+
+          // ── Account cards (horizontal pager) ─────────
+          SizedBox(
+            height: 160,
+            child: PageView.builder(
+              controller: pageController,
+              itemCount: accounts.length,
+              onPageChanged: onAccountPageChanged,
+              itemBuilder: (BuildContext context, int index) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: PayaboSpacing.md),
+                  child: _AccountCard(
+                    account: accounts[index],
+                    isSelected: index == selectedAccountIndex,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // ── Pager dots ───────────────────────────────
+          if (accounts.length > 1) ...<Widget>[
+            const SizedBox(height: PayaboSpacing.md),
+            _PagerDots(
+              count: accounts.length,
+              activeIndex: selectedAccountIndex,
+            ),
+          ],
+
+          const SizedBox(height: PayaboSpacing.x2),
+
           // ── "Recent transactions" heading ─────────────
           Row(
             children: <Widget>[
@@ -691,18 +867,19 @@ class _SpendingTransactionsSheet extends StatelessWidget {
 
           const SizedBox(height: PayaboSpacing.md),
 
-          // ── Transaction list card / empty state ───────
+          // ── Transaction list (flat rows with dividers — like Pay activity) ──
           if (transactions.isEmpty)
             const _EmptyTransactionsState()
           else
-            ..._buildGroupedTransactions(context, transactions, c),
+            ..._buildFlatTransactionRows(context, transactions, c),
         ],
       ),
     );
   }
 
-  /// Groups transactions by month/year and builds section headers + cards.
-  List<Widget> _buildGroupedTransactions(
+  /// Builds a flat list of transaction rows grouped by month, with
+  /// thin dividers between rows (matching the Pay activity layout).
+  List<Widget> _buildFlatTransactionRows(
     BuildContext context,
     List<SpendingTransaction> transactions,
     PayaboColorResolver c,
@@ -761,37 +938,18 @@ class _SpendingTransactionsSheet extends StatelessWidget {
         ),
       );
 
-      // ── Transaction card for this month
-      widgets.add(
-        PayaboCard(
-          backgroundColor: c.spendingCardWarmElevated,
-          padding: const EdgeInsets.symmetric(
-            horizontal: PayaboSpacing.lg,
-            vertical: PayaboSpacing.md,
-          ),
-          child: Column(
-            children: entry.value
-                .asMap()
-                .entries
-                .map(
-                  (MapEntry<int, SpendingTransaction> e) {
-                    final bool isLast = e.key == entry.value.length - 1;
-                    return Column(
-                      children: <Widget>[
-                        _TransactionRow(transaction: e.value),
-                        if (!isLast)
-                          Divider(
-                            height: PayaboSpacing.xl,
-                            color: c.borderStrong.withValues(alpha: 0.6),
-                          ),
-                      ],
-                    );
-                  },
-                )
-                .toList(growable: false),
-          ),
-        ),
-      );
+      // ── Flat transaction rows with dividers (no card wrapper)
+      for (int i = 0; i < entry.value.length; i++) {
+        widgets.add(_TransactionRow(transaction: entry.value[i]));
+        if (i < entry.value.length - 1) {
+          widgets.add(
+            Divider(
+              height: 1,
+              color: c.borderStrong.withValues(alpha: 0.3),
+            ),
+          );
+        }
+      }
     }
 
     return widgets;
@@ -827,118 +985,103 @@ class _AccountCard extends StatelessWidget {
         border: Border.all(
           color: c.spendingAccountAccentPrimary.withValues(alpha: 0.18),
         ),
-        boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.medium,
       ),
       padding: const EdgeInsets.all(PayaboSpacing.lg),
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints cardConstraints) {
-          // On small viewports (e.g. 600px test surface) the card may
-          // be too short for the full layout.  Use a compact layout when
-          // the inner area is under ~100px.
-          final bool compact = cardConstraints.maxHeight < 100;
-          final double iconSize = compact ? 32.0 : 40.0;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          // ── Top row: provider icon + account type pill ──
+          Row(
             children: <Widget>[
-              // ── Top row: provider icon + account type pill ──
-              Row(
-                children: <Widget>[
-                  Container(
-                    width: iconSize,
-                    height: iconSize,
-                    decoration: BoxDecoration(
-                      color: c.surfaceBase.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(compact ? 10 : 14),
-                    ),
-                    child: Icon(
-                      IconData(
-                        account.providerIconCodePoint,
-                        fontFamily: account.providerIconFontFamily,
-                      ),
-                      color: c.spendingAccountAccentPrimary,
-                      size: compact ? 18.0 : 22.0,
-                    ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: c.surfaceBase.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  IconData(
+                    account.providerIconCodePoint,
+                    fontFamily: account.providerIconFontFamily,
                   ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: PayaboSpacing.md,
-                      vertical: PayaboSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: c.surfaceBase.withValues(alpha: 0.72),
-                      borderRadius: PayaboRadii.radiusPill,
-                    ),
-                    child: Text(
-                      account.accountName,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: c.spendingAccountAccentPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                ],
+                  color: c.spendingAccountAccentPrimary,
+                  size: 18,
+                ),
               ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: PayaboSpacing.md,
+                  vertical: PayaboSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: c.surfaceBase.withValues(alpha: 0.72),
+                  borderRadius: PayaboRadii.radiusPill,
+                ),
+                child: Text(
+                  account.accountName,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: c.spendingAccountAccentPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ],
+          ),
 
-              // ── Balance ────────────────────────────────────
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  RichText(
-                    text: TextSpan(
-                      children: <InlineSpan>[
-                        TextSpan(
-                          text: account.currencySymbol,
-                          style: (compact
-                                  ? Theme.of(context).textTheme.titleMedium
-                                  : Theme.of(context).textTheme.headlineMedium)
-                              ?.copyWith(
-                            color: c.spendingAccountAccentPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        TextSpan(
-                          text: account.balanceMajor,
-                          style: (compact
-                                  ? Theme.of(context).textTheme.headlineMedium
-                                  : Theme.of(context).textTheme.displayLarge)
-                              ?.copyWith(
+          // ── Balance ────────────────────────────────────
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              RichText(
+                text: TextSpan(
+                  children: <InlineSpan>[
+                    TextSpan(
+                      text: account.currencySymbol,
+                      style:
+                          Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: c.spendingAccountAccentPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                    ),
+                    TextSpan(
+                      text: account.balanceMajor,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(
                             color: c.spendingAccountAccentPrimary,
                             fontWeight: FontWeight.w800,
                             height: 1,
                           ),
-                        ),
-                        TextSpan(
-                          text: account.balanceMinor,
-                          style: (compact
-                                  ? Theme.of(context).textTheme.titleSmall
-                                  : Theme.of(context).textTheme.headlineSmall)
-                              ?.copyWith(
-                            color: c.spendingAccountAccentPrimary
-                                .withValues(alpha: 0.7),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
                     ),
-                  ),
-                  const SizedBox(height: PayaboSpacing.xxs),
-                  Text(
-                    'Balance',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: c.spendingAccountAccentPrimary
-                              .withValues(alpha: 0.7),
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
+                    TextSpan(
+                      text: account.balanceMinor,
+                      style:
+                          Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: c.spendingAccountAccentPrimary
+                                    .withValues(alpha: 0.7),
+                                fontWeight: FontWeight.w600,
+                              ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: PayaboSpacing.xxs),
+              Text(
+                'Balance',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: c.spendingAccountAccentPrimary
+                          .withValues(alpha: 0.7),
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
             ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -978,7 +1121,7 @@ class _PagerDots extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────
-//  Transaction row
+//  Transaction row (flat — no card wrapper)
 // ─────────────────────────────────────────────────────────
 
 class _TransactionRow extends StatelessWidget {
@@ -989,6 +1132,7 @@ class _TransactionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final theme = Theme.of(context);
 
     // Resolve icon from code point + font family if available.
     final bool hasIcon = transaction.iconCodePoint != null;
@@ -1004,13 +1148,13 @@ class _TransactionRow extends StatelessWidget {
     if (resolvedIcon != null) {
       iconContent = Icon(
         resolvedIcon,
-        color: c.primary,
-        size: 22,
+        color: theme.colorScheme.primary,
+        size: 18,
       );
     } else {
       iconContent = Text(
         transaction.iconText ?? '?',
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        style: theme.textTheme.titleSmall?.copyWith(
               color: c.spendingMerchantIconDark,
               fontWeight: FontWeight.w700,
             ),
@@ -1018,10 +1162,12 @@ class _TransactionRow extends StatelessWidget {
     }
 
     final Color iconBg = resolvedIcon != null
-        ? c.primary.withValues(alpha: 0.12)
-        : c.spendingMerchantIconWarmSurface;
+        ? c.primary.withValues(alpha: 0.08)
+        : (c.isDark
+            ? theme.colorScheme.surfaceContainerHighest
+            : c.spendingMerchantIconWarmSurface);
 
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         context.push(
           '/spending/transaction/${transaction.id}',
@@ -1040,18 +1186,18 @@ class _TransactionRow extends StatelessWidget {
           },
         );
       },
-      behavior: HitTestBehavior.opaque,
+      borderRadius: PayaboRadii.radiusSm,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.sm),
+        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
         child: Row(
           children: <Widget>[
             // ── Icon circle ──────────────────────────
             Container(
-              width: 46,
-              height: 46,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: iconBg,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(10),
               ),
               alignment: Alignment.center,
               child: iconContent,
@@ -1066,16 +1212,18 @@ class _TransactionRow extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     transaction.merchant,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: c.ink,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
                         ),
                   ),
-                  const SizedBox(height: PayaboSpacing.xxs),
+                  const SizedBox(height: 2),
                   Text(
                     transaction.category,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: c.muted,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                          color: c.textMuted,
                         ),
                   ),
                 ],
@@ -1084,41 +1232,40 @@ class _TransactionRow extends StatelessWidget {
 
             const SizedBox(width: PayaboSpacing.md),
 
-            // ── Amount (Cleo-style split rendering) ──
-            RichText(
-              text: TextSpan(
-                children: <InlineSpan>[
-                  TextSpan(
-                    text: transaction.isCredit ? '+' : '',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: transaction.isCredit ? c.success : c.accentBrown,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  TextSpan(
-                    text: transaction.currencySymbol,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: transaction.isCredit ? c.success : c.accentBrown,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  TextSpan(
-                    text: transaction.amountMajor,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: transaction.isCredit ? c.success : c.accentBrown,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  TextSpan(
-                    text: transaction.amountMinor,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: (transaction.isCredit ? c.success : c.accentBrown)
-                              .withValues(alpha: 0.6),
-                          fontWeight: FontWeight.w600,
-                        ),
+            // ── Amount + credit indicator ────────────
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Text(
+                  '${transaction.isCredit ? '+' : ''}${transaction.currencySymbol}${transaction.amountMajor}${transaction.amountMinor}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: transaction.isCredit
+                            ? c.success
+                            : theme.colorScheme.onSurface,
+                      ),
+                ),
+                if (transaction.isCredit) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: c.success.withValues(alpha: c.isDark ? 0.22 : 0.12),
+                      borderRadius: PayaboRadii.radiusPill,
+                    ),
+                    child: Text(
+                      'Credit',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                            color: c.success,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
                   ),
                 ],
-              ),
+              ],
             ),
           ],
         ),
@@ -1127,25 +1274,41 @@ class _TransactionRow extends StatelessWidget {
   }
 }
 
-
 class _EmptyTransactionsState extends StatelessWidget {
   const _EmptyTransactionsState();
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
 
-    return PayaboCard(
-      backgroundColor: c.spendingCardWarmElevated,
-      padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: SpendingBudgetEmptyState(
-        title: 'No records yet',
-        description:
-            'Budgets help you organise spending into categories, set monthly limits, and understand what is left before month end.',
-        caption:
-            'Create a new budget to give this account a plan before more transactions start coming in.',
-        actionLabel: 'Create new budget',
-        onPressed: () => context.go('/spending/budgets'),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.x2),
+      child: Column(
+        children: <Widget>[
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 48,
+            color: c.muted.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: PayaboSpacing.md),
+          Text(
+            'No transactions yet',
+            style: textTheme.titleMedium?.copyWith(
+              color: c.accentBrown,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: PayaboSpacing.sm),
+          Text(
+            'Transactions will appear here once your linked accounts have activity.',
+            textAlign: TextAlign.center,
+            style: textTheme.bodyMedium?.copyWith(
+              color: c.muted,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }

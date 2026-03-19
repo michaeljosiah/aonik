@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../app/environment/environment_provider.dart';
 import '../../../data/repositories/account_links_repository.dart';
+import '../../../features/profile/presentation/profile_state.dart';
+import '../../../shared/reference/payabo_country_reference.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
@@ -460,10 +462,22 @@ class _AccountLinkConnectSheet extends ConsumerStatefulWidget {
 
 class _AccountLinkConnectSheetState
     extends ConsumerState<_AccountLinkConnectSheet> {
+  String? _selectedCountryCode;
+
+  bool get _requiresCountrySelection =>
+      widget.mode == 'connect' && widget.provider.toLowerCase() == 'plaid';
+
   @override
   void initState() {
     super.initState();
     ref.read(accountLinkFlowControllerProvider.notifier).reset();
+
+    final String profileCountryCode =
+        ref.read(profileCoreProvider).countryCode.trim().toUpperCase();
+    final bool hasProfileCountry = payaboCountries.any(
+      (PayaboCountryReference country) => country.code == profileCountryCode,
+    );
+    _selectedCountryCode = hasProfileCountry ? profileCountryCode : 'GB';
   }
 
   /// Uses the full-screen [PlaidLink.open()] approach via
@@ -476,6 +490,8 @@ class _AccountLinkConnectSheetState
                 provider: widget.provider,
                 mode: widget.mode,
                 connectionId: widget.connectionId,
+                countryCode:
+                    _requiresCountrySelection ? _selectedCountryCode : null,
               );
 
       if (!mounted || result == null) {
@@ -495,6 +511,9 @@ class _AccountLinkConnectSheetState
         ref.watch(accountLinkFlowControllerProvider);
     final AccountLinkLauncher launcher = ref.watch(accountLinkLauncherProvider);
     final bool isReconnect = widget.mode == 'update';
+    final PayaboCountryReference selectedCountry = resolvePayaboCountry(
+      _selectedCountryCode ?? 'GB',
+    );
 
     final String introText = launcher.isNativeProviderFlow
         ? isReconnect
@@ -505,7 +524,9 @@ class _AccountLinkConnectSheetState
             : 'Start a secure connection session to bring live spending data into Payabo. This build uses a simulated provider handoff, then exchanges the temporary result with AONIK on the backend.';
 
     final String stepOneTitle = launcher.isNativeProviderFlow
-        ? 'Launch ${launcher.experienceLabel}'
+        ? _requiresCountrySelection
+            ? 'Launch ${launcher.experienceLabel} for ${selectedCountry.name}'
+            : 'Launch ${launcher.experienceLabel}'
         : isReconnect
             ? 'Reconnect the existing link'
             : 'Short-lived mobile session';
@@ -534,6 +555,78 @@ class _AccountLinkConnectSheetState
           title: stepOneTitle,
           subtitle: stepOneSubtitle,
         ),
+        if (_requiresCountrySelection) ...<Widget>[
+          const SizedBox(height: PayaboSpacing.md),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: c.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(PayaboRadii.lg),
+              border: Border.all(color: c.primary.withValues(alpha: 0.18)),
+            ),
+            padding: const EdgeInsets.all(PayaboSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Bank country',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: c.accentBrown,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: PayaboSpacing.xs),
+                Text(
+                  'Choose where the bank account is held before Payabo opens Plaid. This helps the secure institution list match the country-specific banks your customer expects to see.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: c.accentBrownMuted,
+                        height: 1.45,
+                      ),
+                ),
+                const SizedBox(height: PayaboSpacing.md),
+                DropdownButtonFormField<String>(
+                  key: const Key('accounts-country-dropdown'),
+                  value: _selectedCountryCode,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: c.surfaceBase,
+                    labelText: 'Country',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(PayaboRadii.lg),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(PayaboRadii.lg),
+                      borderSide: BorderSide(color: c.borderStrong),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(PayaboRadii.lg),
+                      borderSide: BorderSide(color: c.primary, width: 1.4),
+                    ),
+                  ),
+                  items: payaboCountries
+                      .map(
+                        (PayaboCountryReference country) =>
+                            DropdownMenuItem<String>(
+                          value: country.code,
+                          child: Text(
+                            '${country.flagEmoji} ${country.name}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: flowState.isSubmitting
+                      ? null
+                      : (String? value) {
+                          setState(() {
+                            _selectedCountryCode = value;
+                          });
+                        },
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: PayaboSpacing.md),
         const _ConnectSheetStep(
           icon: Icons.swap_horiz_outlined,

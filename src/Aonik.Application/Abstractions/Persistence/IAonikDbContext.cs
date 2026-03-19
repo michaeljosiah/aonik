@@ -91,6 +91,7 @@ public interface IAonikDbContext
     DbSet<HouseholdMember> HouseholdMembers { get; set; }
     DbSet<PersonalAccount> PersonalAccounts { get; set; }
     DbSet<PersonalTransaction> PersonalTransactions { get; set; }
+    DbSet<TransactionCategory> TransactionCategories { get; set; }
     DbSet<CategorisationRule> CategorisationRules { get; set; }
     DbSet<BudgetLine> BudgetLines { get; set; }
     DbSet<Bill> Bills { get; set; }

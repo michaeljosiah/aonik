@@ -166,7 +166,8 @@ public class PersonalAccountLinkServiceTests
                         "USD",
                         "Blue Bottle",
                         "Morning coffee",
-                        "Food And Drink",
+                        "food_and_drink",
+                        null,
                         false),
                     new(
                         $"txn-{suffix}-groceries",
@@ -176,7 +177,8 @@ public class PersonalAccountLinkServiceTests
                         "USD",
                         "Fresh Market",
                         "Weekly groceries",
-                        "Shops",
+                        "shops",
+                        null,
                         false)
                 },
                 []));

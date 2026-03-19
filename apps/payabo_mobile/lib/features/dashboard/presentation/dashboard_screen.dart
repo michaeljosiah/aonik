@@ -20,7 +20,6 @@ import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import '../../profile/presentation/profile_state.dart';
-import '../widgets/simi_dashboard_card.dart';
 
 final FutureProvider<DashboardSummary> dashboardSummaryProvider =
     FutureProvider<DashboardSummary>((Ref ref) async {
@@ -439,6 +438,9 @@ class _DashboardContent extends StatelessWidget {
     final supportObligations = isEmpty
         ? const <DashboardSupportObligation>[]
         : summary.supportObligations;
+    final recentOrders = isEmpty
+        ? const <DashboardRecentOrder>[]
+        : summary.recentOrders;
     return _DashboardHeroInsightsSection(
       displayName: displayName,
       photoUrl: photoUrl,
@@ -447,6 +449,7 @@ class _DashboardContent extends StatelessWidget {
       dueBillCount: allUpcomingBills.length,
       upcomingBills: bills,
       supportObligations: supportObligations,
+      recentOrders: recentOrders,
       isEmpty: isEmpty,
       summary: summary,
       onSheetExtentChanged: onSheetExtentChanged,
@@ -463,6 +466,7 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
     required this.dueBillCount,
     required this.upcomingBills,
     required this.supportObligations,
+    required this.recentOrders,
     required this.isEmpty,
     required this.summary,
     this.onSheetExtentChanged,
@@ -481,6 +485,7 @@ class _DashboardHeroInsightsSection extends StatefulWidget {
   final int dueBillCount;
   final List<DashboardUpcomingBill> upcomingBills;
   final List<DashboardSupportObligation> supportObligations;
+  final List<DashboardRecentOrder> recentOrders;
   final bool isEmpty;
   final DashboardSummary summary;
 
@@ -689,6 +694,7 @@ class _DashboardHeroInsightsSectionState
                         dueBillCount: widget.dueBillCount,
                         upcomingBills: widget.upcomingBills,
                         supportObligations: widget.supportObligations,
+                        recentOrders: widget.recentOrders,
                         isEmpty: widget.isEmpty,
                         summary: widget.summary,
                       );
@@ -779,6 +785,15 @@ class _DashboardHeroBanner extends StatelessWidget {
   final double bottomPadding;
   final DashboardMetrics metrics;
 
+  /// Returns a personalised AI welcome message when no insights are available.
+  ///
+  /// This replaces the old Simi card greeting, keeping the AI's voice front
+  /// and centre in the hero area.
+  static String _welcomeMessage(String firstName) {
+    return 'Welcome, $firstName! I\'ve personalised your dashboard based on '
+        'what you told me. Tap into any section to explore.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
@@ -846,11 +861,8 @@ class _DashboardHeroBanner extends StatelessWidget {
                         style: baseMessageStyle,
                         children: isEmpty
                             ? <InlineSpan>[
-                                const TextSpan(
-                                    text: 'This might interest you. '),
-                                const TextSpan(
-                                  text:
-                                      'Add your first bill to unlock daily insights, spendable balance guidance, and due reminders.',
+                                TextSpan(
+                                  text: _welcomeMessage(firstName),
                                 ),
                               ]
                             : <InlineSpan>[
@@ -897,6 +909,7 @@ class _DashboardStatsSheet extends StatelessWidget {
     required this.dueBillCount,
     required this.upcomingBills,
     required this.supportObligations,
+    required this.recentOrders,
     required this.isEmpty,
     required this.summary,
     this.topBorderRadius = 24.0,
@@ -906,6 +919,7 @@ class _DashboardStatsSheet extends StatelessWidget {
   final int dueBillCount;
   final List<DashboardUpcomingBill> upcomingBills;
   final List<DashboardSupportObligation> supportObligations;
+  final List<DashboardRecentOrder> recentOrders;
   final bool isEmpty;
   final DashboardSummary summary;
 
@@ -961,20 +975,15 @@ class _DashboardStatsSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: PayaboSpacing.lg),
-          const SimiDashboardCard(),
           _InsightCarouselSection(
             dueBillCount: dueBillCount,
             isEmpty: isEmpty,
-            todayInsight: summary.todayInsight,
             metrics: summary.metrics,
           ),
-          const SizedBox(height: PayaboSpacing.xl),
-          _DashboardMetricSummary(
-            isEmpty: isEmpty,
-            metrics: summary.metrics,
-          ),
-          const SizedBox(height: PayaboSpacing.xl),
-          _DashboardOverviewCard(summary: summary),
+          if (summary.overviewSlices.isNotEmpty) ...[
+            const SizedBox(height: PayaboSpacing.xl),
+            _DashboardOverviewCard(summary: summary),
+          ],
           const SizedBox(height: PayaboSpacing.xl),
           _DashboardListHeader(
             title: 'Upcoming bills',
@@ -985,6 +994,16 @@ class _DashboardStatsSheet extends StatelessWidget {
             const _DashboardEmptyBillsCard()
           else
             _UpcomingBillsCardV2(items: upcomingBills),
+          const SizedBox(height: PayaboSpacing.xl),
+          _DashboardListHeader(
+            title: 'Previous orders',
+            actionLabel: isEmpty ? null : 'View all',
+          ),
+          const SizedBox(height: PayaboSpacing.md),
+          if (recentOrders.isEmpty)
+            const _DashboardEmptyOrdersCard()
+          else
+            _PreviousOrdersList(items: recentOrders),
           if (supportObligations.isNotEmpty) ...[
             const SizedBox(height: PayaboSpacing.xl),
             const _DashboardListHeader(
@@ -994,120 +1013,7 @@ class _DashboardStatsSheet extends StatelessWidget {
             const SizedBox(height: PayaboSpacing.md),
             _SupportObligationsCard(items: supportObligations),
           ],
-          const SizedBox(height: PayaboSpacing.xl),
-          const _DashboardCommunityCard(),
         ],
-      ),
-    );
-  }
-}
-
-class _DashboardMetricSummary extends StatelessWidget {
-  const _DashboardMetricSummary({
-    required this.isEmpty,
-    required this.metrics,
-  });
-
-  final bool isEmpty;
-  final DashboardMetrics metrics;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                'Today at a glance',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFF2C2017),
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-            _DashboardStatusPill(label: isEmpty ? 'set up' : 'updated today'),
-          ],
-        ),
-        const SizedBox(height: PayaboSpacing.md),
-        _DashboardSpendableBalanceCard(isEmpty: isEmpty, metrics: metrics),
-      ],
-    );
-  }
-}
-
-class _DashboardSpendableBalanceCard extends StatelessWidget {
-  const _DashboardSpendableBalanceCard({
-    required this.isEmpty,
-    required this.metrics,
-  });
-
-  final bool isEmpty;
-  final DashboardMetrics metrics;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: c.spendingSafeToSpendGradient,
-        borderRadius: PayaboRadii.radiusSm,
-        boxShadow: PayaboShadows.medium,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(PayaboSpacing.lg),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Spendable balance',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Colors.white,
-                        ),
-                  ),
-                  const SizedBox(height: PayaboSpacing.xs),
-                  Text(
-                    isEmpty ? '₵0.00' : metrics.spendableLabel,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: PayaboSpacing.xs),
-                  Text(
-                    isEmpty
-                        ? 'Add bills and budgets to unlock your spendable balance.'
-                        : metrics.spendableSubtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.82),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: PayaboSpacing.lg),
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Icon(
-                Icons.account_balance_wallet_outlined,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1117,13 +1023,11 @@ class _InsightCarouselSection extends StatefulWidget {
   const _InsightCarouselSection({
     required this.dueBillCount,
     required this.isEmpty,
-    required this.todayInsight,
     required this.metrics,
   });
 
   final int dueBillCount;
   final bool isEmpty;
-  final DashboardTodayInsight todayInsight;
   final DashboardMetrics metrics;
 
   @override
@@ -1212,10 +1116,7 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = <Widget>[
-      _TodayInsightCard(
-        isEmpty: widget.isEmpty,
-        todayInsight: widget.todayInsight,
-      ),
+      const _SimiCtaBannerCard(),
       _AvailableToSpendInsightCard(
         dueBillCount: widget.dueBillCount,
         isEmpty: widget.isEmpty,
@@ -1295,11 +1196,8 @@ class _InsightCarouselCardShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final Color defaultBackground =
-        c.isDark ? c.surfaceCardElevated : const Color(0xFFFFFBF8);
-    final Color defaultBorder = c.isDark
-        ? c.borderStrong.withValues(alpha: 0.5)
-        : const Color(0xFFF1DEC9);
+    final Color defaultBackground = c.cardWarmBackground;
+    final Color defaultBorder = c.cardWarmBorder;
 
     return Container(
       decoration: BoxDecoration(
@@ -1316,108 +1214,110 @@ class _InsightCarouselCardShell extends StatelessWidget {
   }
 }
 
-class _TodayInsightCard extends StatelessWidget {
-  const _TodayInsightCard({
-    required this.isEmpty,
-    required this.todayInsight,
-  });
-
-  final bool isEmpty;
-  final DashboardTodayInsight todayInsight;
+class _SimiCtaBannerCard extends StatelessWidget {
+  const _SimiCtaBannerCard();
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
-    final String message = isEmpty
-        ? 'Add a bill to unlock daily insights and spending guidance.'
-        : todayInsight.message;
 
     return _InsightCarouselCardShell(
       borderRadius: PayaboRadii.radiusSm,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD3A04B).withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.tips_and_updates_rounded,
-                  color: Color(0xFFD3A04B),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: PayaboSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            "Today's Insight",
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: c.accentBrown,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 8,
-                          height: 8,
-                          margin: const EdgeInsets.only(left: PayaboSpacing.sm),
-                          decoration: BoxDecoration(
-                            color: c.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      message,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: c.muted,
-                        height: 1.35,
+      padding: EdgeInsets.zero,
+      child: SizedBox.expand(
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            // Background image — placeholder asset
+            ClipRRect(
+              borderRadius: PayaboRadii.radiusSm,
+              child: Image.asset(
+                'assets/images/simi.png',
+                fit: BoxFit.cover,
+                errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                ) {
+                  return Container(
+                    color: c.primary.withValues(alpha: 0.12),
+                    child: Center(
+                      child: Icon(
+                        Icons.smart_toy_outlined,
+                        size: 64,
+                        color: c.primary.withValues(alpha: 0.3),
                       ),
                     ),
+                  );
+                },
+              ),
+            ),
+            // Gradient scrim for text legibility
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: PayaboRadii.radiusSm,
+                gradient: LinearGradient(
+                  colors: <Color>[
+                    Colors.black.withValues(alpha: 0.0),
+                    Colors.black.withValues(alpha: 0.65),
                   ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
               ),
-            ],
-          ),
-          Row(
-            children: <Widget>[
-              Text(
-                isEmpty ? 'Set up now' : todayInsight.timestampLabel,
-                style: textTheme.labelMedium?.copyWith(
-                  color: c.muted,
-                  fontWeight: FontWeight.w600,
-                ),
+            ),
+            // Text overlay
+            Padding(
+              padding: const EdgeInsets.all(PayaboSpacing.lg),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Need help? Simi is here to guide you',
+                    style: textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.xs),
+                  Text(
+                    'Explore tips, video guides and personalised advice.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: PayaboSpacing.md),
+                  GestureDetector(
+                    onTap: () => context.go('/community'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: c.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'Get started',
+                        style: textTheme.labelLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                isEmpty ? 'Add first bill' : todayInsight.actionLabel,
-                style: textTheme.labelLarge?.copyWith(
-                  color: c.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1445,11 +1345,8 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
             : '$dueBillCount bills due this week';
 
     return _InsightCarouselCardShell(
-      backgroundColor:
-          c.isDark ? c.surfaceCardElevated : const Color(0xFFFFFBF8),
-      borderColor: c.isDark
-          ? c.borderStrong.withValues(alpha: 0.5)
-          : const Color(0xFFF1DEC9),
+      backgroundColor: c.cardWarmBackground,
+      borderColor: c.cardWarmBorder,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1473,7 +1370,7 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                isEmpty ? '₵0.00' : metrics.spendableLabel,
+                isEmpty ? '£0.00' : metrics.spendableLabel,
                 style: textTheme.headlineMedium?.copyWith(
                   fontSize: 36,
                   height: 1,
@@ -1543,10 +1440,10 @@ class _AvailableToSpendInsightCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: <Widget>[
-                    const Icon(
+                    Icon(
                       Icons.check_circle_outline_rounded,
                       size: 16,
-                      color: Color(0xFF8A571E),
+                      color: c.accentBrown,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1587,11 +1484,8 @@ class _NetWorthInsightCard extends StatelessWidget {
     final TextTheme textTheme = Theme.of(context).textTheme;
 
     return _InsightCarouselCardShell(
-      backgroundColor:
-          c.isDark ? c.surfaceCardElevated : const Color(0xFFFFFBF8),
-      borderColor: c.isDark
-          ? c.borderStrong.withValues(alpha: 0.5)
-          : const Color(0xFFF1DEC9),
+      backgroundColor: c.cardWarmBackground,
+      borderColor: c.cardWarmBorder,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1615,7 +1509,7 @@ class _NetWorthInsightCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                isEmpty ? '₵0.00' : metrics.netWorthLabel,
+                isEmpty ? '£0.00' : metrics.netWorthLabel,
                 style: textTheme.headlineMedium?.copyWith(
                   fontSize: 34,
                   height: 1,
@@ -1642,14 +1536,14 @@ class _NetWorthInsightCard extends StatelessWidget {
               Expanded(
                 child: _InsightStatTile(
                   label: 'Assets',
-                  value: isEmpty ? '₵0.00' : metrics.assetsLabel,
+                  value: isEmpty ? '£0.00' : metrics.assetsLabel,
                 ),
               ),
               const SizedBox(width: PayaboSpacing.sm),
               Expanded(
                 child: _InsightStatTile(
                   label: 'Bills',
-                  value: isEmpty ? '₵0.00' : metrics.billsLabel,
+                  value: isEmpty ? '£0.00' : metrics.billsLabel,
                 ),
               ),
             ],
@@ -2048,14 +1942,14 @@ class _DashboardStatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: c.isDark ? c.surfaceWarmAccent : const Color(0xFFF3E4C8),
+        color: c.surfaceWarmAccent,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w500,
-              color: c.isDark ? c.primary : const Color(0xFF7C5B25),
+              color: c.accentBrown,
             ),
       ),
     );
@@ -2074,7 +1968,7 @@ class _DashboardListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final Color titleColor = c.isDark ? Colors.white : const Color(0xFF2C2017);
+    final Color titleColor = c.accentBrown;
 
     return Row(
       children: <Widget>[
@@ -2094,7 +1988,7 @@ class _DashboardListHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFFD97A1D),
+                  color: c.primary,
                 ),
           ),
       ],
@@ -2308,16 +2202,162 @@ class _SupportObligationRow extends StatelessWidget {
   }
 }
 
-class _DashboardEmptyBillsCard extends StatelessWidget {
-  const _DashboardEmptyBillsCard();
+class _PreviousOrdersList extends StatelessWidget {
+  const _PreviousOrdersList({required this.items});
+
+  final List<DashboardRecentOrder> items;
 
   @override
   Widget build(BuildContext context) {
+    return SizedBox(
+      height: 140,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (BuildContext context, int index) =>
+            const SizedBox(width: PayaboSpacing.md),
+        itemBuilder: (BuildContext context, int index) {
+          return _PreviousOrderCard(order: items[index]);
+        },
+      ),
+    );
+  }
+}
+
+class _PreviousOrderCard extends StatelessWidget {
+  const _PreviousOrderCard({required this.order});
+
+  final DashboardRecentOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+    final String initials = _dashboardAvatarLabel(order.beneficiaryName);
+
+    Color statusColor;
+    switch (order.status) {
+      case 'Completed':
+        statusColor = c.success;
+        break;
+      case 'Failed':
+        statusColor = c.danger;
+        break;
+      default:
+        statusColor = c.warning;
+    }
+
+    return Container(
+      width: 170,
+      padding: const EdgeInsets.all(PayaboSpacing.md),
+      decoration: BoxDecoration(
+        color: c.cardWarmBackground,
+        borderRadius: PayaboRadii.radiusSm,
+        border: Border.all(color: c.cardWarmBorder, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: c.surfaceWarmAccent,
+                backgroundImage: order.beneficiaryPhotoUrl != null
+                    ? NetworkImage(order.beneficiaryPhotoUrl!)
+                    : null,
+                child: order.beneficiaryPhotoUrl == null
+                    ? Text(
+                        initials,
+                        style: textTheme.labelSmall?.copyWith(
+                          color: c.accentBrown,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: PayaboSpacing.sm),
+              Expanded(
+                child: Text(
+                  order.beneficiaryName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: c.accentBrown,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: PayaboSpacing.sm),
+          Text(
+            order.amountLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: c.accentBrown,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: c.surfaceWarmAccent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  order.orderType,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: c.accentBrown,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: PayaboSpacing.xs),
+          Text(
+            '${order.dateLabel} · ${order.status}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodySmall?.copyWith(
+              color: c.muted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardEmptyOrdersCard extends StatelessWidget {
+  const _DashboardEmptyOrdersCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF7),
+        color: c.cardWarmBackground,
         borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(color: const Color(0xFFE6D8C7)),
+        border: Border.all(color: c.cardWarmBorder),
       ),
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -2326,12 +2366,55 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: const Color(0xFFF2E4D2),
+              color: c.surfaceWarmAccent,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
+            child: Icon(
+              Icons.swap_horiz_rounded,
+              color: c.primary,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'No orders yet. Pay a bill or send money to get started.',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: c.accentBrown,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardEmptyBillsCard extends StatelessWidget {
+  const _DashboardEmptyBillsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: c.cardWarmBackground,
+        borderRadius: PayaboRadii.radiusSm,
+        border: Border.all(color: c.cardWarmBorder),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: c.surfaceWarmAccent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
               Icons.receipt_long_outlined,
-              color: Color(0xFFD97A1D),
+              color: c.primary,
             ),
           ),
           const SizedBox(width: 14),
@@ -2339,7 +2422,7 @@ class _DashboardEmptyBillsCard extends StatelessWidget {
             child: Text(
               'No upcoming bills yet. Add a bill to start tracking due dates.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: const Color(0xFF5A3217),
+                    color: c.accentBrown,
                   ),
             ),
           ),
@@ -2405,7 +2488,7 @@ class _DashboardHeroCard extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text(
-                isEmpty ? '₵0.00' : metrics.spendableLabel,
+                isEmpty ? '£0.00' : metrics.spendableLabel,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       color: c.isDark ? Colors.white : const Color(0xFF4F220F),
                       fontSize: 52,
@@ -2568,75 +2651,4 @@ class _EmptyPanel extends StatelessWidget {
   }
 }
 
-class _DashboardCommunityCard extends StatelessWidget {
-  const _DashboardCommunityCard();
 
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final textTheme = Theme.of(context).textTheme;
-
-    return GestureDetector(
-      onTap: () => context.push('/community'),
-      child: Container(
-        padding: const EdgeInsets.all(PayaboSpacing.xl),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[
-              c.primary.withValues(alpha: 0.12),
-              c.primary.withValues(alpha: 0.04),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: PayaboRadii.radiusLg,
-          border: Border.all(color: c.primary.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: c.primary.withValues(alpha: 0.15),
-                borderRadius: PayaboRadii.radiusLg,
-              ),
-              child: Icon(
-                Icons.play_circle_outline_rounded,
-                color: c.primary,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: PayaboSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'Community & Guides',
-                    style: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: c.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: PayaboSpacing.xxs),
-                  Text(
-                    'Video guides, tips and latest news',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: c.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 16,
-              color: c.primary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

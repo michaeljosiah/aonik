@@ -108,6 +108,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<FinancialWebhookEvent> FinancialWebhookEvents { get; set; } = null!;
     public virtual DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public virtual DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
+    public virtual DbSet<TransactionCategory> TransactionCategories { get; set; } = null!;
     public virtual DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
     public virtual DbSet<BudgetLine> BudgetLines { get; set; } = null!;
     public virtual DbSet<Bill> Bills { get; set; } = null!;

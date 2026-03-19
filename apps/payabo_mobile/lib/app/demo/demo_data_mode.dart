@@ -33,7 +33,7 @@ extension DemoDataModeCopy on DemoDataMode {
   String get description {
     switch (this) {
       case DemoDataMode.fresh:
-        return 'Blank profile details, empty dashboard content, and no saved cards or friends in supported demo flows.';
+        return 'User profile present, empty dashboard content, and no saved cards or friends in supported demo flows.';
       case DemoDataMode.populated:
         return 'Use the seeded sample data that the app currently ships with in supported demo flows.';
     }

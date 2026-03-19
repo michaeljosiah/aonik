@@ -224,6 +224,8 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         transaction.ReviewStatus = "Reviewed";
         transaction.ReviewedAt = DateTime.UtcNow;
         transaction.ReviewedByUserId = userId;
+        transaction.TransactionType = TransactionCategoryReference.ResolveTransactionType(
+            transaction.Category, transaction.Amount);
         transaction.Notes = string.IsNullOrWhiteSpace(request.Notes)
             ? transaction.Notes
             : request.Notes.Trim();
@@ -333,6 +335,8 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             transaction.Confidence = 0.9m;
             transaction.CategorisedBy = "rule";
             transaction.ClassificationMethod = "rule_engine";
+            transaction.TransactionType = TransactionCategoryReference.ResolveTransactionType(
+                transaction.Category, transaction.Amount);
             return;
         }
     }
@@ -496,6 +500,8 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             transaction.Merchant,
             transaction.Description,
             transaction.Category,
+            transaction.SubCategory,
+            transaction.TransactionType,
             transaction.Confidence,
             transaction.CategorisedBy,
             transaction.ClassificationMethod,

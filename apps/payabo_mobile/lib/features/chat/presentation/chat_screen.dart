@@ -18,20 +18,6 @@ final FutureProvider<List<ChatConversation>> _chatConversationsProvider =
   return repository.getConversations();
 });
 
-const List<_ComposerActionSpec> _composerActions = <_ComposerActionSpec>[
-  _ComposerActionSpec(
-    label: 'Attach',
-    icon: Icons.attach_file_rounded,
-  ),
-  _ComposerActionSpec(
-    label: 'Camera',
-    icon: Icons.photo_camera_outlined,
-  ),
-  _ComposerActionSpec(
-    label: 'Voice',
-    icon: Icons.keyboard_voice_outlined,
-  ),
-];
 
 Color _chatBaseColor(BuildContext context) {
   final c = context.colors;
@@ -1051,42 +1037,6 @@ class _ChatComposer extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: PayaboSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: PayaboSpacing.xs,
-                      vertical: PayaboSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.025),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.05),
-                      ),
-                    ),
-                    child: Row(
-                      children: _composerActions
-                          .asMap()
-                          .entries
-                          .expand((MapEntry<int, _ComposerActionSpec> entry) {
-                        final List<Widget> widgets = <Widget>[
-                          Expanded(
-                            child: _ComposerActionButton(spec: entry.value),
-                          ),
-                        ];
-                        if (entry.key != _composerActions.length - 1) {
-                          widgets.add(
-                            Container(
-                              width: 1,
-                              height: 22,
-                              color: Colors.white.withValues(alpha: 0.08),
-                            ),
-                          );
-                        }
-                        return widgets;
-                      }).toList(growable: false),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1150,45 +1100,6 @@ class _ChatSendButton extends StatelessWidget {
   }
 }
 
-class _ComposerActionButton extends StatelessWidget {
-  const _ComposerActionButton({required this.spec});
-
-  final _ComposerActionSpec spec;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: PayaboSpacing.sm,
-          vertical: PayaboSpacing.md,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(
-              spec.icon,
-              size: 20,
-              color: _chatBodyTextColor(context),
-            ),
-            const SizedBox(width: PayaboSpacing.sm),
-            Text(
-              spec.label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: _chatBodyTextColor(context),
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.2,
-                  ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ChatGlowOrb extends StatelessWidget {
   const _ChatGlowOrb({
     required this.size,
@@ -1213,14 +1124,4 @@ class _ChatGlowOrb extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ComposerActionSpec {
-  const _ComposerActionSpec({
-    required this.label,
-    required this.icon,
-  });
-
-  final String label;
-  final IconData icon;
 }

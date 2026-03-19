@@ -298,6 +298,7 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
     String? provider,
     String mode = 'connect',
     String? connectionId,
+    String? countryCode,
   }) async {
     if (state.isSubmitting) {
       return null;
@@ -324,8 +325,9 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
       final String? redirectUri = launcher.supportsOAuthResume
           ? environment.configuredAccountLinkRedirectUri
           : null;
-      final String? countryCode =
-          _ref.read(profileCoreProvider).countryCode.isNotEmpty
+      final String? resolvedCountryCode = countryCode?.trim().isNotEmpty == true
+          ? countryCode!.trim().toUpperCase()
+          : _ref.read(profileCoreProvider).countryCode.isNotEmpty
               ? _ref.read(profileCoreProvider).countryCode
               : null;
 
@@ -335,7 +337,7 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
         connectionId: connectionId,
         androidPackageName: androidPackageName,
         redirectUri: redirectUri,
-        countryCode: countryCode,
+        countryCode: resolvedCountryCode,
       );
 
       if (launcher.supportsOAuthResume) {

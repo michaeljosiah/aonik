@@ -672,7 +672,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 ? "Reconnect required before Plaid disconnects this linked account."
                 : "Consent is about to expire. Reconnect this linked account to keep syncing.";
 
-            ApplyActionRequiredState(connection, linkedAccounts, personalAccounts, webhookCode, message);
+            ProviderTransactionMapper.ApplyActionRequiredState(connection, linkedAccounts, personalAccounts, webhookCode, message);
             return "Processed";
         }
 
@@ -681,18 +681,18 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             var errorCode = NormalizeWebhookValue(request.Error?.ErrorCode);
             if (errorCode == "ITEM_LOGIN_REQUIRED" || errorCode == "PENDING_DISCONNECT")
             {
-                var message = LimitText(
+                var message = ProviderTransactionMapper.LimitText(
                     request.Error?.DisplayMessage
                         ?? request.Error?.ErrorMessage
                         ?? "Reconnect required to restore Plaid account access.",
                     1000) ?? "Reconnect required to restore Plaid account access.";
 
-                ApplyActionRequiredState(connection, linkedAccounts, personalAccounts, errorCode, message);
+                ProviderTransactionMapper.ApplyActionRequiredState(connection, linkedAccounts, personalAccounts, errorCode, message);
                 return "Processed";
             }
 
             connection.LastSyncStatus = string.IsNullOrWhiteSpace(errorCode) ? webhookCode : errorCode;
-            connection.LastError = LimitText(
+            connection.LastError = ProviderTransactionMapper.LimitText(
                 request.Error?.DisplayMessage ?? request.Error?.ErrorMessage,
                 1000);
             return "Processed";
@@ -739,64 +739,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         string syncStatus,
         string message)
     {
-        connection.Status = "ActionRequired";
-        connection.ConsentStatus = "ActionRequired";
-        connection.LastSyncStatus = syncStatus;
-        connection.LastError = LimitText(message, 1000);
-        connection.NextScheduledSyncAt = null;
-
-        foreach (var linkedAccount in linkedAccounts)
-        {
-            linkedAccount.Status = "ActionRequired";
-            linkedAccount.LastSyncStatus = syncStatus;
-            linkedAccount.LastError = LimitText(message, 1000);
-        }
-
-        foreach (var personalAccount in personalAccounts)
-        {
-            personalAccount.Status = "ActionRequired";
-        }
-    }
-
-    private static void ApplyProviderTransaction(
-        PersonalTransaction transaction,
-        AccountLinkProviderTransactionResult providerTransaction)
-    {
-        transaction.OccurredAt = providerTransaction.OccurredAt;
-        transaction.Amount = providerTransaction.Amount;
-        transaction.Currency = providerTransaction.Currency.Trim().ToUpperInvariant();
-        transaction.Merchant = TrimNullable(providerTransaction.Merchant);
-        transaction.Description = TrimNullable(providerTransaction.Description);
-
-        if (CanApplyProviderCategorisation(transaction))
-        {
-            transaction.Category = TrimNullable(providerTransaction.Category);
-            if (!string.IsNullOrWhiteSpace(transaction.Category))
-            {
-                transaction.Confidence = 0.55m;
-                transaction.CategorisedBy = "provider";
-                transaction.ClassificationMethod = "provider";
-                transaction.ReviewStatus = "Pending";
-                transaction.ReviewedAt = null;
-                transaction.ReviewedByUserId = null;
-            }
-            else
-            {
-                transaction.Confidence = 0m;
-                transaction.CategorisedBy = null;
-                transaction.ClassificationMethod = null;
-                transaction.ReviewStatus = "Pending";
-                transaction.ReviewedAt = null;
-                transaction.ReviewedByUserId = null;
-            }
-        }
-    }
-
-    private static bool CanApplyProviderCategorisation(PersonalTransaction transaction)
-    {
-        return string.IsNullOrWhiteSpace(transaction.ClassificationMethod)
-            || string.Equals(transaction.ClassificationMethod, "provider", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(transaction.CategorisedBy, "provider", StringComparison.OrdinalIgnoreCase);
+        ProviderTransactionMapper.ApplyActionRequiredState(connection, linkedAccounts, personalAccounts, syncStatus, message);
     }
 
     private static Guid CreateDeterministicGuid(string value)
@@ -949,7 +892,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 personalAccount.ExternalReference = providerAccount.ProviderAccountReference;
                 personalAccount.AccountSubtype = TrimNullable(providerAccount.AccountSubtype);
                 personalAccount.Last4 = NormalizeLast4(providerAccount.Last4);
-                ApplyConnectedPersonalAccountState(personalAccount, null, previousDisconnectedAt, providerAccount.Status);
+                ProviderTransactionMapper.ApplyConnectedPersonalAccountState(personalAccount, null, previousDisconnectedAt, providerAccount.Status);
             }
 
             linkedAccount = new FinancialLinkedAccount
@@ -987,7 +930,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         linkedPersonalAccount.ExternalReference = providerAccount.ProviderAccountReference;
         linkedPersonalAccount.AccountSubtype = TrimNullable(providerAccount.AccountSubtype);
         linkedPersonalAccount.Last4 = NormalizeLast4(providerAccount.Last4);
-        ApplyConnectedPersonalAccountState(linkedPersonalAccount, linkedAccount, previousDisconnectedAt, providerAccount.Status);
+        ProviderTransactionMapper.ApplyConnectedPersonalAccountState(linkedPersonalAccount, linkedAccount, previousDisconnectedAt, providerAccount.Status);
 
         linkedAccount.Name = providerAccount.Name;
         linkedAccount.AccountType = NormalizePersonalAccountType(providerAccount.AccountType);
@@ -1003,41 +946,6 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private static string? DetermineAccountError(AccountLinkProviderExchangeResult providerExchange)
     {
         return DetermineConnectionError(providerExchange);
-    }
-
-    private static void ApplyConnectedPersonalAccountState(
-        PersonalAccount personalAccount,
-        FinancialLinkedAccount? linkedAccount,
-        DateTime? previousDisconnectedAt,
-        string connectedStatus)
-    {
-        if (!personalAccount.IsArchived)
-        {
-            personalAccount.Status = connectedStatus;
-            return;
-        }
-
-        if (!ShouldRestoreArchivedPersonalAccount(personalAccount, linkedAccount, previousDisconnectedAt))
-        {
-            return;
-        }
-
-        personalAccount.Status = connectedStatus;
-        personalAccount.IsArchived = false;
-        personalAccount.ClosedAt = null;
-    }
-
-    private static bool ShouldRestoreArchivedPersonalAccount(
-        PersonalAccount personalAccount,
-        FinancialLinkedAccount? linkedAccount,
-        DateTime? previousDisconnectedAt)
-    {
-        return personalAccount.IsArchived
-            && previousDisconnectedAt.HasValue
-            && personalAccount.ClosedAt == previousDisconnectedAt
-            && string.Equals(personalAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase)
-            && linkedAccount != null
-            && string.Equals(linkedAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase);
     }
 
     private static AccountLinkActionRequiredException CreateActionRequiredException(FinancialConnection connection)

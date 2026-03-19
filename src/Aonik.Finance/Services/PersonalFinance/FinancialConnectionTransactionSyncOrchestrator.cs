@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
@@ -123,7 +120,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
 
             if (!string.IsNullOrWhiteSpace(syncResult.LastError))
             {
-                ApplyActionRequiredState(
+                ProviderTransactionMapper.ApplyActionRequiredState(
                     connection,
                     linkedAccounts,
                     personalAccounts,
@@ -161,11 +158,11 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
             foreach (var personalAccount in personalAccounts)
             {
                 linkedAccountsByPersonalAccountId.TryGetValue(personalAccount.Id, out var linkedAccount);
-                ApplyConnectedPersonalAccountState(personalAccount, linkedAccount, previousDisconnectedAt);
+                ProviderTransactionMapper.ApplyConnectedPersonalAccountState(personalAccount, linkedAccount, previousDisconnectedAt);
             }
 
             var transactionIds = syncResult.Transactions
-                .Select(item => CreateDeterministicGuid(item.ProviderTransactionReference))
+                .Select(item => ProviderTransactionMapper.CreateDeterministicGuid(item.ProviderTransactionReference))
                 .Distinct()
                 .ToList();
 
@@ -196,7 +193,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
                     continue;
                 }
 
-                var sourceId = CreateDeterministicGuid(providerTransaction.ProviderTransactionReference);
+                var sourceId = ProviderTransactionMapper.CreateDeterministicGuid(providerTransaction.ProviderTransactionReference);
                 if (!existingTransactionsBySourceId.TryGetValue(sourceId, out var transaction))
                 {
                     transaction = new PersonalTransaction
@@ -209,7 +206,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
                         TagsJson = "[]"
                     };
 
-                    ApplyProviderTransaction(transaction, providerTransaction);
+                    ProviderTransactionMapper.ApplyProviderTransaction(transaction, providerTransaction);
                     _financeDbContext.PersonalTransactions.Add(transaction);
                     existingTransactionsBySourceId[sourceId] = transaction;
                     added += 1;
@@ -217,7 +214,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
                 }
 
                 transaction.PersonalAccountId = personalAccount.Id;
-                ApplyProviderTransaction(transaction, providerTransaction);
+                ProviderTransactionMapper.ApplyProviderTransaction(transaction, providerTransaction);
                 updated += 1;
             }
 
@@ -225,7 +222,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
             if (syncResult.RemovedTransactionReferences.Count > 0)
             {
                 var removedIds = syncResult.RemovedTransactionReferences
-                    .Select(CreateDeterministicGuid)
+                    .Select(ProviderTransactionMapper.CreateDeterministicGuid)
                     .Distinct()
                     .ToList();
 
@@ -265,7 +262,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
                 trigger);
 
             connection.LastSyncStatus = "SyncFailed";
-            connection.LastError = LimitText(ex.Message, 1000);
+            connection.LastError = ProviderTransactionMapper.LimitText(ex.Message, 1000);
             connection.NextScheduledSyncAt = ComputeFailureRetryAt(connection, DateTime.UtcNow);
             await _financeDbContext.SaveChangesAsync(cancellationToken);
             await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
@@ -308,128 +305,5 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
         }
 
         return utcNow.AddMinutes(Math.Max(_options.FailureRetryDelayMinutes, 1));
-    }
-
-    private static void ApplyActionRequiredState(
-        FinancialConnection connection,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
-        IReadOnlyList<PersonalAccount> personalAccounts,
-        string syncStatus,
-        string message)
-    {
-        connection.Status = "ActionRequired";
-        connection.ConsentStatus = "ActionRequired";
-        connection.LastSyncStatus = syncStatus;
-        connection.LastError = LimitText(message, 1000);
-        connection.NextScheduledSyncAt = null;
-
-        foreach (var linkedAccount in linkedAccounts)
-        {
-            linkedAccount.Status = "ActionRequired";
-            linkedAccount.LastSyncStatus = syncStatus;
-            linkedAccount.LastError = LimitText(message, 1000);
-        }
-
-        foreach (var personalAccount in personalAccounts)
-        {
-            personalAccount.Status = "ActionRequired";
-        }
-    }
-
-    private static void ApplyProviderTransaction(
-        PersonalTransaction transaction,
-        AccountLinkProviderTransactionResult providerTransaction)
-    {
-        transaction.OccurredAt = providerTransaction.OccurredAt;
-        transaction.Amount = providerTransaction.Amount;
-        transaction.Currency = providerTransaction.Currency.Trim().ToUpperInvariant();
-        transaction.Merchant = TrimNullable(providerTransaction.Merchant);
-        transaction.Description = TrimNullable(providerTransaction.Description);
-
-        if (CanApplyProviderCategorisation(transaction))
-        {
-            transaction.Category = TrimNullable(providerTransaction.Category);
-            if (!string.IsNullOrWhiteSpace(transaction.Category))
-            {
-                transaction.Confidence = 0.55m;
-                transaction.CategorisedBy = "provider";
-                transaction.ClassificationMethod = "provider";
-                transaction.ReviewStatus = "Pending";
-                transaction.ReviewedAt = null;
-                transaction.ReviewedByUserId = null;
-            }
-            else
-            {
-                transaction.Confidence = 0m;
-                transaction.CategorisedBy = null;
-                transaction.ClassificationMethod = null;
-                transaction.ReviewStatus = "Pending";
-                transaction.ReviewedAt = null;
-                transaction.ReviewedByUserId = null;
-            }
-        }
-    }
-
-    private static bool CanApplyProviderCategorisation(PersonalTransaction transaction)
-    {
-        return string.IsNullOrWhiteSpace(transaction.ClassificationMethod)
-            || string.Equals(transaction.ClassificationMethod, "provider", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(transaction.CategorisedBy, "provider", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static Guid CreateDeterministicGuid(string value)
-    {
-        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value.Trim()));
-        return new Guid(bytes);
-    }
-
-    private static string? TrimNullable(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
-
-    private static string? LimitText(string? value, int maxLength)
-    {
-        var normalized = TrimNullable(value);
-        if (normalized == null)
-        {
-            return null;
-        }
-
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
-
-    private static void ApplyConnectedPersonalAccountState(
-        PersonalAccount personalAccount,
-        FinancialLinkedAccount? linkedAccount,
-        DateTime? previousDisconnectedAt)
-    {
-        if (!personalAccount.IsArchived)
-        {
-            personalAccount.Status = "Connected";
-            return;
-        }
-
-        if (!ShouldRestoreArchivedPersonalAccount(personalAccount, linkedAccount, previousDisconnectedAt))
-        {
-            return;
-        }
-
-        personalAccount.Status = "Connected";
-        personalAccount.IsArchived = false;
-        personalAccount.ClosedAt = null;
-    }
-
-    private static bool ShouldRestoreArchivedPersonalAccount(
-        PersonalAccount personalAccount,
-        FinancialLinkedAccount? linkedAccount,
-        DateTime? previousDisconnectedAt)
-    {
-        return personalAccount.IsArchived
-            && previousDisconnectedAt.HasValue
-            && personalAccount.ClosedAt == previousDisconnectedAt
-            && string.Equals(personalAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase)
-            && linkedAccount != null
-            && string.Equals(linkedAccount.Status, "Archived", StringComparison.OrdinalIgnoreCase);
     }
 }

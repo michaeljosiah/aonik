@@ -14,7 +14,9 @@ public class PersonalTransaction : AuditableEntity, ITenantScoped
     public string Currency { get; set; } = string.Empty;
     public string? Merchant { get; set; }
     public string? Description { get; set; }
+    public string TransactionType { get; set; } = string.Empty;
     public string? Category { get; set; }
+    public string? SubCategory { get; set; }
     public decimal Confidence { get; set; }
     public string? CategorisedBy { get; set; }
     public string? ClassificationMethod { get; set; }

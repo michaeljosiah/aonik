@@ -36,8 +36,8 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
         var currency = EnsureSingleCurrency(transactions);
 
-        var totalIncome = transactions.Where(item => item.Amount > 0).Sum(item => item.Amount);
-        var totalExpense = Math.Abs(transactions.Where(item => item.Amount < 0).Sum(item => item.Amount));
+        var totalIncome = transactions.Where(IsIncome).Sum(item => item.Amount);
+        var totalExpense = Math.Abs(transactions.Where(IsExpense).Sum(item => item.Amount));
 
         return new SpendingSummaryResponse(
             periodStart,
@@ -60,7 +60,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, personalAccountId, cancellationToken);
         _ = EnsureSingleCurrency(transactions);
 
-        var expenseRows = transactions.Where(item => item.Amount < 0).ToList();
+        var expenseRows = transactions.Where(IsExpense).ToList();
         var expenseTotal = Math.Abs(expenseRows.Sum(item => item.Amount));
 
         if (expenseRows.Count == 0 || expenseTotal == 0)
@@ -99,7 +99,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         _ = EnsureSingleCurrency(transactions);
 
         return transactions
-            .Where(item => item.Amount < 0)
+            .Where(IsExpense)
             .GroupBy(item => string.IsNullOrWhiteSpace(item.Merchant) ? "Unknown Merchant" : item.Merchant!)
             .Select(group => new MerchantSpendingItemResponse(
                 group.Key,
@@ -120,7 +120,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         var transactions = await QueryTransactionsAsync(periodStart, periodEnd, null, cancellationToken);
         _ = EnsureSingleCurrency(transactions);
 
-        var expenseRows = transactions.Where(item => item.Amount < 0).ToList();
+        var expenseRows = transactions.Where(IsExpense).ToList();
 
         if (expenseRows.Count == 0)
         {
@@ -223,5 +223,35 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         {
             throw new ArgumentException("Period end must be greater than or equal to period start.");
         }
+    }
+
+    /// <summary>
+    /// Returns true when the transaction should be classified as income.
+    /// Prefers the <c>TransactionType</c> field when populated; falls back to amount sign
+    /// for historical records that predate the TransactionType column.
+    /// </summary>
+    private static bool IsIncome(PersonalTransaction item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.TransactionType))
+        {
+            return item.TransactionType == TransactionCategoryReference.TypeIncome;
+        }
+
+        return item.Amount > 0;
+    }
+
+    /// <summary>
+    /// Returns true when the transaction should be classified as an expense.
+    /// Prefers the <c>TransactionType</c> field when populated; falls back to amount sign
+    /// for historical records that predate the TransactionType column.
+    /// </summary>
+    private static bool IsExpense(PersonalTransaction item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.TransactionType))
+        {
+            return item.TransactionType == TransactionCategoryReference.TypeExpense;
+        }
+
+        return item.Amount < 0;
     }
 }

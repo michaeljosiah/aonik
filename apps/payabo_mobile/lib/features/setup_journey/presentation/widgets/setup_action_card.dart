@@ -89,13 +89,11 @@ class _SetupActionCardState extends State<SetupActionCard>
             border: Border(
               top: BorderSide(color: c.borderWarm, width: 0.5),
             ),
-            boxShadow: <BoxShadow>[
+            boxShadow: const <BoxShadow>[
               BoxShadow(
-                color: c.isDark
-                    ? Colors.black26
-                    : const Color(0x0D000000),
+                color: Colors.black26,
                 blurRadius: 16,
-                offset: const Offset(0, -4),
+                offset: Offset(0, -4),
               ),
             ],
           ),

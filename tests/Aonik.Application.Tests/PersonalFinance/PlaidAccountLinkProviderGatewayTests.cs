@@ -321,7 +321,8 @@ public class PlaidAccountLinkProviderGatewayTests
         result.SyncStatus.Should().Be("TransactionsSyncComplete");
         result.Transactions.Should().HaveCount(1);
         result.Transactions[0].Amount.Should().Be(-12.34m);
-        result.Transactions[0].Category.Should().Be("FOOD AND DRINK");
+        result.Transactions[0].Category.Should().Be("food_and_drink");
+        result.Transactions[0].SubCategory.Should().BeNull();
         result.RemovedTransactionReferences.Should().ContainSingle("txn-removed-1");
         handler.LastRequestBody.Should().Contain("\"access_token\"");
         handler.LastRequest!.RequestUri!.ToString().Should().EndWith("/transactions/sync");

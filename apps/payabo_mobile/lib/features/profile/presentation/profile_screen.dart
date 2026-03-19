@@ -16,7 +16,6 @@ import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_list_row.dart';
 import '../../../shared/widgets/payabo_modal_sheet.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
-import '../../setup_journey/application/setup_journey_controller.dart';
 import 'profile_scaffold.dart';
 import 'profile_state.dart';
 
@@ -151,10 +150,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         const SizedBox(height: PayaboSpacing.sm),
         PayaboListRow(
-          title: 'Personalisation setup',
-          subtitle: 'Re-run the guided setup journey',
-          leading: const _MenuIcon(Icons.auto_awesome_outlined),
-          onTap: () => _startSetupJourney(context),
+          title: 'Community',
+          subtitle: 'News, guides and community updates',
+          leading: const _MenuIcon(Icons.people_outline),
+          onTap: () => context.go('/community'),
         ),
         const SizedBox(height: PayaboSpacing.sm),
         PayaboListRow(
@@ -222,16 +221,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ],
     );
-  }
-
-  Future<void> _startSetupJourney(BuildContext context) async {
-    await clearSetupCompleted(ref);
-
-    if (!context.mounted) {
-      return;
-    }
-
-    context.go('/setup');
   }
 
   Future<void> _openPhotoPicker() async {

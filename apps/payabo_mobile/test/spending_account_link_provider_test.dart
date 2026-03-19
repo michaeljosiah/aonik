@@ -412,6 +412,35 @@ void main() {
     );
   });
 
+  test('selected country is forwarded when creating a Plaid session', () async {
+    final repository = _RecordingAccountLinksRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        appEnvironmentProvider.overrideWithValue(
+          const AppEnvironment(
+            flavor: AppFlavor.dev,
+            useMocks: false,
+            apiBaseUrl: 'https://api.dev.payabo.local',
+            accountLinkProvider: 'Plaid',
+          ),
+        ),
+        isDemoProvider.overrideWith((ref) => false),
+        accountLinksRepositoryProvider.overrideWithValue(repository),
+        accountLinkLauncherProvider.overrideWithValue(
+          const _ImmediateAccountLinkLauncher(native: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final AccountLinkFlowController controller =
+        container.read(accountLinkFlowControllerProvider.notifier);
+
+    await controller.connect(provider: 'Plaid', countryCode: 'NG');
+
+    expect(repository.lastCreateSessionCountryCode, 'NG');
+  });
+
   test('native Plaid launcher is selected on Android when not in demo mode',
       () {
     final TargetPlatform? previousPlatform = debugDefaultTargetPlatformOverride;

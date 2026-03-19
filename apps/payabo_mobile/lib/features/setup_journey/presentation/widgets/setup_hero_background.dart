@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/theme/payabo_color_resolver.dart';
-
 /// Full-screen hero background for the setup journey.
 ///
 /// Displays the hero photograph (`assets/images/setup-hero.png`)
-/// with a gradient scrim overlay so text remains readable.
+/// with a dark gradient scrim overlay so text remains readable.
 ///
-/// - **Light mode**: warm semi-transparent white scrim
-/// - **Dark mode**: dark semi-transparent scrim
+/// Uses the same dark treatment in both light and dark mode so
+/// the setup flow has a consistent cinematic feel regardless of
+/// the user's system theme.
 ///
 /// Falls back to a plain gradient if the image fails to load
 /// (e.g. in widget tests where assets aren't bundled).
@@ -19,9 +18,6 @@ class SetupHeroBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final bool isDark = c.isDark;
-
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
@@ -31,34 +27,21 @@ class SetupHeroBackground extends StatelessWidget {
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
-          errorBuilder: (_, __, ___) => _GradientFallback(isDark: isDark),
+          errorBuilder: (_, __, ___) => const _GradientFallback(),
         ),
 
         // Gradient scrim — ensures text legibility over the photo.
-        DecoratedBox(
+        const DecoratedBox(
           decoration: BoxDecoration(
-            gradient: isDark ? _darkScrim : _lightScrim,
+            gradient: _darkScrim,
           ),
-          child: const SizedBox.expand(),
+          child: SizedBox.expand(),
         ),
       ],
     );
   }
 
-  /// Light mode: warm white fading from ~70 % opaque at the top
-  /// to ~15 % at the bottom so the image shows through.
-  static const LinearGradient _lightScrim = LinearGradient(
-    colors: <Color>[
-      Color(0xB3FFFCF9), // ~70 % opaque warm white
-      Color(0x66FFF5EC), // ~40 % opaque warm peach
-      Color(0x26F7EBD9), // ~15 % opaque warm sand
-    ],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    stops: <double>[0.0, 0.45, 1.0],
-  );
-
-  /// Dark mode: dark surface fading from ~80 % opaque at the top
+  /// Dark scrim: dark surface fading from ~80 % opaque at the top
   /// to ~40 % at the bottom so the image is visible but muted.
   static const LinearGradient _darkScrim = LinearGradient(
     colors: <Color>[
@@ -75,39 +58,19 @@ class SetupHeroBackground extends StatelessWidget {
 /// Gradient-only fallback used when the hero image asset fails
 /// to load (e.g. in test environments or if the file is missing).
 class _GradientFallback extends StatelessWidget {
-  const _GradientFallback({required this.isDark});
-
-  final bool isDark;
+  const _GradientFallback();
 
   @override
   Widget build(BuildContext context) {
-    if (isDark) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[
-              Color(0xFF1A1A1A),
-              Color(0xFF121212),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SizedBox.expand(),
-      );
-    }
-
     return const DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: <Color>[
-            Color(0xFFFFFCF9),
-            Color(0xFFFFF5EC),
-            Color(0xFFF7EBD9),
+            Color(0xFF1A1A1A),
+            Color(0xFF121212),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          stops: <double>[0.0, 0.5, 1.0],
         ),
       ),
       child: SizedBox.expand(),

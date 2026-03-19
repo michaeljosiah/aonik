@@ -19,10 +19,10 @@ class MockProfileRepository implements ProfileRepository {
     switch (demoDataMode) {
       case DemoDataMode.fresh:
         return const UserProfile(
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
+          firstName: 'Kwame',
+          lastName: 'Mensah',
+          email: 'kwame.mensah@payabo.app',
+          phone: '+233241000000',
           countryCode: 'GH',
         );
       case DemoDataMode.populated:
@@ -43,7 +43,7 @@ class MockProfileRepository implements ProfileRepository {
     switch (demoDataMode) {
       case DemoDataMode.fresh:
         return const NotificationPreferences(
-          email: '',
+          email: 'kwame.mensah@payabo.app',
           newBillsPush: false,
           billUpdatesPush: false,
           billAssistPush: false,
@@ -80,7 +80,7 @@ class MockProfileRepository implements ProfileRepository {
     switch (demoDataMode) {
       case DemoDataMode.fresh:
         return const MarketingPreferences(
-          email: '',
+          email: 'kwame.mensah@payabo.app',
           news: false,
           offers: false,
           surveys: false,

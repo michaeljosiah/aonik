@@ -109,6 +109,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<FinancialWebhookEvent> FinancialWebhookEvents { get; set; } = null!;
     public DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
+    public DbSet<TransactionCategory> TransactionCategories { get; set; } = null!;
     public DbSet<CategorisationRule> CategorisationRules { get; set; } = null!;
     public DbSet<BudgetLine> BudgetLines { get; set; } = null!;
     public DbSet<Bill> Bills { get; set; } = null!;

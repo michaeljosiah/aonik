@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
+import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_screen_title_bar.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
 
@@ -24,6 +25,9 @@ class PaymentFlowScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PayaboWarmScaffold(
+      bottomNavigationBar: const PayaboPrimaryAppShell(
+        destination: PayaboPrimaryDestination.pay,
+      ),
       body: Column(
         children: <Widget>[
           const PayaboAppHeader(),

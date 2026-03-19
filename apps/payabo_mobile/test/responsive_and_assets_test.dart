@@ -14,6 +14,7 @@ import 'package:payabo_mobile/features/auth/presentation/contact_details_screen.
 import 'package:payabo_mobile/features/chat/presentation/chat_screen.dart';
 import 'package:payabo_mobile/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:payabo_mobile/features/notifications/presentation/notification_center_screen.dart';
+import 'package:payabo_mobile/features/payments/presentation/pay_dashboard_screen.dart';
 import 'package:payabo_mobile/features/payments/presentation/payment_country_screen.dart';
 import 'package:payabo_mobile/features/profile/presentation/personal_details_screen.dart';
 import 'package:payabo_mobile/features/profile/presentation/profile_screen.dart';
@@ -238,6 +239,13 @@ void main() {
 
   testWidgets('main app pages use their expected top chrome',
       (WidgetTester tester) async {
+    // Pay dashboard uses a custom pinned header (matching Home dashboard)
+    // with a profile avatar and notification bell — not PayaboAppHeader.
+    await tester.pumpWidget(buildTestApp(const PayDashboardScreen()));
+    await tester.pumpAndSettle();
+    expect(find.byType(PayaboProfileAvatar), findsOneWidget);
+    expect(find.byType(PayaboBottomNav), findsOneWidget);
+
     await tester.pumpWidget(buildTestApp(const SpendingScreen()));
     await tester.pumpAndSettle();
     expect(find.byType(PayaboAppHeader), findsOneWidget);
@@ -260,6 +268,7 @@ void main() {
     await tester.pumpWidget(buildTestApp(const PaymentCountryScreen()));
     await tester.pumpAndSettle();
     expect(find.byType(PayaboAppHeader), findsOneWidget);
+    expect(find.byType(PayaboBottomNav), findsOneWidget);
   });
 
   testWidgets('notification center screen renders grouped items',
