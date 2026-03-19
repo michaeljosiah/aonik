@@ -8,7 +8,7 @@ import 'payabo_modal_sheet.dart';
 
 enum PayaboPrimaryDestination {
   dashboard,
-  bills,
+  pay,
   spending,
   chat,
   none,
@@ -43,7 +43,7 @@ class PayaboPrimaryAppShell extends StatelessWidget {
     return PayaboBottomNav(
       items: const <PayaboBottomNavItem>[
         PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-        PayaboBottomNavItem(icon: Icons.receipt_long_outlined, label: 'Bills'),
+        PayaboBottomNavItem(icon: Icons.receipt_long_outlined, label: 'Pay'),
         PayaboBottomNavItem(icon: Icons.show_chart_outlined, label: 'Spending'),
         PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Chat'),
       ],
@@ -64,7 +64,7 @@ class PayaboPrimaryAppShell extends StatelessWidget {
     switch (destination) {
       case PayaboPrimaryDestination.dashboard:
         return 0;
-      case PayaboPrimaryDestination.bills:
+      case PayaboPrimaryDestination.pay:
         return 1;
       case PayaboPrimaryDestination.spending:
         return 2;
@@ -81,7 +81,7 @@ class PayaboPrimaryAppShell extends StatelessWidget {
         context.go('/dashboard');
         return;
       case 1:
-        context.go('/payments/country');
+        context.go('/pay');
         return;
       case 2:
         context.go('/spending');
@@ -113,7 +113,10 @@ class PayaboPrimaryAppShell extends StatelessWidget {
             title: 'Transfer',
             subtitle: 'Send money to another account',
             leading: const Icon(Icons.compare_arrows_outlined),
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.go('/payments/friends');
+            },
           ),
           const SizedBox(height: PayaboSpacing.sm),
           PayaboListRow(

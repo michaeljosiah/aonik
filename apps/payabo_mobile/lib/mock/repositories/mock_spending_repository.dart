@@ -885,14 +885,14 @@ class MockSpendingRepository implements SpendingRepository {
 
     return SpendingOverviewData(
       accountSnapshots: filteredSnapshots,
-      totalBalanceMetric: SpendingMetric(
+      totalBalanceMetric: const SpendingMetric(
         label: 'Total balance',
         amountLabel: '\u00A314,826.46',
         trendLabel: '+4.6% vs last month',
         iconCodePoint: _iconStackedLineChart,
         iconFontFamily: _mi,
       ),
-      netWorthMetric: SpendingMetric(
+      netWorthMetric: const SpendingMetric(
         label: 'Net worth',
         amountLabel: '\u00A322,180.64',
         trendLabel: '+\u00A3920 this month',

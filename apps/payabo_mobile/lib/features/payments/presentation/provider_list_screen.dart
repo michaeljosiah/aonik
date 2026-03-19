@@ -37,7 +37,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
     return PaymentFlowScaffold(
       title: 'Select the service provider',
       onBack: () => context.go('/payments/country'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

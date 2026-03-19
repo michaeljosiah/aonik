@@ -37,7 +37,7 @@ class _CardDetailsScreenState extends ConsumerState<CardDetailsScreen> {
       return PaymentFlowScaffold(
         title: 'Enter your card details',
         onBack: () => context.go('/payments/service-details'),
-        onClose: () => context.go('/dashboard'),
+        onClose: () => context.go('/pay'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -61,7 +61,7 @@ class _CardDetailsScreenState extends ConsumerState<CardDetailsScreen> {
     return PaymentFlowScaffold(
       title: 'Enter your card details',
       onBack: () => context.go('/payments/card-selection'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: 'Go to checkout',
         onPressed: canCheckout

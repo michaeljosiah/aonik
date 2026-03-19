@@ -12,7 +12,6 @@ import 'package:payabo_mobile/features/support_planning/presentation/add_benefic
 import 'package:payabo_mobile/mock/repositories/mock_support_planning_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'test_helpers.dart';
 
 void main() {
   group('SupportPlanningController', () {
@@ -145,8 +144,8 @@ void main() {
             supportPlanningRepositoryProvider
                 .overrideWithValue(MockSupportPlanningRepository()),
           ],
-          child: MaterialApp(
-            home: const AddBeneficiaryScreen(),
+          child: const MaterialApp(
+            home: AddBeneficiaryScreen(),
           ),
         ),
       );
@@ -184,8 +183,8 @@ void main() {
             supportPlanningRepositoryProvider
                 .overrideWithValue(MockSupportPlanningRepository()),
           ],
-          child: MaterialApp(
-            home: const AddBeneficiaryScreen(),
+          child: const MaterialApp(
+            home: AddBeneficiaryScreen(),
           ),
         ),
       );

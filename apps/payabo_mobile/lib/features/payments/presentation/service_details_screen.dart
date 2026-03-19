@@ -79,7 +79,7 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
     return PaymentFlowScaffold(
       title: 'Service details',
       onBack: () => context.go('/payments/providers'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: _isSubmitting ? 'Processing...' : 'Pay now',
         onPressed: canContinue && !_isSubmitting ? _submitServiceDetails : null,

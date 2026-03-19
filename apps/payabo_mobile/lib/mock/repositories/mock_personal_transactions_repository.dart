@@ -732,7 +732,7 @@ class MockPersonalTransactionsRepository
 
     // Filter by active connections.
     filtered = filtered
-        .where((PersonalTransactionItem t) => _isTransactionActive(t))
+        .where(_isTransactionActive)
         .toList();
 
     // Filter by account

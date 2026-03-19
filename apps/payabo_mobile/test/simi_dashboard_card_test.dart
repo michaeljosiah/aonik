@@ -105,8 +105,8 @@ void main() {
             // Force the card to be visible
             simiCardVisibleProvider.overrideWithValue(true),
           ],
-          child: MaterialApp(
-            home: const Scaffold(
+          child: const MaterialApp(
+            home: Scaffold(
               body: SimiDashboardCard(),
             ),
           ),
@@ -147,8 +147,8 @@ void main() {
               ),
             ),
           ],
-          child: MaterialApp(
-            home: const Scaffold(
+          child: const MaterialApp(
+            home: Scaffold(
               body: SimiDashboardCard(),
             ),
           ),
@@ -179,8 +179,8 @@ void main() {
                 .overrideWithValue(MockSetupJourneyRepository()),
             simiCardVisibleProvider.overrideWithValue(true),
           ],
-          child: MaterialApp(
-            home: const Scaffold(
+          child: const MaterialApp(
+            home: Scaffold(
               body: SimiDashboardCard(),
             ),
           ),

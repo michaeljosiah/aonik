@@ -33,7 +33,7 @@ class PersonalTransactionItem {
   final String category;
 
   /// Signed decimal amount.  Negative = debit, positive = credit.
-  final decimal amount;
+  final Decimal amount;
 
   /// ISO-4217 currency code, e.g. `'GBP'`.
   final String currency;
@@ -144,7 +144,7 @@ class PersonalTransactionsQuery {
 
 const Object _sentinel = Object();
 
-typedef decimal = double;
+typedef Decimal = double;
 
 class PersonalTransactionsPage {
   const PersonalTransactionsPage({

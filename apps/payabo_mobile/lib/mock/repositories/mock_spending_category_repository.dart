@@ -116,7 +116,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Uber Eats',
           amount: '\u00A352.00',
@@ -148,7 +148,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Tesco',
           amount: '\u00A3284.35',
@@ -180,7 +180,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Uber',
           amount: '\u00A3126.40',
@@ -212,7 +212,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Amazon Marketplace',
           amount: '\u00A3410.90',
@@ -244,7 +244,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Tesco',
           amount: '\u00A3284.35',
@@ -276,7 +276,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Uber',
           amount: '\u00A3126.40',
@@ -308,7 +308,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Netflix',
           amount: '\u00A312.99',
@@ -340,7 +340,7 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
         transactions: <SpendingCategoryTransaction>[],
       ),
       transactions: <SpendingCategoryTransaction>[
-        SpendingCategoryTransaction(
+        const SpendingCategoryTransaction(
           dateLabel: 'Mon 02 Mar',
           merchant: 'Transfer fee',
           amount: '\u00A3148.60',

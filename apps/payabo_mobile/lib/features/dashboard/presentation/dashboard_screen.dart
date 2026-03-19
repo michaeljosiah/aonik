@@ -785,7 +785,6 @@ class _DashboardHeroBanner extends StatelessWidget {
     final String firstName = _dashboardFirstName(displayName);
     final String greeting = _dashboardGreeting(DateTime.now());
     final String dueBillPhrase = _dashboardDueBillPhrase(dueBillCount);
-    final bool isDark = context.colors.isDark;
     final TextStyle baseMessageStyle = textTheme.bodyLarge?.copyWith(
           fontSize: 17,
           color: Colors.white.withValues(alpha: 0.76),
@@ -801,7 +800,7 @@ class _DashboardHeroBanner extends StatelessWidget {
       fontWeight: FontWeight.w700,
     );
 
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: Padding(
         padding: EdgeInsets.fromLTRB(

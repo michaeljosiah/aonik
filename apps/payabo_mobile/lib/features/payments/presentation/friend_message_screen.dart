@@ -46,7 +46,7 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
     return PaymentFlowScaffold(
       title: 'Send message to friend',
       onBack: () => context.go('/payments/friends'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: 'Send message',
         onPressed: friend == null

@@ -35,8 +35,8 @@ class _PaymentCountryScreenState extends ConsumerState<PaymentCountryScreen> {
 
     return PaymentFlowScaffold(
       title: 'Select destination country',
-      onBack: () => context.go('/dashboard'),
-      onClose: () => context.go('/dashboard'),
+      onBack: () => context.go('/pay'),
+      onClose: () => context.go('/pay'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

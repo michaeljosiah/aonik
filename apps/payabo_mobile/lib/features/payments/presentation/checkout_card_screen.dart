@@ -32,7 +32,7 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
     return PaymentFlowScaffold(
       title: 'Review your order',
       onBack: () => context.go('/payments/card-selection'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: _isSubmitting ? 'Confirming...' : 'Confirm payment',
         onPressed: _isSubmitting ? null : () => _confirmPayment(orderId),

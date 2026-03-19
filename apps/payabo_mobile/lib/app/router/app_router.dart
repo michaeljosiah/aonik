@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +25,7 @@ import '../../features/payments/presentation/checkout_card_screen.dart';
 import '../../features/payments/presentation/checkout_help_screen.dart';
 import '../../features/payments/presentation/friend_message_screen.dart';
 import '../../features/payments/presentation/friend_selection_screen.dart';
+import '../../features/payments/presentation/pay_dashboard_screen.dart';
 import '../../features/payments/presentation/payment_country_screen.dart';
 import '../../features/payments/presentation/payment_return_placeholder_screen.dart';
 import '../../features/payments/presentation/payment_selection_screen.dart';
@@ -49,7 +49,6 @@ import '../../features/setup_journey/application/setup_journey_controller.dart';
 import '../../features/setup_journey/presentation/setup_journey_screen.dart';
 import '../../features/setup_journey/presentation/setup_processing_screen.dart';
 import '../../features/spending/presentation/spending_account_link_return_screen.dart';
-import '../../features/support_planning/presentation/add_beneficiary_screen.dart';
 import '../../features/spending/presentation/spending_accounts_screen.dart';
 import '../../features/spending/presentation/spending_budget_detail_screen.dart';
 import '../../features/spending/presentation/spending_budget_screen.dart';
@@ -57,6 +56,7 @@ import '../../features/spending/presentation/spending_category_detail_screen.dar
 import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
 import '../../features/spending/presentation/spending_screen.dart';
 import '../../features/spending/presentation/transaction_detail_screen.dart';
+import '../../features/support_planning/presentation/add_beneficiary_screen.dart';
 import '../auth/auth_controller.dart';
 import '../demo/demo_mode.dart';
 
@@ -258,6 +258,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/dashboard',
           name: 'dashboard',
           builder: (context, state) => const DashboardScreen(),
+        ),
+        GoRoute(
+          path: '/pay',
+          name: 'pay-dashboard',
+          builder: (context, state) => const PayDashboardScreen(),
         ),
         GoRoute(
           path: '/dashboard/empty',

@@ -33,7 +33,7 @@ class _CheckoutHelpScreenState extends ConsumerState<CheckoutHelpScreen> {
     return PaymentFlowScaffold(
       title: 'Review your order',
       onBack: () => context.go('/payments/friends/message'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: _isSubmitting ? 'Confirming...' : 'Confirm payment',
         onPressed: _isSubmitting || friend == null

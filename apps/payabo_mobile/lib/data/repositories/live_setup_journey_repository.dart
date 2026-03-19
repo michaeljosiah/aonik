@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 
-import '../api/api_exception.dart';
 import '../../features/setup_journey/domain/setup_enums.dart';
 import '../../features/setup_journey/domain/setup_journey_repository.dart';
 import '../../features/setup_journey/domain/setup_models.dart';
+import '../api/api_exception.dart';
 
 class LiveSetupJourneyRepository implements SetupJourneyRepository {
   LiveSetupJourneyRepository({required Dio apiClient}) : _apiClient = apiClient;

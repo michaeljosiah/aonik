@@ -112,7 +112,7 @@ class SetupJourneyScreen extends ConsumerWidget {
                         _handleNext(context, controller, state),
                     onBack: state.isFirstStep
                         ? null
-                        : () => controller.previousStep(),
+                        : controller.previousStep,
                     isFirstStep: state.isFirstStep,
                     nextLabel: _getNextLabel(state),
                   ),

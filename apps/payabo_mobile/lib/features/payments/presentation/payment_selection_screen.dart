@@ -23,7 +23,7 @@ class PaymentSelectionScreen extends ConsumerWidget {
       return PaymentFlowScaffold(
         title: 'Select payment method',
         onBack: () => context.go('/payments/service-details'),
-        onClose: () => context.go('/dashboard'),
+        onClose: () => context.go('/pay'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -43,7 +43,7 @@ class PaymentSelectionScreen extends ConsumerWidget {
     return PaymentFlowScaffold(
       title: 'Select payment method',
       onBack: () => context.go('/payments/service-details'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: 'View order summary',
         variant: PayaboButtonVariant.secondary,

@@ -196,9 +196,9 @@ class LiveAuthRepository implements AuthRepository {
       partyId: _readNullableString(payload['partyId']),
       gates: gatesPayload is List
           ? gatesPayload
-              .whereType<Map>()
+              .whereType<Map<Object?, Object?>>()
               .map(
-                (Map<dynamic, dynamic> gate) => _mapOnboardingGate(
+                (Map<Object?, Object?> gate) => _mapOnboardingGate(
                   Map<String, dynamic>.from(gate),
                 ),
               )

@@ -12,7 +12,7 @@ class PaymentReturnPlaceholderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return PaymentFlowScaffold(
       title: 'Payment return',
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -22,7 +22,7 @@ class PaymentReturnPlaceholderScreen extends StatelessWidget {
           const SizedBox(height: PayaboSpacing.lg),
           PayaboButton(
             label: 'Back to dashboard',
-            onPressed: () => context.go('/dashboard'),
+            onPressed: () => context.go('/pay'),
           ),
         ],
       ),

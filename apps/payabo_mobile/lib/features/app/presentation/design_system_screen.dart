@@ -178,8 +178,8 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
       bottomNavigationBar: PayaboBottomNav(
         items: const <PayaboBottomNavItem>[
           PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-          PayaboBottomNavItem(
-              icon: Icons.receipt_long_outlined, label: 'Bills'),
+              PayaboBottomNavItem(
+                icon: Icons.receipt_long_outlined, label: 'Pay'),
           PayaboBottomNavItem(icon: Icons.people_outline, label: 'Community'),
           PayaboBottomNavItem(icon: Icons.person_outline, label: 'Profile'),
         ],

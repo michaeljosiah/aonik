@@ -36,7 +36,7 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
       return PaymentFlowScaffold(
         title: 'Request help with payment',
         onBack: () => context.go('/payments/service-details'),
-        onClose: () => context.go('/dashboard'),
+        onClose: () => context.go('/pay'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -64,7 +64,7 @@ class _FriendSelectionScreenState extends ConsumerState<FriendSelectionScreen> {
     return PaymentFlowScaffold(
       title: 'Request help with payment',
       onBack: () => context.go('/payments/payment-selection'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: 'Add new friend',
         variant: PayaboButtonVariant.secondary,

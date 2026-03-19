@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../data/repositories/order_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
@@ -52,7 +51,7 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
 
     return PaymentFlowScaffold(
       title: 'Thank you for your order',
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -109,7 +108,7 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
                 ? 'Back to dashboard'
                 : 'Continue',
             variant: PayaboButtonVariant.secondary,
-            onPressed: () => context.go('/dashboard'),
+            onPressed: () => context.go('/pay'),
           ),
           const SizedBox(height: PayaboSpacing.md),
           const PayaboCard(

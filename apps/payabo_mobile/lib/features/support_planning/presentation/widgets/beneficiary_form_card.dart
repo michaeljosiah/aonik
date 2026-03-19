@@ -144,7 +144,7 @@ class _BeneficiaryFormCardState extends State<BeneficiaryFormCard> {
                   style: FilledButton.styleFrom(
                     backgroundColor: c.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
+                    shape: const RoundedRectangleBorder(
                       borderRadius: PayaboRadii.radiusSm,
                     ),
                   ),

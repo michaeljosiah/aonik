@@ -38,7 +38,7 @@ class _AddFriendScreenState extends ConsumerState<AddFriendScreen> {
     return PaymentFlowScaffold(
       title: 'Request help with payment',
       onBack: () => context.go('/payments/friends'),
-      onClose: () => context.go('/dashboard'),
+      onClose: () => context.go('/pay'),
       footer: PayaboButton(
         label: 'Request help',
         onPressed: _submit,
