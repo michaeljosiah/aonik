@@ -33,32 +33,23 @@ extension SpendingBudgetColorRoleX on SpendingBudgetColorRole {
   }
 }
 
+/// The original 5 categories used to seed the populated demo dashboard.
+/// Keep this small so the demo is not overwhelming.
 const List<SpendingBudgetCategory> spendingBudgetCategories =
     <SpendingBudgetCategory>[
   SpendingBudgetCategory(
     id: 'housing',
     name: 'Housing',
+    description: 'Track rent, repairs, and household supplies.',
     icon: Icons.home_work_outlined,
     accentRole: SpendingBudgetColorRole.primary,
     linkedSpendingCategoryId: 'finances',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
-        id: 'rent',
-        name: 'Rent',
-        allocated: 850,
-        spent: 850,
-      ),
-      SpendingBudgetLineItem(
-        id: 'repairs',
-        name: 'Repairs',
-        allocated: 100,
-        spent: 42,
-      ),
-      SpendingBudgetLineItem(
-        id: 'supplies',
-        name: 'Supplies',
-        allocated: 250,
-        spent: 58,
+        id: 'housing-budget',
+        name: 'Budget',
+        allocated: 1200,
+        spent: 950,
       ),
     ],
     history: <SpendingBudgetHistoryPoint>[
@@ -79,27 +70,16 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
   SpendingBudgetCategory(
     id: 'groceries',
     name: 'Food & Groceries',
+    description: 'Supermarket runs, fresh market, and coffee stops.',
     icon: Icons.local_grocery_store_outlined,
     accentRole: SpendingBudgetColorRole.success,
     linkedSpendingCategoryId: 'groceries',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
-        id: 'supermarket',
-        name: 'Supermarket',
-        allocated: 350,
-        spent: 240,
-      ),
-      SpendingBudgetLineItem(
-        id: 'market',
-        name: 'Fresh market',
-        allocated: 150,
-        spent: 123.65,
-      ),
-      SpendingBudgetLineItem(
-        id: 'snacks',
-        name: 'Coffee & snacks',
-        allocated: 100,
-        spent: 55,
+        id: 'groceries-budget',
+        name: 'Budget',
+        allocated: 600,
+        spent: 418.65,
       ),
     ],
     history: <SpendingBudgetHistoryPoint>[
@@ -120,27 +100,16 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
   SpendingBudgetCategory(
     id: 'transport',
     name: 'Transport',
+    description: 'Fuel, ride apps, and public transit fares.',
     icon: Icons.directions_bus_outlined,
     accentRole: SpendingBudgetColorRole.warning,
     linkedSpendingCategoryId: 'transport',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
-        id: 'fuel',
-        name: 'Fuel',
-        allocated: 200,
-        spent: 232.2,
-      ),
-      SpendingBudgetLineItem(
-        id: 'ride-apps',
-        name: 'Ride apps',
-        allocated: 120,
-        spent: 106,
-      ),
-      SpendingBudgetLineItem(
-        id: 'public-transit',
-        name: 'Public transit',
-        allocated: 100,
-        spent: 110,
+        id: 'transport-budget',
+        name: 'Budget',
+        allocated: 420,
+        spent: 448.2,
       ),
     ],
     history: <SpendingBudgetHistoryPoint>[
@@ -161,27 +130,16 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
   SpendingBudgetCategory(
     id: 'utilities',
     name: 'Utilities',
+    description: 'Electricity, water, and internet bills.',
     icon: Icons.lightbulb_outline_rounded,
     accentRole: SpendingBudgetColorRole.info,
     linkedSpendingCategoryId: 'finances',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
-        id: 'electricity',
-        name: 'Electricity',
-        allocated: 180,
-        spent: 120.4,
-      ),
-      SpendingBudgetLineItem(
-        id: 'water',
-        name: 'Water',
-        allocated: 70,
-        spent: 48.9,
-      ),
-      SpendingBudgetLineItem(
-        id: 'internet',
-        name: 'Internet',
-        allocated: 130,
-        spent: 72,
+        id: 'utilities-budget',
+        name: 'Budget',
+        allocated: 380,
+        spent: 241.3,
       ),
     ],
     history: <SpendingBudgetHistoryPoint>[
@@ -202,27 +160,16 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
   SpendingBudgetCategory(
     id: 'personal',
     name: 'Personal care',
+    description: 'Grooming, pharmacy, and gym memberships.',
     icon: Icons.spa_outlined,
     accentRole: SpendingBudgetColorRole.accent,
     linkedSpendingCategoryId: 'shopping',
     lineItems: <SpendingBudgetLineItem>[
       SpendingBudgetLineItem(
-        id: 'grooming',
-        name: 'Hair & grooming',
-        allocated: 150,
-        spent: 125.55,
-      ),
-      SpendingBudgetLineItem(
-        id: 'pharmacy',
-        name: 'Pharmacy',
-        allocated: 120,
-        spent: 52,
-      ),
-      SpendingBudgetLineItem(
-        id: 'gym',
-        name: 'Gym',
-        allocated: 80,
-        spent: 33,
+        id: 'personal-budget',
+        name: 'Budget',
+        allocated: 350,
+        spent: 210.55,
       ),
     ],
     history: <SpendingBudgetHistoryPoint>[
@@ -240,6 +187,229 @@ const List<SpendingBudgetCategory> spendingBudgetCategories =
       SpendingBudgetHistoryPoint(label: 'Dec', amount: 294),
     ],
   ),
+];
+
+/// All budget categories available for creation.
+///
+/// Includes the original 5 populated-demo categories plus 13 additional
+/// categories that match the spending-category grid in the app. The
+/// budget-creation picker reads from this list so users can create a budget
+/// for any recognised spending category.
+///
+/// Categories are created with **empty line items** — the user adds their own
+/// sub-budget lines after creation.
+const List<SpendingBudgetCategory> allBudgetCategoryTemplates =
+    <SpendingBudgetCategory>[
+  // ── Original 5 (also in spendingBudgetCategories) ──────────────────
+  SpendingBudgetCategory(
+    id: 'housing',
+    name: 'Housing',
+    description: 'Track rent, repairs, and household supplies.',
+    icon: Icons.home_work_outlined,
+    accentRole: SpendingBudgetColorRole.primary,
+    linkedSpendingCategoryId: 'finances',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'groceries',
+    name: 'Food & Groceries',
+    description: 'Supermarket runs, fresh market, and coffee stops.',
+    icon: Icons.local_grocery_store_outlined,
+    accentRole: SpendingBudgetColorRole.success,
+    linkedSpendingCategoryId: 'groceries',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'transport',
+    name: 'Transport',
+    description: 'Fuel, ride apps, and public transit fares.',
+    icon: Icons.directions_bus_outlined,
+    accentRole: SpendingBudgetColorRole.warning,
+    linkedSpendingCategoryId: 'transport',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'utilities',
+    name: 'Utilities',
+    description: 'Electricity, water, and internet bills.',
+    icon: Icons.lightbulb_outline_rounded,
+    accentRole: SpendingBudgetColorRole.info,
+    linkedSpendingCategoryId: 'finances',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'personal',
+    name: 'Personal Care',
+    description: 'Grooming, pharmacy, and gym memberships.',
+    icon: Icons.spa_outlined,
+    accentRole: SpendingBudgetColorRole.accent,
+    linkedSpendingCategoryId: 'shopping',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+
+  // ── Additional categories ──────────────────────────────────────────
+  SpendingBudgetCategory(
+    id: 'eating-out',
+    name: 'Eating Out',
+    description: 'Restaurants, takeaways, and dining with friends.',
+    icon: Icons.restaurant_outlined,
+    accentRole: SpendingBudgetColorRole.warning,
+    linkedSpendingCategoryId: 'groceries',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'shopping',
+    name: 'Shopping',
+    description: 'Clothing, electronics, and everyday purchases.',
+    icon: Icons.shopping_bag_outlined,
+    accentRole: SpendingBudgetColorRole.accent,
+    linkedSpendingCategoryId: 'shopping',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'entertainment',
+    name: 'Entertainment',
+    description: 'Movies, streaming, games, and nights out.',
+    icon: Icons.movie_outlined,
+    accentRole: SpendingBudgetColorRole.primary,
+    linkedSpendingCategoryId: 'entertainment',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'bills',
+    name: 'Bills',
+    description: 'Phone, insurance, and recurring monthly bills.',
+    icon: Icons.receipt_long_outlined,
+    accentRole: SpendingBudgetColorRole.danger,
+    linkedSpendingCategoryId: 'finances',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'health',
+    name: 'Health',
+    description: 'Doctor visits, prescriptions, and wellness.',
+    icon: Icons.favorite_outline,
+    accentRole: SpendingBudgetColorRole.danger,
+    linkedSpendingCategoryId: 'shopping',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'education',
+    name: 'Education',
+    description: 'Tuition, books, courses, and learning materials.',
+    icon: Icons.school_outlined,
+    accentRole: SpendingBudgetColorRole.info,
+    linkedSpendingCategoryId: 'finances',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'gifts',
+    name: 'Gifts',
+    description: 'Birthday, holiday, and special occasion presents.',
+    icon: Icons.card_giftcard_outlined,
+    accentRole: SpendingBudgetColorRole.accent,
+    linkedSpendingCategoryId: 'shopping',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'travel',
+    name: 'Travel',
+    description: 'Flights, hotels, and holiday spending.',
+    icon: Icons.flight_outlined,
+    accentRole: SpendingBudgetColorRole.primary,
+    linkedSpendingCategoryId: 'transport',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'savings',
+    name: 'Savings',
+    description: 'Emergency fund, rainy day, and saving goals.',
+    icon: Icons.savings_outlined,
+    accentRole: SpendingBudgetColorRole.success,
+    linkedSpendingCategoryId: 'finances',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'subscriptions',
+    name: 'Subscriptions',
+    description: 'Streaming, apps, memberships, and recurring charges.',
+    icon: Icons.subscriptions_outlined,
+    accentRole: SpendingBudgetColorRole.info,
+    linkedSpendingCategoryId: 'entertainment',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'charity',
+    name: 'Charity',
+    description: 'Donations, tithes, and community giving.',
+    icon: Icons.volunteer_activism_outlined,
+    accentRole: SpendingBudgetColorRole.success,
+    linkedSpendingCategoryId: 'finances',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'fitness',
+    name: 'Fitness',
+    description: 'Gym, sports gear, and workout classes.',
+    icon: Icons.fitness_center_outlined,
+    accentRole: SpendingBudgetColorRole.warning,
+    linkedSpendingCategoryId: 'shopping',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'pets',
+    name: 'Pets',
+    description: 'Food, vet visits, and supplies for your pets.',
+    icon: Icons.pets_outlined,
+    accentRole: SpendingBudgetColorRole.accent,
+    linkedSpendingCategoryId: 'shopping',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+  SpendingBudgetCategory(
+    id: 'investments',
+    name: 'Investments',
+    description: 'Stocks, crypto, and other investment contributions.',
+    icon: Icons.trending_up_outlined,
+    accentRole: SpendingBudgetColorRole.success,
+    linkedSpendingCategoryId: 'finances',
+    lineItems: <SpendingBudgetLineItem>[],
+    history: _emptyHistory,
+  ),
+];
+
+/// Shared empty 12-month history used by creation templates (no prior data).
+const List<SpendingBudgetHistoryPoint> _emptyHistory =
+    <SpendingBudgetHistoryPoint>[
+  SpendingBudgetHistoryPoint(label: 'Jan', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Feb', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Mar', amount: 0, isCurrent: true),
+  SpendingBudgetHistoryPoint(label: 'Apr', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'May', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Jun', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Jul', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Aug', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Sep', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Oct', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Nov', amount: 0),
+  SpendingBudgetHistoryPoint(label: 'Dec', amount: 0),
 ];
 
 final NumberFormat _spendingBudgetWholeCurrencyFormatter =
@@ -368,11 +538,13 @@ class SpendingBudgetCategory {
     required this.accentRole,
     required this.lineItems,
     required this.history,
+    this.description,
     this.linkedSpendingCategoryId,
   });
 
   final String id;
   final String name;
+  final String? description;
   final IconData icon;
   final SpendingBudgetColorRole accentRole;
   final String? linkedSpendingCategoryId;
@@ -382,6 +554,7 @@ class SpendingBudgetCategory {
   SpendingBudgetCategory copyWith({
     String? id,
     String? name,
+    String? description,
     IconData? icon,
     SpendingBudgetColorRole? accentRole,
     String? linkedSpendingCategoryId,
@@ -392,6 +565,7 @@ class SpendingBudgetCategory {
     return SpendingBudgetCategory(
       id: id ?? this.id,
       name: name ?? this.name,
+      description: description ?? this.description,
       icon: icon ?? this.icon,
       accentRole: accentRole ?? this.accentRole,
       linkedSpendingCategoryId: clearLinkedSpendingCategoryId
@@ -510,13 +684,13 @@ class SpendingBudgetState {
 }
 
 SpendingBudgetCategory getSpendingBudgetCategoryById(String id) {
-  for (final SpendingBudgetCategory category in spendingBudgetCategories) {
+  for (final SpendingBudgetCategory category in allBudgetCategoryTemplates) {
     if (category.id == id) {
       return category;
     }
   }
 
-  return spendingBudgetCategories.first;
+  return allBudgetCategoryTemplates.first;
 }
 
 String formatSpendingBudgetCurrency(double amount) {
@@ -550,5 +724,33 @@ SpendingBudgetCategory cloneSpendingBudgetCategory(
           ),
         )
         .toList(growable: false),
+  );
+}
+
+SpendingBudgetCategory createStarterSpendingBudgetCategory({
+  required int index,
+}) {
+  final String suffix = index <= 1 ? '' : ' $index';
+
+  return SpendingBudgetCategory(
+    id: 'starter-budget-$index',
+    name: 'My budget$suffix',
+    icon: Icons.savings_outlined,
+    accentRole: SpendingBudgetColorRole.primary,
+    lineItems: const <SpendingBudgetLineItem>[],
+    history: const <SpendingBudgetHistoryPoint>[
+      SpendingBudgetHistoryPoint(label: 'Jan', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Feb', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Mar', amount: 0, isCurrent: true),
+      SpendingBudgetHistoryPoint(label: 'Apr', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'May', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Jun', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Jul', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Aug', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Sep', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Oct', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Nov', amount: 0),
+      SpendingBudgetHistoryPoint(label: 'Dec', amount: 0),
+    ],
   );
 }

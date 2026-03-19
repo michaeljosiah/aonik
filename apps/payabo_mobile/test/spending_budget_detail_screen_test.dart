@@ -68,7 +68,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Monthly budget'), findsOneWidget);
-    expect(find.text('No budgets available yet'), findsOneWidget);
+    expect(find.text('No budget selected yet'), findsOneWidget);
+    expect(find.byKey(const Key('budget-empty-create')), findsOneWidget);
     expect(find.text('View transactions'), findsNothing);
   });
 }

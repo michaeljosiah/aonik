@@ -17,6 +17,7 @@ import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_typewriter_text.dart';
 import 'spending_accounts_state.dart';
+import 'widgets/spending_budget_empty_state.dart';
 import 'widgets/spending_empty_action_panel.dart';
 import 'widgets/spending_hero_background.dart';
 import 'widgets/spending_section_pills.dart';
@@ -1137,30 +1138,14 @@ class _EmptyTransactionsState extends StatelessWidget {
     return PayaboCard(
       backgroundColor: c.spendingCardWarmElevated,
       padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: Column(
-        children: <Widget>[
-          Icon(
-            Icons.receipt_long_outlined,
-            color: c.muted,
-            size: 32,
-          ),
-          const SizedBox(height: PayaboSpacing.md),
-          Text(
-            'No transactions yet',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: c.accentBrown,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.xs),
-          Text(
-            'Transactions for this account will appear here.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: c.muted,
-                ),
-          ),
-        ],
+      child: SpendingBudgetEmptyState(
+        title: 'No records yet',
+        description:
+            'Budgets help you organise spending into categories, set monthly limits, and understand what is left before month end.',
+        caption:
+            'Create a new budget to give this account a plan before more transactions start coming in.',
+        actionLabel: 'Create new budget',
+        onPressed: () => context.go('/spending/budgets'),
       ),
     );
   }

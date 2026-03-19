@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
+import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'spending_budget_data.dart';
 import 'spending_budget_state.dart';
+import 'widgets/budget_category_picker.dart';
+import 'widgets/spending_budget_empty_state.dart';
 import 'widgets/spending_section_pills.dart';
 
 const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
@@ -28,6 +32,7 @@ class SpendingBudgetScreen extends ConsumerStatefulWidget {
 
 class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
   String _expandedCategoryId = spendingBudgetCategories.first.id;
+  bool _isCreatingBudget = false;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +57,47 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
               Expanded(
                 child: budgetsValue.when(
                   data: (List<SpendingBudgetCategory> categories) {
+                    if (categories.isEmpty) {
+                      return LayoutBuilder(
+                        builder: (
+                          BuildContext context,
+                          BoxConstraints constraints,
+                        ) {
+                          return RefreshIndicator(
+                            onRefresh: () async {
+                              ref.invalidate(spendingBudgetsProvider);
+                              await ref.read(spendingBudgetsProvider.future);
+                            },
+                            child: SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                PayaboSpacing.xl,
+                                PayaboSpacing.md,
+                                PayaboSpacing.xl,
+                                PayaboSpacing.x4,
+                              ),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight -
+                                      (PayaboSpacing.x4 + PayaboSpacing.md),
+                                ),
+                                child: SpendingBudgetEmptyState(
+                                  title: 'Create your first budget',
+                                  description:
+                                      'Budgets help you group spending into categories, set monthly limits, and understand what is left before the month ends.',
+                                  caption:
+                                      'Start with one simple budget and adjust the amount as your spending pattern becomes clearer.',
+                                  actionLabel: 'Create new budget',
+                                  busy: _isCreatingBudget,
+                                  onPressed: _handleCreateBudget,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }
+
                     final SpendingBudgetSummary summary =
                         SpendingBudgetSummary.fromCategories(
                       monthLabel: spendingBudgetMonthLabel,
@@ -85,28 +131,39 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
                         children: <Widget>[
                           _BudgetHeroCard(summary: summary),
                           const SizedBox(height: PayaboSpacing.lg),
-                          if (categories.isEmpty)
-                            const _FreshBudgetEmptyState()
-                          else ...<Widget>[
-                            _BudgetSectionIntro(summary: summary),
-                            const SizedBox(height: PayaboSpacing.lg),
-                            ...categories.map(
-                              (SpendingBudgetCategory category) => Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: PayaboSpacing.md,
-                                ),
-                                child: _BudgetCategoryCard(
-                                  category: category,
-                                  expanded: expandedCategoryId == category.id,
-                                  onExpandToggle: () =>
-                                      _toggleCategory(category.id),
-                                  onOpen: () => context.push(
-                                    '/spending/budgets/${category.id}',
-                                  ),
+                          _BudgetSectionIntro(summary: summary),
+                          const SizedBox(height: PayaboSpacing.lg),
+                          ...categories.map(
+                            (SpendingBudgetCategory category) => Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: PayaboSpacing.md,
+                              ),
+                              child: _BudgetCategoryCard(
+                                category: category,
+                                expanded: expandedCategoryId == category.id,
+                                onExpandToggle: () =>
+                                    _toggleCategory(category.id),
+                                onOpen: () => context.push(
+                                  '/spending/budgets/${category.id}',
                                 ),
                               ),
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: PayaboSpacing.md),
+                          Center(
+                            child: PayaboButton(
+                              key: const Key('budget-create-new'),
+                              label: _isCreatingBudget
+                                  ? 'Creating…'
+                                  : 'Create new budget',
+                              variant: PayaboButtonVariant.secondary,
+                              size: PayaboButtonSize.lg,
+                              leading: const Icon(Icons.add_rounded, size: 20),
+                              onPressed: _isCreatingBudget
+                                  ? null
+                                  : _handleCreateBudget,
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -151,6 +208,57 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
     setState(() {
       _expandedCategoryId = _expandedCategoryId == categoryId ? '' : categoryId;
     });
+  }
+
+  Future<void> _handleCreateBudget() async {
+    if (_isCreatingBudget) {
+      return;
+    }
+
+    // Determine which predefined templates are already created.
+    final List<SpendingBudgetCategory> currentBudgets =
+        ref.read(spendingBudgetsProvider).value ?? const <SpendingBudgetCategory>[];
+    final Set<String> existingIds = currentBudgets
+        .map((SpendingBudgetCategory b) => b.id)
+        .toSet();
+
+    final BudgetCategoryPickerResult? result = await showBudgetCategoryPicker(
+      context: context,
+      existingCategoryIds: existingIds,
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() => _isCreatingBudget = true);
+
+    try {
+      final SpendingBudgetCategory budget = await ref
+          .read(budgetRepositoryProvider)
+          .createBudget(categoryId: result.categoryId);
+      ref.invalidate(spendingBudgetsProvider);
+
+      if (!mounted) {
+        return;
+      }
+
+      context.push('/spending/budgets/${budget.id}');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to create a budget right now.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingBudget = false);
+      }
+    }
   }
 }
 
@@ -442,28 +550,15 @@ class _BudgetCategoryCard extends StatelessWidget {
                     ),
                     const SizedBox(width: PayaboSpacing.md),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            category.name,
-                            style: Theme.of(context)
-                                .textTheme
-                                 .titleMedium
-                                 ?.copyWith(
-                                  color: c.accentBrown,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: PayaboSpacing.xs),
-                          Text(
-                            '${category.lineItems.length} budget lines',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: c.muted,
-                                    ),
-                          ),
-                        ],
+                      child: Text(
+                        category.name,
+                        style: Theme.of(context)
+                            .textTheme
+                             .titleMedium
+                             ?.copyWith(
+                              color: c.accentBrown,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
                     ),
                     const SizedBox(width: PayaboSpacing.sm),
@@ -528,46 +623,37 @@ class _BudgetCategoryCard extends StatelessWidget {
                 AnimatedSize(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                  child: expanded
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: PayaboSpacing.lg),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Container(
-                                height: 1,
-                                color: c.spendingQuickActionBorder,
-                              ),
-                              const SizedBox(height: PayaboSpacing.lg),
-                              Wrap(
-                                spacing: PayaboSpacing.sm,
-                                runSpacing: PayaboSpacing.sm,
-                                children: <Widget>[
-                                  _BudgetDetailChip(
-                                    label: 'Spent',
-                                    value: formatSpendingBudgetCurrency(
-                                        category.spent),
+                          child: expanded
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: PayaboSpacing.lg),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Container(
+                                        height: 1,
+                                        color: c.spendingQuickActionBorder,
+                                      ),
+                                      const SizedBox(height: PayaboSpacing.lg),
+                                      Wrap(
+                                        spacing: PayaboSpacing.sm,
+                                        runSpacing: PayaboSpacing.sm,
+                                        children: <Widget>[
+                                          _BudgetDetailChip(
+                                            label: 'Spent',
+                                            value: formatSpendingBudgetCurrency(
+                                                category.spent),
+                                          ),
+                                          _BudgetDetailChip(
+                                            label: 'Remaining',
+                                            value: state.remainingLabel,
+                                            valueColor: state.remainingColorRole.resolve(c),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  _BudgetDetailChip(
-                                    label: 'Remaining',
-                                    value: state.remainingLabel,
-                                    valueColor: state.remainingColorRole.resolve(c),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: PayaboSpacing.lg),
-                              ...category.lineItems.map(
-                                (SpendingBudgetLineItem item) => Padding(
-                                  padding: const EdgeInsets.only(
-                                    bottom: PayaboSpacing.md,
-                                  ),
-                                  child: _BudgetLineItemCard(item: item),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : const SizedBox.shrink(),
+                                )
+                              : const SizedBox.shrink(),
                 ),
               ],
             ),
@@ -650,67 +736,6 @@ class _BudgetDetailChip extends StatelessWidget {
   }
 }
 
-class _BudgetLineItemCard extends StatelessWidget {
-  const _BudgetLineItemCard({required this.item});
-
-  final SpendingBudgetLineItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final SpendingBudgetState state = SpendingBudgetState.fromBudget(
-      allocated: item.allocated,
-      spent: item.spent,
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarm,
-        borderRadius: BorderRadius.circular(PayaboRadii.lg),
-      ),
-      padding: const EdgeInsets.all(PayaboSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  item.name,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: c.accentBrown,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-              const SizedBox(width: PayaboSpacing.sm),
-              Text(
-                state.remainingLabel,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: state.remainingColorRole.resolve(c),
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          _BudgetProgressBar(
-            value: state.progress,
-            color: state.progressColorRole.resolve(c),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          Text(
-            '${formatSpendingBudgetCurrency(item.spent)} of ${formatSpendingBudgetCurrency(item.allocated)} used',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: c.accentBrownMuted,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _BudgetProgressBar extends StatelessWidget {
   const _BudgetProgressBar({
     required this.value,
@@ -764,66 +789,6 @@ class _BudgetStatusPill extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
         ),
-      ),
-    );
-  }
-}
-
-class _FreshBudgetEmptyState extends StatelessWidget {
-  const _FreshBudgetEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarmElevated,
-        borderRadius: BorderRadius.circular(PayaboRadii.xl),
-        border: Border.all(color: c.spendingQuickActionBorder),
-        boxShadow: PayaboShadows.soft,
-      ),
-      padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: c.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(PayaboRadii.lg),
-            ),
-            child: Icon(
-              Icons.savings_outlined,
-              color: c.primary,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'No budgets set yet',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: c.accentBrown,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          Text(
-            'Fresh demo mode removes the seeded budget plan so this page starts clean and ready for your first category budget.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: c.muted,
-                  height: 1.45,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'Once you add a budget, each category can expand here to show what is left in every spending pocket.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: c.chatTextSecondary,
-                ),
-          ),
-        ],
       ),
     );
   }

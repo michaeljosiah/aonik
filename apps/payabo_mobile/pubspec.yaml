@@ -44,6 +44,7 @@ flutter:
     - assets/images/slider-img-03.png
     - assets/images/setup-hero.png
     - assets/images/spending-empty-hero.png
+    - assets/images/budget-hero.png
     - assets/images/illustrations/
     - assets/images/flags/
     - assets/images/demo_profile.jpg

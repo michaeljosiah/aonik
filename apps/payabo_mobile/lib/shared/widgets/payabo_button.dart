@@ -273,7 +273,7 @@ class _ButtonLabel extends StatelessWidget {
       children: <Widget>[
         leading!,
         const SizedBox(width: PayaboSpacing.sm),
-        Text(label.toUpperCase()),
+        Flexible(child: Text(label.toUpperCase(), overflow: TextOverflow.ellipsis)),
       ],
     );
   }

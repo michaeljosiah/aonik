@@ -13,6 +13,8 @@ import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import 'spending_budget_data.dart';
 import 'spending_budget_state.dart';
+import 'widgets/budget_category_picker.dart';
+import 'widgets/spending_budget_empty_state.dart';
 
 class SpendingBudgetDetailScreen extends ConsumerStatefulWidget {
   const SpendingBudgetDetailScreen({
@@ -34,6 +36,7 @@ class _SpendingBudgetDetailScreenState
   late String _selectedBudgetId;
   late double _draftAmount;
   bool _needsRepositorySync = true;
+  bool _isCreatingBudget = false;
 
   @override
   void initState() {
@@ -79,14 +82,12 @@ class _SpendingBudgetDetailScreenState
 
     return Scaffold(
       backgroundColor: c.surfaceWarm,
-      bottomNavigationBar: _BudgetDetailActionBar(
-        onSave: selectedCategory == null
-            ? null
-            : () => unawaited(_handleSave(selectedCategory)),
-        onDelete: selectedCategory == null
-            ? null
-            : () => unawaited(_handleDelete(selectedCategory)),
-      ),
+      bottomNavigationBar: selectedCategory == null
+          ? null
+          : _BudgetDetailActionBar(
+              onSave: () => unawaited(_handleSave(selectedCategory)),
+              onDelete: () => unawaited(_handleDelete(selectedCategory)),
+            ),
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: c.warmScreenGradient,
@@ -99,7 +100,10 @@ class _SpendingBudgetDetailScreenState
                 child: budgetsValue.when(
                   data: (List<SpendingBudgetCategory> loadedCategories) {
                     if (loadedCategories.isEmpty) {
-                      return const _FreshBudgetDetailState();
+                      return _FreshBudgetDetailState(
+                        busy: _isCreatingBudget,
+                        onCreate: () => unawaited(_handleCreateBudget()),
+                      );
                     }
 
                     final SpendingBudgetCategory currentCategory =
@@ -335,6 +339,57 @@ class _SpendingBudgetDetailScreenState
       ),
     );
     context.go('/spending/budgets');
+  }
+
+  Future<void> _handleCreateBudget() async {
+    if (_isCreatingBudget) {
+      return;
+    }
+
+    // Determine which predefined templates are already created.
+    final List<SpendingBudgetCategory> currentBudgets =
+        ref.read(spendingBudgetsProvider).value ?? const <SpendingBudgetCategory>[];
+    final Set<String> existingIds = currentBudgets
+        .map((SpendingBudgetCategory b) => b.id)
+        .toSet();
+
+    final BudgetCategoryPickerResult? result = await showBudgetCategoryPicker(
+      context: context,
+      existingCategoryIds: existingIds,
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() => _isCreatingBudget = true);
+
+    try {
+      final SpendingBudgetCategory budget = await ref
+          .read(budgetRepositoryProvider)
+          .createBudget(categoryId: result.categoryId);
+      ref.invalidate(spendingBudgetsProvider);
+
+      if (!mounted) {
+        return;
+      }
+
+      context.go('/spending/budgets/${budget.id}');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to create a budget right now.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingBudget = false);
+      }
+    }
   }
 
   void _handleViewTransactions(SpendingBudgetCategory category) {
@@ -719,10 +774,6 @@ class _BudgetDetailMetrics extends StatelessWidget {
           label: 'Left after update',
           value: draftState.remainingLabel,
           valueColor: draftState.remainingColorRole.resolve(c),
-        ),
-        _BudgetMetricChip(
-          label: 'Budget lines',
-          value: '${category.lineItems.length}',
         ),
         _BudgetMetricChip(
           label: 'Target',
@@ -1121,71 +1172,35 @@ class _BudgetDetailActionBar extends StatelessWidget {
 }
 
 class _FreshBudgetDetailState extends StatelessWidget {
-  const _FreshBudgetDetailState();
+  const _FreshBudgetDetailState({
+    required this.busy,
+    required this.onCreate,
+  });
+
+  final bool busy;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        PayaboSpacing.xl,
-        PayaboSpacing.md,
-        PayaboSpacing.xl,
-        PayaboSpacing.x3,
-      ),
-      children: <Widget>[
-        Container(
-          decoration: BoxDecoration(
-            color: c.spendingCardWarmElevated,
-            borderRadius: BorderRadius.circular(PayaboRadii.xl),
-            border: Border.all(color: c.spendingQuickActionBorder),
-            boxShadow: PayaboShadows.soft,
-          ),
-          padding: const EdgeInsets.all(PayaboSpacing.xl),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: c.primary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(PayaboRadii.lg),
-                ),
-                child: Icon(
-                  Icons.savings_outlined,
-                  color: c.primary,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: PayaboSpacing.lg),
-              Text(
-                'No budgets available yet',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: c.accentBrown,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: PayaboSpacing.sm),
-              Text(
-                'Fresh demo mode clears the seeded budget categories, so there is nothing to edit on this detail view yet.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: c.muted,
-                      height: 1.45,
-                    ),
-              ),
-              const SizedBox(height: PayaboSpacing.lg),
-              Text(
-                'Switch back to Populated demo data in Profile to preview budget editing, category switching, and yearly comparisons.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: c.chatTextSecondary,
-                    ),
-              ),
-            ],
-          ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          PayaboSpacing.md,
+          PayaboSpacing.xl,
+          PayaboSpacing.x3,
         ),
-      ],
+        child: SpendingBudgetEmptyState(
+          title: 'No budget selected yet',
+          description:
+              'Create a budget to define categories, set spending limits, and compare your plan with what you actually spend.',
+          caption:
+              'Once you create one, this page becomes your place to adjust the amount and review how the month is tracking.',
+          actionLabel: 'Create new budget',
+          busy: busy,
+          onPressed: onCreate,
+        ),
+      ),
     );
   }
 }
