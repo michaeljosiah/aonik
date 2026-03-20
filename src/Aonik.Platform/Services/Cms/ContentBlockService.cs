@@ -286,6 +286,7 @@ internal class ContentBlockService : IContentBlockService
             contentBlock.StartAt,
             contentBlock.EndAt,
             contentBlock.Priority,
+            contentBlock.TargetingJson,
             contentBlock.Media.OrderBy(m => m.Order).Select(MapToMediaResponse).ToList(),
             contentBlock.CreatedAt,
             contentBlock.UpdatedAt);

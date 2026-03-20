@@ -13,6 +13,7 @@ public record ContentBlockResponse(
     DateTimeOffset? StartAt,
     DateTimeOffset? EndAt,
     int Priority,
+    string? TargetingJson,
     List<ContentBlockMediaResponse> Media,
     DateTime CreatedAt,
     DateTime? UpdatedAt);

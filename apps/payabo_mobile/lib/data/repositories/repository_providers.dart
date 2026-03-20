@@ -41,6 +41,7 @@ import 'live_attachment_repository.dart';
 import 'live_auth_repository.dart';
 import 'live_budget_repository.dart';
 import 'live_catalog_repository.dart';
+import 'live_community_repository.dart';
 import 'live_dashboard_repository.dart';
 import 'live_order_repository.dart';
 import 'live_pay_activity_repository.dart';
@@ -143,8 +144,12 @@ final Provider<CommunityRepository> communityRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    // Community remains mock-backed until a live repository is implemented.
-    return MockCommunityRepository(demoDataMode: demoDataMode);
+    if (_shouldMock(ref)) {
+      return MockCommunityRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveCommunityRepository(apiClient: apiClient);
   },
 );
 

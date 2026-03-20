@@ -7,5 +7,8 @@ public enum ContentBlockArea
     Hero = 20,
     Sidebar = 30,
     Footer = 40,
-    MySpaceBanner = 50
+    MySpaceBanner = 50,
+    CommunityNews = 60,
+    CommunityVideo = 70,
+    CommunityVideoCategory = 80
 }
