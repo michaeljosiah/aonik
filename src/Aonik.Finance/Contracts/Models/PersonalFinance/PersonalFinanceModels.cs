@@ -541,3 +541,12 @@ public record RelatedPartyFinanceContextItemResponse(
 
 public record RelatedPartyFinanceContextResponse(
     IReadOnlyList<RelatedPartyFinanceContextItemResponse> Parties);
+
+public record TransactionAttachmentResponse(
+    Guid Id,
+    string FileName,
+    string MimeType,
+    string Url,
+    string? ThumbnailUrl,
+    long FileSizeBytes,
+    DateTime CreatedAt);

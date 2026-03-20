@@ -8,6 +8,7 @@ import '../../../data/repositories/spending_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/widgets/attachment_picker_sheet.dart';
 import '../../../shared/widgets/payabo_card.dart';
 import 'spending_accounts_state.dart';
 import 'widgets/category_selection_sheet.dart';
@@ -30,6 +31,15 @@ final _merchantHistoryFutureProvider =
   },
 );
 
+/// Lazily loads attachments for a single transaction on the detail screen.
+final _transactionAttachmentsFutureProvider =
+    FutureProvider.family<List<Attachment>, String>(
+  (Ref ref, String transactionId) async {
+    final repository = ref.watch(attachmentRepositoryProvider);
+    return repository.getTransactionAttachments(transactionId);
+  },
+);
+
 // ─────────────────────────────────────────────────────────
 //  Transaction detail screen
 // ─────────────────────────────────────────────────────────
@@ -49,6 +59,7 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
     this.iconCodePoint,
     this.iconFontFamily,
     this.date,
+    this.notes,
   });
 
   final String transactionId;
@@ -63,6 +74,7 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
   final int? iconCodePoint;
   final String? iconFontFamily;
   final DateTime? date;
+  final String? notes;
 
   @override
   ConsumerState<TransactionDetailScreen> createState() =>
@@ -165,6 +177,20 @@ class _TransactionDetailScreenState
                     _CategoryCard(
                       category: _currentCategory,
                       onTap: () => _showCategorySheet(context),
+                    ),
+
+                    // ── Notes card (hidden when empty) ─────
+                    if (widget.notes != null &&
+                        widget.notes!.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: PayaboSpacing.lg),
+                      _NotesCard(notes: widget.notes!),
+                    ],
+
+                    const SizedBox(height: PayaboSpacing.lg),
+
+                    // ── Attachments card ────────────────────
+                    _AttachmentsCard(
+                      transactionId: widget.transactionId,
                     ),
 
                     const SizedBox(height: PayaboSpacing.lg),
@@ -552,6 +578,275 @@ class _CategoryCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Notes card
+// ─────────────────────────────────────────────────────────
+
+class _NotesCard extends StatelessWidget {
+  const _NotesCard({required this.notes});
+
+  final String notes;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    return PayaboCard(
+      backgroundColor: c.spendingCardWarmElevated,
+      padding: const EdgeInsets.all(PayaboSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(Icons.notes_outlined, size: 20, color: c.accentBrown),
+              const SizedBox(width: PayaboSpacing.sm),
+              Text(
+                'Notes',
+                style: textTheme.titleMedium?.copyWith(
+                  color: c.accentBrown,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: PayaboSpacing.md),
+          Text(
+            notes,
+            style: textTheme.bodyMedium?.copyWith(
+              color: c.muted,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Attachments card
+// ─────────────────────────────────────────────────────────
+
+class _AttachmentsCard extends ConsumerWidget {
+  const _AttachmentsCard({required this.transactionId});
+
+  final String transactionId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+    final asyncAttachments =
+        ref.watch(_transactionAttachmentsFutureProvider(transactionId));
+
+    return PayaboCard(
+      backgroundColor: c.spendingCardWarmElevated,
+      padding: const EdgeInsets.all(PayaboSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // ── Header row ─────────────────────────────
+          Row(
+            children: <Widget>[
+              Icon(Icons.attach_file_outlined, size: 20, color: c.accentBrown),
+              const SizedBox(width: PayaboSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Attachments',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: c.accentBrown,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: PayaboSpacing.md),
+
+          // ── Async content ──────────────────────────
+          asyncAttachments.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: PayaboSpacing.md),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+            error: (Object error, StackTrace stack) => Text(
+              'Unable to load attachments.',
+              style: textTheme.bodyMedium?.copyWith(color: c.muted),
+            ),
+            data: (List<Attachment> attachments) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (attachments.isNotEmpty)
+                  Wrap(
+                    spacing: PayaboSpacing.sm,
+                    runSpacing: PayaboSpacing.sm,
+                    children: attachments
+                        .map((a) => _AttachmentChip(
+                              attachment: a,
+                              onDelete: () => _deleteAttachment(
+                                context,
+                                ref,
+                                a.id,
+                              ),
+                            ))
+                        .toList(growable: false),
+                  ),
+                if (attachments.isEmpty)
+                  Text(
+                    'No attachments yet',
+                    style: textTheme.bodyMedium?.copyWith(color: c.muted),
+                  ),
+                const SizedBox(height: PayaboSpacing.md),
+                // ── Attach file button ─────────────────
+                InkWell(
+                  onTap: () => _addAttachment(context, ref),
+                  borderRadius: BorderRadius.circular(PayaboRadii.md),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: PayaboSpacing.lg,
+                      vertical: PayaboSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: c.borderStrong),
+                      borderRadius: BorderRadius.circular(PayaboRadii.md),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(Icons.add, size: 18, color: c.accentBrown),
+                        const SizedBox(width: PayaboSpacing.xs),
+                        Text(
+                          'Attach file',
+                          style: textTheme.titleSmall?.copyWith(
+                            color: c.accentBrown,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addAttachment(BuildContext context, WidgetRef ref) async {
+    final result = await showAttachmentPickerSheet(context: context);
+    if (result == null) return;
+
+    final repository = ref.read(attachmentRepositoryProvider);
+    await repository.addTransactionAttachment(
+      transactionId,
+      result.filePath,
+      result.fileName,
+    );
+
+    // Refresh the attachments list.
+    ref.invalidate(_transactionAttachmentsFutureProvider(transactionId));
+  }
+
+  Future<void> _deleteAttachment(
+    BuildContext context,
+    WidgetRef ref,
+    String attachmentId,
+  ) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Delete attachment?'),
+        content: const Text(
+          'This will permanently remove the attachment from this transaction.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final repository = ref.read(attachmentRepositoryProvider);
+    await repository.deleteAttachment(attachmentId);
+
+    // Refresh the attachments list.
+    ref.invalidate(_transactionAttachmentsFutureProvider(transactionId));
+  }
+}
+
+/// A compact chip representing a single attachment.
+class _AttachmentChip extends StatelessWidget {
+  const _AttachmentChip({
+    required this.attachment,
+    required this.onDelete,
+  });
+
+  final Attachment attachment;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    final IconData icon = attachment.isImage
+        ? Icons.image_outlined
+        : Icons.description_outlined;
+
+    return GestureDetector(
+      onLongPress: onDelete,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: PayaboSpacing.md,
+          vertical: PayaboSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: c.surfaceWarmAccent,
+          borderRadius: BorderRadius.circular(PayaboRadii.md),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 18, color: c.accentBrown),
+            const SizedBox(width: PayaboSpacing.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 140),
+              child: Text(
+                attachment.fileName,
+                style: textTheme.bodySmall?.copyWith(
+                  color: c.accentBrown,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
           ],

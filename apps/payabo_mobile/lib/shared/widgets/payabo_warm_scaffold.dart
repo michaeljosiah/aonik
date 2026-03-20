@@ -9,6 +9,7 @@ class PayaboWarmScaffold extends StatelessWidget {
     this.bottomNavigationBar,
     this.backgroundDecoration,
     this.statusBarColorNotifier,
+    this.floatingActionButton,
   });
 
   final Widget body;
@@ -27,6 +28,9 @@ class PayaboWarmScaffold extends StatelessWidget {
   ///
   /// The overlay colour is [PayaboColorResolver.surfaceBase].
   final ValueNotifier<double>? statusBarColorNotifier;
+
+  /// Optional floating action button passed through to the inner [Scaffold].
+  final Widget? floatingActionButton;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +74,7 @@ class PayaboWarmScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: c.surfaceWarm,
       bottomNavigationBar: bottomNavigationBar,
+      floatingActionButton: floatingActionButton,
       body: DecoratedBox(
         decoration:
             backgroundDecoration ?? BoxDecoration(gradient: c.warmScreenGradient),

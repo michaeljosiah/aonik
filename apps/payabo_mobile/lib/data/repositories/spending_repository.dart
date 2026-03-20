@@ -7,6 +7,41 @@
 // ─────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────
+//  DTOs — shared / attachments
+// ─────────────────────────────────────────────────────────
+
+/// A file attachment associated with a transaction.
+class Attachment {
+  const Attachment({
+    required this.id,
+    required this.fileName,
+    required this.mimeType,
+    required this.url,
+    required this.fileSizeBytes,
+    required this.createdAt,
+    this.thumbnailUrl,
+  });
+
+  final String id;
+  final String fileName;
+
+  /// MIME type, e.g. `'image/jpeg'`, `'application/pdf'`.
+  final String mimeType;
+
+  /// Download / display URL.
+  final String url;
+
+  /// Optional thumbnail URL for image attachments.
+  final String? thumbnailUrl;
+
+  final int fileSizeBytes;
+  final DateTime createdAt;
+
+  /// Whether this attachment is an image (JPEG, PNG, GIF, WebP, etc.).
+  bool get isImage => mimeType.startsWith('image/');
+}
+
+// ─────────────────────────────────────────────────────────
 //  DTOs — spending_screen
 // ─────────────────────────────────────────────────────────
 
@@ -22,7 +57,9 @@ class SpendingAccountCard {
     required this.balanceMajor,
     required this.balanceMinor,
     required this.currencySymbol,
+    this.currencyCode,
     this.connectionId,
+    this.isManual = false,
   });
 
   final String id;
@@ -35,9 +72,19 @@ class SpendingAccountCard {
   final String balanceMinor;
   final String currencySymbol;
 
+  /// ISO 4217 currency code (e.g. "GBP", "NGN", "USD").
+  /// Available for runtime accounts; may be null for seed data that
+  /// only stores the symbol.
+  final String? currencyCode;
+
   /// The account-links connection this account belongs to.
   /// Used to filter accounts when a connection is disconnected.
   final String? connectionId;
+
+  /// True when this is a manually-created account (not linked via
+  /// open-banking). Used by the spending screen to show/hide the
+  /// "Add transaction" FAB and differentiate the empty state.
+  final bool isManual;
 }
 
 /// A transaction row displayed in the spending transactions sheet.
@@ -56,6 +103,8 @@ class SpendingTransaction {
     this.iconCodePoint,
     this.iconFontFamily,
     this.connectionId,
+    this.notes,
+    this.attachments = const <Attachment>[],
   });
 
   final String id;
@@ -73,6 +122,12 @@ class SpendingTransaction {
 
   /// The account-links connection this transaction belongs to.
   final String? connectionId;
+
+  /// Optional free-text notes the user added to this transaction.
+  final String? notes;
+
+  /// Inline convenience — primary loading is lazy via [AttachmentRepository].
+  final List<Attachment> attachments;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -237,6 +292,41 @@ class SpendingOverviewData {
 }
 
 // ─────────────────────────────────────────────────────────
+//  DTOs — manual transaction creation
+// ─────────────────────────────────────────────────────────
+
+/// Request to create a manual transaction on a manual account.
+class CreateTransactionRequest {
+  const CreateTransactionRequest({
+    required this.merchant,
+    required this.amount,
+    required this.currency,
+    required this.category,
+    required this.isCredit,
+    required this.date,
+    this.notes,
+  });
+
+  final String merchant;
+
+  /// The transaction amount as a positive decimal (e.g. 45.99).
+  final double amount;
+
+  /// ISO currency code (e.g. 'GBP', 'NGN').
+  final String currency;
+
+  final String category;
+
+  /// True for income / credit; false for expense / debit.
+  final bool isCredit;
+
+  final DateTime date;
+
+  /// Optional free-text notes.
+  final String? notes;
+}
+
+// ─────────────────────────────────────────────────────────
 //  DTOs — transaction_detail_screen
 // ─────────────────────────────────────────────────────────
 
@@ -269,4 +359,11 @@ abstract class SpendingRepository {
 
   /// Returns merchant history stats for the transaction detail screen.
   Future<SpendingMerchantHistory> getMerchantHistory(String merchantName);
+
+  /// Adds a manual transaction to the given account and returns the
+  /// created [SpendingTransaction]. Only meaningful for manual accounts.
+  Future<SpendingTransaction> addTransaction(
+    String accountId,
+    CreateTransactionRequest request,
+  );
 }

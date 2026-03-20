@@ -20,10 +20,12 @@ import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import '../../profile/presentation/profile_state.dart';
+import '../../spending/presentation/spending_accounts_state.dart';
 
 final FutureProvider<DashboardSummary> dashboardSummaryProvider =
     FutureProvider<DashboardSummary>((Ref ref) async {
   ref.watch(demoDataModeProvider);
+  ref.watch(accountLinksSummaryProvider);
   final repository = ref.watch(dashboardRepositoryProvider);
   return repository.getSummary();
 });

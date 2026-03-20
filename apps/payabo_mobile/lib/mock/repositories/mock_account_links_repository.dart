@@ -30,6 +30,38 @@ class MockAccountLinksRepository implements AccountLinksRepository {
     return ids;
   }
 
+  /// Returns the list of manual accounts currently tracked by this repository.
+  /// Used by [MockSpendingRepository] to include manually created accounts on
+  /// the spending screen, even when seed data is empty.
+  List<AccountLinkItem> getManualAccounts() {
+    return _accounts
+        .where(
+            (AccountLinkItem item) => item.source == AccountLinkSource.manual)
+        .toList();
+  }
+
+  /// IDs of accounts that ship with the populated seed data. Any account whose
+  /// ID is not in this set was created at runtime (via linking or manual entry)
+  /// and has no corresponding seed data in [MockSpendingRepository].
+  static const Set<String> _seedAccountIds = <String>{
+    'uk-everyday-current',
+    'uk-savings',
+    'uk-credit-card',
+    'ng-current',
+    'ng-savings',
+    'ng-domiciliary',
+    'travel-cash',
+  };
+
+  /// Returns all accounts that were created at runtime — either linked via the
+  /// open-banking flow or added manually. These have no seed representation in
+  /// [MockSpendingRepository] and must be synthesised into spending cards.
+  List<AccountLinkItem> getRuntimeAccounts() {
+    return _accounts
+        .where((AccountLinkItem item) => !_seedAccountIds.contains(item.id))
+        .toList();
+  }
+
   @override
   Future<AccountLinksSummary> getSummary() async {
     await MockBehavior.delay();

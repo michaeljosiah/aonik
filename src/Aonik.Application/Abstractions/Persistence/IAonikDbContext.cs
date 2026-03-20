@@ -100,6 +100,7 @@ public interface IAonikDbContext
     DbSet<Budget> Budgets { get; set; }
     DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; }
     DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; }
+    DbSet<TransactionAttachment> TransactionAttachments { get; set; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

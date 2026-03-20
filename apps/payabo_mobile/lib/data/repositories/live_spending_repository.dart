@@ -84,6 +84,33 @@ class LiveSpendingRepository implements SpendingRepository {
     }
   }
 
+  @override
+  Future<SpendingTransaction> addTransaction(
+    String accountId,
+    CreateTransactionRequest request,
+  ) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/personal-finance/spending/accounts/$accountId/transactions',
+        data: <String, dynamic>{
+          'merchant': request.merchant,
+          'amount': request.amount,
+          'currency': request.currency,
+          'category': request.category,
+          'isCredit': request.isCredit,
+          'date': request.date.toIso8601String(),
+          if (request.notes != null) 'notes': request.notes,
+        },
+      );
+
+      final Map<String, dynamic> data = response.data ?? const {};
+      return _mapTransaction(data);
+    } on DioException catch (exception) {
+      _logDioFailure('addTransaction', exception);
+      throw mapDioException(exception);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // Mapping helpers — accounts & transactions
   // ═══════════════════════════════════════════════════════════════
@@ -120,6 +147,7 @@ class LiveSpendingRepository implements SpendingRepository {
       iconCodePoint: (json['iconCodePoint'] as num?)?.toInt(),
       iconFontFamily: _readString(json['iconFontFamily']),
       connectionId: _readString(json['connectionId']),
+      notes: _readString(json['notes']),
     );
   }
 

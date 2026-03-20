@@ -1,4 +1,5 @@
 import '../../app/demo/demo_data_mode.dart';
+import '../../data/repositories/account_links_repository.dart';
 import '../../data/repositories/spending_repository.dart';
 import '../mock_behavior.dart';
 
@@ -6,7 +7,9 @@ class MockSpendingRepository implements SpendingRepository {
   MockSpendingRepository({
     this.demoDataMode = DemoDataMode.populated,
     Set<String> Function()? activeConnectionIdsGetter,
+    List<AccountLinkItem> Function()? runtimeAccountsGetter,
   })  : _activeConnectionIdsGetter = activeConnectionIdsGetter,
+        _runtimeAccountsGetter = runtimeAccountsGetter,
         _accounts = demoDataMode == DemoDataMode.fresh
             ? <SpendingAccountCard>[]
             : List<SpendingAccountCard>.of(_seedAccounts),
@@ -34,9 +37,25 @@ class MockSpendingRepository implements SpendingRepository {
   /// disconnected, the spending repository automatically filters out its data.
   final Set<String> Function()? _activeConnectionIdsGetter;
 
+  /// When non-null, called at query time to retrieve all runtime-created
+  /// accounts (both linked via open-banking and added manually) from the
+  /// account links repository. These accounts have no corresponding seed data
+  /// in [_seedAccounts] and are synthesised into [SpendingAccountCard] and
+  /// [SpendingAccountSnapshot] entries so the spending screen reflects newly
+  /// linked or manually added accounts.
+  final List<AccountLinkItem> Function()? _runtimeAccountsGetter;
+
   final List<SpendingAccountCard> _accounts;
   final Map<String, List<SpendingTransaction>> _transactions;
   final List<SpendingAccountSnapshot> _overviewSnapshots;
+
+  /// In-memory storage for manually-added transactions (keyed by accountId).
+  /// These are merged into [getTransactions] results for manual accounts.
+  final Map<String, List<SpendingTransaction>> _manualTransactions =
+      <String, List<SpendingTransaction>>{};
+
+  /// Auto-incrementing counter for generating unique manual transaction IDs.
+  int _manualTxCounter = 0;
 
   // ─────────────────────────────────────────────────────────
   //  Filtering helper
@@ -46,6 +65,31 @@ class MockSpendingRepository implements SpendingRepository {
     if (_activeConnectionIdsGetter == null) return true;
     if (connectionId == null) return true;
     return _activeConnectionIdsGetter().contains(connectionId);
+  }
+
+  static String _currencySymbolFromCode(String code) {
+    switch (code.toUpperCase()) {
+      case 'GBP':
+        return '\u00A3';
+      case 'USD':
+        return '\$';
+      case 'EUR':
+        return '\u20AC';
+      case 'NGN':
+        return '\u20A6';
+      case 'KES':
+        return 'KSh';
+      case 'GHS':
+        return 'GH\u20B5';
+      case 'ZAR':
+        return 'R';
+      case 'CAD':
+        return 'CA\$';
+      case 'INR':
+        return '\u20B9';
+      default:
+        return code;
+    }
   }
 
   // ─────────────────────────────────────────────────────────
@@ -72,6 +116,8 @@ class MockSpendingRepository implements SpendingRepository {
   static const int _iconAccountBalanceOutlined = 0xee2f;
   // Icons.currency_exchange
   static const int _iconCurrencyExchange = 0xf05b4;
+  // Icons.edit_outlined
+  static const int _iconEditOutlined = 0xef4b;
 
   // ─────────────────────────────────────────────────────────
   //  Connection IDs (must match mock_account_links_repository)
@@ -173,13 +219,71 @@ class MockSpendingRepository implements SpendingRepository {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('spending.getAccounts');
 
+    final List<SpendingAccountCard> results;
+
     if (demoDataMode == DemoDataMode.fresh) {
-      return const <SpendingAccountCard>[];
+      results = <SpendingAccountCard>[];
+    } else {
+      results = _accounts
+          .where(
+              (SpendingAccountCard a) => _isConnectionActive(a.connectionId))
+          .toList();
     }
 
-    return _accounts
-        .where((SpendingAccountCard a) => _isConnectionActive(a.connectionId))
-        .toList();
+    // Include runtime-created accounts (linked via open-banking or added
+    // manually) from the account links repository that have no corresponding
+    // seed entry in [_accounts]. This ensures the spending screen shows the
+    // populated state after an account is linked or manually created — even
+    // in `DemoDataMode.fresh` where the seed list is empty.
+    final List<AccountLinkItem> runtimeAccounts =
+        _runtimeAccountsGetter?.call() ?? const <AccountLinkItem>[];
+
+    final Set<String> existingIds =
+        results.map((SpendingAccountCard a) => a.id).toSet();
+
+    for (final AccountLinkItem item in runtimeAccounts) {
+      if (existingIds.contains(item.id)) continue;
+
+      final String symbol = _currencySymbolFromCode(item.currencyCode);
+      final String balanceMajor;
+      final String balanceMinor;
+
+      if (item.balanceLabel != null && item.balanceLabel!.contains('.')) {
+        // Strip leading currency symbol(s) and whitespace for the major part.
+        final String raw = item.balanceLabel!
+            .replaceAll(RegExp(r'^[^0-9\-]*'), '');
+        final int rawDot = raw.lastIndexOf('.');
+        balanceMajor = rawDot >= 0 ? raw.substring(0, rawDot) : raw;
+        balanceMinor = rawDot >= 0 ? raw.substring(rawDot) : '.00';
+      } else {
+        balanceMajor = '0';
+        balanceMinor = '.00';
+      }
+
+      // Use a different icon for linked accounts vs manual accounts.
+      final bool isManual = item.source == AccountLinkSource.manual;
+      final int iconCodePoint =
+          isManual ? _iconEditOutlined : _iconAccountBalanceOutlined;
+
+      results.add(
+        SpendingAccountCard(
+          id: item.id,
+          accountName: item.name,
+          providerName: item.providerLabel ?? (isManual ? 'Manual' : item.institutionName),
+          providerIconCodePoint: iconCodePoint,
+          providerIconFontFamily: _mi,
+          balanceLabel: item.balanceLabel ?? '${symbol}0.00',
+          balanceMajor: balanceMajor,
+          balanceMinor: balanceMinor,
+          currencySymbol: symbol,
+          currencyCode: item.currencyCode,
+          connectionId: item.connectionId,
+          isManual: isManual,
+        ),
+      );
+    }
+
+    return results;
   }
 
   // ─────────────────────────────────────────────────────────
@@ -738,6 +842,234 @@ class MockSpendingRepository implements SpendingRepository {
   };
 
   // ─────────────────────────────────────────────────────────
+  //  Synthetic transaction templates per currency
+  //
+  //  When an account is linked via open-banking, the user expects to see
+  //  transactions from the bank. Manual accounts correctly show empty. These
+  //  templates are combined with the account's currency symbol and connection
+  //  ID at query time.
+  // ─────────────────────────────────────────────────────────
+
+  /// Template for generating a synthetic transaction. Currency-dependent
+  /// fields (amountLabel, currencySymbol, connectionId) are filled at runtime.
+  static const List<_SyntheticTxTemplate> _gbpTemplates =
+      <_SyntheticTxTemplate>[
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-01',
+      merchant: 'Salary Credit',
+      category: 'Income',
+      amountMajor: '3,200',
+      amountMinor: '.00',
+      isCredit: true,
+      daysAgo: 2,
+      iconCodePoint: _iconAccountBalanceOutlined,
+      iconFontFamily: _mi,
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-02',
+      merchant: 'Tesco',
+      category: 'Groceries',
+      amountMajor: '47',
+      amountMinor: '.85',
+      isCredit: false,
+      daysAgo: 3,
+      iconText: 'T',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-03',
+      merchant: 'TfL',
+      category: 'Transport',
+      amountMajor: '8',
+      amountMinor: '.60',
+      isCredit: false,
+      daysAgo: 4,
+      iconText: 'TL',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-04',
+      merchant: 'Netflix',
+      category: 'Entertainment',
+      amountMajor: '15',
+      amountMinor: '.99',
+      isCredit: false,
+      daysAgo: 6,
+      iconText: 'N',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-05',
+      merchant: 'Costa Coffee',
+      category: 'Dining',
+      amountMajor: '4',
+      amountMinor: '.50',
+      isCredit: false,
+      daysAgo: 7,
+      iconText: 'CC',
+    ),
+  ];
+
+  static const List<_SyntheticTxTemplate> _ngnTemplates =
+      <_SyntheticTxTemplate>[
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-01',
+      merchant: 'Salary Credit',
+      category: 'Income',
+      amountMajor: '450,000',
+      amountMinor: '.00',
+      isCredit: true,
+      daysAgo: 2,
+      iconCodePoint: _iconAccountBalanceOutlined,
+      iconFontFamily: _mi,
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-02',
+      merchant: 'Shoprite',
+      category: 'Groceries',
+      amountMajor: '12,800',
+      amountMinor: '.00',
+      isCredit: false,
+      daysAgo: 3,
+      iconText: 'SR',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-03',
+      merchant: 'Bolt',
+      category: 'Transport',
+      amountMajor: '3,500',
+      amountMinor: '.00',
+      isCredit: false,
+      daysAgo: 5,
+      iconText: 'BT',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-04',
+      merchant: 'MTN Data',
+      category: 'Utilities',
+      amountMajor: '2,000',
+      amountMinor: '.00',
+      isCredit: false,
+      daysAgo: 6,
+      iconText: 'MT',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-05',
+      merchant: 'Chicken Republic',
+      category: 'Dining',
+      amountMajor: '4,200',
+      amountMinor: '.00',
+      isCredit: false,
+      daysAgo: 7,
+      iconText: 'CR',
+    ),
+  ];
+
+  static const List<_SyntheticTxTemplate> _usdTemplates =
+      <_SyntheticTxTemplate>[
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-01',
+      merchant: 'Wire Transfer In',
+      category: 'Income',
+      amountMajor: '2,500',
+      amountMinor: '.00',
+      isCredit: true,
+      daysAgo: 3,
+      iconCodePoint: _iconAccountBalanceOutlined,
+      iconFontFamily: _mi,
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-02',
+      merchant: 'Amazon',
+      category: 'Shopping',
+      amountMajor: '34',
+      amountMinor: '.99',
+      isCredit: false,
+      daysAgo: 4,
+      iconText: 'a',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-03',
+      merchant: 'Uber',
+      category: 'Transport',
+      amountMajor: '18',
+      amountMinor: '.40',
+      isCredit: false,
+      daysAgo: 5,
+      iconText: 'U',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-04',
+      merchant: 'Starbucks',
+      category: 'Dining',
+      amountMajor: '6',
+      amountMinor: '.25',
+      isCredit: false,
+      daysAgo: 6,
+      iconText: 'SB',
+    ),
+    _SyntheticTxTemplate(
+      idSuffix: 'syn-05',
+      merchant: 'Con Edison',
+      category: 'Utilities',
+      amountMajor: '95',
+      amountMinor: '.00',
+      isCredit: false,
+      daysAgo: 8,
+      iconText: 'CE',
+    ),
+  ];
+
+  /// Fallback templates used when the linked account's currency has no
+  /// specific template set. Uses generic GBP-style amounts.
+  static const List<_SyntheticTxTemplate> _defaultTemplates = _gbpTemplates;
+
+  /// Selects the correct template list for a currency code.
+  static List<_SyntheticTxTemplate> _templatesForCurrency(String code) {
+    switch (code.toUpperCase()) {
+      case 'GBP':
+        return _gbpTemplates;
+      case 'NGN':
+        return _ngnTemplates;
+      case 'USD':
+        return _usdTemplates;
+      default:
+        return _defaultTemplates;
+    }
+  }
+
+  /// Generates synthetic transactions for a runtime-linked account. Returns
+  /// an empty list for manual accounts (correct: user hasn't imported data).
+  List<SpendingTransaction> _synthesiseTransactions(
+    AccountLinkItem account,
+  ) {
+    if (account.source != AccountLinkSource.linked) {
+      return const <SpendingTransaction>[];
+    }
+
+    final String symbol = _currencySymbolFromCode(account.currencyCode);
+    final List<_SyntheticTxTemplate> templates =
+        _templatesForCurrency(account.currencyCode);
+    final DateTime now = DateTime.now();
+
+    return templates.map((_SyntheticTxTemplate t) {
+      final String sign = t.isCredit ? '+' : '-';
+      return SpendingTransaction(
+        id: '${account.id}-${t.idSuffix}',
+        merchant: t.merchant,
+        category: t.category,
+        amountLabel: '$sign$symbol${t.amountMajor}${t.amountMinor}',
+        amountMajor: t.amountMajor,
+        amountMinor: t.amountMinor,
+        currencySymbol: symbol,
+        isCredit: t.isCredit,
+        date: now.subtract(Duration(days: t.daysAgo)),
+        iconText: t.iconText,
+        iconCodePoint: t.iconCodePoint,
+        iconFontFamily: t.iconFontFamily,
+        connectionId: account.connectionId,
+      );
+    }).toList();
+  }
+
+  // ─────────────────────────────────────────────────────────
   //  getTransactions
   // ─────────────────────────────────────────────────────────
 
@@ -746,17 +1078,94 @@ class MockSpendingRepository implements SpendingRepository {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('spending.getTransactions');
 
-    if (demoDataMode == DemoDataMode.fresh) {
-      return const <SpendingTransaction>[];
+    // Seed transactions exist only in populated mode.
+    final List<SpendingTransaction>? seedTxns = _transactions[accountId];
+
+    if (seedTxns != null && seedTxns.isNotEmpty) {
+      // Seed account — filter by active connections and return.
+      return seedTxns
+          .where(
+              (SpendingTransaction t) => _isConnectionActive(t.connectionId))
+          .toList();
     }
 
-    final List<SpendingTransaction> txns =
-        _transactions[accountId] ?? const <SpendingTransaction>[];
+    // No seed data for this account. Check if it's a runtime-linked account
+    // that should have synthesised transactions.
+    final List<AccountLinkItem> runtimeAccounts =
+        _runtimeAccountsGetter?.call() ?? const <AccountLinkItem>[];
 
-    return txns
-        .where(
-            (SpendingTransaction t) => _isConnectionActive(t.connectionId))
-        .toList();
+    for (final AccountLinkItem account in runtimeAccounts) {
+      if (account.id != accountId) continue;
+
+      // Only synthesise for linked accounts; manual accounts correctly
+      // show empty (the user created a blank tracking account).
+      if (account.source == AccountLinkSource.linked &&
+          _isConnectionActive(account.connectionId)) {
+        return _synthesiseTransactions(account);
+      }
+      break;
+    }
+
+    // Fresh mode or manual account — return any manually-added transactions.
+    final List<SpendingTransaction> manual =
+        _manualTransactions[accountId] ?? const <SpendingTransaction>[];
+    return List<SpendingTransaction>.of(manual);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  addTransaction
+  // ─────────────────────────────────────────────────────────
+
+  @override
+  Future<SpendingTransaction> addTransaction(
+    String accountId,
+    CreateTransactionRequest request,
+  ) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('spending.addTransaction');
+
+    _manualTxCounter++;
+    final String txId = 'manual-tx-$_manualTxCounter';
+    final String symbol = _currencySymbolFromCode(request.currency);
+
+    // Split decimal amount into major/minor string parts.
+    final String amountStr = request.amount.toStringAsFixed(2);
+    final int dotIndex = amountStr.indexOf('.');
+    final String amountMajor =
+        dotIndex >= 0 ? amountStr.substring(0, dotIndex) : amountStr;
+    final String amountMinor =
+        dotIndex >= 0 ? amountStr.substring(dotIndex) : '.00';
+
+    final String sign = request.isCredit ? '+' : '-';
+    final String amountLabel = '$sign$symbol$amountMajor$amountMinor';
+
+    // First letter(s) of merchant as icon text.
+    final String iconText = request.merchant.isNotEmpty
+        ? request.merchant.substring(
+            0,
+            request.merchant.length >= 2 ? 2 : 1,
+          ).toUpperCase()
+        : '?';
+
+    final SpendingTransaction transaction = SpendingTransaction(
+      id: txId,
+      merchant: request.merchant,
+      category: request.category,
+      amountLabel: amountLabel,
+      amountMajor: amountMajor,
+      amountMinor: amountMinor,
+      currencySymbol: symbol,
+      isCredit: request.isCredit,
+      date: request.date,
+      iconText: iconText,
+      notes: request.notes,
+    );
+
+    _manualTransactions
+        .putIfAbsent(accountId, () => <SpendingTransaction>[])
+        .insert(0, transaction);
+
+    return transaction;
   }
 
   // ─────────────────────────────────────────────────────────
@@ -868,17 +1277,48 @@ class MockSpendingRepository implements SpendingRepository {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('spending.getOverview');
 
-    if (demoDataMode == DemoDataMode.fresh) {
-      return _freshOverview;
+    // Filter overview snapshots by active connections.
+    final List<SpendingAccountSnapshot> filteredSnapshots =
+        demoDataMode == DemoDataMode.fresh
+            ? <SpendingAccountSnapshot>[]
+            : _overviewSnapshots
+                .where((SpendingAccountSnapshot s) =>
+                    _isConnectionActive(s.connectionId))
+                .toList();
+
+    // Append snapshots for runtime-created accounts (linked or manual) that
+    // have no seed representation.
+    final List<AccountLinkItem> runtimeAccounts =
+        _runtimeAccountsGetter?.call() ?? const <AccountLinkItem>[];
+    final Set<String> existingLabels =
+        filteredSnapshots.map((SpendingAccountSnapshot s) => s.label).toSet();
+
+    for (final AccountLinkItem item in runtimeAccounts) {
+      if (existingLabels.contains(item.name)) continue;
+
+      final String symbol = _currencySymbolFromCode(item.currencyCode);
+      final bool isManual = item.source == AccountLinkSource.manual;
+      final int iconCodePoint =
+          isManual ? _iconEditOutlined : _iconAccountBalanceOutlined;
+      final String statusLabel = isManual ? 'Manual' : 'Linked';
+      final String changeLabel =
+          isManual ? 'Manually tracked' : 'Recently linked';
+
+      filteredSnapshots.add(
+        SpendingAccountSnapshot(
+          label: item.name,
+          balanceLabel: item.balanceLabel ?? '${symbol}0.00',
+          statusLabel: statusLabel,
+          changeLabel: changeLabel,
+          gradientKey: 'primary',
+          iconCodePoint: iconCodePoint,
+          iconFontFamily: _mi,
+          connectionId: item.connectionId,
+        ),
+      );
     }
 
-    // Filter overview snapshots by active connections.
-    final List<SpendingAccountSnapshot> filteredSnapshots = _overviewSnapshots
-        .where((SpendingAccountSnapshot s) =>
-            _isConnectionActive(s.connectionId))
-        .toList();
-
-    // If all accounts were disconnected, return an empty overview.
+    // If no accounts exist at all, return an empty overview.
     if (filteredSnapshots.isEmpty) {
       return _freshOverview;
     }
@@ -1078,4 +1518,37 @@ class MockSpendingRepository implements SpendingRepository {
 
     return _merchantHistories[merchantName] ?? _defaultHistory;
   }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Helper: synthetic transaction template
+// ─────────────────────────────────────────────────────────
+
+/// Immutable template for generating synthetic transactions for
+/// runtime-linked accounts. Currency symbol and connection ID are
+/// filled in at generation time by [MockSpendingRepository].
+class _SyntheticTxTemplate {
+  const _SyntheticTxTemplate({
+    required this.idSuffix,
+    required this.merchant,
+    required this.category,
+    required this.amountMajor,
+    required this.amountMinor,
+    required this.isCredit,
+    required this.daysAgo,
+    this.iconText,
+    this.iconCodePoint,
+    this.iconFontFamily,
+  });
+
+  final String idSuffix;
+  final String merchant;
+  final String category;
+  final String amountMajor;
+  final String amountMinor;
+  final bool isCredit;
+  final int daysAgo;
+  final String? iconText;
+  final int? iconCodePoint;
+  final String? iconFontFamily;
 }

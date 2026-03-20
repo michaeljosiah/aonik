@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions;
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Messaging;
@@ -103,6 +104,14 @@ public static class DependencyInjection
         services.AddScoped<IProfilePhotoStore, ProfilePhotoStore>();
         
         services.AddScoped<IDocumentFileStore, DocumentFileStore>();
+
+        // Generic file store for attachments (transaction receipts, etc.)
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Storage.IFileStore>(sp =>
+        {
+            var blobStorageFactory = sp.GetRequiredService<Aonik.Application.Abstractions.Storage.IBlobStorageFactory>();
+            var storageOptions = sp.GetRequiredService<IOptions<BlobStorageOptions>>();
+            return new FileStore(blobStorageFactory, storageOptions, storageOptions.Value.Attachments);
+        });
 
         services.AddHostedService<ProfilePhotoStorageInitializer>();
 

@@ -172,6 +172,21 @@ if (string.Equals(blobStorageProvider, "Local", StringComparison.OrdinalIgnoreCa
             ctx.Context.Response.Headers.CacheControl = "public, max-age=3600";
         }
     });
+
+    // Serve attachment files (transaction receipts, etc.)
+    var attachmentsPath = builder.Configuration["BlobStorage:Attachments:Path"] ?? "attachments";
+    var attachmentsPhysicalPath = Path.Combine(Directory.GetCurrentDirectory(), localBasePath, attachmentsPath);
+    Directory.CreateDirectory(attachmentsPhysicalPath);
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(attachmentsPhysicalPath),
+        RequestPath = "/storage/attachments",
+        OnPrepareResponse = ctx =>
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=3600";
+        }
+    });
 }
 
 // CRITICAL: Middleware order matters!

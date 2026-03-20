@@ -1,4 +1,5 @@
 import '../../app/demo/demo_data_mode.dart';
+import '../../data/repositories/account_links_repository.dart';
 import '../../data/repositories/spending_category_repository.dart';
 import '../mock_behavior.dart';
 
@@ -6,7 +7,9 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
   MockSpendingCategoryRepository({
     this.demoDataMode = DemoDataMode.populated,
     Set<String> Function()? activeConnectionIdsGetter,
+    List<AccountLinkItem> Function()? runtimeAccountsGetter,
   }) : _activeConnectionIdsGetter = activeConnectionIdsGetter,
+       _runtimeAccountsGetter = runtimeAccountsGetter,
        _categories = demoDataMode == DemoDataMode.fresh
             ? <String, _MutableCategoryData>{}
             : Map<String, _MutableCategoryData>.fromEntries(
@@ -30,6 +33,13 @@ class MockSpendingCategoryRepository implements SpendingCategoryRepository {
   /// returned set (or whose connectionId is null) are returned. Categories
   /// with zero remaining transactions are returned with zeroed-out totals.
   final Set<String> Function()? _activeConnectionIdsGetter;
+
+  /// When non-null, called at query time to retrieve runtime-created accounts.
+  /// Reserved for future use — runtime accounts currently have no categorised
+  /// transactions, but this callback enables the repository to participate in
+  /// cross-repository coordination (e.g. provider invalidation).
+  // ignore: unused_field
+  final List<AccountLinkItem> Function()? _runtimeAccountsGetter;
 
   final Map<String, _MutableCategoryData> _categories;
 

@@ -1,4 +1,5 @@
 import '../../app/demo/demo_data_mode.dart';
+import '../../data/repositories/account_links_repository.dart';
 import '../../data/repositories/budget_repository.dart';
 import '../../features/spending/presentation/spending_budget_data.dart';
 import '../mock_behavior.dart';
@@ -6,11 +7,28 @@ import '../mock_behavior.dart';
 class MockBudgetRepository implements BudgetRepository {
   MockBudgetRepository({
     this.demoDataMode = DemoDataMode.populated,
-  }) : _budgets = demoDataMode == DemoDataMode.fresh
+    Set<String> Function()? activeConnectionIdsGetter,
+    List<AccountLinkItem> Function()? runtimeAccountsGetter,
+  }) : _activeConnectionIdsGetter = activeConnectionIdsGetter,
+       _runtimeAccountsGetter = runtimeAccountsGetter,
+       _budgets = demoDataMode == DemoDataMode.fresh
             ? <SpendingBudgetCategory>[]
             : cloneSpendingBudgetCategories(spendingBudgetCategories).toList();
 
   final DemoDataMode demoDataMode;
+
+  /// When non-null, called at query time to resolve the current set of active
+  /// connection IDs. Budget line-item "spent" amounts are aggregate and not
+  /// connection-specific, but this callback enables the repository to
+  /// participate in cross-repository coordination (e.g. provider invalidation).
+  // ignore: unused_field
+  final Set<String> Function()? _activeConnectionIdsGetter;
+
+  /// When non-null, called at query time to retrieve runtime-created accounts.
+  /// Reserved for future use — enables the repository to participate in
+  /// cross-repository coordination (e.g. provider invalidation).
+  // ignore: unused_field
+  final List<AccountLinkItem> Function()? _runtimeAccountsGetter;
 
   List<SpendingBudgetCategory> _budgets;
 

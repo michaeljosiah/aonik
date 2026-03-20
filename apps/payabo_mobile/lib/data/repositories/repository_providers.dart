@@ -9,6 +9,7 @@ import '../../app/environment/environment_provider.dart';
 import '../../features/setup_journey/domain/setup_journey_repository.dart';
 import '../../features/support_planning/domain/support_planning_repository.dart';
 import '../../mock/repositories/mock_account_links_repository.dart';
+import '../../mock/repositories/mock_attachment_repository.dart';
 import '../../mock/repositories/mock_auth_repository.dart';
 import '../../mock/repositories/mock_budget_repository.dart';
 import '../../mock/repositories/mock_catalog_repository.dart';
@@ -28,6 +29,7 @@ import '../../mock/repositories/mock_statement_import_repository.dart';
 import '../../mock/repositories/mock_support_planning_repository.dart';
 import '../api/api_client.dart';
 import 'account_links_repository.dart';
+import 'attachment_repository.dart';
 import 'auth_repository.dart';
 import 'budget_repository.dart';
 import 'catalog_repository.dart';
@@ -35,6 +37,7 @@ import 'chat_repository.dart';
 import 'community_repository.dart';
 import 'dashboard_repository.dart';
 import 'live_account_links_repository.dart';
+import 'live_attachment_repository.dart';
 import 'live_auth_repository.dart';
 import 'live_budget_repository.dart';
 import 'live_catalog_repository.dart';
@@ -75,6 +78,20 @@ Set<String> Function()? _activeConnectionIdsGetter(Ref ref) {
       ref.watch(accountLinksRepositoryProvider);
   if (accountLinksRepo is MockAccountLinksRepository) {
     return accountLinksRepo.getActiveConnectionIds;
+  }
+  return null;
+}
+
+/// Returns a callback that resolves all runtime-created accounts (both linked
+/// via open-banking and added manually) from the [MockAccountLinksRepository]
+/// instance, or `null` if the account links repository is not a mock. Runtime
+/// accounts have no seed representation in [MockSpendingRepository] and must
+/// be synthesised into spending cards, overview snapshots, etc.
+List<AccountLinkItem> Function()? _runtimeAccountsGetter(Ref ref) {
+  final AccountLinksRepository accountLinksRepo =
+      ref.watch(accountLinksRepositoryProvider);
+  if (accountLinksRepo is MockAccountLinksRepository) {
+    return accountLinksRepo.getRuntimeAccounts;
   }
   return null;
 }
@@ -137,7 +154,11 @@ final Provider<BudgetRepository> budgetRepositoryProvider =
     final demoDataMode = ref.watch(demoDataModeProvider);
 
     if (_shouldMock(ref)) {
-      return MockBudgetRepository(demoDataMode: demoDataMode);
+      return MockBudgetRepository(
+        demoDataMode: demoDataMode,
+        activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+        runtimeAccountsGetter: _runtimeAccountsGetter(ref),
+      );
     }
 
     final apiClient = ref.watch(apiClientProvider);
@@ -162,13 +183,29 @@ final Provider<AccountLinksRepository> accountLinksRepositoryProvider =
   },
 );
 
+final Provider<AttachmentRepository> attachmentRepositoryProvider =
+    Provider<AttachmentRepository>(
+  (Ref ref) {
+    if (_shouldMock(ref)) {
+      return MockAttachmentRepository();
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveAttachmentRepository(apiClient: apiClient);
+  },
+);
+
 final Provider<DashboardRepository> dashboardRepositoryProvider =
     Provider<DashboardRepository>(
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
     if (_shouldMock(ref)) {
-      return MockDashboardRepository(demoDataMode: demoDataMode);
+      return MockDashboardRepository(
+        demoDataMode: demoDataMode,
+        activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+        runtimeAccountsGetter: _runtimeAccountsGetter(ref),
+      );
     }
 
     final apiClient = ref.watch(apiClientProvider);
@@ -234,6 +271,7 @@ final Provider<PersonalTransactionsRepository>
       return MockPersonalTransactionsRepository(
         demoDataMode: demoDataMode,
         activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+        runtimeAccountsGetter: _runtimeAccountsGetter(ref),
       );
     }
 
@@ -277,6 +315,7 @@ final Provider<SpendingCategoryRepository> spendingCategoryRepositoryProvider =
       return MockSpendingCategoryRepository(
         demoDataMode: demoDataMode,
         activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+        runtimeAccountsGetter: _runtimeAccountsGetter(ref),
       );
     }
 
@@ -294,6 +333,7 @@ final Provider<SpendingRepository> spendingRepositoryProvider =
       return MockSpendingRepository(
         demoDataMode: demoDataMode,
         activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+        runtimeAccountsGetter: _runtimeAccountsGetter(ref),
       );
     }
 

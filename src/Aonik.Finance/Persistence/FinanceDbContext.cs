@@ -120,6 +120,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
     public DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
     public DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; } = null!;
+    public DbSet<TransactionAttachment> TransactionAttachments { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,

@@ -154,6 +154,11 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
 
     final bool isEmpty = accounts.isEmpty;
 
+    // Determine whether the currently selected account is manual.
+    final bool isSelectedManual = !isEmpty &&
+        _selectedAccountIndex < accounts.length &&
+        accounts[_selectedAccountIndex].isManual;
+
     // When empty, use a full-screen Stack layout so the hero
     // background spans behind the header — matching the setup journey
     // and dashboard patterns.
@@ -173,6 +178,15 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
       bottomNavigationBar: const PayaboPrimaryAppShell(
         destination: PayaboPrimaryDestination.spending,
       ),
+      floatingActionButton: isSelectedManual
+          ? FloatingActionButton.extended(
+              onPressed: () => _navigateToAddTransaction(
+                accounts[_selectedAccountIndex],
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('Add transaction'),
+            )
+          : null,
       body: _SpendingHeroAndSheet(
         accounts: accounts,
         transactions: transactions,
@@ -183,6 +197,11 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
         },
         onSectionSelected: _handleSectionSelected,
         onSheetExtentChanged: _handleSheetExtentChanged,
+        onAddTransaction: isSelectedManual
+            ? () => _navigateToAddTransaction(
+                  accounts[_selectedAccountIndex],
+                )
+            : null,
       ),
     );
   }
@@ -201,6 +220,17 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
         context.go('/spending/accounts');
         return;
     }
+  }
+
+  void _navigateToAddTransaction(SpendingAccountCard account) {
+    context.push(
+      '/spending/accounts/${account.id}/transactions/create',
+      extra: <String, dynamic>{
+        'currencySymbol': account.currencySymbol,
+        'currencyCode': account.currencyCode ?? account.currencySymbol,
+        'accountName': account.accountName,
+      },
+    );
   }
 }
 
@@ -412,6 +442,7 @@ class _SpendingHeroAndSheet extends StatefulWidget {
     required this.onAccountPageChanged,
     required this.onSectionSelected,
     this.onSheetExtentChanged,
+    this.onAddTransaction,
   });
 
   /// Maximum fraction of viewport the sheet can occupy.
@@ -437,6 +468,7 @@ class _SpendingHeroAndSheet extends StatefulWidget {
   final ValueChanged<int> onAccountPageChanged;
   final ValueChanged<SpendingSection> onSectionSelected;
   final ValueChanged<double>? onSheetExtentChanged;
+  final VoidCallback? onAddTransaction;
 
   @override
   State<_SpendingHeroAndSheet> createState() => _SpendingHeroAndSheetState();
@@ -623,6 +655,7 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
                         pageController: widget.pageController,
                         onAccountPageChanged: widget.onAccountPageChanged,
                         onSectionSelected: widget.onSectionSelected,
+                        onAddTransaction: widget.onAddTransaction,
                       );
                     },
                   );
@@ -768,6 +801,7 @@ class _SpendingSheet extends StatelessWidget {
     required this.pageController,
     required this.onAccountPageChanged,
     required this.onSectionSelected,
+    this.onAddTransaction,
     this.topBorderRadius = 24.0,
   });
 
@@ -778,6 +812,10 @@ class _SpendingSheet extends StatelessWidget {
   final PageController pageController;
   final ValueChanged<int> onAccountPageChanged;
   final ValueChanged<SpendingSection> onSectionSelected;
+
+  /// Called when the user taps "Add transaction" in the empty state
+  /// of a manual account.
+  final VoidCallback? onAddTransaction;
 
   /// Top corner radius — animated to 0 at full sheet extension.
   final double topBorderRadius;
@@ -892,7 +930,11 @@ class _SpendingSheet extends StatelessWidget {
 
           // ── Transaction list (flat rows with dividers — like Pay activity) ──
           if (transactions.isEmpty)
-            const _EmptyTransactionsState()
+            _EmptyTransactionsState(
+              isManual: selectedAccountIndex < accounts.length &&
+                  accounts[selectedAccountIndex].isManual,
+              onAddTransaction: onAddTransaction,
+            )
           else
             ..._buildFlatTransactionRows(context, transactions, c),
         ],
@@ -1206,6 +1248,7 @@ class _TransactionRow extends StatelessWidget {
             'iconCodePoint': transaction.iconCodePoint,
             'iconFontFamily': transaction.iconFontFamily,
             'date': transaction.date,
+            'notes': transaction.notes,
           },
         );
       },
@@ -1298,7 +1341,13 @@ class _TransactionRow extends StatelessWidget {
 }
 
 class _EmptyTransactionsState extends StatelessWidget {
-  const _EmptyTransactionsState();
+  const _EmptyTransactionsState({
+    this.isManual = false,
+    this.onAddTransaction,
+  });
+
+  final bool isManual;
+  final VoidCallback? onAddTransaction;
 
   @override
   Widget build(BuildContext context) {
@@ -1310,13 +1359,13 @@ class _EmptyTransactionsState extends StatelessWidget {
       child: Column(
         children: <Widget>[
           Icon(
-            Icons.receipt_long_outlined,
+            isManual ? Icons.add_card_outlined : Icons.receipt_long_outlined,
             size: 48,
             color: c.muted.withValues(alpha: 0.4),
           ),
           const SizedBox(height: PayaboSpacing.md),
           Text(
-            'No transactions yet',
+            isManual ? 'No transactions yet' : 'No transactions yet',
             style: textTheme.titleMedium?.copyWith(
               color: c.accentBrown,
               fontWeight: FontWeight.w600,
@@ -1324,13 +1373,23 @@ class _EmptyTransactionsState extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.sm),
           Text(
-            'Transactions will appear here once your linked accounts have activity.',
+            isManual
+                ? 'Add your first transaction to start tracking spending on this account.'
+                : 'Transactions will appear here once your linked accounts have activity.',
             textAlign: TextAlign.center,
             style: textTheme.bodyMedium?.copyWith(
               color: c.muted,
               height: 1.4,
             ),
           ),
+          if (isManual && onAddTransaction != null) ...<Widget>[
+            const SizedBox(height: PayaboSpacing.lg),
+            FilledButton.icon(
+              onPressed: onAddTransaction,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add transaction'),
+            ),
+          ],
         ],
       ),
     );

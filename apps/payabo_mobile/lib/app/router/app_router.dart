@@ -51,6 +51,7 @@ import '../../features/setup_journey/application/setup_journey_controller.dart';
 import '../../features/setup_journey/presentation/setup_journey_screen.dart';
 import '../../features/setup_journey/presentation/setup_processing_screen.dart';
 import '../../features/spending/presentation/manual_account_create_screen.dart';
+import '../../features/spending/presentation/manual_transaction_create_screen.dart';
 import '../../features/spending/presentation/statement_import_complete_screen.dart';
 import '../../features/spending/presentation/statement_review_screen.dart';
 import '../../features/spending/presentation/statement_upload_screen.dart';
@@ -322,6 +323,20 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           builder: (context, state) => const ManualAccountCreateScreen(),
         ),
         GoRoute(
+          path: '/spending/accounts/:accountId/transactions/create',
+          name: 'spending-accounts-create-transaction',
+          builder: (context, state) {
+            final extra =
+                state.extra as Map<String, dynamic>? ?? const <String, dynamic>{};
+            return ManualTransactionCreateScreen(
+              accountId: state.pathParameters['accountId'] ?? '',
+              currencySymbol: extra['currencySymbol'] as String? ?? '',
+              currencyCode: extra['currencyCode'] as String? ?? '',
+              accountName: extra['accountName'] as String? ?? 'Account',
+            );
+          },
+        ),
+        GoRoute(
           path: '/spending/accounts/upload-statement',
           name: 'spending-accounts-upload-statement',
           builder: (context, state) => StatementUploadScreen(
@@ -404,6 +419,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
               iconCodePoint: extra['iconCodePoint'] as int?,
               iconFontFamily: extra['iconFontFamily'] as String?,
               date: extra['date'] as DateTime?,
+              notes: extra['notes'] as String?,
             );
           },
         ),

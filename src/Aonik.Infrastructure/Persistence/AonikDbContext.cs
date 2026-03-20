@@ -119,6 +119,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
     public virtual DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
     public virtual DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; } = null!;
+    public virtual DbSet<TransactionAttachment> TransactionAttachments { get; set; } = null!;
 
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,

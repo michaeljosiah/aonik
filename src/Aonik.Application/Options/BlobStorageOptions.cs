@@ -49,6 +49,16 @@ public class BlobStorageOptions
         ContainerName = "documents",
         PublicBaseUrl = null
     };
+
+    /// <summary>
+    /// Configuration for attachments (transaction receipts, etc.).
+    /// </summary>
+    public ContentTypeOptions Attachments { get; set; } = new()
+    {
+        Path = "attachments",
+        ContainerName = "attachments",
+        PublicBaseUrl = null
+    };
 }
 
 /// <summary>

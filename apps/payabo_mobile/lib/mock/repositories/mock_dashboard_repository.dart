@@ -1,13 +1,29 @@
 import '../../app/demo/demo_data_mode.dart';
+import '../../data/repositories/account_links_repository.dart';
 import '../../data/repositories/dashboard_repository.dart';
 import '../mock_behavior.dart';
 
 class MockDashboardRepository implements DashboardRepository {
   MockDashboardRepository({
     this.demoDataMode = DemoDataMode.populated,
-  });
+    Set<String> Function()? activeConnectionIdsGetter,
+    List<AccountLinkItem> Function()? runtimeAccountsGetter,
+  })  : _activeConnectionIdsGetter = activeConnectionIdsGetter,
+        _runtimeAccountsGetter = runtimeAccountsGetter;
 
   final DemoDataMode demoDataMode;
+
+  /// When non-null, called at query time to resolve the current set of active
+  /// connection IDs. This enables the dashboard to reflect account changes:
+  /// if all linked accounts are disconnected the dashboard falls back to
+  /// fresh-mode metrics (unless runtime accounts exist).
+  final Set<String> Function()? _activeConnectionIdsGetter;
+
+  /// When non-null, called at query time to retrieve all runtime-created
+  /// accounts (linked via open-banking or added manually). If at least one
+  /// runtime account exists, the dashboard returns populated-mode data even
+  /// in `DemoDataMode.fresh`.
+  final List<AccountLinkItem> Function()? _runtimeAccountsGetter;
 
   static const DashboardTodayInsight _freshInsight = DashboardTodayInsight(
     message: 'Add a bill to unlock daily insights and spending guidance.',
@@ -113,12 +129,45 @@ class MockDashboardRepository implements DashboardRepository {
     ),
   ];
 
+  /// Returns `true` when there is at least one active linked connection OR at
+  /// least one runtime-created account (linked or manual). This drives the
+  /// decision between populated-mode vs fresh-mode dashboard data.
+  bool get _hasAnyAccounts {
+    final Set<String> activeIds =
+        _activeConnectionIdsGetter?.call() ?? const <String>{};
+    final List<AccountLinkItem> runtimeAccounts =
+        _runtimeAccountsGetter?.call() ?? const <AccountLinkItem>[];
+    return activeIds.isNotEmpty || runtimeAccounts.isNotEmpty;
+  }
+
   @override
   Future<DashboardSummary> getSummary() async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('dashboard.getSummary');
 
     if (demoDataMode == DemoDataMode.fresh) {
+      // In fresh mode, show populated data only when the user has added at
+      // least one account (linked or manual).
+      if (!_hasAnyAccounts) {
+        return const DashboardSummary(
+          upcomingBills: <DashboardUpcomingBill>[],
+          recentTransactions: <DashboardTransaction>[],
+          supportObligations: <DashboardSupportObligation>[],
+          recentOrders: <DashboardRecentOrder>[],
+          overviewSlices: <DashboardOverviewSlice>[],
+          overviewMonthLabel: 'March',
+          overviewMonthShortLabel: 'Mar',
+          overviewYearLabel: '2026',
+          todayInsight: _freshInsight,
+          metrics: _freshMetrics,
+        );
+      }
+    }
+
+    // In populated mode (or fresh mode with at least one account), check
+    // whether all linked accounts have been disconnected. If so, and no
+    // manual accounts exist, fall back to fresh metrics.
+    if (!_hasAnyAccounts) {
       return const DashboardSummary(
         upcomingBills: <DashboardUpcomingBill>[],
         recentTransactions: <DashboardTransaction>[],

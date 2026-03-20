@@ -1,4 +1,5 @@
 import '../../app/demo/demo_data_mode.dart';
+import '../../data/repositories/account_links_repository.dart';
 import '../../data/repositories/personal_transactions_repository.dart';
 import '../mock_behavior.dart';
 
@@ -7,7 +8,9 @@ class MockPersonalTransactionsRepository
   MockPersonalTransactionsRepository({
     this.demoDataMode = DemoDataMode.populated,
     Set<String> Function()? activeConnectionIdsGetter,
+    List<AccountLinkItem> Function()? runtimeAccountsGetter,
   }) : _activeConnectionIdsGetter = activeConnectionIdsGetter,
+       _runtimeAccountsGetter = runtimeAccountsGetter,
        _transactions = demoDataMode == DemoDataMode.fresh
             ? <PersonalTransactionItem>[]
             : List<PersonalTransactionItem>.of(_seedTransactions);
@@ -20,6 +23,13 @@ class MockPersonalTransactionsRepository
   /// cross-repository coordination: when an account link is disconnected, the
   /// personal transactions repository automatically filters out its data.
   final Set<String> Function()? _activeConnectionIdsGetter;
+
+  /// When non-null, called at query time to retrieve runtime-created accounts.
+  /// Reserved for future use — runtime accounts currently have no personal
+  /// transactions in seed data, but this callback enables the repository to
+  /// participate in cross-repository coordination (e.g. provider invalidation).
+  // ignore: unused_field
+  final List<AccountLinkItem> Function()? _runtimeAccountsGetter;
 
   final List<PersonalTransactionItem> _transactions;
 
