@@ -36,10 +36,17 @@ import 'community_repository.dart';
 import 'dashboard_repository.dart';
 import 'live_account_links_repository.dart';
 import 'live_auth_repository.dart';
+import 'live_budget_repository.dart';
+import 'live_catalog_repository.dart';
 import 'live_dashboard_repository.dart';
+import 'live_order_repository.dart';
+import 'live_pay_activity_repository.dart';
+import 'live_payment_repository.dart';
 import 'live_personal_transactions_repository.dart';
 import 'live_profile_repository.dart';
 import 'live_setup_journey_repository.dart';
+import 'live_spending_category_repository.dart';
+import 'live_spending_repository.dart';
 import 'live_statement_import_repository.dart';
 import 'notification_repository.dart';
 import 'order_repository.dart';
@@ -95,8 +102,12 @@ final Provider<AuthRepository> authRepositoryProvider =
 final Provider<CatalogRepository> catalogRepositoryProvider =
     Provider<CatalogRepository>(
   (Ref ref) {
-    // Catalog remains mock-backed until a live repository is implemented.
-    return MockCatalogRepository();
+    if (_shouldMock(ref)) {
+      return MockCatalogRepository();
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveCatalogRepository(apiClient: apiClient);
   },
 );
 
@@ -125,8 +136,12 @@ final Provider<BudgetRepository> budgetRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    // Budgets remain mock-backed until a live repository is implemented.
-    return MockBudgetRepository(demoDataMode: demoDataMode);
+    if (_shouldMock(ref)) {
+      return MockBudgetRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveBudgetRepository(apiClient: apiClient);
   },
 );
 
@@ -174,8 +189,12 @@ final Provider<NotificationRepository> notificationRepositoryProvider =
 final Provider<OrderRepository> orderRepositoryProvider =
     Provider<OrderRepository>(
   (Ref ref) {
-    // Orders remain mock-backed until a live repository is implemented.
-    return MockOrderRepository();
+    if (_shouldMock(ref)) {
+      return MockOrderRepository();
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveOrderRepository(apiClient: apiClient);
   },
 );
 
@@ -184,16 +203,24 @@ final Provider<PayActivityRepository> payActivityRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    // Pay activity remains mock-backed until a live repository is implemented.
-    return MockPayActivityRepository(demoDataMode: demoDataMode);
+    if (_shouldMock(ref)) {
+      return MockPayActivityRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LivePayActivityRepository(apiClient: apiClient);
   },
 );
 
 final Provider<PaymentRepository> paymentRepositoryProvider =
     Provider<PaymentRepository>(
   (Ref ref) {
-    // Payments remain mock-backed until a live repository is implemented.
-    return MockPaymentRepository();
+    if (_shouldMock(ref)) {
+      return MockPaymentRepository();
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LivePaymentRepository(apiClient: apiClient);
   },
 );
 
@@ -246,12 +273,15 @@ final Provider<SpendingCategoryRepository> spendingCategoryRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    // Spending categories remain mock-backed until a live repository is
-    // implemented.
-    return MockSpendingCategoryRepository(
-      demoDataMode: demoDataMode,
-      activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
-    );
+    if (_shouldMock(ref)) {
+      return MockSpendingCategoryRepository(
+        demoDataMode: demoDataMode,
+        activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+      );
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveSpendingCategoryRepository(apiClient: apiClient);
   },
 );
 
@@ -260,11 +290,15 @@ final Provider<SpendingRepository> spendingRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    // Spending remains mock-backed until a live repository is implemented.
-    return MockSpendingRepository(
-      demoDataMode: demoDataMode,
-      activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
-    );
+    if (_shouldMock(ref)) {
+      return MockSpendingRepository(
+        demoDataMode: demoDataMode,
+        activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
+      );
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveSpendingRepository(apiClient: apiClient);
   },
 );
 
