@@ -50,6 +50,10 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/setup_journey/application/setup_journey_controller.dart';
 import '../../features/setup_journey/presentation/setup_journey_screen.dart';
 import '../../features/setup_journey/presentation/setup_processing_screen.dart';
+import '../../features/spending/presentation/manual_account_create_screen.dart';
+import '../../features/spending/presentation/statement_import_complete_screen.dart';
+import '../../features/spending/presentation/statement_review_screen.dart';
+import '../../features/spending/presentation/statement_upload_screen.dart';
 import '../../features/spending/presentation/spending_account_link_return_screen.dart';
 import '../../features/spending/presentation/spending_accounts_screen.dart';
 import '../../features/spending/presentation/spending_budget_detail_screen.dart';
@@ -311,6 +315,42 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
             redirectUri: state.uri.queryParameters['redirect_uri'] ??
                 state.uri.toString(),
           ),
+        ),
+        GoRoute(
+          path: '/spending/accounts/create-manual',
+          name: 'spending-accounts-create-manual',
+          builder: (context, state) => const ManualAccountCreateScreen(),
+        ),
+        GoRoute(
+          path: '/spending/accounts/upload-statement',
+          name: 'spending-accounts-upload-statement',
+          builder: (context, state) => StatementUploadScreen(
+            preselectedAccountId:
+                state.uri.queryParameters['accountId'],
+          ),
+        ),
+        GoRoute(
+          path: '/spending/accounts/upload-statement/:importId/review',
+          name: 'spending-accounts-upload-statement-review',
+          builder: (context, state) => StatementReviewScreen(
+            importId: state.pathParameters['importId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/spending/accounts/upload-statement/:importId/complete',
+          name: 'spending-accounts-upload-statement-complete',
+          builder: (context, state) {
+            final extra =
+                state.extra as Map<String, dynamic>? ?? const <String, dynamic>{};
+            return StatementImportCompleteScreen(
+              importId: state.pathParameters['importId'] ?? '',
+              rowsImported: extra['rowsImported'] as int? ?? 0,
+              rowsDuplicate: extra['rowsDuplicate'] as int? ?? 0,
+              rowsFailed: extra['rowsFailed'] as int? ?? 0,
+              status: extra['status'] as String? ?? '',
+              fileName: extra['fileName'] as String? ?? '',
+            );
+          },
         ),
         GoRoute(
           path: '/accounts/return',

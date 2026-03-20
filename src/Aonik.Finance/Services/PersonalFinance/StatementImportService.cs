@@ -24,6 +24,31 @@ internal sealed class StatementImportService : IStatementImportService
     private const string RowStatusFailed = "Failed";
     private const string RowStatusDuplicate = "Duplicate";
 
+    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
+
+    private static readonly string[] KnownHeaderKeywords =
+    [
+        "date", "transactiondate", "posteddate", "occurredat",
+        "amount", "transactionamount", "value",
+        "description", "details", "memo", "narration",
+        "merchant", "payee", "vendor",
+        "currency", "ccy",
+        "credit", "debit"
+    ];
+
+    private static readonly string[] ExplicitDateFormats =
+    [
+        "yyyy-MM-dd", "yyyy/MM/dd", "yyyy.MM.dd",
+        "dd-MM-yyyy", "dd/MM/yyyy", "dd.MM.yyyy",
+        "MM-dd-yyyy", "MM/dd/yyyy", "MM.dd.yyyy",
+        "dd-MMM-yyyy", "dd MMM yyyy",
+        "MMM dd, yyyy", "MMMM dd, yyyy",
+        "d-MMM-yyyy", "d MMM yyyy",
+        "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-dd HH:mm:ss",
+        "dd/MM/yyyy HH:mm:ss", "MM/dd/yyyy HH:mm:ss",
+        "dd-MM-yyyy HH:mm:ss", "MM-dd-yyyy HH:mm:ss"
+    ];
+
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -72,11 +97,23 @@ internal sealed class StatementImportService : IStatementImportService
 
         if (fileStream.CanSeek)
         {
+            if (fileStream.Length > MaxFileSizeBytes)
+            {
+                throw new InvalidOperationException(
+                    $"Statement file exceeds the maximum allowed size of {MaxFileSizeBytes / (1024 * 1024)} MB.");
+            }
+
             fileStream.Position = 0;
         }
 
         using var reader = new StreamReader(fileStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
         var csvContent = await reader.ReadToEndAsync(cancellationToken);
+
+        if (csvContent.Length > MaxFileSizeBytes)
+        {
+            throw new InvalidOperationException(
+                $"Statement file exceeds the maximum allowed size of {MaxFileSizeBytes / (1024 * 1024)} MB.");
+        }
         var importFingerprintScope = ComputeImportFingerprintScope(csvContent);
 
         var statementImport = new StatementImport
@@ -411,14 +448,20 @@ internal sealed class StatementImportService : IStatementImportService
             throw new InvalidOperationException("CSV file is empty.");
         }
 
-        using var reader = new StringReader(csvContent);
-        var headerLine = ReadFirstNonEmptyLine(reader);
+        var allLines = csvContent
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Split('\n');
+
+        var (headerLineIndex, headerLine) = FindHeaderLine(allLines);
         if (headerLine == null)
         {
-            throw new InvalidOperationException("CSV header row is required.");
+            throw new InvalidOperationException("CSV header row is required. No line contained recognizable column headers (date, amount, description, etc.).");
         }
 
-        var headers = ParseCsvLine(headerLine)
+        var delimiter = DetectDelimiter(headerLine);
+
+        var headers = ParseCsvLine(headerLine, delimiter)
             .Select(NormalizeHeader)
             .ToList();
 
@@ -427,35 +470,68 @@ internal sealed class StatementImportService : IStatementImportService
         var descriptionIndex = FindHeaderIndex(headers, "description", "details", "memo", "narration");
         var merchantIndex = FindHeaderIndex(headers, "merchant", "payee", "vendor");
         var currencyIndex = FindHeaderIndex(headers, "currency", "ccy");
+        var creditIndex = FindHeaderIndex(headers, "credit");
+        var debitIndex = FindHeaderIndex(headers, "debit");
 
-        if (dateIndex < 0 || amountIndex < 0 || descriptionIndex < 0)
+        var hasCreditDebit = creditIndex >= 0 || debitIndex >= 0;
+
+        if (dateIndex < 0 || descriptionIndex < 0)
         {
-            throw new InvalidOperationException("CSV must contain date, amount, and description columns.");
+            throw new InvalidOperationException("CSV must contain date and description columns.");
+        }
+
+        if (amountIndex < 0 && !hasCreditDebit)
+        {
+            throw new InvalidOperationException("CSV must contain an amount column, or separate credit and debit columns.");
         }
 
         var rows = new List<ParsedStatementImportRow>();
         var fingerprintOccurrences = new Dictionary<string, int>(StringComparer.Ordinal);
-        var lineNumber = 1;
-        string? line;
-        while ((line = reader.ReadLine()) != null)
+
+        for (var i = headerLineIndex + 1; i < allLines.Length; i++)
         {
-            lineNumber++;
+            var line = allLines[i];
+            var lineNumber = i + 1;
 
             if (string.IsNullOrWhiteSpace(line))
             {
                 continue;
             }
 
-            var values = ParseCsvLine(line);
+            var values = ParseCsvLine(line, delimiter);
 
             var occurredAtRaw = GetColumnValue(values, dateIndex);
-            var amountRaw = GetColumnValue(values, amountIndex);
             var descriptionRaw = GetColumnValue(values, descriptionIndex);
             var merchantRaw = GetColumnValue(values, merchantIndex);
             var currencyRaw = GetColumnValue(values, currencyIndex);
 
+            string? amountRaw;
+            decimal? normalizedAmount;
+
+            if (hasCreditDebit && amountIndex < 0)
+            {
+                var creditRaw = GetColumnValue(values, creditIndex);
+                var debitRaw = GetColumnValue(values, debitIndex);
+                amountRaw = ResolveAmountFromCreditDebit(creditRaw, debitRaw, out normalizedAmount);
+            }
+            else if (hasCreditDebit && amountIndex >= 0)
+            {
+                amountRaw = GetColumnValue(values, amountIndex);
+                normalizedAmount = TryParseAmount(amountRaw);
+                if (normalizedAmount == null)
+                {
+                    var creditRaw = GetColumnValue(values, creditIndex);
+                    var debitRaw = GetColumnValue(values, debitIndex);
+                    amountRaw = ResolveAmountFromCreditDebit(creditRaw, debitRaw, out normalizedAmount);
+                }
+            }
+            else
+            {
+                amountRaw = GetColumnValue(values, amountIndex);
+                normalizedAmount = TryParseAmount(amountRaw);
+            }
+
             var normalizedOccurredAt = TryParseDate(occurredAtRaw);
-            var normalizedAmount = TryParseAmount(amountRaw);
             var normalizedDescription = TrimNullable(descriptionRaw);
             var normalizedCurrency = NormalizeCurrency(currencyRaw, accountCurrency);
 
@@ -490,7 +566,8 @@ internal sealed class StatementImportService : IStatementImportService
                     normalizedOccurredAt!.Value,
                     normalizedAmount!.Value,
                     normalizedDescription!,
-                    merchantRaw);
+                    merchantRaw,
+                    normalizedCurrency!);
 
                 var occurrence = NextOccurrence(fingerprintOccurrences, baseFingerprintKey);
                 fingerprint = ComputeFingerprint(baseFingerprintKey, importFingerprintScope, occurrence);
@@ -517,21 +594,61 @@ internal sealed class StatementImportService : IStatementImportService
         return rows;
     }
 
-    private static string? ReadFirstNonEmptyLine(StringReader reader)
+    /// <summary>
+    /// Detects the delimiter used in a CSV header line.
+    /// Checks tab, semicolon, pipe, and comma — returns the one that produces the most columns.
+    /// Falls back to comma if none produce more than 1 column.
+    /// </summary>
+    private static char DetectDelimiter(string headerLine)
     {
-        string? line;
-        while ((line = reader.ReadLine()) != null)
+        char[] candidates = ['\t', ';', '|', ','];
+        var bestDelimiter = ',';
+        var bestCount = 0;
+
+        foreach (var candidate in candidates)
         {
-            if (!string.IsNullOrWhiteSpace(line))
+            var count = ParseCsvLine(headerLine, candidate).Count;
+            if (count > bestCount)
             {
-                return line;
+                bestCount = count;
+                bestDelimiter = candidate;
             }
         }
 
-        return null;
+        return bestDelimiter;
     }
 
-    private static List<string> ParseCsvLine(string line)
+    /// <summary>
+    /// Finds the header line by scanning for a line that contains at least 2 recognized column header keywords.
+    /// Skips bank preamble/metadata rows that often precede the actual header.
+    /// </summary>
+    private static (int LineIndex, string? Line) FindHeaderLine(string[] lines)
+    {
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var delimiter = DetectDelimiter(line);
+            var cells = ParseCsvLine(line, delimiter);
+            var normalizedCells = cells.Select(NormalizeHeader).ToList();
+
+            var matchCount = normalizedCells.Count(cell =>
+                KnownHeaderKeywords.Contains(cell, StringComparer.OrdinalIgnoreCase));
+
+            if (matchCount >= 2)
+            {
+                return (i, line);
+            }
+        }
+
+        return (-1, null);
+    }
+
+    private static List<string> ParseCsvLine(string line, char delimiter)
     {
         var values = new List<string>();
         var current = new StringBuilder();
@@ -554,7 +671,7 @@ internal sealed class StatementImportService : IStatementImportService
                 continue;
             }
 
-            if (ch == ',' && !inQuotes)
+            if (ch == delimiter && !inQuotes)
             {
                 values.Add(current.ToString());
                 current.Clear();
@@ -600,6 +717,43 @@ internal sealed class StatementImportService : IStatementImportService
                 .ToArray());
     }
 
+    /// <summary>
+    /// Resolves a single amount value from separate credit and debit columns.
+    /// Credit values are positive, debit values are negative.
+    /// Returns the raw string representation and the parsed amount.
+    /// </summary>
+    private static string? ResolveAmountFromCreditDebit(string? creditRaw, string? debitRaw, out decimal? amount)
+    {
+        var creditAmount = TryParseAmount(creditRaw);
+        var debitAmount = TryParseAmount(debitRaw);
+
+        if (creditAmount != null && creditAmount != 0)
+        {
+            amount = Math.Abs(creditAmount.Value);
+            return TrimNullable(creditRaw);
+        }
+
+        if (debitAmount != null && debitAmount != 0)
+        {
+            amount = -Math.Abs(debitAmount.Value);
+            return TrimNullable(debitRaw);
+        }
+
+        if (creditAmount == 0 && debitAmount == 0)
+        {
+            amount = 0m;
+            return "0";
+        }
+
+        amount = creditAmount ?? (debitAmount.HasValue ? -Math.Abs(debitAmount.Value) : null);
+        return TrimNullable(creditRaw) ?? TrimNullable(debitRaw);
+    }
+
+    /// <summary>
+    /// Parses a date string using an explicit list of common date formats,
+    /// then falls back to general parsing. This improves handling of ambiguous
+    /// formats like 01/02/2024 by trying multiple interpretations.
+    /// </summary>
     private static DateTime? TryParseDate(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -607,12 +761,24 @@ internal sealed class StatementImportService : IStatementImportService
             return null;
         }
 
-        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var parsed))
+        var trimmed = value.Trim();
+
+        if (DateTime.TryParseExact(
+                trimmed,
+                ExplicitDateFormats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeLocal | DateTimeStyles.AllowWhiteSpaces,
+                out var parsed))
         {
             return parsed;
         }
 
-        if (DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out parsed))
+        if (DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out parsed))
+        {
+            return parsed;
+        }
+
+        if (DateTime.TryParse(trimmed, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out parsed))
         {
             return parsed;
         }
@@ -620,6 +786,13 @@ internal sealed class StatementImportService : IStatementImportService
         return null;
     }
 
+    /// <summary>
+    /// Parses an amount string with support for:
+    /// - Standard formats: -12.50, +100.00, $50.00
+    /// - Parenthetical negatives: (500.00) → -500.00
+    /// - European formats: 1.234,56 (dot as thousands separator, comma as decimal)
+    /// - Currency symbols: $, €, £, etc.
+    /// </summary>
     private static decimal? TryParseAmount(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -629,25 +802,74 @@ internal sealed class StatementImportService : IStatementImportService
 
         var normalized = value.Trim().Replace(" ", string.Empty);
 
+        // Handle parenthetical negatives: (500.00) → -500.00
+        var isParenthetical = false;
+        if (normalized.StartsWith('(') && normalized.EndsWith(')'))
+        {
+            isParenthetical = true;
+            normalized = normalized[1..^1];
+        }
+
+        // Strip common currency symbols
+        normalized = StripCurrencySymbols(normalized);
+
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return null;
+        }
+
+        // Detect European format FIRST: comma followed by exactly 1-2 digits at the end.
+        // Must check before InvariantCulture because InvariantCulture treats comma as
+        // thousands separator, so "100,00" would incorrectly parse as 10000.
+        var commaIndex = normalized.LastIndexOf(',');
+        if (commaIndex >= 0)
+        {
+            var afterComma = normalized[(commaIndex + 1)..];
+            if (afterComma.Length is >= 1 and <= 2 && afterComma.All(char.IsDigit))
+            {
+                // Treat as European: remove dot thousands separators, replace comma with dot
+                var europeanNormalized = normalized.Replace(".", string.Empty).Replace(',', '.');
+                if (decimal.TryParse(
+                        europeanNormalized,
+                        NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+                        CultureInfo.InvariantCulture,
+                        out var euroParsed))
+                {
+                    return isParenthetical ? -Math.Abs(euroParsed) : euroParsed;
+                }
+            }
+        }
+
+        // Try standard InvariantCulture (dot = decimal, comma = thousands)
         if (decimal.TryParse(
                 normalized,
-                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands | NumberStyles.AllowCurrencySymbol,
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands,
                 CultureInfo.InvariantCulture,
                 out var parsedAmount))
         {
-            return parsedAmount;
+            return isParenthetical ? -Math.Abs(parsedAmount) : parsedAmount;
         }
 
+        // Final fallback: CurrentCulture
         if (decimal.TryParse(
                 normalized,
-                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands | NumberStyles.AllowCurrencySymbol,
+                NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands,
                 CultureInfo.CurrentCulture,
                 out parsedAmount))
         {
-            return parsedAmount;
+            return isParenthetical ? -Math.Abs(parsedAmount) : parsedAmount;
         }
 
         return null;
+    }
+
+    private static string StripCurrencySymbols(string value)
+    {
+        // Strip leading/trailing currency symbols and whitespace
+        return value
+            .TrimStart('$', '€', '£', '¥', '₹', '₦', 'R', 'K', 'Z')
+            .TrimEnd('$', '€', '£', '¥', '₹', '₦', 'R', 'K', 'Z')
+            .Trim();
     }
 
     private static string? NormalizeCurrency(string? rawCurrency, string? fallbackCurrency)
@@ -656,12 +878,17 @@ internal sealed class StatementImportService : IStatementImportService
         return value?.ToUpperInvariant();
     }
 
+    /// <summary>
+    /// Builds the fingerprint base key including currency to prevent
+    /// false duplicate collisions in multi-currency imports.
+    /// </summary>
     private static string BuildFingerprintBaseKey(
         Guid personalAccountId,
         DateTime occurredAt,
         decimal amount,
         string description,
-        string? merchant)
+        string? merchant,
+        string currency)
     {
         return string.Join(
             "|",
@@ -669,7 +896,8 @@ internal sealed class StatementImportService : IStatementImportService
             occurredAt.ToString("yyyy-MM-ddTHH:mm:ss.fffffff", CultureInfo.InvariantCulture),
             decimal.Round(amount, 2).ToString("0.00", CultureInfo.InvariantCulture),
             NormalizeFingerprintToken(description),
-            NormalizeFingerprintToken(merchant));
+            NormalizeFingerprintToken(merchant),
+            currency.ToUpperInvariant());
     }
 
     private static int NextOccurrence(IDictionary<string, int> occurrences, string baseFingerprintKey)

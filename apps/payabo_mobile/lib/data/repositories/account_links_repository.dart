@@ -184,6 +184,36 @@ class AccountLinkConnectionResult {
 typedef AccountLinkExchangeResult = AccountLinkConnectionResult;
 typedef AccountLinkActionResult = AccountLinkConnectionResult;
 
+class CreateManualAccountRequest {
+  const CreateManualAccountRequest({
+    required this.name,
+    required this.accountType,
+    required this.currency,
+    this.startingBalance,
+    this.last4,
+  });
+
+  final String name;
+  final String accountType;
+  final String currency;
+  final double? startingBalance;
+  final String? last4;
+}
+
+class CreateManualAccountResult {
+  const CreateManualAccountResult({
+    required this.accountId,
+    required this.name,
+    required this.accountType,
+    required this.currency,
+  });
+
+  final String accountId;
+  final String name;
+  final String accountType;
+  final String currency;
+}
+
 abstract class AccountLinksRepository {
   Future<AccountLinksSummary> getSummary();
 
@@ -208,6 +238,10 @@ abstract class AccountLinksRepository {
   Future<AccountLinkActionResult> disconnectConnection({
     required String connectionId,
   });
+
+  Future<CreateManualAccountResult> createManualAccount(
+    CreateManualAccountRequest request,
+  );
 }
 
 const Object _copySentinel = Object();

@@ -539,6 +539,37 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
     return trimmed.isEmpty ? null : trimmed;
   }
 
+  @override
+  Future<CreateManualAccountResult> createManualAccount(
+    CreateManualAccountRequest request,
+  ) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/personal-finance/accounts',
+        data: <String, dynamic>{
+          'name': request.name,
+          'accountType': request.accountType,
+          'currency': request.currency,
+          if (request.last4 != null && request.last4!.isNotEmpty)
+            'last4': request.last4,
+        },
+      );
+
+      final Map<String, dynamic> payload =
+          response.data ?? const <String, dynamic>{};
+
+      return CreateManualAccountResult(
+        accountId: _readString(payload['personalAccountId']) ?? '',
+        name: _readString(payload['name']) ?? request.name,
+        accountType: _readString(payload['accountType']) ?? request.accountType,
+        currency: _readString(payload['currency']) ?? request.currency,
+      );
+    } on DioException catch (exception) {
+      _logDioFailure('createManualAccount', exception);
+      throw mapDioException(exception);
+    }
+  }
+
   void _logDioFailure(String operation, DioException exception) {
     final RequestOptions request = exception.requestOptions;
     final int? statusCode = exception.response?.statusCode;

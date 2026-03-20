@@ -24,6 +24,7 @@ import '../../mock/repositories/mock_profile_repository.dart';
 import '../../mock/repositories/mock_setup_journey_repository.dart';
 import '../../mock/repositories/mock_spending_category_repository.dart';
 import '../../mock/repositories/mock_spending_repository.dart';
+import '../../mock/repositories/mock_statement_import_repository.dart';
 import '../../mock/repositories/mock_support_planning_repository.dart';
 import '../api/api_client.dart';
 import 'account_links_repository.dart';
@@ -39,6 +40,7 @@ import 'live_dashboard_repository.dart';
 import 'live_personal_transactions_repository.dart';
 import 'live_profile_repository.dart';
 import 'live_setup_journey_repository.dart';
+import 'live_statement_import_repository.dart';
 import 'notification_repository.dart';
 import 'order_repository.dart';
 import 'pay_activity_repository.dart';
@@ -47,6 +49,7 @@ import 'personal_transactions_repository.dart';
 import 'profile_repository.dart';
 import 'spending_category_repository.dart';
 import 'spending_repository.dart';
+import 'statement_import_repository.dart';
 
 /// True when the app should use mock implementations for unfinished modules or
 /// because the current session is running in demo mode.
@@ -262,6 +265,20 @@ final Provider<SpendingRepository> spendingRepositoryProvider =
       demoDataMode: demoDataMode,
       activeConnectionIdsGetter: _activeConnectionIdsGetter(ref),
     );
+  },
+);
+
+final Provider<StatementImportRepository> statementImportRepositoryProvider =
+    Provider<StatementImportRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    if (_shouldMock(ref)) {
+      return MockStatementImportRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveStatementImportRepository(apiClient: apiClient);
   },
 );
 

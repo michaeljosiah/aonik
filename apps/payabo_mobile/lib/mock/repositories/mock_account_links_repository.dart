@@ -258,6 +258,71 @@ class MockAccountLinksRepository implements AccountLinksRepository {
     );
   }
 
+  @override
+  Future<CreateManualAccountResult> createManualAccount(
+    CreateManualAccountRequest request,
+  ) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('accountLinks.createManualAccount');
+
+    final int now = DateTime.now().microsecondsSinceEpoch;
+    final String accountId = 'manual-$now';
+
+    final String currencySymbol = _currencySymbol(request.currency);
+    final String? balanceLabel = request.startingBalance != null
+        ? '$currencySymbol${request.startingBalance!.toStringAsFixed(2)}'
+        : null;
+
+    final AccountLinkItem newAccount = AccountLinkItem(
+      id: accountId,
+      name: request.name,
+      institutionName: 'Added in Payabo',
+      accountTypeLabel: request.accountType,
+      currencyCode: request.currency.toUpperCase(),
+      source: AccountLinkSource.manual,
+      status: AccountLinkStatus.manual,
+      statusLabel: 'Manual',
+      statusDetail:
+          'Track spending from cash or off-platform balances without linking a bank.',
+      sourceLabel: 'Manual account',
+      balanceLabel: balanceLabel,
+      maskedIdentifier:
+          request.last4 != null ? '.... ${request.last4}' : null,
+      providerLabel: 'Manual entry',
+      lastSyncedLabel: 'Added manually',
+    );
+
+    _accounts.add(newAccount);
+
+    return CreateManualAccountResult(
+      accountId: accountId,
+      name: request.name,
+      accountType: request.accountType,
+      currency: request.currency,
+    );
+  }
+
+  static String _currencySymbol(String code) {
+    switch (code.toUpperCase()) {
+      case 'GBP':
+        return '\u00A3';
+      case 'USD':
+        return '\$';
+      case 'EUR':
+        return '\u20AC';
+      case 'NGN':
+        return '\u20A6';
+      case 'KES':
+        return 'KSh';
+      case 'GHS':
+        return 'GH\u20B5';
+      case 'ZAR':
+        return 'R';
+      default:
+        return code;
+    }
+  }
+
   static Iterable<AccountLinkItem> _seedAccounts() {
     return const <AccountLinkItem>[
       // ── UK accounts ──

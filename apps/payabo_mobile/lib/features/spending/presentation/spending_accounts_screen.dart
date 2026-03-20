@@ -238,17 +238,11 @@ class SpendingAccountsScreen extends ConsumerWidget {
   }
 
   void _showUploadMessage(BuildContext context) {
-    _showMessage(
-      context,
-      'Statement upload will be linked from the Accounts hub next.',
-    );
+    context.push('/spending/accounts/upload-statement');
   }
 
   void _showManualMessage(BuildContext context) {
-    _showMessage(
-      context,
-      'Manual account creation will be wired into this hub next.',
-    );
+    context.push('/spending/accounts/create-manual');
   }
 
   Future<void> _handleReconnect(

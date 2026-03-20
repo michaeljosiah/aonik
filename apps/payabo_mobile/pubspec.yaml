@@ -23,6 +23,7 @@ dependencies:
   flutter_secure_storage: 10.0.0
   shared_preferences: ^2.3.2
   pinput: 6.0.2
+  file_picker: ^8.1.6
   image_picker: ^1.1.2
   local_auth: 3.0.1
   plaid_flutter: ^5.1.1

@@ -105,6 +105,13 @@ class _RecordingAccountLinksRepository implements AccountLinksRepository {
   }) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<CreateManualAccountResult> createManualAccount(
+    CreateManualAccountRequest request,
+  ) {
+    throw UnimplementedError();
+  }
 }
 
 class _DelayedRefreshAccountLinksRepository

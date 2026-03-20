@@ -366,7 +366,7 @@ class _EmptyStateFullScreen extends ConsumerWidget {
                 icon: Icons.edit_outlined,
                 title: 'Add account manually',
                 subtitle: 'Create an account and enter transactions yourself.',
-                onTap: () => context.go('/spending/accounts'),
+                onTap: () => context.push('/spending/accounts/create-manual'),
               ),
             ],
           ),
