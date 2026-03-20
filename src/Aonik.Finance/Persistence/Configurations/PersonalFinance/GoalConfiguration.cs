@@ -1,0 +1,37 @@
+using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.SharedKernel.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Aonik.Finance.Persistence.Configurations.PersonalFinance;
+
+internal class GoalConfiguration : IEntityTypeConfiguration<Goal>
+{
+    public void Configure(EntityTypeBuilder<Goal> builder)
+    {
+        builder.ToTable("Goals", SchemaNames.Default);
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.Name)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.TargetAmount)
+            .HasPrecision(19, 4);
+
+        builder.Property(x => x.ProgressAmount)
+            .HasPrecision(19, 4);
+
+        builder.Property(x => x.Currency)
+            .IsRequired()
+            .HasMaxLength(3);
+
+        builder.Property(x => x.Status)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.HasIndex(x => new { x.TenantId, x.UserId });
+        builder.HasIndex(x => new { x.TenantId, x.UserId, x.Status });
+    }
+}

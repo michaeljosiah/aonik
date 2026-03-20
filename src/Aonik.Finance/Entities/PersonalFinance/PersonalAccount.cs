@@ -15,6 +15,8 @@ public class PersonalAccount : AuditableEntity, ITenantScoped
     public string Status { get; set; } = string.Empty;
     public string? AccountSubtype { get; set; }
     public string? Last4 { get; set; }
+    public decimal CurrentBalance { get; set; }
+    public DateTime? BalanceAsOf { get; set; }
     public bool IsArchived { get; set; }
     public DateTime? OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }

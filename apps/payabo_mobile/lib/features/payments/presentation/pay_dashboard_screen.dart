@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/repositories/pay_activity_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -12,6 +13,7 @@ import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_profile_avatar.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import '../../profile/presentation/profile_state.dart';
+import '../application/pay_activity_providers.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Pay Dashboard — mirrors the Home dashboard architecture exactly.
@@ -636,8 +638,16 @@ class _PaymentOptionsRow extends StatelessWidget {
               iconColor: const Color(0xFF2465E8),
               title: 'Send money',
               subtitle: 'Transfer funds to family and friends in a few taps.',
-              actionLabel: 'Start',
-              onTap: () => context.go('/payments/friends'),
+              actionLabel: 'Coming soon',
+              onTap: () {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('Send money is coming soon.'),
+                    ),
+                  );
+              },
             ),
           ),
         ],
@@ -789,70 +799,77 @@ class _QuickSendHeader extends StatelessWidget {
 // Recent activity list — shows last 2-3 transactions with avatars/icons
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _RecentActivityList extends StatelessWidget {
+class _RecentActivityList extends ConsumerWidget {
   const _RecentActivityList();
 
-  static const List<PayActivityItem> _items = <PayActivityItem>[
-    PayActivityItem(
-      title: 'Transfer to Ama Serwaa',
-      subtitle: 'Yesterday, 07:18 PM',
-      amount: 'GHS 500.00',
-      status: 'Completed',
-      type: PayActivityType.transfer,
-    ),
-    PayActivityItem(
-      title: 'DSTV subscription',
-      subtitle: 'Monday, 11:05 AM',
-      amount: 'GHS 240.00',
-      status: 'Failed',
-      type: PayActivityType.bill,
-    ),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final activityAsync = ref.watch(payActivitySummaryProvider);
 
-    return Column(
-      children: <Widget>[
-        for (int i = 0; i < _items.length; i++) ...<Widget>[
-          PayActivityRow(
-            item: _items[i],
-            onTap: () => context.push('/payments/transaction-details'),
+    return activityAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: PayaboSpacing.x2),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          if (i < _items.length - 1)
-            Divider(
-              height: 1,
-              color: theme.colorScheme.outlineVariant
-                  .withValues(alpha: 0.3),
+        ),
+      ),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.lg),
+        child: Text(
+          'Unable to load recent activity',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+      ),
+      data: (PayActivitySummary summary) {
+        // Show at most 2 recent items on the dashboard.
+        final items = summary.transactions.take(2).toList();
+
+        if (items.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.lg),
+            child: Text(
+              'No recent activity yet',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
             ),
-        ],
-      ],
+          );
+        }
+
+        return Column(
+          children: <Widget>[
+            for (int i = 0; i < items.length; i++) ...<Widget>[
+              PayActivityRow(
+                item: items[i],
+                onTap: () => context.push(
+                  '/payments/transaction-details/${items[i].id}',
+                ),
+              ),
+              if (i < items.length - 1)
+                Divider(
+                  height: 1,
+                  color: theme.colorScheme.outlineVariant
+                      .withValues(alpha: 0.3),
+                ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Shared activity row — used by both dashboard and activity screen
+// Shared activity row — used by both dashboard and activity screen.
+// Renders a single PayActivityTransaction from the repository.
 // ═══════════════════════════════════════════════════════════════════════════
-
-enum PayActivityType { transfer, bill }
-
-class PayActivityItem {
-  const PayActivityItem({
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.status,
-    required this.type,
-  });
-
-  final String title;
-  final String subtitle;
-  final String amount;
-  final String status;
-  final PayActivityType type;
-}
 
 class PayActivityRow extends StatelessWidget {
   const PayActivityRow({
@@ -861,7 +878,7 @@ class PayActivityRow extends StatelessWidget {
     this.onTap,
   });
 
-  final PayActivityItem item;
+  final PayActivityTransaction item;
   final VoidCallback? onTap;
 
   @override
@@ -871,7 +888,7 @@ class PayActivityRow extends StatelessWidget {
     final theme = Theme.of(context);
     final Color statusColor = resolveStatusColor(c, item.status);
 
-    final IconData icon = item.type == PayActivityType.transfer
+    final IconData icon = item.type == PayActivityTransactionType.transfer
         ? Icons.send_rounded
         : Icons.receipt_long_outlined;
 
@@ -927,7 +944,7 @@ class PayActivityRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
                 Text(
-                  item.amount,
+                  item.amountLabel,
                   style: textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: theme.colorScheme.onSurface,

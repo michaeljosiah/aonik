@@ -1038,7 +1038,8 @@ class _InsightCarouselSection extends StatefulWidget {
 class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
   static const Duration _autoScrollDelay = Duration(seconds: 5);
   static const Duration _scrollAnimationDuration = Duration(milliseconds: 420);
-  static const int _pageCount = 3;
+
+  int get _pageCount => widget.isEmpty ? 1 : 3;
 
   late final PageController _pageController;
   Timer? _autoScrollTimer;
@@ -1117,15 +1118,17 @@ class _InsightCarouselSectionState extends State<_InsightCarouselSection> {
   Widget build(BuildContext context) {
     final List<Widget> pages = <Widget>[
       const _SimiCtaBannerCard(),
-      _AvailableToSpendInsightCard(
-        dueBillCount: widget.dueBillCount,
-        isEmpty: widget.isEmpty,
-        metrics: widget.metrics,
-      ),
-      _NetWorthInsightCard(
-        isEmpty: widget.isEmpty,
-        metrics: widget.metrics,
-      ),
+      if (!widget.isEmpty)
+        _AvailableToSpendInsightCard(
+          dueBillCount: widget.dueBillCount,
+          isEmpty: widget.isEmpty,
+          metrics: widget.metrics,
+        ),
+      if (!widget.isEmpty)
+        _NetWorthInsightCard(
+          isEmpty: widget.isEmpty,
+          metrics: widget.metrics,
+        ),
     ];
 
     return Column(

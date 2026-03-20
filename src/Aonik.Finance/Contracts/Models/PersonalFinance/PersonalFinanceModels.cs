@@ -56,6 +56,8 @@ public record PersonalAccountResponse(
     string Status,
     string? AccountSubtype,
     string? Last4,
+    decimal CurrentBalance,
+    DateTime? BalanceAsOf,
     bool IsArchived,
     DateTime? OpenedAt,
     DateTime? ClosedAt,

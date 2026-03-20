@@ -41,6 +41,10 @@ internal class PersonalAccountConfiguration : IEntityTypeConfiguration<PersonalA
         builder.Property(x => x.Last4)
             .HasMaxLength(4);
 
+        builder.Property(x => x.CurrentBalance)
+            .HasPrecision(19, 4)
+            .HasDefaultValue(0m);
+
         builder.Property(x => x.IsArchived)
             .HasDefaultValue(false);
 

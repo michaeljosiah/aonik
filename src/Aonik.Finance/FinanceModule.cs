@@ -80,6 +80,8 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Catalog.IPublicCatalogService, Services.Catalog.PublicCatalogService>();
 
         // PersonalFinance
+        services.AddScoped<Contracts.Services.PersonalFinance.IBillService, Services.PersonalFinance.BillService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IDashboardService, Services.PersonalFinance.DashboardService>();
         services.Configure<Services.PersonalFinance.PlaidAccountLinkOptions>(
             configuration.GetSection("Finance:PersonalFinance:Plaid"));
         services.Configure<Services.PersonalFinance.FinancialConnectionSyncOptions>(

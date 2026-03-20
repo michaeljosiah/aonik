@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/repositories/pay_activity_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
+import '../application/pay_activity_providers.dart';
+import 'pay_dashboard_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Transaction Details — Screen 3 of the Pay redesign.
@@ -18,16 +22,21 @@ import '../../../shared/widgets/payabo_warm_scaffold.dart';
 // Actions:  Download Receipt | Send Receipt | Contact Support
 // ═══════════════════════════════════════════════════════════════════════════
 
-class PayTransactionDetailsScreen extends StatefulWidget {
-  const PayTransactionDetailsScreen({super.key});
+class PayTransactionDetailsScreen extends ConsumerStatefulWidget {
+  const PayTransactionDetailsScreen({
+    super.key,
+    required this.transactionId,
+  });
+
+  final String transactionId;
 
   @override
-  State<PayTransactionDetailsScreen> createState() =>
+  ConsumerState<PayTransactionDetailsScreen> createState() =>
       _PayTransactionDetailsScreenState();
 }
 
 class _PayTransactionDetailsScreenState
-    extends State<PayTransactionDetailsScreen> {
+    extends ConsumerState<PayTransactionDetailsScreen> {
   bool _technicalDetailsExpanded = false;
 
   // Same dark charcoal gradient as the dashboard.
@@ -46,6 +55,8 @@ class _PayTransactionDetailsScreenState
   Widget build(BuildContext context) {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
+    final detailAsync =
+        ref.watch(payTransactionDetailProvider(widget.transactionId));
 
     return PayaboWarmScaffold(
       backgroundDecoration: const BoxDecoration(gradient: _backgroundGradient),
@@ -86,45 +97,91 @@ class _PayTransactionDetailsScreenState
 
             // ── Scrollable body ───────────────────────────────
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  PayaboSpacing.xl,
-                  0,
-                  PayaboSpacing.xl,
-                  PayaboSpacing.x4,
+              child: detailAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(),
                 ),
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                children: <Widget>[
-                  // ── Status banner ─────────────────────────
-                  _StatusBanner(colors: c, textTheme: textTheme),
-                  const SizedBox(height: PayaboSpacing.x2),
-
-                  // ── Amount breakdown ──────────────────────
-                  _AmountBreakdown(colors: c, textTheme: textTheme),
-                  const SizedBox(height: PayaboSpacing.x2),
-
-                  // ── Recipient section ─────────────────────
-                  _RecipientSection(colors: c, textTheme: textTheme),
-                  const SizedBox(height: PayaboSpacing.x2),
-
-                  // ── Technical details (expandable) ────────
-                  _TechnicalDetails(
-                    colors: c,
-                    textTheme: textTheme,
-                    expanded: _technicalDetailsExpanded,
-                    onToggle: () {
-                      setState(() {
-                        _technicalDetailsExpanded = !_technicalDetailsExpanded;
-                      });
-                    },
+                error: (_, __) => Center(
+                  child: Text(
+                    'Unable to load transaction details',
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
                   ),
-                  const SizedBox(height: PayaboSpacing.x3),
+                ),
+                data: (PayTransactionDetail? detail) {
+                  if (detail == null) {
+                    return Center(
+                      child: Text(
+                        'Transaction not found',
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    );
+                  }
 
-                  // ── Action buttons ────────────────────────
-                  _ActionButtons(colors: c, textTheme: textTheme),
-                ],
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      PayaboSpacing.xl,
+                      0,
+                      PayaboSpacing.xl,
+                      PayaboSpacing.x4,
+                    ),
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    children: <Widget>[
+                      // ── Status banner ─────────────────────────
+                      _StatusBanner(
+                        colors: c,
+                        textTheme: textTheme,
+                        status: detail.status,
+                        statusDescription: detail.statusDescription,
+                      ),
+                      const SizedBox(height: PayaboSpacing.x2),
+
+                      // ── Amount breakdown ──────────────────────
+                      _AmountBreakdown(
+                        colors: c,
+                        textTheme: textTheme,
+                        amountLabel: detail.amountLabel,
+                        feeLabel: detail.feeLabel,
+                        totalLabel: detail.totalLabel,
+                      ),
+                      const SizedBox(height: PayaboSpacing.x2),
+
+                      // ── Recipient section ─────────────────────
+                      _RecipientSection(
+                        colors: c,
+                        textTheme: textTheme,
+                        recipient: detail.recipient,
+                      ),
+                      const SizedBox(height: PayaboSpacing.x2),
+
+                      // ── Technical details (expandable) ────────
+                      _TechnicalDetails(
+                        colors: c,
+                        textTheme: textTheme,
+                        expanded: _technicalDetailsExpanded,
+                        onToggle: () {
+                          setState(() {
+                            _technicalDetailsExpanded =
+                                !_technicalDetailsExpanded;
+                          });
+                        },
+                        orderId: detail.orderId,
+                        paymentIntentId: detail.paymentIntentId,
+                        providerReference: detail.providerReference,
+                        reference: detail.reference,
+                      ),
+                      const SizedBox(height: PayaboSpacing.x3),
+
+                      // ── Action buttons ────────────────────────
+                      _ActionButtons(colors: c, textTheme: textTheme),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -139,16 +196,39 @@ class _PayTransactionDetailsScreenState
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({required this.colors, required this.textTheme});
+  const _StatusBanner({
+    required this.colors,
+    required this.textTheme,
+    required this.status,
+    required this.statusDescription,
+  });
 
   final PayaboColorResolver colors;
   final TextTheme textTheme;
+  final String status;
+  final String statusDescription;
 
   @override
   Widget build(BuildContext context) {
-    // Dark green background that works in both themes.
-    final Color bannerBg = colors.success.withValues(alpha: 0.15);
-    final Color checkBg = colors.success.withValues(alpha: 0.25);
+    final Color statusColor = resolveStatusColor(colors, status);
+    final Color bannerBg = statusColor.withValues(alpha: 0.15);
+    final Color checkBg = statusColor.withValues(alpha: 0.25);
+
+    final IconData statusIcon;
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'sent':
+        statusIcon = Icons.check_rounded;
+        break;
+      case 'processing':
+        statusIcon = Icons.schedule_rounded;
+        break;
+      case 'failed':
+        statusIcon = Icons.close_rounded;
+        break;
+      default:
+        statusIcon = Icons.info_outline_rounded;
+    }
 
     return Container(
       width: double.infinity,
@@ -157,13 +237,13 @@ class _StatusBanner extends StatelessWidget {
         color: bannerBg,
         borderRadius: PayaboRadii.radiusLg,
         border: Border.all(
-          color: colors.success.withValues(alpha: 0.25),
+          color: statusColor.withValues(alpha: 0.25),
           width: 0.5,
         ),
       ),
       child: Column(
         children: <Widget>[
-          // Checkmark circle
+          // Status icon circle
           Container(
             width: 44,
             height: 44,
@@ -172,8 +252,8 @@ class _StatusBanner extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.check_rounded,
-              color: colors.success,
+              statusIcon,
+              color: statusColor,
               size: 26,
             ),
           ),
@@ -181,9 +261,9 @@ class _StatusBanner extends StatelessWidget {
 
           // Status text
           Text(
-            'Completed',
+            status,
             style: textTheme.titleMedium?.copyWith(
-              color: colors.success,
+              color: statusColor,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -191,7 +271,7 @@ class _StatusBanner extends StatelessWidget {
 
           // Description
           Text(
-            'This transfer was successful.',
+            statusDescription,
             style: textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.60),
             ),
@@ -207,10 +287,19 @@ class _StatusBanner extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _AmountBreakdown extends StatelessWidget {
-  const _AmountBreakdown({required this.colors, required this.textTheme});
+  const _AmountBreakdown({
+    required this.colors,
+    required this.textTheme,
+    required this.amountLabel,
+    required this.feeLabel,
+    required this.totalLabel,
+  });
 
   final PayaboColorResolver colors;
   final TextTheme textTheme;
+  final String amountLabel;
+  final String feeLabel;
+  final String totalLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -229,13 +318,13 @@ class _AmountBreakdown extends StatelessWidget {
         children: <Widget>[
           _BreakdownRow(
             label: 'Amount',
-            value: 'GHS 500.00',
+            value: amountLabel,
             textTheme: textTheme,
           ),
           const SizedBox(height: PayaboSpacing.md),
           _BreakdownRow(
             label: 'Fee',
-            value: 'GHS 2.50',
+            value: feeLabel,
             textTheme: textTheme,
           ),
           const SizedBox(height: PayaboSpacing.md),
@@ -246,7 +335,7 @@ class _AmountBreakdown extends StatelessWidget {
           const SizedBox(height: PayaboSpacing.md),
           _BreakdownRow(
             label: 'Total',
-            value: 'GHS 502.50',
+            value: totalLabel,
             textTheme: textTheme,
             isBold: true,
           ),
@@ -298,10 +387,15 @@ class _BreakdownRow extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _RecipientSection extends StatelessWidget {
-  const _RecipientSection({required this.colors, required this.textTheme});
+  const _RecipientSection({
+    required this.colors,
+    required this.textTheme,
+    required this.recipient,
+  });
 
   final PayaboColorResolver colors;
   final TextTheme textTheme;
+  final PayTransactionRecipient recipient;
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +436,7 @@ class _RecipientSection extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    'AS',
+                    recipient.initials,
                     style: textTheme.titleSmall?.copyWith(
                       color: colors.primary,
                       fontWeight: FontWeight.w700,
@@ -356,7 +450,7 @@ class _RecipientSection extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      'Ama Serwaa',
+                      recipient.name,
                       style: textTheme.titleSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -364,7 +458,7 @@ class _RecipientSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'GCB Bank',
+                      recipient.bankName,
                       style: textTheme.bodySmall?.copyWith(
                         color: Colors.white.withValues(alpha: 0.55),
                       ),
@@ -379,13 +473,13 @@ class _RecipientSection extends StatelessWidget {
           // Account details
           _RecipientDetail(
             label: 'Account Number',
-            value: '**** **** 4521',
+            value: recipient.maskedAccountNumber,
             textTheme: textTheme,
           ),
           const SizedBox(height: PayaboSpacing.md),
           _RecipientDetail(
             label: 'Country',
-            value: 'Ghana',
+            value: recipient.country,
             textTheme: textTheme,
           ),
         ],
@@ -438,12 +532,20 @@ class _TechnicalDetails extends StatelessWidget {
     required this.textTheme,
     required this.expanded,
     required this.onToggle,
+    required this.orderId,
+    required this.paymentIntentId,
+    required this.providerReference,
+    required this.reference,
   });
 
   final PayaboColorResolver colors;
   final TextTheme textTheme;
   final bool expanded;
   final VoidCallback onToggle;
+  final String orderId;
+  final String paymentIntentId;
+  final String providerReference;
+  final String reference;
 
   @override
   Widget build(BuildContext context) {
@@ -510,25 +612,25 @@ class _TechnicalDetails extends StatelessWidget {
                   const SizedBox(height: PayaboSpacing.md),
                   _TechnicalRow(
                     label: 'Order ID',
-                    value: 'ORD-2026-0519-A7C3',
+                    value: orderId,
                     textTheme: textTheme,
                   ),
                   const SizedBox(height: PayaboSpacing.md),
                   _TechnicalRow(
                     label: 'Payment Intent ID',
-                    value: 'PI-8F42-D1E9-B6A0',
+                    value: paymentIntentId,
                     textTheme: textTheme,
                   ),
                   const SizedBox(height: PayaboSpacing.md),
                   _TechnicalRow(
                     label: 'Provider Ref',
-                    value: 'GCB-TXN-993812',
+                    value: providerReference,
                     textTheme: textTheme,
                   ),
                   const SizedBox(height: PayaboSpacing.md),
                   _TechnicalRow(
                     label: 'Reference',
-                    value: 'Family support - May',
+                    value: reference,
                     textTheme: textTheme,
                   ),
                 ],

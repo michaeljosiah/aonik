@@ -174,6 +174,8 @@ internal sealed class PersonalAccountService : IPersonalAccountService
             account.Status,
             account.AccountSubtype,
             account.Last4,
+            account.CurrentBalance,
+            account.BalanceAsOf,
             account.IsArchived,
             account.OpenedAt,
             account.ClosedAt,

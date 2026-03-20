@@ -272,9 +272,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           builder: (context, state) => const PayActivityScreen(),
         ),
         GoRoute(
-          path: '/payments/transaction-details',
+          path: '/payments/transaction-details/:transactionId',
           name: 'pay-transaction-details',
-          builder: (context, state) => const PayTransactionDetailsScreen(),
+          builder: (context, state) => PayTransactionDetailsScreen(
+            transactionId: state.pathParameters['transactionId'] ?? '',
+          ),
         ),
         GoRoute(
           path: '/dashboard/empty',

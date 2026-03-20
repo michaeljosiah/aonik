@@ -17,6 +17,7 @@ import '../../mock/repositories/mock_community_repository.dart';
 import '../../mock/repositories/mock_dashboard_repository.dart';
 import '../../mock/repositories/mock_notification_repository.dart';
 import '../../mock/repositories/mock_order_repository.dart';
+import '../../mock/repositories/mock_pay_activity_repository.dart';
 import '../../mock/repositories/mock_payment_repository.dart';
 import '../../mock/repositories/mock_personal_transactions_repository.dart';
 import '../../mock/repositories/mock_profile_repository.dart';
@@ -34,11 +35,13 @@ import 'community_repository.dart';
 import 'dashboard_repository.dart';
 import 'live_account_links_repository.dart';
 import 'live_auth_repository.dart';
+import 'live_dashboard_repository.dart';
 import 'live_personal_transactions_repository.dart';
 import 'live_profile_repository.dart';
 import 'live_setup_journey_repository.dart';
 import 'notification_repository.dart';
 import 'order_repository.dart';
+import 'pay_activity_repository.dart';
 import 'payment_repository.dart';
 import 'personal_transactions_repository.dart';
 import 'profile_repository.dart';
@@ -146,8 +149,12 @@ final Provider<DashboardRepository> dashboardRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    // Dashboard remains mock-backed until a live repository is implemented.
-    return MockDashboardRepository(demoDataMode: demoDataMode);
+    if (_shouldMock(ref)) {
+      return MockDashboardRepository(demoDataMode: demoDataMode);
+    }
+
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveDashboardRepository(apiClient: apiClient);
   },
 );
 
@@ -166,6 +173,16 @@ final Provider<OrderRepository> orderRepositoryProvider =
   (Ref ref) {
     // Orders remain mock-backed until a live repository is implemented.
     return MockOrderRepository();
+  },
+);
+
+final Provider<PayActivityRepository> payActivityRepositoryProvider =
+    Provider<PayActivityRepository>(
+  (Ref ref) {
+    final demoDataMode = ref.watch(demoDataModeProvider);
+
+    // Pay activity remains mock-backed until a live repository is implemented.
+    return MockPayActivityRepository(demoDataMode: demoDataMode);
   },
 );
 
