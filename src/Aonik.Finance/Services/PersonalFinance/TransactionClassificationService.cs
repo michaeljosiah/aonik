@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
@@ -19,17 +20,23 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
+    private readonly ITransactionAiClassifier _aiClassifier;
+    private readonly ILogger<TransactionClassificationService> _logger;
 
     public TransactionClassificationService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator,
+        ITransactionAiClassifier aiClassifier,
+        ILogger<TransactionClassificationService> logger)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
+        _aiClassifier = aiClassifier;
+        _logger = logger;
     }
 
     public async Task<CategorisationRuleResponse> CreateRuleAsync(
@@ -54,6 +61,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             UserId = userId,
             Pattern = request.Pattern.Trim(),
             Category = request.Category.Trim(),
+            SubCategory = string.IsNullOrWhiteSpace(request.SubCategory) ? null : request.SubCategory.Trim(),
             Priority = request.Priority,
             IsActive = true,
             MatchType = matchType,
@@ -114,6 +122,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
 
         rule.Pattern = request.Pattern.Trim();
         rule.Category = request.Category.Trim();
+        rule.SubCategory = string.IsNullOrWhiteSpace(request.SubCategory) ? null : request.SubCategory.Trim();
         rule.Priority = request.Priority;
         rule.IsActive = request.IsActive;
         rule.MatchType = matchType;
@@ -184,16 +193,32 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
         var transaction = await GetOwnedTransactionAsync(transactionId, cancellationToken)
             ?? throw new InvalidOperationException("Personal transaction not found.");
 
+        // Step 1: Try deterministic rule matching
         var rules = await GetActiveRulesAsync(transaction, cancellationToken);
         ApplyBestRule(transaction, rules);
+
+        // Step 2: If rules didn't match, try AI classification
+        if (string.IsNullOrWhiteSpace(transaction.Category)
+            || string.Equals(transaction.Category, TransactionCategoryReference.Uncategorized, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                await _aiClassifier.ClassifyAsync(transaction, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AI classification fallback failed for transaction {TransactionId}", transactionId);
+            }
+        }
 
         transaction.ReviewStatus = "Reviewed";
         transaction.ReviewedByUserId = GetCurrentUserId();
         transaction.ReviewedAt = DateTime.UtcNow;
 
+        // Step 3: If still unclassified, mark as Uncategorized
         if (string.IsNullOrWhiteSpace(transaction.Category))
         {
-            transaction.Category = "Uncategorized";
+            transaction.Category = TransactionCategoryReference.Uncategorized;
             transaction.Confidence = 0;
             transaction.CategorisedBy = "manual";
             transaction.ClassificationMethod = "manual_fallback";
@@ -307,21 +332,53 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
                 cancellationToken);
     }
 
+    /// <summary>
+    /// Loads active rules using scope-aware priority: User rules > Tenant rules > System rules.
+    /// Within each scope, rules are ordered by descending priority.
+    /// System rules use TenantId = Guid.Empty and UserId = Guid.Empty.
+    /// Tenant rules use the transaction's TenantId and UserId = Guid.Empty.
+    /// User rules use the transaction's TenantId and UserId.
+    /// </summary>
     private async Task<List<CategorisationRule>> GetActiveRulesAsync(
         PersonalTransaction transaction,
         CancellationToken cancellationToken)
     {
-        return await _financeDbContext.CategorisationRules
+        var rules = await _financeDbContext.CategorisationRules
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(rule =>
-                rule.TenantId == transaction.TenantId
-                && rule.UserId == transaction.UserId
-                && rule.IsActive
-                && (rule.AppliesToAccountId == null || rule.AppliesToAccountId == transaction.PersonalAccountId))
-            .OrderByDescending(rule => rule.Priority)
+                rule.IsActive
+                && !rule.IsDeleted
+                && (rule.AppliesToAccountId == null || rule.AppliesToAccountId == transaction.PersonalAccountId)
+                && (
+                    // System rules (Scope = "System", global)
+                    (rule.Scope == "System" && rule.TenantId == Guid.Empty && rule.UserId == Guid.Empty)
+                    // Tenant rules (Scope = "Tenant", same tenant)
+                    || (rule.Scope == "Tenant" && rule.TenantId == transaction.TenantId && rule.UserId == Guid.Empty)
+                    // User rules (Scope = "User", same tenant + user)
+                    || (rule.Scope == "User" && rule.TenantId == transaction.TenantId && rule.UserId == transaction.UserId)
+                ))
             .ToListAsync(cancellationToken);
+
+        // Sort: User scope first (highest priority), then Tenant, then System.
+        // Within each scope, sort by descending Priority.
+        return rules
+            .OrderBy(rule => rule.Scope switch
+            {
+                "User" => 0,
+                "Tenant" => 1,
+                "System" => 2,
+                _ => 3
+            })
+            .ThenByDescending(rule => rule.Priority)
+            .ToList();
     }
 
+    /// <summary>
+    /// Applies the first matching rule with scope-aware confidence:
+    /// User rule = 0.9, System/Tenant rule = 0.8.
+    /// Also propagates SubCategory from the matched rule.
+    /// </summary>
     private static void ApplyBestRule(PersonalTransaction transaction, IReadOnlyList<CategorisationRule> rules)
     {
         foreach (var rule in rules)
@@ -332,9 +389,17 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             }
 
             transaction.Category = rule.Category;
-            transaction.Confidence = 0.9m;
+            transaction.SubCategory = rule.SubCategory;
+
+            // Confidence tier: User-created rule = 0.9, System/Tenant = 0.8
+            transaction.Confidence = string.Equals(rule.Scope, "User", StringComparison.OrdinalIgnoreCase)
+                ? 0.9m
+                : 0.8m;
+
             transaction.CategorisedBy = "rule";
-            transaction.ClassificationMethod = "rule_engine";
+            transaction.ClassificationMethod = string.Equals(rule.Scope, "System", StringComparison.OrdinalIgnoreCase)
+                ? "system_rule"
+                : "rule_engine";
             transaction.TransactionType = TransactionCategoryReference.ResolveTransactionType(
                 transaction.Category, transaction.Amount);
             return;
@@ -475,6 +540,7 @@ internal sealed class TransactionClassificationService : ITransactionClassificat
             rule.UserId,
             rule.Pattern,
             rule.Category,
+            rule.SubCategory,
             rule.Priority,
             rule.IsActive,
             rule.MatchType,

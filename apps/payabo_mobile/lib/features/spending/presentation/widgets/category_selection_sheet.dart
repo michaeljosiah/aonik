@@ -6,37 +6,267 @@ import '../../../../shared/theme/payabo_spacing.dart';
 
 // ─────────────────────────────────────────────────────────
 //  Category data
+//
+//  The canonical category codes are defined by the backend
+//  (GET /personal-finance/categories). The [code] field
+//  must match the backend's canonical code exactly. Display
+//  names and icons here are the offline fallback; the live
+//  app should hydrate from the API on startup.
 // ─────────────────────────────────────────────────────────
 
 class CategoryItem {
   const CategoryItem({
+    required this.code,
     required this.name,
     required this.icon,
   });
 
+  /// Canonical backend category code (e.g. "groceries", "eating_out").
+  final String code;
+
+  /// User-facing display name.
   final String name;
+
   final IconData icon;
 }
 
+/// Maps a backend canonical category code to its display name.
+/// Falls back to title-casing the code if not found.
+String categoryDisplayName(String code) {
+  final CategoryItem? match = defaultCategories.cast<CategoryItem?>().firstWhere(
+    (CategoryItem? c) => c!.code == code,
+    orElse: () => null,
+  );
+  if (match != null) return match.name;
+  // Fallback: title-case the code (e.g. "eating_out" → "Eating Out")
+  return code
+      .split('_')
+      .map((String w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+}
+
+/// Maps a subcategory code to its human-readable display name.
+///
+/// Expects the subcategory code only (e.g. `"supermarket"`), with the parent
+/// [categoryCode] provided separately. Looks up the composite key
+/// `"category:subcategory"` in [_subCategoryDisplayNames]. Returns `null` if
+/// the subcategory is not recognised.
+String? subCategoryDisplayName(String categoryCode, String? subCategoryCode) {
+  if (subCategoryCode == null || subCategoryCode.isEmpty) return null;
+  return _subCategoryDisplayNames['$categoryCode:$subCategoryCode'];
+}
+
+/// Subcategory display names keyed by `"category:subcategory"`.
+///
+/// Mirrors the backend's `TransactionCategoryReference.SubCategoryMetadata`
+/// dictionary. Kept as a static offline fallback; the live app can hydrate
+/// from `GET /personal-finance/categories` at startup.
+const Map<String, String> _subCategoryDisplayNames = <String, String>{
+  // ── Income ──────────────────────────────────────────────
+  'income:salary': 'Salary',
+  'income:freelance': 'Freelance',
+  'income:benefits': 'Benefits',
+  'income:refund': 'Refund',
+  'income:interest': 'Interest',
+  'income:rental_income': 'Rental Income',
+  'income:side_hustle': 'Side Hustle',
+
+  // ── Transfer In ─────────────────────────────────────────
+  'transfer_in:own_account': 'Own Account',
+  'transfer_in:received_transfer': 'Received Transfer',
+
+  // ── Transfer Out ────────────────────────────────────────
+  'transfer_out:own_account': 'Own Account',
+  'transfer_out:sent_transfer': 'Sent Transfer',
+
+  // ── Family Support ──────────────────────────────────────
+  'family_support:remittance': 'Remittance',
+  'family_support:family_allowance': 'Family Allowance',
+  'family_support:school_fees': 'School Fees',
+  'family_support:medical_support': 'Medical Support',
+
+  // ── Housing ─────────────────────────────────────────────
+  'housing:rent': 'Rent',
+  'housing:mortgage': 'Mortgage',
+  'housing:repairs': 'Repairs & Maintenance',
+  'housing:furnishing': 'Furnishing',
+  'housing:property_tax': 'Property Tax',
+
+  // ── Groceries ───────────────────────────────────────────
+  'groceries:supermarket': 'Supermarket',
+  'groceries:market': 'Market',
+  'groceries:online_grocery': 'Online Grocery',
+  'groceries:alcohol': 'Alcohol & Drinks',
+
+  // ── Eating Out ──────────────────────────────────────────
+  'eating_out:restaurant': 'Restaurant',
+  'eating_out:fast_food': 'Fast Food',
+  'eating_out:cafe': 'Café & Coffee',
+  'eating_out:delivery': 'Food Delivery',
+  'eating_out:takeaway': 'Takeaway',
+
+  // ── Transport ───────────────────────────────────────────
+  'transport:fuel': 'Fuel',
+  'transport:public_transit': 'Public Transit',
+  'transport:ride_hailing': 'Ride Hailing',
+  'transport:parking': 'Parking',
+  'transport:car_maintenance': 'Car Maintenance',
+  'transport:tolls': 'Tolls',
+
+  // ── Bills ───────────────────────────────────────────────
+  'bills:electricity': 'Electricity',
+  'bills:water': 'Water',
+  'bills:gas': 'Gas',
+  'bills:phone': 'Phone & Mobile',
+  'bills:internet': 'Internet',
+  'bills:insurance': 'Insurance',
+  'bills:council_tax': 'Council Tax / Rates',
+  'bills:waste': 'Waste & Sewage',
+  'bills:tv_licence': 'TV Licence',
+
+  // ── Health ──────────────────────────────────────────────
+  'health:doctor': 'Doctor / GP',
+  'health:pharmacy': 'Pharmacy',
+  'health:hospital': 'Hospital',
+  'health:dental': 'Dental',
+  'health:optical': 'Optical',
+  'health:mental_health': 'Mental Health',
+
+  // ── Education ───────────────────────────────────────────
+  'education:tuition': 'Tuition Fees',
+  'education:courses': 'Courses & Training',
+  'education:books': 'Books & Materials',
+  'education:exams': 'Exams & Certification',
+
+  // ── Shopping ────────────────────────────────────────────
+  'shopping:clothing': 'Clothing & Accessories',
+  'shopping:electronics': 'Electronics',
+  'shopping:home_goods': 'Home & Garden',
+  'shopping:online': 'Online Shopping',
+  'shopping:department_store': 'Department Store',
+
+  // ── Personal Care ───────────────────────────────────────
+  'personal_care:haircut': 'Haircut & Barber',
+  'personal_care:beauty': 'Beauty & Spa',
+  'personal_care:cosmetics': 'Cosmetics',
+
+  // ── Gifts ───────────────────────────────────────────────
+  'gifts:gift_card': 'Gift Card',
+  'gifts:present': 'Present',
+  'gifts:flowers': 'Flowers',
+
+  // ── Entertainment ───────────────────────────────────────
+  'entertainment:cinema': 'Cinema',
+  'entertainment:gaming': 'Gaming',
+  'entertainment:events': 'Events & Concerts',
+  'entertainment:gambling': 'Gambling & Betting',
+
+  // ── Subscriptions ───────────────────────────────────────
+  'subscriptions:streaming': 'Streaming',
+  'subscriptions:music': 'Music',
+  'subscriptions:software': 'Software',
+  'subscriptions:news': 'News & Magazines',
+  'subscriptions:cloud_storage': 'Cloud Storage',
+
+  // ── Travel ──────────────────────────────────────────────
+  'travel:flights': 'Flights',
+  'travel:hotel': 'Hotel & Accommodation',
+  'travel:car_rental': 'Car Rental',
+  'travel:booking': 'Travel Booking',
+
+  // ── Fitness ─────────────────────────────────────────────
+  'fitness:gym': 'Gym Membership',
+  'fitness:sports': 'Sports & Activities',
+  'fitness:equipment': 'Equipment',
+
+  // ── Pets ────────────────────────────────────────────────
+  'pets:food': 'Pet Food',
+  'pets:vet': 'Vet',
+  'pets:supplies': 'Pet Supplies',
+
+  // ── Savings ─────────────────────────────────────────────
+  'savings:emergency_fund': 'Emergency Fund',
+  'savings:goal_savings': 'Goal Savings',
+  'savings:fixed_deposit': 'Fixed Deposit',
+
+  // ── Investments ─────────────────────────────────────────
+  'investments:stocks': 'Stocks & Shares',
+  'investments:crypto': 'Crypto',
+  'investments:funds': 'Funds & ISA',
+  'investments:pension': 'Pension',
+
+  // ── Loan Payments ───────────────────────────────────────
+  'loan_payments:personal_loan': 'Personal Loan',
+  'loan_payments:bnpl': 'Buy Now Pay Later',
+  'loan_payments:credit_card': 'Credit Card',
+  'loan_payments:student_loan': 'Student Loan',
+
+  // ── Bank Fees ───────────────────────────────────────────
+  'bank_fees:overdraft': 'Overdraft Fee',
+  'bank_fees:atm': 'ATM Fee',
+  'bank_fees:card_fee': 'Card Fee',
+  'bank_fees:foreign_tx': 'Foreign Transaction Fee',
+  'bank_fees:sms_alert': 'SMS Alert Fee',
+
+  // ── Charity ─────────────────────────────────────────────
+  'charity:donation': 'Donation',
+  'charity:religious': 'Religious Giving',
+  'charity:crowdfunding': 'Crowdfunding',
+};
+
+/// Maps a backend canonical category code to an icon.
+/// Falls back to a generic category icon if not found.
+IconData categoryIcon(String code) {
+  final CategoryItem? match = defaultCategories.cast<CategoryItem?>().firstWhere(
+    (CategoryItem? c) => c!.code == code,
+    orElse: () => null,
+  );
+  return match?.icon ?? Icons.category_outlined;
+}
+
+/// The 26 canonical categories aligned with the backend taxonomy.
+/// Sorted by group and sort order to match the API response.
 const List<CategoryItem> defaultCategories = <CategoryItem>[
-  CategoryItem(name: 'Housing', icon: Icons.home_outlined),
-  CategoryItem(name: 'Groceries', icon: Icons.shopping_cart_outlined),
-  CategoryItem(name: 'Eating Out', icon: Icons.restaurant_outlined),
-  CategoryItem(name: 'Transport', icon: Icons.directions_car_outlined),
-  CategoryItem(name: 'Shopping', icon: Icons.shopping_bag_outlined),
-  CategoryItem(name: 'Entertainment', icon: Icons.movie_outlined),
-  CategoryItem(name: 'Bills', icon: Icons.receipt_long_outlined),
-  CategoryItem(name: 'Health', icon: Icons.favorite_outline),
-  CategoryItem(name: 'Education', icon: Icons.school_outlined),
-  CategoryItem(name: 'Personal Care', icon: Icons.spa_outlined),
-  CategoryItem(name: 'Gifts', icon: Icons.card_giftcard_outlined),
-  CategoryItem(name: 'Travel', icon: Icons.flight_outlined),
-  CategoryItem(name: 'Savings', icon: Icons.savings_outlined),
-  CategoryItem(name: 'Subscriptions', icon: Icons.subscriptions_outlined),
-  CategoryItem(name: 'Charity', icon: Icons.volunteer_activism_outlined),
-  CategoryItem(name: 'Fitness', icon: Icons.fitness_center_outlined),
-  CategoryItem(name: 'Pets', icon: Icons.pets_outlined),
-  CategoryItem(name: 'Investments', icon: Icons.trending_up_outlined),
+  // Income
+  CategoryItem(code: 'income', name: 'Income', icon: Icons.account_balance_wallet_outlined),
+
+  // Transfers
+  CategoryItem(code: 'transfer_in', name: 'Transfer In', icon: Icons.call_received_outlined),
+  CategoryItem(code: 'transfer_out', name: 'Transfer Out', icon: Icons.call_made_outlined),
+  CategoryItem(code: 'family_support', name: 'Family Support', icon: Icons.family_restroom_outlined),
+
+  // Essentials
+  CategoryItem(code: 'housing', name: 'Housing', icon: Icons.home_outlined),
+  CategoryItem(code: 'groceries', name: 'Groceries', icon: Icons.shopping_cart_outlined),
+  CategoryItem(code: 'eating_out', name: 'Eating Out', icon: Icons.restaurant_outlined),
+  CategoryItem(code: 'transport', name: 'Transport', icon: Icons.directions_car_outlined),
+  CategoryItem(code: 'bills', name: 'Bills', icon: Icons.receipt_long_outlined),
+  CategoryItem(code: 'health', name: 'Health', icon: Icons.favorite_outline),
+  CategoryItem(code: 'education', name: 'Education', icon: Icons.school_outlined),
+
+  // Shopping
+  CategoryItem(code: 'shopping', name: 'Shopping', icon: Icons.shopping_bag_outlined),
+  CategoryItem(code: 'personal_care', name: 'Personal Care', icon: Icons.spa_outlined),
+  CategoryItem(code: 'gifts', name: 'Gifts', icon: Icons.card_giftcard_outlined),
+
+  // Lifestyle
+  CategoryItem(code: 'entertainment', name: 'Entertainment', icon: Icons.movie_outlined),
+  CategoryItem(code: 'subscriptions', name: 'Subscriptions', icon: Icons.subscriptions_outlined),
+  CategoryItem(code: 'travel', name: 'Travel', icon: Icons.flight_outlined),
+  CategoryItem(code: 'fitness', name: 'Fitness', icon: Icons.fitness_center_outlined),
+  CategoryItem(code: 'pets', name: 'Pets', icon: Icons.pets_outlined),
+
+  // Financial
+  CategoryItem(code: 'savings', name: 'Savings', icon: Icons.savings_outlined),
+  CategoryItem(code: 'investments', name: 'Investments', icon: Icons.trending_up_outlined),
+  CategoryItem(code: 'loan_payments', name: 'Loan Payments', icon: Icons.money_off_outlined),
+  CategoryItem(code: 'bank_fees', name: 'Bank Fees', icon: Icons.account_balance_outlined),
+
+  // Services
+  CategoryItem(code: 'charity', name: 'Charity', icon: Icons.volunteer_activism_outlined),
+
+  // Other
+  CategoryItem(code: 'other', name: 'Other', icon: Icons.more_horiz_outlined),
 ];
 
 // ─────────────────────────────────────────────────────────
@@ -167,14 +397,14 @@ class _CategorySelectionSheetState extends State<_CategorySelectionSheet> {
                         itemCount: _categories.length,
                         itemBuilder: (BuildContext context, int index) {
                           final CategoryItem category = _categories[index];
-                          final bool isSelected = category.name.toLowerCase() ==
-                              widget.currentCategory.toLowerCase();
+                          final bool isSelected =
+                              category.code == widget.currentCategory;
 
                           return _CategoryGridItem(
                             category: category,
                             isSelected: isSelected,
                             onTap: () {
-                              Navigator.of(context).pop(category.name);
+                              Navigator.of(context).pop(category.code);
                             },
                           );
                         },
@@ -338,13 +568,21 @@ class _CategorySelectionSheetState extends State<_CategorySelectionSheet> {
                   onPressed: () {
                     final String name = controller.text.trim();
                     if (name.isNotEmpty) {
+                      // Derive a snake_case code from the user-typed name
+                      // so the sheet consistently returns codes, not
+                      // display names.
+                      final String code = name
+                          .toLowerCase()
+                          .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+                          .trim()
+                          .replaceAll(RegExp(r'\s+'), '_');
                       // Close the dialog first, then pop the sheet
                       // on the next frame to avoid concurrent rebuild
                       // + navigation causing semantics assertion.
                       Navigator.of(dialogContext).pop();
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) {
-                          Navigator.of(this.context).pop(name);
+                          Navigator.of(this.context).pop(code);
                         }
                       });
                     }

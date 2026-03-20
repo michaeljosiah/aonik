@@ -69,7 +69,7 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
         }
 
         return expenseRows
-            .GroupBy(item => string.IsNullOrWhiteSpace(item.Category) ? "Uncategorized" : item.Category!)
+            .GroupBy(item => string.IsNullOrWhiteSpace(item.Category) ? TransactionCategoryReference.Uncategorized : item.Category!)
             .Select(group =>
             {
                 var categoryTotal = Math.Abs(group.Sum(item => item.Amount));

@@ -93,6 +93,7 @@ class SpendingTransaction {
     required this.id,
     required this.merchant,
     required this.category,
+    this.subCategory,
     required this.amountLabel,
     required this.amountMajor,
     required this.amountMinor,
@@ -110,6 +111,10 @@ class SpendingTransaction {
   final String id;
   final String merchant;
   final String category;
+
+  /// System-assigned subcategory code (e.g. `'supermarket'`, `'streaming'`).
+  /// Display-only — users cannot select subcategories directly.
+  final String? subCategory;
   final String amountLabel;
   final String amountMajor;
   final String amountMinor;
@@ -211,6 +216,7 @@ class SpendingRecentTransaction {
   const SpendingRecentTransaction({
     required this.merchant,
     required this.category,
+    this.subCategory,
     required this.amountLabel,
     required this.iconText,
     required this.iconBackgroundKey,
@@ -219,6 +225,9 @@ class SpendingRecentTransaction {
 
   final String merchant;
   final String category;
+
+  /// System-assigned subcategory code. Display-only.
+  final String? subCategory;
   final String amountLabel;
   final String iconText;
   final String iconBackgroundKey;

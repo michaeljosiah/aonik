@@ -297,7 +297,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t01',
         merchant: 'Open Rent',
-        category: 'Housing',
+        category: 'housing',
+        subCategory: 'rent',
         amountLabel: '+\u00A31,450.00',
         amountMajor: '1,450',
         amountMinor: '.00',
@@ -311,7 +312,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t02',
         merchant: 'Tesco',
-        category: 'Groceries',
+        category: 'groceries',
+        subCategory: 'supermarket',
         amountLabel: '-\u00A354.12',
         amountMajor: '54',
         amountMinor: '.12',
@@ -324,7 +326,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t03',
         merchant: 'Uber',
-        category: 'Transport',
+        category: 'transport',
+        subCategory: 'ride_hailing',
         amountLabel: '-\u00A314.20',
         amountMajor: '14',
         amountMinor: '.20',
@@ -337,7 +340,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t04',
         merchant: 'Amazon',
-        category: 'Shopping',
+        category: 'shopping',
+        subCategory: 'online',
         amountLabel: '-\u00A327.99',
         amountMajor: '27',
         amountMinor: '.99',
@@ -350,7 +354,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t05',
         merchant: "Nando's",
-        category: 'Dining',
+        category: 'eating_out',
+        subCategory: 'restaurant',
         amountLabel: '-\u00A328.45',
         amountMajor: '28',
         amountMinor: '.45',
@@ -363,7 +368,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t06',
         merchant: 'TfL',
-        category: 'Transport',
+        category: 'transport',
+        subCategory: 'public_transit',
         amountLabel: '-\u00A37.40',
         amountMajor: '7',
         amountMinor: '.40',
@@ -376,7 +382,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t07',
         merchant: 'Sainsbury\'s',
-        category: 'Groceries',
+        category: 'groceries',
+        subCategory: 'supermarket',
         amountLabel: '-\u00A362.30',
         amountMajor: '62',
         amountMinor: '.30',
@@ -389,7 +396,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t08',
         merchant: 'Shell',
-        category: 'Transport',
+        category: 'transport',
+        subCategory: 'fuel',
         amountLabel: '-\u00A358.40',
         amountMajor: '58',
         amountMinor: '.40',
@@ -402,7 +410,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t09',
         merchant: 'Gym Group',
-        category: 'Health',
+        category: 'health',
+        subCategory: 'gym',
         amountLabel: '-\u00A324.99',
         amountMajor: '24',
         amountMinor: '.99',
@@ -415,7 +424,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t10',
         merchant: 'Boots',
-        category: 'Health',
+        category: 'health',
+        subCategory: 'pharmacy',
         amountLabel: '-\u00A312.50',
         amountMajor: '12',
         amountMinor: '.50',
@@ -428,7 +438,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t11',
         merchant: 'Deliveroo',
-        category: 'Dining',
+        category: 'eating_out',
+        subCategory: 'delivery',
         amountLabel: '-\u00A319.80',
         amountMajor: '19',
         amountMinor: '.80',
@@ -441,7 +452,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t12',
         merchant: 'British Gas',
-        category: 'Utilities',
+        category: 'bills',
+        subCategory: 'gas',
         amountLabel: '-\u00A386.00',
         amountMajor: '86',
         amountMinor: '.00',
@@ -454,7 +466,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t13',
         merchant: 'Pret A Manger',
-        category: 'Dining',
+        category: 'eating_out',
+        subCategory: 'cafe',
         amountLabel: '-\u00A35.60',
         amountMajor: '5',
         amountMinor: '.60',
@@ -467,7 +480,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t14',
         merchant: 'Vodafone',
-        category: 'Utilities',
+        category: 'bills',
+        subCategory: 'phone',
         amountLabel: '-\u00A325.00',
         amountMajor: '25',
         amountMinor: '.00',
@@ -480,7 +494,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uk-t15',
         merchant: 'John Lewis',
-        category: 'Shopping',
+        category: 'shopping',
+        subCategory: 'department_store',
         amountLabel: '-\u00A389.00',
         amountMajor: '89',
         amountMinor: '.00',
@@ -496,7 +511,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uks-t01',
         merchant: 'Auto-save',
-        category: 'Savings',
+        category: 'savings',
+        subCategory: 'goal_savings',
         amountLabel: '+\u00A3200.00',
         amountMajor: '200',
         amountMinor: '.00',
@@ -510,7 +526,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uks-t02',
         merchant: 'Starling Interest',
-        category: 'Income',
+        category: 'income',
+        subCategory: 'interest',
         amountLabel: '+\u00A34.80',
         amountMajor: '4',
         amountMinor: '.80',
@@ -524,7 +541,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'uks-t03',
         merchant: 'Auto-save',
-        category: 'Savings',
+        category: 'savings',
+        subCategory: 'goal_savings',
         amountLabel: '+\u00A3200.00',
         amountMajor: '200',
         amountMinor: '.00',
@@ -541,7 +559,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ukc-t01',
         merchant: 'Netflix',
-        category: 'Entertainment',
+        category: 'subscriptions',
+        subCategory: 'streaming',
         amountLabel: '-\u00A315.99',
         amountMajor: '15',
         amountMinor: '.99',
@@ -554,7 +573,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ukc-t02',
         merchant: 'Spotify',
-        category: 'Entertainment',
+        category: 'subscriptions',
+        subCategory: 'streaming',
         amountLabel: '-\u00A310.99',
         amountMajor: '10',
         amountMinor: '.99',
@@ -567,7 +587,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ukc-t03',
         merchant: 'Apple iCloud',
-        category: 'Entertainment',
+        category: 'subscriptions',
+        subCategory: 'cloud_storage',
         amountLabel: '-\u00A30.99',
         amountMajor: '0',
         amountMinor: '.99',
@@ -580,7 +601,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ukc-t04',
         merchant: 'Amazon Prime',
-        category: 'Entertainment',
+        category: 'subscriptions',
+        subCategory: 'streaming',
         amountLabel: '-\u00A38.99',
         amountMajor: '8',
         amountMinor: '.99',
@@ -593,7 +615,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ukc-t05',
         merchant: 'ASOS',
-        category: 'Shopping',
+        category: 'shopping',
+        subCategory: 'clothing',
         amountLabel: '-\u00A345.60',
         amountMajor: '45',
         amountMinor: '.60',
@@ -606,7 +629,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ukc-t06',
         merchant: 'EasyJet',
-        category: 'Travel',
+        category: 'travel',
+        subCategory: 'flights',
         amountLabel: '-\u00A3189.00',
         amountMajor: '189',
         amountMinor: '.00',
@@ -622,7 +646,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t01',
         merchant: 'Shoprite Lekki',
-        category: 'Groceries',
+        category: 'groceries',
+        subCategory: 'supermarket',
         amountLabel: '-\u20A618,500.00',
         amountMajor: '18,500',
         amountMinor: '.00',
@@ -635,7 +660,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t02',
         merchant: 'Eko Electricity',
-        category: 'Utilities',
+        category: 'bills',
+        subCategory: 'electricity',
         amountLabel: '-\u20A612,000.00',
         amountMajor: '12,000',
         amountMinor: '.00',
@@ -648,7 +674,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t03',
         merchant: 'Bolt',
-        category: 'Transport',
+        category: 'transport',
+        subCategory: 'ride_hailing',
         amountLabel: '-\u20A64,200.00',
         amountMajor: '4,200',
         amountMinor: '.00',
@@ -661,7 +688,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t04',
         merchant: 'MTN Data',
-        category: 'Utilities',
+        category: 'bills',
+        subCategory: 'internet',
         amountLabel: '-\u20A63,500.00',
         amountMajor: '3,500',
         amountMinor: '.00',
@@ -674,7 +702,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t05',
         merchant: 'Chicken Republic',
-        category: 'Dining',
+        category: 'eating_out',
+        subCategory: 'fast_food',
         amountLabel: '-\u20A65,800.00',
         amountMajor: '5,800',
         amountMinor: '.00',
@@ -687,7 +716,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t06',
         merchant: 'Salary Credit',
-        category: 'Income',
+        category: 'income',
+        subCategory: 'salary',
         amountLabel: '+\u20A6750,000.00',
         amountMajor: '750,000',
         amountMinor: '.00',
@@ -701,7 +731,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t07',
         merchant: 'Lagos Water Corp',
-        category: 'Utilities',
+        category: 'bills',
+        subCategory: 'water',
         amountLabel: '-\u20A68,000.00',
         amountMajor: '8,000',
         amountMinor: '.00',
@@ -714,7 +745,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t08',
         merchant: 'Jumia',
-        category: 'Shopping',
+        category: 'shopping',
+        subCategory: 'online',
         amountLabel: '-\u20A625,400.00',
         amountMajor: '25,400',
         amountMinor: '.00',
@@ -727,7 +759,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t09',
         merchant: 'DStv',
-        category: 'Entertainment',
+        category: 'subscriptions',
+        subCategory: 'streaming',
         amountLabel: '-\u20A621,000.00',
         amountMajor: '21,000',
         amountMinor: '.00',
@@ -740,7 +773,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t10',
         merchant: 'Mama Put',
-        category: 'Dining',
+        category: 'eating_out',
+        subCategory: 'restaurant',
         amountLabel: '-\u20A62,500.00',
         amountMajor: '2,500',
         amountMinor: '.00',
@@ -753,7 +787,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t11',
         merchant: 'Uber',
-        category: 'Transport',
+        category: 'transport',
+        subCategory: 'ride_hailing',
         amountLabel: '-\u20A63,800.00',
         amountMajor: '3,800',
         amountMinor: '.00',
@@ -766,7 +801,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ng-t12',
         merchant: 'Total Fuel',
-        category: 'Transport',
+        category: 'transport',
+        subCategory: 'fuel',
         amountLabel: '-\u20A615,000.00',
         amountMajor: '15,000',
         amountMinor: '.00',
@@ -782,7 +818,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ngs-t01',
         merchant: 'Auto-save',
-        category: 'Savings',
+        category: 'savings',
+        subCategory: 'goal_savings',
         amountLabel: '+\u20A650,000.00',
         amountMajor: '50,000',
         amountMinor: '.00',
@@ -796,7 +833,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ngs-t02',
         merchant: 'Kuda Interest',
-        category: 'Income',
+        category: 'income',
+        subCategory: 'interest',
         amountLabel: '+\u20A61,250.00',
         amountMajor: '1,250',
         amountMinor: '.00',
@@ -813,7 +851,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ngd-t01',
         merchant: 'Freelance Client (USD)',
-        category: 'Income',
+        category: 'income',
+        subCategory: 'freelance',
         amountLabel: '+\$1,200.00',
         amountMajor: '1,200',
         amountMinor: '.00',
@@ -827,7 +866,8 @@ class MockSpendingRepository implements SpendingRepository {
       SpendingTransaction(
         id: 'ngd-t02',
         merchant: 'FX Conversion to NGN',
-        category: 'Transfer',
+        category: 'transfer_out',
+        subCategory: 'own_account',
         amountLabel: '-\$500.00',
         amountMajor: '500',
         amountMinor: '.00',
@@ -857,7 +897,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-01',
       merchant: 'Salary Credit',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'salary',
       amountMajor: '3,200',
       amountMinor: '.00',
       isCredit: true,
@@ -868,7 +909,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-02',
       merchant: 'Tesco',
-      category: 'Groceries',
+      category: 'groceries',
+      subCategory: 'supermarket',
       amountMajor: '47',
       amountMinor: '.85',
       isCredit: false,
@@ -878,7 +920,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-03',
       merchant: 'TfL',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'public_transit',
       amountMajor: '8',
       amountMinor: '.60',
       isCredit: false,
@@ -888,7 +931,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-04',
       merchant: 'Netflix',
-      category: 'Entertainment',
+      category: 'subscriptions',
+      subCategory: 'streaming',
       amountMajor: '15',
       amountMinor: '.99',
       isCredit: false,
@@ -898,7 +942,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-05',
       merchant: 'Costa Coffee',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'cafe',
       amountMajor: '4',
       amountMinor: '.50',
       isCredit: false,
@@ -912,7 +957,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-01',
       merchant: 'Salary Credit',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'salary',
       amountMajor: '450,000',
       amountMinor: '.00',
       isCredit: true,
@@ -923,7 +969,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-02',
       merchant: 'Shoprite',
-      category: 'Groceries',
+      category: 'groceries',
+      subCategory: 'supermarket',
       amountMajor: '12,800',
       amountMinor: '.00',
       isCredit: false,
@@ -933,7 +980,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-03',
       merchant: 'Bolt',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'ride_hailing',
       amountMajor: '3,500',
       amountMinor: '.00',
       isCredit: false,
@@ -943,7 +991,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-04',
       merchant: 'MTN Data',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'internet',
       amountMajor: '2,000',
       amountMinor: '.00',
       isCredit: false,
@@ -953,7 +1002,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-05',
       merchant: 'Chicken Republic',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'fast_food',
       amountMajor: '4,200',
       amountMinor: '.00',
       isCredit: false,
@@ -967,7 +1017,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-01',
       merchant: 'Wire Transfer In',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'freelance',
       amountMajor: '2,500',
       amountMinor: '.00',
       isCredit: true,
@@ -978,7 +1029,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-02',
       merchant: 'Amazon',
-      category: 'Shopping',
+      category: 'shopping',
+      subCategory: 'online',
       amountMajor: '34',
       amountMinor: '.99',
       isCredit: false,
@@ -988,7 +1040,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-03',
       merchant: 'Uber',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'ride_hailing',
       amountMajor: '18',
       amountMinor: '.40',
       isCredit: false,
@@ -998,7 +1051,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-04',
       merchant: 'Starbucks',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'cafe',
       amountMajor: '6',
       amountMinor: '.25',
       isCredit: false,
@@ -1008,7 +1062,8 @@ class MockSpendingRepository implements SpendingRepository {
     _SyntheticTxTemplate(
       idSuffix: 'syn-05',
       merchant: 'Con Edison',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'electricity',
       amountMajor: '95',
       amountMinor: '.00',
       isCredit: false,
@@ -1055,6 +1110,7 @@ class MockSpendingRepository implements SpendingRepository {
         id: '${account.id}-${t.idSuffix}',
         merchant: t.merchant,
         category: t.category,
+        subCategory: t.subCategory,
         amountLabel: '$sign$symbol${t.amountMajor}${t.amountMinor}',
         amountMajor: t.amountMajor,
         amountMinor: t.amountMinor,
@@ -1414,7 +1470,8 @@ class MockSpendingRepository implements SpendingRepository {
       recentTransactions: const <SpendingRecentTransaction>[
         SpendingRecentTransaction(
           merchant: 'Uber',
-          category: 'Transport',
+          category: 'transport',
+          subCategory: 'ride_hailing',
           amountLabel: '\u00A314.20',
           iconText: 'U',
           iconBackgroundKey: 'dark',
@@ -1422,7 +1479,8 @@ class MockSpendingRepository implements SpendingRepository {
         ),
         SpendingRecentTransaction(
           merchant: 'Amazon',
-          category: 'Shopping',
+          category: 'shopping',
+          subCategory: 'online',
           amountLabel: '\u00A327.99',
           iconText: 'a',
           iconBackgroundKey: 'warmSurface',
@@ -1430,7 +1488,8 @@ class MockSpendingRepository implements SpendingRepository {
         ),
         SpendingRecentTransaction(
           merchant: "Nando's",
-          category: 'Dining',
+          category: 'eating_out',
+          subCategory: 'restaurant',
           amountLabel: '\u00A328.45',
           iconText: 'N',
           iconBackgroundKey: 'warmAccent',
@@ -1438,7 +1497,8 @@ class MockSpendingRepository implements SpendingRepository {
         ),
         SpendingRecentTransaction(
           merchant: 'Shoprite Lekki',
-          category: 'Groceries',
+          category: 'groceries',
+          subCategory: 'supermarket',
           amountLabel: '\u20A618,500',
           iconText: 'SR',
           iconBackgroundKey: 'dark',
@@ -1446,7 +1506,8 @@ class MockSpendingRepository implements SpendingRepository {
         ),
         SpendingRecentTransaction(
           merchant: 'Eko Electricity',
-          category: 'Utilities',
+          category: 'bills',
+          subCategory: 'electricity',
           amountLabel: '\u20A612,000',
           iconText: 'EE',
           iconBackgroundKey: 'warmSurface',
@@ -1532,6 +1593,7 @@ class _SyntheticTxTemplate {
     required this.idSuffix,
     required this.merchant,
     required this.category,
+    this.subCategory,
     required this.amountMajor,
     required this.amountMinor,
     required this.isCredit,
@@ -1544,6 +1606,7 @@ class _SyntheticTxTemplate {
   final String idSuffix;
   final String merchant;
   final String category;
+  final String? subCategory;
   final String amountMajor;
   final String amountMinor;
   final bool isCredit;

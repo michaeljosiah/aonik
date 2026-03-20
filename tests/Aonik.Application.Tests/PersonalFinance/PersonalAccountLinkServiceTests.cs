@@ -166,7 +166,7 @@ public class PersonalAccountLinkServiceTests
                         "USD",
                         "Blue Bottle",
                         "Morning coffee",
-                        "food_and_drink",
+                        "eating_out",
                         null,
                         false),
                     new(
@@ -177,7 +177,7 @@ public class PersonalAccountLinkServiceTests
                         "USD",
                         "Fresh Market",
                         "Weekly groceries",
-                        "shops",
+                        "groceries",
                         null,
                         false)
                 },

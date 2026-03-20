@@ -42,7 +42,7 @@ class _ManualTransactionCreateScreenState
   final TextEditingController _notesController = TextEditingController();
 
   bool _isCredit = false;
-  String _category = 'General';
+  String _category = 'other';
   DateTime _date = DateTime.now();
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -292,7 +292,7 @@ class _ManualTransactionCreateScreenState
                               children: <Widget>[
                                 Expanded(
                                   child: Text(
-                                    _category,
+                                    categoryDisplayName(_category),
                                     style: _inputTextStyle(context),
                                   ),
                                 ),

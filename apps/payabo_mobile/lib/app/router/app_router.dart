@@ -410,6 +410,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
               transactionId: state.pathParameters['transactionId'] ?? '',
               merchant: extra['merchant'] as String?,
               category: extra['category'] as String?,
+              subCategory: extra['subCategory'] as String?,
               amountLabel: extra['amountLabel'] as String?,
               amountMajor: extra['amountMajor'] as String?,
               amountMinor: extra['amountMinor'] as String?,

@@ -563,19 +563,14 @@ internal sealed class PlaidAccountLinkProviderGateway : IPersonalAccountLinkProv
 
     private static string? ResolveCategory(PlaidPersonalFinanceCategory? category)
     {
-        return TransactionCategoryReference.MapPlaidPrimaryCategory(category?.Primary);
+        return TransactionCategoryReference.MapPlaidCategory(category?.Primary, category?.Detailed);
     }
 
     private static string? ResolveSubCategory(PlaidPersonalFinanceCategory? category)
     {
-        if (string.IsNullOrWhiteSpace(category?.Detailed))
-        {
-            return null;
-        }
-
-        return category!.Detailed
-            .Replace("_", " ", StringComparison.Ordinal)
-            .Trim();
+        var (_, subCategory) = TransactionCategoryReference.MapPlaidCategoryWithSubCategory(
+            category?.Primary, category?.Detailed);
+        return subCategory;
     }
 
     private static string MapAccountType(string? value)

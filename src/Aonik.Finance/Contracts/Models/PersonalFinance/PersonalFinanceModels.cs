@@ -309,6 +309,7 @@ public record StatementImportApplyResponse(
 public record CreateCategorisationRuleRequest(
     string Pattern,
     string Category,
+    string? SubCategory,
     int Priority,
     string MatchType,
     bool CaseSensitive,
@@ -320,6 +321,7 @@ public record CreateCategorisationRuleRequest(
 public record UpdateCategorisationRuleRequest(
     string Pattern,
     string Category,
+    string? SubCategory,
     int Priority,
     bool IsActive,
     string MatchType,
@@ -335,6 +337,7 @@ public record CategorisationRuleResponse(
     Guid UserId,
     string Pattern,
     string Category,
+    string? SubCategory,
     int Priority,
     bool IsActive,
     string MatchType,
@@ -550,3 +553,27 @@ public record TransactionAttachmentResponse(
     string? ThumbnailUrl,
     long FileSizeBytes,
     DateTime CreatedAt);
+
+// ── Transaction Category Reference ─────────────────────────────────────────
+
+public record TransactionCategoryResponse(
+    string Code,
+    string DisplayName,
+    string GroupName,
+    string? IconName,
+    int SortOrder,
+    IReadOnlyList<TransactionSubCategoryResponse>? SubCategories);
+
+public record TransactionSubCategoryResponse(
+    string Code,
+    string DisplayName,
+    string? IconName,
+    int SortOrder);
+
+public record TransactionCategoryListResponse(
+    IReadOnlyList<TransactionCategoryGroupResponse> Groups,
+    IReadOnlyList<TransactionCategoryResponse> Categories);
+
+public record TransactionCategoryGroupResponse(
+    string GroupName,
+    IReadOnlyList<TransactionCategoryResponse> Categories);

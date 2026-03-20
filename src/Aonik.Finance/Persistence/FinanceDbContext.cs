@@ -239,6 +239,20 @@ internal class FinanceDbContext : AonikDbContextBase
             .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
     }
 
+    /// <summary>
+    /// Recognises Finance-domain entities that legitimately have TenantId == Guid.Empty
+    /// and should NOT be stamped with the current tenant on write.
+    /// Currently: CategorisationRule entities with Scope == "System".
+    /// </summary>
+    protected override bool IsGlobalEntity(object entity)
+    {
+        if (base.IsGlobalEntity(entity))
+            return true;
+
+        return entity is CategorisationRule rule
+            && string.Equals(rule.Scope, "System", StringComparison.OrdinalIgnoreCase);
+    }
+
     protected override void OnBeforeSave()
     {
         PopulateOrderCompatibilityColumns();

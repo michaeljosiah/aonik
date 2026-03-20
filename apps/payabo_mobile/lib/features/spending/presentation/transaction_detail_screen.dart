@@ -50,6 +50,7 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
     required this.transactionId,
     this.merchant,
     this.category,
+    this.subCategory,
     this.amountLabel,
     this.amountMajor,
     this.amountMinor,
@@ -65,6 +66,7 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
   final String transactionId;
   final String? merchant;
   final String? category;
+  final String? subCategory;
   final String? amountLabel;
   final String? amountMajor;
   final String? amountMinor;
@@ -85,11 +87,13 @@ class _TransactionDetailScreenState
     extends ConsumerState<TransactionDetailScreen> {
   bool _excludeFromBudget = false;
   late String _currentCategory;
+  String? _currentSubCategory;
 
   @override
   void initState() {
     super.initState();
-    _currentCategory = widget.category ?? 'General';
+    _currentCategory = widget.category ?? 'other';
+    _currentSubCategory = widget.subCategory;
   }
 
   @override
@@ -176,6 +180,7 @@ class _TransactionDetailScreenState
                     // ── Category card ───────────────────────
                     _CategoryCard(
                       category: _currentCategory,
+                      subCategory: _currentSubCategory,
                       onTap: () => _showCategorySheet(context),
                     ),
 
@@ -232,7 +237,12 @@ class _TransactionDetailScreenState
       currentCategory: _currentCategory,
     );
     if (result != null && mounted) {
-      setState(() => _currentCategory = result);
+      setState(() {
+        _currentCategory = result;
+        // Subcategory is system-assigned; reset when the user overrides the
+        // top-level category so we don't show a stale subcategory.
+        _currentSubCategory = null;
+      });
     }
   }
 }
@@ -520,10 +530,12 @@ class _ExcludeFromBudgetCard extends StatelessWidget {
 class _CategoryCard extends StatelessWidget {
   const _CategoryCard({
     required this.category,
+    this.subCategory,
     required this.onTap,
   });
 
   final String category;
+  final String? subCategory;
   final VoidCallback onTap;
 
   @override
@@ -531,7 +543,13 @@ class _CategoryCard extends StatelessWidget {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
 
-    final IconData categoryIcon = _categoryIcon(category);
+    final IconData icon = categoryIcon(category);
+
+    // Build the display label: "Groceries · Supermarket" or just "Groceries"
+    final String categoryLabel = categoryDisplayName(category);
+    final String? subLabel = subCategoryDisplayName(category, subCategory);
+    final String displayLabel =
+        subLabel != null ? '$categoryLabel · $subLabel' : categoryLabel;
 
     return GestureDetector(
       onTap: onTap,
@@ -552,32 +570,38 @@ class _CategoryCard extends StatelessWidget {
                 ),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: PayaboSpacing.md,
-                vertical: PayaboSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: c.surfaceWarmAccent,
-                borderRadius: PayaboRadii.radiusPill,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(
-                    categoryIcon,
-                    size: 18,
-                    color: c.accentBrown,
-                  ),
-                  const SizedBox(width: PayaboSpacing.sm),
-                  Text(
-                    category,
-                    style: textTheme.titleSmall?.copyWith(
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: PayaboSpacing.md,
+                  vertical: PayaboSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: c.surfaceWarmAccent,
+                  borderRadius: PayaboRadii.radiusPill,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      icon,
+                      size: 18,
                       color: c.accentBrown,
-                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: PayaboSpacing.sm),
+                    Flexible(
+                      child: Text(
+                        displayLabel,
+                        style: textTheme.titleSmall?.copyWith(
+                          color: c.accentBrown,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -962,52 +986,5 @@ class _HistoryRow extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-//  Category icon mapping
-// ─────────────────────────────────────────────────────────
-
-IconData _categoryIcon(String category) {
-  switch (category.toLowerCase()) {
-    case 'housing':
-      return Icons.home_outlined;
-    case 'groceries':
-      return Icons.shopping_cart_outlined;
-    case 'eating out':
-      return Icons.restaurant_outlined;
-    case 'transport':
-      return Icons.directions_car_outlined;
-    case 'shopping':
-      return Icons.shopping_bag_outlined;
-    case 'entertainment':
-      return Icons.movie_outlined;
-    case 'bills':
-      return Icons.receipt_long_outlined;
-    case 'health':
-      return Icons.favorite_outline;
-    case 'education':
-      return Icons.school_outlined;
-    case 'personal care':
-      return Icons.spa_outlined;
-    case 'gifts':
-      return Icons.card_giftcard_outlined;
-    case 'travel':
-      return Icons.flight_outlined;
-    case 'savings':
-      return Icons.savings_outlined;
-    case 'subscriptions':
-      return Icons.subscriptions_outlined;
-    case 'charity':
-      return Icons.volunteer_activism_outlined;
-    case 'fitness':
-      return Icons.fitness_center_outlined;
-    case 'pets':
-      return Icons.pets_outlined;
-    case 'investments':
-      return Icons.trending_up_outlined;
-    default:
-      return Icons.category_outlined;
   }
 }

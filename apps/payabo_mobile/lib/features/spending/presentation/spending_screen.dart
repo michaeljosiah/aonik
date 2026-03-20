@@ -13,6 +13,8 @@ import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
+import 'widgets/category_selection_sheet.dart'
+    show categoryDisplayName, subCategoryDisplayName;
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../../shared/widgets/payabo_typewriter_text.dart';
 import '../../../shared/widgets/payabo_warm_scaffold.dart';
@@ -1239,6 +1241,7 @@ class _TransactionRow extends StatelessWidget {
           extra: <String, dynamic>{
             'merchant': transaction.merchant,
             'category': transaction.category,
+            'subCategory': transaction.subCategory,
             'amountLabel': transaction.amountLabel,
             'amountMajor': transaction.amountMajor,
             'amountMinor': transaction.amountMinor,
@@ -1287,7 +1290,7 @@ class _TransactionRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    transaction.category,
+                    _transactionCategoryLabel(transaction),
                     style: theme.textTheme.bodySmall?.copyWith(
                           color: c.textMuted,
                         ),
@@ -1338,6 +1341,17 @@ class _TransactionRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Builds the category label for a transaction row.
+///
+/// Returns "Category · Subcategory" when a known subcategory is present,
+/// otherwise just the category display name.
+String _transactionCategoryLabel(SpendingTransaction transaction) {
+  final String catName = categoryDisplayName(transaction.category);
+  final String? subName =
+      subCategoryDisplayName(transaction.category, transaction.subCategory);
+  return subName != null ? '$catName · $subName' : catName;
 }
 
 class _EmptyTransactionsState extends StatelessWidget {

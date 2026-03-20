@@ -8,6 +8,7 @@ public class CategorisationRule : AuditableEntity, ITenantScoped
     public Guid UserId { get; set; }
     public string Pattern { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
+    public string? SubCategory { get; set; }
     public int Priority { get; set; }
     public bool IsActive { get; set; }
     public string MatchType { get; set; } = string.Empty;

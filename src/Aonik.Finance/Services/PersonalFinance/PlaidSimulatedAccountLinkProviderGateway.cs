@@ -86,7 +86,7 @@ internal sealed class PlaidSimulatedAccountLinkProviderGateway : IPersonalAccoun
                 "GBP",
                 "Blue Bottle",
                 "Morning coffee",
-                TransactionCategoryReference.FoodAndDrink,
+                TransactionCategoryReference.EatingOut,
                 null,
                 false),
             new(
@@ -97,7 +97,7 @@ internal sealed class PlaidSimulatedAccountLinkProviderGateway : IPersonalAccoun
                 "GBP",
                 "Fresh Market",
                 "Weekly groceries",
-                TransactionCategoryReference.GeneralMerchandise,
+                TransactionCategoryReference.Groceries,
                 null,
                 false)
         };

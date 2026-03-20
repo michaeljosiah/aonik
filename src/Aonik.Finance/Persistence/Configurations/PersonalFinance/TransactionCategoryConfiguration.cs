@@ -56,6 +56,7 @@ internal sealed class TransactionCategoryConfiguration : IEntityTypeConfiguratio
             Code = cat.Code,
             DisplayName = cat.DisplayName,
             GroupName = cat.GroupName,
+            IconName = cat.IconName,
             SortOrder = cat.SortOrder,
             IsActive = true,
             CreatedAt = seedDate,

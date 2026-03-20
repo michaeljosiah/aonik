@@ -321,10 +321,82 @@ public class PlaidAccountLinkProviderGatewayTests
         result.SyncStatus.Should().Be("TransactionsSyncComplete");
         result.Transactions.Should().HaveCount(1);
         result.Transactions[0].Amount.Should().Be(-12.34m);
-        result.Transactions[0].Category.Should().Be("food_and_drink");
+        result.Transactions[0].Category.Should().Be("groceries");
         result.Transactions[0].SubCategory.Should().BeNull();
         result.RemovedTransactionReferences.Should().ContainSingle("txn-removed-1");
         handler.LastRequestBody.Should().Contain("\"access_token\"");
         handler.LastRequest!.RequestUri!.ToString().Should().EndWith("/transactions/sync");
+    }
+
+    [Fact]
+    public async Task SyncTransactionsAsync_Should_ResolveSubCategory_WhenDetailedCategoryIsProvided()
+    {
+        // Arrange
+        var handler = new RecordingHttpMessageHandler();
+        handler.EnqueueJsonResponse(new
+        {
+            added = new object[]
+            {
+                new
+                {
+                    transaction_id = "txn-002",
+                    account_id = "acc-checking-1",
+                    amount = 55.00m,
+                    iso_currency_code = "USD",
+                    merchant_name = "Uber",
+                    name = "Uber ride",
+                    date = DateTime.UtcNow.Date,
+                    authorized_date = DateTime.UtcNow.Date,
+                    pending = false,
+                    personal_finance_category = new
+                    {
+                        primary = "TRANSPORTATION",
+                        detailed = "TAXIS_AND_RIDE_SHARES"
+                    }
+                },
+                new
+                {
+                    transaction_id = "txn-003",
+                    account_id = "acc-checking-1",
+                    amount = 9.99m,
+                    iso_currency_code = "USD",
+                    merchant_name = "Netflix",
+                    name = "Netflix subscription",
+                    date = DateTime.UtcNow.Date,
+                    authorized_date = DateTime.UtcNow.Date,
+                    pending = false,
+                    personal_finance_category = new
+                    {
+                        primary = "ENTERTAINMENT",
+                        detailed = "TV_AND_MOVIES"
+                    }
+                }
+            },
+            modified = new object[] { },
+            removed = new object[] { },
+            next_cursor = "cursor-456",
+            has_more = false
+        });
+
+        var gateway = CreateGateway(handler);
+
+        // Act
+        var result = await gateway.SyncTransactionsAsync(
+            new AccountLinkProviderTransactionsSyncRequest(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "item-sandbox-123",
+                ProtectAccessToken("access-sandbox-token"),
+                null));
+
+        // Assert
+        result.Transactions.Should().HaveCount(2);
+
+        result.Transactions[0].Category.Should().Be("transport");
+        result.Transactions[0].SubCategory.Should().Be("ride_hailing");
+
+        result.Transactions[1].Category.Should().Be("subscriptions");
+        result.Transactions[1].SubCategory.Should().Be("streaming");
     }
 }

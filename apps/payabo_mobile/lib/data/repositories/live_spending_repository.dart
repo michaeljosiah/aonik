@@ -137,6 +137,7 @@ class LiveSpendingRepository implements SpendingRepository {
       id: _readString(json['id']) ?? '',
       merchant: _readString(json['merchant']) ?? '',
       category: _readString(json['category']) ?? '',
+      subCategory: _readString(json['subCategory']),
       amountLabel: _readString(json['amountLabel']) ?? '',
       amountMajor: _readString(json['amountMajor']) ?? '0',
       amountMinor: _readString(json['amountMinor']) ?? '.00',
@@ -253,6 +254,7 @@ class LiveSpendingRepository implements SpendingRepository {
     return SpendingRecentTransaction(
       merchant: _readString(json['merchant']) ?? '',
       category: _readString(json['category']) ?? '',
+      subCategory: _readString(json['subCategory']),
       amountLabel: _readString(json['amountLabel']) ?? '',
       iconText: _readString(json['iconText']) ?? '',
       iconBackgroundKey:

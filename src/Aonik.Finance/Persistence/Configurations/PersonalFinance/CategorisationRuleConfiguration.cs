@@ -1,4 +1,5 @@
 using Aonik.Finance.Entities.PersonalFinance;
+using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -21,6 +22,9 @@ internal sealed class CategorisationRuleConfiguration : IEntityTypeConfiguration
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(x => x.SubCategory)
+            .HasMaxLength(100);
+
         builder.Property(x => x.MatchType)
             .IsRequired()
             .HasMaxLength(50);
@@ -39,6 +43,14 @@ internal sealed class CategorisationRuleConfiguration : IEntityTypeConfiguration
         builder.Property(x => x.MaxAmount)
             .HasColumnType("decimal(18,2)");
 
+        // Primary lookup: scope-aware rule loading (System -> Tenant -> User)
+        builder.HasIndex(x => new { x.Scope, x.TenantId, x.UserId, x.IsActive, x.Priority })
+            .HasDatabaseName("IX_CategorisationRules_ScopeAware");
+
+        // Legacy index kept for backward compatibility
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.Priority, x.IsActive });
+
+        // Seed system-level rules for common merchants (UK, Ghana, Nigeria, Kenya)
+        builder.HasData(SystemCategorisationRuleSeed.GetSystemRules());
     }
 }

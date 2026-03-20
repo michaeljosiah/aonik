@@ -81,7 +81,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-001',
       merchant: 'Shoprite',
-      category: 'Groceries',
+      category: 'groceries',
+      subCategory: 'supermarket',
       amount: -87.50,
       currency: 'GHS',
       isCredit: false,
@@ -92,7 +93,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-002',
       merchant: 'MTN Mobile Money',
-      category: 'Transfer',
+      category: 'transfer_out',
+      subCategory: 'sent_transfer',
       amount: -300.00,
       currency: 'GHS',
       isCredit: false,
@@ -103,7 +105,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-003',
       merchant: 'Employer Payroll',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'salary',
       amount: 4232.24,
       currency: 'GHS',
       isCredit: true,
@@ -114,7 +117,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-004',
       merchant: 'ECG Power',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'electricity',
       amount: -150.00,
       currency: 'GHS',
       isCredit: false,
@@ -125,7 +129,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-005',
       merchant: 'Uber',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'ride_hailing',
       amount: -32.80,
       currency: 'GHS',
       isCredit: false,
@@ -136,7 +141,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-006',
       merchant: 'Netflix',
-      category: 'Entertainment',
+      category: 'subscriptions',
+      subCategory: 'streaming',
       amount: -58.00,
       currency: 'GHS',
       isCredit: false,
@@ -147,7 +153,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-007',
       merchant: 'KFC Accra Mall',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'fast_food',
       amount: -45.00,
       currency: 'GHS',
       isCredit: false,
@@ -158,7 +165,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-008',
       merchant: 'Ghana Water',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'water',
       amount: -90.00,
       currency: 'GHS',
       isCredit: false,
@@ -169,7 +177,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-009',
       merchant: 'Melcom',
-      category: 'Shopping',
+      category: 'shopping',
+      subCategory: 'home_goods',
       amount: -125.55,
       currency: 'GHS',
       isCredit: false,
@@ -180,7 +189,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-010',
       merchant: 'Bolt',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'ride_hailing',
       amount: -18.50,
       currency: 'GHS',
       isCredit: false,
@@ -191,7 +201,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-011',
       merchant: 'Stanbic Bank Interest',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'interest',
       amount: 12.40,
       currency: 'GHS',
       isCredit: true,
@@ -202,7 +213,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-012',
       merchant: 'DSTV',
-      category: 'Entertainment',
+      category: 'subscriptions',
+      subCategory: 'streaming',
       amount: -220.00,
       currency: 'GHS',
       isCredit: false,
@@ -213,7 +225,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-013',
       merchant: 'Shell Fuel Station',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'fuel',
       amount: -232.20,
       currency: 'GHS',
       isCredit: false,
@@ -224,7 +237,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-014',
       merchant: 'Market Circle',
-      category: 'Groceries',
+      category: 'groceries',
+      subCategory: 'market',
       amount: -123.65,
       currency: 'GHS',
       isCredit: false,
@@ -235,7 +249,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-015',
       merchant: 'MTN Fibre',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'internet',
       amount: -180.00,
       currency: 'GHS',
       isCredit: false,
@@ -246,7 +261,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-016',
       merchant: 'Mama Grace',
-      category: 'Family Support',
+      category: 'family_support',
+      subCategory: 'family_allowance',
       amount: -500.00,
       currency: 'GHS',
       isCredit: false,
@@ -257,7 +273,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-017',
       merchant: 'Vida e Caffe',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'cafe',
       amount: -22.00,
       currency: 'GHS',
       isCredit: false,
@@ -268,7 +285,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-018',
       merchant: 'Freelance Client',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'freelance',
       amount: 800.00,
       currency: 'GHS',
       isCredit: true,
@@ -279,7 +297,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-019',
       merchant: 'Pharmacy One',
-      category: 'Health',
+      category: 'health',
+      subCategory: 'pharmacy',
       amount: -52.00,
       currency: 'GHS',
       isCredit: false,
@@ -290,7 +309,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-020',
       merchant: 'Gym Plus',
-      category: 'Health',
+      category: 'fitness',
+      subCategory: 'gym',
       amount: -80.00,
       currency: 'GHS',
       isCredit: false,
@@ -301,7 +321,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-021',
       merchant: 'Papaye',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'restaurant',
       amount: -38.00,
       currency: 'GHS',
       isCredit: false,
@@ -312,7 +333,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-022',
       merchant: 'Vodafone',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'phone',
       amount: -35.00,
       currency: 'GHS',
       isCredit: false,
@@ -325,7 +347,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-001',
       merchant: 'Tesco',
-      category: 'Groceries',
+      category: 'groceries',
+      subCategory: 'supermarket',
       amount: -54.12,
       currency: 'GBP',
       isCredit: false,
@@ -336,7 +359,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-002',
       merchant: 'Open Rent',
-      category: 'Housing',
+      category: 'income',
+      subCategory: 'rental_income',
       amount: 1450.00,
       currency: 'GBP',
       isCredit: true,
@@ -347,7 +371,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-003',
       merchant: 'Uber',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'ride_hailing',
       amount: -14.20,
       currency: 'GBP',
       isCredit: false,
@@ -358,7 +383,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-004',
       merchant: 'Amazon',
-      category: 'Shopping',
+      category: 'shopping',
+      subCategory: 'online',
       amount: -27.99,
       currency: 'GBP',
       isCredit: false,
@@ -369,7 +395,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-005',
       merchant: "Nando's",
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'restaurant',
       amount: -28.45,
       currency: 'GBP',
       isCredit: false,
@@ -380,7 +407,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-006',
       merchant: 'TfL',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'public_transit',
       amount: -7.40,
       currency: 'GBP',
       isCredit: false,
@@ -391,7 +419,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-007',
       merchant: 'Sainsbury\'s',
-      category: 'Groceries',
+      category: 'groceries',
+      subCategory: 'supermarket',
       amount: -62.30,
       currency: 'GBP',
       isCredit: false,
@@ -402,7 +431,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-008',
       merchant: 'Shell',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'fuel',
       amount: -58.40,
       currency: 'GBP',
       isCredit: false,
@@ -413,7 +443,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-009',
       merchant: 'Gym Group',
-      category: 'Health',
+      category: 'fitness',
+      subCategory: 'gym',
       amount: -24.99,
       currency: 'GBP',
       isCredit: false,
@@ -424,7 +455,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-010',
       merchant: 'British Gas',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'gas',
       amount: -86.00,
       currency: 'GBP',
       isCredit: false,
@@ -435,7 +467,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-011',
       merchant: 'Vodafone UK',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'phone',
       amount: -25.00,
       currency: 'GBP',
       isCredit: false,
@@ -446,7 +479,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-012',
       merchant: 'John Lewis',
-      category: 'Shopping',
+      category: 'shopping',
+      subCategory: 'department_store',
       amount: -89.00,
       currency: 'GBP',
       isCredit: false,
@@ -457,7 +491,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-013',
       merchant: 'Deliveroo',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'delivery',
       amount: -19.80,
       currency: 'GBP',
       isCredit: false,
@@ -468,7 +503,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-014',
       merchant: 'Pret A Manger',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'cafe',
       amount: -5.60,
       currency: 'GBP',
       isCredit: false,
@@ -479,7 +515,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-015',
       merchant: 'Starling Interest',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'interest',
       amount: 4.80,
       currency: 'GBP',
       isCredit: true,
@@ -490,7 +527,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-016',
       merchant: 'Auto-save',
-      category: 'Savings',
+      category: 'savings',
+      subCategory: 'goal_savings',
       amount: 200.00,
       currency: 'GBP',
       isCredit: true,
@@ -503,7 +541,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-cc-001',
       merchant: 'Netflix',
-      category: 'Entertainment',
+      category: 'subscriptions',
+      subCategory: 'streaming',
       amount: -15.99,
       currency: 'GBP',
       isCredit: false,
@@ -514,7 +553,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-cc-002',
       merchant: 'Spotify',
-      category: 'Entertainment',
+      category: 'subscriptions',
+      subCategory: 'music',
       amount: -10.99,
       currency: 'GBP',
       isCredit: false,
@@ -525,7 +565,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-cc-003',
       merchant: 'ASOS',
-      category: 'Shopping',
+      category: 'shopping',
+      subCategory: 'clothing',
       amount: -45.60,
       currency: 'GBP',
       isCredit: false,
@@ -536,7 +577,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-uk-cc-004',
       merchant: 'EasyJet',
-      category: 'Travel',
+      category: 'travel',
+      subCategory: 'flights',
       amount: -189.00,
       currency: 'GBP',
       isCredit: false,
@@ -549,7 +591,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-001',
       merchant: 'Shoprite Lekki',
-      category: 'Groceries',
+      category: 'groceries',
+      subCategory: 'supermarket',
       amount: -18500.00,
       currency: 'NGN',
       isCredit: false,
@@ -560,7 +603,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-002',
       merchant: 'Eko Electricity',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'electricity',
       amount: -12000.00,
       currency: 'NGN',
       isCredit: false,
@@ -571,7 +615,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-003',
       merchant: 'Bolt',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'ride_hailing',
       amount: -4200.00,
       currency: 'NGN',
       isCredit: false,
@@ -582,7 +627,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-004',
       merchant: 'MTN Data',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'internet',
       amount: -3500.00,
       currency: 'NGN',
       isCredit: false,
@@ -593,7 +639,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-005',
       merchant: 'Chicken Republic',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'fast_food',
       amount: -5800.00,
       currency: 'NGN',
       isCredit: false,
@@ -604,7 +651,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-006',
       merchant: 'Salary Credit',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'salary',
       amount: 750000.00,
       currency: 'NGN',
       isCredit: true,
@@ -615,7 +663,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-007',
       merchant: 'Lagos Water Corp',
-      category: 'Utilities',
+      category: 'bills',
+      subCategory: 'water',
       amount: -8000.00,
       currency: 'NGN',
       isCredit: false,
@@ -626,7 +675,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-008',
       merchant: 'Jumia',
-      category: 'Shopping',
+      category: 'shopping',
+      subCategory: 'online',
       amount: -25400.00,
       currency: 'NGN',
       isCredit: false,
@@ -637,7 +687,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-009',
       merchant: 'DStv',
-      category: 'Entertainment',
+      category: 'subscriptions',
+      subCategory: 'streaming',
       amount: -21000.00,
       currency: 'NGN',
       isCredit: false,
@@ -648,7 +699,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-010',
       merchant: 'Mama Put',
-      category: 'Dining',
+      category: 'eating_out',
+      subCategory: 'restaurant',
       amount: -2500.00,
       currency: 'NGN',
       isCredit: false,
@@ -659,7 +711,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-011',
       merchant: 'Uber',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'ride_hailing',
       amount: -3800.00,
       currency: 'NGN',
       isCredit: false,
@@ -670,7 +723,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-012',
       merchant: 'Total Fuel',
-      category: 'Transport',
+      category: 'transport',
+      subCategory: 'fuel',
       amount: -15000.00,
       currency: 'NGN',
       isCredit: false,
@@ -681,7 +735,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-013',
       merchant: 'Auto-save',
-      category: 'Savings',
+      category: 'savings',
+      subCategory: 'goal_savings',
       amount: 50000.00,
       currency: 'NGN',
       isCredit: true,
@@ -692,7 +747,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-014',
       merchant: 'Kuda Interest',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'interest',
       amount: 1250.00,
       currency: 'NGN',
       isCredit: true,
@@ -705,7 +761,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-usd-001',
       merchant: 'Freelance Client (USD)',
-      category: 'Income',
+      category: 'income',
+      subCategory: 'freelance',
       amount: 1200.00,
       currency: 'USD',
       isCredit: true,
@@ -716,7 +773,8 @@ class MockPersonalTransactionsRepository
     PersonalTransactionItem(
       id: 'ptx-ng-usd-002',
       merchant: 'FX Conversion to NGN',
-      category: 'Transfer',
+      category: 'transfer_out',
+      subCategory: 'own_account',
       amount: -500.00,
       currency: 'USD',
       isCredit: false,

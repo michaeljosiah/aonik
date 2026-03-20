@@ -15,6 +15,7 @@ class PersonalTransactionItem {
     required this.id,
     required this.merchant,
     required this.category,
+    this.subCategory,
     required this.amount,
     required this.currency,
     required this.isCredit,
@@ -31,6 +32,10 @@ class PersonalTransactionItem {
 
   /// Category string from the backend (may be empty).
   final String category;
+
+  /// System-assigned subcategory code (e.g. `'supermarket'`, `'streaming'`).
+  /// Display-only — users cannot select subcategories directly.
+  final String? subCategory;
 
   /// Signed decimal amount.  Negative = debit, positive = credit.
   final Decimal amount;

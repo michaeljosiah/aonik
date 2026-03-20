@@ -493,6 +493,7 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
         var request = new CreateCategorisationRuleRequest(
             "(",
             "Groceries",
+            null,
             100,
             "regex",
             false,

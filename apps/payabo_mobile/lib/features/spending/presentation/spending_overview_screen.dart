@@ -13,6 +13,8 @@ import '../../../shared/theme/payabo_radii.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
+import 'widgets/category_selection_sheet.dart'
+    show categoryDisplayName, subCategoryDisplayName;
 import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import 'spending_accounts_state.dart';
@@ -1666,7 +1668,7 @@ class _RecentTransactionRow extends StatelessWidget {
               ),
               const SizedBox(height: PayaboSpacing.xxs),
               Text(
-                transaction.category,
+                _recentTransactionCategoryLabel(transaction),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: c.muted,
                     ),
@@ -1685,4 +1687,15 @@ class _RecentTransactionRow extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Builds the category label for a recent transaction row.
+///
+/// Returns "Category · Subcategory" when a known subcategory is present,
+/// otherwise just the category display name.
+String _recentTransactionCategoryLabel(SpendingRecentTransaction transaction) {
+  final String catName = categoryDisplayName(transaction.category);
+  final String? subName =
+      subCategoryDisplayName(transaction.category, transaction.subCategory);
+  return subName != null ? '$catName · $subName' : catName;
 }
