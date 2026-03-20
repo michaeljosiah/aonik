@@ -225,8 +225,24 @@ class _EmptyStateFullScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
+    final bool isDark = c.isDark;
 
     const String simiMessage = _simiMessageLive;
+
+    // In light mode the hero photo has no scrim, so text must be white
+    // with a soft shadow for legibility. Dark mode keeps semantic tokens.
+    final Color heroTextPrimary =
+        isDark ? c.headerTitle : Colors.white;
+    final Color heroTextSecondary =
+        isDark ? c.textSubtleWarm : Colors.white70;
+    final List<Shadow> heroTextShadow = isDark
+        ? const <Shadow>[]
+        : const <Shadow>[
+            Shadow(
+              color: Color(0x66000000),
+              blurRadius: 6,
+            ),
+          ];
 
     return Stack(
       children: <Widget>[
@@ -256,24 +272,29 @@ class _EmptyStateFullScreen extends ConsumerWidget {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: c.surfaceBase.withValues(alpha: 0.8),
+                          color: isDark
+                              ? c.surfaceBase.withValues(alpha: 0.8)
+                              : const Color(0xCC1A1A1A), // dark glass on photo
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: c.borderWarm.withValues(alpha: 0.5),
+                            color: isDark
+                                ? c.borderWarm.withValues(alpha: 0.5)
+                                : Colors.white24,
                           ),
                         ),
                         child: Icon(
                           Icons.auto_awesome_rounded,
                           size: 18,
-                          color: c.primary,
+                          color: isDark ? c.primary : Colors.white,
                         ),
                       ),
                       const SizedBox(width: PayaboSpacing.sm),
                       Text(
                         'Simi',
                         style: textTheme.titleMedium?.copyWith(
-                          color: c.headerTitle,
+                          color: heroTextPrimary,
                           fontWeight: FontWeight.w700,
+                          shadows: heroTextShadow,
                         ),
                       ),
                     ],
@@ -298,12 +319,14 @@ class _EmptyStateFullScreen extends ConsumerWidget {
                           message: simiMessage,
                           helperText: 'Simi, your AI assistant',
                           messageStyle: textTheme.headlineMedium?.copyWith(
-                            color: c.headerTitle,
+                            color: heroTextPrimary,
                             height: 1.4,
+                            shadows: heroTextShadow,
                           ),
                           helperStyle: textTheme.bodyMedium?.copyWith(
-                            color: c.textSubtleWarm,
+                            color: heroTextSecondary,
                             fontStyle: FontStyle.italic,
+                            shadows: heroTextShadow,
                           ),
                         ),
                       ),

@@ -5,8 +5,8 @@ import '../../../../shared/theme/payabo_color_resolver.dart';
 /// Full-screen hero background for the spending empty state.
 ///
 /// Mirrors [SetupHeroBackground] but uses a spending-specific hero
-/// image (`assets/images/spending-empty-hero.png`) with a gradient
-/// scrim overlay for text readability.
+/// image (`assets/images/spending-empty-hero.png`). In dark mode a
+/// gradient scrim overlay is applied for text readability.
 ///
 /// Falls back to a warm gradient when the image fails to load
 /// (e.g. in widget tests where assets aren't bundled).
@@ -32,29 +32,17 @@ class SpendingHeroBackground extends StatelessWidget {
           errorBuilder: (_, __, ___) => _GradientFallback(isDark: isDark),
         ),
 
-        // Gradient scrim — ensures text legibility over the photo.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: isDark ? _darkScrim : _lightScrim,
+        // Gradient scrim — ensures text legibility over the photo (dark mode only).
+        if (isDark)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: _darkScrim,
+            ),
+            child: const SizedBox.expand(),
           ),
-          child: const SizedBox.expand(),
-        ),
       ],
     );
   }
-
-  /// Light mode: warm white fading from ~75 % opaque at the top
-  /// to ~20 % at the bottom so the image shows through.
-  static const LinearGradient _lightScrim = LinearGradient(
-    colors: <Color>[
-      Color(0xBFFFEEDD), // ~75 % opaque warm peach
-      Color(0x66FFF5EC), // ~40 % opaque warm peach
-      Color(0x33F7EBD9), // ~20 % opaque warm sand
-    ],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    stops: <double>[0.0, 0.45, 1.0],
-  );
 
   /// Dark mode: dark surface fading from ~80 % opaque at the top
   /// to ~40 % at the bottom so the image is visible but muted.
