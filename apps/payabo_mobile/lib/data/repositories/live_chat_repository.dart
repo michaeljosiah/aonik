@@ -39,6 +39,7 @@ class LiveChatRepository implements ChatRepository {
 
     final input = AgUiRunInput(
       threadId: threadId,
+      agentId: 'personal-finance-agent',
       messages: agUiMessages,
     );
 

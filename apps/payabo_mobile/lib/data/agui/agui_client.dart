@@ -199,6 +199,7 @@ class AgUiClient {
     final inputWithTools = AgUiRunInput(
       threadId: input.threadId,
       runId: input.runId,
+      agentId: input.agentId,
       messages: input.messages,
       state: input.state,
       tools: [
@@ -342,6 +343,7 @@ class AgUiClient {
             currentInput = AgUiRunInput(
               threadId: currentInput.threadId,
               runId: 'rerun_${DateTime.now().millisecondsSinceEpoch}_$rerunCount',
+              agentId: currentInput.agentId,
               messages: updatedMessages,
               state: currentInput.state,
               tools: currentInput.tools,

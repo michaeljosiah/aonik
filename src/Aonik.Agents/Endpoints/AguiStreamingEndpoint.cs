@@ -78,13 +78,23 @@ public static class AguiStreamingEndpoint
         context.Response.Headers["Pragma"] = "no-cache";
         context.Response.Headers["X-Accel-Buffering"] = "no"; // Disable nginx buffering
 
-        // Resolve scoped orchestrator
-        var orchestrator = context.RequestServices.GetRequiredService<IMasterOrchestratorService>();
+        // Resolve the agent to stream against. When agentId is specified, build
+        // the named domain agent directly (bypassing the orchestrator). Otherwise
+        // fall back to the master orchestrator — the original behaviour.
+        AIAgent agent;
+        if (!string.IsNullOrEmpty(input.AgentId))
+        {
+            agent = await ResolveDomainAgentAsync(
+                input.AgentId, context.RequestServices, logger, cancellationToken);
+        }
+        else
+        {
+            var orchestrator = context.RequestServices.GetRequiredService<IMasterOrchestratorService>();
+            agent = await orchestrator.GetAgentAsync(cancellationToken);
+        }
 
         try
         {
-            var agent = await orchestrator.GetAgentAsync(cancellationToken);
-
             // Convert AG-UI messages to M.E.AI ChatMessage list
             var chatMessages = ConvertMessages(input.Messages);
 
@@ -252,6 +262,87 @@ public static class AguiStreamingEndpoint
     }
 
     /// <summary>
+    /// Resolves a named <see cref="IDomainAgentDescriptor"/> by its agent name,
+    /// applies any database-level configuration overrides (instructions, tool set,
+    /// active flag), and builds the domain agent. This allows product clients
+    /// (e.g. Payabo) to bypass the master orchestrator and talk to a specific
+    /// domain agent directly via the AG-UI protocol.
+    /// </summary>
+    private static async Task<AIAgent> ResolveDomainAgentAsync(
+        string agentId,
+        IServiceProvider services,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        // Resolve all registered descriptors and find the one matching agentId
+        var descriptors = services.GetRequiredService<IEnumerable<IDomainAgentDescriptor>>();
+        var descriptor = descriptors.FirstOrDefault(
+            d => string.Equals(d.Name, agentId, StringComparison.OrdinalIgnoreCase));
+
+        if (descriptor is null)
+        {
+            throw new InvalidOperationException(
+                $"No domain agent descriptor registered with name '{agentId}'. " +
+                $"Available: {string.Join(", ", descriptors.Select(d => d.Name))}");
+        }
+
+        // Check for database configuration overrides (tenant → global default)
+        var configService = services.GetRequiredService<IAgentConfigurationService>();
+        var config = await configService.GetResolvedAsync(agentId, cancellationToken);
+
+        if (config is { IsActive: false })
+        {
+            throw new InvalidOperationException(
+                $"Agent '{agentId}' is inactive per configuration.");
+        }
+
+        var chatClient = services.GetRequiredService<IChatClient>();
+        AIAgent agent;
+
+        if (config is not null)
+        {
+            var instructionsOverride = !string.IsNullOrWhiteSpace(config.InstructionsText)
+                ? config.InstructionsText
+                : null;
+
+            HashSet<string>? allowedToolNames = null;
+            if (!string.IsNullOrWhiteSpace(config.ToolsetIdsJson)
+                && config.ToolsetIdsJson != "[]")
+            {
+                try
+                {
+                    var toolNames = JsonSerializer.Deserialize<List<string>>(config.ToolsetIdsJson);
+                    if (toolNames is { Count: > 0 })
+                        allowedToolNames = new HashSet<string>(toolNames, StringComparer.Ordinal);
+                }
+                catch (JsonException ex)
+                {
+                    logger.LogWarning(
+                        ex,
+                        "Invalid ToolsetIdsJson for agent '{AgentName}' — using all tools",
+                        agentId);
+                }
+            }
+
+            agent = descriptor.Build(chatClient, services, instructionsOverride, allowedToolNames);
+
+            logger.LogInformation(
+                "AG-UI: resolved domain agent '{AgentName}' directly with config override",
+                agentId);
+        }
+        else
+        {
+            agent = descriptor.Build(chatClient, services);
+
+            logger.LogInformation(
+                "AG-UI: resolved domain agent '{AgentName}' directly with code defaults",
+                agentId);
+        }
+
+        return agent;
+    }
+
+    /// <summary>
     /// Converts AG-UI frontend tool definitions (raw JSON) into declaration-only
     /// <see cref="AITool"/> instances using <see cref="AIFunctionFactory.CreateDeclaration"/>.
     /// These tools describe functions the LLM can call but that execute client-side.
@@ -410,6 +501,15 @@ public sealed class AguiRunInput
 
     [JsonPropertyName("runId")]
     public string? RunId { get; set; }
+
+    /// <summary>
+    /// Optional agent identifier. When set, the endpoint resolves and runs the
+    /// named <see cref="IDomainAgentDescriptor"/> directly (bypassing the master
+    /// orchestrator). When <c>null</c>, the master orchestrator is used.
+    /// Product apps (e.g. Payabo) set this to route to a specific domain agent.
+    /// </summary>
+    [JsonPropertyName("agentId")]
+    public string? AgentId { get; set; }
 
     [JsonPropertyName("messages")]
     public List<AguiMessage>? Messages { get; set; }

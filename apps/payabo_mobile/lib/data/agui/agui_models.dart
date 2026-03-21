@@ -478,6 +478,7 @@ class AgUiRunInput {
   const AgUiRunInput({
     this.threadId,
     this.runId,
+    this.agentId,
     this.messages = const [],
     this.state,
     this.tools,
@@ -487,6 +488,12 @@ class AgUiRunInput {
 
   final String? threadId;
   final String? runId;
+
+  /// Optional agent identifier. When set, the server routes the request
+  /// directly to the named domain agent (bypassing the master orchestrator).
+  /// Payabo sets this to `'personal-finance-agent'`.
+  final String? agentId;
+
   final List<AgUiMessage> messages;
   final Map<String, dynamic>? state;
   final List<Map<String, dynamic>>? tools;
@@ -497,6 +504,7 @@ class AgUiRunInput {
     final json = <String, dynamic>{};
     if (threadId != null) json['threadId'] = threadId;
     if (runId != null) json['runId'] = runId;
+    if (agentId != null) json['agentId'] = agentId;
     json['messages'] = messages.map((m) => m.toJson()).toList();
     if (state != null) json['state'] = state;
     if (tools != null) json['tools'] = tools;
