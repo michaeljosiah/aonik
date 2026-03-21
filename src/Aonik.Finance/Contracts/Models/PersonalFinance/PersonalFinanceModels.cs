@@ -577,3 +577,158 @@ public record TransactionCategoryListResponse(
 public record TransactionCategoryGroupResponse(
     string GroupName,
     IReadOnlyList<TransactionCategoryResponse> Categories);
+
+// ── Agent Intelligence Layer: Schema Discovery ─────────────────────────────
+
+public record GraphSchemaNodeTypeResponse(
+    string NodeType,
+    bool CanBeCreatedNatively,
+    bool IsMirrorProjection,
+    string Description,
+    IReadOnlyList<GraphSchemaEdgeRuleResponse> OutboundEdges,
+    IReadOnlyList<GraphSchemaEdgeRuleResponse> InboundEdges);
+
+public record GraphSchemaEdgeRuleResponse(
+    string Predicate,
+    string FromNodeType,
+    string ToNodeType,
+    bool CanBeCreatedNatively,
+    string ReasoningHint);
+
+public record GraphSchemaPredicateResponse(
+    string Predicate,
+    string ReasoningHint,
+    IReadOnlyList<GraphSchemaEdgeRuleResponse> AllowedConnections);
+
+public record GraphSchemaResponse(
+    IReadOnlyList<GraphSchemaNodeTypeResponse> NodeTypes,
+    IReadOnlyList<GraphSchemaPredicateResponse> Predicates,
+    int TotalEdgeRules);
+
+// ── Agent Intelligence Layer: Graph Traversal ──────────────────────────────
+
+public record GraphTraversalNodeResponse(
+    string NodeKey,
+    string NodeType,
+    string DisplayName,
+    string? MetadataJson);
+
+public record GraphTraversalEdgeResponse(
+    string FromNodeKey,
+    string Predicate,
+    string ToNodeKey,
+    string? MetadataJson);
+
+public record GraphNeighboursResponse(
+    string AnchorNodeKey,
+    int NeighbourCount,
+    IReadOnlyList<GraphTraversalNodeResponse> Neighbours,
+    IReadOnlyList<GraphTraversalEdgeResponse> Edges);
+
+public record GraphSubgraphResponse(
+    string AnchorNodeKey,
+    int MaxDepth,
+    int NodeCount,
+    int EdgeCount,
+    IReadOnlyList<GraphTraversalNodeResponse> Nodes,
+    IReadOnlyList<GraphTraversalEdgeResponse> Edges);
+
+public record GraphNodeContextResponse(
+    GraphTraversalNodeResponse Node,
+    IReadOnlyList<GraphTraversalEdgeResponse> Edges,
+    IReadOnlyList<GraphTraversalNodeResponse> Neighbours);
+
+public record GraphPathResponse(
+    string FromNodeKey,
+    string ToNodeKey,
+    bool PathExists,
+    int? PathLength,
+    IReadOnlyList<GraphTraversalNodeResponse>? PathNodes,
+    IReadOnlyList<GraphTraversalEdgeResponse>? PathEdges);
+
+// ── Agent Intelligence Layer: Parameterised Deep Retrieval ─────────────────
+
+public record GraphRetrievalResult<T>(
+    bool Success,
+    string NodeKey,
+    string ToolName,
+    T? Data,
+    string? ErrorReason);
+
+public record BillPaymentHistoryItemResponse(
+    Guid TransactionId,
+    decimal Amount,
+    string Currency,
+    DateTime PaidAt,
+    string? Status,
+    string? PaymentMethod);
+
+public record BillPaymentHistoryResponse(
+    Guid BillId,
+    string Payee,
+    decimal? ExpectedAmount,
+    string Currency,
+    string Frequency,
+    int PaymentCount,
+    decimal TotalPaid,
+    IReadOnlyList<BillPaymentHistoryItemResponse> Payments);
+
+public record GoalContributionItemResponse(
+    Guid TransactionId,
+    decimal Amount,
+    string Currency,
+    DateTime ContributedAt,
+    string? Description);
+
+public record GoalContributionHistoryResponse(
+    Guid GoalId,
+    string GoalName,
+    decimal TargetAmount,
+    decimal ProgressAmount,
+    string Currency,
+    DateTime? TargetDate,
+    string Status,
+    int ContributionCount,
+    decimal TotalContributed,
+    IReadOnlyList<GoalContributionItemResponse> Contributions);
+
+public record AccountStatementItemResponse(
+    Guid TransactionId,
+    string? Merchant,
+    string? Description,
+    decimal Amount,
+    string Currency,
+    DateTime OccurredAt,
+    string? Category,
+    decimal RunningBalance);
+
+public record AccountStatementResponse(
+    Guid AccountId,
+    string AccountName,
+    string AccountType,
+    string Currency,
+    DateTime FromDate,
+    DateTime ToDate,
+    int TransactionCount,
+    decimal TotalInflow,
+    decimal TotalOutflow,
+    decimal NetChange,
+    IReadOnlyList<AccountStatementItemResponse> Transactions);
+
+public record PartyObligationItemResponse(
+    string ObligationType,
+    Guid SourceId,
+    string DisplayName,
+    decimal? Amount,
+    string Currency,
+    string? Frequency,
+    DateTime? NextDueDate);
+
+public record PartyObligationSummaryResponse(
+    Guid PartyId,
+    string PartyDisplayName,
+    string? RelationshipType,
+    int TotalObligations,
+    IReadOnlyList<PartyObligationItemResponse> Obligations,
+    decimal TotalMonthlyEstimate,
+    string? PrimaryCurrency);

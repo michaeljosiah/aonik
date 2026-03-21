@@ -85,6 +85,12 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         return new RelatedPartyFinanceContextResponse(response);
     }
 
+    /// <summary>
+    /// Builds the full graph read model from a snapshot. Used by traversal service.
+    /// </summary>
+    internal static FinancialLifeGraphResponse BuildGraphFromSnapshot(FinancialLifeGraphSnapshot snapshot)
+        => BuildGraph(snapshot);
+
     private static FinancialLifeGraphResponse BuildGraph(FinancialLifeGraphSnapshot snapshot)
     {
         var nodes = new List<FinancialLifeGraphNodeResponse>();
@@ -202,10 +208,14 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                     transaction.Amount,
                     transaction.Currency,
                     transaction.OccurredAt,
+                    transaction.Merchant,
+                    transaction.Description,
                     transaction.Category,
+                    transaction.SubCategory,
                     transaction.SourceType,
                     transaction.ClassificationMethod,
-                    transaction.ReviewStatus
+                    transaction.ReviewStatus,
+                    transaction.Notes
                 })));
 
             if (transaction.PersonalAccountId.HasValue)
