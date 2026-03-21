@@ -65,9 +65,12 @@ public sealed class AiModule : IModule
             {
                 "stub" => new StubChatClient(),
 
-                "openai" => throw new NotSupportedException(
-                    "OpenAI provider is not yet implemented. " +
-                    "Add the Microsoft.Extensions.AI.OpenAI package and configure AI:OpenAI:ApiKey and AI:OpenAI:Model."),
+                "openai" => new OpenAI.Chat.ChatClient(
+                    configuration["AI:OpenAI:Model"] ?? "gpt-4o",
+                    configuration["AI:OpenAI:ApiKey"] ?? throw new InvalidOperationException(
+                        "AI:OpenAI:ApiKey configuration is required when using the OpenAI provider. " +
+                        "Set it via appsettings, environment variable, or user-secrets."))
+                    .AsIChatClient(),
 
                 "azureopenai" or "azure_openai" or "azure-openai" => throw new NotSupportedException(
                     "Azure OpenAI provider is not yet implemented. " +

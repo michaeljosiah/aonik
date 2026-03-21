@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
-import { MoreHorizontal, Plus, Search } from 'lucide-react';
+import { Loader2, MoreHorizontal, Plus, Search } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { AiChatComposer } from '@/components/ai/AiChatComposer';
+import { ChatMessageList } from '@/components/ai/ChatMessageList';
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-  Message,
-  MessageContent,
 } from '@/components/ai-elements';
+import { useAguiChat } from '@/hooks/useAguiChat';
 
 type ChatItem = {
   id: string;
@@ -24,24 +24,29 @@ type ProjectItem = {
   isActive?: boolean;
 };
 
-type ChatMessage = {
-  id: string;
-  from: 'user' | 'assistant';
-  content: string;
-};
-
 type AiChatMockProps = {
   agentId?: string;
 };
 
 export function AiChatMock({ agentId }: AiChatMockProps) {
   const [query, setQuery] = useState('');
-  const [draft, setDraft] = useState('');
+  const {
+    messages,
+    draft,
+    setDraft,
+    isStreaming,
+    streamError,
+    handleSend,
+    resetChat,
+    pendingApprovals,
+    approveAction,
+    rejectAction,
+  } = useAguiChat();
 
   const agentLabel = useMemo(() => {
-    if (!agentId) return 'Centrali Ai';
+    if (!agentId) return 'AONIK Orchestrator';
     if (agentId === 'a-personal') return 'Agent name';
-    if (agentId === 'a-centrali') return 'Centrali Ai';
+    if (agentId === 'a-centrali') return 'AONIK Orchestrator';
     return 'Agent name';
   }, [agentId]);
 
@@ -74,30 +79,6 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
     return chats.filter((c) => c.title.toLowerCase().includes(q));
   }, [chats, query]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-
-  const resetChat = () => {
-    setMessages([]);
-    setDraft('');
-  };
-
-  const handleSend = () => {
-    const text = draft.trim();
-    if (!text) return;
-
-    setMessages((prev) => [
-      ...prev,
-      { id: `m-${Date.now()}`, from: 'user', content: text },
-      {
-        id: `m-${Date.now()}-a`,
-        from: 'assistant',
-        content:
-          'Mocked response. Endpoints are not wired yet, but the chat UI is ready for integration.',
-      },
-    ]);
-    setDraft('');
-  };
-
   return (
     <div className="h-full flex bg-[var(--color-background)]">
       {/* Chat list sidebar (sits next to the main collapsed nav) */}
@@ -105,10 +86,10 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
         <div className="h-14 px-4 flex items-center gap-2 border-b border-[var(--color-border-light)]">
           <div className="flex items-center gap-2 min-w-0">
             <div className="h-7 w-7 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] grid place-items-center">
-              <span className="text-xs font-semibold text-[var(--color-text-primary)]">C</span>
+              <span className="text-xs font-semibold text-[var(--color-text-primary)]">A</span>
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">Centrali AI</div>
+              <div className="text-sm font-medium text-[var(--color-text-primary)] truncate">AONIK AI</div>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -221,11 +202,11 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
                 <ConversationEmptyState>
                   <div className="mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-5 px-4">
                     <div className="h-14 w-14 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-sm grid place-items-center">
-                      <span className="text-lg font-bold text-[var(--color-text-primary)]">C</span>
+                      <span className="text-lg font-bold text-[var(--color-text-primary)]">A</span>
                     </div>
                     <div className="text-center">
-                      <div className="text-lg font-semibold text-[var(--color-text-primary)]">John, I'm ready when you are.</div>
-                      <div className="mt-1 text-sm text-[var(--color-text-secondary)]">Ask me anything...</div>
+                      <div className="text-lg font-semibold text-[var(--color-text-primary)]">Hi, I'm ready when you are.</div>
+                      <div className="mt-1 text-sm text-[var(--color-text-secondary)]">Ask me anything about your AONIK platform...</div>
                     </div>
                     <AiChatComposer
                       mode="center"
@@ -237,12 +218,14 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
                   </div>
                 </ConversationEmptyState>
               ) : (
-                <div className="mx-auto w-full max-w-3xl">
-                  {messages.map((m) => (
-                    <Message from={m.from} key={m.id}>
-                      <MessageContent from={m.from}>{m.content}</MessageContent>
-                    </Message>
-                  ))}
+                <div className="mx-auto w-full max-w-3xl py-4">
+                  <ChatMessageList
+                    messages={messages}
+                    isStreaming={isStreaming}
+                    pendingApprovals={pendingApprovals}
+                    onApproveAction={approveAction}
+                    onRejectAction={rejectAction}
+                  />
                 </div>
               )}
             </ConversationContent>
@@ -261,7 +244,18 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
                 onClear={resetChat}
               />
               <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
-                <span>Mock UI - endpoints not wired.</span>
+                <span>
+                  {isStreaming ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Streaming...
+                    </span>
+                  ) : streamError ? (
+                    <span className="text-red-500">{streamError}</span>
+                  ) : (
+                    'Connected via AG-UI protocol'
+                  )}
+                </span>
                 <span>Agent: {agentLabel}</span>
               </div>
             </div>

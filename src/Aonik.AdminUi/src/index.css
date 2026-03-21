@@ -176,9 +176,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   width: 100%;
+  overflow: hidden;
 }
 
 #root > * {

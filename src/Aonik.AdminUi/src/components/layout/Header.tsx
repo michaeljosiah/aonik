@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts';
 import { useState, useRef, useEffect } from 'react';
 import { getSelectedTenant } from '@/lib/tenantContext';
 import { NotificationsPanel } from '@/components/layout/NotificationsPanel';
+
 import { loadWorkspaceState } from '@/workspace/storage';
 
 interface WorkspaceTab {
@@ -22,9 +23,10 @@ interface HeaderProps {
   onFullscreenChange?: (isFullscreen: boolean) => void;
   onWorkspaceReset?: () => void;
   isWorkspace?: boolean;
+  onAiChatToggle?: () => void;
 }
 
-export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange, onWorkspaceReset, isWorkspace }: HeaderProps) {
+export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange, onWorkspaceReset, isWorkspace, onAiChatToggle }: HeaderProps) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -191,7 +193,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
 
   return (
     <>
-    <header className="flex items-center justify-between h-14 px-6 bg-[var(--color-surface)] border-b border-[var(--color-border-light)]">
+    <header className="sticky top-0 z-10 shrink-0 flex items-center justify-between h-14 px-6 bg-[var(--color-surface)] border-b border-[var(--color-border-light)]">
       {/* Breadcrumb / Left Slot */}
       <nav className="flex items-center gap-2 text-sm min-w-0">
         {isWorkspace ? (
@@ -437,6 +439,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
           className="text-[var(--color-text-secondary)]"
           aria-label="Open AI chat"
           title="Open AI chat"
+          onClick={onAiChatToggle}
         >
           <MessageSquareText className="w-4 h-4" />
         </Button>

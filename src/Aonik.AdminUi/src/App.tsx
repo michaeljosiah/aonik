@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, createElement } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Sidebar, Header } from '@/components/layout';
+import { Sidebar, Header, AiChatPanel } from '@/components/layout';
 import type { AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiAgentSelector } from '@/components/ai/AiAgentSelector';
 import {
@@ -12,6 +12,7 @@ import {
   SetupGuidePage,
   SetupGuidesLandingPage,
   TenantSetupWizardPage,
+  AiChatMock,
 } from '@/pages';
 import { WorkspacePage } from '@/workspace/WorkspacePage';
 import { useModules } from '@/modules';
@@ -76,9 +77,11 @@ function TenantContextSetup() {
 
 function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAiChat = location.pathname.startsWith('/ai/chat');
   const isWorkspace = location.pathname.startsWith('/workspace');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showAiChat, setShowAiChat] = useState(false);
   const previousSidebarCollapsed = useRef<boolean | null>(null);
   const preFullscreenSidebarState = useRef<boolean | null>(null);
 
@@ -166,6 +169,7 @@ function AppLayout() {
         <Header
           breadcrumb={getBreadcrumb(window.location.pathname)}
           isWorkspace={isWorkspace}
+          onAiChatToggle={() => setShowAiChat((prev) => !prev)}
           leftSlot={
             isAiChat ? (
               <AiAgentSelector
@@ -182,29 +186,43 @@ function AppLayout() {
           }
           onFullscreenChange={handleFullscreenChange}
         />
-        <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)]'}>
-          <Routes>
-            {/* Dashboard — always present */}
-            <Route path="/" element={<DashboardHome />} />
-            {/* Workspace — always present */}
-            <Route path="/workspace" element={<WorkspacePage />} />
-            {/* Module-contributed routes */}
-            {routes.map((route) => (
-              <Route
-                key={route.path}
-                path={route.path}
-                element={createElement(route.element)}
-              />
-            ))}
-            {/* Setup routes */}
-            <Route path="/setup/journey" element={<SetupJourneyPage />} />
-            <Route path="/setup/tenant" element={<TenantSetupWizardPage />} />
-            <Route path="/setup-guides" element={<SetupGuidesLandingPage />} />
-            <Route path="/setup-guides/:slug" element={<SetupGuidePage />} />
-            {/* Fallback */}
-            <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />
-          </Routes>
-        </main>
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)] min-w-0'}>
+            <Routes>
+              {/* Dashboard — always present */}
+              <Route path="/" element={<DashboardHome />} />
+              {/* Workspace — always present */}
+              <Route path="/workspace" element={<WorkspacePage />} />
+              {/* AI Chat — wired to AG-UI streaming endpoint */}
+              <Route path="/ai/chat" element={<AiChatMock agentId={selectedAgentId} />} />
+              <Route path="/ai/chat/:agentId" element={<AiChatMock agentId={selectedAgentId} />} />
+              {/* Module-contributed routes */}
+              {routes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path}
+                  element={createElement(route.element)}
+                />
+              ))}
+              {/* Setup routes */}
+              <Route path="/setup/journey" element={<SetupJourneyPage />} />
+              <Route path="/setup/tenant" element={<TenantSetupWizardPage />} />
+              <Route path="/setup-guides" element={<SetupGuidesLandingPage />} />
+              <Route path="/setup-guides/:slug" element={<SetupGuidePage />} />
+              {/* Fallback */}
+              <Route path="*" element={<PlaceholderPage title="Page Not Found" />} />
+            </Routes>
+          </main>
+          {showAiChat && (
+            <AiChatPanel
+              onClose={() => setShowAiChat(false)}
+              onExpand={() => {
+                setShowAiChat(false);
+                navigate('/ai/chat');
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -392,7 +410,7 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
             <AuthenticatedApp />
             <Toaster richColors position="top-right" />
           </div>

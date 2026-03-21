@@ -14,6 +14,7 @@ using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
 using Aonik.Agents;
+using Aonik.Agents.Endpoints;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -204,6 +205,10 @@ app.UseTenantValidation();
 
 // 5. FastEndpoints
 app.UseFastEndpoints();
+
+// 6. AG-UI streaming endpoint (minimal API, separate from FastEndpoints)
+app.MapAguiStreaming("/ai/agui")
+    .RequireAuthorization("AdminUserPolicy");
 
 app.Run();
 

@@ -1,4 +1,5 @@
 using Aonik.Agents.Contracts.Models;
+using Microsoft.Agents.AI;
 
 namespace Aonik.Agents.Contracts.Services;
 
@@ -19,4 +20,11 @@ public interface IMasterOrchestratorService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The orchestrator's response.</returns>
     Task<AgentChatResponse> ChatAsync(ChatRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the built orchestrator as an <see cref="AIAgent"/> suitable for
+    /// AG-UI protocol hosting via <c>MapAGUI</c>. The agent is built lazily on
+    /// first call and cached for reuse.
+    /// </summary>
+    Task<AIAgent> GetAgentAsync(CancellationToken cancellationToken = default);
 }

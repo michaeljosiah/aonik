@@ -70,6 +70,17 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         6. Present monetary amounts with their currency code.
         7. Reference entities by their IDs for clarity.
         8. If an operation fails, explain the error and suggest corrective action.
+
+        Human-in-the-Loop Approval:
+        When the user requests an action that creates, modifies, or deletes data (e.g.,
+        creating an invoice, issuing a payment, cancelling an order, modifying a ledger
+        entry), you MUST first call the `confirmAction` tool to obtain explicit user
+        approval BEFORE invoking the domain agent to execute the mutation. The
+        `confirmAction` tool presents the user with an approval card showing the action
+        details and Approve/Reject buttons. Only proceed with the mutating domain agent
+        call if the user approves. If the user rejects, inform them that the action was
+        cancelled. Read-only queries (listing, searching, viewing details) do NOT require
+        approval — only mutations do.
         """;
 
     public MasterOrchestratorService(
@@ -122,6 +133,12 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
             SessionId = sessionId,
             AgentName = "master-orchestrator"
         };
+    }
+
+    /// <inheritdoc />
+    public async Task<AIAgent> GetAgentAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetOrBuildOrchestratorAsync(cancellationToken);
     }
 
     /// <summary>
