@@ -379,7 +379,34 @@ class ChatController extends StateNotifier<ChatState> {
         );
 
       case ChatStreamFinished():
+        // Persist any display widgets into the last assistant message
+        // so they survive in history after clearing transient state.
+        var messages = state.messages;
+        if (state.displayWidgets.isNotEmpty && messages.isNotEmpty) {
+          final last = messages.last;
+          if (last.sender == ChatSender.assistant) {
+            final updated = ChatMessage(
+              id: last.id,
+              sender: last.sender,
+              lines: last.lines,
+              planTitle: last.planTitle,
+              planItems: last.planItems,
+              toolCalls: last.toolCalls,
+              displayWidgets: [
+                ...last.displayWidgets,
+                ...state.displayWidgets.map((dw) => ChatDisplayWidgetInfo(
+                      toolCallId: dw.toolCallId,
+                      widgetType: dw.widgetType,
+                      data: dw.data,
+                    )),
+              ],
+            );
+            messages = [...messages.sublist(0, messages.length - 1), updated];
+          }
+        }
+
         state = state._clearStreaming().copyWith(
+              messages: messages,
               activity: ChatActivity.idle,
               pendingApprovals: const [],
             );

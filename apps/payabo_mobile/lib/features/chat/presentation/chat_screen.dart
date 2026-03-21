@@ -827,6 +827,20 @@ class _ChatMessageBlock extends StatelessWidget {
             items: message.planItems,
           ),
         ],
+        // Display widgets persisted in the message history.
+        if (message.hasDisplayWidgets)
+          ...message.displayWidgets.map(
+            (ChatDisplayWidgetInfo info) => Padding(
+              padding: const EdgeInsets.only(top: PayaboSpacing.lg),
+              child: _DisplayWidgetDispatcher(
+                widget: DisplayWidget(
+                  toolCallId: info.toolCallId,
+                  widgetType: info.widgetType,
+                  data: info.data,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

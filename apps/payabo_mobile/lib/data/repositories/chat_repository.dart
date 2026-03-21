@@ -22,6 +22,7 @@ class ChatMessage {
     this.planTitle,
     this.planItems = const <String>[],
     this.toolCalls = const <ChatToolCallInfo>[],
+    this.displayWidgets = const <ChatDisplayWidgetInfo>[],
   });
 
   final String? id;
@@ -30,9 +31,11 @@ class ChatMessage {
   final String? planTitle;
   final List<String> planItems;
   final List<ChatToolCallInfo> toolCalls;
+  final List<ChatDisplayWidgetInfo> displayWidgets;
 
   bool get hasPlan => planTitle != null && planItems.isNotEmpty;
   bool get hasToolCalls => toolCalls.isNotEmpty;
+  bool get hasDisplayWidgets => displayWidgets.isNotEmpty;
 }
 
 /// Information about a tool call made by the agent during a response.
@@ -64,6 +67,20 @@ class ChatToolCallInfo {
       isComplete: isComplete ?? this.isComplete,
     );
   }
+}
+
+/// A display widget that was rendered inline during an assistant response.
+/// Persisted in [ChatMessage.displayWidgets] so the widget survives in history.
+class ChatDisplayWidgetInfo {
+  const ChatDisplayWidgetInfo({
+    required this.toolCallId,
+    required this.widgetType,
+    required this.data,
+  });
+
+  final String toolCallId;
+  final DisplayWidgetType widgetType;
+  final Map<String, dynamic> data;
 }
 
 class ChatConversation {
