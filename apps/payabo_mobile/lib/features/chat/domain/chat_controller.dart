@@ -111,6 +111,20 @@ class PendingApproval {
   final void Function([String? reason]) onReject;
 }
 
+/// A display widget rendered inline in the conversation, produced by a
+/// frontend display tool (e.g. display_fx_rate_chart).
+class DisplayWidget {
+  const DisplayWidget({
+    required this.toolCallId,
+    required this.widgetType,
+    required this.data,
+  });
+
+  final String toolCallId;
+  final DisplayWidgetType widgetType;
+  final Map<String, dynamic> data;
+}
+
 /// Immutable state for the chat feature.
 class ChatState {
   const ChatState({
@@ -121,6 +135,7 @@ class ChatState {
     this.threadId,
     this.activeToolCalls = const [],
     this.pendingApprovals = const [],
+    this.displayWidgets = const [],
     this.errorMessage,
   });
 
@@ -146,6 +161,9 @@ class ChatState {
   /// Pending approvals waiting for user interaction.
   final List<PendingApproval> pendingApprovals;
 
+  /// Display widgets rendered inline during the current response.
+  final List<DisplayWidget> displayWidgets;
+
   /// Error message from the last failed request.
   final String? errorMessage;
 
@@ -168,6 +186,7 @@ class ChatState {
     String? threadId,
     List<ActiveToolCall>? activeToolCalls,
     List<PendingApproval>? pendingApprovals,
+    List<DisplayWidget>? displayWidgets,
     String? errorMessage,
   }) {
     return ChatState(
@@ -178,6 +197,7 @@ class ChatState {
       threadId: threadId ?? this.threadId,
       activeToolCalls: activeToolCalls ?? this.activeToolCalls,
       pendingApprovals: pendingApprovals ?? this.pendingApprovals,
+      displayWidgets: displayWidgets ?? this.displayWidgets,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -189,6 +209,7 @@ class ChatState {
       streamingText: '',
       streamingMessageId: null,
       activeToolCalls: const [],
+      displayWidgets: const [],
       errorMessage: null,
     );
   }
@@ -362,6 +383,16 @@ class ChatController extends StateNotifier<ChatState> {
               activity: ChatActivity.idle,
               pendingApprovals: const [],
             );
+
+      case ChatStreamDisplayWidget():
+        final widget = DisplayWidget(
+          toolCallId: event.toolCallId,
+          widgetType: event.widgetType,
+          data: event.data,
+        );
+        state = state.copyWith(
+          displayWidgets: [...state.displayWidgets, widget],
+        );
 
       case ChatStreamError():
         state = state._clearStreaming().copyWith(

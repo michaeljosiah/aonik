@@ -213,6 +213,34 @@ class ChatStreamError extends ChatStreamEvent {
   final String? code;
 }
 
+/// A frontend display tool was invoked — the UI should render a rich widget
+/// inline in the conversation.
+///
+/// Unlike [ChatStreamApprovalRequested], display widgets resolve immediately
+/// (no user interaction needed to continue the AG-UI re-run loop).
+class ChatStreamDisplayWidget extends ChatStreamEvent {
+  const ChatStreamDisplayWidget({
+    required this.toolCallId,
+    required this.widgetType,
+    required this.data,
+  });
+
+  final String toolCallId;
+
+  /// Discriminator for which widget to render.
+  final DisplayWidgetType widgetType;
+
+  /// Parsed parameters from the tool call.
+  final Map<String, dynamic> data;
+}
+
+/// The types of display widgets the agent can request.
+enum DisplayWidgetType {
+  fxRateChart,
+  budgetBreakdown,
+  autopilotProposal,
+}
+
 // ─────────────────────────────────────────────────────────
 //  Repository interface
 // ─────────────────────────────────────────────────────────

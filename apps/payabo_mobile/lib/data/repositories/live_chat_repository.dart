@@ -5,12 +5,11 @@
 //  AgUiClient and translates low-level AG-UI events into
 //  the chat-level ChatStreamEvent abstraction.
 //
-//  Registers the `confirmAction` frontend tool so the LLM
-//  can request human approval for mutating actions. When the
-//  tool is called, a ChatStreamApprovalRequested event is
-//  emitted — the UI shows an approval card, and the user's
-//  decision resolves the tool call. The AgUiClient re-run
-//  loop then continues the conversation automatically.
+//  Registers frontend tools:
+//  - confirmAction — human-in-the-loop approval for mutations
+//  - display_fx_rate_chart — GBP/NGN rate window with timing signal
+//  - display_budget_breakdown — spending categories with over/under
+//  - display_autopilot_proposal — structured approve/reject card
 // ─────────────────────────────────────────────────────────
 
 import 'dart:async';
@@ -43,12 +42,15 @@ class LiveChatRepository implements ChatRepository {
       messages: agUiMessages,
     );
 
-    // Create a StreamController that we'll use to bridge the approval
-    // events from the confirmAction tool handler into the chat stream.
-    final approvalController = StreamController<ChatStreamEvent>();
+    // Side-channel controller for events emitted by frontend tool handlers
+    // (approval requests, display widget requests) that need to merge into
+    // the main chat stream.
+    final sideChannel = StreamController<ChatStreamEvent>();
 
-    // Register the confirmAction frontend tool.
+    // ── Frontend tool registrations ──────────────────────
+
     final frontendTools = <String, FrontendToolRegistration>{
+      // Human-in-the-loop approval for mutating actions.
       'confirmAction': FrontendToolRegistration(
         tool: const AgUiToolDefinition(
           name: 'confirmAction',
@@ -79,12 +81,9 @@ class LiveChatRepository implements ChatRepository {
           },
         ),
         handler: (args, context) {
-          // The handler returns a Future that resolves only when the user
-          // approves or rejects. We use a Completer to bridge the gap.
           final completer = Completer<String>();
 
-          // Emit an approval event into the chat stream.
-          approvalController.add(ChatStreamApprovalRequested(
+          sideChannel.add(ChatStreamApprovalRequested(
             toolCallId: context.toolCallId,
             action: args['action'] as String? ?? 'Unknown action',
             description: args['description'] as String? ?? '',
@@ -107,21 +106,196 @@ class LiveChatRepository implements ChatRepository {
           return completer.future;
         },
       ),
+
+      // Display: FX rate chart with timing signal.
+      'display_fx_rate_chart': FrontendToolRegistration(
+        tool: const AgUiToolDefinition(
+          name: 'display_fx_rate_chart',
+          description:
+              'Display an FX rate chart showing a currency pair rate window '
+              'with a timing signal (buy/hold/wait). Use when the user asks '
+              'about exchange rates or remittance timing.',
+          parameters: {
+            'type': 'object',
+            'properties': {
+              'baseCurrency': {
+                'type': 'string',
+                'description': 'ISO 4217 base currency code (e.g., "GBP")',
+              },
+              'targetCurrency': {
+                'type': 'string',
+                'description': 'ISO 4217 target currency code (e.g., "NGN")',
+              },
+              'rates': {
+                'type': 'array',
+                'description': 'Historical rate data points',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'date': {
+                      'type': 'string',
+                      'description': 'Date label (e.g., "Mar 15")',
+                    },
+                    'rate': {
+                      'type': 'number',
+                      'description': 'Exchange rate value',
+                    },
+                  },
+                  'required': ['date', 'rate'],
+                },
+              },
+              'signal': {
+                'type': 'string',
+                'enum': ['buy', 'hold', 'wait'],
+                'description': 'Timing signal recommendation',
+              },
+              'signalReason': {
+                'type': 'string',
+                'description': 'Brief explanation of the signal',
+              },
+            },
+            'required': ['baseCurrency', 'targetCurrency', 'rates', 'signal'],
+          },
+        ),
+        handler: _makeDisplayToolHandler(
+          sideChannel,
+          DisplayWidgetType.fxRateChart,
+        ),
+      ),
+
+      // Display: budget breakdown with category status.
+      'display_budget_breakdown': FrontendToolRegistration(
+        tool: const AgUiToolDefinition(
+          name: 'display_budget_breakdown',
+          description:
+              'Display a budget breakdown showing spending categories with '
+              'over/under status. Use when the user asks about their budget, '
+              'spending breakdown, or where their money is going.',
+          parameters: {
+            'type': 'object',
+            'properties': {
+              'period': {
+                'type': 'string',
+                'description': 'Budget period label (e.g., "March 2026")',
+              },
+              'totalBudget': {
+                'type': 'number',
+                'description': 'Total budgeted amount for the period',
+              },
+              'totalSpent': {
+                'type': 'number',
+                'description': 'Total amount spent so far',
+              },
+              'currency': {
+                'type': 'string',
+                'description': 'ISO 4217 currency code (e.g., "GBP")',
+              },
+              'categories': {
+                'type': 'array',
+                'description': 'Spending categories with budget vs actual',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'name': {
+                      'type': 'string',
+                      'description': 'Category name (e.g., "Groceries")',
+                    },
+                    'budgeted': {
+                      'type': 'number',
+                      'description': 'Budgeted amount for this category',
+                    },
+                    'spent': {
+                      'type': 'number',
+                      'description': 'Amount spent in this category',
+                    },
+                    'status': {
+                      'type': 'string',
+                      'enum': ['under', 'on_track', 'over'],
+                      'description': 'Whether spending is under, on track, or over budget',
+                    },
+                  },
+                  'required': ['name', 'budgeted', 'spent', 'status'],
+                },
+              },
+            },
+            'required': ['period', 'totalBudget', 'totalSpent', 'currency', 'categories'],
+          },
+        ),
+        handler: _makeDisplayToolHandler(
+          sideChannel,
+          DisplayWidgetType.budgetBreakdown,
+        ),
+      ),
+
+      // Display: autopilot proposal card.
+      'display_autopilot_proposal': FrontendToolRegistration(
+        tool: const AgUiToolDefinition(
+          name: 'display_autopilot_proposal',
+          description:
+              'Display a structured proposal card for an automated action '
+              'that an agent wants to take. Use when presenting a specific '
+              'recommendation with details the user should review before '
+              'the agent proceeds.',
+          parameters: {
+            'type': 'object',
+            'properties': {
+              'agent': {
+                'type': 'string',
+                'description': 'Name of the agent making the proposal (e.g., "Bill Agent", "Savings Agent")',
+              },
+              'action': {
+                'type': 'string',
+                'description': 'Short action title (e.g., "Schedule auto-pay for electricity")',
+              },
+              'description': {
+                'type': 'string',
+                'description': 'Detailed explanation of the proposal',
+              },
+              'details': {
+                'type': 'array',
+                'description': 'Key-value detail rows for the proposal card',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'label': {
+                      'type': 'string',
+                      'description': 'Detail label (e.g., "Amount")',
+                    },
+                    'value': {
+                      'type': 'string',
+                      'description': 'Detail value (e.g., "£85.00")',
+                    },
+                  },
+                  'required': ['label', 'value'],
+                },
+              },
+              'severity': {
+                'type': 'string',
+                'enum': ['low', 'medium', 'high'],
+                'description': 'Importance level. Defaults to medium.',
+              },
+            },
+            'required': ['agent', 'action', 'description'],
+          },
+        ),
+        handler: _makeDisplayToolHandler(
+          sideChannel,
+          DisplayWidgetType.autopilotProposal,
+        ),
+      ),
     };
 
-    // Stream AG-UI events and translate to chat-level events.
-    // Merge the main AG-UI stream with the approval events.
+    // ── Stream merging ───────────────────────────────────
+
     final agUiStream = _agUiClient.runWithTools(
       input,
       frontendTools: frontendTools,
     );
 
-    // We need to merge two streams: the AG-UI events (mapped to chat events)
-    // and the approval events from the confirmAction handler.
-    // Use a merged stream controller for this.
+    // Merge the main AG-UI event stream with the side-channel events
+    // (approval requests, display widgets).
     final merged = StreamController<ChatStreamEvent>();
 
-    // Listen to AG-UI events and map them.
     final agUiSub = agUiStream.listen(
       (event) {
         final chatEvent = _mapEvent(event);
@@ -141,8 +315,7 @@ class LiveChatRepository implements ChatRepository {
       },
     );
 
-    // Listen to approval events (from confirmAction handler).
-    final approvalSub = approvalController.stream.listen(
+    final sideChannelSub = sideChannel.stream.listen(
       (event) {
         if (!merged.isClosed) {
           merged.add(event);
@@ -161,9 +334,29 @@ class LiveChatRepository implements ChatRepository {
       }
     } finally {
       await agUiSub.cancel();
-      await approvalSub.cancel();
-      await approvalController.close();
+      await sideChannelSub.cancel();
+      await sideChannel.close();
     }
+  }
+
+  /// Creates a [FrontendToolHandler] for a display-only tool.
+  ///
+  /// Display tools resolve immediately — they emit a [ChatStreamDisplayWidget]
+  /// event into the side channel and return a success string so the AG-UI
+  /// re-run loop can continue without waiting for user interaction.
+  static FrontendToolHandler _makeDisplayToolHandler(
+    StreamController<ChatStreamEvent> sideChannel,
+    DisplayWidgetType widgetType,
+  ) {
+    return (Map<String, dynamic> args, FrontendToolContext context) async {
+      sideChannel.add(ChatStreamDisplayWidget(
+        toolCallId: context.toolCallId,
+        widgetType: widgetType,
+        data: args,
+      ));
+
+      return 'displayed';
+    };
   }
 
   /// Maps a low-level AG-UI event to a chat-level event.

@@ -229,6 +229,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           next.pendingApprovals.length > prev.pendingApprovals.length) {
         _scrollToBottom();
       }
+      // Scroll when a new display widget appears.
+      if (prev != null &&
+          next.displayWidgets.length > prev.displayWidgets.length) {
+        _scrollToBottom();
+      }
     });
 
     // Sync seeded conversations from provider (for history navigation only).
@@ -308,6 +313,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             activity: chatState.activity,
                             activeToolCalls: chatState.activeToolCalls,
                             pendingApprovals: chatState.pendingApprovals,
+                            displayWidgets: chatState.displayWidgets,
                             onApprove: (String toolCallId) {
                               ref.read(chatControllerProvider.notifier).approveAction(toolCallId);
                               _scrollToBottom();
@@ -579,6 +585,7 @@ class _ConversationStage extends StatelessWidget {
     this.activity = ChatActivity.idle,
     this.activeToolCalls = const [],
     this.pendingApprovals = const [],
+    this.displayWidgets = const [],
     this.onApprove,
     this.onReject,
   });
@@ -590,6 +597,7 @@ class _ConversationStage extends StatelessWidget {
   final ChatActivity activity;
   final List<ActiveToolCall> activeToolCalls;
   final List<PendingApproval> pendingApprovals;
+  final List<DisplayWidget> displayWidgets;
   final void Function(String toolCallId)? onApprove;
   final void Function(String toolCallId, [String? reason])? onReject;
 
@@ -632,6 +640,13 @@ class _ConversationStage extends StatelessWidget {
             padding: EdgeInsets.only(bottom: PayaboSpacing.xl),
             child: _ThinkingIndicator(),
           ),
+        // Show display widget cards (FX chart, budget breakdown, etc.).
+        ...displayWidgets.map(
+          (DisplayWidget widget) => Padding(
+            padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
+            child: _DisplayWidgetDispatcher(widget: widget),
+          ),
+        ),
         // Show approval cards for pending confirmAction requests.
         ...pendingApprovals.map(
           (PendingApproval approval) => Padding(
@@ -1573,6 +1588,715 @@ class _ToolCallChip extends StatelessWidget {
     );
     if (spaced.isEmpty) return raw;
     return spaced[0].toUpperCase() + spaced.substring(1);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Display widget cards
+// ─────────────────────────────────────────────────────────
+
+/// Routes a [DisplayWidget] to the correct card widget based on its type.
+class _DisplayWidgetDispatcher extends StatelessWidget {
+  const _DisplayWidgetDispatcher({required this.widget});
+
+  final DisplayWidget widget;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (widget.widgetType) {
+      case DisplayWidgetType.fxRateChart:
+        return _FxRateChartCard(data: widget.data);
+      case DisplayWidgetType.budgetBreakdown:
+        return _BudgetBreakdownCard(data: widget.data);
+      case DisplayWidgetType.autopilotProposal:
+        return _AutopilotProposalCard(data: widget.data);
+    }
+  }
+}
+
+/// FX rate chart card — shows a currency pair rate window with a mini
+/// line chart, current rate highlight, and timing signal badge.
+class _FxRateChartCard extends StatelessWidget {
+  const _FxRateChartCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    final baseCurrency = data['baseCurrency'] as String? ?? '???';
+    final targetCurrency = data['targetCurrency'] as String? ?? '???';
+    final rates = (data['rates'] as List<dynamic>?)
+            ?.map((e) => e as Map<String, dynamic>)
+            .toList() ??
+        const [];
+    final signal = data['signal'] as String? ?? 'hold';
+    final signalReason = data['signalReason'] as String? ?? '';
+
+    final Color signalColor;
+    final String signalLabel;
+    switch (signal) {
+      case 'buy':
+        signalColor = Colors.green;
+        signalLabel = 'BUY';
+      case 'wait':
+        signalColor = Colors.red;
+        signalLabel = 'WAIT';
+      default:
+        signalColor = Colors.orange;
+        signalLabel = 'HOLD';
+    }
+
+    // Parse rate values for the mini chart.
+    final rateValues = rates
+        .map((r) => (r['rate'] as num?)?.toDouble() ?? 0.0)
+        .toList();
+    final currentRate =
+        rateValues.isNotEmpty ? rateValues.last : 0.0;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+      decoration: BoxDecoration(
+        color: _chatPlanSurfaceColor(context),
+        gradient: _chatPlanGradient(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _chatPremiumBorderColor(context)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1E000000),
+            blurRadius: 16,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: 0,
+            left: 18,
+            right: 18,
+            child: Container(
+              height: 1,
+              color: _chatPremiumHighlightColor(context),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(PayaboSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Header row: pair label + signal badge.
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.show_chart_rounded,
+                      size: 18,
+                      color: c.primary.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: PayaboSpacing.sm),
+                    Text(
+                      '$baseCurrency / $targetCurrency',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(
+                            color: _chatBodyTextColor(context),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: PayaboSpacing.sm,
+                        vertical: PayaboSpacing.xxs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: signalColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: signalColor.withValues(alpha: 0.24),
+                        ),
+                      ),
+                      child: Text(
+                        signalLabel,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(
+                              color: signalColor.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: PayaboSpacing.sm),
+                // Current rate highlight.
+                Text(
+                  currentRate.toStringAsFixed(2),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: _chatBodyTextColor(context),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                ),
+                const SizedBox(height: PayaboSpacing.md),
+                // Mini line chart.
+                if (rateValues.length >= 2)
+                  SizedBox(
+                    height: 60,
+                    child: CustomPaint(
+                      size: const Size(double.infinity, 60),
+                      painter: _MiniLineChartPainter(
+                        values: rateValues,
+                        lineColor: signalColor.withValues(alpha: 0.7),
+                        fillColor: signalColor.withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ),
+                if (rateValues.length >= 2)
+                  const SizedBox(height: PayaboSpacing.sm),
+                // Date labels.
+                if (rates.length >= 2)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Text(
+                        rates.first['date'] as String? ?? '',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(
+                              color: _chatMutedTextColor(context),
+                            ),
+                      ),
+                      Text(
+                        rates.last['date'] as String? ?? '',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(
+                              color: _chatMutedTextColor(context),
+                            ),
+                      ),
+                    ],
+                  ),
+                // Signal reason.
+                if (signalReason.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: PayaboSpacing.md),
+                  Text(
+                    signalReason,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: _chatMutedTextColor(context),
+                          height: 1.5,
+                        ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Custom painter for a simple mini line chart.
+class _MiniLineChartPainter extends CustomPainter {
+  _MiniLineChartPainter({
+    required this.values,
+    required this.lineColor,
+    required this.fillColor,
+  });
+
+  final List<double> values;
+  final Color lineColor;
+  final Color fillColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.length < 2) return;
+
+    final minVal = values.reduce((a, b) => a < b ? a : b);
+    final maxVal = values.reduce((a, b) => a > b ? a : b);
+    final range = maxVal - minVal;
+    if (range == 0) return;
+
+    final step = size.width / (values.length - 1);
+    final points = <Offset>[];
+
+    for (var i = 0; i < values.length; i++) {
+      final x = i * step;
+      final y = size.height - ((values[i] - minVal) / range) * size.height;
+      points.add(Offset(x, y));
+    }
+
+    // Draw fill.
+    final fillPath = Path()
+      ..moveTo(points.first.dx, size.height)
+      ..lineTo(points.first.dx, points.first.dy);
+    for (final p in points.skip(1)) {
+      fillPath.lineTo(p.dx, p.dy);
+    }
+    fillPath
+      ..lineTo(points.last.dx, size.height)
+      ..close();
+
+    canvas.drawPath(
+      fillPath,
+      Paint()..color = fillColor,
+    );
+
+    // Draw line.
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final p in points.skip(1)) {
+      linePath.lineTo(p.dx, p.dy);
+    }
+
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    // Draw dot at last point.
+    canvas.drawCircle(
+      points.last,
+      3.5,
+      Paint()..color = lineColor,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniLineChartPainter oldDelegate) {
+    return values != oldDelegate.values ||
+        lineColor != oldDelegate.lineColor;
+  }
+}
+
+/// Budget breakdown card — shows spending categories with progress bars
+/// colored by status (under/on_track/over).
+class _BudgetBreakdownCard extends StatelessWidget {
+  const _BudgetBreakdownCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    final period = data['period'] as String? ?? '';
+    final totalBudget = (data['totalBudget'] as num?)?.toDouble() ?? 0.0;
+    final totalSpent = (data['totalSpent'] as num?)?.toDouble() ?? 0.0;
+    final currency = data['currency'] as String? ?? '';
+    final categories = (data['categories'] as List<dynamic>?)
+            ?.map((e) => e as Map<String, dynamic>)
+            .toList() ??
+        const [];
+
+    final totalPct =
+        totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0.0;
+    final bool isOverall = totalSpent > totalBudget;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+      decoration: BoxDecoration(
+        color: _chatPlanSurfaceColor(context),
+        gradient: _chatPlanGradient(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _chatPremiumBorderColor(context)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1E000000),
+            blurRadius: 16,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: 0,
+            left: 18,
+            right: 18,
+            child: Container(
+              height: 1,
+              color: _chatPremiumHighlightColor(context),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(PayaboSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Header.
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.pie_chart_outline_rounded,
+                      size: 18,
+                      color: c.primary.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: PayaboSpacing.sm),
+                    Text(
+                      'BUDGET',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(
+                            color: _chatMutedTextColor(context),
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2.8,
+                          ),
+                    ),
+                    const Spacer(),
+                    if (period.isNotEmpty)
+                      Text(
+                        period,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(
+                              color: _chatMutedTextColor(context),
+                            ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: PayaboSpacing.md),
+                // Total summary.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Text(
+                      '$currency ${totalSpent.toStringAsFixed(0)}',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(
+                            color: isOverall
+                                ? Colors.red.withValues(alpha: 0.9)
+                                : _chatBodyTextColor(context),
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(width: PayaboSpacing.xs),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        'of $currency ${totalBudget.toStringAsFixed(0)}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
+                              color: _chatMutedTextColor(context),
+                            ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${totalPct.toStringAsFixed(0)}%',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(
+                            color: isOverall
+                                ? Colors.red.withValues(alpha: 0.9)
+                                : c.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: PayaboSpacing.lg),
+                // Category rows.
+                ...categories.map((cat) {
+                  final name = cat['name'] as String? ?? '';
+                  final budgeted =
+                      (cat['budgeted'] as num?)?.toDouble() ?? 0.0;
+                  final spent = (cat['spent'] as num?)?.toDouble() ?? 0.0;
+                  final status = cat['status'] as String? ?? 'on_track';
+                  final pct =
+                      budgeted > 0 ? (spent / budgeted).clamp(0.0, 1.5) : 0.0;
+
+                  final Color statusColor;
+                  switch (status) {
+                    case 'under':
+                      statusColor = Colors.green;
+                    case 'over':
+                      statusColor = Colors.red;
+                    default:
+                      statusColor = c.primary;
+                  }
+
+                  return Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: PayaboSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: _chatBodyTextColor(context),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                            Text(
+                              '$currency ${spent.toStringAsFixed(0)} / ${budgeted.toStringAsFixed(0)}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: _chatMutedTextColor(context),
+                                  ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: PayaboSpacing.xs),
+                        // Progress bar.
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: SizedBox(
+                            height: 6,
+                            child: Stack(
+                              children: <Widget>[
+                                // Track.
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.06),
+                                  ),
+                                ),
+                                // Fill.
+                                FractionallySizedBox(
+                                  widthFactor: pct.clamp(0.0, 1.0),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: statusColor
+                                          .withValues(alpha: 0.7),
+                                      borderRadius:
+                                          BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Autopilot proposal card — a display-only card showing a structured
+/// proposal from an agent. Unlike [_ApprovalCard], this is informational
+/// (no approve/reject buttons).
+class _AutopilotProposalCard extends StatelessWidget {
+  const _AutopilotProposalCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final agent = data['agent'] as String? ?? 'Agent';
+    final action = data['action'] as String? ?? '';
+    final description = data['description'] as String? ?? '';
+    final details = (data['details'] as List<dynamic>?)
+            ?.map((e) => e as Map<String, dynamic>)
+            .toList() ??
+        const [];
+    final severity = data['severity'] as String? ?? 'medium';
+
+    final Color severityColor;
+    final IconData severityIcon;
+    switch (severity) {
+      case 'high':
+        severityColor = Colors.red;
+        severityIcon = Icons.priority_high_rounded;
+      case 'low':
+        severityColor = Colors.green;
+        severityIcon = Icons.lightbulb_outline_rounded;
+      default:
+        severityColor = Colors.orange;
+        severityIcon = Icons.auto_awesome_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            severityColor.withValues(alpha: 0.06),
+            severityColor.withValues(alpha: 0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: severityColor.withValues(alpha: 0.16),
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1E000000),
+            blurRadius: 16,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(PayaboSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            // Agent badge + severity icon.
+            Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: severityColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    severityIcon,
+                    size: 16,
+                    color: severityColor.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(width: PayaboSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        agent.toUpperCase(),
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(
+                              color: severityColor.withValues(alpha: 0.7),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.4,
+                            ),
+                      ),
+                      if (action.isNotEmpty)
+                        Text(
+                          action,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(
+                                color: _chatBodyTextColor(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            // Description.
+            if (description.isNotEmpty) ...<Widget>[
+              const SizedBox(height: PayaboSpacing.md),
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color:
+                          _chatBodyTextColor(context).withValues(alpha: 0.8),
+                      height: 1.5,
+                    ),
+              ),
+            ],
+            // Detail rows.
+            if (details.isNotEmpty) ...<Widget>[
+              const SizedBox(height: PayaboSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(PayaboSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Column(
+                  children: details.asMap().entries.map((entry) {
+                    final label =
+                        entry.value['label'] as String? ?? '';
+                    final value =
+                        entry.value['value'] as String? ?? '';
+                    final isLast =
+                        entry.key == details.length - 1;
+
+                    return Column(
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Text(
+                              label,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: _chatMutedTextColor(context),
+                                  ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              value,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: _chatBodyTextColor(context),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        if (!isLast)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: PayaboSpacing.xs,
+                            ),
+                            child: Container(
+                              height: 1,
+                              color:
+                                  Colors.white.withValues(alpha: 0.04),
+                            ),
+                          ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
