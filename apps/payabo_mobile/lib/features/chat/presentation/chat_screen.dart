@@ -224,6 +224,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (prev != null && next.messages.length > prev.messages.length) {
         _scrollToBottom();
       }
+      // Scroll when a new approval card appears.
+      if (prev != null &&
+          next.pendingApprovals.length > prev.pendingApprovals.length) {
+        _scrollToBottom();
+      }
     });
 
     // Sync seeded conversations from provider (for history navigation only).
@@ -302,6 +307,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             streamingText: chatState.streamingText,
                             activity: chatState.activity,
                             activeToolCalls: chatState.activeToolCalls,
+                            pendingApprovals: chatState.pendingApprovals,
+                            onApprove: (String toolCallId) {
+                              ref.read(chatControllerProvider.notifier).approveAction(toolCallId);
+                              _scrollToBottom();
+                            },
+                            onReject: (String toolCallId, [String? reason]) {
+                              ref.read(chatControllerProvider.notifier).rejectAction(toolCallId, reason);
+                              _scrollToBottom();
+                            },
                           ),
                   ),
                 ),
@@ -564,6 +578,9 @@ class _ConversationStage extends StatelessWidget {
     this.streamingText = '',
     this.activity = ChatActivity.idle,
     this.activeToolCalls = const [],
+    this.pendingApprovals = const [],
+    this.onApprove,
+    this.onReject,
   });
 
   final ScrollController controller;
@@ -572,6 +589,9 @@ class _ConversationStage extends StatelessWidget {
   final String streamingText;
   final ChatActivity activity;
   final List<ActiveToolCall> activeToolCalls;
+  final List<PendingApproval> pendingApprovals;
+  final void Function(String toolCallId)? onApprove;
+  final void Function(String toolCallId, [String? reason])? onReject;
 
   @override
   Widget build(BuildContext context) {
@@ -612,6 +632,17 @@ class _ConversationStage extends StatelessWidget {
             padding: EdgeInsets.only(bottom: PayaboSpacing.xl),
             child: _ThinkingIndicator(),
           ),
+        // Show approval cards for pending confirmAction requests.
+        ...pendingApprovals.map(
+          (PendingApproval approval) => Padding(
+            padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
+            child: _ApprovalCard(
+              approval: approval,
+              onApprove: () => onApprove?.call(approval.toolCallId),
+              onReject: () => onReject?.call(approval.toolCallId),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1173,7 +1204,7 @@ class _StreamingMessageBlock extends StatelessWidget {
                     children: activeToolCalls
                         .map((tc) => _ToolCallChip(
                               name: tc.toolName,
-                              isComplete: tc.isComplete,
+                              status: tc.status,
                             ))
                         .toList(),
                   ),
@@ -1257,19 +1288,191 @@ class _ThinkingIndicator extends StatelessWidget {
   }
 }
 
-/// A small chip showing a tool call name with a spinner or check icon.
-class _ToolCallChip extends StatelessWidget {
-  const _ToolCallChip({
-    required this.name,
-    required this.isComplete,
+/// Approval card shown when the agent requests user confirmation for a
+/// mutating action (via the confirmAction frontend tool).
+class _ApprovalCard extends StatelessWidget {
+  const _ApprovalCard({
+    required this.approval,
+    required this.onApprove,
+    required this.onReject,
   });
 
-  final String name;
-  final bool isComplete;
+  final PendingApproval approval;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+
+    final Color severityColor;
+    final IconData severityIcon;
+    switch (approval.severity) {
+      case 'high':
+        severityColor = Colors.red;
+        severityIcon = Icons.warning_amber_rounded;
+      case 'low':
+        severityColor = Colors.green;
+        severityIcon = Icons.info_outline_rounded;
+      default: // 'medium'
+        severityColor = Colors.orange;
+        severityIcon = Icons.help_outline_rounded;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            severityColor.withValues(alpha: 0.08),
+            severityColor.withValues(alpha: 0.03),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: severityColor.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              PayaboSpacing.md,
+              PayaboSpacing.md,
+              PayaboSpacing.md,
+              PayaboSpacing.sm,
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: severityColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    severityIcon,
+                    size: 18,
+                    color: severityColor.withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(width: PayaboSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Simi wants to perform an action',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: _chatMutedTextColor(context),
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.3,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        approval.action,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: _chatBodyTextColor(context),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Description
+          if (approval.description.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                PayaboSpacing.md,
+                0,
+                PayaboSpacing.md,
+                PayaboSpacing.md,
+              ),
+              child: Text(
+                approval.description,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: _chatBodyTextColor(context).withValues(alpha: 0.8),
+                      height: 1.5,
+                    ),
+              ),
+            ),
+          // Divider
+          Container(
+            height: 1,
+            color: severityColor.withValues(alpha: 0.1),
+          ),
+          // Action buttons
+          Padding(
+            padding: const EdgeInsets.all(PayaboSpacing.sm),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: TextButton(
+                    onPressed: onReject,
+                    style: TextButton.styleFrom(
+                      foregroundColor: _chatMutedTextColor(context),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: PayaboSpacing.sm,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                    ),
+                    child: const Text('Reject'),
+                  ),
+                ),
+                const SizedBox(width: PayaboSpacing.sm),
+                Expanded(
+                  child: TextButton(
+                    onPressed: onApprove,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: c.primary,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: PayaboSpacing.sm,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Approve'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A small chip showing a tool call name with a status-appropriate icon.
+class _ToolCallChip extends StatelessWidget {
+  const _ToolCallChip({
+    required this.name,
+    required this.status,
+  });
+
+  final String name;
+  final ToolCallStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    final (Color chipColor, Widget icon) = _statusVisuals(c);
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -1277,32 +1480,16 @@ class _ToolCallChip extends StatelessWidget {
         vertical: PayaboSpacing.xxs,
       ),
       decoration: BoxDecoration(
-        color: c.primary.withValues(alpha: 0.08),
+        color: chipColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: c.primary.withValues(alpha: 0.18),
+          color: chipColor.withValues(alpha: 0.18),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          if (isComplete)
-            Icon(
-              Icons.check_circle_rounded,
-              size: 14,
-              color: c.primary.withValues(alpha: 0.7),
-            )
-          else
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  c.primary.withValues(alpha: 0.6),
-                ),
-              ),
-            ),
+          icon,
           const SizedBox(width: PayaboSpacing.xxs),
           Text(
             _friendlyToolName(name),
@@ -1315,6 +1502,66 @@ class _ToolCallChip extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  (Color, Widget) _statusVisuals(PayaboColorResolver c) {
+    switch (status) {
+      case ToolCallStatus.streaming:
+      case ToolCallStatus.executing:
+        return (
+          c.primary,
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                c.primary.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        );
+
+      case ToolCallStatus.pending:
+        return (
+          c.primary,
+          Icon(
+            Icons.schedule_rounded,
+            size: 14,
+            color: c.primary.withValues(alpha: 0.7),
+          ),
+        );
+
+      case ToolCallStatus.awaitingApproval:
+        return (
+          Colors.orange,
+          Icon(
+            Icons.shield_rounded,
+            size: 14,
+            color: Colors.orange.withValues(alpha: 0.8),
+          ),
+        );
+
+      case ToolCallStatus.completed:
+        return (
+          c.primary,
+          Icon(
+            Icons.check_circle_rounded,
+            size: 14,
+            color: c.primary.withValues(alpha: 0.7),
+          ),
+        );
+
+      case ToolCallStatus.error:
+        return (
+          Colors.red,
+          Icon(
+            Icons.error_rounded,
+            size: 14,
+            color: Colors.red.withValues(alpha: 0.7),
+          ),
+        );
+    }
   }
 
   /// Converts a camelCase or PascalCase tool name to a friendly label.

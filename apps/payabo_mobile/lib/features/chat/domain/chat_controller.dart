@@ -3,7 +3,7 @@
 //
 //  Manages conversation state for the chat feature.
 //  Handles streaming AG-UI responses, message history,
-//  and thread lifecycle.
+//  thread lifecycle, and human-in-the-loop approval flows.
 // ─────────────────────────────────────────────────────────
 
 import 'dart:async';
@@ -30,7 +30,31 @@ enum ChatActivity {
   /// The agent is executing a server-side tool.
   toolCall,
 
+  /// Waiting for user to approve or reject a mutating action.
+  awaitingApproval,
+
   /// An error occurred during the last request.
+  error,
+}
+
+/// Status of a tool call in the current response.
+enum ToolCallStatus {
+  /// Arguments are being streamed.
+  streaming,
+
+  /// Arguments complete, awaiting execution.
+  pending,
+
+  /// Executing server-side.
+  executing,
+
+  /// Waiting for user approval (confirmAction).
+  awaitingApproval,
+
+  /// Completed with a result.
+  completed,
+
+  /// Failed with an error.
   error,
 }
 
@@ -39,14 +63,52 @@ class ActiveToolCall {
   const ActiveToolCall({
     required this.toolCallId,
     required this.toolName,
+    this.arguments = '',
     this.result,
-    this.isComplete = false,
+    this.status = ToolCallStatus.streaming,
   });
 
   final String toolCallId;
   final String toolName;
+  final String arguments;
   final String? result;
-  final bool isComplete;
+  final ToolCallStatus status;
+
+  bool get isComplete =>
+      status == ToolCallStatus.completed || status == ToolCallStatus.error;
+
+  ActiveToolCall copyWith({
+    String? arguments,
+    String? result,
+    ToolCallStatus? status,
+  }) {
+    return ActiveToolCall(
+      toolCallId: toolCallId,
+      toolName: toolName,
+      arguments: arguments ?? this.arguments,
+      result: result ?? this.result,
+      status: status ?? this.status,
+    );
+  }
+}
+
+/// A pending approval from the confirmAction tool — awaiting user decision.
+class PendingApproval {
+  const PendingApproval({
+    required this.toolCallId,
+    required this.action,
+    required this.description,
+    this.severity = 'medium',
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final String toolCallId;
+  final String action;
+  final String description;
+  final String severity;
+  final void Function() onApprove;
+  final void Function([String? reason]) onReject;
 }
 
 /// Immutable state for the chat feature.
@@ -58,6 +120,7 @@ class ChatState {
     this.streamingMessageId,
     this.threadId,
     this.activeToolCalls = const [],
+    this.pendingApprovals = const [],
     this.errorMessage,
   });
 
@@ -80,15 +143,19 @@ class ChatState {
   /// Tool calls in progress during the current response.
   final List<ActiveToolCall> activeToolCalls;
 
+  /// Pending approvals waiting for user interaction.
+  final List<PendingApproval> pendingApprovals;
+
   /// Error message from the last failed request.
   final String? errorMessage;
 
-  /// Whether the agent is currently processing (connecting, streaming, or
-  /// executing a tool).
+  /// Whether the agent is currently processing (connecting, streaming,
+  /// executing a tool, or waiting for approval).
   bool get isProcessing =>
       activity == ChatActivity.connecting ||
       activity == ChatActivity.streaming ||
-      activity == ChatActivity.toolCall;
+      activity == ChatActivity.toolCall ||
+      activity == ChatActivity.awaitingApproval;
 
   /// Whether there are any messages in the conversation.
   bool get hasMessages => messages.isNotEmpty;
@@ -100,6 +167,7 @@ class ChatState {
     String? streamingMessageId,
     String? threadId,
     List<ActiveToolCall>? activeToolCalls,
+    List<PendingApproval>? pendingApprovals,
     String? errorMessage,
   }) {
     return ChatState(
@@ -109,6 +177,7 @@ class ChatState {
       streamingMessageId: streamingMessageId ?? this.streamingMessageId,
       threadId: threadId ?? this.threadId,
       activeToolCalls: activeToolCalls ?? this.activeToolCalls,
+      pendingApprovals: pendingApprovals ?? this.pendingApprovals,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -159,6 +228,7 @@ class ChatController extends StateNotifier<ChatState> {
       streamingText: '',
       streamingMessageId: null,
       activeToolCalls: const [],
+      pendingApprovals: const [],
       errorMessage: null,
     );
 
@@ -205,6 +275,7 @@ class ChatController extends StateNotifier<ChatState> {
                 .map((tc) => ChatToolCallInfo(
                       toolCallId: tc.toolCallId,
                       name: tc.toolName,
+                      arguments: tc.arguments,
                       result: tc.result,
                       isComplete: tc.isComplete,
                     ))
@@ -222,6 +293,7 @@ class ChatController extends StateNotifier<ChatState> {
           ActiveToolCall(
             toolCallId: event.toolCallId,
             toolName: event.toolName,
+            status: ToolCallStatus.streaming,
           ),
         ];
         state = state.copyWith(
@@ -229,38 +301,157 @@ class ChatController extends StateNotifier<ChatState> {
           activeToolCalls: updated,
         );
 
-      case ChatStreamToolCallResult():
+      case ChatStreamToolCallArgs():
         final updated = state.activeToolCalls.map((tc) {
           if (tc.toolCallId == event.toolCallId) {
-            return ActiveToolCall(
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
-              result: event.content,
-              isComplete: true,
+            return tc.copyWith(
+              arguments: tc.arguments + event.delta,
             );
           }
           return tc;
         }).toList();
-
         state = state.copyWith(activeToolCalls: updated);
+
+      case ChatStreamToolCallEnd():
+        final updated = state.activeToolCalls.map((tc) {
+          if (tc.toolCallId == event.toolCallId) {
+            return tc.copyWith(status: ToolCallStatus.pending);
+          }
+          return tc;
+        }).toList();
+        state = state.copyWith(activeToolCalls: updated);
+
+      case ChatStreamToolCallResult():
+        final updated = state.activeToolCalls.map((tc) {
+          if (tc.toolCallId == event.toolCallId) {
+            return tc.copyWith(
+              result: event.content,
+              status: ToolCallStatus.completed,
+            );
+          }
+          return tc;
+        }).toList();
+        state = state.copyWith(activeToolCalls: updated);
+
+      case ChatStreamApprovalRequested():
+        // Add pending approval and update the tool call status.
+        final approval = PendingApproval(
+          toolCallId: event.toolCallId,
+          action: event.action,
+          description: event.description,
+          severity: event.severity,
+          onApprove: event.onApprove,
+          onReject: event.onReject,
+        );
+
+        final updatedToolCalls = state.activeToolCalls.map((tc) {
+          if (tc.toolCallId == event.toolCallId) {
+            return tc.copyWith(status: ToolCallStatus.awaitingApproval);
+          }
+          return tc;
+        }).toList();
+
+        state = state.copyWith(
+          activity: ChatActivity.awaitingApproval,
+          pendingApprovals: [...state.pendingApprovals, approval],
+          activeToolCalls: updatedToolCalls,
+        );
 
       case ChatStreamFinished():
         state = state._clearStreaming().copyWith(
               activity: ChatActivity.idle,
+              pendingApprovals: const [],
             );
 
       case ChatStreamError():
         state = state._clearStreaming().copyWith(
               activity: ChatActivity.error,
               errorMessage: event.message,
+              pendingApprovals: const [],
             );
     }
+  }
+
+  /// Approves a pending confirmAction tool call.
+  ///
+  /// This resolves the completer in the AG-UI re-run loop, allowing
+  /// the agent to continue with the approved mutation.
+  void approveAction(String toolCallId) {
+    final approval = state.pendingApprovals
+        .where((a) => a.toolCallId == toolCallId)
+        .firstOrNull;
+
+    if (approval == null) return;
+
+    // Resolve the completer (triggers the re-run loop to continue).
+    approval.onApprove();
+
+    // Update state: remove the approval and mark the tool call.
+    final updatedApprovals = state.pendingApprovals
+        .where((a) => a.toolCallId != toolCallId)
+        .toList();
+
+    final updatedToolCalls = state.activeToolCalls.map((tc) {
+      if (tc.toolCallId == toolCallId) {
+        return tc.copyWith(
+          result: 'approved',
+          status: ToolCallStatus.completed,
+        );
+      }
+      return tc;
+    }).toList();
+
+    state = state.copyWith(
+      pendingApprovals: updatedApprovals,
+      activeToolCalls: updatedToolCalls,
+      // If no more approvals pending, transition back to streaming/connecting
+      // (the re-run loop will emit new events shortly).
+      activity: updatedApprovals.isEmpty
+          ? ChatActivity.connecting
+          : ChatActivity.awaitingApproval,
+    );
+  }
+
+  /// Rejects a pending confirmAction tool call with an optional reason.
+  void rejectAction(String toolCallId, [String? reason]) {
+    final approval = state.pendingApprovals
+        .where((a) => a.toolCallId == toolCallId)
+        .firstOrNull;
+
+    if (approval == null) return;
+
+    // Resolve the completer with rejection.
+    approval.onReject(reason);
+
+    // Update state.
+    final updatedApprovals = state.pendingApprovals
+        .where((a) => a.toolCallId != toolCallId)
+        .toList();
+
+    final updatedToolCalls = state.activeToolCalls.map((tc) {
+      if (tc.toolCallId == toolCallId) {
+        return tc.copyWith(
+          result: reason != null ? 'rejected: $reason' : 'rejected',
+          status: ToolCallStatus.completed,
+        );
+      }
+      return tc;
+    }).toList();
+
+    state = state.copyWith(
+      pendingApprovals: updatedApprovals,
+      activeToolCalls: updatedToolCalls,
+      activity: updatedApprovals.isEmpty
+          ? ChatActivity.connecting
+          : ChatActivity.awaitingApproval,
+    );
   }
 
   void _onStreamError(Object error, StackTrace stackTrace) {
     state = state._clearStreaming().copyWith(
           activity: ChatActivity.error,
           errorMessage: error.toString(),
+          pendingApprovals: const [],
         );
   }
 
@@ -281,8 +472,14 @@ class ChatController extends StateNotifier<ChatState> {
         );
       }
 
+      // Reject any pending approvals so completers don't hang.
+      for (final approval in state.pendingApprovals) {
+        approval.onReject('Stream ended unexpectedly');
+      }
+
       state = state._clearStreaming().copyWith(
             activity: ChatActivity.idle,
+            pendingApprovals: const [],
           );
     }
   }
@@ -290,12 +487,24 @@ class ChatController extends StateNotifier<ChatState> {
   /// Starts a new conversation — clears all messages and state.
   void newConversation() {
     _subscription?.cancel();
+
+    // Reject any pending approvals.
+    for (final approval in state.pendingApprovals) {
+      approval.onReject('Conversation reset');
+    }
+
     state = ChatState.initial();
   }
 
   /// Loads a seeded conversation from the mock data.
   void loadConversation(ChatConversation conversation) {
     _subscription?.cancel();
+
+    // Reject any pending approvals.
+    for (final approval in state.pendingApprovals) {
+      approval.onReject('Conversation changed');
+    }
+
     state = ChatState(
       messages: List.of(conversation.messages),
       threadId: conversation.id,
@@ -305,6 +514,12 @@ class ChatController extends StateNotifier<ChatState> {
   @override
   void dispose() {
     _subscription?.cancel();
+
+    // Reject any pending approvals.
+    for (final approval in state.pendingApprovals) {
+      approval.onReject('Controller disposed');
+    }
+
     super.dispose();
   }
 }

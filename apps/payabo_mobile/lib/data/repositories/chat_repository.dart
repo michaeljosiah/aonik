@@ -124,7 +124,7 @@ class ChatStreamTextDone extends ChatStreamEvent {
   final String messageId;
 }
 
-/// The agent started calling a server-side tool.
+/// The agent started calling a tool.
 class ChatStreamToolCallStarted extends ChatStreamEvent {
   const ChatStreamToolCallStarted({
     required this.toolCallId,
@@ -135,7 +135,26 @@ class ChatStreamToolCallStarted extends ChatStreamEvent {
   final String toolName;
 }
 
-/// The agent's tool call received a result.
+/// A chunk of tool call arguments (JSON fragment) is streaming.
+class ChatStreamToolCallArgs extends ChatStreamEvent {
+  const ChatStreamToolCallArgs({
+    required this.toolCallId,
+    required this.delta,
+  });
+
+  final String toolCallId;
+  final String delta;
+}
+
+/// The tool call specification is complete (all args received).
+/// The tool is now pending execution.
+class ChatStreamToolCallEnd extends ChatStreamEvent {
+  const ChatStreamToolCallEnd({required this.toolCallId});
+
+  final String toolCallId;
+}
+
+/// The agent's tool call received a result (server-side execution).
 class ChatStreamToolCallResult extends ChatStreamEvent {
   const ChatStreamToolCallResult({
     required this.toolCallId,
@@ -144,6 +163,41 @@ class ChatStreamToolCallResult extends ChatStreamEvent {
 
   final String toolCallId;
   final String? content;
+}
+
+/// The agent wants to perform a mutating action and is requesting user
+/// approval via the human-in-the-loop pattern.
+///
+/// The UI should display an approval card with the action details.
+/// Call the [onApprove] or [onReject] callbacks to resolve the approval
+/// and allow the AG-UI re-run loop to continue.
+class ChatStreamApprovalRequested extends ChatStreamEvent {
+  ChatStreamApprovalRequested({
+    required this.toolCallId,
+    required this.action,
+    required this.description,
+    this.severity = 'medium',
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final String toolCallId;
+
+  /// Short name of the action (e.g., "Create Transaction").
+  final String action;
+
+  /// Detailed description of what will happen if approved.
+  final String description;
+
+  /// Risk level: 'low', 'medium', or 'high'.
+  final String severity;
+
+  /// Call to approve the action. Resolves the confirmAction tool call
+  /// and allows the AG-UI re-run loop to continue.
+  final void Function() onApprove;
+
+  /// Call to reject the action with an optional reason.
+  final void Function([String? reason]) onReject;
 }
 
 /// The streaming run finished successfully.
