@@ -27,7 +27,7 @@ const FORMAT_OPTIONS = ['Markdown', 'Html', 'ImageSet', 'Json'];
 export function ContentBlockEditPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const isNew = id === 'new';
+  const isNew = !id || id === 'new';
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);

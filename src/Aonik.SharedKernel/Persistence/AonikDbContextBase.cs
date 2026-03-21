@@ -97,6 +97,9 @@ public abstract class AonikDbContextBase : DbContext
     /// 
     /// Filter logic: no tenant context → show all rows; otherwise show rows matching
     /// the current tenant OR rows with TenantId == Guid.Empty (global/system rows).
+    /// 
+    /// For entities that also inherit from <see cref="AuditableEntity"/>, the filter
+    /// additionally excludes soft-deleted rows (IsDeleted == true).
     /// </summary>
     protected void ApplyTenantQueryFilters(ModelBuilder modelBuilder)
     {
@@ -118,9 +121,17 @@ public abstract class AonikDbContextBase : DbContext
                 var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
                 var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
                 var equalsGlobal = Expression.Equal(property, Expression.Constant(Guid.Empty));
-                var filter = Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsGlobal));
-                var lambda = Expression.Lambda(filter, parameter);
+                Expression filter = Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsGlobal));
 
+                // Combine with soft-delete filter for AuditableEntity types
+                if (typeof(AuditableEntity).IsAssignableFrom(clrType))
+                {
+                    var isDeleted = Expression.Property(parameter, nameof(AuditableEntity.IsDeleted));
+                    var notDeleted = Expression.Not(isDeleted);
+                    filter = Expression.AndAlso(filter, notDeleted);
+                }
+
+                var lambda = Expression.Lambda(filter, parameter);
                 modelBuilder.Entity(clrType).HasQueryFilter(lambda);
             }
         }
@@ -130,6 +141,9 @@ public abstract class AonikDbContextBase : DbContext
     /// Applies a nullable-TenantId query filter for entities where TenantId is Guid? (nullable).
     /// These entities can exist without a tenant (TenantId == null means global/platform-level).
     /// Call this from <see cref="DbContext.OnModelCreating"/> after <see cref="ApplyTenantQueryFilters"/>.
+    /// 
+    /// For entities that also inherit from <see cref="AuditableEntity"/>, the filter
+    /// additionally excludes soft-deleted rows (IsDeleted == true).
     /// </summary>
     protected void ApplyNullableTenantQueryFilter(ModelBuilder modelBuilder, Type clrType)
     {
@@ -142,11 +156,55 @@ public abstract class AonikDbContextBase : DbContext
         var tenantIdAsNullable = Expression.Convert(property, typeof(Guid?));
         var equalsTenant = Expression.Equal(tenantIdAsNullable, currentTenantId);
         var equalsNull = Expression.Equal(property, Expression.Constant(null, property.Type));
-        var filter = Expression.Lambda(
-            Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsNull)),
-            parameter);
+        Expression filter = Expression.OrElse(noTenantContext, Expression.OrElse(equalsTenant, equalsNull));
 
-        modelBuilder.Entity(clrType).HasQueryFilter(filter);
+        // Combine with soft-delete filter for AuditableEntity types
+        if (typeof(AuditableEntity).IsAssignableFrom(clrType))
+        {
+            var isDeleted = Expression.Property(parameter, nameof(AuditableEntity.IsDeleted));
+            var notDeleted = Expression.Not(isDeleted);
+            filter = Expression.AndAlso(filter, notDeleted);
+        }
+
+        var lambda = Expression.Lambda(filter, parameter);
+        modelBuilder.Entity(clrType).HasQueryFilter(lambda);
+    }
+
+    /// <summary>
+    /// Applies a soft-delete query filter (IsDeleted == false) to all <see cref="AuditableEntity"/>
+    /// types that do NOT implement <see cref="ITenantScoped"/> and do NOT already have a query
+    /// filter from <see cref="ApplyNullableTenantQueryFilter"/>. Call this from
+    /// <see cref="DbContext.OnModelCreating"/> after tenant filters are applied.
+    /// </summary>
+    /// <param name="modelBuilder">The model builder.</param>
+    /// <param name="excludeTypes">
+    /// Types that already have a query filter applied (e.g. via
+    /// <see cref="ApplyNullableTenantQueryFilter"/>). These will be skipped.
+    /// </param>
+    protected static void ApplySoftDeleteQueryFilters(ModelBuilder modelBuilder, params Type[] excludeTypes)
+    {
+        var excludeSet = new HashSet<Type>(excludeTypes);
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var clrType = entityType.ClrType;
+
+            // Skip tenant-scoped entities (handled by ApplyTenantQueryFilters)
+            // and explicitly excluded types (handled by ApplyNullableTenantQueryFilter)
+            if (typeof(ITenantScoped).IsAssignableFrom(clrType))
+                continue;
+            if (excludeSet.Contains(clrType))
+                continue;
+            if (!typeof(AuditableEntity).IsAssignableFrom(clrType))
+                continue;
+
+            var parameter = Expression.Parameter(clrType, "e");
+            var isDeleted = Expression.Property(parameter, nameof(AuditableEntity.IsDeleted));
+            var notDeleted = Expression.Not(isDeleted);
+            var lambda = Expression.Lambda(notDeleted, parameter);
+
+            modelBuilder.Entity(clrType).HasQueryFilter(lambda);
+        }
     }
 
     /// <summary>
