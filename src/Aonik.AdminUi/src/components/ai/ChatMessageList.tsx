@@ -1,9 +1,25 @@
-import { Loader2, Wrench, CheckCircle2, XCircle, Brain, Activity, ChevronRight, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import {
+  Loader2,
+  Wrench,
+  CheckCircle2,
+  XCircle,
+  Brain,
+  Activity,
+  ChevronRight,
+  ChevronDown,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldX,
+} from 'lucide-react';
 
 import {
   Message,
   MessageContent,
 } from '@/components/ai-elements';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import type { ChatMessage, ChatToolCall, PendingApproval } from '@/hooks/useAguiChat';
 
 interface ChatMessageListProps {
@@ -17,10 +33,26 @@ interface ChatMessageListProps {
 /**
  * Renders a list of ChatMessage objects with support for all AG-UI message types:
  * user, assistant (with tool calls), tool results, steps, reasoning, and activity.
+ *
+ * Inspired by OpenCode's part-based rendering:
+ * - 24px gap between top-level messages
+ * - 12px gap between parts within an assistant message
+ * - Tool calls are collapsible (collapsed once completed)
+ * - Shimmer animation on streaming tool call names
+ * - Reasoning is inline with muted styling
+ * - Hover-reveal chevron on collapsible tool calls
+ * - Assistant text is rendered as markdown via react-markdown
+ * - Tool-result messages are suppressed (info already in tool call card)
  */
-export function ChatMessageList({ messages, isStreaming, pendingApprovals, onApproveAction, onRejectAction }: ChatMessageListProps) {
+export function ChatMessageList({
+  messages,
+  isStreaming,
+  pendingApprovals,
+  onApproveAction,
+  onRejectAction,
+}: ChatMessageListProps) {
   return (
-    <>
+    <div className="flex flex-col gap-6">
       {messages.map((m) => {
         switch (m.type) {
           case 'user':
@@ -33,22 +65,28 @@ export function ChatMessageList({ messages, isStreaming, pendingApprovals, onApp
           case 'assistant':
             return (
               <Message from="assistant" key={m.id}>
-                <MessageContent from="assistant">
-                  {m.content || (
-                    isStreaming && !m.toolCalls?.length ? (
-                      <span className="inline-flex items-center gap-2 text-[var(--color-text-tertiary)]">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Thinking...
-                      </span>
-                    ) : null
-                  )}
-                </MessageContent>
+                {/* Text content — rendered as markdown */}
+                {m.content ? (
+                  <MessageContent from="assistant">
+                    <Markdown text={m.content} />
+                  </MessageContent>
+                ) : isStreaming && !m.toolCalls?.length ? (
+                  <MessageContent from="assistant">
+                    <span className="inline-flex items-center gap-2 text-[var(--color-text-tertiary)]">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Thinking...
+                    </span>
+                  </MessageContent>
+                ) : null}
+
+                {/* Tool calls — 8px gap between them */}
                 {m.toolCalls && m.toolCalls.length > 0 && (
-                  <div className="mt-1 space-y-1 w-full max-w-full">
+                  <div className="mt-2 flex flex-col gap-2 w-full max-w-full">
                     {m.toolCalls.map((tc) => {
-                      // Render ApprovalCard for confirmAction tool calls
                       if (tc.toolCallName === 'confirmAction') {
-                        const approval = pendingApprovals?.find((a) => a.toolCallId === tc.toolCallId);
+                        const approval = pendingApprovals?.find(
+                          (a) => a.toolCallId === tc.toolCallId,
+                        );
                         return (
                           <ApprovalCard
                             key={tc.toolCallId}
@@ -66,26 +104,10 @@ export function ChatMessageList({ messages, isStreaming, pendingApprovals, onApp
               </Message>
             );
 
+          // Tool results are already shown inside the collapsible tool call card,
+          // so we suppress the separate tool-result block to avoid visual clutter.
           case 'tool-result':
-            return (
-              <Message from="system" key={m.id}>
-                <div className="flex items-start gap-2 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 text-xs">
-                  <Wrench className="h-3.5 w-3.5 mt-0.5 text-[var(--color-text-tertiary)] shrink-0" />
-                  <div className="min-w-0">
-                    <div className="font-medium text-[var(--color-text-secondary)]">
-                      Tool result: {m.toolCallName}
-                    </div>
-                    <div className="mt-0.5 text-[var(--color-text-tertiary)] break-all">
-                      {m.error ? (
-                        <span className="text-red-500">Error: {m.error}</span>
-                      ) : (
-                        truncate(m.content, 200)
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Message>
-            );
+            return null;
 
           case 'step':
             return (
@@ -105,12 +127,16 @@ export function ChatMessageList({ messages, isStreaming, pendingApprovals, onApp
 
           case 'reasoning':
             return (
-              <Message from="system" key={m.id}>
-                <div className="flex items-start gap-2 rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-surface-inset)] px-3 py-2 text-xs italic text-[var(--color-text-tertiary)]">
-                  <Brain className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <div
+                key={m.id}
+                className="px-3 py-2 text-xs leading-relaxed text-[var(--color-text-tertiary)] italic"
+                data-component="reasoning-part"
+              >
+                <div className="flex items-start gap-2">
+                  <Brain className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-50" />
                   <div className="min-w-0 break-words">{m.content}</div>
                 </div>
-              </Message>
+              </div>
             );
 
           case 'activity':
@@ -134,58 +160,195 @@ export function ChatMessageList({ messages, isStreaming, pendingApprovals, onApp
             return null;
         }
       })}
-    </>
+    </div>
   );
 }
 
-// ─── Tool Call Card ───────────────────────────────────────────────────────────
+// ─── Tool Call Card (Collapsible) ────────────────────────────────────────────
 
 function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
+  const isActive = toolCall.status === 'streaming' || toolCall.status === 'pending' || toolCall.status === 'executing';
+  const isDone = toolCall.status === 'completed';
+  const isError = toolCall.status === 'error';
+
+  const [open, setOpen] = useState(isActive);
+  const prevActiveRef = useRef(isActive);
+
+  // Auto-collapse when transitioning from active → done/error
+  useEffect(() => {
+    if (prevActiveRef.current && !isActive) {
+      setOpen(false);
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive]);
+
+  // Active tools are always forced open
+  const effectiveOpen = isActive ? true : open;
+
   const statusIcon = {
     streaming: <Loader2 className="h-3 w-3 animate-spin text-blue-500" />,
     pending: <Loader2 className="h-3 w-3 animate-spin text-amber-500" />,
     executing: <Loader2 className="h-3 w-3 animate-spin text-purple-500" />,
     completed: <CheckCircle2 className="h-3 w-3 text-green-500" />,
     error: <XCircle className="h-3 w-3 text-red-500" />,
+    'awaiting-approval': <ShieldAlert className="h-3 w-3 text-amber-500" />,
   }[toolCall.status];
 
   const statusLabel = {
-    streaming: 'Streaming args...',
+    streaming: 'Streaming...',
     pending: 'Awaiting execution...',
     executing: 'Executing...',
     completed: 'Completed',
     error: 'Failed',
+    'awaiting-approval': 'Awaiting approval',
   }[toolCall.status];
 
+  const hasContent = !!(toolCall.args || toolCall.result || toolCall.error);
+
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] px-3 py-2 text-xs">
-      <Wrench className="h-3.5 w-3.5 mt-0.5 text-[var(--color-text-tertiary)] shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-[var(--color-text-secondary)]">
-            {toolCall.toolCallName}
-          </span>
-          <span className="inline-flex items-center gap-1 text-[var(--color-text-tertiary)]">
-            {statusIcon}
-            {statusLabel}
-          </span>
-        </div>
-        {toolCall.args && (
-          <pre className="mt-1 text-[var(--color-text-tertiary)] whitespace-pre-wrap break-all">
-            {tryFormatJson(toolCall.args)}
-          </pre>
-        )}
-        {toolCall.result && (
-          <div className="mt-1 text-[var(--color-text-tertiary)]">
-            Result: {truncate(toolCall.result, 200)}
+    <Collapsible open={effectiveOpen} onOpenChange={setOpen}>
+      <div
+        className={`group rounded-lg border text-xs transition-colors ${
+          isError
+            ? 'border-red-200 bg-red-50/50'
+            : 'border-[var(--color-border-light)] bg-[var(--color-surface)]'
+        }`}
+      >
+        {/* Trigger row */}
+        <CollapsibleTrigger asChild disabled={!hasContent}>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--color-background)] rounded-lg transition-colors"
+          >
+            <Wrench className="h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0" />
+
+            {/* Tool name — shimmer when active */}
+            <span
+              className={`font-medium ${
+                isActive
+                  ? 'text-shimmer'
+                  : isError
+                    ? 'text-red-600'
+                    : 'text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {toolCall.toolCallName}
+            </span>
+
+            {/* Status badge */}
+            <span className="inline-flex items-center gap-1 text-[var(--color-text-tertiary)]">
+              {statusIcon}
+              <span className="hidden sm:inline">{statusLabel}</span>
+            </span>
+
+            {/* Expand chevron — hover-reveal */}
+            {hasContent && (
+              <ChevronDown
+                className={`ml-auto h-3.5 w-3.5 text-[var(--color-text-tertiary)] shrink-0 transition-all duration-150
+                  opacity-0 group-hover:opacity-100
+                  ${effectiveOpen ? 'rotate-0' : '-rotate-90'}`}
+              />
+            )}
+          </button>
+        </CollapsibleTrigger>
+
+        {/* Expandable content */}
+        <CollapsibleContent>
+          <div className="border-t border-[var(--color-border-light)] px-3 py-2 space-y-1">
+            {toolCall.args && (
+              <pre className="text-[var(--color-text-tertiary)] whitespace-pre-wrap break-all">
+                {tryFormatJson(toolCall.args)}
+              </pre>
+            )}
+            {toolCall.result && (
+              <div className="text-[var(--color-text-tertiary)]">
+                Result: {truncate(toolCall.result, 200)}
+              </div>
+            )}
+            {toolCall.error && (
+              <div className="text-red-500">Error: {toolCall.error}</div>
+            )}
           </div>
-        )}
-        {toolCall.error && (
-          <div className="mt-1 text-red-500">
-            Error: {toolCall.error}
-          </div>
-        )}
+        </CollapsibleContent>
       </div>
+    </Collapsible>
+  );
+}
+
+// ─── Markdown renderer ───────────────────────────────────────────────────────
+
+/**
+ * Renders markdown text as formatted HTML using react-markdown + remark-gfm.
+ * Tailored for chat-sized messages: compact spacing, inline-friendly.
+ */
+function Markdown({ text }: { text: string }) {
+  return (
+    <div className="chat-markdown">
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        // Headings — compact, no huge top margin in chat
+        h1: ({ children }) => <h3 className="text-sm font-bold mt-3 first:mt-0 mb-1">{children}</h3>,
+        h2: ({ children }) => <h4 className="text-sm font-semibold mt-2 first:mt-0 mb-1">{children}</h4>,
+        h3: ({ children }) => <h5 className="text-sm font-medium mt-2 first:mt-0 mb-0.5">{children}</h5>,
+        // Paragraphs
+        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+        // Lists
+        ul: ({ children }) => <ul className="mb-2 last:mb-0 pl-4 list-disc space-y-1">{children}</ul>,
+        ol: ({ children }) => <ol className="mb-2 last:mb-0 pl-4 list-decimal space-y-1">{children}</ol>,
+        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+        // Inline code
+        code: ({ children, className }) => {
+          // Block code has a className like "language-xxx"
+          if (className) {
+            return (
+              <code className="block bg-[var(--color-surface-inset)] rounded-md px-3 py-2 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all my-2">
+                {children}
+              </code>
+            );
+          }
+          return (
+            <code className="bg-[var(--color-surface-inset)] rounded px-1 py-0.5 text-xs font-mono">
+              {children}
+            </code>
+          );
+        },
+        pre: ({ children }) => <div className="my-2">{children}</div>,
+        // Strong / emphasis
+        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+        em: ({ children }) => <em>{children}</em>,
+        // Links
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="text-[var(--color-brand-primary)] underline hover:opacity-80">
+            {children}
+          </a>
+        ),
+        // Horizontal rule
+        hr: () => <hr className="my-2 border-[var(--color-border-light)]" />,
+        // Blockquote
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-2 border-[var(--color-border-light)] pl-3 my-2 text-[var(--color-text-secondary)] italic">
+            {children}
+          </blockquote>
+        ),
+        // Table
+        table: ({ children }) => (
+          <div className="my-2 overflow-x-auto">
+            <table className="text-xs border-collapse w-full">{children}</table>
+          </div>
+        ),
+        th: ({ children }) => (
+          <th className="border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-2 py-1 text-left font-medium">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="border border-[var(--color-border-light)] px-2 py-1">{children}</td>
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
     </div>
   );
 }
@@ -240,7 +403,6 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
   const wasApproved = isCompleted && toolCall.result === 'approved';
   const wasRejected = isCompleted && toolCall.result?.startsWith('rejected');
 
-  // Parse action/description from args or approval state
   let action = approval?.action ?? '';
   let description = approval?.description ?? '';
   let severity: 'low' | 'medium' | 'high' = approval?.severity ?? 'medium';
@@ -260,10 +422,14 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
 
   const config = severityConfig[severity];
 
-  // Completed state — show result
+  // Completed state
   if (isCompleted) {
     return (
-      <div className={`flex items-start gap-3 rounded-lg border ${wasApproved ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'} px-4 py-3 text-sm`}>
+      <div
+        className={`flex items-start gap-3 rounded-lg border ${
+          wasApproved ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+        } px-4 py-3 text-sm`}
+      >
         {wasApproved ? (
           <ShieldCheck className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
         ) : (
@@ -274,24 +440,28 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
             {action || 'Action'} — {wasApproved ? 'Approved' : 'Rejected'}
           </div>
           {description && (
-            <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{description}</div>
+            <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {description}
+            </div>
           )}
         </div>
       </div>
     );
   }
 
-  // Streaming or pending state — show loading
+  // Streaming or pending state
   if (toolCall.status === 'streaming' || toolCall.status === 'pending') {
     return (
-      <div className={`flex items-start gap-3 rounded-lg border ${config.border} bg-[var(--color-surface)] px-4 py-3 text-sm`}>
+      <div
+        className={`flex items-start gap-3 rounded-lg border ${config.border} bg-[var(--color-surface)] px-4 py-3 text-sm`}
+      >
         <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-tertiary)] mt-0.5 shrink-0" />
-        <div className="text-[var(--color-text-secondary)]">Preparing approval request...</div>
+        <div className="text-shimmer font-medium">Preparing approval request...</div>
       </div>
     );
   }
 
-  // Awaiting approval — show the interactive card
+  // Awaiting approval — interactive card
   return (
     <div className={`rounded-lg border-2 ${config.border} bg-[var(--color-surface)] overflow-hidden`}>
       {/* Header */}
@@ -300,7 +470,9 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
         <span className="font-semibold text-sm text-[var(--color-text-primary)]">
           Approval Required
         </span>
-        <span className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${config.badge}`}>
+        <span
+          className={`ml-auto inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${config.badge}`}
+        >
           {config.label}
         </span>
       </div>

@@ -240,3 +240,53 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .flyout-menu {
   animation: flyout-in 0.15s ease-out;
 }
+
+/* ─── Collapsible Animations ───────────────────────────────────────────────── */
+@keyframes collapsible-down {
+  from { height: 0; opacity: 0; }
+  to   { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+@keyframes collapsible-up {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to   { height: 0; opacity: 0; }
+}
+
+@utility animate-collapsible-down {
+  animation: collapsible-down 200ms ease-out;
+}
+@utility animate-collapsible-up {
+  animation: collapsible-up 150ms ease-out;
+}
+
+/* ─── Text Shimmer (OpenCode-inspired loading animation) ───────────────────── */
+@keyframes text-shimmer-sweep {
+  0%   { background-position: 100% 0, 0 0; }
+  100% { background-position: 0% 0, 0 0; }
+}
+
+.text-shimmer {
+  --shimmer-base: var(--color-text-tertiary);
+  --shimmer-peak: var(--color-text-primary);
+  background:
+    linear-gradient(
+      90deg,
+      transparent calc(50% - 4ch),
+      var(--shimmer-peak) 50%,
+      transparent calc(50% + 4ch)
+    ),
+    var(--shimmer-base);
+  background-size: 200% 100%, 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer-sweep 1.2s infinite linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--color-text-tertiary);
+  }
+}

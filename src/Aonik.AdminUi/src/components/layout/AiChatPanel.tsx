@@ -87,7 +87,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
                 </div>
               </ConversationEmptyState>
             ) : (
-              <div className="py-4 px-2">
+              <div className="py-4 px-3">
                 <ChatMessageList
                   messages={messages}
                   isStreaming={isStreaming}

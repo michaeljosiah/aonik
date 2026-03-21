@@ -218,7 +218,7 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
                   </div>
                 </ConversationEmptyState>
               ) : (
-                <div className="mx-auto w-full max-w-3xl py-4">
+                <div className="mx-auto w-full max-w-3xl px-4 py-6">
                   <ChatMessageList
                     messages={messages}
                     isStreaming={isStreaming}
