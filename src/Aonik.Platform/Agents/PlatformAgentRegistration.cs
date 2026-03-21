@@ -17,7 +17,9 @@ public sealed class PlatformAgentDescriptor : IDomainAgentDescriptor
     public string Description =>
         "Manages tenants, users, roles, permissions, and compliance documents for the current tenant.";
 
-    private const string Instructions =
+    string? IDomainAgentDescriptor.Instructions => InstructionsText;
+
+    internal const string InstructionsText =
         """
         You are the AONIK Platform Agent. You help users manage their platform
         configuration and identity operations within the AONIK system.
@@ -46,8 +48,30 @@ public sealed class PlatformAgentDescriptor : IDomainAgentDescriptor
         return new ChatClientAgent(
             chatClient,
             name: Name,
-            instructions: Instructions,
+            instructions: InstructionsText,
             tools: tools);
+    }
+
+    public AIAgent Build(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string? instructionsOverride,
+        IReadOnlySet<string>? allowedToolNames)
+    {
+        var tools = GetTools(serviceProvider)
+            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
+            .ToList();
+
+        return new ChatClientAgent(
+            chatClient,
+            name: Name,
+            instructions: instructionsOverride ?? InstructionsText,
+            tools: tools);
+    }
+
+    public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)
+    {
+        return GetTools(serviceProvider).Select(t => t.Name).ToList();
     }
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)

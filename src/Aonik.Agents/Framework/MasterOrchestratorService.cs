@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Microsoft.Agents.AI;
@@ -25,6 +26,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 {
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
     private readonly IMcpToolProvider _mcpToolProvider;
+    private readonly IAgentConfigurationService _configService;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MasterOrchestratorService> _logger;
@@ -38,8 +40,9 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private static readonly ConcurrentDictionary<string, AgentSession> Sessions = new();
 
     /// <summary>
-    /// Cached orchestrator agent. Built once (lazily) and reused across requests.
-    /// The agent itself is stateless; session state is managed via <see cref="AgentSession"/>.
+    /// Cached orchestrator agent. Built once (lazily) and reused across requests
+    /// within the same scope. The agent itself is stateless; session state is
+    /// managed via <see cref="AgentSession"/>.
     /// </summary>
     private ChatClientAgent? _cachedOrchestrator;
     private readonly SemaphoreSlim _buildLock = new(1, 1);
@@ -58,6 +61,9 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         - **financial-life-graph-agent**: Manages the Financial Life Graph — a knowledge graph
           of financial entities, relationships, and insights. Use this for holistic financial
           views, relationship queries, impact analysis, and financial planning.
+        - **personal-finance-agent**: Manages personal financial accounts, transactions, bills,
+          and spending insights. Use this for personal finance management, budgeting questions,
+          spending analysis, bill tracking, and account management.
         - **platform-agent**: Manages tenants, users, roles, permissions, and compliance
           documents. Use this for identity, access management, or compliance-related requests.
 
@@ -86,12 +92,14 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     public MasterOrchestratorService(
         IEnumerable<IDomainAgentDescriptor> descriptors,
         IMcpToolProvider mcpToolProvider,
+        IAgentConfigurationService configService,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         ILogger<MasterOrchestratorService> logger)
     {
         _descriptors = descriptors;
         _mcpToolProvider = mcpToolProvider;
+        _configService = configService;
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _logger = logger;
@@ -203,24 +211,82 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 
     /// <summary>
     /// Builds the complete tool set for the orchestrator: domain agents-as-tools
-    /// plus any MCP-provided tools.
+    /// plus any MCP-provided tools. For each descriptor, checks the agent
+    /// configuration service for tenant/global overrides (instructions, tool set,
+    /// active flag) and applies them via the overloaded
+    /// <see cref="IDomainAgentDescriptor.Build(IChatClient, IServiceProvider, string?, IReadOnlySet{string}?)"/>.
     /// </summary>
     private async Task<List<AITool>> BuildAllToolsAsync(CancellationToken cancellationToken)
     {
         var tools = new List<AITool>();
 
-        // Build domain agents as tools (R1: uses IDomainAgentDescriptor)
+        // Build domain agents as tools, applying any configuration overrides
         foreach (var descriptor in _descriptors)
         {
             try
             {
-                var builtAgent = descriptor.Build(_chatClient, _serviceProvider);
+                // Check for a resolved configuration (tenant override → global default)
+                var config = await _configService.GetResolvedAsync(descriptor.Name, cancellationToken);
+
+                // If a configuration exists and the agent is inactive, skip it
+                if (config is { IsActive: false })
+                {
+                    _logger.LogInformation(
+                        "Skipping inactive agent '{AgentName}' per configuration",
+                        descriptor.Name);
+                    continue;
+                }
+
+                AIAgent builtAgent;
+
+                if (config is not null)
+                {
+                    // Apply overrides: instructions and tool set filtering
+                    var instructionsOverride = !string.IsNullOrWhiteSpace(config.InstructionsText)
+                        ? config.InstructionsText
+                        : null;
+
+                    HashSet<string>? allowedToolNames = null;
+                    if (!string.IsNullOrWhiteSpace(config.ToolsetIdsJson)
+                        && config.ToolsetIdsJson != "[]")
+                    {
+                        try
+                        {
+                            var toolNames = JsonSerializer.Deserialize<List<string>>(config.ToolsetIdsJson);
+                            if (toolNames is { Count: > 0 })
+                                allowedToolNames = new HashSet<string>(toolNames, StringComparer.Ordinal);
+                        }
+                        catch (JsonException ex)
+                        {
+                            _logger.LogWarning(
+                                ex,
+                                "Invalid ToolsetIdsJson for agent '{AgentName}' — using all tools",
+                                descriptor.Name);
+                        }
+                    }
+
+                    builtAgent = descriptor.Build(
+                        _chatClient,
+                        _serviceProvider,
+                        instructionsOverride,
+                        allowedToolNames);
+
+                    _logger.LogDebug(
+                        "Built domain agent tool: {AgentName} with config override (IsOverride={IsOverride})",
+                        descriptor.Name, config.IsOverride);
+                }
+                else
+                {
+                    // No configuration in database — use code-based defaults
+                    builtAgent = descriptor.Build(_chatClient, _serviceProvider);
+
+                    _logger.LogDebug(
+                        "Built domain agent tool: {AgentName} — {Description}",
+                        descriptor.Name, descriptor.Description);
+                }
+
                 var agentTool = builtAgent.AsAIFunction();
                 tools.Add(agentTool);
-
-                _logger.LogDebug(
-                    "Built domain agent tool: {AgentName} — {Description}",
-                    descriptor.Name, descriptor.Description);
             }
             catch (Exception ex)
             {
@@ -231,7 +297,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
             }
         }
 
-        // Wire in MCP tools (R8: McpToolProvider was registered but unused)
+        // Wire in MCP tools
         try
         {
             var allMcpTools = await _mcpToolProvider.GetAllToolsAsync(cancellationToken);

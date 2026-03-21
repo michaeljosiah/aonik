@@ -26,7 +26,9 @@ public sealed class FinanceAgentDescriptor : IDomainAgentDescriptor
         "Manages invoices, ledger accounts, journal entries, and payment intents for the current tenant. " +
         "Can create, issue, cancel, and query invoices; create ledgers and accounts; and manage payment intents.";
 
-    private const string Instructions =
+    string? IDomainAgentDescriptor.Instructions => InstructionsText;
+
+    internal const string InstructionsText =
         """
         You are the AONIK Finance Agent. You help users manage their financial operations
         within the AONIK platform.
@@ -52,8 +54,30 @@ public sealed class FinanceAgentDescriptor : IDomainAgentDescriptor
         return new ChatClientAgent(
             chatClient,
             name: Name,
-            instructions: Instructions,
+            instructions: InstructionsText,
             tools: tools);
+    }
+
+    public AIAgent Build(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string? instructionsOverride,
+        IReadOnlySet<string>? allowedToolNames)
+    {
+        var tools = GetTools(serviceProvider)
+            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
+            .ToList();
+
+        return new ChatClientAgent(
+            chatClient,
+            name: Name,
+            instructions: instructionsOverride ?? InstructionsText,
+            tools: tools);
+    }
+
+    public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)
+    {
+        return GetTools(serviceProvider).Select(t => t.Name).ToList();
     }
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
@@ -79,7 +103,9 @@ public sealed class FinancialLifeGraphAgentDescriptor : IDomainAgentDescriptor
         "parameterised financial details such as account statements, bill payment history, " +
         "goal contribution history, and party obligation summaries.";
 
-    private const string Instructions =
+    string? IDomainAgentDescriptor.Instructions => InstructionsText;
+
+    internal const string InstructionsText =
         """
         You are the AONIK Financial Life Graph Agent. You help users explore and reason
         over their Financial Life Graph — a connected network of their accounts, bills,
@@ -123,8 +149,30 @@ public sealed class FinancialLifeGraphAgentDescriptor : IDomainAgentDescriptor
         return new ChatClientAgent(
             chatClient,
             name: Name,
-            instructions: Instructions,
+            instructions: InstructionsText,
             tools: tools);
+    }
+
+    public AIAgent Build(
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        string? instructionsOverride,
+        IReadOnlySet<string>? allowedToolNames)
+    {
+        var tools = GetTools(serviceProvider)
+            .Where(t => allowedToolNames is null || allowedToolNames.Contains(t.Name))
+            .ToList();
+
+        return new ChatClientAgent(
+            chatClient,
+            name: Name,
+            instructions: instructionsOverride ?? InstructionsText,
+            tools: tools);
+    }
+
+    public IReadOnlyList<string> GetToolNames(IServiceProvider serviceProvider)
+    {
+        return GetTools(serviceProvider).Select(t => t.Name).ToList();
     }
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)

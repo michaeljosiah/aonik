@@ -42,6 +42,13 @@ public sealed class AgentsModule : IModule
             }
         });
 
+        // Agent configuration service — manages persisted agent configs with
+        // two-level override model (global defaults + tenant overrides).
+        services.AddScoped<IAgentConfigurationService, AgentConfigurationService>();
+
+        // Seed global default agent configurations on startup
+        services.AddHostedService<AgentConfigurationSeedingService>();
+
         // MCP tool provider — connects to MCP servers and exposes their tools as AITool
         // instances for use by agents. Registered as singleton since it manages long-lived
         // stdio connections to MCP server processes.

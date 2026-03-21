@@ -139,6 +139,7 @@ public sealed class FinanceModule : IModule
         // Finance is split into two sub-agents for better LLM tool selection (R7).
         services.AddSingleton<IDomainAgentDescriptor, FinanceAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, PersonalFinanceAgentDescriptor>();
 
         return services;
     }
