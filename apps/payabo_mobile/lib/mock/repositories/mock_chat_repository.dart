@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../app/demo/demo_data_mode.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../mock_behavior.dart';
@@ -21,10 +23,12 @@ class MockChatRepository implements ChatRepository {
       dateLabel: 'Today',
       messages: <ChatMessage>[
         const ChatMessage(
+          id: 'mock-1',
           sender: ChatSender.user,
           lines: <String>['My finances are hot garbage.'],
         ),
         const ChatMessage(
+          id: 'mock-2',
           sender: ChatSender.assistant,
           lines: <String>[
             'You say this every Sunday.',
@@ -46,10 +50,12 @@ class MockChatRepository implements ChatRepository {
       dateLabel: '08 Mar 2026',
       messages: <ChatMessage>[
         const ChatMessage(
+          id: 'mock-3',
           sender: ChatSender.user,
           lines: <String>['I keep missing my due dates.'],
         ),
         const ChatMessage(
+          id: 'mock-4',
           sender: ChatSender.assistant,
           lines: <String>[
             'That is recoverable.',
@@ -70,10 +76,12 @@ class MockChatRepository implements ChatRepository {
       dateLabel: '03 Mar 2026',
       messages: <ChatMessage>[
         const ChatMessage(
+          id: 'mock-5',
           sender: ChatSender.user,
           lines: <String>['Help me save for travel by summer.'],
         ),
         const ChatMessage(
+          id: 'mock-6',
           sender: ChatSender.assistant,
           lines: <String>[
             'Great goal.',
@@ -148,7 +156,40 @@ class MockChatRepository implements ChatRepository {
   }
 
   // ─────────────────────────────────────────────────────────
-  //  getReply
+  //  sendMessage (streaming mock)
+  // ─────────────────────────────────────────────────────────
+
+  @override
+  Stream<ChatStreamEvent> sendMessage({
+    String? threadId,
+    required String userMessage,
+    List<ChatMessage> history = const [],
+  }) async* {
+    yield const ChatStreamStarted(threadId: 'mock-thread', runId: 'mock-run');
+
+    // Simulate a brief processing delay.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    final reply = await getReply(userMessage);
+    final fullText = reply.lines.join('\n');
+    const messageId = 'mock-stream-msg';
+
+    // Stream the text character by character with small delays to simulate
+    // token-by-token delivery.
+    for (int i = 0; i < fullText.length; i++) {
+      yield ChatStreamTextDelta(fullText[i], messageId: messageId);
+      // Small jitter: every 3 characters, add a tiny pause.
+      if (i % 3 == 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 15));
+      }
+    }
+
+    yield const ChatStreamTextDone(messageId: messageId);
+    yield const ChatStreamFinished();
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  getReply (canned responses)
   // ─────────────────────────────────────────────────────────
 
   @override

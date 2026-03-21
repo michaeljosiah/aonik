@@ -10,6 +10,7 @@ import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/theme/payabo_theme.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../profile/presentation/profile_state.dart';
+import '../domain/chat_controller.dart';
 
 final FutureProvider<List<ChatConversation>> _chatConversationsProvider =
     FutureProvider<List<ChatConversation>>((Ref ref) async {
@@ -191,16 +192,6 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<ChatMessage> _freshMessages = <ChatMessage>[];
-  List<ChatConversation> _conversations = <ChatConversation>[];
-  int _activeConversationIndex = 0;
-
-  List<ChatMessage> get _messages {
-    if (_conversations.isEmpty) {
-      return const <ChatMessage>[];
-    }
-    return _conversations[_activeConversationIndex].messages;
-  }
 
   @override
   void initState() {
@@ -222,19 +213,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final bool isFreshDemo =
         ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final ProfileHeaderState profileState = ref.watch(profileHeaderProvider);
+    final ChatState chatState = ref.watch(chatControllerProvider);
 
-    // Sync conversations from provider into local mutable state.
-    final AsyncValue<List<ChatConversation>> conversationsAsync =
-        ref.watch(_chatConversationsProvider);
-    conversationsAsync.whenData((List<ChatConversation> data) {
-      if (_conversations.isEmpty && data.isNotEmpty) {
-        _conversations = data;
+    // Auto-scroll when streaming text updates arrive.
+    ref.listen<ChatState>(chatControllerProvider, (ChatState? prev, ChatState next) {
+      if (prev != null && next.streamingText.length > prev.streamingText.length) {
+        _scrollToBottom();
+      }
+      // Also scroll when a new completed message appears.
+      if (prev != null && next.messages.length > prev.messages.length) {
+        _scrollToBottom();
       }
     });
 
-    final List<ChatMessage> visibleMessages =
-        isFreshDemo ? _freshMessages : _messages;
-    final bool showHero = visibleMessages.isEmpty;
+    // Sync seeded conversations from provider (for history navigation only).
+    final AsyncValue<List<ChatConversation>> conversationsAsync =
+        ref.watch(_chatConversationsProvider);
+
+    final bool showHero = !chatState.hasMessages &&
+        chatState.streamingText.isEmpty &&
+        chatState.activity == ChatActivity.idle;
 
     return Scaffold(
       backgroundColor: _chatBaseColor(context),
@@ -281,7 +279,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   child: Row(
                     children: <Widget>[
                       _ChatHeaderMenuButton(
-                        onTap: () => _openHistory(isFreshDemo),
+                        onTap: () => _openHistory(isFreshDemo, conversationsAsync),
                       ),
                     ],
                   ),
@@ -300,10 +298,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             key: const ValueKey<String>('chat-thread'),
                             controller: _scrollController,
                             displayName: _firstName(profileState.displayName),
-                            messages: visibleMessages,
+                            messages: chatState.messages,
+                            streamingText: chatState.streamingText,
+                            activity: chatState.activity,
+                            activeToolCalls: chatState.activeToolCalls,
                           ),
                   ),
                 ),
+                if (chatState.errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: PayaboSpacing.xl,
+                    ),
+                    child: _ChatErrorBanner(message: chatState.errorMessage!),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     PayaboSpacing.md,
@@ -313,7 +321,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                   child: _ChatComposer(
                     controller: _controller,
-                    canSend: _controller.text.trim().isNotEmpty,
+                    canSend: _controller.text.trim().isNotEmpty &&
+                        !chatState.isProcessing,
                     isFreshDemo: showHero,
                     onSubmitted: _submitPrompt,
                   ),
@@ -345,10 +354,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  Future<void> _openHistory(bool isFreshDemo) async {
-    final String? currentId = isFreshDemo || _conversations.isEmpty
-        ? null
-        : _conversations[_activeConversationIndex].id;
+  Future<void> _openHistory(
+    bool isFreshDemo,
+    AsyncValue<List<ChatConversation>> conversationsAsync,
+  ) async {
+    final chatState = ref.read(chatControllerProvider);
+    final String? currentId = chatState.threadId;
+
     final String? selectedId = await context.push<String>(
       currentId == null ? '/chat/history' : '/chat/history?selected=$currentId',
     );
@@ -357,16 +369,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    final int selectedIndex = _conversations.indexWhere(
-      (ChatConversation conversation) => conversation.id == selectedId,
-    );
-    if (selectedIndex < 0) {
-      return;
-    }
+    // Try to load from seeded conversations (mock mode).
+    final conversations = conversationsAsync.value ?? const [];
+    final match = conversations.cast<ChatConversation?>().firstWhere(
+          (c) => c?.id == selectedId,
+          orElse: () => null,
+        );
 
-    setState(() {
-      _activeConversationIndex = selectedIndex;
-    });
+    if (match != null) {
+      ref.read(chatControllerProvider.notifier).loadConversation(match);
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
@@ -382,8 +394,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _submitPrompt([String? preset]) {
-    final bool isFreshDemo =
-        ref.read(demoDataModeProvider) == DemoDataMode.fresh;
     final String prompt = (preset ?? _controller.text).trim();
 
     if (prompt.isEmpty) {
@@ -393,30 +403,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     FocusScope.of(context).unfocus();
     _controller.clear();
 
-    final List<ChatMessage> targetMessages =
-        isFreshDemo ? _freshMessages : _messages;
-
-    setState(() {
-      targetMessages.add(
-        ChatMessage(
-          sender: ChatSender.user,
-          lines: <String>[prompt],
-        ),
-      );
-    });
+    ref.read(chatControllerProvider.notifier).sendMessage(prompt);
     _scrollToBottom();
-
-    final ChatRepository repository = ref.read(chatRepositoryProvider);
-    repository.getReply(prompt).then((ChatMessage reply) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        targetMessages.add(reply);
-      });
-      _scrollToBottom();
-    });
   }
 
   void _scrollToBottom() {
@@ -573,14 +561,24 @@ class _ConversationStage extends StatelessWidget {
     required this.controller,
     required this.displayName,
     required this.messages,
+    this.streamingText = '',
+    this.activity = ChatActivity.idle,
+    this.activeToolCalls = const [],
   });
 
   final ScrollController controller;
   final String displayName;
   final List<ChatMessage> messages;
+  final String streamingText;
+  final ChatActivity activity;
+  final List<ActiveToolCall> activeToolCalls;
 
   @override
   Widget build(BuildContext context) {
+    final bool isStreaming = streamingText.isNotEmpty;
+    final bool isThinking = activity == ChatActivity.connecting ||
+        (activity == ChatActivity.toolCall && streamingText.isEmpty);
+
     return ListView(
       controller: controller,
       padding: const EdgeInsets.fromLTRB(
@@ -598,6 +596,22 @@ class _ConversationStage extends StatelessWidget {
             child: _ChatMessageBlock(message: message),
           ),
         ),
+        // Show in-progress streaming bubble.
+        if (isStreaming)
+          Padding(
+            padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
+            child: _StreamingMessageBlock(
+              text: streamingText,
+              activeToolCalls: activeToolCalls,
+            ),
+          ),
+        // Show thinking indicator when connecting or running tool calls
+        // with no text yet.
+        if (isThinking)
+          const Padding(
+            padding: EdgeInsets.only(bottom: PayaboSpacing.xl),
+            child: _ThinkingIndicator(),
+          ),
       ],
     );
   }
@@ -1095,6 +1109,309 @@ class _ChatSendButton extends StatelessWidget {
             size: 28,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Streaming / activity widgets
+// ─────────────────────────────────────────────────────────
+
+/// Shows the assistant's in-progress streaming response.
+class _StreamingMessageBlock extends StatelessWidget {
+  const _StreamingMessageBlock({
+    required this.text,
+    this.activeToolCalls = const [],
+  });
+
+  final String text;
+  final List<ActiveToolCall> activeToolCalls;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: c.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: PayaboSpacing.sm),
+                  Text(
+                    'Simi',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: _chatBodyTextColor(context),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: PayaboSpacing.md),
+              // Show tool call chips (if any).
+              if (activeToolCalls.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
+                  child: Wrap(
+                    spacing: PayaboSpacing.xs,
+                    runSpacing: PayaboSpacing.xs,
+                    children: activeToolCalls
+                        .map((tc) => _ToolCallChip(
+                              name: tc.toolName,
+                              isComplete: tc.isComplete,
+                            ))
+                        .toList(),
+                  ),
+                ),
+              // Streaming text with a blinking cursor.
+              Text.rich(
+                TextSpan(
+                  children: <InlineSpan>[
+                    TextSpan(text: text),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: _BlinkingCursor(color: c.primary),
+                    ),
+                  ],
+                ),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: _chatBodyTextColor(context),
+                      height: 1.58,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Thinking indicator shown while waiting for the agent to start responding.
+class _ThinkingIndicator extends StatelessWidget {
+  const _ThinkingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: c.primary,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: PayaboSpacing.sm),
+          Text(
+            'Simi',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: _chatBodyTextColor(context),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+          ),
+          const SizedBox(width: PayaboSpacing.md),
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                c.primary.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+          const SizedBox(width: PayaboSpacing.sm),
+          Text(
+            'Thinking...',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: _chatMutedTextColor(context),
+                  fontStyle: FontStyle.italic,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A small chip showing a tool call name with a spinner or check icon.
+class _ToolCallChip extends StatelessWidget {
+  const _ToolCallChip({
+    required this.name,
+    required this.isComplete,
+  });
+
+  final String name;
+  final bool isComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: PayaboSpacing.sm,
+        vertical: PayaboSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: c.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: c.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (isComplete)
+            Icon(
+              Icons.check_circle_rounded,
+              size: 14,
+              color: c.primary.withValues(alpha: 0.7),
+            )
+          else
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  c.primary.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          const SizedBox(width: PayaboSpacing.xxs),
+          Text(
+            _friendlyToolName(name),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: _chatMutedTextColor(context),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Converts a camelCase or PascalCase tool name to a friendly label.
+  static String _friendlyToolName(String raw) {
+    // Insert spaces before capital letters and capitalize first letter.
+    final spaced = raw.replaceAllMapped(
+      RegExp(r'(?<=[a-z])([A-Z])'),
+      (m) => ' ${m.group(1)}',
+    );
+    if (spaced.isEmpty) return raw;
+    return spaced[0].toUpperCase() + spaced.substring(1);
+  }
+}
+
+/// A blinking cursor widget for the streaming text.
+class _BlinkingCursor extends StatefulWidget {
+  const _BlinkingCursor({required this.color});
+
+  final Color color;
+
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _controller,
+      child: Container(
+        width: 2,
+        height: 18,
+        margin: const EdgeInsets.only(left: 1),
+        color: widget.color,
+      ),
+    );
+  }
+}
+
+/// Error banner shown above the composer when the last request failed.
+class _ChatErrorBanner extends StatelessWidget {
+  const _ChatErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: PayaboSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: PayaboSpacing.md,
+        vertical: PayaboSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.red.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            Icons.error_outline_rounded,
+            color: Colors.red.withValues(alpha: 0.7),
+            size: 18,
+          ),
+          const SizedBox(width: PayaboSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.red.withValues(alpha: 0.8),
+                  ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }

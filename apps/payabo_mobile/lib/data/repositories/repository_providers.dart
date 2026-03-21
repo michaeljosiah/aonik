@@ -1,11 +1,13 @@
 import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../../app/auth/auth_session_store.dart';
 import '../../app/demo/demo_data_mode.dart';
 import '../../app/demo/demo_mode.dart';
 import '../../app/environment/environment_provider.dart';
+import '../../features/chat/domain/chat_controller.dart';
 import '../../features/setup_journey/domain/setup_journey_repository.dart';
 import '../../features/support_planning/domain/support_planning_repository.dart';
 import '../../mock/repositories/mock_account_links_repository.dart';
@@ -27,6 +29,7 @@ import '../../mock/repositories/mock_spending_category_repository.dart';
 import '../../mock/repositories/mock_spending_repository.dart';
 import '../../mock/repositories/mock_statement_import_repository.dart';
 import '../../mock/repositories/mock_support_planning_repository.dart';
+import '../agui/agui_client.dart';
 import '../api/api_client.dart';
 import 'account_links_repository.dart';
 import 'attachment_repository.dart';
@@ -41,6 +44,7 @@ import 'live_attachment_repository.dart';
 import 'live_auth_repository.dart';
 import 'live_budget_repository.dart';
 import 'live_catalog_repository.dart';
+import 'live_chat_repository.dart';
 import 'live_community_repository.dart';
 import 'live_dashboard_repository.dart';
 import 'live_order_repository.dart';
@@ -97,6 +101,33 @@ List<AccountLinkItem> Function()? _runtimeAccountsGetter(Ref ref) {
   return null;
 }
 
+// ─────────────────────────────────────────────────────────
+//  AG-UI Client
+// ─────────────────────────────────────────────────────────
+
+final Provider<AgUiClient> agUiClientProvider = Provider<AgUiClient>(
+  (Ref ref) {
+    final dio = ref.watch(apiClientProvider);
+    return AgUiClient(dio: dio);
+  },
+);
+
+// ─────────────────────────────────────────────────────────
+//  Chat Controller (StateNotifier)
+// ─────────────────────────────────────────────────────────
+
+final StateNotifierProvider<ChatController, ChatState> chatControllerProvider =
+    StateNotifierProvider<ChatController, ChatState>(
+  (Ref ref) {
+    final repository = ref.watch(chatRepositoryProvider);
+    return ChatController(repository: repository);
+  },
+);
+
+// ─────────────────────────────────────────────────────────
+//  Repositories
+// ─────────────────────────────────────────────────────────
+
 final Provider<AuthRepository> authRepositoryProvider =
     Provider<AuthRepository>(
   (Ref ref) {
@@ -134,8 +165,12 @@ final Provider<ChatRepository> chatRepositoryProvider =
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
 
-    // Chat remains mock-backed until a live repository is implemented.
-    return MockChatRepository(demoDataMode: demoDataMode);
+    if (_shouldMock(ref)) {
+      return MockChatRepository(demoDataMode: demoDataMode);
+    }
+
+    final agUiClient = ref.watch(agUiClientProvider);
+    return LiveChatRepository(agUiClient: agUiClient);
   },
 );
 
