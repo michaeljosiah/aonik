@@ -94,7 +94,7 @@ void _applyCommonHeaders(
   RequestOptions options, {
   required String tenantId,
 }) {
-  options.headers['Accept'] = 'application/json';
+  options.headers.putIfAbsent('Accept', () => 'application/json');
 
   if (tenantId.isNotEmpty) {
     options.headers['X-Tenant-Id'] = tenantId;
