@@ -432,3 +432,12 @@ token.txt
 # Frontend build output
 apps/Payabo/dist/
 
+/src/Aonik.Ai/output.xml
+/src/Aonik.Agents/output.xml
+/src/Aonik.Api/output.xml
+/src/Aonik.Application/output.xml
+/src/Aonik.Finance/output.xml
+/src/Aonik.Infrastructure/output.xml
+/src/Aonik.Platform/output.xml
+/src/Aonik.ServiceDefaults/output.xml
+/src/Aonik.SharedKernel/output.xml
