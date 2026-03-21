@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Framework;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Workflows;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +12,7 @@ namespace Aonik.Agents;
 /// <summary>
 /// Agents module registration. Owns Agent framework entities
 /// (Agent, AgentRun, OrchestratorPolicy, Proposal) and the
-/// domain agent infrastructure (AonikDomainAgent base, middleware).
+/// domain agent infrastructure (IDomainAgentDescriptor, workflows, MCP).
 /// </summary>
 public sealed class AgentsModule : IModule
 {
@@ -49,6 +50,15 @@ public sealed class AgentsModule : IModule
         // Master orchestrator — routes user messages to domain agents via agent-as-tool pattern.
         // Scoped because it depends on IChatClient (scoped from AiModule).
         services.AddScoped<IMasterOrchestratorService, MasterOrchestratorService>();
+
+        // Workflow factories — keyed by workflow name (R10).
+        // RunWorkflowEndpoint resolves the factory via GetKeyedService<IWorkflowFactory>(name).
+        services.AddKeyedSingleton<IWorkflowFactory, InvoiceProcessingWorkflowFactory>(
+            InvoiceProcessingWorkflowFactory.Name);
+        services.AddKeyedSingleton<IWorkflowFactory, OnboardingWorkflowFactory>(
+            OnboardingWorkflowFactory.Name);
+        services.AddKeyedSingleton<IWorkflowFactory, ReconciliationWorkflowFactory>(
+            ReconciliationWorkflowFactory.Name);
 
         return services;
     }

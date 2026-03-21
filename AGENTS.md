@@ -95,23 +95,33 @@ Do not collapse Orders into Payments or Invoices.
 
 ## 6. Agent Framework Rules
 
-Agents are **constrained, domain-specific actors**.
+Agents are **constrained, domain-specific actors** built on the Microsoft Agent Framework (MAF).
 
 Agents:
 
-- Reason and plan
+- Are registered via `IDomainAgentDescriptor` interface with `IEnumerable<IDomainAgentDescriptor>` multi-registration
+- Reason and plan using `ChatClientAgent` with `AIFunctionFactory.Create()` tools
 - Use tools to read and propose
 - **Must not directly mutate financial state**
 
-### Proposal Pattern (Mandatory)
+### Human-in-the-Loop (Mandatory for Mutations)
 
-All material actions follow:
+All mutating tools are wrapped with MAF's `ApprovalRequiredAIFunction`:
 
-1. **Propose** — Agent creates Proposal
-2. **Approve** — Human or policy approval
-3. **Apply** — Domain service executes
+1. **Read tools** — execute directly (no gate)
+2. **Mutating tools** — wrapped with `ApprovalRequiredAIFunction`, requiring human or policy approval
+
+Current mutating tools: `CreateInvoice`, `IssueInvoice`, `CancelInvoice`, `MarkInvoicePaid`, `CreatePaymentIntent`, `CapturePayment`, `CancelPayment`, `CreateLedger`, `CreateAccount`.
 
 Never bypass this flow.
+
+### Orchestrator
+
+`MasterOrchestratorService` composes domain agents as tools via `agent.AsAIFunction()` and uses MAF `AgentSession` for native conversation history tracking. MCP tools from `McpToolProvider` are integrated alongside domain agent tools.
+
+### Audit
+
+`AuditMiddleware` (in `Aonik.Ai.Middleware`) is wired into the `IChatClient` pipeline and records every LLM call as an `AiRun` via `IAiRunWriter`, including token usage from `response.Usage`.
 
 ---
 
@@ -199,7 +209,7 @@ dotnet run --project src/Aonik.Api
 - **Platform Module** (`Aonik.Platform`): Identity, tenancy, party/profile, settings, reference data, compliance, notifications
 - **Finance Module** (`Aonik.Finance`): Ledger, payments, orders, billing/invoicing, pricing, partners, personal finance
 - **AI Module** (`Aonik.Ai`): AI routing/policies, prompt and model abstractions, AI execution records
-- **Agents Module** (`Aonik.Agents`): Domain agents, orchestration, workflows, proposal pattern scaffolding
+- **Agents Module** (`Aonik.Agents`): Domain agent orchestration (`IDomainAgentDescriptor`, `MasterOrchestratorService`), keyed workflow factories, proposal entities
 - **Infrastructure**: External adapters and composition support
 - **Api / Worker / Migrator**: Composition roots and runtime hosts
 

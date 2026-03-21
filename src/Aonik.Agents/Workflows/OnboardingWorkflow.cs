@@ -1,6 +1,8 @@
+using Aonik.Agents.Contracts.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Agents.Workflows;
 
@@ -11,17 +13,25 @@ namespace Aonik.Agents.Workflows;
 /// 2. Provisioning Agent — creates tenant, sets up roles, seeds reference data
 /// 3. Verification Agent — confirms everything is set up and ready
 ///
-/// This workflow coordinates the multi-step tenant onboarding process that
-/// currently requires multiple manual API calls.
+/// <para><b>Advisory workflow:</b> This workflow is currently advisory-only.
+/// The agents reason about onboarding steps but have no domain tools wired,
+/// so they cannot directly create tenants, users, or roles.
+/// To make this workflow operational, wire <c>TenantTools</c> and <c>UserTools</c>
+/// into the provisioning agent's tool set.</para>
 /// </summary>
-public static class OnboardingWorkflow
+public sealed class OnboardingWorkflowFactory : IWorkflowFactory
 {
-    public const string WorkflowName = "tenant-onboarding";
+    public const string Name = "tenant-onboarding";
 
-    /// <summary>
-    /// Builds the sequential onboarding workflow as an <see cref="AIAgent"/>.
-    /// </summary>
-    public static AIAgent Build(IChatClient chatClient)
+    public string WorkflowName => Name;
+
+    public AIAgent Build(IServiceProvider serviceProvider)
+    {
+        var chatClient = serviceProvider.GetRequiredService<IChatClient>();
+        return BuildWorkflow(chatClient);
+    }
+
+    internal static AIAgent BuildWorkflow(IChatClient chatClient)
     {
         var validationAgent = new ChatClientAgent(
             chatClient,
@@ -72,11 +82,11 @@ public static class OnboardingWorkflow
                 """);
 
         var workflow = AgentWorkflowBuilder.BuildSequential(
-            WorkflowName,
+            Name,
             [validationAgent, provisioningAgent, verificationAgent]);
 
         return workflow.AsAIAgent(
-            id: WorkflowName,
+            id: Name,
             name: "Tenant Onboarding Pipeline",
             description: "Validates, provisions, and verifies new tenant setup through a multi-step pipeline");
     }

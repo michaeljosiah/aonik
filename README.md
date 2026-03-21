@@ -41,10 +41,10 @@ The platform provides horizontal capabilities that any domain module can consume
 
 **AI Platform** — Multi-provider LLM routing with model selection policies. Prompts and tools are versioned. Every AI execution is recorded as an `AiRun` with cost tracking and feedback loops.
 
-**Agent Framework** — Domain-specific agents built on Microsoft Agent Framework. Agents reason, plan, and use tools — but they never directly mutate state. All material actions follow the proposal pattern:
+**Agent Framework** — Domain-specific agents built on Microsoft Agent Framework. Agents reason, plan, and use tools — but they never directly mutate state. Mutating tools are wrapped with `ApprovalRequiredAIFunction` for human-in-the-loop approval:
 
 ```
-Agent creates Proposal  -->  Human or policy approves  -->  Domain service applies
+Agent calls mutating tool  -->  ApprovalRequiredAIFunction gates  -->  Human or policy approves  -->  Tool executes
 ```
 
 This flow is never bypassed. Agents propose. Systems apply. Humans stay in control.
@@ -65,7 +65,7 @@ The Finance module (`Aonik.Finance`) is the first domain vertical built on the p
 - **Partners** — Correspondent network with connectors, routing rules, payout schemas, transmissions.
 - **Personal Finance** — Budgets, goals, bills, subscriptions, categorisation, household management.
 
-The Finance module has its own domain agent (`FinanceDomainAgent`) and MCP server (`Aonik.Finance.Mcp`) for tool interoperability with the agent framework.
+The Finance module has its own domain agents (`FinanceAgentDescriptor` and `FinancialLifeGraphAgentDescriptor`) and MCP server (`Aonik.Finance.Mcp`) for tool interoperability with the agent framework.
 
 Products built on AONIK Finance:
 

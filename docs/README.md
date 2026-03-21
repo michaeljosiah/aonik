@@ -57,8 +57,8 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 - [ADR-001: Custom AI → MAF Adoption](decisions/001-custom-ai-implementation-vs-maf.md)
 - [ADR-002: Anemic Domain Model](decisions/002-anemic-domain-model.md)
 - [ADR-003: No Generic Repository](decisions/003-no-generic-repository.md)
-- [ADR-004: Module-Scoped DbContexts](decisions/004-module-scoped-dbcontexts.md)
-- [ADR-005: Modular Monolith Restructuring](decisions/005-modular-monolith-restructuring.md)
+- [ADR-004: Adopt Microsoft Agent Framework](decisions/004-adopt-microsoft-agent-framework.md)
+- [ADR-005: Module-First Modular Monolith](decisions/005-adopt-module-first-modular-monolith.md)
 
 ### 🚢 Deployment
 - [Local Development](deployment/local-development.md)

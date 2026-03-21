@@ -18,9 +18,9 @@
 
 ## AI & Agents
 
-- **Microsoft Agent Framework (MAF)** — agent orchestration, `ChatClientAgent`, `AIFunctionFactory`
-- **Microsoft.Extensions.AI** — `IChatClient` abstraction for LLM providers
-- **Model Context Protocol (MCP)** — domain MCP servers per module
+- **Microsoft Agent Framework (MAF)** — agent orchestration, `ChatClientAgent`, `AIFunctionFactory`, `AgentSession`
+- **Microsoft.Extensions.AI** — `IChatClient` abstraction, `ApprovalRequiredAIFunction` for human-in-the-loop, `DelegatingChatClient` for audit middleware
+- **Model Context Protocol (MCP)** — domain MCP servers per module, `McpToolProvider` for tool integration
 
 ## Orchestration
 
@@ -46,8 +46,8 @@
 |---------|---------|---------|
 | FastEndpoints | 7.1.1 | HTTP endpoints |
 | Microsoft.EntityFrameworkCore | 10.0.1 | ORM |
-| Microsoft.Agents.AI | RC | MAF agent framework |
-| Microsoft.Extensions.AI | latest | AI abstractions |
+| Microsoft.Agents.AI | RC | MAF agent framework (ChatClientAgent, AgentSession) |
+| Microsoft.Extensions.AI | latest | AI abstractions (IChatClient, ApprovalRequiredAIFunction) |
 | ModelContextProtocol | latest | MCP server/client |
 | Quartz | latest | Job scheduling |
 | FluentAssertions | 8.8.0 | Test assertions |

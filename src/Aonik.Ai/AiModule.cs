@@ -1,3 +1,4 @@
+using Aonik.Ai.Middleware;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Providers;
 using Aonik.Ai.Services;
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Ai;
 
@@ -51,12 +53,39 @@ public sealed class AiModule : IModule
             return new FileBasedPromptStore(promptPath);
         });
 
-        // Chat client factory — config-driven provider selection (AI:Provider = Stub | OpenAI | AzureOpenAI)
-        services.AddSingleton<IChatClientFactory, ConfigDrivenChatClientFactory>();
-
-        // IChatClient — resolved from the factory per scope
+        // IChatClient — registered directly with AuditMiddleware in the pipeline.
+        // Provider is selected via AI:Provider config key (Stub | OpenAI | AzureOpenAI).
         services.AddScoped<IChatClient>(sp =>
-            sp.GetRequiredService<IChatClientFactory>().CreateClient());
+        {
+            var provider = configuration["AI:Provider"] ?? "Stub";
+            var logger = sp.GetRequiredService<ILogger<AiModule>>();
+            logger.LogInformation("Creating IChatClient for provider: {Provider}", provider);
+
+            IChatClient innerClient = provider.ToLowerInvariant() switch
+            {
+                "stub" => new StubChatClient(),
+
+                "openai" => throw new NotSupportedException(
+                    "OpenAI provider is not yet implemented. " +
+                    "Add the Microsoft.Extensions.AI.OpenAI package and configure AI:OpenAI:ApiKey and AI:OpenAI:Model."),
+
+                "azureopenai" or "azure_openai" or "azure-openai" => throw new NotSupportedException(
+                    "Azure OpenAI provider is not yet implemented. " +
+                    "Add the Azure.AI.OpenAI package and configure AI:AzureOpenAI:Endpoint, AI:AzureOpenAI:ApiKey, and AI:AzureOpenAI:DeploymentName."),
+
+                _ => throw new InvalidOperationException(
+                    $"Unknown AI provider '{provider}'. Supported values: Stub, OpenAI, AzureOpenAI.")
+            };
+
+            // Build the middleware pipeline: innerClient -> AuditMiddleware
+            return innerClient
+                .AsBuilder()
+                .Use((inner, _) => new AuditMiddleware(
+                    inner,
+                    sp.GetRequiredService<IAiRunWriter>(),
+                    sp.GetRequiredService<ILogger<AuditMiddleware>>()))
+                .Build();
+        });
 
         // ── AI Services ──────────────────────────────────────────────
         // Insight persistence — consumed by domain modules via IInsightWriter contract

@@ -9,8 +9,8 @@ See [ADR-005](../decisions/005-adopt-module-first-modular-monolith.md) for the f
 - **Module-first**: Each domain owns its entities, services, endpoints, and persistence in a single project
 - **Anemic domain model**: Entities are data containers; all business logic lives in services
 - **Module-scoped DbContexts**: Each module owns a DbContext over a shared physical database
-- **AI-native**: Microsoft Agent Framework (MAF) for agents, tools, and MCP servers
-- **Auditable**: All AI operations are traceable; proposal pattern for high-risk actions
+- **AI-native**: Microsoft Agent Framework (MAF) for agents, tools, and MCP servers; `ApprovalRequiredAIFunction` for human-in-the-loop
+- **Auditable**: All AI operations are traceable via `AuditMiddleware` + `IAiRunWriter`; `IDomainAgentDescriptor` pattern for agent registration
 
 ## Module Map
 

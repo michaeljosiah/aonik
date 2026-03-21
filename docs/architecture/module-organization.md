@@ -20,7 +20,7 @@ Aonik.{Module}/
 │   └── Configurations/          # internal — EF configurations
 ├── Agents/                      # internal — MAF agents & tools (if applicable)
 │   ├── Tools/                   # AIFunction definitions
-│   └── {Module}Agent.cs
+│   └── {Module}AgentRegistration.cs  # IDomainAgentDescriptor implementations
 └── {Module}Module.cs            # PUBLIC — IServiceCollection.Add{Module}() extension
 ```
 
@@ -62,7 +62,7 @@ src/Aonik.Finance/
 │       └── ...
 ├── Agents/
 │   ├── Tools/InvoiceTools.cs
-│   └── FinanceDomainAgent.cs
+│   └── FinanceAgentRegistration.cs
 └── FinanceModule.cs
 ```
 

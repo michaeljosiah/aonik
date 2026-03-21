@@ -84,7 +84,9 @@ Adopt **Microsoft Agent Framework (MAF)** as the standard AI/agent framework for
 | `IChatClient` | `Microsoft.Extensions.AI` 10.3.0 | `IModelProvider` | LLM provider abstraction |
 | `ChatClientAgent` / `AIAgent` | `Microsoft.Agents.AI` 1.0.0-rc1 | `IAgentRuntime` + custom `AonikDomainAgent` | Domain agent execution |
 | `AIFunctionFactory.Create()` | `Microsoft.Extensions.AI` 10.3.0 | Custom `IAgentTool` | Exposing service methods as agent tools |
-| `DelegatingChatClient` | `Microsoft.Extensions.AI` 10.3.0 | _(none)_ | Proposal pattern, audit logging (middleware pipeline) |
+| `ApprovalRequiredAIFunction` | `Microsoft.Extensions.AI` 10.3.0 | Custom `ProposalMiddleware` | Human-in-the-loop approval for mutating tools |
+| `AgentSession` / `CreateSessionAsync` | `Microsoft.Agents.AI` 1.0.0-rc1 | Custom `ConcurrentDictionary` session | Native conversation history tracking |
+| `DelegatingChatClient` | `Microsoft.Extensions.AI` 10.3.0 | _(none)_ | Audit logging middleware pipeline |
 | `agent.AsAIFunction()` | `Microsoft.Agents.AI` 1.0.0-rc1 | _(none)_ | Agent-as-tool composition for master orchestrator |
 | `McpServerTool.Create()` + MCP C# SDK | `ModelContextProtocol` | _(none)_ | Exposing agents as MCP servers |
 | `AgentWorkflowBuilder` / `Workflow` | `Microsoft.Agents.AI.Workflows` 1.0.0-rc1 | `InvoiceInsightWorkflow` | Multi-step agent orchestration |
@@ -115,57 +117,82 @@ internal class StubChatClient : IChatClient
 }
 ```
 
-### Proposal Pattern via DelegatingChatClient Middleware
+### Human-in-the-Loop via ApprovalRequiredAIFunction
 
-The proposal pattern uses `DelegatingChatClient` from `Microsoft.Extensions.AI`, which
-composes into the `IChatClient` pipeline that `ChatClientAgent` wraps. This means middleware
-intercepts at the `IChatClient` level — before/after the LLM call — and works transparently
-with MAF agents.
+The proposal pattern uses MAF's built-in `ApprovalRequiredAIFunction` to wrap mutating tools,
+requiring human approval before execution. This replaces the earlier custom `ProposalMiddleware`
+(`DelegatingChatClient`-based) approach, moving approval gating to the tool level where it
+is more precise and idiomatic.
 
 ```csharp
-// DelegatingChatClient middleware (intercepts at IChatClient level)
-internal class ProposalMiddleware : DelegatingChatClient
+// Mutating tools are wrapped with ApprovalRequiredAIFunction
+var tools = new List<AITool>
 {
-    private readonly AgentsDbContext _dbContext;
+    AIFunctionFactory.Create(instance.GetInvoiceAsync, name: "GetInvoice"),       // read — no gate
+    new ApprovalRequiredAIFunction(                                                // write — gated
+        AIFunctionFactory.Create(instance.CreateInvoiceAsync, name: "CreateInvoice")),
+    new ApprovalRequiredAIFunction(
+        AIFunctionFactory.Create(instance.IssueInvoiceAsync, name: "IssueInvoice")),
+};
+```
 
-    public ProposalMiddleware(IChatClient innerClient, AgentsDbContext dbContext)
-        : base(innerClient) { _dbContext = dbContext; }
+Mutating tools requiring approval: `CreateInvoice`, `IssueInvoice`, `CancelInvoice`,
+`MarkInvoicePaid`, `CreatePaymentIntent`, `CapturePayment`, `CancelPayment`, `CreateLedger`,
+`CreateAccount`.
 
-    public override async Task<ChatResponse> GetResponseAsync(
-        IEnumerable<ChatMessage> messages,
-        ChatOptions? options = null,
-        CancellationToken cancellationToken = default)
-    {
-        // Pre-processing: log request, check policies
-        var response = await base.GetResponseAsync(messages, options, cancellationToken);
-        // Post-processing: inspect for function calls, create Proposal records,
-        // evaluate risk tier, gate execution on approval status
-        return response;
-    }
-}
+### Audit Pipeline via IChatClient Builder
 
-// Pipeline composition: middleware wraps the inner client,
-// then ChatClientAgent wraps the middleware-enhanced client
-IChatClient pipeline = new ProposalMiddleware(
-    new AuditMiddleware(innerChatClient, auditLogger),
-    dbContext);
+`AuditMiddleware` is wired into the `IChatClient` pipeline using `.AsBuilder().Use(...)`,
+integrating with `IAiRunWriter` for real audit records with token usage tracking:
 
-AIAgent agent = new ChatClientAgent(pipeline, name: "finance-agent", instructions: "...");
+```csharp
+// In AiModule.cs — IChatClient registration with audit pipeline
+services.AddScoped<IChatClient>(sp =>
+{
+    var inner = new StubChatClient(); // or real provider
+    return inner.AsBuilder()
+        .Use((innerClient, services) =>
+            new AuditMiddleware(innerClient, services.GetRequiredService<IAiRunWriter>()))
+        .Build(sp);
+});
 ```
 
 ### Agent-as-Tool Composition (Master Orchestrator)
 
+The orchestrator discovers domain agents via `IEnumerable<IDomainAgentDescriptor>` and
+builds `ChatClientAgent` instances that are composed as tools. MCP tools from
+`McpToolProvider` are also integrated. The orchestrator agent is cached with
+double-checked locking via `SemaphoreSlim`.
+
 ```csharp
-// Each domain agent becomes a tool the master orchestrator can call
-var masterAgent = new ChatClientAgent(
-    chatClient: chatClient,
-    name: "MasterOrchestrator",
-    instructions: "Route user requests to the appropriate domain agent...",
-    tools: new List<AITool>
-    {
-        financeAgent.AsAIFunction("finance", "Handle finance operations"),
-        platformAgent.AsAIFunction("platform", "Handle platform operations"),
-    });
+// IDomainAgentDescriptor interface (multi-registration pattern)
+public interface IDomainAgentDescriptor
+{
+    string Name { get; }
+    string Description { get; }
+    string Instructions { get; }
+    Task<IReadOnlyList<AITool>> GetToolsAsync(IServiceProvider serviceProvider);
+}
+
+// Master orchestrator builds and caches agent with domain + MCP tools
+foreach (var descriptor in _descriptors)
+{
+    var tools = await descriptor.GetToolsAsync(serviceProvider);
+    var agent = new ChatClientAgent(chatClient, descriptor.Name, descriptor.Instructions, tools);
+    orchestratorTools.Add(agent.AsAIFunction(descriptor.Name, descriptor.Description));
+}
+
+// MCP tools integrated alongside domain agent tools
+var mcpTools = await _mcpToolProvider.GetAllToolsAsync();
+orchestratorTools.AddRange(mcpTools);
+```
+
+Session management uses MAF's native `AgentSession`:
+
+```csharp
+// Native session management — no in-process ConcurrentDictionary
+var session = await orchestratorAgent.CreateSessionAsync(sessionId, cancellationToken);
+var response = await orchestratorAgent.RunAsync(message, session, cancellationToken);
 ```
 
 ## Rationale
@@ -240,11 +267,20 @@ var masterAgent = new ChatClientAgent(
 This ADR is implemented across the modular restructuring plan:
 
 - **PR 3.1** (DONE): Scaffold `Aonik.Ai` module with MAF's `IChatClient`, replace `IModelProvider` with `StubChatClient`
-- **PR 3.2** (DONE): Scaffold `Aonik.Agents` module with MAF RC packages (`Microsoft.Agents.AI` 1.0.0-rc1, `Microsoft.Agents.AI.Workflows` 1.0.0-rc1). `AonikDomainAgent` builds `ChatClientAgent` instances. `DelegatingChatClient` middleware (ProposalMiddleware, AuditMiddleware) composes into the pipeline.
-- **PR 3.3**: Finance domain agent + tools via `AIFunctionFactory.Create()`
-- **PR 3.4**: Platform domain agent + real LLM provider wrappers
-- **PR 4.1-4.2**: MCP servers using MCP C# SDK + `McpServerTool.Create()`
-- **PR 5.1-5.2**: Master orchestrator + MAF Workflows (`AgentWorkflowBuilder`)
+- **PR 3.2** (DONE): Scaffold `Aonik.Agents` module with MAF RC packages (`Microsoft.Agents.AI` 1.0.0-rc1, `Microsoft.Agents.AI.Workflows` 1.0.0-rc1). Initial domain agent scaffolding.
+- **PR 3.3** (DONE): Finance domain agent + tools via `AIFunctionFactory.Create()`
+- **PR 3.4** (DONE): Platform domain agent + tools
+- **PR 4.1-4.2** (DONE): MCP servers using MCP C# SDK + `McpServerTool.Create()`
+- **PR 5.1-5.2** (DONE): Master orchestrator + MAF Workflows (`AgentWorkflowBuilder`)
+- **MAF Best Practices Refactor** (DONE): Aligned agent framework with MAF idioms:
+  - Replaced `AonikDomainAgent` base class with `IDomainAgentDescriptor` interface + multi-registration pattern
+  - Replaced custom `ProposalMiddleware` with MAF's `ApprovalRequiredAIFunction` for human-in-the-loop
+  - Moved `AuditMiddleware` to `Aonik.Ai.Middleware` with `IAiRunWriter` integration and token usage tracking
+  - Replaced `IChatClientFactory` with direct `IChatClient` registration using `.AsBuilder().Use(...)` pipeline
+  - Rewrote `MasterOrchestratorService` to use `AgentSession` for native session management (eliminates `ConcurrentDictionary` memory leak)
+  - Split Finance agent into `finance-agent` (~14 tools) and `financial-life-graph-agent` (~17 tools) for better LLM tool selection
+  - Integrated `McpToolProvider` into orchestrator tool set
+  - Replaced workflow switch statement with keyed `IWorkflowFactory` services
 
 See [Modular Restructuring Plan](../modular-restructuring-plan.md) for detailed specifications per PR.
 

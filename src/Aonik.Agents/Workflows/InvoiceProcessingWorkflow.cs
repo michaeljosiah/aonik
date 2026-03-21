@@ -1,6 +1,8 @@
+using Aonik.Agents.Contracts.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Agents.Workflows;
 
@@ -11,19 +13,25 @@ namespace Aonik.Agents.Workflows;
 /// 2. Processing Agent — creates the invoice and posts to ledger
 /// 3. Notification Agent — confirms completion and summarises the result
 ///
-/// This workflow is exposed as an <see cref="AIAgent"/> that can be invoked
-/// directly or composed as a tool for the master orchestrator.
+/// <para><b>Advisory workflow:</b> This workflow is currently advisory-only.
+/// The agents reason about invoice data but have no domain tools wired,
+/// so they cannot directly create, update, or mutate invoices or ledger entries.
+/// To make this workflow operational, wire <c>InvoiceTools</c> and <c>LedgerTools</c>
+/// into the processing agent's tool set.</para>
 /// </summary>
-public static class InvoiceProcessingWorkflow
+public sealed class InvoiceProcessingWorkflowFactory : IWorkflowFactory
 {
-    public const string WorkflowName = "invoice-processing";
+    public const string Name = "invoice-processing";
 
-    /// <summary>
-    /// Builds the sequential workflow as a single <see cref="AIAgent"/>
-    /// that processes invoice creation requests through a validation,
-    /// processing, and notification pipeline.
-    /// </summary>
-    public static AIAgent Build(IChatClient chatClient)
+    public string WorkflowName => Name;
+
+    public AIAgent Build(IServiceProvider serviceProvider)
+    {
+        var chatClient = serviceProvider.GetRequiredService<IChatClient>();
+        return BuildWorkflow(chatClient);
+    }
+
+    internal static AIAgent BuildWorkflow(IChatClient chatClient)
     {
         var validationAgent = new ChatClientAgent(
             chatClient,
@@ -72,11 +80,11 @@ public static class InvoiceProcessingWorkflow
 
         // Build sequential pipeline: validate -> process -> notify
         var workflow = AgentWorkflowBuilder.BuildSequential(
-            WorkflowName,
+            Name,
             [validationAgent, processingAgent, notificationAgent]);
 
         return workflow.AsAIAgent(
-            id: WorkflowName,
+            id: Name,
             name: "Invoice Processing Pipeline",
             description: "Validates, processes, and confirms invoice creation through a multi-step pipeline");
     }

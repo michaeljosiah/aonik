@@ -1,4 +1,4 @@
-using Aonik.Agents.Framework;
+using Aonik.Agents.Contracts.Services;
 using Aonik.Finance.Agents;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Modules;
@@ -134,8 +134,11 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Ai.InvoiceInsightWorkflow>();
         services.AddScoped<Contracts.Services.Ai.IFinanceInsightsService, Services.Ai.FinanceInsightsService>();
 
-        // ── Finance Domain Agent ─────────────────────────────────────
-        services.AddSingleton<AonikDomainAgent, FinanceDomainAgent>();
+        // ── Finance Domain Agents ────────────────────────────────────
+        // Registered as IDomainAgentDescriptor for the orchestrator to discover.
+        // Finance is split into two sub-agents for better LLM tool selection (R7).
+        services.AddSingleton<IDomainAgentDescriptor, FinanceAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
 
         return services;
     }

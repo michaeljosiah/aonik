@@ -1,4 +1,4 @@
-using Aonik.Agents.Framework;
+using Aonik.Agents.Contracts.Services;
 using Aonik.Platform.Agents;
 using Aonik.Platform.Contracts.Services.Autonumbering;
 using Aonik.Platform.Contracts.Services.Cms;
@@ -106,7 +106,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IPermissionSeedService, PermissionSeedService>();
 
         // ── Platform Domain Agent ────────────────────────────────────
-        services.AddSingleton<AonikDomainAgent, PlatformDomainAgent>();
+        services.AddSingleton<IDomainAgentDescriptor, PlatformAgentDescriptor>();
 
         return services;
     }

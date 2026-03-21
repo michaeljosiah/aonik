@@ -1,22 +1,23 @@
-using Aonik.Agents.Framework;
+using Aonik.Agents.Contracts.Services;
 using Aonik.Platform.Agents.Tools;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace Aonik.Platform.Agents;
 
 /// <summary>
-/// Platform domain agent. Exposes tenant, user/role, and compliance tools to the LLM.
-/// Extends <see cref="AonikDomainAgent"/> and is composed into the master orchestrator
-/// via <c>agent.AsAIFunction()</c>.
+/// Platform domain agent descriptor. Builds the platform <see cref="ChatClientAgent"/>
+/// with tenant, user/role, and compliance tools. All tools are currently read-only
+/// and safe for autonomous use without approval.
 /// </summary>
-public sealed class PlatformDomainAgent : AonikDomainAgent
+public sealed class PlatformAgentDescriptor : IDomainAgentDescriptor
 {
-    public override string Name => "platform-agent";
+    public string Name => "platform-agent";
 
-    public override string Description =>
+    public string Description =>
         "Manages tenants, users, roles, permissions, and compliance documents for the current tenant.";
 
-    protected override string Instructions =>
+    private const string Instructions =
         """
         You are the AONIK Platform Agent. You help users manage their platform
         configuration and identity operations within the AONIK system.
@@ -38,7 +39,18 @@ public sealed class PlatformDomainAgent : AonikDomainAgent
         7. Respect tenant boundaries — you only see data for the current tenant context.
         """;
 
-    protected override IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
+    public AIAgent Build(IChatClient chatClient, IServiceProvider serviceProvider)
+    {
+        var tools = GetTools(serviceProvider).ToList();
+
+        return new ChatClientAgent(
+            chatClient,
+            name: Name,
+            instructions: Instructions,
+            tools: tools);
+    }
+
+    private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
     {
         return TenantTools.CreateAll(serviceProvider)
             .Concat(UserTools.CreateAll(serviceProvider))

@@ -9,7 +9,7 @@ namespace Aonik.Agents.Framework;
 
 /// <summary>
 /// Master orchestrator that uses the agent-as-tool pattern. Each registered
-/// <see cref="AonikDomainAgent"/> is built into a MAF <see cref="AIAgent"/>
+/// <see cref="IDomainAgentDescriptor"/> is built into a MAF <see cref="AIAgent"/>
 /// and then exposed as a function tool (via <c>AsAIFunction()</c>) to a
 /// top-level orchestrator agent.
 ///
@@ -17,22 +17,32 @@ namespace Aonik.Agents.Framework;
 /// user's intent. This approach means the orchestrator agent retains overall
 /// responsibility and context while delegating specific domain tasks.
 ///
-/// Session management uses an in-memory <see cref="ConcurrentDictionary{TKey,TValue}"/>
-/// keyed by session ID to maintain multi-turn conversation history.
+/// Session management uses MAF's <see cref="AgentSession"/> per session ID,
+/// which tracks conversation history natively. The built orchestrator agent is
+/// cached and reused across requests (tools are built once, not per-request).
 /// </summary>
 internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 {
-    private readonly IEnumerable<AonikDomainAgent> _domainAgents;
+    private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
+    private readonly IMcpToolProvider _mcpToolProvider;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MasterOrchestratorService> _logger;
 
     /// <summary>
-    /// In-memory session store: sessionId -> list of ChatMessages.
-    /// This is intentionally simple for now; a durable session store
-    /// (e.g., backed by AgentsDbContext) can replace this later.
+    /// In-memory session store: sessionId -> MAF session.
+    /// <see cref="AgentSession"/> tracks conversation history natively,
+    /// eliminating the need for manual message list management.
+    /// A durable session store (e.g., backed by AgentsDbContext) can replace this later.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, List<ChatMessage>> Sessions = new();
+    private static readonly ConcurrentDictionary<string, AgentSession> Sessions = new();
+
+    /// <summary>
+    /// Cached orchestrator agent. Built once (lazily) and reused across requests.
+    /// The agent itself is stateless; session state is managed via <see cref="AgentSession"/>.
+    /// </summary>
+    private ChatClientAgent? _cachedOrchestrator;
+    private readonly SemaphoreSlim _buildLock = new(1, 1);
 
     private const string OrchestratorInstructions =
         """
@@ -45,6 +55,9 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 
         - **finance-agent**: Manages invoices, ledger accounts, journal entries, and payment
           intents. Use this for any billing, accounting, or payment-related requests.
+        - **financial-life-graph-agent**: Manages the Financial Life Graph — a knowledge graph
+          of financial entities, relationships, and insights. Use this for holistic financial
+          views, relationship queries, impact analysis, and financial planning.
         - **platform-agent**: Manages tenants, users, roles, permissions, and compliance
           documents. Use this for identity, access management, or compliance-related requests.
 
@@ -60,12 +73,14 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         """;
 
     public MasterOrchestratorService(
-        IEnumerable<AonikDomainAgent> domainAgents,
+        IEnumerable<IDomainAgentDescriptor> descriptors,
+        IMcpToolProvider mcpToolProvider,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         ILogger<MasterOrchestratorService> logger)
     {
-        _domainAgents = domainAgents;
+        _descriptors = descriptors;
+        _mcpToolProvider = mcpToolProvider;
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _logger = logger;
@@ -81,51 +96,21 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
             "Orchestrator processing message for session {SessionId}",
             sessionId);
 
-        // Get or create session history
-        var history = Sessions.GetOrAdd(sessionId, _ => new List<ChatMessage>());
+        // Ensure the orchestrator agent is built and cached
+        var orchestrator = await GetOrBuildOrchestratorAsync(cancellationToken);
 
-        // Build domain agents as tools
-        var domainTools = BuildDomainAgentTools();
+        // Get or create MAF session for this conversation.
+        // CreateSessionAsync produces a ChatClientAgentSession that tracks
+        // conversation history natively — no manual message list management needed.
+        var session = await GetOrCreateSessionAsync(sessionId, orchestrator, cancellationToken);
 
-        _logger.LogInformation(
-            "Orchestrator has {ToolCount} domain agent tool(s): {ToolNames}",
-            domainTools.Count,
-            string.Join(", ", domainTools.Select(t => t.Name)));
-
-        // Build the orchestrator agent with domain agents as tools
-        var orchestratorAgent = new ChatClientAgent(
-            _chatClient,
-            name: "master-orchestrator",
-            instructions: OrchestratorInstructions,
-            tools: domainTools);
-
-        // Add the user's message to history
-        var userMessage = new ChatMessage(ChatRole.User, request.Message);
-
-        // Build the full message list (history + new message)
-        List<ChatMessage> messages;
-        lock (history)
-        {
-            history.Add(userMessage);
-            messages = new List<ChatMessage>(history);
-        }
-
-        // Run the orchestrator
-        var response = await orchestratorAgent.RunAsync(
-            messages,
+        // Run the orchestrator with the user's message and session.
+        var response = await orchestrator.RunAsync(
+            request.Message,
+            session,
             cancellationToken: cancellationToken);
 
-        // Extract the response text
         var responseText = response.Text ?? string.Empty;
-
-        // Add assistant response to history for multi-turn
-        if (response.Messages.Count > 0)
-        {
-            lock (history)
-            {
-                history.AddRange(response.Messages);
-            }
-        }
 
         _logger.LogInformation(
             "Orchestrator completed for session {SessionId}. Response length: {Length}",
@@ -140,33 +125,112 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     }
 
     /// <summary>
-    /// Builds each registered domain agent and wraps it as an <see cref="AITool"/>
-    /// via <c>AsAIFunction()</c>. The orchestrator LLM can then invoke any domain
-    /// agent as a function call.
+    /// Gets or creates a MAF session for the given session ID.
+    /// Uses <see cref="ChatClientAgent.CreateSessionAsync"/> to create sessions
+    /// that natively track conversation history.
     /// </summary>
-    private List<AITool> BuildDomainAgentTools()
+    private async Task<AgentSession> GetOrCreateSessionAsync(
+        string sessionId,
+        ChatClientAgent orchestrator,
+        CancellationToken cancellationToken)
+    {
+        if (Sessions.TryGetValue(sessionId, out var existing))
+            return existing;
+
+        // Create a new session via the agent. This returns a ChatClientAgentSession
+        // that tracks messages internally across RunAsync calls.
+        var session = await orchestrator.CreateSessionAsync(
+            sessionId, cancellationToken);
+
+        // Cache it. If another thread raced us, use the winner's session.
+        return Sessions.GetOrAdd(sessionId, session);
+    }
+
+    /// <summary>
+    /// Returns the cached orchestrator agent, building it on first call.
+    /// The agent is stateless and can be safely reused across requests;
+    /// per-conversation state lives in <see cref="AgentSession"/>.
+    /// </summary>
+    private async Task<ChatClientAgent> GetOrBuildOrchestratorAsync(
+        CancellationToken cancellationToken)
+    {
+        if (_cachedOrchestrator is not null)
+            return _cachedOrchestrator;
+
+        await _buildLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_cachedOrchestrator is not null)
+                return _cachedOrchestrator;
+
+            var tools = await BuildAllToolsAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Building orchestrator with {ToolCount} tool(s): {ToolNames}",
+                tools.Count,
+                string.Join(", ", tools.Select(t => t.Name)));
+
+            _cachedOrchestrator = new ChatClientAgent(
+                _chatClient,
+                name: "master-orchestrator",
+                instructions: OrchestratorInstructions,
+                tools: tools);
+
+            return _cachedOrchestrator;
+        }
+        finally
+        {
+            _buildLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Builds the complete tool set for the orchestrator: domain agents-as-tools
+    /// plus any MCP-provided tools.
+    /// </summary>
+    private async Task<List<AITool>> BuildAllToolsAsync(CancellationToken cancellationToken)
     {
         var tools = new List<AITool>();
 
-        foreach (var domainAgent in _domainAgents)
+        // Build domain agents as tools (R1: uses IDomainAgentDescriptor)
+        foreach (var descriptor in _descriptors)
         {
             try
             {
-                var builtAgent = domainAgent.Build(_chatClient, _serviceProvider);
+                var builtAgent = descriptor.Build(_chatClient, _serviceProvider);
                 var agentTool = builtAgent.AsAIFunction();
                 tools.Add(agentTool);
 
                 _logger.LogDebug(
                     "Built domain agent tool: {AgentName} — {Description}",
-                    domainAgent.Name, domainAgent.Description);
+                    descriptor.Name, descriptor.Description);
             }
             catch (Exception ex)
             {
                 _logger.LogError(
                     ex,
                     "Failed to build domain agent '{AgentName}' as tool",
-                    domainAgent.Name);
+                    descriptor.Name);
             }
+        }
+
+        // Wire in MCP tools (R8: McpToolProvider was registered but unused)
+        try
+        {
+            var allMcpTools = await _mcpToolProvider.GetAllToolsAsync(cancellationToken);
+            foreach (var (serverName, serverTools) in allMcpTools)
+            {
+                tools.AddRange(serverTools);
+                _logger.LogInformation(
+                    "Added {ToolCount} MCP tool(s) from server '{ServerName}'",
+                    serverTools.Count, serverName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to load MCP tools — orchestrator will operate without external tools");
         }
 
         return tools;

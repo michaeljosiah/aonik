@@ -1,4 +1,4 @@
-using Aonik.Agents.Framework;
+using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
 
 namespace Aonik.Agents.Endpoints;
@@ -9,11 +9,11 @@ namespace Aonik.Agents.Endpoints;
 /// </summary>
 internal sealed class ListAgentsEndpoint : EndpointWithoutRequest<ListAgentsResponse>
 {
-    private readonly IEnumerable<AonikDomainAgent> _agents;
+    private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
 
-    public ListAgentsEndpoint(IEnumerable<AonikDomainAgent> agents)
+    public ListAgentsEndpoint(IEnumerable<IDomainAgentDescriptor> descriptors)
     {
-        _agents = agents;
+        _descriptors = descriptors;
     }
 
     public override void Configure()
@@ -24,10 +24,10 @@ internal sealed class ListAgentsEndpoint : EndpointWithoutRequest<ListAgentsResp
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var agents = _agents.Select(a => new AgentInfo
+        var agents = _descriptors.Select(d => new AgentInfo
         {
-            Name = a.Name,
-            Description = a.Description
+            Name = d.Name,
+            Description = d.Description
         }).ToList();
 
         await Send.OkAsync(new ListAgentsResponse { Agents = agents }, ct);

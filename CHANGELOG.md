@@ -5,6 +5,19 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Agent Framework (MAF Best Practices Refactor)**: Comprehensive refactoring of the AONIK Agent Framework to align with Microsoft Agent Framework (MAF) idioms and best practices:
+  - **R1 — IDomainAgentDescriptor**: Replaced `AonikDomainAgent` base class with `IDomainAgentDescriptor` interface using `IEnumerable<IDomainAgentDescriptor>` multi-registration pattern in DI
+  - **R2 — Native Session Management**: Rewrote `MasterOrchestratorService` to use MAF `AgentSession` via `agent.CreateSessionAsync(sessionId)` for native conversation history tracking, eliminating the `ConcurrentDictionary<string, List<ChatMessage>>` memory leak. Orchestrator agent is cached with double-checked locking via `SemaphoreSlim`
+  - **R3 — ApprovalRequiredAIFunction**: Replaced custom `ProposalMiddleware` (`DelegatingChatClient`) with MAF's built-in `ApprovalRequiredAIFunction` for human-in-the-loop approval on 9 mutating tools (CreateInvoice, IssueInvoice, CancelInvoice, MarkInvoicePaid, CreatePaymentIntent, CapturePayment, CancelPayment, CreateLedger, CreateAccount)
+  - **R4 — AuditMiddleware**: Moved `AuditMiddleware` from `Aonik.Agents` to `Aonik.Ai.Middleware`, integrated with `IAiRunWriter` for real audit records (`StartRunAsync`, `MarkRunCompletedAsync`/`MarkRunFailedAsync`), captures `response.Usage` token counts for cost tracking
+  - **R7 — Agent Split**: Split Finance agent's 26+ tools into two sub-agents: `finance-agent` (~14 billing/ledger/payment tools) and `financial-life-graph-agent` (~17 FLG read tools) for better LLM tool selection
+  - **R8 — MCP Integration**: Wired `McpToolProvider` into the master orchestrator's tool set alongside domain agent-as-tool functions; gracefully degrades if no MCP servers are configured
+  - **R9 — IChatClient Pipeline**: Replaced `IChatClientFactory` + `ConfigDrivenChatClientFactory` with direct `IChatClient` registration using `.AsBuilder().Use(...)` pipeline pattern with `AuditMiddleware` inline
+  - **R10 — Keyed Workflows**: Replaced switch statement in `RunWorkflowEndpoint` with keyed `IWorkflowFactory` services pattern; workflow classes converted to `IWorkflowFactory` implementations registered as keyed singletons
+  - **R6 — Advisory Workflows**: Documented all three workflow classes (InvoiceProcessing, Onboarding, Reconciliation) as advisory-only (no tools wired for direct financial mutations)
+  - Build: 0 errors, 0 warnings. Tests: 249 passing (10 SharedKernel + 173 Application + 22 Infrastructure + 54 Api)
+
+### Changed
 - **Database Naming Standard**: Standardized runtime table mapping to `dbo` with a unified table prefix (`Ank`) across `AonikDbContext` and module-scoped DbContexts. Added migration `20260301105723_StandardizeDboPrefixedTables` to move/rename existing tables (including `platform` schema fallback), and aligned API/Migrator to use `AonikDbContext` as the canonical migration stream.
 - **Bootstrap + Setup Flow**: Simplified fresh-install initialization by aligning API and migrator startup behavior (shared migration ordering and seed parity, including global settings), enforcing one-time `/bootstrap` semantics, assigning `PlatformAdmin` for the initial bootstrap user, and updating setup/docs to prefer `Aonik.Migrator` as the primary migrations+seed entrypoint.
 - **Architecture (PR 6.1 — Delete Legacy Layers)**: Completed Phase 6.1 modular clean-up. Seed services and seed data moved from Infrastructure to Platform (`Aonik.Platform.Services.Seeding`), composition roots (`Aonik.Api`, `Aonik.Migrator`) now seed via `PlatformDbContext` + `FinanceDbContext`, and legacy Infrastructure seed implementations were removed. Module boundary visibility was aligned (`InternalsVisibleTo`) for Platform/Finance composition roots. Build: 0 errors, 0 warnings. Tests: 106/106 passing.

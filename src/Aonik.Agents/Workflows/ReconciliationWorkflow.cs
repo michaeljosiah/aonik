@@ -1,6 +1,8 @@
+using Aonik.Agents.Contracts.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Agents.Workflows;
 
@@ -12,17 +14,26 @@ namespace Aonik.Agents.Workflows;
 /// 3. Invoice Check Agent — verifies invoice statuses match payment records
 ///
 /// Results are aggregated into a unified reconciliation report.
+///
+/// <para><b>Advisory workflow:</b> This workflow is currently advisory-only.
+/// The agents reason about reconciliation checks but have no domain tools wired,
+/// so they cannot directly query ledger, payment, or invoice data.
+/// To make this workflow operational, wire <c>LedgerTools</c>, <c>PaymentTools</c>,
+/// and <c>InvoiceTools</c> into the respective check agents' tool sets.</para>
 /// </summary>
-public static class ReconciliationWorkflow
+public sealed class ReconciliationWorkflowFactory : IWorkflowFactory
 {
-    public const string WorkflowName = "financial-reconciliation";
+    public const string Name = "financial-reconciliation";
 
-    /// <summary>
-    /// Builds the concurrent reconciliation workflow as an <see cref="AIAgent"/>.
-    /// All three check agents run in parallel on the same input, and their
-    /// results are aggregated into a single reconciliation report.
-    /// </summary>
-    public static AIAgent Build(IChatClient chatClient)
+    public string WorkflowName => Name;
+
+    public AIAgent Build(IServiceProvider serviceProvider)
+    {
+        var chatClient = serviceProvider.GetRequiredService<IChatClient>();
+        return BuildWorkflow(chatClient);
+    }
+
+    internal static AIAgent BuildWorkflow(IChatClient chatClient)
     {
         var ledgerCheckAgent = new ChatClientAgent(
             chatClient,
@@ -75,12 +86,12 @@ public static class ReconciliationWorkflow
         // Build concurrent workflow: all three agents run in parallel
         // Aggregator combines results from all agents into a single report
         var workflow = AgentWorkflowBuilder.BuildConcurrent(
-            WorkflowName,
+            Name,
             [ledgerCheckAgent, paymentCheckAgent, invoiceCheckAgent],
             AggregateReconciliationResults);
 
         return workflow.AsAIAgent(
-            id: WorkflowName,
+            id: Name,
             name: "Financial Reconciliation",
             description: "Runs parallel checks on ledger, payment, and invoice state and produces a unified reconciliation report");
     }

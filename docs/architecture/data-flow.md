@@ -44,18 +44,28 @@ This describes the typical request/response path for API calls in the modular mo
 ```
 [Client]
    ↓ POST /api/agents/orchestrator/chat
-[Aonik.Agents/Endpoints/AgentChatEndpoint]
+[Aonik.Agents/Endpoints/ChatEndpoint]
    ↓
 [MasterOrchestratorService]
-   ↓ Routes to domain agent (e.g., FinanceDomainAgent)
-[FinanceDomainAgent] → uses AIFunction tools
-   ↓ Tool calls resolve through module services
-[BillingService / LedgerService]
+   ↓ Builds ChatClientAgent orchestrator with domain agents as tools
+   ↓ Creates/resumes AgentSession for conversation history
+   ↓ Routes to domain agent descriptor (e.g., FinanceAgentDescriptor)
+[ChatClientAgent (finance-agent)] → uses AIFunction tools
+   ↓ Read tools execute directly
+   ↓ Mutating tools gated by ApprovalRequiredAIFunction
+[BillingService / LedgerService / PaymentService]
    ↓ Results returned to agent
+[AuditMiddleware] → records AiRun with token usage
 [MasterOrchestratorService]
    ↑ Chat response
 [Client]
 ```
+
+Key details:
+- Domain agents are registered as `IDomainAgentDescriptor` implementations and composed into the orchestrator via `agent.AsAIFunction()`
+- MCP tools from `McpToolProvider` are also available to the orchestrator
+- `AgentSession` (via `agent.CreateSessionAsync`) manages conversation history natively
+- `AuditMiddleware` in the `IChatClient` pipeline records every LLM call as an `AiRun`
 
 ## Pricing Quote Flow
 
