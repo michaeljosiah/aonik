@@ -153,13 +153,35 @@ app.MapDefaultEndpoints();
 // Use HTTPS redirection
 app.UseHttpsRedirection();
 
-// Explicit UseRouting() is required so that the CORS middleware (below) can see
-// endpoint metadata (RequireCors) set by FastEndpoints. Without this,
-// FastEndpoints calls UseRouting() internally *after* UseCors(), meaning the
-// CORS middleware has no endpoint context and cannot handle OPTIONS preflight.
-app.UseRouting();
+// Custom preflight middleware — must run BEFORE routing so that FastEndpoints
+// never sees the OPTIONS request.  The built-in CORS middleware relies on
+// endpoint metadata which FastEndpoints registers too late; this short-circuits
+// the preflight dance at the very beginning of the pipeline.
+var corsOriginsSet = new HashSet<string>(allCorsOrigins, StringComparer.OrdinalIgnoreCase);
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsOptions(context.Request.Method))
+    {
+        var origin = context.Request.Headers.Origin.FirstOrDefault();
+        if (!string.IsNullOrEmpty(origin) && corsOriginsSet.Contains(origin))
+        {
+            context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
+            context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+            context.Response.Headers.Append("Access-Control-Allow-Headers",
+                "Authorization, Content-Type, X-Tenant-Id, Accept, X-Requested-With");
+            context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+            context.Response.Headers.Append("Access-Control-Max-Age", "86400");
+            context.Response.StatusCode = StatusCodes.Status204NoContent;
+            return; // short-circuit — do NOT call next()
+        }
+    }
 
-// Use CORS (configured origins loaded from Cors:AllowedOrigins + localhost defaults)
+    await next();
+});
+
+// Standard routing + CORS middleware (handles non-preflight CORS headers on
+// actual requests, e.g. Access-Control-Allow-Origin on GET/POST responses).
+app.UseRouting();
 app.UseCors("AonikCors");
 
 // Serve static files for local blob storage (profile photos, etc.)
