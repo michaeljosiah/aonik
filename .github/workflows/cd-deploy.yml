@@ -116,8 +116,13 @@ permissions:
   id-token: write
   contents: read
 
+## Concurrency guard for standalone dispatch only.
+## When called from cd-pipeline.yml (workflow_call) the parent workflow already
+## holds the 'deploy-<env>' concurrency lock, so repeating it here causes a
+## deadlock that GitHub cancels.  We scope this group so it only activates on
+## direct workflow_dispatch triggers.
 concurrency:
-  group: deploy-${{ inputs.environment }}
+  group: ${{ github.event_name == 'workflow_dispatch' && format('deploy-{0}', inputs.environment) || format('deploy-child-{0}-{1}', inputs.environment, github.run_id) }}
   cancel-in-progress: false
 
 jobs:
