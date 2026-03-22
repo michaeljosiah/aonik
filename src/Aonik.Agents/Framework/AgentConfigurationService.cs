@@ -3,6 +3,7 @@ using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -24,17 +25,20 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
 {
     private readonly AgentsDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
+    private readonly IAiModelResolver _modelResolver;
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
     private readonly ILogger<AgentConfigurationService> _logger;
 
     public AgentConfigurationService(
         AgentsDbContext dbContext,
         ITenantProvider tenantProvider,
+        IAiModelResolver modelResolver,
         IEnumerable<IDomainAgentDescriptor> descriptors,
         ILogger<AgentConfigurationService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
+        _modelResolver = modelResolver;
         _descriptors = descriptors;
         _logger = logger;
     }
@@ -53,7 +57,14 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             .ThenBy(a => a.TenantId)
             .ToListAsync(cancellationToken);
 
-        return agents.Select(a => MapToResponse(a, tenantId)).ToList();
+        // Batch-resolve model names for agents that have ModelId set
+        var modelNames = await ResolveModelNamesAsync(
+            agents.Where(a => a.ModelId.HasValue).Select(a => a.ModelId!.Value).Distinct(),
+            cancellationToken);
+
+        return agents.Select(a => MapToResponse(
+            a, tenantId,
+            a.ModelId.HasValue ? modelNames.GetValueOrDefault(a.ModelId.Value) : null)).ToList();
     }
 
     public async Task<AgentConfigurationResponse?> GetResolvedAsync(
@@ -74,9 +85,14 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
               ?? rows.FirstOrDefault(a => a.TenantId == null)
             : rows.FirstOrDefault(a => a.TenantId == null);
 
-        return resolved is not null
-            ? MapToResponse(resolved, tenantId)
-            : null;
+        if (resolved is null)
+            return null;
+
+        string? modelName = null;
+        if (resolved.ModelId.HasValue)
+            modelName = await _modelResolver.ResolveModelNameByIdAsync(resolved.ModelId.Value, cancellationToken);
+
+        return MapToResponse(resolved, tenantId, modelName);
     }
 
     public async Task<AgentConfigurationResponse> UpsertOverrideAsync(
@@ -107,10 +123,18 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             existing.PermissionsProfileJson = request.PermissionsProfileJson ?? existing.PermissionsProfileJson;
             existing.RiskTier = request.RiskTier ?? existing.RiskTier;
             existing.IsActive = request.IsActive ?? existing.IsActive;
+
+            // ModelId: Guid.Empty clears the assignment; non-null sets it; null leaves unchanged
+            if (request.ModelId.HasValue)
+                existing.ModelId = request.ModelId.Value == Guid.Empty ? null : request.ModelId.Value;
         }
         else
         {
             // Create new tenant override — populate from global default, then apply request
+            var resolvedModelId = request.ModelId.HasValue && request.ModelId.Value != Guid.Empty
+                ? request.ModelId.Value
+                : globalDefault?.ModelId;
+
             existing = new Agent
             {
                 TenantId = tenantId,
@@ -134,7 +158,8 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
                     ?? "low",
                 IsActive = request.IsActive
                     ?? globalDefault?.IsActive
-                    ?? true
+                    ?? true,
+                ModelId = resolvedModelId
             };
 
             _dbContext.Agents.Add(existing);
@@ -146,7 +171,11 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             "Upserted agent configuration override for '{AgentName}' in tenant {TenantId}",
             agentName, tenantId);
 
-        return MapToResponse(existing, tenantId);
+        string? modelName = null;
+        if (existing.ModelId.HasValue)
+            modelName = await _modelResolver.ResolveModelNameByIdAsync(existing.ModelId.Value, cancellationToken);
+
+        return MapToResponse(existing, tenantId, modelName);
     }
 
     public async Task DeleteOverrideAsync(
@@ -219,6 +248,33 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     }
 
     /// <summary>
+    /// Batch-resolves model names for a set of model IDs using the AI model resolver.
+    /// Returns a dictionary mapping model ID → model name for all IDs that resolved successfully.
+    /// </summary>
+    private async Task<Dictionary<Guid, string>> ResolveModelNamesAsync(
+        IEnumerable<Guid> modelIds,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, string>();
+
+        foreach (var modelId in modelIds)
+        {
+            try
+            {
+                var name = await _modelResolver.ResolveModelNameByIdAsync(modelId, cancellationToken);
+                if (name is not null)
+                    result[modelId] = name;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve model name for ModelId {ModelId}", modelId);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Heuristic: a tool is considered mutating if its name contains a known
     /// mutation verb segment. Matches patterns like pf_create_*, finance_cancel_*, etc.
     /// </summary>
@@ -240,7 +296,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         };
     }
 
-    private static AgentConfigurationResponse MapToResponse(Agent agent, Guid tenantId)
+    private static AgentConfigurationResponse MapToResponse(Agent agent, Guid tenantId, string? modelName = null)
     {
         return new AgentConfigurationResponse
         {
@@ -254,6 +310,8 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             RiskTier = agent.RiskTier,
             IsActive = agent.IsActive,
             TenantId = agent.TenantId,
+            ModelId = agent.ModelId,
+            ModelName = modelName,
             IsOverride = agent.TenantId is not null && agent.TenantId != Guid.Empty,
             CreatedAt = agent.CreatedAt,
             UpdatedAt = agent.UpdatedAt

@@ -3,6 +3,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Framework;
 using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.Agents.AI;
@@ -29,6 +30,18 @@ public class AgentConfigurationServiceTests
             tenantId = _tenantId;
             return true;
         }
+    }
+
+    /// <summary>
+    /// Stub model resolver that returns null for all lookups (no AI models configured in test).
+    /// </summary>
+    private sealed class StubModelResolver : IAiModelResolver
+    {
+        public Task<string?> ResolveModelNameAsync(string useCase, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
+
+        public Task<string?> ResolveModelNameByIdAsync(Guid modelId, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(null);
     }
 
     /// <summary>
@@ -67,11 +80,13 @@ public class AgentConfigurationServiceTests
     private static AgentConfigurationService CreateService(
         AgentsDbContext context,
         ITenantProvider tenantProvider,
-        IEnumerable<IDomainAgentDescriptor>? descriptors = null)
+        IEnumerable<IDomainAgentDescriptor>? descriptors = null,
+        IAiModelResolver? modelResolver = null)
     {
         return new AgentConfigurationService(
             context,
             tenantProvider,
+            modelResolver ?? new StubModelResolver(),
             descriptors ?? Array.Empty<IDomainAgentDescriptor>(),
             NullLogger<AgentConfigurationService>.Instance);
     }

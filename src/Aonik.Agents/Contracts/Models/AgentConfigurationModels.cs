@@ -19,6 +19,18 @@ public sealed record AgentConfigurationResponse
     public required Guid? TenantId { get; init; }
 
     /// <summary>
+    /// Optional AI model ID assigned to this agent. When set, the orchestrator
+    /// should use this model for the agent's LLM calls.
+    /// </summary>
+    public Guid? ModelId { get; init; }
+
+    /// <summary>
+    /// Resolved model name (e.g. "gpt-5-mini") for display purposes.
+    /// Populated when <see cref="ModelId"/> is set and the model exists.
+    /// </summary>
+    public string? ModelName { get; init; }
+
+    /// <summary>
     /// True if this row is a tenant-specific override rather than the global default.
     /// </summary>
     public required bool IsOverride { get; init; }
@@ -39,4 +51,10 @@ public sealed record UpsertAgentConfigurationRequest
     public string? PermissionsProfileJson { get; init; }
     public string? RiskTier { get; init; }
     public bool? IsActive { get; init; }
+
+    /// <summary>
+    /// Optional AI model ID to assign to this agent. Set to <see cref="Guid.Empty"/>
+    /// to clear the model assignment (revert to platform default).
+    /// </summary>
+    public Guid? ModelId { get; init; }
 }

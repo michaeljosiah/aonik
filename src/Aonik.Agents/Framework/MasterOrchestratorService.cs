@@ -31,6 +31,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private readonly IEnumerable<IDomainAgentDescriptor> _descriptors;
     private readonly IMcpToolProvider _mcpToolProvider;
     private readonly IAgentConfigurationService _configService;
+    private readonly IAiModelResolver _modelResolver;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -60,6 +61,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     /// available on the base <see cref="AIAgent"/> type.
     /// </summary>
     private ChatClientAgent? _rawOrchestrator;
+    private ChatOptions? _orchestratorChatOptions;
     private readonly SemaphoreSlim _buildLock = new(1, 1);
 
     private const string OrchestratorInstructions =
@@ -108,6 +110,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         IEnumerable<IDomainAgentDescriptor> descriptors,
         IMcpToolProvider mcpToolProvider,
         IAgentConfigurationService configService,
+        IAiModelResolver modelResolver,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         ICurrentUserProvider currentUserProvider,
@@ -119,6 +122,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         _descriptors = descriptors;
         _mcpToolProvider = mcpToolProvider;
         _configService = configService;
+        _modelResolver = modelResolver;
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _currentUserProvider = currentUserProvider;
@@ -196,9 +200,16 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         var session = await GetOrCreateSessionAsync(sessionId, cancellationToken);
 
         // Run the orchestrator with the user's message and session.
+        // If a model was resolved via AiRoutePolicy, pass it as ChatClientAgentRunOptions
+        // so the LLM call uses the configured model rather than the default.
+        ChatClientAgentRunOptions? runOptions = _orchestratorChatOptions is not null
+            ? new ChatClientAgentRunOptions(_orchestratorChatOptions)
+            : null;
+
         var response = await orchestrator.RunAsync(
             request.Message,
             session,
+            runOptions,
             cancellationToken: cancellationToken);
 
         var responseText = response.Text ?? string.Empty;
@@ -302,11 +313,37 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                 tools.Count,
                 string.Join(", ", tools.Select(t => t.Name)));
 
+            // Resolve the LLM model for the orchestrator via AiRoutePolicy.
+            // Falls back to null (uses the default model configured on the IChatClient).
+            string? orchestratorModel = null;
+            try
+            {
+                orchestratorModel = await _modelResolver.ResolveModelNameAsync(
+                    "orchestrator", cancellationToken);
+
+                if (orchestratorModel is not null)
+                {
+                    _logger.LogInformation(
+                        "Orchestrator using resolved model: {ModelId}", orchestratorModel);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve orchestrator model — using default");
+            }
+
+            var chatOptions = orchestratorModel is not null
+                ? new ChatOptions { ModelId = orchestratorModel }
+                : null;
+
             _rawOrchestrator = new ChatClientAgent(
                 _chatClient,
                 name: "master-orchestrator",
                 instructions: OrchestratorInstructions,
                 tools: tools);
+
+            // Store resolved ChatOptions for use at run-time via ChatClientAgentRunOptions
+            _orchestratorChatOptions = chatOptions;
 
             // Wrap with OpenTelemetry instrumentation to emit invoke_agent
             // spans per the GenAI semantic conventions.

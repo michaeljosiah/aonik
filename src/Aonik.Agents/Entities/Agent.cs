@@ -27,4 +27,11 @@ public class Agent : AuditableEntity
     public string PermissionsProfileJson { get; set; } = string.Empty;
     public string RiskTier { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+
+    /// <summary>
+    /// Optional reference to an <c>AiModel.Id</c> in the AI module.
+    /// When set, the orchestrator should use this model for the agent's LLM calls
+    /// instead of the platform default.
+    /// </summary>
+    public Guid? ModelId { get; set; }
 }

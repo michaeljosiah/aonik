@@ -1,3 +1,4 @@
+using Aonik.Ai.Contracts.Services;
 using Aonik.Ai.Middleware;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Providers;
@@ -100,6 +101,13 @@ public sealed class AiModule : IModule
         });
 
         // ── AI Services ──────────────────────────────────────────────
+        // Provider & Model catalog CRUD + model resolution.
+        // AiModelService implements both IAiModelService (module-internal CRUD)
+        // and IAiModelResolver (cross-module model resolution via SharedKernel).
+        services.AddScoped<AiModelService>();
+        services.AddScoped<IAiModelService>(sp => sp.GetRequiredService<AiModelService>());
+        services.AddScoped<IAiModelResolver>(sp => sp.GetRequiredService<AiModelService>());
+
         // Insight persistence — consumed by domain modules via IInsightWriter contract
         services.AddScoped<IInsightWriter, InsightWriter>();
         services.AddScoped<IAiRunWriter, AiRunWriter>();
