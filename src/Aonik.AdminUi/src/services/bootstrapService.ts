@@ -4,6 +4,7 @@ import type { BootstrapStatusResponse, BootstrapTenantResult } from '@/types';
 // Simple in-memory cache for bootstrap status
 let statusCache: { data: BootstrapStatusResponse; timestamp: number } | null = null;
 const CACHE_TTL_MS = 30000; // 30 seconds
+let statusInFlight: Promise<BootstrapStatusResponse> | null = null;
 
 export const bootstrapService = {
   bootstrap: async (accessToken?: string | null): Promise<BootstrapTenantResult> => {
@@ -20,18 +21,27 @@ export const bootstrapService = {
       return statusCache.data;
     }
 
+    if (statusInFlight) {
+      return statusInFlight;
+    }
+
     // Fetch fresh data
     const config = accessToken
       ? { headers: { Authorization: `Bearer ${accessToken}` } }
       : undefined;
-    const data = await api.get<BootstrapStatusResponse>('/bootstrap/status', config);
-    
-    // Update cache
-    statusCache = { data, timestamp: Date.now() };
-    
-    return data;
+    statusInFlight = api.get<BootstrapStatusResponse>('/bootstrap/status', config)
+      .then((data) => {
+        statusCache = { data, timestamp: Date.now() };
+        return data;
+      })
+      .finally(() => {
+        statusInFlight = null;
+      });
+
+    return statusInFlight;
   },
   clearCache: (): void => {
     statusCache = null;
+    statusInFlight = null;
   },
 };

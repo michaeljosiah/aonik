@@ -12,6 +12,37 @@ import {
 import type { NavigationSection } from '@/types';
 
 const MANIFEST_URL = '/api/admin/manifest';
+const MANIFEST_CACHE_TTL_MS = 30_000;
+
+let manifestCache: { data: RuntimeModuleManifest; timestamp: number } | null = null;
+let manifestInFlight: Promise<RuntimeModuleManifest | null> | null = null;
+
+const fetchManifestOnce = async (): Promise<RuntimeModuleManifest | null> => {
+  if (manifestCache && Date.now() - manifestCache.timestamp < MANIFEST_CACHE_TTL_MS) {
+    return manifestCache.data;
+  }
+
+  if (manifestInFlight) {
+    return manifestInFlight;
+  }
+
+  manifestInFlight = fetch(MANIFEST_URL)
+    .then(async (res) => {
+      if (!res.ok) {
+        return null;
+      }
+
+      const data = await res.json() as RuntimeModuleManifest;
+      manifestCache = { data, timestamp: Date.now() };
+      return data;
+    })
+    .catch(() => null)
+    .finally(() => {
+      manifestInFlight = null;
+    });
+
+  return manifestInFlight;
+};
 
 /**
  * Hook that merges build-time module definitions with the runtime manifest
@@ -29,10 +60,9 @@ export function useModules() {
 
     async function fetchManifest() {
       try {
-        const res = await fetch(MANIFEST_URL);
-        if (res.ok) {
-          const data: RuntimeModuleManifest = await res.json();
-          if (!cancelled) setManifest(data);
+        const data = await fetchManifestOnce();
+        if (!cancelled && data) {
+          setManifest(data);
         }
       } catch {
         // Graceful degradation: all modules enabled if manifest unreachable
