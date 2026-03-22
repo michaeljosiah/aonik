@@ -153,6 +153,12 @@ app.MapDefaultEndpoints();
 // Use HTTPS redirection
 app.UseHttpsRedirection();
 
+// Explicit UseRouting() is required so that the CORS middleware (below) can see
+// endpoint metadata (RequireCors) set by FastEndpoints. Without this,
+// FastEndpoints calls UseRouting() internally *after* UseCors(), meaning the
+// CORS middleware has no endpoint context and cannot handle OPTIONS preflight.
+app.UseRouting();
+
 // Use CORS (configured origins loaded from Cors:AllowedOrigins + localhost defaults)
 app.UseCors("AonikCors");
 
