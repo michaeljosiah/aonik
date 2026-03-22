@@ -7,9 +7,18 @@ WORKDIR /src
 COPY Aonik.sln ./
 COPY src/Aonik.Api/Aonik.Api.csproj src/Aonik.Api/
 COPY src/Aonik.Application/Aonik.Application.csproj src/Aonik.Application/
-COPY src/Aonik.Domain/Aonik.Domain.csproj src/Aonik.Domain/
 COPY src/Aonik.Infrastructure/Aonik.Infrastructure.csproj src/Aonik.Infrastructure/
 COPY src/Aonik.SharedKernel/Aonik.SharedKernel.csproj src/Aonik.SharedKernel/
+COPY src/Aonik.Platform/Aonik.Platform.csproj src/Aonik.Platform/
+COPY src/Aonik.Finance/Aonik.Finance.csproj src/Aonik.Finance/
+COPY src/Aonik.Ai/Aonik.Ai.csproj src/Aonik.Ai/
+COPY src/Aonik.Agents/Aonik.Agents.csproj src/Aonik.Agents/
+COPY src/Aonik.ServiceDefaults/Aonik.ServiceDefaults.csproj src/Aonik.ServiceDefaults/
+COPY src/Aonik.Worker/Aonik.Worker.csproj src/Aonik.Worker/
+COPY src/Aonik.Migrator/Aonik.Migrator.csproj src/Aonik.Migrator/
+COPY src/Aonik.Platform.Mcp/Aonik.Platform.Mcp.csproj src/Aonik.Platform.Mcp/
+COPY src/Aonik.Finance.Mcp/Aonik.Finance.Mcp.csproj src/Aonik.Finance.Mcp/
+COPY src/Aonik.AppHost/Aonik.AppHost.csproj src/Aonik.AppHost/
 
 RUN dotnet restore src/Aonik.Api/Aonik.Api.csproj
 
