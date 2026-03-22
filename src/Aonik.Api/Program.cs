@@ -153,8 +153,9 @@ if (app.Environment.IsDevelopment())
 }
 
 // Serve static files for local blob storage (profile photos, etc.)
+// Only use local file storage in Development; deployed environments should use Azure Blob Storage
 var blobStorageProvider = builder.Configuration["BlobStorage:Provider"];
-if (string.Equals(blobStorageProvider, "Local", StringComparison.OrdinalIgnoreCase))
+if (app.Environment.IsDevelopment() && string.Equals(blobStorageProvider, "Local", StringComparison.OrdinalIgnoreCase))
 {
     var localBasePath = builder.Configuration["BlobStorage:LocalBasePath"] ?? "App_Data";
     var profilePhotosPath = builder.Configuration["BlobStorage:ProfilePhotos:Path"] ?? "profiles";
