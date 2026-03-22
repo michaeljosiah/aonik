@@ -51,7 +51,7 @@ internal class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusR
                 .Select(adminEmail => adminEmail.Trim())
                 .ToArray();
 
-            var rawAuthorizationHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
+            var rawAuthorizationHeader = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
             var authorizationHeaderPresent = !string.IsNullOrWhiteSpace(rawAuthorizationHeader);
             var tokenText = rawAuthorizationHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
                 ? rawAuthorizationHeader["Bearer ".Length..].Trim()

@@ -370,7 +370,7 @@ public static class AonikAuthenticationSetup
 
     private static string? GetBearerToken(HttpContext context)
     {
-        var authorization = context.Request.Headers.Authorization.FirstOrDefault();
+        var authorization = context.Request.Headers["Authorization"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(authorization))
         {
             return null;
