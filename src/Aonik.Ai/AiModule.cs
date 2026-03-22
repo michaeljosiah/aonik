@@ -80,9 +80,18 @@ public sealed class AiModule : IModule
                     $"Unknown AI provider '{provider}'. Supported values: Stub, OpenAI, AzureOpenAI.")
             };
 
-            // Build the middleware pipeline: innerClient -> AuditMiddleware
+            // Determine whether to include sensitive data (prompts, responses, tool args)
+            // in OpenTelemetry traces. Only enable in development/testing environments.
+            var enableSensitiveData = configuration.GetValue<bool>("AI:OpenTelemetry:EnableSensitiveData");
+
+            // Build the middleware pipeline: innerClient -> OpenTelemetry -> AuditMiddleware
+            // OpenTelemetry is outermost to capture the full request lifecycle including
+            // chat spans and tool execution spans per GenAI semantic conventions.
             return innerClient
                 .AsBuilder()
+                .UseOpenTelemetry(
+                    sourceName: AiTelemetry.SourceName,
+                    configure: cfg => cfg.EnableSensitiveData = enableSensitiveData)
                 .Use((inner, _) => new AuditMiddleware(
                     inner,
                     sp.GetRequiredService<IAiRunWriter>(),

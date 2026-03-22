@@ -107,3 +107,7 @@ Workflows are resolved via `IServiceProvider.GetKeyedService<IWorkflowFactory>(n
 - [ADR-001: Custom AI -> MAF adoption](../decisions/001-custom-ai-implementation-vs-maf.md)
 - [ADR-004: Adopt Microsoft Agent Framework](../decisions/004-adopt-microsoft-agent-framework.md)
 - [ADR-005: Modular monolith restructuring](../decisions/005-adopt-module-first-modular-monolith.md)
+
+## Related Documentation
+
+- [AI Observability (OpenTelemetry + Langfuse)](ai-observability.md) — Trace instrumentation, OTLP exporters, sensitive data controls

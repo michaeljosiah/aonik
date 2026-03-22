@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -5,6 +7,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -57,7 +60,10 @@ public static class Extensions
             {
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation();
+                    .AddRuntimeInstrumentation()
+                    // AI / Agent Framework metrics (GenAI semantic conventions)
+                    .AddMeter("Aonik.Ai")
+                    .AddMeter("*Microsoft.Agents.AI");
             })
             .WithTracing(tracing =>
             {
@@ -70,7 +76,11 @@ public static class Extensions
                     )
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    // AI / Agent Framework tracing (GenAI semantic conventions)
+                    .AddSource("Aonik.Ai")
+                    .AddSource("*Microsoft.Extensions.AI")
+                    .AddSource("*Microsoft.Extensions.Agents*");
             });
 
         builder.AddOpenTelemetryExporters();
@@ -80,11 +90,51 @@ public static class Extensions
 
     private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
-        var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+        // Read OTLP endpoint for Aspire dashboard / collector.
+        // NOTE: UseOtlpExporter() (cross-cutting) cannot be mixed with signal-specific
+        // AddOtlpExporter() on the same IServiceCollection. Since we need a separate
+        // Langfuse trace exporter, we use signal-specific exporters for everything.
+        var otlpEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
 
-        if (useOtlpExporter)
+        if (!string.IsNullOrWhiteSpace(otlpEndpoint))
         {
-            builder.Services.AddOpenTelemetry().UseOtlpExporter();
+            builder.Services.AddOpenTelemetry()
+                .WithTracing(tracing =>
+                {
+                    tracing.AddOtlpExporter("aspire", options =>
+                    {
+                        options.Endpoint = new Uri(otlpEndpoint);
+                    });
+                })
+                .WithMetrics(metrics =>
+                {
+                    metrics.AddOtlpExporter("aspire", options =>
+                    {
+                        options.Endpoint = new Uri(otlpEndpoint);
+                    });
+                });
+        }
+
+        // Langfuse OTLP exporter — exports traces to Langfuse Cloud via HTTP/protobuf.
+        // Requires Langfuse:SecretKey and Langfuse:PublicKey in configuration.
+        var langfuseSecretKey = builder.Configuration["Langfuse:SecretKey"];
+        var langfusePublicKey = builder.Configuration["Langfuse:PublicKey"];
+        var langfuseBaseUrl = builder.Configuration["Langfuse:BaseUrl"] ?? "https://cloud.langfuse.com";
+
+        if (!string.IsNullOrWhiteSpace(langfuseSecretKey) && !string.IsNullOrWhiteSpace(langfusePublicKey))
+        {
+            var authString = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{langfusePublicKey}:{langfuseSecretKey}"));
+
+            builder.Services.AddOpenTelemetry()
+                .WithTracing(tracing =>
+                {
+                    tracing.AddOtlpExporter("langfuse", options =>
+                    {
+                        options.Endpoint = new Uri($"{langfuseBaseUrl.TrimEnd('/')}/api/public/otel/v1/traces");
+                        options.Protocol = OtlpExportProtocol.HttpProtobuf;
+                        options.Headers = $"Authorization=Basic {authString},x-langfuse-ingestion-version=4";
+                    });
+                });
         }
 
         // Uncomment the following lines to enable the Azure Monitor exporter (requires the Azure.Monitor.OpenTelemetry.AspNetCore package)

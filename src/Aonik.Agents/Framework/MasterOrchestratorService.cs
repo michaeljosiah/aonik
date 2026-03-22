@@ -2,8 +2,10 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Framework;
@@ -30,6 +32,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<MasterOrchestratorService> _logger;
+    private readonly bool _enableSensitiveData;
 
     /// <summary>
     /// In-memory session store: sessionId -> MAF session.
@@ -40,11 +43,18 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private static readonly ConcurrentDictionary<string, AgentSession> Sessions = new();
 
     /// <summary>
-    /// Cached orchestrator agent. Built once (lazily) and reused across requests
-    /// within the same scope. The agent itself is stateless; session state is
-    /// managed via <see cref="AgentSession"/>.
+    /// Cached orchestrator agent (OTel-instrumented). Built once (lazily) and reused
+    /// across requests within the same scope. The agent itself is stateless; session
+    /// state is managed via <see cref="AgentSession"/>.
     /// </summary>
-    private ChatClientAgent? _cachedOrchestrator;
+    private AIAgent? _cachedOrchestrator;
+
+    /// <summary>
+    /// Raw <see cref="ChatClientAgent"/> used exclusively for
+    /// <see cref="ChatClientAgent.CreateSessionAsync"/> which is not
+    /// available on the base <see cref="AIAgent"/> type.
+    /// </summary>
+    private ChatClientAgent? _rawOrchestrator;
     private readonly SemaphoreSlim _buildLock = new(1, 1);
 
     private const string OrchestratorInstructions =
@@ -95,6 +105,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         IAgentConfigurationService configService,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
+        IConfiguration configuration,
         ILogger<MasterOrchestratorService> logger)
     {
         _descriptors = descriptors;
@@ -103,6 +114,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _logger = logger;
+        _enableSensitiveData = configuration.GetValue<bool>(AiTelemetry.EnableSensitiveDataKey);
     }
 
     public async Task<AgentChatResponse> ChatAsync(
@@ -121,7 +133,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         // Get or create MAF session for this conversation.
         // CreateSessionAsync produces a ChatClientAgentSession that tracks
         // conversation history natively — no manual message list management needed.
-        var session = await GetOrCreateSessionAsync(sessionId, orchestrator, cancellationToken);
+        var session = await GetOrCreateSessionAsync(sessionId, cancellationToken);
 
         // Run the orchestrator with the user's message and session.
         var response = await orchestrator.RunAsync(
@@ -156,15 +168,15 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     /// </summary>
     private async Task<AgentSession> GetOrCreateSessionAsync(
         string sessionId,
-        ChatClientAgent orchestrator,
         CancellationToken cancellationToken)
     {
         if (Sessions.TryGetValue(sessionId, out var existing))
             return existing;
 
-        // Create a new session via the agent. This returns a ChatClientAgentSession
-        // that tracks messages internally across RunAsync calls.
-        var session = await orchestrator.CreateSessionAsync(
+        // Create a new session via the raw ChatClientAgent (which exposes
+        // CreateSessionAsync). This returns a ChatClientAgentSession that
+        // tracks messages internally across RunAsync calls.
+        var session = await _rawOrchestrator!.CreateSessionAsync(
             sessionId, cancellationToken);
 
         // Cache it. If another thread raced us, use the winner's session.
@@ -176,7 +188,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     /// The agent is stateless and can be safely reused across requests;
     /// per-conversation state lives in <see cref="AgentSession"/>.
     /// </summary>
-    private async Task<ChatClientAgent> GetOrBuildOrchestratorAsync(
+    private async Task<AIAgent> GetOrBuildOrchestratorAsync(
         CancellationToken cancellationToken)
     {
         if (_cachedOrchestrator is not null)
@@ -195,11 +207,20 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                 tools.Count,
                 string.Join(", ", tools.Select(t => t.Name)));
 
-            _cachedOrchestrator = new ChatClientAgent(
+            _rawOrchestrator = new ChatClientAgent(
                 _chatClient,
                 name: "master-orchestrator",
                 instructions: OrchestratorInstructions,
                 tools: tools);
+
+            // Wrap with OpenTelemetry instrumentation to emit invoke_agent
+            // spans per the GenAI semantic conventions.
+            _cachedOrchestrator = _rawOrchestrator
+                .AsBuilder()
+                .UseOpenTelemetry(
+                    AiTelemetry.SourceName,
+                    configure: cfg => cfg.EnableSensitiveData = _enableSensitiveData)
+                .Build();
 
             return _cachedOrchestrator;
         }
@@ -285,7 +306,16 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                         descriptor.Name, descriptor.Description);
                 }
 
-                var agentTool = builtAgent.AsAIFunction();
+                // Wrap the domain agent with OpenTelemetry instrumentation to emit
+                // invoke_agent <agent-name> spans per the GenAI semantic conventions.
+                var instrumentedAgent = builtAgent
+                    .AsBuilder()
+                    .UseOpenTelemetry(
+                        AiTelemetry.SourceName,
+                        configure: cfg => cfg.EnableSensitiveData = _enableSensitiveData)
+                    .Build();
+
+                var agentTool = instrumentedAgent.AsAIFunction();
                 tools.Add(agentTool);
             }
             catch (Exception ex)
