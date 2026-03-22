@@ -56,11 +56,11 @@ export function SetupWizardPage() {
     return 'Mock';
   }, [provider]);
 
-  const loadSetupState = async () => {
+  const loadSetupState = async (forceRefresh = false) => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
       const token = accessToken ?? (isAuthenticated ? await getAccessToken() : null);
-      const status = await bootstrapService.status(true, token);
+      const status = await bootstrapService.status(forceRefresh, token);
       if (status.tenantCount === 0) {
         clearSelectedTenant();
       }
@@ -174,7 +174,7 @@ export function SetupWizardPage() {
                 }
                 action={
                   !state.platformAdminConfigured && (
-                    <Button variant="outline" size="sm" onClick={loadSetupState}>
+                    <Button variant="outline" size="sm" onClick={() => void loadSetupState(true)}>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Re-check config
                     </Button>
@@ -245,7 +245,7 @@ export function SetupWizardPage() {
                 <ShieldCheck className="w-4 h-4" />
                 The initial platform admin is created from your authenticated identity.
               </div>
-              <Button variant="outline" size="sm" onClick={loadSetupState} disabled={state.loading}>
+              <Button variant="outline" size="sm" onClick={() => void loadSetupState(true)} disabled={state.loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${state.loading ? 'animate-spin' : ''}`} />
                 Refresh status
               </Button>

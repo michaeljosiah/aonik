@@ -11,7 +11,7 @@ export function SetupRedirect() {
     const checkSetup = async () => {
       if (authLoading) return;
       try {
-        const status = await bootstrapService.status(true);
+        const status = await bootstrapService.status();
         if (status.tenantCount === 0) {
           navigate('/setup', { replace: true });
         }
