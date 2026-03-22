@@ -148,7 +148,8 @@ public static class DependencyInjection
 
             services.AddDbContext<AonikDbContext>((sp, options) =>
             {
-                options.UseSqlServer(connectionString);
+                options.UseSqlServer(connectionString, sqlServerOptions =>
+                    sqlServerOptions.EnableRetryOnFailure());
                 options.ConfigureWarnings(warnings =>
                     warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
             });

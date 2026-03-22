@@ -25,14 +25,21 @@ apiClient.interceptors.request.use(
     // Attach tenant context header for tenant-scoped routes.
     // (/host/* and /bootstrap/* bypass tenant middleware; avoid sending there to reduce confusion.)
     const url = config.url ?? '';
-    if (!url.startsWith('/host') && !url.startsWith('/bootstrap')) {
+    const isHostRoute = url.startsWith('/host');
+    const isBootstrapRoute = url.startsWith('/bootstrap');
+
+    if (!isHostRoute && !isBootstrapRoute) {
       const selectedTenant = getSelectedTenant();
       if (selectedTenant?.tenantId) {
         config.headers['X-Tenant-Id'] = config.headers['X-Tenant-Id'] ?? selectedTenant.tenantId;
       }
     }
 
-    if (getAccessTokenFn) {
+    // Host/bootstrap routes are public or provide auth explicitly at the call site.
+    // Avoid auto-attaching bearer tokens there so cross-origin public requests do not
+    // depend on the XHR auth path.
+    const hasExplicitAuthorization = !!config.headers.Authorization;
+    if (!isHostRoute && !isBootstrapRoute && !hasExplicitAuthorization && getAccessTokenFn) {
       try {
         const token = await getAccessTokenFn();
         if (token) {

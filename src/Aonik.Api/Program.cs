@@ -169,7 +169,8 @@ var corsOriginsSet = new HashSet<string>(allCorsOrigins, StringComparer.OrdinalI
 app.Use(async (context, next) =>
 {
     var origin = context.Request.Headers.Origin.FirstOrDefault();
-    if (!string.IsNullOrEmpty(origin) && corsOriginsSet.Contains(origin))
+    var isAllowedCorsOrigin = !string.IsNullOrEmpty(origin) && corsOriginsSet.Contains(origin);
+    if (isAllowedCorsOrigin && origin is not null)
     {
         if (HttpMethods.IsOptions(context.Request.Method))
         {
@@ -184,23 +185,24 @@ app.Use(async (context, next) =>
             return; // short-circuit — do NOT call next()
         }
 
-        // Actual request — attach CORS headers to the response just before it is sent.
-        // Using OnStarting ensures the headers are present even if an exception filter
-        // or other middleware replaces the response.
-        context.Response.OnStarting(() =>
-        {
-            var resp = context.Response;
-            if (!resp.Headers.ContainsKey("Access-Control-Allow-Origin"))
-            {
-                resp.Headers.Append("Access-Control-Allow-Origin", origin);
-                resp.Headers.Append("Access-Control-Allow-Credentials", "true");
-                resp.Headers.Append("Vary", "Origin");
-            }
-            return Task.CompletedTask;
-        });
+        // Actual request — apply CORS headers immediately so error responses still
+        // include them if downstream middleware/handlers fail before the response starts.
+        ApplyActualCorsHeaders(context.Response, origin);
     }
 
-    await next();
+    try
+    {
+        await next();
+    }
+    catch
+    {
+        if (isAllowedCorsOrigin && origin is not null && !context.Response.HasStarted)
+        {
+            ApplyActualCorsHeaders(context.Response, origin);
+        }
+
+        throw;
+    }
 });
 
 // Use HTTPS redirection
@@ -385,6 +387,24 @@ static bool IsTrue(string? value)
            && (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
                || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase)
                || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase));
+}
+
+static void ApplyActualCorsHeaders(HttpResponse response, string origin)
+{
+    response.Headers["Access-Control-Allow-Origin"] = origin;
+    response.Headers["Access-Control-Allow-Credentials"] = "true";
+
+    var varyHeader = response.Headers.Vary.ToString();
+    if (string.IsNullOrWhiteSpace(varyHeader))
+    {
+        response.Headers["Vary"] = "Origin";
+        return;
+    }
+
+    if (!varyHeader.Contains("Origin", StringComparison.OrdinalIgnoreCase))
+    {
+        response.Headers.Append("Vary", "Origin");
+    }
 }
 
 static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)

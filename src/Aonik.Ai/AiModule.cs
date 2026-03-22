@@ -42,7 +42,8 @@ public sealed class AiModule : IModule
                 var connectionString = configuration.GetConnectionString("DefaultConnection")
                     ?? configuration.GetConnectionString("AonikDb")
                     ?? "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
-                options.UseSqlServer(connectionString);
+                options.UseSqlServer(connectionString, sqlServerOptions =>
+                    sqlServerOptions.EnableRetryOnFailure());
             }
         });
 
