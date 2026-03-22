@@ -25,7 +25,14 @@ public class AzureCommunicationSmsSender : ISmsSender
             return;
         }
 
-        _client = new SmsClient(_options.Azure.ConnectionString);
+        try
+        {
+            _client = new SmsClient(_options.Azure.ConnectionString);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Azure Communication SMS client could not be initialized. SMS sending will be unavailable.");
+        }
     }
 
     public async Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default)

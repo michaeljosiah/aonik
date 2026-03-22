@@ -28,7 +28,14 @@ public class AzureCommunicationEmailSender : IEmailSender
             return;
         }
 
-        _client = new EmailClient(_options.Azure.ConnectionString);
+        try
+        {
+            _client = new EmailClient(_options.Azure.ConnectionString);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Azure Communication email client could not be initialized. Email sending will be unavailable.");
+        }
     }
 
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
