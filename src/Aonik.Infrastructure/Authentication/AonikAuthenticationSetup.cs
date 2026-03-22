@@ -28,6 +28,12 @@ namespace Aonik.Infrastructure.Authentication;
 public static class AonikAuthenticationSetup
 {
     public const string AuthFailureReasonItemKey = "AonikAuthFailureReason";
+    private static readonly string[] AlternativeBearerHeaders =
+    [
+        "X-Authorization",
+        "X-Forwarded-Authorization",
+        "X-Original-Authorization"
+    ];
 
     public static IServiceCollection AddAonikAuthentication(
         this IServiceCollection services,
@@ -103,6 +109,22 @@ public static class AonikAuthenticationSetup
     {
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                if (!string.IsNullOrWhiteSpace(context.Token))
+                {
+                    return Task.CompletedTask;
+                }
+
+                var token = ResolveBearerTokenFromHeaders(context.HttpContext.Request.Headers);
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    context.Token = token;
+                }
+
+                return Task.CompletedTask;
+            },
+
             OnTokenValidated = async context =>
             {
                 try
@@ -370,16 +392,41 @@ public static class AonikAuthenticationSetup
 
     private static string? GetBearerToken(HttpContext context)
     {
-        var authorization = context.Request.Headers["Authorization"].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(authorization))
+        return ResolveBearerTokenFromHeaders(context.Request.Headers);
+    }
+
+    private static string? ResolveBearerTokenFromHeaders(IHeaderDictionary headers)
+    {
+        var authorization = headers["Authorization"].FirstOrDefault();
+        var token = ExtractBearerToken(authorization);
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            return token;
+        }
+
+        foreach (var headerName in AlternativeBearerHeaders)
+        {
+            token = ExtractBearerToken(headers[headerName].FirstOrDefault());
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                return token;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractBearerToken(string? headerValue)
+    {
+        if (string.IsNullOrWhiteSpace(headerValue))
         {
             return null;
         }
 
         const string bearerPrefix = "Bearer ";
-        if (authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        if (headerValue.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return authorization[bearerPrefix.Length..].Trim();
+            return headerValue[bearerPrefix.Length..].Trim();
         }
 
         return null;

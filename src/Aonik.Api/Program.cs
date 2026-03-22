@@ -153,6 +153,42 @@ app.MapDefaultEndpoints();
 // Use HTTPS redirection
 app.UseHttpsRedirection();
 
+var logAuthHeaderPresence = builder.Configuration.GetValue<bool>("Auth:Diagnostics:LogHeaderPresence");
+if (logAuthHeaderPresence)
+{
+    app.Use(async (context, next) =>
+    {
+        var path = context.Request.Path;
+        var isInterestingPath = path.StartsWithSegments("/bootstrap")
+            || path.StartsWithSegments("/identity")
+            || path.StartsWithSegments("/host");
+
+        var hasAuthorization = context.Request.Headers.ContainsKey("Authorization");
+        var hasXAuthorization = context.Request.Headers.ContainsKey("X-Authorization");
+        var hasXForwardedAuthorization = context.Request.Headers.ContainsKey("X-Forwarded-Authorization");
+        var hasXOriginalAuthorization = context.Request.Headers.ContainsKey("X-Original-Authorization");
+
+        if (isInterestingPath || hasAuthorization || hasXAuthorization || hasXForwardedAuthorization || hasXOriginalAuthorization)
+        {
+            var logger = context.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("Aonik.AuthHeaderDiagnostics");
+
+            logger.LogInformation(
+                "Request {Method} {Path} header presence: Authorization={HasAuthorization}, X-Authorization={HasXAuthorization}, X-Forwarded-Authorization={HasXForwardedAuthorization}, X-Original-Authorization={HasXOriginalAuthorization}, OriginPresent={HasOrigin}",
+                context.Request.Method,
+                path,
+                hasAuthorization,
+                hasXAuthorization,
+                hasXForwardedAuthorization,
+                hasXOriginalAuthorization,
+                context.Request.Headers.ContainsKey("Origin"));
+        }
+
+        await next();
+    });
+}
+
 // Custom CORS middleware — handles both preflight (OPTIONS) and actual requests.
 // The built-in UseCors("AonikCors") middleware relies on endpoint metadata that
 // FastEndpoints registers too late, so it never adds CORS headers.  This
