@@ -34,17 +34,17 @@ builder.Services.AddAgentsModule(builder.Configuration);
 
 // Add CORS – origins come from configuration so each environment can specify its own list
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var allCorsOrigins = corsOrigins
+    .Concat(new[] { "http://localhost:5173", "http://localhost:5174" }) // always allow local dev
+    .Where(o => !string.IsNullOrWhiteSpace(o))
+    .Distinct()
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("AonikCors", policy =>
     {
-        var origins = corsOrigins
-            .Concat(new[] { "http://localhost:5173", "http://localhost:5174" }) // always allow local dev
-            .Where(o => !string.IsNullOrWhiteSpace(o))
-            .Distinct()
-            .ToArray();
-
-        policy.WithOrigins(origins)
+        policy.WithOrigins(allCorsOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -154,7 +154,7 @@ app.MapDefaultEndpoints();
 app.UseHttpsRedirection();
 
 // Use CORS (configured origins loaded from Cors:AllowedOrigins + localhost defaults)
-app.UseCors();
+app.UseCors("AonikCors");
 
 // Serve static files for local blob storage (profile photos, etc.)
 // Only use local file storage in Development; deployed environments should use Azure Blob Storage
@@ -208,12 +208,16 @@ app.UseAuthorization();
 // 4. Tenant validation (validates tenant status only)
 app.UseTenantValidation();
 
-// 5. FastEndpoints
-app.UseFastEndpoints();
+// 5. FastEndpoints (with global CORS policy applied to all endpoints)
+app.UseFastEndpoints(c =>
+{
+    c.Endpoints.Configurator = ep => ep.Options(b => b.RequireCors("AonikCors"));
+});
 
 // 6. AG-UI streaming endpoint (minimal API, separate from FastEndpoints)
 app.MapAguiStreaming("/ai/agui")
-    .RequireAuthorization("AdminUserPolicy");
+    .RequireAuthorization("AdminUserPolicy")
+    .RequireCors("AonikCors");
 
 app.Run();
 
