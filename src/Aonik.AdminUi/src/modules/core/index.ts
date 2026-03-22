@@ -2,7 +2,11 @@ import type { AdminModule } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig } from '@/workspace/types';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
+import { AiModelsPage } from '@/pages/ai/AiModelsPage';
+import { AgentConfigPage } from '@/pages/ai/AgentConfigPage';
 import { AnalyticsPanel } from '@/workspace/apps/AnalyticsPanel';
+import { AiModelsPanel } from '@/workspace/apps/AiModelsPanel';
+import { AgentConfigPanel } from '@/workspace/apps/AgentConfigPanel';
 import { PlaceholderPanel } from '@/workspace/apps/PlaceholderPanel';
 
 // ---------------------------------------------------------------------------
@@ -30,6 +34,8 @@ const navigation: NavigationSection[] = [
 // ---------------------------------------------------------------------------
 const routes = [
   { path: '/analytics', element: AnalyticsPage },
+  { path: '/ai/models', element: AiModelsPage },
+  { path: '/ai/agents', element: AgentConfigPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -39,13 +45,15 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'analytics', title: 'Analytics', description: 'Portfolio-level performance, trends, and AI insights.', type: 'internal', componentKey: 'analytics', route: '/analytics', defaultWidth: 720 },
   { id: 'search', title: 'Search', type: 'internal', componentKey: 'placeholder', route: '/search' },
   { id: 'ai', title: 'AI & Agents', type: 'internal', componentKey: 'placeholder', route: '/ai' },
-  { id: 'ai-agents', title: 'Agents', type: 'internal', componentKey: 'placeholder', route: '/ai/agents' },
-  { id: 'ai-models', title: 'AI Models', type: 'internal', componentKey: 'placeholder', route: '/ai/models' },
+  { id: 'ai-agents', title: 'Agents', description: 'Configure domain agents, assign models, and manage overrides.', type: 'internal', componentKey: 'agentConfig', route: '/ai/agents' },
+  { id: 'ai-models', title: 'AI Models', description: 'Manage AI providers and models used across the platform.', type: 'internal', componentKey: 'aiModels', route: '/ai/models' },
   { id: 'ai-orchestrator', title: 'Orchestrator', type: 'internal', componentKey: 'placeholder', route: '/ai/orchestrator' },
 ];
 
 const panelComponents = {
   analytics: AnalyticsPanel,
+  aiModels: AiModelsPanel,
+  agentConfig: AgentConfigPanel,
   placeholder: PlaceholderPanel,
 };
 
@@ -54,6 +62,8 @@ const panelComponents = {
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/analytics', trail: ['Analytics'] },
+  { pathPrefix: '/ai/models', trail: ['AI & Agents', 'Models'] },
+  { pathPrefix: '/ai/agents', trail: ['AI & Agents', 'Agents'] },
   { pathPrefix: '/ai', trail: ['AI & Agents'] },
   { pathPrefix: '/workspace', trail: ['Workspace'] },
 ];
