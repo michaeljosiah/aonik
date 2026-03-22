@@ -27,6 +27,7 @@ public class TenantContextMiddleware
             var path = context.Request.Path;
 
             if (path.StartsWithSegments("/health") ||
+                path.StartsWithSegments("/alive") ||
                 path.StartsWithSegments("/swagger") ||
                 path.StartsWithSegments("/host") ||
                 path.StartsWithSegments("/bootstrap") ||

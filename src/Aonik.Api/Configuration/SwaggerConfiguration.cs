@@ -50,7 +50,7 @@ public static class SwaggerConfiguration
         this WebApplication app,
         IConfiguration configuration)
     {
-        if (app.Environment.IsDevelopment())
+        if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "dev")
         {
             var swaggerOptions = configuration.GetSection("Swagger").Get<SwaggerOptions>()
                 ?? new SwaggerOptions();

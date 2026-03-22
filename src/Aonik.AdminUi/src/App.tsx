@@ -303,36 +303,54 @@ function AuthenticatedApp() {
       // Ensure API layer has the latest token getter before any calls
       setAccessTokenGetter(getAccessToken);
 
-      try {
-        const status = await bootstrapService.status();
-        setNeedsSetup(status.tenantCount === 0);
+      // Retry bootstrap status check up to 3 times on failure.
+      // If all retries fail, default to showing bootstrap setup (safe default)
+      // because we cannot confirm tenants exist.
+      let status: Awaited<ReturnType<typeof bootstrapService.status>> | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          status = await bootstrapService.status(attempt > 0);
+          break;
+        } catch {
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          }
+        }
+      }
+
+      if (!status) {
+        // All retries failed — cannot confirm tenants exist.
+        // Default to bootstrap setup so the user isn't dumped into a broken dashboard.
+        console.warn('Bootstrap status check failed after retries, defaulting to setup wizard');
+        setNeedsSetup(true);
+        setTenantNeedsSetup(false);
+        return;
+      }
+
+      setNeedsSetup(status.tenantCount === 0);
         
-        // Only check tenant setup if user is authenticated
-        if (status.tenantCount > 0 && isAuthenticated) {
-          try {
-            const selectedTenant = getSelectedTenant();
-            if (!selectedTenant?.tenantId) {
+      // Only check tenant setup if user is authenticated and tenants exist
+      if (status.tenantCount > 0 && isAuthenticated) {
+        try {
+          const selectedTenant = getSelectedTenant();
+          if (!selectedTenant?.tenantId) {
+            setTenantNeedsSetup(false);
+            return;
+          }
+          if (!accessToken) {
+            const token = await getAccessToken();
+            if (!token) {
               setTenantNeedsSetup(false);
               return;
             }
-            if (!accessToken) {
-              const token = await getAccessToken();
-              if (!token) {
-                setTenantNeedsSetup(false);
-                return;
-              }
-            }
-            const currentUser = await identityService.getCurrentUser();
-            const tenant = await tenantService.get(currentUser.tenantId);
-            setTenantNeedsSetup(!tenant.isSetupComplete);
-          } catch {
-            setTenantNeedsSetup(false);
           }
-        } else {
+          const currentUser = await identityService.getCurrentUser();
+          const tenant = await tenantService.get(currentUser.tenantId);
+          setTenantNeedsSetup(!tenant.isSetupComplete);
+        } catch {
           setTenantNeedsSetup(false);
         }
-      } catch {
-        setNeedsSetup(false);
+      } else {
         setTenantNeedsSetup(false);
       }
     };
