@@ -60,6 +60,8 @@ var namePrefix = toLower('${workloadName}-${environmentName}')
 var containerRegistryName = replace('${namePrefix}acr', '-', '')
 var logAnalyticsWorkspaceName = '${namePrefix}-log'
 var keyVaultName = '${namePrefix}-kv'
+@description('Whether real ACS and verification secrets are provided (enables Key Vault references instead of empty inline values).')
+param enableOptionalSecrets bool = false
 var apiAdditionalEnvVars = [for setting in items(apiAppSettings): {
   name: setting.key
   value: string(setting.value)
@@ -173,7 +175,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: apiPullIdentity.id
         }
       ]
-      secrets: [
+      secrets: enableOptionalSecrets ? [
         {
           name: 'sql-connection'
           keyVaultUrl: data.outputs.sqlConnectionSecretUri
@@ -192,6 +194,24 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'verification-hash-key'
           keyVaultUrl: data.outputs.verificationHashKeySecretUri
           identity: 'system'
+        }
+      ] : [
+        {
+          name: 'sql-connection'
+          keyVaultUrl: data.outputs.sqlConnectionSecretUri
+          identity: 'system'
+        }
+        {
+          name: 'app-insights-connection-string'
+          value: common.outputs.appInsightsConnectionString
+        }
+        {
+          name: 'acs-connection-string'
+          value: ''
+        }
+        {
+          name: 'verification-hash-key'
+          value: ''
         }
       ]
     }
