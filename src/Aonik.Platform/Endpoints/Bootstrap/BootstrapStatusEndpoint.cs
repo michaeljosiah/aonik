@@ -42,6 +42,15 @@ internal class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusR
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        var rawAuthorizationHeader = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
+        var authorizationHeaderPresent = !string.IsNullOrWhiteSpace(rawAuthorizationHeader);
+        var tokenText = rawAuthorizationHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+            ? rawAuthorizationHeader["Bearer ".Length..].Trim()
+            : rawAuthorizationHeader?.Trim();
+        var bearerTokenLooksJwt = !string.IsNullOrWhiteSpace(tokenText)
+            && tokenText.Count(c => c == '.') == 2;
+        var authFailureReason = HttpContext.Items["AonikAuthFailureReason"]?.ToString();
+
         try
         {
             _logger.LogInformation("Bootstrap status endpoint called");
@@ -51,17 +60,9 @@ internal class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusR
                 .Select(adminEmail => adminEmail.Trim())
                 .ToArray();
 
-            var rawAuthorizationHeader = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
-            var authorizationHeaderPresent = !string.IsNullOrWhiteSpace(rawAuthorizationHeader);
-            var tokenText = rawAuthorizationHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-                ? rawAuthorizationHeader["Bearer ".Length..].Trim()
-                : rawAuthorizationHeader?.Trim();
-            var bearerTokenLooksJwt = !string.IsNullOrWhiteSpace(tokenText)
-                && tokenText.Count(c => c == '.') == 2;
-            var authFailureReason = HttpContext.Items["AonikAuthFailureReason"]?.ToString();
-            
+
             // Use a timeout to prevent long-running queries
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
             
             var tenantCount = await _dbContext.Tenants.CountAsync(linkedCts.Token);
@@ -114,8 +115,12 @@ internal class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusR
         }
         catch (OperationCanceledException ex)
         {
-            _logger.LogWarning(ex, "Bootstrap status query was cancelled");
-            
+            _logger.LogWarning(
+                ex,
+                "Bootstrap status query was cancelled. AuthorizationHeaderPresent={AuthorizationHeaderPresent}, BearerTokenLooksJwt={BearerTokenLooksJwt}",
+                authorizationHeaderPresent,
+                bearerTokenLooksJwt);
+
             // Return a safe default response when cancelled
             await Send.OkAsync(new BootstrapStatusResponse(
                 _platformAdminOptions.AdminEmails.Length > 0,
@@ -124,9 +129,9 @@ internal class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusR
                 false,
                 null,
                 false,
-                false,
-                false,
-                null),
+                authorizationHeaderPresent,
+                bearerTokenLooksJwt,
+                authFailureReason),
                 CancellationToken.None);
         }
         catch (Exception ex)
