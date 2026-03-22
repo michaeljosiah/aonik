@@ -142,7 +142,7 @@ if (autoMigrateEnabled || seedDataEnabled)
 
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "dev")
 {
     app.UseAonikSwagger(builder.Configuration);
 }
