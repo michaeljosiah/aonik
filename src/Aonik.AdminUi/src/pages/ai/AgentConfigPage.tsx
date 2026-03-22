@@ -28,7 +28,6 @@ import {
   Pencil,
   RotateCcw,
   Shield,
-  Trash2,
   X,
 } from 'lucide-react';
 
