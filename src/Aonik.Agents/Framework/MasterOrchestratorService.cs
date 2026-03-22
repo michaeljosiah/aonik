@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -31,6 +33,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private readonly IAgentConfigurationService _configService;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ILogger<MasterOrchestratorService> _logger;
     private readonly bool _enableSensitiveData;
 
@@ -105,6 +108,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         IAgentConfigurationService configService,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
+        ICurrentUserProvider currentUserProvider,
         IConfiguration configuration,
         ILogger<MasterOrchestratorService> logger)
     {
@@ -113,6 +117,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         _configService = configService;
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
+        _currentUserProvider = currentUserProvider;
         _logger = logger;
         _enableSensitiveData = configuration.GetValue<bool>(AiTelemetry.EnableSensitiveDataKey);
     }
@@ -122,6 +127,23 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         CancellationToken cancellationToken = default)
     {
         var sessionId = request.SessionId ?? Guid.NewGuid().ToString("N");
+
+        // Propagate session and user identifiers as OTel baggage + span attributes.
+        // The BaggageSpanProcessor in ServiceDefaults copies these to all child spans,
+        // enabling Langfuse session grouping and user attribution.
+        var activity = Activity.Current;
+        if (activity is not null)
+        {
+            activity.SetBaggage(AiTelemetry.SessionIdAttribute, sessionId);
+            activity.SetTag(AiTelemetry.SessionIdAttribute, sessionId);
+
+            if (_currentUserProvider.TryGetCurrentUserId(out var userId))
+            {
+                var userIdStr = userId.ToString();
+                activity.SetBaggage(AiTelemetry.UserIdAttribute, userIdStr);
+                activity.SetTag(AiTelemetry.UserIdAttribute, userIdStr);
+            }
+        }
 
         _logger.LogInformation(
             "Orchestrator processing message for session {SessionId}",

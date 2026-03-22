@@ -21,4 +21,18 @@ public static class AiTelemetry
     /// Defaults to <c>false</c>. Only enable in development/testing environments.
     /// </summary>
     public const string EnableSensitiveDataKey = "AI:OpenTelemetry:EnableSensitiveData";
+
+    /// <summary>
+    /// Span attribute / baggage key used to propagate the conversation session ID
+    /// to all child spans. Langfuse maps this to its Session concept for grouping
+    /// multi-turn conversations.
+    /// </summary>
+    public const string SessionIdAttribute = "langfuse.session.id";
+
+    /// <summary>
+    /// Span attribute / baggage key used to propagate the authenticated user ID
+    /// to all child spans. Langfuse maps this to its User concept for per-user
+    /// analytics.
+    /// </summary>
+    public const string UserIdAttribute = "langfuse.user.id";
 }

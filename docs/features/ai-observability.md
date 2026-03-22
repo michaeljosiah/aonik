@@ -80,6 +80,66 @@ When both keys are present, the exporter is registered automatically. When absen
 
 The Aspire dashboard exporter reads `OTEL_EXPORTER_OTLP_ENDPOINT` (set automatically by the Aspire AppHost) and registers signal-specific OTLP exporters for both traces and metrics.
 
+## Sessions & User Attribution
+
+AONIK propagates **Langfuse session** and **user** identifiers on every span in a trace so that Langfuse groups multi-turn conversations under a single session and attributes them to the authenticated user.
+
+### How It Works
+
+Langfuse recognises two span attributes ([docs](https://langfuse.com/docs/integrations/opentelemetry)):
+
+| OTel Attribute | Langfuse Concept |
+|----------------|-----------------|
+| `langfuse.session.id` | Session — groups related traces |
+| `langfuse.user.id` | User — links traces to a user |
+
+For Langfuse to pick these up reliably, the attributes must appear on **all spans** in the trace, including those created by MEAI's `OpenTelemetryChatClient` and MAF's agent framework which cannot be directly modified.
+
+### BaggageSpanProcessor
+
+.NET's OTel SDK has no built-in `BaggageSpanProcessor` (unlike Python/JS). AONIK provides a custom one in `src/Aonik.ServiceDefaults/BaggageSpanProcessor.cs`:
+
+```csharp
+public class BaggageSpanProcessor : BaseProcessor<Activity>
+{
+    public override void OnStart(Activity data)
+    {
+        // Copies baggage entries with "langfuse." prefix into span tags
+        foreach (var entry in data.Baggage)
+            if (entry.Key.StartsWith("langfuse.", StringComparison.Ordinal)
+                && entry.Value is not null)
+                data.SetTag(entry.Key, entry.Value);
+    }
+}
+```
+
+This processor is registered **first** in the `.WithTracing()` chain (`src/Aonik.ServiceDefaults/Extensions.cs`) so it runs before other processors. It reads `Activity.Baggage` (which propagates automatically to child activities in the same async context) and copies matching entries as span tags.
+
+### Entry Point Instrumentation
+
+Session and user baggage is set at the two AI entry points:
+
+| Entry Point | Session Source | File |
+|-------------|---------------|------|
+| `POST /ai/chat` (REST) | `ChatRequest.SessionId` | `src/Aonik.Agents/Framework/MasterOrchestratorService.cs` |
+| `POST /ai/agui` (AG-UI SSE) | `AguiRunInput.ThreadId` | `src/Aonik.Agents/Endpoints/AguiStreamingEndpoint.cs` |
+
+Both entry points:
+1. Resolve the session ID (from request or generate a new GUID)
+2. Resolve the user ID via `ICurrentUserProvider.TryGetCurrentUserId()`
+3. Set `Activity.Current.SetBaggage()` and `Activity.Current.SetTag()` using `AiTelemetry.SessionIdAttribute` / `AiTelemetry.UserIdAttribute` constants
+
+The baggage propagates down to all child spans (LLM calls, domain agent invocations, tool calls) where the `BaggageSpanProcessor` copies them into tags automatically.
+
+### Constants
+
+Session/user attribute names are defined in `src/Aonik.SharedKernel/Abstractions/Ai/AiTelemetry.cs`:
+
+```csharp
+public const string SessionIdAttribute = "langfuse.session.id";
+public const string UserIdAttribute = "langfuse.user.id";
+```
+
 ## Swapping Langfuse for Another OTLP Backend
 
 The Langfuse integration is a standard OTLP HTTP exporter with custom auth headers. You can replace it with **any OTLP HTTP-compatible backend** by modifying `AddOpenTelemetryExporters()` in `src/Aonik.ServiceDefaults/Extensions.cs`.

@@ -1,7 +1,10 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Aonik.Agents.Contracts.Services;
+using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Agents.AI;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -71,6 +74,24 @@ public static class AguiStreamingEndpoint
 
         var threadId = input.ThreadId ?? Guid.NewGuid().ToString("N");
         var runId = input.RunId ?? Guid.NewGuid().ToString("N");
+
+        // Propagate session (threadId) and user identifiers as OTel baggage + span
+        // attributes so the BaggageSpanProcessor copies them to all child spans,
+        // enabling Langfuse session grouping and user attribution.
+        var activity = Activity.Current;
+        if (activity is not null)
+        {
+            activity.SetBaggage(AiTelemetry.SessionIdAttribute, threadId);
+            activity.SetTag(AiTelemetry.SessionIdAttribute, threadId);
+
+            var userProvider = context.RequestServices.GetService<ICurrentUserProvider>();
+            if (userProvider is not null && userProvider.TryGetCurrentUserId(out var userId))
+            {
+                var userIdStr = userId.ToString();
+                activity.SetBaggage(AiTelemetry.UserIdAttribute, userIdStr);
+                activity.SetTag(AiTelemetry.UserIdAttribute, userIdStr);
+            }
+        }
 
         // Set SSE response headers
         context.Response.ContentType = "text/event-stream";

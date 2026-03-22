@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text;
+using Aonik.ServiceDefaults;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,6 +68,12 @@ public static class Extensions
             })
             .WithTracing(tracing =>
             {
+                // Propagate langfuse.* baggage entries as span attributes on every
+                // span so that Langfuse can group traces into sessions and associate
+                // them with users. Must be registered before other instrumentation
+                // to fire on all spans.
+                tracing.AddProcessor(new BaggageSpanProcessor("langfuse."));
+
                 tracing.AddSource(builder.Environment.ApplicationName)
                     .AddAspNetCoreInstrumentation(tracing =>
                         // Exclude health check requests from tracing
