@@ -207,11 +207,11 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
         {
           name: 'acs-connection-string'
-          value: ''
+          value: 'placeholder'
         }
         {
           name: 'verification-hash-key'
-          value: ''
+          value: 'placeholder'
         }
       ]
     }
