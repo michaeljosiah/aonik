@@ -92,7 +92,8 @@ class AppEnvironment {
         bool.fromEnvironment('USE_MOCKS', defaultValue: false);
     const String apiBaseUrl = String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://localhost:5001',
+      defaultValue:
+          'https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io',
     );
     const String tenantId = String.fromEnvironment(
       'PAYABO_TENANT_ID',

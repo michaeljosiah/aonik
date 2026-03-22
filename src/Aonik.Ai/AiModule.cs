@@ -66,7 +66,7 @@ public sealed class AiModule : IModule
                 "stub" => new StubChatClient(),
 
                 "openai" => new OpenAI.Chat.ChatClient(
-                    configuration["AI:OpenAI:Model"] ?? "gpt-4o",
+                    configuration["AI:OpenAI:Model"] ?? "gpt-5-mini",
                     configuration["AI:OpenAI:ApiKey"] ?? throw new InvalidOperationException(
                         "AI:OpenAI:ApiKey configuration is required when using the OpenAI provider. " +
                         "Set it via appsettings, environment variable, or user-secrets."))

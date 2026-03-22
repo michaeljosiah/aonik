@@ -13,6 +13,7 @@ internal sealed class ChatThreadTitleGenerator : IChatThreadTitleGenerator
 {
     private readonly IChatClient _chatClient;
     private readonly ILogger<ChatThreadTitleGenerator> _logger;
+    private const string TitleGenerationModelId = "gpt-5-nano";
 
     private const string SystemPrompt =
         """
@@ -44,6 +45,10 @@ internal sealed class ChatThreadTitleGenerator : IChatThreadTitleGenerator
 
             var response = await _chatClient.GetResponseAsync(
                 messages,
+                options: new ChatOptions
+                {
+                    ModelId = TitleGenerationModelId,
+                },
                 cancellationToken: cancellationToken);
 
             var title = response.Text?.Trim();

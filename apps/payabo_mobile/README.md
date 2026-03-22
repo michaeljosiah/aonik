@@ -36,7 +36,7 @@ flutter run \
 flutter run \
   --dart-define=APP_ENV=dev \
   --dart-define=USE_MOCKS=false \
-  --dart-define=API_BASE_URL=https://localhost:5001 \
+  --dart-define=API_BASE_URL=https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io \
   --dart-define=PAYABO_TENANT_ID=<same value as apps/Payabo/.env VITE_PAYABO_TENANT_ID> \
   --dart-define=AUTH0_CLIENT_ID=Xw3xY2u7FhoLcdc1VjfS0J7Zz6o0jN3R
 ```
@@ -49,7 +49,7 @@ This is the default runtime behavior when `USE_MOCKS` is not supplied.
 flutter run \
   --dart-define=APP_ENV=dev \
   --dart-define=USE_MOCKS=false \
-  --dart-define=API_BASE_URL=https://localhost:5001 \
+  --dart-define=API_BASE_URL=https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io \
   --dart-define=PAYABO_TENANT_ID=<same value as apps/Payabo/.env VITE_PAYABO_TENANT_ID> \
   --dart-define=AUTH0_CLIENT_ID=Xw3xY2u7FhoLcdc1VjfS0J7Zz6o0jN3R \
   --dart-define=ACCOUNT_LINK_USE_NATIVE_LAUNCHER=true \
