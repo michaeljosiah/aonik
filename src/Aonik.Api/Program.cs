@@ -32,12 +32,19 @@ builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
 
-// Add CORS for development
+// Add CORS – origins come from configuration so each environment can specify its own list
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Development", policy =>
+    options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+        var origins = corsOrigins
+            .Concat(new[] { "http://localhost:5173", "http://localhost:5174" }) // always allow local dev
+            .Where(o => !string.IsNullOrWhiteSpace(o))
+            .Distinct()
+            .ToArray();
+
+        policy.WithOrigins(origins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -146,11 +153,8 @@ app.MapDefaultEndpoints();
 // Use HTTPS redirection
 app.UseHttpsRedirection();
 
-// Use CORS for development
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("Development");
-}
+// Use CORS (configured origins loaded from Cors:AllowedOrigins + localhost defaults)
+app.UseCors();
 
 // Serve static files for local blob storage (profile photos, etc.)
 // Only use local file storage in Development; deployed environments should use Azure Blob Storage

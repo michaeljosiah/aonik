@@ -241,6 +241,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Verification__HashKey'
               secretRef: 'verification-hash-key'
             }
+            {
+              name: 'Cors__AllowedOrigins__0'
+              value: 'https://${adminUiApp.properties.configuration.ingress.fqdn}'
+            }
           ], apiAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
