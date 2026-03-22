@@ -62,7 +62,7 @@ internal class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusR
 
 
             // Use a timeout to prevent long-running queries
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
             
             var tenantCount = await _dbContext.Tenants.CountAsync(linkedCts.Token);
