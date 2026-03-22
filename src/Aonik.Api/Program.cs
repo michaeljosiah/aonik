@@ -197,10 +197,12 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// Routing is still required for authentication / authorization / FastEndpoints.
-// The built-in CORS middleware is intentionally omitted — our custom middleware
-// above handles all CORS headers.
+// Routing + CORS middleware. The custom middleware above handles actual CORS header
+// writing via OnStarting; UseCors is still required so ASP.NET Core's
+// EndpointMiddleware does not throw when it finds RequireCors metadata on endpoints.
+// The custom middleware's ContainsKey guard prevents duplicate headers.
 app.UseRouting();
+app.UseCors("AonikCors");
 
 // Serve static files for local blob storage (profile photos, etc.)
 // Only use local file storage in Development; deployed environments should use Azure Blob Storage
