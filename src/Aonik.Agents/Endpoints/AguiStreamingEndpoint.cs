@@ -93,6 +93,54 @@ public static class AguiStreamingEndpoint
             }
         }
 
+        // ── Thread persistence: create or load thread ────────────────────
+        var chatThreadService = context.RequestServices.GetService<IChatThreadService>();
+        var titleGenerator = context.RequestServices.GetService<IChatThreadTitleGenerator>();
+
+        Guid? persistedThreadId = null;
+        var isNewThread = false;
+        string? firstUserMessage = null;
+
+        if (chatThreadService is not null)
+        {
+            try
+            {
+                // Extract the last user message from the AG-UI messages
+                firstUserMessage = input.Messages?
+                    .LastOrDefault(m => string.Equals(m.Role, "user", StringComparison.OrdinalIgnoreCase))
+                    ?.Content;
+
+                if (!string.IsNullOrEmpty(firstUserMessage))
+                {
+                    // Check if the threadId maps to an existing persisted thread
+                    if (Guid.TryParse(input.ThreadId, out var existingId))
+                    {
+                        persistedThreadId = existingId;
+
+                        await chatThreadService.AppendMessageAsync(
+                            existingId, "user", firstUserMessage,
+                            cancellationToken: cancellationToken);
+                    }
+                    else
+                    {
+                        // Create a new thread
+                        persistedThreadId = await chatThreadService.CreateThreadAsync(
+                            firstUserMessage,
+                            agentName: input.AgentId,
+                            cancellationToken: cancellationToken);
+                        isNewThread = true;
+
+                        // Update threadId to use the persisted thread ID for SSE events
+                        threadId = persistedThreadId.Value.ToString("N");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "AG-UI thread persistence failed — continuing without thread tracking");
+            }
+        }
+
         // Set SSE response headers
         context.Response.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache,no-store";
@@ -113,6 +161,9 @@ public static class AguiStreamingEndpoint
             var orchestrator = context.RequestServices.GetRequiredService<IMasterOrchestratorService>();
             agent = await orchestrator.GetAgentAsync(cancellationToken);
         }
+
+        // Accumulate streamed assistant text for post-stream persistence
+        var assistantTextBuilder = new System.Text.StringBuilder();
 
         try
         {
@@ -182,6 +233,8 @@ public static class AguiStreamingEndpoint
                                 }, cancellationToken);
                                 messageStarted = true;
                             }
+
+                            assistantTextBuilder.Append(textContent.Text);
 
                             await WriteSseEventAsync(context.Response, new
                             {
@@ -253,6 +306,52 @@ public static class AguiStreamingEndpoint
                 threadId,
                 runId,
             }, cancellationToken);
+
+            // ── Post-stream thread persistence ──────────────────────────
+            // Persist the assistant response and generate a title for new
+            // threads. Failures here must never block the completed stream.
+            if (chatThreadService is not null && persistedThreadId.HasValue)
+            {
+                try
+                {
+                    var assistantText = assistantTextBuilder.ToString();
+                    if (!string.IsNullOrEmpty(assistantText))
+                    {
+                        await chatThreadService.AppendMessageAsync(
+                            persistedThreadId.Value,
+                            "assistant",
+                            assistantText,
+                            agentName: input.AgentId,
+                            cancellationToken: CancellationToken.None);
+                    }
+
+                    // Generate a real title for brand-new threads
+                    if (isNewThread && titleGenerator is not null && !string.IsNullOrEmpty(firstUserMessage))
+                    {
+                        try
+                        {
+                            var title = await titleGenerator.GenerateTitleAsync(
+                                firstUserMessage, CancellationToken.None);
+                            await chatThreadService.UpdateTitleAsync(
+                                persistedThreadId.Value, title, CancellationToken.None);
+                        }
+                        catch (Exception titleEx)
+                        {
+                            logger.LogWarning(
+                                titleEx,
+                                "AG-UI title generation failed for thread {ThreadId} — placeholder title retained",
+                                persistedThreadId.Value);
+                        }
+                    }
+                }
+                catch (Exception persistEx)
+                {
+                    logger.LogWarning(
+                        persistEx,
+                        "AG-UI post-stream persistence failed for thread {ThreadId}",
+                        persistedThreadId.Value);
+                }
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

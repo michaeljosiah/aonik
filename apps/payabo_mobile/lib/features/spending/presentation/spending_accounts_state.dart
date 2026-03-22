@@ -193,6 +193,7 @@ class _PlaidLinkAwaiter {
 
   final Completer<AccountLinkLaunchResult?> _completer =
       Completer<AccountLinkLaunchResult?>();
+  bool _disposed = false;
   StreamSubscription<LinkSuccess>? _successSubscription;
   StreamSubscription<LinkExit>? _exitSubscription;
   StreamSubscription<LinkEvent>? _eventSubscription;
@@ -211,6 +212,8 @@ class _PlaidLinkAwaiter {
   }
 
   Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
     await _successSubscription?.cancel();
     await _exitSubscription?.cancel();
     await _eventSubscription?.cancel();
@@ -286,6 +289,13 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
 
   final Ref _ref;
 
+  /// Monotonically increasing token used to detect stale async flows.
+  /// Every call to [connect], [resumeOAuthRedirect], [reset], or [cancel]
+  /// bumps this value so that an in-flight future from a previous invocation
+  /// can detect it became stale and silently bail out instead of mutating
+  /// [state] on a widget tree that may already be disposed.
+  int _flowToken = 0;
+
   AccountLinksRepository get _repository =>
       _ref.read(accountLinksRepositoryProvider);
 
@@ -303,6 +313,12 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
     if (state.isSubmitting) {
       return null;
     }
+
+    // Capture a snapshot of the token so we can detect cancellation after
+    // each await point.  If [_flowToken] has changed by the time we resume,
+    // it means [reset], [cancel], or a newer [connect] was called and we
+    // must abandon this flow silently.
+    final int token = ++_flowToken;
 
     state = state.copyWith(
       isSubmitting: true,
@@ -340,16 +356,21 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
         countryCode: resolvedCountryCode,
       );
 
+      if (_flowToken != token || !mounted) return null;
+
       if (launcher.supportsOAuthResume) {
         await _persistence.write(session);
       }
       final AccountLinkLaunchResult? launchResult =
           await launcher.launch(AccountLinkLaunchRequest(session: session));
 
+      if (_flowToken != token || !mounted) return null;
+
       if (launchResult == null) {
         if (launcher.supportsOAuthResume) {
           await _persistence.clear();
         }
+        if (_flowToken != token || !mounted) return null;
         state = state.copyWith(
           isSubmitting: false,
           activeAction: null,
@@ -363,6 +384,8 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
         sessionId: session.sessionId,
         temporaryCode: launchResult.temporaryCode,
       );
+
+      if (_flowToken != token || !mounted) return null;
 
       if (launcher.supportsOAuthResume) {
         await _persistence.clear();
@@ -381,6 +404,7 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
       if (_launcher.supportsOAuthResume) {
         await _persistence.clear();
       }
+      if (_flowToken != token || !mounted) return null;
       _setErrorState(error);
       rethrow;
     }
@@ -414,6 +438,8 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
       );
     }
 
+    final int token = ++_flowToken;
+
     state = state.copyWith(
       isSubmitting: true,
       activeAction: 'resume',
@@ -430,8 +456,11 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
         ),
       );
 
+      if (_flowToken != token || !mounted) return null;
+
       if (launchResult == null) {
         await _persistence.clear();
+        if (_flowToken != token || !mounted) return null;
         state = state.copyWith(
           isSubmitting: false,
           activeAction: null,
@@ -446,6 +475,8 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
         temporaryCode: launchResult.temporaryCode,
       );
 
+      if (_flowToken != token || !mounted) return null;
+
       await _persistence.clear();
       _ref.invalidate(accountLinksSummaryProvider);
 
@@ -458,6 +489,7 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
 
       return result;
     } catch (error) {
+      if (_flowToken != token || !mounted) return null;
       _setErrorState(error);
       rethrow;
     }
@@ -540,7 +572,28 @@ class AccountLinkFlowController extends StateNotifier<AccountLinkFlowState> {
     return pending != null;
   }
 
+  /// Cancel any in-flight connect/resume flow and return to idle.
+  ///
+  /// Safe to call from widget `dispose()`.  The bumped [_flowToken] ensures
+  /// any pending future from [connect] or [resumeOAuthRedirect] will detect
+  /// that it is stale and skip further state mutations.
+  ///
+  /// State is reset via [Future.microtask] so that calling this during the
+  /// widget tree teardown phase (e.g. from `State.dispose()`) does not
+  /// trigger Riverpod's "modified a provider while building" assertion.
+  void cancel() {
+    _flowToken++;
+    if (mounted) {
+      Future.microtask(() {
+        if (mounted) {
+          state = AccountLinkFlowState.initial();
+        }
+      });
+    }
+  }
+
   void reset() {
+    _flowToken++;
     state = AccountLinkFlowState.initial();
   }
 

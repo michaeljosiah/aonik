@@ -7,21 +7,25 @@ import 'package:payabo_mobile/features/chat/presentation/chat_screen.dart';
 import 'test_helpers.dart';
 
 void main() {
-  testWidgets('chat screen renders seeded conversation and money plans',
+  testWidgets('chat screen shows hero state and responds to a message',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const ChatScreen()));
     await tester.pumpAndSettle();
 
-    final Finder primaryScrollable = find.byType(Scrollable).first;
-
+    // Hero state is visible when no conversation is loaded.
     expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
-    expect(find.textContaining('Hey'), findsOneWidget);
-    expect(find.text('Sunday reset'), findsWidgets);
-    expect(find.text('Write here...'), findsOneWidget);
-    expect(find.text('Attach'), findsOneWidget);
-    expect(find.text('Camera'), findsOneWidget);
-    expect(find.text('Voice'), findsOneWidget);
+    expect(find.text('Hello!'), findsOneWidget);
+    expect(find.text("I'M SIMI"), findsOneWidget);
+    expect(
+      find.textContaining('I am here to guide you through bills, budgets'),
+      findsOneWidget,
+    );
 
+    // Composer shows the hero-state hint; no Attach/Camera/Voice buttons.
+    expect(
+        find.text('Try asking "How do I stop missing bills?"'), findsOneWidget);
+
+    // Send a message and verify Simi responds with streamed text.
     await tester.enterText(find.byType(TextField), 'Help me catch up on bills');
     await tester.pump();
     await tester.tap(find.byIcon(Icons.send_rounded));
@@ -29,12 +33,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
+    final Finder primaryScrollable = find.byType(Scrollable).first;
+
     await tester.drag(primaryScrollable, const Offset(0, -600));
     await tester.pumpAndSettle();
 
-    expect(find.text('Simi'), findsOneWidget);
-    expect(find.text('Bill rescue plan'), findsWidgets);
-    expect(find.text('Pin every due date in one list.'), findsOneWidget);
+    // The streaming API returns the text lines from getReply, not the plan.
+    expect(
+      find.textContaining('bill pile-up'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('chat screen starts empty in fresh demo mode',

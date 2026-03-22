@@ -24,6 +24,7 @@ Future<AccountLinkExchangeResult?> showAccountLinkConnectSheet(
   required String mode,
   required String title,
   String? connectionId,
+  List<PayaboCountryReference>? countries,
 }) {
   return showPayaboModalSheet<AccountLinkExchangeResult>(
     context: context,
@@ -32,6 +33,7 @@ Future<AccountLinkExchangeResult?> showAccountLinkConnectSheet(
       provider: provider,
       mode: mode,
       connectionId: connectionId,
+      countries: countries,
     ),
   );
 }
@@ -42,11 +44,16 @@ class AccountLinkConnectSheet extends ConsumerStatefulWidget {
     required this.provider,
     required this.mode,
     this.connectionId,
+    this.countries,
   });
 
   final String provider;
   final String mode;
   final String? connectionId;
+
+  /// Country list shown in the country picker when the provider requires it.
+  /// Defaults to [_plaidSupportedCountries] when `null`.
+  final List<PayaboCountryReference>? countries;
 
   @override
   ConsumerState<AccountLinkConnectSheet> createState() =>
@@ -56,6 +63,10 @@ class AccountLinkConnectSheet extends ConsumerStatefulWidget {
 class _AccountLinkConnectSheetState
     extends ConsumerState<AccountLinkConnectSheet> {
   String? _selectedCountryCode;
+  late final AccountLinkFlowController _flowController;
+
+  List<PayaboCountryReference> get _countries =>
+      widget.countries ?? _plaidSupportedCountries;
 
   bool get _requiresCountrySelection =>
       widget.mode == 'connect' && widget.provider.toLowerCase() == 'plaid';
@@ -63,14 +74,26 @@ class _AccountLinkConnectSheetState
   @override
   void initState() {
     super.initState();
-    ref.read(accountLinkFlowControllerProvider.notifier).reset();
+    _flowController =
+        ref.read(accountLinkFlowControllerProvider.notifier);
+    _flowController.reset();
 
     final String profileCountryCode =
         ref.read(profileCoreProvider).countryCode.trim().toUpperCase();
-    final bool hasProfileCountry = _plaidSupportedCountries.any(
+    final bool hasProfileCountry = _countries.any(
       (PayaboCountryReference country) => country.code == profileCountryCode,
     );
     _selectedCountryCode = hasProfileCountry ? profileCountryCode : 'GB';
+  }
+
+  @override
+  void dispose() {
+    // Cancel any in-flight connect flow so the controller does not mutate
+    // state after this widget (and its Riverpod dependency) is torn down.
+    // We use the captured reference rather than ref.read() because `ref` is
+    // no longer safe to use during dispose/unmount.
+    _flowController.cancel();
+    super.dispose();
   }
 
   Future<void> _handleConnect() async {
@@ -128,7 +151,9 @@ class _AccountLinkConnectSheetState
             ? 'Payabo uses a targeted update session so the existing link can be restored.'
             : 'The app receives only a temporary launch token for the provider handoff.';
 
-    return Column(
+    return PopScope(
+      canPop: !flowState.isSubmitting,
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -167,7 +192,7 @@ class _AccountLinkConnectSheetState
                 ),
                 const SizedBox(height: PayaboSpacing.xs),
                 Text(
-                  'Choose where the bank account is held before Payabo opens Plaid. The secure bank-link flow currently supports United Kingdom and United States institutions only.',
+                  'Choose where the bank account is held before Payabo opens Plaid. This helps the secure institution list match the country-specific banks expected.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: c.accentBrownMuted,
                         height: 1.45,
@@ -193,7 +218,7 @@ class _AccountLinkConnectSheetState
                       borderSide: BorderSide(color: c.primary, width: 1.4),
                     ),
                   ),
-                  items: _plaidSupportedCountries
+                  items: _countries
                       .map(
                         (PayaboCountryReference country) =>
                             DropdownMenuItem<String>(
@@ -299,6 +324,7 @@ class _AccountLinkConnectSheetState
           ],
         ),
       ],
+    ),
     );
   }
 }

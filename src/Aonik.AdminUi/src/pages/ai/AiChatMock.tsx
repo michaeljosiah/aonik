@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Loader2, MoreHorizontal, Plus, Search } from 'lucide-react';
+import { useMemo, useState, useCallback } from 'react';
+import { Loader2, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { AiChatComposer } from '@/components/ai/AiChatComposer';
@@ -11,18 +11,7 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements';
 import { useAguiChat } from '@/hooks/useAguiChat';
-
-type ChatItem = {
-  id: string;
-  title: string;
-  isActive?: boolean;
-};
-
-type ProjectItem = {
-  id: string;
-  title: string;
-  isActive?: boolean;
-};
+import { useThreads, type ThreadSummary } from '@/hooks/useThreads';
 
 type AiChatMockProps = {
   agentId?: string;
@@ -30,6 +19,7 @@ type AiChatMockProps = {
 
 export function AiChatMock({ agentId }: AiChatMockProps) {
   const [query, setQuery] = useState('');
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const {
     messages,
     draft,
@@ -41,7 +31,17 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
     pendingApprovals,
     approveAction,
     rejectAction,
+    threadId,
+    loadThread,
   } = useAguiChat();
+
+  const {
+    threads,
+    isLoading: isLoadingThreads,
+    refresh: refreshThreads,
+    loadThread: fetchThread,
+    archiveThread,
+  } = useThreads();
 
   const agentLabel = useMemo(() => {
     if (!agentId) return 'AONIK Orchestrator';
@@ -50,34 +50,66 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
     return 'Agent name';
   }, [agentId]);
 
-  const projects = useMemo<ProjectItem[]>(
-    () => [
-      { id: 'p-1', title: 'Project name' },
-      { id: 'p-2', title: 'Project name (active)', isActive: true },
-      { id: 'p-3', title: 'Project name' },
-      { id: 'p-4', title: 'Project name' },
-      { id: 'p-5', title: 'Project name' },
-    ],
-    []
-  );
-
-  const chats = useMemo<ChatItem[]>(
-    () => [
-      { id: 'c-1', title: 'Chat name (active)', isActive: true },
-      { id: 'c-2', title: 'Chat name' },
-      { id: 'c-3', title: 'Chat name' },
-      { id: 'c-4', title: 'Chat name' },
-      { id: 'c-5', title: 'Chat name' },
-      { id: 'c-6', title: 'Chat name' },
-    ],
-    []
-  );
-
-  const filteredChats = useMemo(() => {
+  const filteredThreads = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return chats;
-    return chats.filter((c) => c.title.toLowerCase().includes(q));
-  }, [chats, query]);
+    if (!q) return threads;
+    return threads.filter((t) => t.title.toLowerCase().includes(q));
+  }, [threads, query]);
+
+  const handleNewChat = useCallback(() => {
+    resetChat();
+    setActiveThreadId(null);
+  }, [resetChat]);
+
+  const handleThreadClick = useCallback(
+    async (thread: ThreadSummary) => {
+      if (thread.id === activeThreadId) return;
+
+      setActiveThreadId(thread.id);
+      const detail = await fetchThread(thread.id);
+      if (detail) {
+        loadThread(detail);
+      }
+    },
+    [activeThreadId, fetchThread, loadThread]
+  );
+
+  const handleArchiveThread = useCallback(
+    async (e: React.MouseEvent, threadId: string) => {
+      e.stopPropagation();
+      await archiveThread(threadId);
+      if (activeThreadId === threadId) {
+        resetChat();
+        setActiveThreadId(null);
+      }
+    },
+    [archiveThread, activeThreadId, resetChat]
+  );
+
+  // After sending a message, refresh thread list (new threads will appear)
+  const handleSendAndRefresh = useCallback(async () => {
+    await handleSend();
+    // Small delay to let the backend persist the thread
+    setTimeout(() => refreshThreads(), 1000);
+  }, [handleSend, refreshThreads]);
+
+  // Format a date string into a relative label
+  const formatDateLabel = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      return date.toLocaleDateString();
+    } catch {
+      return '';
+    }
+  };
 
   return (
     <div className="h-full flex bg-[var(--color-background)]">
@@ -103,7 +135,7 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
           <button
             className="w-full h-10 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] shadow-sm flex items-center gap-2 px-3 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)]"
             type="button"
-            onClick={resetChat}
+            onClick={handleNewChat}
           >
             <Plus className="h-4 w-4 text-[var(--color-text-secondary)]" />
             New chat
@@ -122,72 +154,63 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
           </div>
 
           <div className="mt-5">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--color-text-tertiary)] tracking-wider">
-              <span>PROJECTS</span>
-              <button className="h-7 w-7 rounded-md grid place-items-center text-[var(--color-text-tertiary)] hover:bg-[var(--color-sidebar-hover)]">
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="mt-2 space-y-1">
-              {projects.map((p) => (
-                <button
-                  key={p.id}
-                  className={cn(
-                    'w-full flex items-center gap-2 h-9 px-3 rounded-lg text-sm text-left',
-                    p.isActive
-                      ? 'bg-[var(--color-sidebar-hover)] text-[var(--color-text-primary)]'
-                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)]'
-                  )}
-                >
-                  <span className="h-4 w-4 rounded-sm border border-[var(--color-border)] bg-[var(--color-surface)]" />
-                  <span className="truncate">{p.title}</span>
-                </button>
-              ))}
-
-              <button className="w-full text-left h-9 px-3 rounded-lg text-sm text-[var(--color-text-tertiary)] hover:bg-[var(--color-sidebar-hover)]">
-                View more
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6">
             <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)] tracking-wider">
               CHATS
             </div>
 
             <div className="mt-2 space-y-1">
-              {filteredChats.map((c) => (
-                <div
-                  key={c.id}
-                  className={cn(
-                    'group flex items-center gap-2 h-9 px-3 rounded-lg',
-                    c.isActive
-                      ? 'bg-[var(--color-sidebar-hover)]'
-                      : 'hover:bg-[var(--color-sidebar-hover)]'
-                  )}
-                >
-                  <button
-                    className={cn(
-                      'flex-1 text-left text-sm truncate',
-                      c.isActive
-                        ? 'text-[var(--color-text-primary)]'
-                        : 'text-[var(--color-text-secondary)]'
-                    )}
-                  >
-                    {c.title}
-                  </button>
-                  <button
-                    className={cn(
-                      'h-7 w-7 rounded-md grid place-items-center text-[var(--color-text-tertiary)]',
-                      c.isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    )}
-                    title="Chat options"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
+              {isLoadingThreads && threads.length === 0 ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-[var(--color-text-tertiary)]" />
+                  <span className="ml-2 text-xs text-[var(--color-text-tertiary)]">Loading...</span>
                 </div>
-              ))}
+              ) : filteredThreads.length === 0 ? (
+                <div className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">
+                  {query ? 'No matching chats' : 'No conversations yet'}
+                </div>
+              ) : (
+                filteredThreads.map((t) => {
+                  const isActive = t.id === activeThreadId || t.id === threadId;
+                  return (
+                    <div
+                      key={t.id}
+                      className={cn(
+                        'group flex items-center gap-2 h-9 px-3 rounded-lg cursor-pointer',
+                        isActive
+                          ? 'bg-[var(--color-sidebar-hover)]'
+                          : 'hover:bg-[var(--color-sidebar-hover)]'
+                      )}
+                      onClick={() => handleThreadClick(t)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={cn(
+                            'text-sm truncate',
+                            isActive
+                              ? 'text-[var(--color-text-primary)]'
+                              : 'text-[var(--color-text-secondary)]'
+                          )}
+                        >
+                          {t.title || 'Untitled'}
+                        </div>
+                        <div className="text-[10px] text-[var(--color-text-tertiary)]">
+                          {formatDateLabel(t.lastMessageAt ?? t.createdAt)}
+                        </div>
+                      </div>
+                      <button
+                        className={cn(
+                          'h-7 w-7 rounded-md grid place-items-center text-[var(--color-text-tertiary)] hover:text-red-400',
+                          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        )}
+                        title="Archive chat"
+                        onClick={(e) => handleArchiveThread(e, t.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -212,7 +235,7 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
                       mode="center"
                       value={draft}
                       onChange={setDraft}
-                      onSend={handleSend}
+                      onSend={handleSendAndRefresh}
                       showHelper={false}
                     />
                   </div>
@@ -240,8 +263,8 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
                 mode="footer"
                 value={draft}
                 onChange={setDraft}
-                onSend={handleSend}
-                onClear={resetChat}
+                onSend={handleSendAndRefresh}
+                onClear={handleNewChat}
               />
               <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-tertiary)]">
                 <span>

@@ -18,18 +18,21 @@ void main() {
     final Finder primaryScrollable = find.byType(Scrollable).last;
 
     await tester.scrollUntilVisible(
-      find.text('Everyday current'),
+      find.text('UK Current'),
       240,
       scrollable: primaryScrollable,
     );
-    expect(find.text('Everyday current'), findsOneWidget);
+    expect(find.text('UK Current'), findsOneWidget);
+
+    final Finder creditCardKey =
+        find.byKey(const Key('account-card-uk-credit-card'));
 
     await tester.scrollUntilVisible(
-      find.text('Bills card'),
+      creditCardKey,
       260,
       scrollable: primaryScrollable,
     );
-    expect(find.text('Bills card'), findsOneWidget);
+    expect(creditCardKey, findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Travel cash wallet'),
@@ -59,7 +62,7 @@ void main() {
     );
 
     expect(find.text('Fresh accounts state'), findsOneWidget);
-    expect(find.text('Everyday current'), findsNothing);
+    expect(find.text('UK Current'), findsNothing);
   });
 
   testWidgets('connect bank account flow links accounts in fresh demo mode',
@@ -102,7 +105,7 @@ void main() {
 
     final Finder primaryScrollable = find.byType(Scrollable).last;
     final Finder everydayCard =
-        find.byKey(const Key('account-card-everyday-current'));
+        find.byKey(const Key('account-card-uk-everyday-current'));
 
     await tester.scrollUntilVisible(
       everydayCard,
@@ -134,7 +137,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final Finder primaryScrollable = find.byType(Scrollable).last;
-    final Finder billsCard = find.byKey(const Key('account-card-bills-card'));
+    final Finder billsCard = find.byKey(const Key('account-card-uk-credit-card'));
 
     await tester.scrollUntilVisible(
       billsCard,
@@ -175,7 +178,7 @@ void main() {
 
     final Finder primaryScrollable = find.byType(Scrollable).last;
     final Finder everydayCard =
-        find.byKey(const Key('account-card-everyday-current'));
+        find.byKey(const Key('account-card-uk-everyday-current'));
 
     await tester.scrollUntilVisible(
       everydayCard,
@@ -200,6 +203,6 @@ void main() {
     await tester.tap(find.text('Disconnect'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Everyday current'), findsNothing);
+    expect(find.text('UK Current'), findsNothing);
   });
 }

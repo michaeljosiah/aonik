@@ -8,7 +8,7 @@ namespace Aonik.Agents.Persistence;
 
 /// <summary>
 /// Module-scoped DbContext for the Agents domain.
-/// Owns: Agent, AgentRun, OrchestratorPolicy, Proposal.
+/// Owns: Agent, AgentRun, OrchestratorPolicy, Proposal, ChatThread, ChatThreadMessage.
 /// Shares the same physical database as AonikDbContext using dbo schema
 /// with module table prefixes for logical isolation.
 /// </summary>
@@ -18,6 +18,8 @@ internal class AgentsDbContext : AonikDbContextBase
     public DbSet<AgentRun> AgentRuns { get; set; } = null!;
     public DbSet<OrchestratorPolicy> OrchestratorPolicies { get; set; } = null!;
     public DbSet<Proposal> Proposals { get; set; } = null!;
+    public DbSet<ChatThread> ChatThreads { get; set; } = null!;
+    public DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
 
     public AgentsDbContext(
         DbContextOptions<AgentsDbContext> options,
@@ -34,12 +36,15 @@ internal class AgentsDbContext : AonikDbContextBase
 
         modelBuilder.HasDefaultSchema(SchemaNames.Default);
 
+        // Apply entity configurations from this assembly (ChatThreadConfiguration, etc.)
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AgentsDbContext).Assembly);
+
         ApplyDboPrefixedTableNames(modelBuilder);
 
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);
 
-        // Apply tenant query filters for ITenantScoped entities (AgentRun, Proposal)
+        // Apply tenant query filters for ITenantScoped entities (AgentRun, Proposal, ChatThread, ChatThreadMessage)
         ApplyTenantQueryFilters(modelBuilder);
 
         // Apply nullable tenant filters for entities with optional TenantId (Agent, OrchestratorPolicy)
@@ -53,6 +58,8 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<AgentRun>(modelBuilder, "AgentRuns");
         MapTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
         MapTable<Proposal>(modelBuilder, "Proposals");
+        MapTable<ChatThread>(modelBuilder, "ChatThreads");
+        MapTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

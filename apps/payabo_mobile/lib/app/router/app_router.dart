@@ -16,7 +16,9 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/chat/presentation/chat_history_screen.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/community/presentation/community_screen.dart';
+import '../../features/dashboard/presentation/bill_detail_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/dashboard/presentation/order_detail_screen.dart';
 import '../../features/notifications/presentation/notification_center_screen.dart';
 import '../../features/payments/presentation/add_friend_screen.dart';
 import '../../features/payments/presentation/card_details_screen.dart';
@@ -288,6 +290,20 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           name: 'dashboard-empty',
           builder: (context, state) =>
               const DashboardScreen(showEmptyState: true),
+        ),
+        GoRoute(
+          path: '/dashboard/bills/:billId',
+          name: 'bill-detail',
+          builder: (context, state) => BillDetailScreen(
+            billId: state.pathParameters['billId'] ?? '',
+          ),
+        ),
+        GoRoute(
+          path: '/dashboard/orders/:orderId',
+          name: 'order-detail',
+          builder: (context, state) => OrderDetailScreen(
+            orderId: state.pathParameters['orderId'] ?? '',
+          ),
         ),
         GoRoute(
           path: '/community',

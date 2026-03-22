@@ -21,21 +21,32 @@ void main() {
     await tester.pumpAndSettle();
 
     // Header + section pills
-    expect(find.text('Spend'), findsOneWidget);
+    expect(find.text('Your spending'), findsOneWidget);
     expect(find.text('Transactions'), findsOneWidget);
 
     // Account card content — both cards may be partially visible in PageView
-    expect(find.text('Current'), findsAtLeast(1));
+    expect(find.text('UK Current'), findsAtLeast(1));
     expect(find.text('Balance'), findsAtLeast(1));
 
-    // "Recent transactions" heading
+    // The "Recent transactions" heading and transactions are inside the
+    // DraggableScrollableSheet's ListView and may be below the fold.
+    // Drag the sheet up to reveal them.
+    await tester.drag(find.text('Transactions'), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
     expect(find.text('Recent transactions'), findsOneWidget);
 
-    // First batch of demo transactions (current account)
+    // First batch of demo transactions (current account).
+    // Category labels include subcategory: "Housing · Rent", "Shopping · Online Shopping".
     expect(find.text('Open Rent'), findsAtLeast(1));
-    expect(find.text('Housing'), findsAtLeast(1));
+    expect(find.textContaining('Housing'), findsAtLeast(1));
+
+    // Drag further if needed to reveal Amazon row
+    await tester.drag(find.text('Recent transactions'), const Offset(0, -200));
+    await tester.pumpAndSettle();
+
     expect(find.text('Amazon'), findsOneWidget);
-    expect(find.text('Shopping'), findsOneWidget);
+    expect(find.textContaining('Shopping'), findsOneWidget);
   });
 
   testWidgets('spending screen shows empty state in fresh demo mode',
@@ -48,15 +59,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Simi top bar label present (empty state shows "Simi" instead of "Spend").
+    // Simi top bar label present (empty state shows "Simi" instead of "Your spending").
     // Section tabs are hidden in the empty state.
     expect(find.text('Simi'), findsOneWidget);
     expect(find.text('Transactions'), findsNothing);
     expect(find.text('Budgets'), findsNothing);
 
     // Simi AI typewriter message should be fully revealed after pumpAndSettle
-    // (the fresh-demo message mentions "demo mode" and "clean slate").
-    expect(find.textContaining('demo mode'), findsOneWidget);
+    // (the empty state always uses the live message about linking a bank account).
+    expect(find.textContaining('link a bank account'), findsOneWidget);
 
     // Simi attribution helper text
     expect(find.text('Simi, your AI assistant'), findsOneWidget);
@@ -65,9 +76,6 @@ void main() {
     expect(find.text('Get started'), findsOneWidget);
     expect(find.text('Link an account'), findsOneWidget);
     expect(find.text('Add account manually'), findsOneWidget);
-
-    // Fresh-demo helper link
-    expect(find.text('Open profile settings'), findsOneWidget);
 
     // No account cards or transactions should appear
     expect(find.text('Current'), findsNothing);
@@ -213,10 +221,10 @@ void main() {
     final Finder primaryScrollable = find.byType(Scrollable).last;
 
     await tester.scrollUntilVisible(
-      find.text('Everyday current'),
+      find.text('UK Current'),
       260,
       scrollable: primaryScrollable,
     );
-    expect(find.text('Everyday current'), findsOneWidget);
+    expect(find.text('UK Current'), findsOneWidget);
   });
 }

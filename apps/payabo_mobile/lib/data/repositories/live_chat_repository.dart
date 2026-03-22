@@ -13,16 +13,24 @@
 // ─────────────────────────────────────────────────────────
 
 import 'dart:async';
+import 'dart:developer' as developer;
+
+import 'package:dio/dio.dart';
 
 import '../agui/agui_client.dart';
 import '../agui/agui_models.dart';
+import '../api/api_exception.dart';
 import 'chat_repository.dart';
 
 class LiveChatRepository implements ChatRepository {
-  LiveChatRepository({required AgUiClient agUiClient})
-      : _agUiClient = agUiClient;
+  LiveChatRepository({
+    required AgUiClient agUiClient,
+    required Dio apiClient,
+  })  : _agUiClient = agUiClient,
+        _apiClient = apiClient;
 
   final AgUiClient _agUiClient;
+  final Dio _apiClient;
 
   int _messageCounter = 0;
 
@@ -477,18 +485,119 @@ class LiveChatRepository implements ChatRepository {
     return valid.contains(s) ? s : 'medium';
   }
 
-  // ── History methods (not yet backed by a server endpoint) ──
+  // ── History methods (backed by /ai/threads endpoints) ───
 
   @override
   Future<List<ChatConversation>> getConversations() async {
-    // No server-side conversation persistence yet — return empty.
-    return const <ChatConversation>[];
+    // Load the full thread list, then fetch each thread's messages.
+    // For now we fetch summaries only — callers that need messages
+    // should use ChatController.loadConversation which calls getThread.
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/ai/threads',
+        queryParameters: {'page': 1, 'pageSize': 50},
+      );
+
+      final data = response.data;
+      if (data == null) return const <ChatConversation>[];
+
+      final threads = data['threads'] as List<dynamic>? ?? const [];
+      return threads
+          .whereType<Map<Object?, Object?>>()
+          .map((item) {
+            final map = Map<String, dynamic>.from(item);
+            return ChatConversation(
+              id: map['id']?.toString() ?? '',
+              title: map['title']?.toString() ?? 'Untitled',
+              dateLabel: _formatDateLabel(map['lastMessageAt'] ?? map['createdAt']),
+              messages: const <ChatMessage>[],
+            );
+          })
+          .toList(growable: false);
+    } on DioException catch (e) {
+      developer.log(
+        'Failed to fetch conversations',
+        error: e,
+        name: 'LiveChatRepository',
+      );
+      // Fail gracefully — return empty rather than crashing the UI.
+      return const <ChatConversation>[];
+    }
   }
 
   @override
   Future<List<ChatHistoryEntry>> getHistoryEntries() async {
-    // No server-side conversation persistence yet — return empty.
-    return const <ChatHistoryEntry>[];
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/ai/threads',
+        queryParameters: {'page': 1, 'pageSize': 50},
+      );
+
+      final data = response.data;
+      if (data == null) return const <ChatHistoryEntry>[];
+
+      final threads = data['threads'] as List<dynamic>? ?? const [];
+      return threads
+          .whereType<Map<Object?, Object?>>()
+          .map((item) {
+            final map = Map<String, dynamic>.from(item);
+            return ChatHistoryEntry(
+              id: map['id']?.toString() ?? '',
+              title: map['title']?.toString() ?? 'Untitled',
+              dateLabel: _formatDateLabel(map['lastMessageAt'] ?? map['createdAt']),
+            );
+          })
+          .toList(growable: false);
+    } on DioException catch (e) {
+      developer.log(
+        'Failed to fetch history entries',
+        error: e,
+        name: 'LiveChatRepository',
+      );
+      return const <ChatHistoryEntry>[];
+    }
+  }
+
+  @override
+  Future<void> deleteConversation(String id) async {
+    try {
+      await _apiClient.delete<void>('/ai/threads/$id');
+    } on DioException catch (e) {
+      developer.log(
+        'Failed to archive conversation $id',
+        error: e,
+        name: 'LiveChatRepository',
+      );
+      throw mapDioException(e);
+    }
+  }
+
+  /// Formats an ISO 8601 date string into a human-friendly label.
+  static String _formatDateLabel(dynamic value) {
+    if (value == null) return '';
+    try {
+      final date = DateTime.parse(value.toString());
+      final now = DateTime.now();
+      final diff = now.difference(date);
+
+      if (diff.inDays == 0) return 'Today';
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays} days ago';
+
+      return '${date.day.toString().padLeft(2, '0')} '
+          '${_monthAbbrev(date.month)} '
+          '${date.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static String _monthAbbrev(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return months[month.clamp(1, 12) - 1];
   }
 
   @override

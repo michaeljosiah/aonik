@@ -58,6 +58,14 @@ public sealed class AgentsModule : IModule
         // Scoped because it depends on IChatClient (scoped from AiModule).
         services.AddScoped<IMasterOrchestratorService, MasterOrchestratorService>();
 
+        // Chat thread persistence — manages persisted threads and messages.
+        // Scoped because it depends on AgentsDbContext and tenant/user providers.
+        services.AddScoped<IChatThreadService, ChatThreadService>();
+
+        // Thread title generator — uses IChatClient to summarise the first user message.
+        // Scoped because it depends on IChatClient (scoped from AiModule).
+        services.AddScoped<IChatThreadTitleGenerator, ChatThreadTitleGenerator>();
+
         // Workflow factories — keyed by workflow name (R10).
         // RunWorkflowEndpoint resolves the factory via GetKeyedService<IWorkflowFactory>(name).
         services.AddKeyedSingleton<IWorkflowFactory, InvoiceProcessingWorkflowFactory>(

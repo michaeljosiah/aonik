@@ -168,7 +168,6 @@ export function ChatMessageList({
 
 function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
   const isActive = toolCall.status === 'streaming' || toolCall.status === 'pending' || toolCall.status === 'executing';
-  const isDone = toolCall.status === 'completed';
   const isError = toolCall.status === 'error';
 
   const [open, setOpen] = useState(isActive);
@@ -401,7 +400,6 @@ function ApprovalCard({ toolCall, approval, onApprove, onReject }: ApprovalCardP
   const isAwaitingApproval = toolCall.status === 'awaiting-approval';
   const isCompleted = toolCall.status === 'completed';
   const wasApproved = isCompleted && toolCall.result === 'approved';
-  const wasRejected = isCompleted && toolCall.result?.startsWith('rejected');
 
   let action = approval?.action ?? '';
   let description = approval?.description ?? '';

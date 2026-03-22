@@ -13,4 +13,10 @@ public sealed record ChatRequest
     /// a new session is started.
     /// </summary>
     public string? SessionId { get; init; }
+
+    /// <summary>
+    /// Optional thread ID for persisted conversation history. Maps to a
+    /// <c>ChatThread</c> record. If not provided, a new thread is created.
+    /// </summary>
+    public string? ThreadId { get; init; }
 }

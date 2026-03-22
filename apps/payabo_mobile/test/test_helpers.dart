@@ -4,6 +4,7 @@ import 'package:payabo_mobile/app/demo/demo_data_mode.dart';
 import 'package:payabo_mobile/app/demo/demo_mode.dart';
 import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
+import 'package:payabo_mobile/mock/mock_behavior.dart';
 import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,6 +19,7 @@ Widget buildTestApp(
     apiBaseUrl: 'https://api.dev.payabo.local',
   ),
 }) {
+  MockBehavior.skipDelayForTest = true;
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final resolvedIsDemo = isDemo ?? environment.useMocks;
 

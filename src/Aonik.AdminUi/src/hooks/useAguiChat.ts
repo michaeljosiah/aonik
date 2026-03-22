@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/auth';
 import {
   streamAguiChat,
@@ -12,7 +12,6 @@ import {
   type FrontendToolHandler,
   type FrontendToolContext,
   type FrontendToolRegistration,
-  type RunAgentInput,
   type AguiStreamCallbacks,
   type ToolCallStartEvent,
   type ToolCallArgsEvent,
@@ -24,6 +23,7 @@ import {
   type ActivitySnapshotEvent,
   type MessagesSnapshotEvent,
 } from '@/lib/agui-client';
+import type { ThreadDetail } from '@/hooks/useThreads';
 
 // ─── Chat Message Types ───────────────────────────────────────────────────────
 
@@ -104,6 +104,10 @@ export interface UseAguiChatReturn {
   approveAction: (toolCallId: string) => void;
   /** Reject a pending confirmAction tool call. */
   rejectAction: (toolCallId: string, reason?: string) => void;
+  /** The current thread ID (set after first message or thread load). */
+  threadId: string | null;
+  /** Load a persisted thread's messages into the chat view. */
+  loadThread: (thread: ThreadDetail) => void;
 }
 
 // ─── Hook Implementation ──────────────────────────────────────────────────────
@@ -292,6 +296,37 @@ export function useAguiChat(): UseAguiChatReturn {
     setPendingApprovals([]);
   }, []);
 
+  /** Load a persisted thread's messages into the chat view. */
+  const loadThread = useCallback((thread: ThreadDetail) => {
+    // Abort any in-flight stream
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+
+    // Reject any pending approvals
+    for (const [, resolver] of pendingApprovalResolversRef.current) {
+      resolver('rejected: thread changed');
+    }
+    pendingApprovalResolversRef.current.clear();
+
+    // Set the thread ID so subsequent messages continue this thread
+    threadIdRef.current = thread.id;
+
+    // Convert persisted messages to ChatMessage[]
+    const chatMessages: ChatMessage[] = thread.messages.map((msg) => {
+      if (msg.role === 'user') {
+        return { type: 'user' as const, id: msg.id, content: msg.content };
+      }
+      return { type: 'assistant' as const, id: msg.id, content: msg.content };
+    });
+
+    setMessages(chatMessages);
+    setDraft('');
+    setIsStreaming(false);
+    setStreamError(null);
+    setActiveSteps([]);
+    setPendingApprovals([]);
+  }, []);
+
   const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || isStreaming) return;
@@ -325,7 +360,6 @@ export function useAguiChat(): UseAguiChatReturn {
 
     // Track current streaming state
     let currentAssistantId = assistantMessageId;
-    let messageStarted = false;
 
     // Track tool calls being streamed in the current assistant message
     const streamingToolCalls = new Map<string, { name: string; args: string }>();
@@ -343,7 +377,6 @@ export function useAguiChat(): UseAguiChatReturn {
         },
 
         onTextMessageStart: (event) => {
-          messageStarted = true;
           // If we get a new message ID that differs from our placeholder, update
           if (event.messageId !== currentAssistantId) {
             currentAssistantId = event.messageId;
@@ -365,7 +398,7 @@ export function useAguiChat(): UseAguiChatReturn {
         },
 
         onTextMessageEnd: () => {
-          messageStarted = false;
+          // Text message streaming complete
         },
 
         // Tool call lifecycle
@@ -613,6 +646,8 @@ export function useAguiChat(): UseAguiChatReturn {
     pendingApprovals,
     approveAction,
     rejectAction,
+    threadId: threadIdRef.current,
+    loadThread,
   };
 }
 

@@ -280,6 +280,9 @@ abstract class ChatRepository {
     List<ChatMessage> history,
   });
 
+  /// Archives (soft-deletes) a conversation thread by ID.
+  Future<void> deleteConversation(String id);
+
   /// Sends a canned assistant reply for the given user prompt.
   ///
   /// Retained for backward compatibility with mock mode.

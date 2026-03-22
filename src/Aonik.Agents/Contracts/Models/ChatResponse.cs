@@ -13,4 +13,13 @@ public sealed record AgentChatResponse
 
     /// <summary>Name of the agent that produced the final response.</summary>
     public string? AgentName { get; init; }
+
+    /// <summary>
+    /// Persisted thread ID for conversation history. Use this to continue
+    /// the conversation in subsequent requests.
+    /// </summary>
+    public string? ThreadId { get; init; }
+
+    /// <summary>AI-generated title for the conversation thread.</summary>
+    public string? ThreadTitle { get; init; }
 }

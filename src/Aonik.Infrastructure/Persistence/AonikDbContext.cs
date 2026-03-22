@@ -121,6 +121,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; } = null!;
     public virtual DbSet<TransactionAttachment> TransactionAttachments { get; set; } = null!;
 
+    // Chat Threads (Agents module)
+    public virtual DbSet<ChatThread> ChatThreads { get; set; } = null!;
+    public virtual DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
+
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -321,6 +325,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapAgentsTable<AgentRun>(modelBuilder, "AgentRuns");
         MapAgentsTable<OrchestratorPolicy>(modelBuilder, "OrchestratorPolicies");
         MapAgentsTable<Proposal>(modelBuilder, "Proposals");
+        MapAgentsTable<ChatThread>(modelBuilder, "ChatThreads");
+        MapAgentsTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
     }
 
     private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)

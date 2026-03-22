@@ -990,22 +990,36 @@ class _DashboardStatsSheet extends StatelessWidget {
           _DashboardListHeader(
             title: 'Upcoming bills',
             actionLabel: isEmpty ? null : 'View all',
+            onActionTap: isEmpty
+                ? null
+                : () => context.push('/dashboard/bills/${upcomingBills.first.id}'),
           ),
           const SizedBox(height: PayaboSpacing.md),
           if (upcomingBills.isEmpty)
             const _DashboardEmptyBillsCard()
           else
-            _UpcomingBillsCardV2(items: upcomingBills),
+            _UpcomingBillsCardV2(
+              items: upcomingBills,
+              onBillTap: (bill) =>
+                  context.push('/dashboard/bills/${bill.id}'),
+            ),
           const SizedBox(height: PayaboSpacing.xl),
           _DashboardListHeader(
             title: 'Previous orders',
             actionLabel: isEmpty ? null : 'View all',
+            onActionTap: isEmpty
+                ? null
+                : () => context.push('/dashboard/orders/${recentOrders.first.id}'),
           ),
           const SizedBox(height: PayaboSpacing.md),
           if (recentOrders.isEmpty)
             const _DashboardEmptyOrdersCard()
           else
-            _PreviousOrdersList(items: recentOrders),
+            _PreviousOrdersList(
+              items: recentOrders,
+              onOrderTap: (order) =>
+                  context.push('/dashboard/orders/${order.id}'),
+            ),
           if (supportObligations.isNotEmpty) ...[
             const SizedBox(height: PayaboSpacing.xl),
             const _DashboardListHeader(
@@ -1965,10 +1979,12 @@ class _DashboardListHeader extends StatelessWidget {
   const _DashboardListHeader({
     required this.title,
     this.actionLabel,
+    this.onActionTap,
   });
 
   final String title;
   final String? actionLabel;
+  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1988,13 +2004,16 @@ class _DashboardListHeader extends StatelessWidget {
           ),
         ),
         if (actionLabel != null)
-          Text(
-            actionLabel!,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: c.primary,
-                ),
+          GestureDetector(
+            onTap: onActionTap,
+            child: Text(
+              actionLabel!,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: c.primary,
+                  ),
+            ),
           ),
       ],
     );
@@ -2002,9 +2021,10 @@ class _DashboardListHeader extends StatelessWidget {
 }
 
 class _UpcomingBillsCardV2 extends StatelessWidget {
-  const _UpcomingBillsCardV2({required this.items});
+  const _UpcomingBillsCardV2({required this.items, this.onBillTap});
 
   final List<DashboardUpcomingBill> items;
+  final void Function(DashboardUpcomingBill bill)? onBillTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2017,7 +2037,12 @@ class _UpcomingBillsCardV2 extends StatelessWidget {
           .map(
             (entry) => Column(
               children: <Widget>[
-                _UpcomingBillRow(item: entry.value),
+                _UpcomingBillRow(
+                  item: entry.value,
+                  onTap: onBillTap != null
+                      ? () => onBillTap!(entry.value)
+                      : null,
+                ),
                 if (entry.key != items.length - 1)
                   Divider(
                     height: 1,
@@ -2034,9 +2059,10 @@ class _UpcomingBillsCardV2 extends StatelessWidget {
 }
 
 class _UpcomingBillRow extends StatelessWidget {
-  const _UpcomingBillRow({required this.item});
+  const _UpcomingBillRow({required this.item, this.onTap});
 
   final DashboardUpcomingBill item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2046,27 +2072,30 @@ class _UpcomingBillRow extends StatelessWidget {
         ? theme.colorScheme.surfaceContainerHighest
         : c.primary.withValues(alpha: 0.08);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconSurface,
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: const BorderRadius.all(Radius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconSurface,
+                borderRadius: const BorderRadius.all(Radius.circular(10)),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.receipt_long_outlined,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
             ),
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.receipt_long_outlined,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: PayaboSpacing.md),
-          Expanded(
-            child: Column(
+            const SizedBox(width: PayaboSpacing.md),
+            Expanded(
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
@@ -2093,6 +2122,7 @@ class _UpcomingBillRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -2208,9 +2238,10 @@ class _SupportObligationRow extends StatelessWidget {
 }
 
 class _PreviousOrdersList extends StatelessWidget {
-  const _PreviousOrdersList({required this.items});
+  const _PreviousOrdersList({required this.items, this.onOrderTap});
 
   final List<DashboardRecentOrder> items;
+  final void Function(DashboardRecentOrder order)? onOrderTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2222,7 +2253,12 @@ class _PreviousOrdersList extends StatelessWidget {
         separatorBuilder: (BuildContext context, int index) =>
             const SizedBox(width: PayaboSpacing.md),
         itemBuilder: (BuildContext context, int index) {
-          return _PreviousOrderCard(order: items[index]);
+          return _PreviousOrderCard(
+            order: items[index],
+            onTap: onOrderTap != null
+                ? () => onOrderTap!(items[index])
+                : null,
+          );
         },
       ),
     );
@@ -2230,9 +2266,10 @@ class _PreviousOrdersList extends StatelessWidget {
 }
 
 class _PreviousOrderCard extends StatelessWidget {
-  const _PreviousOrderCard({required this.order});
+  const _PreviousOrderCard({required this.order, this.onTap});
 
   final DashboardRecentOrder order;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -2252,8 +2289,10 @@ class _PreviousOrderCard extends StatelessWidget {
         statusColor = c.warning;
     }
 
-    return Container(
-      width: 170,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 170,
       padding: const EdgeInsets.all(PayaboSpacing.md),
       decoration: BoxDecoration(
         color: c.cardWarmBackground,
@@ -2346,6 +2385,7 @@ class _PreviousOrderCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

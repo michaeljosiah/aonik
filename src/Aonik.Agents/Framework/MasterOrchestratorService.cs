@@ -34,6 +34,8 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IChatThreadService _chatThreadService;
+    private readonly IChatThreadTitleGenerator _titleGenerator;
     private readonly ILogger<MasterOrchestratorService> _logger;
     private readonly bool _enableSensitiveData;
 
@@ -109,6 +111,8 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         ICurrentUserProvider currentUserProvider,
+        IChatThreadService chatThreadService,
+        IChatThreadTitleGenerator titleGenerator,
         IConfiguration configuration,
         ILogger<MasterOrchestratorService> logger)
     {
@@ -118,6 +122,8 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _currentUserProvider = currentUserProvider;
+        _chatThreadService = chatThreadService;
+        _titleGenerator = titleGenerator;
         _logger = logger;
         _enableSensitiveData = configuration.GetValue<bool>(AiTelemetry.EnableSensitiveDataKey);
     }
@@ -149,6 +155,38 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
             "Orchestrator processing message for session {SessionId}",
             sessionId);
 
+        // ── Thread persistence ───────────────────────────────────────────
+        Guid? threadId = null;
+        var isNewThread = false;
+        string? threadTitle = null;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(request.ThreadId)
+                && Guid.TryParse(request.ThreadId, out var existingThreadId))
+            {
+                threadId = existingThreadId;
+
+                // Append the user message to the existing thread
+                await _chatThreadService.AppendMessageAsync(
+                    existingThreadId, "user", request.Message,
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                // Create a new thread with the first user message
+                threadId = await _chatThreadService.CreateThreadAsync(
+                    request.Message,
+                    agentName: "master-orchestrator",
+                    cancellationToken: cancellationToken);
+                isNewThread = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Thread persistence failed — continuing without thread tracking");
+        }
+
         // Ensure the orchestrator agent is built and cached
         var orchestrator = await GetOrBuildOrchestratorAsync(cancellationToken);
 
@@ -169,11 +207,46 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
             "Orchestrator completed for session {SessionId}. Response length: {Length}",
             sessionId, responseText.Length);
 
+        // ── Persist assistant response & generate title ──────────────────
+        if (threadId.HasValue)
+        {
+            try
+            {
+                await _chatThreadService.AppendMessageAsync(
+                    threadId.Value, "assistant", responseText,
+                    agentName: "master-orchestrator",
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to persist assistant message for thread {ThreadId}", threadId);
+            }
+
+            // Generate title for new threads (fire-and-forget style, but awaited defensively)
+            if (isNewThread)
+            {
+                try
+                {
+                    threadTitle = await _titleGenerator.GenerateTitleAsync(
+                        request.Message, cancellationToken);
+
+                    await _chatThreadService.UpdateTitleAsync(
+                        threadId.Value, threadTitle, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to generate title for thread {ThreadId}", threadId);
+                }
+            }
+        }
+
         return new AgentChatResponse
         {
             Message = responseText,
             SessionId = sessionId,
-            AgentName = "master-orchestrator"
+            AgentName = "master-orchestrator",
+            ThreadId = threadId?.ToString(),
+            ThreadTitle = threadTitle,
         };
     }
 

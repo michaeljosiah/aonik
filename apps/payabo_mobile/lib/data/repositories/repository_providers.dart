@@ -170,7 +170,8 @@ final Provider<ChatRepository> chatRepositoryProvider =
     }
 
     final agUiClient = ref.watch(agUiClientProvider);
-    return LiveChatRepository(agUiClient: agUiClient);
+    final apiClient = ref.watch(apiClientProvider);
+    return LiveChatRepository(agUiClient: agUiClient, apiClient: apiClient);
   },
 );
 

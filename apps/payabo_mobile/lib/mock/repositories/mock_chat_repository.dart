@@ -174,7 +174,7 @@ class MockChatRepository implements ChatRepository {
     List<ChatMessage> history = const [],
   }) async* {
     yield const ChatStreamStarted(threadId: 'mock-thread', runId: 'mock-run');
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await MockBehavior.shortDelay(200);
 
     final lowerPrompt = userMessage.toLowerCase();
 
@@ -321,7 +321,7 @@ class MockChatRepository implements ChatRepository {
     for (int i = 0; i < fullText.length; i++) {
       yield ChatStreamTextDelta(fullText[i], messageId: messageId);
       if (i % 3 == 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 15));
+        await MockBehavior.shortDelay();
       }
     }
 
@@ -343,7 +343,7 @@ class MockChatRepository implements ChatRepository {
     for (int i = 0; i < text.length; i++) {
       yield ChatStreamTextDelta(text[i], messageId: messageId);
       if (i % 3 == 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 15));
+        await MockBehavior.shortDelay();
       }
     }
 
@@ -355,10 +355,10 @@ class MockChatRepository implements ChatRepository {
       toolCallId: toolCallId,
       toolName: toolName,
     );
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await MockBehavior.shortDelay(100);
     yield ChatStreamToolCallArgs(toolCallId: toolCallId, delta: '{}');
     yield ChatStreamToolCallEnd(toolCallId: toolCallId);
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await MockBehavior.shortDelay(80);
 
     // Emit the display widget.
     yield ChatStreamDisplayWidget(
@@ -390,7 +390,7 @@ class MockChatRepository implements ChatRepository {
     for (int i = 0; i < text.length; i++) {
       yield ChatStreamTextDelta(text[i], messageId: messageId);
       if (i % 3 == 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 15));
+        await MockBehavior.shortDelay();
       }
     }
 
@@ -402,10 +402,10 @@ class MockChatRepository implements ChatRepository {
       toolCallId: toolCallId,
       toolName: 'confirmAction',
     );
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await MockBehavior.shortDelay(100);
     yield ChatStreamToolCallArgs(toolCallId: toolCallId, delta: '{}');
     yield ChatStreamToolCallEnd(toolCallId: toolCallId);
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    await MockBehavior.shortDelay(80);
 
     // Emit the approval request. The completer blocks the stream until
     // the user taps Approve or Reject.
@@ -445,12 +445,23 @@ class MockChatRepository implements ChatRepository {
     for (int i = 0; i < followUp.length; i++) {
       yield ChatStreamTextDelta(followUp[i], messageId: followUpId);
       if (i % 3 == 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 15));
+        await MockBehavior.shortDelay();
       }
     }
 
     yield const ChatStreamTextDone(messageId: followUpId);
     yield const ChatStreamFinished();
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  deleteConversation
+  // ─────────────────────────────────────────────────────────
+
+  @override
+  Future<void> deleteConversation(String id) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('chat.deleteConversation');
+    // No-op in mock mode — the mock data is static.
   }
 
   // ─────────────────────────────────────────────────────────

@@ -161,30 +161,29 @@ void main() {
 
     final Finder insightPager = find.byType(PageView);
 
-    expect(find.text("Today's Insight"), findsOneWidget);
+    // First carousel page is the Simi CTA banner card.
+    expect(find.text('Need help? Simi is here to guide you'), findsOneWidget);
 
     await tester.drag(insightPager, const Offset(-320, 0));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Available to spend'), findsOneWidget);
 
     await tester.drag(insightPager, const Offset(320, 0));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text("Today's Insight"), findsOneWidget);
+    expect(find.text('Need help? Simi is here to guide you'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 4));
-    await tester.pumpAndSettle();
-
-    expect(find.text("Today's Insight"), findsOneWidget);
-
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
+    // Auto-scroll fires every 5 seconds.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Available to spend'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Net worth'), findsOneWidget);
   });
