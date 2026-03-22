@@ -200,7 +200,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'api'
           image: apiImage
-          env: [
+          env: concat([
             {
               name: 'ASPNETCORE_ENVIRONMENT'
               value: environmentName
@@ -221,7 +221,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Verification__HashKey'
               secretRef: 'verification-hash-key'
             }
-          ] ++ apiAdditionalEnvVars
+          ], apiAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -276,7 +276,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'worker'
           image: workerImage
-          env: [
+          env: concat([
             {
               name: 'DOTNET_ENVIRONMENT'
               value: environmentName
@@ -289,7 +289,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               secretRef: 'app-insights-connection-string'
             }
-          ] ++ workerAdditionalEnvVars
+          ], workerAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
