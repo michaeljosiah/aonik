@@ -153,18 +153,21 @@ app.MapDefaultEndpoints();
 // Use HTTPS redirection
 app.UseHttpsRedirection();
 
-// Custom preflight middleware — must run BEFORE routing so that FastEndpoints
-// never sees the OPTIONS request.  The built-in CORS middleware relies on
-// endpoint metadata which FastEndpoints registers too late; this short-circuits
-// the preflight dance at the very beginning of the pipeline.
+// Custom CORS middleware — handles both preflight (OPTIONS) and actual requests.
+// The built-in UseCors("AonikCors") middleware relies on endpoint metadata that
+// FastEndpoints registers too late, so it never adds CORS headers.  This
+// middleware replaces it entirely: preflight gets a 204 short-circuit, and actual
+// requests get the required Access-Control-Allow-* response headers via
+// OnStarting so they are present regardless of downstream behaviour.
 var corsOriginsSet = new HashSet<string>(allCorsOrigins, StringComparer.OrdinalIgnoreCase);
 app.Use(async (context, next) =>
 {
-    if (HttpMethods.IsOptions(context.Request.Method))
+    var origin = context.Request.Headers.Origin.FirstOrDefault();
+    if (!string.IsNullOrEmpty(origin) && corsOriginsSet.Contains(origin))
     {
-        var origin = context.Request.Headers.Origin.FirstOrDefault();
-        if (!string.IsNullOrEmpty(origin) && corsOriginsSet.Contains(origin))
+        if (HttpMethods.IsOptions(context.Request.Method))
         {
+            // Preflight — respond immediately without hitting routing/FastEndpoints
             context.Response.Headers.Append("Access-Control-Allow-Origin", origin);
             context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
             context.Response.Headers.Append("Access-Control-Allow-Headers",
@@ -174,15 +177,30 @@ app.Use(async (context, next) =>
             context.Response.StatusCode = StatusCodes.Status204NoContent;
             return; // short-circuit — do NOT call next()
         }
+
+        // Actual request — attach CORS headers to the response just before it is sent.
+        // Using OnStarting ensures the headers are present even if an exception filter
+        // or other middleware replaces the response.
+        context.Response.OnStarting(() =>
+        {
+            var resp = context.Response;
+            if (!resp.Headers.ContainsKey("Access-Control-Allow-Origin"))
+            {
+                resp.Headers.Append("Access-Control-Allow-Origin", origin);
+                resp.Headers.Append("Access-Control-Allow-Credentials", "true");
+                resp.Headers.Append("Vary", "Origin");
+            }
+            return Task.CompletedTask;
+        });
     }
 
     await next();
 });
 
-// Standard routing + CORS middleware (handles non-preflight CORS headers on
-// actual requests, e.g. Access-Control-Allow-Origin on GET/POST responses).
+// Routing is still required for authentication / authorization / FastEndpoints.
+// The built-in CORS middleware is intentionally omitted — our custom middleware
+// above handles all CORS headers.
 app.UseRouting();
-app.UseCors("AonikCors");
 
 // Serve static files for local blob storage (profile photos, etc.)
 // Only use local file storage in Development; deployed environments should use Azure Blob Storage
