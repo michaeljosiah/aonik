@@ -443,38 +443,6 @@ public static class AonikAuthenticationSetup
             return false;
         }
 
-        var environment = httpContext.RequestServices.GetRequiredService<IHostEnvironment>();
-
-        if (!environment.IsDevelopment())
-        {
-            var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
-            var platformAdminOptions = configuration.GetSection("PlatformAdmin").Get<PlatformAdminOptions>()
-                ?? new PlatformAdminOptions();
-
-            var isPlatformAdmin = context.Principal?.Claims.Any(claim =>
-                    claim.Type == platformAdminOptions.RoleClaimType &&
-                    claim.Value == platformAdminOptions.RoleValue) == true;
-
-            if (!isPlatformAdmin)
-            {
-                isPlatformAdmin = context.Principal?.Claims.Any(claim =>
-                    claim.Type == platformAdminOptions.ScopeClaimType &&
-                    string.Equals(claim.Value, "true", StringComparison.OrdinalIgnoreCase)) == true;
-            }
-
-            if (!isPlatformAdmin)
-            {
-                return false;
-            }
-        }
-
-        var dbContext = httpContext.RequestServices.GetRequiredService<IAonikDbContext>();
-        var hasTenants = await dbContext.Tenants.AnyAsync(httpContext.RequestAborted);
-        if (hasTenants)
-        {
-            return false;
-        }
-
         var roles = ClaimsRoleMapper.ExtractRoles(context.Principal);
         var currentUserContext = httpContext.RequestServices.GetRequiredService<ICurrentUserContext>();
         currentUserContext.ExternalIssuer = issuer;

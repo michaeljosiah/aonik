@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace Aonik.Infrastructure.Identity;
 
@@ -7,6 +8,7 @@ public static class ClaimsRoleMapper
     private static readonly string[] RoleClaimTypes =
     [
         ClaimTypes.Role,
+        "https://aonik.com/roles",
         "roles",
         "role"
     ];
@@ -44,6 +46,33 @@ public static class ClaimsRoleMapper
         if (string.IsNullOrWhiteSpace(value))
         {
             yield break;
+        }
+
+        if (value.TrimStart().StartsWith("[", StringComparison.Ordinal))
+        {
+            string[]? parsedRoles = null;
+
+            try
+            {
+                parsedRoles = JsonSerializer.Deserialize<string[]>(value);
+            }
+            catch (JsonException)
+            {
+                // Fall back to plain-string parsing when the value is not valid JSON.
+            }
+
+            if (parsedRoles != null)
+            {
+                foreach (var role in parsedRoles)
+                {
+                    if (!string.IsNullOrWhiteSpace(role))
+                    {
+                        yield return role;
+                    }
+                }
+
+                yield break;
+            }
         }
 
         if (value.Contains(','))
