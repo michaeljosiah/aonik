@@ -29,6 +29,7 @@ public static class AuditEventNames
     public const string TenantDemoSeeded = "TenantDemoSeeded";
     public const string PermissionsSeeded = "PermissionsSeeded";
     public const string UserProvisioned = "UserProvisioned";
+    public const string UserIdentityLinked = "UserIdentityLinked";
     public const string UserRoleAssigned = "UserRoleAssigned";
     public const string UserRoleRemoved = "UserRoleRemoved";
     public const string PasswordResetRequested = "PasswordResetRequested";

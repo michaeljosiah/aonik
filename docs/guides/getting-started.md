@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks through a fast local setup with clear steps for Auth0 or Azure AD, including how the initial admin user is created.
+This guide walks through a fast local setup with clear steps for Auth0 or Azure AD, including how the first tenant and owner are created.
 
 ## What You Need
 
@@ -16,12 +16,13 @@ This guide walks through a fast local setup with clear steps for Auth0 or Azure 
 1. Choose Auth0 or Azure AD configuration.
 2. Configure `PlatformAdmin` and `Bootstrap` defaults.
 3. Initialize the database (migrations + base seed data).
-4. Run the API (or AppHost).
-5. Sign in and call the bootstrap endpoint once to create the initial tenant/admin.
+4. Configure a one-time bootstrap install code.
+5. Run the API (or AppHost).
+6. Call the bootstrap endpoint once to create the initial tenant/owner.
 
 ## Required Configuration
 
-AONIK relies on external authentication. Configure the identity provider and specify who can perform the initial bootstrap.
+AONIK relies on external authentication for normal runtime access. First-run bootstrap now uses a one-time install code so the platform can be initialized before the first external identity is linked.
 
 Update `src/Aonik.Api/appsettings.Development.json` (or user secrets) with one of the configurations below.
 
@@ -47,6 +48,7 @@ Update `src/Aonik.Api/appsettings.Development.json` (or user secrets) with one o
   },
   "Bootstrap": {
     "Enabled": true,
+    "SetupSecret": "set-a-strong-install-code",
     "TenantName": "Aonik Dev Tenant",
     "Environment": "Development",
     "DefaultCurrency": "USD",
@@ -77,6 +79,7 @@ Update `src/Aonik.Api/appsettings.Development.json` (or user secrets) with one o
   },
   "Bootstrap": {
     "Enabled": true,
+    "SetupSecret": "set-a-strong-install-code",
     "TenantName": "Aonik Dev Tenant",
     "Environment": "Development",
     "DefaultCurrency": "USD",
@@ -86,9 +89,9 @@ Update `src/Aonik.Api/appsettings.Development.json` (or user secrets) with one o
 ```
 
 Notes:
-- `PlatformAdmin.AdminEmails` is the simplest way to declare the initial admin user in local development.
-- The platform allows bootstrap when no tenants exist.
-- In production, platform admin is typically granted via claims rather than email.
+- `Bootstrap.SetupSecret` should come from user secrets, environment variables, or deployment configuration rather than committed JSON.
+- The platform allows bootstrap only when no tenants exist.
+- After bootstrap, the first owner signs in normally and AONIK links that identity to the pending owner profile using the configured email.
 
 ## Initialize Database (Fresh Install)
 
@@ -118,36 +121,35 @@ dotnet run --project src/Aonik.Api
 
 Development uses `src/Aonik.Api/appsettings.Development.json` for the connection string and will fall back to LocalDB if not set.
 
-## Create the Initial Tenant and Admin User
+## Create the Initial Tenant and Owner
 
-The first authenticated user to call the bootstrap endpoint becomes the initial platform admin.
+First-run bootstrap no longer requires an external login. Instead, the system owner uses the one-time install code and the email that should own the deployment.
 
 Requirements:
 - No tenants exist yet
-- The user is authenticated
-- In non-Development environments, the user must satisfy `PlatformAdmin` policy
+- `Bootstrap.Enabled=true`
+- `Bootstrap.SetupSecret` is configured
 
 Steps:
-1. Sign in via your identity provider and obtain a JWT.
-2. Call the bootstrap endpoint:
+1. Call the bootstrap endpoint with the install code and owner email:
 
 ```bash
 curl -X POST "https://localhost:5001/bootstrap" \
-  -H "Authorization: Bearer <jwt>"
-```
-
-The response includes the new `tenantId`. Use it for API calls with header-based routing:
-
-```bash
-curl -X GET "https://localhost:5001/billing/invoices" \
-  -H "Authorization: Bearer <jwt>" \
-  -H "X-Tenant-Id: <tenant-guid>"
+  -H "Content-Type: application/json" \
+  -d '{
+    "setupSecret": "<install-code>",
+    "ownerEmail": "owner@example.com",
+    "ownerDisplayName": "System Owner"
+  }'
 ```
 
 What happens during bootstrap:
 - A tenant is created
-- A user record is created from the external identity
-- The user is assigned the `PlatformAdmin` role
+- The tenant is provisioned and activated
+- A pending owner user/profile is created
+- The owner receives `PlatformAdmin` and `TenantAdmin`
+
+After bootstrap, sign in normally through your identity provider using the same email address. AONIK links that external identity to the pending owner profile and then you can continue tenant setup.
 
 Bootstrap is one-time for fresh install. If a tenant already exists, `/bootstrap` returns `409 Conflict`.
 

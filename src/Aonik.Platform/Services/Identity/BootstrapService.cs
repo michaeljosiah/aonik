@@ -19,6 +19,8 @@ namespace Aonik.Platform.Services.Identity;
 
 internal class BootstrapService : IBootstrapService
 {
+    private static readonly SemaphoreSlim BootstrapGate = new(1, 1);
+
     private readonly PlatformDbContext _dbContext;
     private readonly IBootstrapTenantProvisioner _tenantProvisioner;
     private readonly ITenantContext _tenantContext;
@@ -52,39 +54,51 @@ internal class BootstrapService : IBootstrapService
     }
 
     public async Task<BootstrapTenantResult> BootstrapAsync(
-        BootstrapUserContext userContext,
+        BootstrapOwnerContext ownerContext,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(userContext.ExternalIssuer))
-            throw new InvalidOperationException("External issuer is required for bootstrap.");
+        if (string.IsNullOrWhiteSpace(ownerContext.Email))
+            throw new InvalidOperationException("Owner email is required for bootstrap.");
 
-        if (string.IsNullOrWhiteSpace(userContext.ExternalSubject))
-            throw new InvalidOperationException("External subject is required for bootstrap.");
+        var normalizedOwnerEmail = ownerContext.Email.Trim();
 
-        var now = _clock.UtcNow;
-        var tenantResult = await CreateTenantAsync(now, cancellationToken);
-        var tenant = tenantResult.Tenant;
+        await BootstrapGate.WaitAsync(cancellationToken);
 
-        _tenantContext.TenantId = tenant.Id;
-        _tenantContext.ResolutionSource = "Bootstrap";
+        try
+        {
+            var now = _clock.UtcNow;
+            var tenantResult = await CreateTenantAsync(now, cancellationToken);
+            var tenant = tenantResult.Tenant;
 
-        await _tenantProvisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
+            _tenantContext.TenantId = tenant.Id;
+            _tenantContext.ResolutionSource = "Bootstrap";
 
-        tenant.Status = TenantStatus.Active;
-        tenant.UpdatedAt = _clock.UtcNow;
-        tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            await _tenantProvisioner.ProvisionTenantAsync(tenant.Id, cancellationToken);
 
-        var userResult = await ResolveOrCreateUserAsync(tenant, userContext, cancellationToken);
-        var platformAdminAssigned = await EnsurePlatformAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
+            tenant.Status = TenantStatus.Active;
+            tenant.UpdatedAt = _clock.UtcNow;
+            tenant.UpdatedBy = _currentUserProvider.GetCurrentUserId();
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new BootstrapTenantResult(
-            tenant.Id,
-            tenant.Name,
-            tenantResult.TenantCreated,
-            userResult.UserId,
-            userResult.UserCreated,
-            platformAdminAssigned);
+            var userResult = await ResolveOrCreateUserAsync(tenant, ownerContext, cancellationToken);
+            var platformAdminAssigned = await EnsurePlatformAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
+            var tenantAdminAssigned = await EnsureTenantAdminRoleAsync(tenant, userResult.UserId, cancellationToken);
+
+            return new BootstrapTenantResult(
+                tenant.Id,
+                tenant.Name,
+                tenantResult.TenantCreated,
+                userResult.UserId,
+                userResult.UserCreated,
+                platformAdminAssigned,
+                tenantAdminAssigned,
+                normalizedOwnerEmail,
+                true);
+        }
+        finally
+        {
+            BootstrapGate.Release();
+        }
     }
 
     private async Task<(Tenant Tenant, bool TenantCreated)> CreateTenantAsync(
@@ -140,23 +154,20 @@ internal class BootstrapService : IBootstrapService
 
     private async Task<(Guid UserId, bool UserCreated)> ResolveOrCreateUserAsync(
         Tenant tenant,
-        BootstrapUserContext userContext,
+        BootstrapOwnerContext ownerContext,
         CancellationToken cancellationToken)
     {
-        var existingUserId = _currentUserProvider.GetCurrentUserId();
-        User? user = null;
-        if (existingUserId.HasValue)
-        {
-            user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Id == existingUserId.Value, cancellationToken);
-        }
+        var normalizedOwnerEmail = ownerContext.Email.Trim();
 
-        user ??= await _dbContext.Users
-            .FirstOrDefaultAsync(u =>
+        var pendingBootstrapUsers = await _dbContext.Users
+            .Where(u =>
                 u.TenantId == tenant.Id &&
-                u.ExternalIssuer == userContext.ExternalIssuer &&
-                u.ExternalSubject == userContext.ExternalSubject,
-                cancellationToken);
+                u.ExternalIssuer == BootstrapIdentityConstants.PendingOwnerIssuer &&
+                u.Email != null)
+            .ToListAsync(cancellationToken);
+
+        var user = pendingBootstrapUsers.FirstOrDefault(existingUser =>
+            string.Equals(existingUser.Email, normalizedOwnerEmail, StringComparison.OrdinalIgnoreCase));
 
 
         if (user != null)
@@ -168,10 +179,9 @@ internal class BootstrapService : IBootstrapService
         {
             Id = Guid.NewGuid(),
             TenantId = tenant.Id,
-            ExternalIssuer = userContext.ExternalIssuer,
-            ExternalSubject = userContext.ExternalSubject,
-            ExternalTenantId = userContext.ExternalTenantId,
-            Email = userContext.Email,
+            ExternalIssuer = BootstrapIdentityConstants.PendingOwnerIssuer,
+            ExternalSubject = BootstrapIdentityConstants.CreatePendingOwnerSubject(normalizedOwnerEmail),
+            Email = normalizedOwnerEmail,
             Status = "Active"
         };
 
@@ -184,9 +194,9 @@ internal class BootstrapService : IBootstrapService
 
         var now = _clock.UtcNow;
         var currentUserId = _currentUserProvider.GetCurrentUserId() ?? newUser.Id;
-        var displayName = !string.IsNullOrWhiteSpace(newUser.Email)
-            ? newUser.Email
-            : newUser.ExternalSubject;
+        var displayName = string.IsNullOrWhiteSpace(ownerContext.DisplayName)
+            ? normalizedOwnerEmail
+            : ownerContext.DisplayName.Trim();
 
         var party = new PartyEntity
         {
@@ -252,7 +262,8 @@ internal class BootstrapService : IBootstrapService
                 PartyId = party.Id,
                 UserPartyId = userParty.Id,
                 PersonProfileId = personProfile.Id,
-                EmailContactId = emailContactId
+                EmailContactId = emailContactId,
+                RequiresIdentityLink = true
             }),
             cancellationToken);
 
@@ -280,8 +291,33 @@ internal class BootstrapService : IBootstrapService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
+        return await EnsureRoleAssignedAsync(tenant, userId, platformAdminRole, cancellationToken);
+    }
+
+    private async Task<bool> EnsureTenantAdminRoleAsync(
+        Tenant tenant,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var tenantAdminRole = await _dbContext.Roles
+            .FirstOrDefaultAsync(r => r.TenantId == tenant.Id && r.Name == "TenantAdmin", cancellationToken);
+
+        if (tenantAdminRole == null)
+        {
+            return false;
+        }
+
+        return await EnsureRoleAssignedAsync(tenant, userId, tenantAdminRole, cancellationToken);
+    }
+
+    private async Task<bool> EnsureRoleAssignedAsync(
+        Tenant tenant,
+        Guid userId,
+        Role role,
+        CancellationToken cancellationToken)
+    {
         var existingUserRole = await _dbContext.UserRoles
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == platformAdminRole.Id, cancellationToken);
+            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == role.Id, cancellationToken);
 
         if (existingUserRole != null)
         {
@@ -292,7 +328,7 @@ internal class BootstrapService : IBootstrapService
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            RoleId = platformAdminRole.Id
+            RoleId = role.Id
         };
 
         _dbContext.UserRoles.Add(userRole);
@@ -305,7 +341,7 @@ internal class BootstrapService : IBootstrapService
             tenant.Id,
             _currentUserProvider.GetCurrentUserId() ?? userId,
             _correlationContext.CorrelationId,
-            JsonSerializer.Serialize(new { userId, RoleId = platformAdminRole.Id, platformAdminRole.Name }),
+            JsonSerializer.Serialize(new { userId, RoleId = role.Id, role.Name }),
             cancellationToken);
 
         return true;

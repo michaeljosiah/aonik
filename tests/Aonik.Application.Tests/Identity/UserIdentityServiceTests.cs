@@ -217,6 +217,75 @@ public class UserIdentityServiceTests
     }
 
     [Fact]
+    public async Task ResolveOrCreateUserAsync_ShouldLinkPendingBootstrapOwnerByEmail()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TestDb_{Guid.NewGuid()}")
+            .Options;
+
+        var tenantProvider = new TestTenantProvider(tenantId);
+        using var context = new PlatformDbContext(options, tenantProvider);
+        context.Tenants.Add(new Tenant
+        {
+            Id = tenantId,
+            Name = "Bootstrap Tenant",
+            Environment = "Testing",
+            DefaultCurrency = "USD",
+            SupportedCountriesJson = "[]",
+            Status = TenantStatus.Active
+        });
+
+        var pendingUser = new User
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ExternalIssuer = BootstrapIdentityConstants.PendingOwnerIssuer,
+            ExternalSubject = BootstrapIdentityConstants.CreatePendingOwnerSubject("owner@example.com"),
+            Email = "owner@example.com",
+            Status = "Active"
+        };
+
+        var personalUserRole = new Role
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Name = "PersonalUser"
+        };
+
+        context.Users.Add(pendingUser);
+        context.Roles.Add(personalUserRole);
+        await context.SaveChangesAsync();
+
+        var auditLogWriter = new TestAuditLogWriter();
+        var service = new UserIdentityService(
+            context,
+            NullLogger<UserIdentityService>.Instance,
+            auditLogWriter,
+            new TestCorrelationContext("corr-link"));
+
+        // Act
+        var user = await service.ResolveOrCreateUserAsync(
+            externalIssuer: "https://issuer.example.com/",
+            externalSubject: "subject-123",
+            externalTenantId: "entra-tenant",
+            email: "owner@example.com",
+            aonikTenantId: tenantId,
+            ct: CancellationToken.None);
+
+        // Assert
+        user.Id.Should().Be(pendingUser.Id);
+        user.ExternalIssuer.Should().Be("https://issuer.example.com/");
+        user.ExternalSubject.Should().Be("subject-123");
+        user.ExternalTenantId.Should().Be("entra-tenant");
+        context.Users.Should().HaveCount(1);
+        context.UserRoles.Should().ContainSingle(ur => ur.UserId == pendingUser.Id && ur.RoleId == personalUserRole.Id);
+        auditLogWriter.LastEntry.Should().NotBeNull();
+        auditLogWriter.LastEntry!.Action.Should().Be(AuditEventNames.UserIdentityLinked);
+    }
+
+    [Fact]
     public async Task GetRoleNamesAsync_ShouldReturnDistinctSortedRoleNames()
     {
         // Arrange

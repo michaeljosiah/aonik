@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Bootstrap (First-Run Install Code Flow)**: Reworked initial platform bootstrap to use a one-time `Bootstrap:SetupSecret` plus owner email instead of requiring an IdP login before the first tenant exists. `/bootstrap/status` now reports explicit readiness states, the Admin UI no longer treats status failures as implicit fresh-install setup, bootstrap creates a pending owner profile for later identity linking, and first sign-in links that external identity back to the bootstrap owner record.
 - **Agent Framework (MAF Best Practices Refactor)**: Comprehensive refactoring of the AONIK Agent Framework to align with Microsoft Agent Framework (MAF) idioms and best practices:
   - **R1 — IDomainAgentDescriptor**: Replaced `AonikDomainAgent` base class with `IDomainAgentDescriptor` interface using `IEnumerable<IDomainAgentDescriptor>` multi-registration pattern in DI
   - **R2 — Native Session Management**: Rewrote `MasterOrchestratorService` to use MAF `AgentSession` via `agent.CreateSessionAsync(sessionId)` for native conversation history tracking, eliminating the `ConcurrentDictionary<string, List<ChatMessage>>` memory leak. Orchestrator agent is cached with double-checked locking via `SemaphoreSlim`

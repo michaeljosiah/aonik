@@ -22,6 +22,7 @@ using Aonik.Platform.Settings;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Identity;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Infrastructure.Authentication;
 
@@ -236,6 +237,10 @@ public static class AonikAuthenticationSetup
             context.Fail("Tenant could not be resolved");
             return;
         }
+
+        var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
+        tenantContext.TenantId = tenantId.Value;
+        tenantContext.ResolutionSource = "Authentication";
 
         var userIdentityService = context.HttpContext.RequestServices
             .GetRequiredService<IUserIdentityService>();

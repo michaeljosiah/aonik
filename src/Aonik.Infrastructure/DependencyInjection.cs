@@ -201,9 +201,10 @@ public static class DependencyInjection
         {
             // Role-based policies (API boundary)
             options.AddPolicy("PlatformAdmin", policy =>
-                policy.Requirements.Add(new RoleOrPermissionRequirement(
-                    ["PlatformAdmin"],
-                    Array.Empty<string>())));
+            {
+                policy.RequireAuthenticatedUser();
+                policy.Requirements.Add(new PlatformAdminRequirement());
+            });
 
             options.AddPolicy("AdminPolicy", policy =>
                 policy.Requirements.Add(new RoleOrPermissionRequirement(

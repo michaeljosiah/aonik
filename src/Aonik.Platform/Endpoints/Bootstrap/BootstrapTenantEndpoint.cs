@@ -1,48 +1,58 @@
-using System.Security.Claims;
+using System.Net.Mail;
+using System.Security.Cryptography;
+using System.Text;
+
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Hosting;
 using FastEndpoints;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+
+using Aonik.Platform.Contracts.Api.Bootstrap;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Persistence;
-using Aonik.SharedKernel.Abstractions;
-
+using Aonik.Platform.Services.Identity;
 
 namespace Aonik.Platform.Endpoints.Bootstrap;
 
-internal class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantResult>
+internal class BootstrapTenantEndpoint : Endpoint<BootstrapInitializeRequest, BootstrapTenantResult>
 {
     private readonly IBootstrapService _bootstrapService;
-    private readonly IWebHostEnvironment _environment;
-    private readonly IAuthorizationService _authorizationService;
-    private readonly ICurrentUserContext _currentUserContext;
     private readonly PlatformDbContext _dbContext;
+    private readonly BootstrapOptions _options;
 
     public BootstrapTenantEndpoint(
         IBootstrapService bootstrapService,
-        IWebHostEnvironment environment,
-        IAuthorizationService authorizationService,
-        ICurrentUserContext currentUserContext,
-        PlatformDbContext dbContext)
+        PlatformDbContext dbContext,
+        IOptions<BootstrapOptions> options)
     {
         _bootstrapService = bootstrapService;
-        _environment = environment;
-        _authorizationService = authorizationService;
-        _currentUserContext = currentUserContext;
         _dbContext = dbContext;
+        _options = options.Value;
     }
 
 
     public override void Configure()
     {
         Post("/bootstrap");
+        AllowAnonymous();
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(BootstrapInitializeRequest req, CancellationToken ct)
     {
+        if (!_options.Enabled)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Bootstrap is disabled." }, ct);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.SetupSecret))
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Bootstrap is enabled but Bootstrap:SetupSecret is not configured." }, ct);
+            return;
+        }
 
         if (await _dbContext.Tenants.AnyAsync(ct))
         {
@@ -54,45 +64,40 @@ internal class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantR
             return;
         }
 
-        if (!_environment.IsDevelopment())
+        if (string.IsNullOrWhiteSpace(req.SetupSecret))
         {
-            var authorizationResult = await _authorizationService.AuthorizeAsync(User, null, "PlatformAdmin");
-            if (!authorizationResult.Succeeded)
-            {
-                HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await HttpContext.Response.WriteAsJsonAsync(new { error = "Platform admin access required." }, ct);
-                return;
-            }
-        }
-
-
-        if (!_currentUserContext.IsAuthenticated)
-        {
-            HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await HttpContext.Response.WriteAsJsonAsync(new { error = "Authentication required." }, ct);
+            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Install code is required." }, ct);
             return;
         }
 
-        var externalIssuer = _currentUserContext.ExternalIssuer;
-        var externalSubject = _currentUserContext.ExternalSubject;
-        if (string.IsNullOrWhiteSpace(externalIssuer) || string.IsNullOrWhiteSpace(externalSubject))
+        if (string.IsNullOrWhiteSpace(req.OwnerEmail))
         {
-            HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await HttpContext.Response.WriteAsJsonAsync(new { error = "External identity claims missing." }, ct);
+            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Owner email is required." }, ct);
             return;
         }
 
-        var email = ClaimsEmailResolver.GetEmail(User);
-        var externalTenantId = User.Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+        if (!LooksLikeEmail(req.OwnerEmail))
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Owner email must be a valid email address." }, ct);
+            return;
+        }
+
+        if (!SecretsMatch(req.SetupSecret, _options.SetupSecret))
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "The provided install code is invalid." }, ct);
+            return;
+        }
 
         try
         {
             var result = await _bootstrapService.BootstrapAsync(
-                new BootstrapUserContext(
-                    externalIssuer,
-                    externalSubject,
-                    externalTenantId,
-                    email),
+                new BootstrapOwnerContext(
+                    req.OwnerEmail.Trim(),
+                    req.OwnerDisplayName?.Trim()),
                 ct);
 
             await Send.OkAsync(result, ct);
@@ -106,5 +111,26 @@ internal class BootstrapTenantEndpoint : EndpointWithoutRequest<BootstrapTenantR
                 error = "Bootstrap has already completed. Use the tenant administration endpoints for additional tenant setup."
             }, ct);
         }
+    }
+
+    private static bool LooksLikeEmail(string email)
+    {
+        try
+        {
+            _ = new MailAddress(email.Trim());
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool SecretsMatch(string providedSecret, string configuredSecret)
+    {
+        var providedBytes = Encoding.UTF8.GetBytes(providedSecret.Trim());
+        var configuredBytes = Encoding.UTF8.GetBytes(configuredSecret.Trim());
+
+        return CryptographicOperations.FixedTimeEquals(providedBytes, configuredBytes);
     }
 }

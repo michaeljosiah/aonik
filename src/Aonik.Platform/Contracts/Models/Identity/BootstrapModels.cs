@@ -1,10 +1,8 @@
 namespace Aonik.Platform.Contracts.Models.Identity;
 
-public record BootstrapUserContext(
-    string ExternalIssuer,
-    string ExternalSubject,
-    string? ExternalTenantId,
-    string? Email);
+public record BootstrapOwnerContext(
+    string Email,
+    string? DisplayName = null);
 
 public record BootstrapTenantResult(
     Guid TenantId,
@@ -12,4 +10,7 @@ public record BootstrapTenantResult(
     bool TenantCreated,
     Guid UserId,
     bool UserCreated,
-    bool PlatformAdminAssigned);
+    bool PlatformAdminAssigned,
+    bool TenantAdminAssigned,
+    string OwnerEmail,
+    bool RequiresIdentityLink);

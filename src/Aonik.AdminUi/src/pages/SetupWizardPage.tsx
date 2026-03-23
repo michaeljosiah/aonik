@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Circle, ExternalLink, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useAuth, getAuthProvider } from '@/auth';
 import { bootstrapService } from '@/services/bootstrapService';
 import { clearSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
@@ -9,46 +10,43 @@ import type { BootstrapTenantResult } from '@/types';
 
 interface SetupState {
   loading: boolean;
-  platformAdminConfigured: boolean;
+  bootstrapState: 'ready' | 'completed' | 'disabled' | 'misconfigured' | null;
+  bootstrapEnabled: boolean;
+  setupSecretConfigured: boolean;
   tenantCount: number | null;
-  isCurrentUserAllowed: boolean;
   canBootstrap: boolean;
-  apiIsAuthenticated: boolean;
-  apiAuthorizationHeaderPresent: boolean;
-  apiBearerTokenLooksJwt: boolean;
-  apiAuthFailureReason: string | null;
-  resolvedUserEmail: string | null;
+  message: string | null;
   error: string | null;
 }
 
 const initialState: SetupState = {
   loading: true,
-  platformAdminConfigured: false,
+  bootstrapState: null,
+  bootstrapEnabled: false,
+  setupSecretConfigured: false,
   tenantCount: null,
-  isCurrentUserAllowed: false,
   canBootstrap: false,
-  apiIsAuthenticated: false,
-  apiAuthorizationHeaderPresent: false,
-  apiBearerTokenLooksJwt: false,
-  apiAuthFailureReason: null,
-  resolvedUserEmail: null,
+  message: null,
   error: null,
 };
 
 export function SetupWizardPage() {
-  const { isAuthenticated, isLoading: authLoading, login, logout, user, accessToken, getAccessToken } = useAuth();
+  const { isAuthenticated } = useAuth();
   const provider = getAuthProvider();
   const [state, setState] = useState<SetupState>(initialState);
   const [bootstrapResult, setBootstrapResult] = useState<BootstrapTenantResult | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const [setupSecret, setSetupSecret] = useState('');
+  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerDisplayName, setOwnerDisplayName] = useState('');
 
-  const platformAdminStatus = state.platformAdminConfigured ? 'Configured' : 'Missing';
-  const frontendEmail = user?.email?.trim() ?? null;
-  const resolvedUserEmail = state.resolvedUserEmail?.trim() ?? null;
-  const doEmailsMatch =
-    frontendEmail !== null
-    && resolvedUserEmail !== null
-    && frontendEmail.localeCompare(resolvedUserEmail, undefined, { sensitivity: 'accent' }) === 0;
+  const bootstrapStateLabel = useMemo(() => {
+    if (state.bootstrapState === 'ready') return 'Ready';
+    if (state.bootstrapState === 'completed') return 'Completed';
+    if (state.bootstrapState === 'disabled') return 'Disabled';
+    if (state.bootstrapState === 'misconfigured') return 'Misconfigured';
+    return 'Unknown';
+  }, [state.bootstrapState]);
 
   const providerName = useMemo(() => {
     if (provider === 'azure-ad') return 'Microsoft Entra ID';
@@ -56,90 +54,94 @@ export function SetupWizardPage() {
     return 'Mock';
   }, [provider]);
 
+  const ownerEmailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownerEmail.trim());
+
   const loadSetupState = async (forceRefresh = false) => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const token = accessToken ?? (isAuthenticated ? await getAccessToken() : null);
-      const status = await bootstrapService.status(forceRefresh, token);
+      const status = await bootstrapService.status(forceRefresh);
       if (status.tenantCount === 0) {
         clearSelectedTenant();
       }
-        setState({
-          loading: false,
-          platformAdminConfigured: status.platformAdminEmailsConfigured,
-          tenantCount: status.tenantCount,
-          isCurrentUserAllowed: status.isCurrentUserAllowed,
-          canBootstrap: status.canBootstrap ?? (status.tenantCount === 0 && status.isCurrentUserAllowed),
-          apiIsAuthenticated: status.isAuthenticated ?? false,
-          apiAuthorizationHeaderPresent: status.authorizationHeaderPresent ?? false,
-          apiBearerTokenLooksJwt: status.bearerTokenLooksJwt ?? false,
-          apiAuthFailureReason: status.authFailureReason ?? null,
-          resolvedUserEmail: status.resolvedUserEmail ?? null,
-          error: null,
-        });
-
+      setState({
+        loading: false,
+        bootstrapState: status.state,
+        bootstrapEnabled: status.bootstrapEnabled,
+        setupSecretConfigured: status.setupSecretConfigured,
+        tenantCount: status.tenantCount,
+        canBootstrap: status.canBootstrap,
+        message: status.message ?? null,
+        error: null,
+      });
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'userMessage' in err
         ? String((err as { userMessage?: string }).userMessage ?? '')
         : '';
-        setState({
-          loading: false,
-          platformAdminConfigured: false,
-          tenantCount: null,
-          isCurrentUserAllowed: false,
-          canBootstrap: false,
-          apiIsAuthenticated: false,
-          apiAuthorizationHeaderPresent: false,
-          apiBearerTokenLooksJwt: false,
-          apiAuthFailureReason: null,
-          resolvedUserEmail: null,
-          error: message || 'Unable to read setup configuration. Check API connectivity and admin access.',
-        });
-
+      setState({
+        loading: false,
+        bootstrapState: null,
+        bootstrapEnabled: false,
+        setupSecretConfigured: false,
+        tenantCount: null,
+        canBootstrap: false,
+        message: null,
+        error: message || 'Unable to read setup configuration. Check API connectivity and bootstrap settings.',
+      });
     }
   };
 
   useEffect(() => {
-    if (!authLoading) {
-      void loadSetupState();
-    }
-  }, [authLoading, isAuthenticated, accessToken, getAccessToken]);
-
-  const handleLogin = async () => {
-    await login();
-  };
+    void loadSetupState();
+  }, []);
 
   const handleBootstrap = async () => {
+    if (!setupSecret.trim()) {
+      setState((prev) => ({ ...prev, error: 'Enter the install code before continuing.' }));
+      return;
+    }
+
+    if (!ownerEmailLooksValid) {
+      setState((prev) => ({ ...prev, error: 'Enter a valid owner email address before continuing.' }));
+      return;
+    }
+
     setIsBootstrapping(true);
+    setState((prev) => ({ ...prev, error: null }));
     try {
-      const token = accessToken ?? (isAuthenticated ? await getAccessToken() : null);
-      const result = await bootstrapService.bootstrap(token);
+      const result = await bootstrapService.bootstrap({
+        setupSecret: setupSecret.trim(),
+        ownerEmail: ownerEmail.trim(),
+        ownerDisplayName: ownerDisplayName.trim() || null,
+      });
       setBootstrapResult(result);
       setSelectedTenant({
         tenantId: result.tenantId,
         name: result.tenantName,
       });
 
-      window.location.replace('/setup/tenant');
+      const nextPath = isAuthenticated
+        ? '/setup/tenant'
+        : `/login?returnTo=${encodeURIComponent('/setup/tenant')}`;
+      window.location.replace(nextPath);
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'userMessage' in err
         ? String((err as { userMessage?: string }).userMessage ?? '')
         : '';
       setState((prev) => ({
         ...prev,
-        error: message || 'Bootstrap failed. Check PlatformAdmin access and try again.',
+        error: message || 'Bootstrap failed. Check the install code and bootstrap configuration, then try again.',
       }));
     } finally {
       setIsBootstrapping(false);
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-  };
-
   const handleGoToDashboard = () => {
     window.location.href = '/';
+  };
+
+  const handleContinueToSignIn = () => {
+    window.location.href = `/login?returnTo=${encodeURIComponent('/setup/tenant')}`;
   };
 
   const tenantExists = (state.tenantCount ?? 0) > 0;
@@ -161,19 +163,18 @@ export function SetupWizardPage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Setup Checklist</CardTitle>
-              <CardDescription>Complete each step to unlock the bootstrap action.</CardDescription>
+              <CardDescription>Use the one-time install code to create the first tenant and owner profile.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <SetupStep
-                title="Review bootstrap access"
-                status={state.platformAdminConfigured ? 'complete' : 'warning'}
+                title="Review bootstrap availability"
+                status={tenantExists ? 'complete' : state.canBootstrap ? 'complete' : state.bootstrapState === 'misconfigured' || state.bootstrapState === 'disabled' ? 'warning' : 'locked'}
                 description={
-                  state.platformAdminConfigured
-                    ? 'PlatformAdmin.AdminEmails is configured for bootstrap email checks.'
-                    : `Optional in Development. In non-Development environments, bootstrap requires PlatformAdmin access claims.`
+                  state.message
+                    ?? 'Bootstrap status is loading.'
                 }
                 action={
-                  !state.platformAdminConfigured && (
+                  !tenantExists && (
                     <Button variant="outline" size="sm" onClick={() => void loadSetupState(true)}>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Re-check config
@@ -183,57 +184,82 @@ export function SetupWizardPage() {
               />
 
               <SetupStep
-                title="Sign in with your identity provider"
-                status={
-                  isAuthenticated
-                    ? state.isCurrentUserAllowed
-                      ? 'complete'
-                      : 'warning'
-                    : 'pending'
-                }
+                title="Enter the install code"
+                status={tenantExists ? 'complete' : setupSecret.trim() ? 'complete' : state.canBootstrap ? 'pending' : 'locked'}
                 description={
-                  isAuthenticated
-                    ? state.isCurrentUserAllowed
-                      ? `Signed in as ${user?.email ?? 'authenticated user'} via ${providerName}.`
-                      : !state.apiIsAuthenticated
-                        ? !state.apiAuthorizationHeaderPresent
-                          ? `Signed in as ${user?.email ?? 'authenticated user'}, but no Bearer token was sent to /bootstrap/status.`
-                          : !state.apiBearerTokenLooksJwt
-                            ? `Signed in as ${user?.email ?? 'authenticated user'}, but the access token is not a JWT. Check VITE_AUTH0_AUDIENCE in Admin UI env.`
-                            : `Signed in as ${user?.email ?? 'authenticated user'}, but API token validation failed${state.apiAuthFailureReason ? `: ${state.apiAuthFailureReason}.` : ' (issuer/audience/provider mismatch).'}`
-                        : !state.resolvedUserEmail
-                          ? `Signed in as ${user?.email ?? 'authenticated user'}, but the API token did not include an email claim.`
-                          : doEmailsMatch
-                            ? `Signed in as ${user?.email ?? 'authenticated user'}, but this account is not authorized to bootstrap in this environment.`
-                            : `Signed in as ${user?.email ?? 'authenticated user'}, but the API resolved your token email as ${state.resolvedUserEmail}.`
-                    : `Log in with ${providerName}.`
+                  tenantExists
+                    ? 'The initial tenant already exists, so the install code is no longer needed.'
+                    : 'Only system owners who know the install code can run first-time bootstrap.'
                 }
                 action={
-                  isAuthenticated ? (
-                    <Button variant="outline" size="sm" onClick={handleLogout}>
-                      Sign out
-                    </Button>
-                  ) : (
-                    <Button variant="secondary" size="sm" onClick={handleLogin}>
-                      Sign in
-                    </Button>
+                  !tenantExists && (
+                    <div className="w-full max-w-md">
+                      <Input
+                        type="password"
+                        autoComplete="off"
+                        value={setupSecret}
+                        onChange={(event) => {
+                          setSetupSecret(event.target.value);
+                          if (state.error) {
+                            setState((prev) => ({ ...prev, error: null }));
+                          }
+                        }}
+                        placeholder="Enter install code"
+                      />
+                    </div>
+                  )
+                }
+              />
+
+              <SetupStep
+                title="Define the initial owner"
+                status={tenantExists ? 'complete' : ownerEmailLooksValid ? 'complete' : state.canBootstrap ? 'pending' : 'locked'}
+                description={
+                  tenantExists
+                    ? 'A tenant already exists. Setup is complete.'
+                    : `Provide the email that will be linked to the first ${providerName} sign-in after bootstrap.`
+                }
+                action={
+                  !tenantExists && (
+                    <div className="w-full max-w-md space-y-3">
+                      <Input
+                        type="email"
+                        autoComplete="email"
+                        value={ownerEmail}
+                        onChange={(event) => {
+                          setOwnerEmail(event.target.value);
+                          if (state.error) {
+                            setState((prev) => ({ ...prev, error: null }));
+                          }
+                        }}
+                        placeholder="owner@example.com"
+                      />
+                      <Input
+                        value={ownerDisplayName}
+                        onChange={(event) => {
+                          setOwnerDisplayName(event.target.value);
+                          if (state.error) {
+                            setState((prev) => ({ ...prev, error: null }));
+                          }
+                        }}
+                        placeholder="Owner display name (optional)"
+                      />
+                    </div>
                   )
                 }
               />
 
               <SetupStep
                 title="Create the first tenant"
-                status={tenantExists ? 'complete' : canBootstrap ? 'pending' : 'locked'}
+                status={tenantExists ? 'complete' : canBootstrap && ownerEmailLooksValid && setupSecret.trim() ? 'pending' : 'locked'}
                 description={
                   tenantExists
-                    ? 'A tenant already exists. Setup is complete.'
-                    : canBootstrap
-                      ? 'Run bootstrap to create the first tenant and admin role.'
-                      : 'Sign in with an authorized account to bootstrap the first tenant.'
+                    ? 'Bootstrap already completed. Sign in to continue tenant setup.'
+                    : 'Bootstrap will create the initial tenant, seed roles, and prepare the owner profile for identity linking.'
                 }
                 action={
                   !tenantExists && (
-                    <Button onClick={handleBootstrap} disabled={!canBootstrap || isBootstrapping}>
+                    <Button onClick={handleBootstrap} disabled={!canBootstrap || !ownerEmailLooksValid || !setupSecret.trim() || isBootstrapping}>
                       {isBootstrapping ? 'Bootstrapping...' : 'Run bootstrap'}
                     </Button>
                   )
@@ -243,7 +269,7 @@ export function SetupWizardPage() {
             <CardFooter className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                 <ShieldCheck className="w-4 h-4" />
-                The initial platform admin is created from your authenticated identity.
+                Bootstrap creates a pending owner profile first, then links it to {providerName} on the next sign-in.
               </div>
               <Button variant="outline" size="sm" onClick={() => void loadSetupState(true)} disabled={state.loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${state.loading ? 'animate-spin' : ''}`} />
@@ -258,12 +284,11 @@ export function SetupWizardPage() {
               <CardDescription>Live configuration and bootstrap results.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <StatusRow label="Platform admin emails" value={platformAdminStatus} />
+              <StatusRow label="Bootstrap state" value={bootstrapStateLabel} />
+              <StatusRow label="Bootstrap enabled" value={state.bootstrapEnabled ? 'Yes' : 'No'} />
+              <StatusRow label="Install code configured" value={state.setupSecretConfigured ? 'Yes' : 'No'} />
               <StatusRow label="Tenants" value={state.tenantCount === null ? 'Unknown' : `${state.tenantCount}`} />
-              <StatusRow label="API auth state" value={state.apiIsAuthenticated ? 'Authenticated' : 'Anonymous'} />
-              <StatusRow label="Bearer header" value={state.apiAuthorizationHeaderPresent ? 'Present' : 'Missing'} />
-              <StatusRow label="Token format" value={state.apiBearerTokenLooksJwt ? 'JWT' : 'Opaque/Missing'} />
-              <StatusRow label="Auth failure" value={state.apiAuthFailureReason || 'None'} />
+              <StatusRow label="Ready to bootstrap" value={state.canBootstrap ? 'Yes' : 'No'} />
 
               {bootstrapResult && (
                 <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] p-4 text-sm text-[var(--color-text-secondary)]">
@@ -271,6 +296,7 @@ export function SetupWizardPage() {
                   <p>Tenant: {bootstrapResult.tenantName}</p>
                   <p>Tenant ID: {bootstrapResult.tenantId}</p>
                   <p>User ID: {bootstrapResult.userId}</p>
+                  <p>Owner email: {bootstrapResult.ownerEmail}</p>
                 </div>
               )}
 
@@ -282,9 +308,21 @@ export function SetupWizardPage() {
               )}
             </CardContent>
             <CardFooter className="flex flex-col gap-2">
-              <Button variant="secondary" onClick={handleGoToDashboard} disabled={!tenantExists} className="w-full">
-                Go to dashboard
-              </Button>
+              {tenantExists ? (
+                isAuthenticated ? (
+                  <Button variant="secondary" onClick={handleGoToDashboard} className="w-full">
+                    Go to dashboard
+                  </Button>
+                ) : (
+                  <Button variant="secondary" onClick={handleContinueToSignIn} className="w-full">
+                    Continue to sign in
+                  </Button>
+                )
+              ) : (
+                <Button variant="secondary" onClick={handleGoToDashboard} disabled className="w-full">
+                  Go to dashboard
+                </Button>
+              )}
               <a
                 className="inline-flex items-center justify-center text-sm text-[var(--color-brand-primary)] hover:underline"
                 href="/setup-guides"

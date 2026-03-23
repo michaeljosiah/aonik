@@ -95,25 +95,37 @@ dotnet run --project src/Aonik.Api
 
 ## Bootstrap The First Tenant
 
-When running locally with no tenants in the database, you can use the dev-only bootstrap endpoint
-to create the initial tenant and assign the current user the **PlatformAdmin** role.
+When running locally with no tenants in the database, you can use the bootstrap endpoint
+to create the initial tenant and pending owner profile without signing in first.
 
 1. Run the API (`dotnet run --project src/Aonik.Api`).
-2. Send a POST request to `/bootstrap` with a valid access token.
+2. Configure a one-time install code, for example:
+
+```powershell
+$env:Bootstrap__SetupSecret = "change-me-local-install-code"
+```
+
+3. Send a POST request to `/bootstrap` with the install code and owner email.
 
 
-Example (replace `$TOKEN` with a bearer token from your IdP):
+Example:
 
 ```bash
 curl -X POST https://localhost:5001/bootstrap \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Content-Type: application/json" \
+  -d '{
+    "setupSecret": "change-me-local-install-code",
+    "ownerEmail": "owner@example.com",
+    "ownerDisplayName": "System Owner"
+  }'
 ```
 
 Notes:
 - The endpoint is available when no tenants exist.
-- In non-Development environments, the caller must satisfy `PlatformAdmin` policy.
+- The install code must match `Bootstrap:SetupSecret`.
 - Bootstrap is one-time. If a tenant already exists, `/bootstrap` returns `409 Conflict`.
 - The created tenant uses the default values in the `Bootstrap` configuration section.
+- After bootstrap, sign in normally with the same owner email so the external identity can be linked.
 
 
 ## Migrations

@@ -1,12 +1,14 @@
 namespace Aonik.Platform.Contracts.Api.Bootstrap;
 
+public record BootstrapInitializeRequest(
+    string SetupSecret,
+    string OwnerEmail,
+    string? OwnerDisplayName = null);
+
 public record BootstrapStatusResponse(
-    bool PlatformAdminEmailsConfigured,
-    bool IsCurrentUserAllowed,
+    string State,
+    bool BootstrapEnabled,
+    bool SetupSecretConfigured,
     int TenantCount,
     bool CanBootstrap,
-    string? ResolvedUserEmail = null,
-    bool IsAuthenticated = false,
-    bool AuthorizationHeaderPresent = false,
-    bool BearerTokenLooksJwt = false,
-    string? AuthFailureReason = null);
+    string? Message = null);

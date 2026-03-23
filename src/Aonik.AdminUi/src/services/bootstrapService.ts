@@ -1,16 +1,20 @@
 import { apiConfig } from '@/auth';
 import type { BootstrapStatusResponse, BootstrapTenantResult } from '@/types';
 
-// Simple in-memory cache for bootstrap status. Responses vary by auth context,
-// so cache entries are scoped per access token (or anonymous requests).
+interface BootstrapInitializeRequest {
+  setupSecret: string;
+  ownerEmail: string;
+  ownerDisplayName?: string | null;
+}
+
 const statusCache = new Map<string, { data: BootstrapStatusResponse; timestamp: number }>();
 const CACHE_TTL_MS = 30000; // 30 seconds
 const statusInFlight = new Map<string, Promise<BootstrapStatusResponse>>();
 
 const statusMessages: Record<number, string> = {
   400: 'The request was invalid. Check your inputs and try again.',
-  401: 'You are not signed in or your session expired. Please sign in and try again.',
-  403: 'Access denied. You do not have permission to perform this action. Contact your administrator if you believe this is an error.',
+  401: 'Authentication failed for this request.',
+  403: 'Bootstrap access was denied. Verify the install code and bootstrap configuration.',
   404: 'We could not find what you requested.',
   409: 'This request could not be completed because of a conflict.',
   422: 'Some of the provided data is not valid. Please review and try again.',
@@ -29,9 +33,7 @@ const buildUrl = (path: string): string => {
   return `${baseUrl}${path}`;
 };
 
-const getStatusCacheKey = (accessToken?: string | null): string => {
-  return accessToken ? `bearer:${accessToken}` : 'anonymous';
-};
+const getStatusCacheKey = (): string => 'bootstrap-status';
 
 const tryGetString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
@@ -58,23 +60,22 @@ const parseResponseBody = async (response: Response): Promise<unknown> => {
   return response.text();
 };
 
-// Bootstrap endpoints use fetch instead of the shared Axios client because
-// cross-origin XHR requests with Authorization are being aborted in ACA while
-// the equivalent fetch requests succeed.
+// Bootstrap endpoints use fetch instead of the shared Axios client so the
+// first-run install flow stays isolated from normal auth/tenant headers.
 const requestBootstrap = async <T>(
   path: string,
   options?: {
     method?: 'GET' | 'POST';
-    accessToken?: string | null;
     forceRefresh?: boolean;
+    body?: object;
   }
 ): Promise<T> => {
   const headers = new Headers({
     Accept: 'application/json',
   });
 
-  if (options?.accessToken) {
-    headers.set('Authorization', `Bearer ${options.accessToken}`);
+  if (options?.body) {
+    headers.set('Content-Type', 'application/json');
   }
 
   let response: Response;
@@ -84,6 +85,7 @@ const requestBootstrap = async <T>(
       method: options?.method ?? 'GET',
       headers,
       cache: options?.forceRefresh ? 'no-store' : 'default',
+      body: options?.body ? JSON.stringify(options.body) : undefined,
     });
   } catch {
     throw { userMessage: 'Unable to reach the service. Check your connection and try again.' };
@@ -99,17 +101,17 @@ const requestBootstrap = async <T>(
 };
 
 export const bootstrapService = {
-  bootstrap: async (accessToken?: string | null): Promise<BootstrapTenantResult> => {
+  bootstrap: async (request: BootstrapInitializeRequest): Promise<BootstrapTenantResult> => {
     // Clear cache after bootstrap
     statusCache.clear();
     statusInFlight.clear();
     return requestBootstrap<BootstrapTenantResult>('/bootstrap', {
       method: 'POST',
-      accessToken,
+      body: request,
     });
   },
-  status: async (forceRefresh = false, accessToken?: string | null): Promise<BootstrapStatusResponse> => {
-    const cacheKey = getStatusCacheKey(accessToken);
+  status: async (forceRefresh = false): Promise<BootstrapStatusResponse> => {
+    const cacheKey = getStatusCacheKey();
     const cached = statusCache.get(cacheKey);
 
     // Return cached data if valid
@@ -124,7 +126,6 @@ export const bootstrapService = {
 
     // Fetch fresh data
     const request = requestBootstrap<BootstrapStatusResponse>('/bootstrap/status', {
-      accessToken,
       forceRefresh,
     })
       .then((data) => {

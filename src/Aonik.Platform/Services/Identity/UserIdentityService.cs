@@ -40,6 +40,8 @@ internal class UserIdentityService : IUserIdentityService
         Guid aonikTenantId,
         CancellationToken ct = default)
     {
+        var normalizedEmail = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+
         // Lookup existing user by external identity
         var existingUser = await _dbContext.Users
             .FirstOrDefaultAsync(u =>
@@ -50,9 +52,9 @@ internal class UserIdentityService : IUserIdentityService
 
         if (existingUser != null)
         {
-            if (!string.IsNullOrEmpty(email) && existingUser.Email != email)
+            if (!string.IsNullOrEmpty(normalizedEmail) && existingUser.Email != normalizedEmail)
             {
-                existingUser.Email = email;
+                existingUser.Email = normalizedEmail;
                 await _dbContext.SaveChangesAsync(ct);
                 _logger.LogInformation("Updated email for user {UserId}", existingUser.Id);
             }
@@ -60,6 +62,55 @@ internal class UserIdentityService : IUserIdentityService
             await EnsureDefaultPersonalUserRoleAsync(existingUser.Id, aonikTenantId, ct);
 
             return existingUser;
+        }
+
+        if (!string.IsNullOrWhiteSpace(normalizedEmail) && aonikTenantId != Guid.Empty)
+        {
+            var pendingBootstrapUsers = await _dbContext.Users
+                .Where(u =>
+                    u.TenantId == aonikTenantId &&
+                    u.ExternalIssuer == BootstrapIdentityConstants.PendingOwnerIssuer &&
+                    u.Email != null)
+                .ToListAsync(ct);
+
+            var bootstrapUser = pendingBootstrapUsers.FirstOrDefault(user =>
+                string.Equals(user.Email, normalizedEmail, StringComparison.OrdinalIgnoreCase));
+
+            if (bootstrapUser != null)
+            {
+                bootstrapUser.ExternalIssuer = externalIssuer;
+                bootstrapUser.ExternalSubject = externalSubject;
+                bootstrapUser.ExternalTenantId = externalTenantId;
+                bootstrapUser.Email = normalizedEmail;
+
+                await _dbContext.SaveChangesAsync(ct);
+                await EnsureDefaultPersonalUserRoleAsync(bootstrapUser.Id, aonikTenantId, ct);
+
+                _logger.LogInformation(
+                    "Linked bootstrap owner {UserId} to external identity (Issuer: {Issuer}, Subject: {Subject})",
+                    bootstrapUser.Id,
+                    externalIssuer,
+                    externalSubject);
+
+                await _auditLogWriter.LogAsync(
+                    AuditEventNames.UserIdentityLinked,
+                    "User",
+                    bootstrapUser.Id,
+                    aonikTenantId,
+                    bootstrapUser.Id,
+                    _correlationContext.CorrelationId,
+                    JsonSerializer.Serialize(new
+                    {
+                        bootstrapUser.Id,
+                        Email = AuditLogMasking.MaskEmail(bootstrapUser.Email),
+                        bootstrapUser.ExternalIssuer,
+                        bootstrapUser.ExternalSubject,
+                        bootstrapUser.ExternalTenantId
+                    }),
+                    ct);
+
+                return bootstrapUser;
+            }
         }
 
         if (aonikTenantId == Guid.Empty)
@@ -71,7 +122,7 @@ internal class UserIdentityService : IUserIdentityService
                 ExternalIssuer = externalIssuer,
                 ExternalSubject = externalSubject,
                 ExternalTenantId = externalTenantId,
-                Email = email,
+                Email = normalizedEmail,
                 Status = "Active"
             };
 
@@ -126,7 +177,7 @@ internal class UserIdentityService : IUserIdentityService
             ExternalIssuer = externalIssuer,
             ExternalSubject = externalSubject,
             ExternalTenantId = externalTenantId,
-            Email = email, // Nullable - only if present
+            Email = normalizedEmail, // Nullable - only if present
             Status = "Active"
         };
 

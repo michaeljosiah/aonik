@@ -342,18 +342,18 @@ export interface BootstrapTenantResult {
   userId: string;
   userCreated: boolean;
   platformAdminAssigned: boolean;
+  tenantAdminAssigned: boolean;
+  ownerEmail: string;
+  requiresIdentityLink: boolean;
 }
 
 export interface BootstrapStatusResponse {
-  platformAdminEmailsConfigured: boolean;
-  isCurrentUserAllowed: boolean;
+  state: 'ready' | 'completed' | 'disabled' | 'misconfigured';
+  bootstrapEnabled: boolean;
+  setupSecretConfigured: boolean;
   tenantCount: number;
-  canBootstrap?: boolean;
-  resolvedUserEmail?: string | null;
-  isAuthenticated?: boolean;
-  authorizationHeaderPresent?: boolean;
-  bearerTokenLooksJwt?: boolean;
-  authFailureReason?: string | null;
+  canBootstrap: boolean;
+  message?: string | null;
 }
 
 export interface CatalogCountryItem {

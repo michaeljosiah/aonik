@@ -290,30 +290,58 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
+function BootstrapStatusUnavailablePage({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)] px-6">
+      <div className="max-w-lg rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
+        <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Setup Status Unavailable</p>
+        <h1 className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">We could not determine first-run status</h1>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">{message}</p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-md bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.assign('/setup')}
+            className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-surface-inset)]"
+          >
+            Open setup page
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AuthenticatedApp() {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
   const [tenantNeedsSetup, setTenantNeedsSetup] = useState<boolean | null>(null);
+  const [bootstrapStatusError, setBootstrapStatusError] = useState<string | null>(null);
   const { isLoading: authLoading, isAuthenticated, accessToken, getAccessToken } = useAuth();
 
   useEffect(() => {
     const checkSetup = async () => {
-      // Wait for auth to complete before checking
-      if (authLoading) return;
-
       // Ensure API layer has the latest token getter before any calls
       setAccessTokenGetter(getAccessToken);
 
-      const bootstrapToken = accessToken ?? (isAuthenticated ? await getAccessToken() : null);
+      setBootstrapStatusError(null);
 
-      // Retry bootstrap status check up to 3 times on failure.
-      // If all retries fail, default to showing bootstrap setup (safe default)
-      // because we cannot confirm tenants exist.
+      // Retry bootstrap status check up to 3 times on transient failure.
       let status: Awaited<ReturnType<typeof bootstrapService.status>> | null = null;
+      let lastStatusError = 'Unable to determine setup status right now.';
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          status = await bootstrapService.status(attempt > 0, bootstrapToken);
+          status = await bootstrapService.status(attempt > 0);
           break;
-        } catch {
+        } catch (error) {
+          if (error && typeof error === 'object' && 'userMessage' in error) {
+            lastStatusError = String((error as { userMessage?: string }).userMessage ?? lastStatusError);
+          }
           if (attempt < 2) {
             await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
           }
@@ -321,15 +349,24 @@ function AuthenticatedApp() {
       }
 
       if (!status) {
-        // All retries failed — cannot confirm tenants exist.
-        // Default to bootstrap setup so the user isn't dumped into a broken dashboard.
-        console.warn('Bootstrap status check failed after retries, defaulting to setup wizard');
-        setNeedsSetup(true);
+        console.warn('Bootstrap status check failed after retries');
+        setBootstrapStatusError(lastStatusError);
+        setNeedsSetup(false);
         setTenantNeedsSetup(false);
         return;
       }
 
       setNeedsSetup(status.tenantCount === 0);
+
+      if (status.tenantCount === 0) {
+        setTenantNeedsSetup(false);
+        return;
+      }
+
+      if (authLoading) {
+        setTenantNeedsSetup(false);
+        return;
+      }
         
       // Only check tenant setup if user is authenticated and tenants exist
       if (status.tenantCount > 0 && isAuthenticated) {
@@ -369,6 +406,10 @@ function AuthenticatedApp() {
         </div>
       </div>
     );
+  }
+
+  if (bootstrapStatusError) {
+    return <BootstrapStatusUnavailablePage message={bootstrapStatusError} />;
   }
 
   if (needsSetup) {
