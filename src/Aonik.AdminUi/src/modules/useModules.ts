@@ -10,12 +10,24 @@ import {
   resolveBreadcrumb,
 } from './registry';
 import type { NavigationSection } from '@/types';
+import { apiConfig } from '@/auth';
 
-const MANIFEST_URL = '/api/admin/manifest';
 const MANIFEST_CACHE_TTL_MS = 30_000;
 
 let manifestCache: { data: RuntimeModuleManifest; timestamp: number } | null = null;
 let manifestInFlight: Promise<RuntimeModuleManifest | null> | null = null;
+
+const buildManifestUrl = (): string => {
+  const baseUrl = apiConfig.baseUrl.endsWith('/')
+    ? apiConfig.baseUrl.slice(0, -1)
+    : apiConfig.baseUrl;
+
+  if (baseUrl === '/api') {
+    return '/api/admin/manifest';
+  }
+
+  return `${baseUrl}/admin/manifest`;
+};
 
 const fetchManifestOnce = async (): Promise<RuntimeModuleManifest | null> => {
   if (manifestCache && Date.now() - manifestCache.timestamp < MANIFEST_CACHE_TTL_MS) {
@@ -26,7 +38,7 @@ const fetchManifestOnce = async (): Promise<RuntimeModuleManifest | null> => {
     return manifestInFlight;
   }
 
-  manifestInFlight = fetch(MANIFEST_URL)
+  manifestInFlight = fetch(buildManifestUrl())
     .then(async (res) => {
       if (!res.ok) {
         return null;

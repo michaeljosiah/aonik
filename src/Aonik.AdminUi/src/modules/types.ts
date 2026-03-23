@@ -49,7 +49,7 @@ export interface AdminModule {
 }
 
 /**
- * Runtime module manifest returned by GET /api/admin/manifest.
+ * Runtime module manifest returned by the admin manifest endpoint.
  * Controls which modules/features are visible per tenant/user/feature-flag.
  */
 export interface RuntimeModuleManifest {

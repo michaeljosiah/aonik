@@ -13,14 +13,14 @@ public record AdminManifestResponse(
     string[] DisabledNavItems);
 
 /// <summary>
-/// GET /api/admin/manifest — returns the runtime module manifest.
+/// GET /admin/manifest — returns the runtime module manifest.
 /// The Admin UI fetches this on startup to merge with build-time module configs.
 /// </summary>
 internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestResponse>
 {
     public override void Configure()
     {
-        Get("/api/admin/manifest");
+        Get("/admin/manifest");
         AllowAnonymous();
     }
 
