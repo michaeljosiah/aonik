@@ -1,7 +1,10 @@
 using FastEndpoints;
 
 using Aonik.Platform.Contracts.Api.Host;
-using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Platform.Endpoints.Host.Tenants;
 
@@ -9,13 +12,17 @@ namespace Aonik.Platform.Endpoints.Host.Tenants;
 /// Public endpoint to list active tenants for login dropdown.
 /// No authentication required - returns minimal tenant info.
 /// </summary>
-public class ListTenantsForLoginEndpoint : EndpointWithoutRequest<TenantListForLoginResponse>
+internal class ListTenantsForLoginEndpoint : EndpointWithoutRequest<TenantListForLoginResponse>
 {
-    private readonly ITenantService _tenantService;
+    private readonly PlatformDbContext _dbContext;
+    private readonly ILogger<ListTenantsForLoginEndpoint> _logger;
 
-    public ListTenantsForLoginEndpoint(ITenantService tenantService)
+    public ListTenantsForLoginEndpoint(
+        PlatformDbContext dbContext,
+        ILogger<ListTenantsForLoginEndpoint> logger)
     {
-        _tenantService = tenantService;
+        _dbContext = dbContext;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -28,25 +35,48 @@ public class ListTenantsForLoginEndpoint : EndpointWithoutRequest<TenantListForL
     {
         try
         {
-            var result = await _tenantService.ListTenantsForLoginAsync(ct);
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
+            var tenants = await _dbContext.Tenants
+                .AsNoTracking()
+                .Where(t => t.Status == TenantStatus.Active)
+                .OrderBy(t => t.Name)
+                .Select(t => new TenantListItemForLoginResponse(
+                    t.Id,
+                    t.Name,
+                    t.Subdomain,
+                    t.Environment))
+                .ToListAsync(linkedCts.Token);
 
             if (ct.IsCancellationRequested)
             {
                 return;
             }
 
-            var response = new TenantListForLoginResponse(
-                result.Tenants.Select(t => new TenantListItemForLoginResponse(
-                    t.TenantId,
-                    t.Name,
-                    t.Subdomain,
-                    t.Environment)).ToList());
-
-            await Send.OkAsync(response, ct);
+            await Send.OkAsync(new TenantListForLoginResponse(tenants), ct);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
-            // Request was canceled; no response required.
+            _logger.LogWarning(ex, "Host tenant login list query was cancelled or timed out.");
+
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await Send.OkAsync(new TenantListForLoginResponse([]), CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error listing tenants for login; returning an empty list.");
+
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await Send.OkAsync(new TenantListForLoginResponse([]), CancellationToken.None);
         }
     }
 }
