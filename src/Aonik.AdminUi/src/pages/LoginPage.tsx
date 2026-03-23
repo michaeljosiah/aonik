@@ -7,6 +7,7 @@ import { useAuth, getAuthProvider } from '@/auth';
 import { tenantService } from '@/services/tenantService';
 import type { TenantListItemForLogin } from '@/types';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
+import { isTenantScopedHostname } from '@/lib/tenantRouting';
 import {
   Select,
   SelectContent,
@@ -32,13 +33,7 @@ export function LoginPage() {
   // Check if URL is tenant-scoped (has subdomain)
   useEffect(() => {
     const hostname = window.location.hostname;
-    const parts = hostname.split('.');
-    
-    // If localhost or direct IP, or only 2 parts (e.g., example.com), show tenant selector
-    // If 3+ parts (e.g., tenant.example.com), assume tenant-scoped
-    const isTenantScoped = parts.length >= 3 && 
-      !hostname.startsWith('www.') && 
-      !hostname.includes('localhost');
+    const isTenantScoped = isTenantScopedHostname(hostname);
     
     setShowTenantSelector(!isTenantScoped);
   }, []);

@@ -24,6 +24,7 @@ import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
 import { identityService } from '@/services/identityService';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
+import { isTenantScopedHostname } from '@/lib/tenantRouting';
 
 // Component to set up API authentication
 function ApiAuthSetup() {
@@ -48,11 +49,10 @@ function TenantContextSetup() {
 
       // If running on a tenant subdomain, try to resolve it via the public host endpoint.
       const hostname = window.location.hostname;
-      const parts = hostname.split('.');
-      const looksTenantScoped = parts.length >= 3 && !hostname.startsWith('www.') && !hostname.includes('localhost');
+      const looksTenantScoped = isTenantScopedHostname(hostname);
       if (!looksTenantScoped) return;
 
-      const subdomain = parts[0];
+      const subdomain = hostname.split('.')[0];
       try {
         const response = await tenantService.listForLogin();
         const match = response.tenants.find(t => (t.subdomain ?? '').toLowerCase() === subdomain.toLowerCase());
