@@ -10,6 +10,12 @@ import type {
   UpsertAgentConfigurationRequest,
   ListAiProvidersResponse,
   ListAiModelsResponse,
+  AiCatalogModelProviderResponse,
+  AiCatalogModelResponse,
+  ImportAiCatalogModelProviderRequest,
+  ImportAiCatalogModelProviderResponse,
+  ListAiCatalogModelProvidersResponse,
+  ListAiCatalogModelsResponse,
 } from '@/types/ai';
 
 // ── Provider service ────────────────────────────────────────────────
@@ -60,6 +66,32 @@ export const aiModelService = {
 
   delete: async (modelId: string): Promise<void> => {
     await api.delete(`/ai/models/${modelId}`);
+  },
+};
+
+// ── Model catalog service ────────────────────────────────────────────
+
+export const aiModelCatalogService = {
+  listModelProviders: async (): Promise<AiCatalogModelProviderResponse[]> => {
+    const res = await api.get<ListAiCatalogModelProvidersResponse>('/ai/model-catalog/model-providers');
+    return res.modelProviders;
+  },
+
+  listModels: async (modelProviderKey: string): Promise<AiCatalogModelResponse[]> => {
+    const encodedModelProviderKey = encodeURIComponent(modelProviderKey);
+    const res = await api.get<ListAiCatalogModelsResponse>(`/ai/model-catalog/model-providers/${encodedModelProviderKey}/models`);
+    return res.models;
+  },
+
+  importModelProvider: async (
+    modelProviderKey: string,
+    request: ImportAiCatalogModelProviderRequest,
+  ): Promise<ImportAiCatalogModelProviderResponse> => {
+    const encodedModelProviderKey = encodeURIComponent(modelProviderKey);
+    return api.post<ImportAiCatalogModelProviderResponse>(
+      `/ai/model-catalog/model-providers/${encodedModelProviderKey}/import`,
+      request,
+    );
   },
 };
 

@@ -19,9 +19,41 @@ const navigation: NavigationSection[] = [
     items: [
       {
         id: 'dashboard',
-        label: 'Dashboard',
+        label: 'My Space',
         icon: 'LayoutDashboard',
         href: '/',
+      },
+    ],
+  },
+  {
+    id: 'ai-agents',
+    label: 'AI & Agents',
+    items: [
+      {
+        id: 'ai',
+        label: 'AI & Agents',
+        icon: 'Bot',
+        viewAllHref: '/ai/agents',
+        viewAllLabel: 'View all',
+        childGroups: [
+          {
+            label: 'Configuration',
+            items: [
+              {
+                id: 'ai-agents-item',
+                label: 'Agents',
+                icon: 'Bot',
+                href: '/ai/agents',
+              },
+              {
+                id: 'ai-models-item',
+                label: 'AI Models',
+                icon: 'Brain',
+                href: '/ai/models',
+              },
+            ],
+          },
+        ],
       },
     ],
   },

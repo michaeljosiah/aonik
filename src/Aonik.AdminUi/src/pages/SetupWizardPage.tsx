@@ -136,7 +136,7 @@ export function SetupWizardPage() {
     }
   };
 
-  const handleGoToDashboard = () => {
+  const handleGoToMySpace = () => {
     window.location.href = '/';
   };
 
@@ -310,8 +310,8 @@ export function SetupWizardPage() {
             <CardFooter className="flex flex-col gap-2">
               {tenantExists ? (
                 isAuthenticated ? (
-                  <Button variant="secondary" onClick={handleGoToDashboard} className="w-full">
-                    Go to dashboard
+                  <Button variant="secondary" onClick={handleGoToMySpace} className="w-full">
+                    Go to My Space
                   </Button>
                 ) : (
                   <Button variant="secondary" onClick={handleContinueToSignIn} className="w-full">
@@ -319,8 +319,8 @@ export function SetupWizardPage() {
                   </Button>
                 )
               ) : (
-                <Button variant="secondary" onClick={handleGoToDashboard} disabled className="w-full">
-                  Go to dashboard
+                <Button variant="secondary" onClick={handleGoToMySpace} disabled className="w-full">
+                  Go to My Space
                 </Button>
               )}
               <a

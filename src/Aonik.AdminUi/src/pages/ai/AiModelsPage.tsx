@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,8 @@ import {
   AlertCircle,
   BrainCircuit,
   Check,
+  Download,
+  LoaderCircle,
   Pencil,
   Plus,
   Power,
@@ -31,9 +34,23 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
-import type { AiModelResponse, AiProviderResponse } from '@/types/ai';
-import { aiModelService, aiProviderService } from '@/services/aiService';
+import type {
+  AiCatalogModelProviderResponse,
+  AiCatalogModelResponse,
+  AiModelResponse,
+  AiProviderResponse,
+} from '@/types/ai';
+import { aiModelCatalogService, aiModelService, aiProviderService } from '@/services/aiService';
+import {
+  DataTable,
+  DataTableHeader,
+  DataTableRowActions,
+  type ColumnDef,
+  type DataTableAction,
+  type FilterOption,
+} from '@/components/ui/data-table';
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return '';
@@ -42,6 +59,17 @@ const formatDate = (dateString?: string | null) => {
     month: 'short',
     day: 'numeric',
   });
+};
+
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (err && typeof err === 'object' && 'userMessage' in err) {
+    const message = String((err as { userMessage?: string }).userMessage ?? '').trim();
+    if (message) {
+      return message;
+    }
+  }
+
+  return fallback;
 };
 
 export function AiModelsPage() {
@@ -57,9 +85,17 @@ export function AiModelsPage() {
   // Dialog state
   const [showProviderDialog, setShowProviderDialog] = useState(false);
   const [showModelDialog, setShowModelDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [editingProvider, setEditingProvider] = useState<AiProviderResponse | null>(null);
   const [editingModel, setEditingModel] = useState<AiModelResponse | null>(null);
   const [saving, setSaving] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogLoadingModels, setCatalogLoadingModels] = useState(false);
+  const [catalogImporting, setCatalogImporting] = useState(false);
+  const [catalogQuery, setCatalogQuery] = useState('');
+  const [catalogModelProviders, setCatalogModelProviders] = useState<AiCatalogModelProviderResponse[]>([]);
+  const [catalogModels, setCatalogModels] = useState<AiCatalogModelResponse[]>([]);
+  const [selectedCatalogModelProviderKey, setSelectedCatalogModelProviderKey] = useState('');
 
   // Provider form fields
   const [providerName, setProviderName] = useState('');
@@ -71,6 +107,50 @@ export function AiModelsPage() {
   const [modelProviderId, setModelProviderId] = useState('');
   const [modelContextWindow, setModelContextWindow] = useState('128000');
   const [modelActive, setModelActive] = useState(true);
+
+  const resetProviderForm = () => {
+    setEditingProvider(null);
+    setProviderName('');
+    setProviderAuthRef('');
+    setProviderActive(true);
+  };
+
+  const resetModelForm = () => {
+    setEditingModel(null);
+    setModelName('');
+    setModelProviderId(providers.length > 0 ? providers[0].id : '');
+    setModelContextWindow('128000');
+    setModelActive(true);
+  };
+
+  const handleProviderDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      resetProviderForm();
+      setSaving(false);
+    }
+    setShowProviderDialog(open);
+  };
+
+  const handleModelDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      resetModelForm();
+      setSaving(false);
+    }
+    setShowModelDialog(open);
+  };
+
+  const handleImportDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setCatalogQuery('');
+      setCatalogModels([]);
+      setCatalogLoading(false);
+      setCatalogLoadingModels(false);
+      setCatalogImporting(false);
+      setSelectedCatalogModelProviderKey('');
+    }
+
+    setShowImportDialog(open);
+  };
 
   // ── Data loading ───────────────────────────────────────────────────
 
@@ -94,11 +174,7 @@ export function AiModelsPage() {
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) return;
       console.error('Failed to load AI models:', err);
-      const message =
-        err && typeof err === 'object' && 'userMessage' in err
-          ? String((err as { userMessage?: string }).userMessage ?? '')
-          : '';
-      setError(message || 'Failed to load AI models. Please try again.');
+      setError(getErrorMessage(err, 'Failed to load AI models. Please try again.'));
       setLoading(false);
     }
   }, [providerFilter]);
@@ -118,13 +194,76 @@ export function AiModelsPage() {
     );
   });
 
+  const filteredCatalogModelProviders = catalogModelProviders.filter((modelProvider) => {
+    if (!catalogQuery) return true;
+
+    const query = catalogQuery.toLowerCase();
+    return (
+      modelProvider.name.toLowerCase().includes(query)
+      || modelProvider.modelProviderKey.toLowerCase().includes(query)
+      || (modelProvider.sdkPackage ?? '').toLowerCase().includes(query)
+    );
+  });
+
+  const selectedCatalogModelProvider = catalogModelProviders.find(
+    (modelProvider) => modelProvider.modelProviderKey === selectedCatalogModelProviderKey,
+  ) ?? null;
+
+  const loadCatalogModelProviders = useCallback(async () => {
+    setCatalogLoading(true);
+
+    try {
+      const modelProviders = await aiModelCatalogService.listModelProviders();
+      setCatalogModelProviders(modelProviders);
+      setSelectedCatalogModelProviderKey((currentValue) => {
+        if (currentValue && modelProviders.some((modelProvider) => modelProvider.modelProviderKey === currentValue)) {
+          return currentValue;
+        }
+
+        return modelProviders[0]?.modelProviderKey ?? '';
+      });
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, 'Failed to load model catalog providers.');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  const loadCatalogModels = useCallback(async (modelProviderKey: string) => {
+    if (!modelProviderKey) {
+      setCatalogModels([]);
+      return;
+    }
+
+    setCatalogLoadingModels(true);
+
+    try {
+      const modelList = await aiModelCatalogService.listModels(modelProviderKey);
+      setCatalogModels(modelList);
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, 'Failed to load model catalog models.');
+      setError(message);
+      toast.error(message);
+      setCatalogModels([]);
+    } finally {
+      setCatalogLoadingModels(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showImportDialog) {
+      return;
+    }
+
+    void loadCatalogModels(selectedCatalogModelProviderKey);
+  }, [loadCatalogModels, selectedCatalogModelProviderKey, showImportDialog]);
+
   // ── Provider dialog ────────────────────────────────────────────────
 
   const openNewProvider = () => {
-    setEditingProvider(null);
-    setProviderName('');
-    setProviderAuthRef('');
-    setProviderActive(true);
+    resetProviderForm();
     setShowProviderDialog(true);
   };
 
@@ -184,11 +323,12 @@ export function AiModelsPage() {
   // ── Model dialog ───────────────────────────────────────────────────
 
   const openNewModel = () => {
-    setEditingModel(null);
-    setModelName('');
-    setModelProviderId(providers.length > 0 ? providers[0].id : '');
-    setModelContextWindow('128000');
-    setModelActive(true);
+    if (providers.length === 0) {
+      setError('Create a provider first, then add a model.');
+      return;
+    }
+
+    resetModelForm();
     setShowModelDialog(true);
   };
 
@@ -247,11 +387,146 @@ export function AiModelsPage() {
     }
   };
 
+  const openImportDialog = async () => {
+    handleImportDialogOpenChange(true);
+    await loadCatalogModelProviders();
+  };
+
+  const importModelProvider = async () => {
+    if (!selectedCatalogModelProvider) {
+      return;
+    }
+
+    setCatalogImporting(true);
+
+    try {
+      const result = await aiModelCatalogService.importModelProvider(selectedCatalogModelProvider.modelProviderKey, {
+        importModelsAsInactive: true,
+      });
+
+      toast.success(
+        `${result.providerName} imported: ${result.modelsCreated} new, ${result.modelsLinked} linked, ${result.modelsSkipped} skipped.`,
+      );
+
+      handleImportDialogOpenChange(false);
+      await loadData();
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, 'Failed to import model provider.');
+      setError(message);
+      toast.error(message);
+    } finally {
+      setCatalogImporting(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────
 
   const breadcrumbItems = [
     { label: 'AI & Agents', href: '/ai' },
     { label: 'Models', icon: <BrainCircuit className="w-3.5 h-3.5" /> },
+  ];
+
+  const totalProviders = providers.length;
+  const activeProviders = providers.filter((provider) => provider.isActive).length;
+  const totalModels = models.length;
+  const activeModels = models.filter((model) => model.isActive).length;
+
+  const providerFilterOptions: FilterOption[] = providers.map((provider) => ({
+    value: provider.id,
+    label: provider.name,
+  }));
+
+  const getProviderActions = (provider: AiProviderResponse): DataTableAction[] => [
+    {
+      label: 'Edit provider',
+      icon: <Pencil className="w-4 h-4" />,
+      onClick: () => openEditProvider(provider),
+    },
+    {
+      label: 'Delete provider',
+      icon: <Trash2 className="w-4 h-4" />,
+      onClick: () => deleteProvider(provider),
+      variant: 'danger',
+    },
+  ];
+
+  const getModelActions = (model: AiModelResponse): DataTableAction[] => [
+    {
+      label: 'Edit model',
+      icon: <Pencil className="w-4 h-4" />,
+      onClick: () => openEditModel(model),
+    },
+    {
+      label: 'Delete model',
+      icon: <Trash2 className="w-4 h-4" />,
+      onClick: () => deleteModel(model),
+      variant: 'danger',
+    },
+  ];
+
+  const modelColumns: ColumnDef<AiModelResponse>[] = [
+    {
+      id: 'model',
+      header: 'Model',
+      accessorFn: (row) => row.modelName,
+      sortable: true,
+      headerClassName: 'pl-4',
+      className: 'pl-4',
+      cell: (model) => (
+        <div>
+          <p className="font-medium text-[var(--color-text-primary)]">{model.modelName}</p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">{model.providerName ?? 'No provider assigned'}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'provider',
+      header: 'Provider',
+      accessorFn: (row) => row.providerName ?? '',
+      sortable: true,
+      cell: (model) => (
+        <span className="text-sm text-[var(--color-text-secondary)]">{model.providerName ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'contextWindow',
+      header: 'Context',
+      accessorFn: (row) => row.contextWindow,
+      sortable: true,
+      headerClassName: 'justify-end text-right',
+      className: 'text-right',
+      cell: (model) => (
+        <span className="text-sm text-[var(--color-text-secondary)]">
+          {model.contextWindow > 0 ? `${(model.contextWindow / 1000).toFixed(0)}k` : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      accessorFn: (row) => row.isActive,
+      sortable: true,
+      cell: (model) => (
+        model.isActive ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
+            <Check className="w-3 h-3" /> Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
+            <X className="w-3 h-3" /> Inactive
+          </span>
+        )
+      ),
+    },
+    {
+      id: 'createdAt',
+      header: 'Created',
+      accessorFn: (row) => row.createdAt ? new Date(row.createdAt) : null,
+      sortable: true,
+      cell: (model) => (
+        <span className="text-sm text-[var(--color-text-secondary)]">{formatDate(model.createdAt)}</span>
+      ),
+    },
   ];
 
   return (
@@ -266,15 +541,70 @@ export function AiModelsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={openImportDialog} className="rounded-sm">
+            <Download className="w-4 h-4 mr-2" />
+            Import model provider
+          </Button>
           <Button variant="outline" onClick={openNewProvider} className="rounded-sm">
             <Plus className="w-4 h-4 mr-2" />
             New provider
           </Button>
-          <Button onClick={openNewModel} className="rounded-sm">
+          <Button onClick={openNewModel} className="rounded-sm" disabled={providers.length === 0}>
             <Plus className="w-4 h-4 mr-2" />
             New model
           </Button>
         </div>
+      </div>
+
+      <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+              <BrainCircuit className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Model providers</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalProviders}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Configured in this tenant</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+              <Power className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active providers</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activeProviders}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Available for routing policies</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+              <Download className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Catalog models</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalModels}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Local model records</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+              <Check className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active models</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activeModels}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Enabled for runtime use</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {error && (
@@ -289,150 +619,296 @@ export function AiModelsPage() {
         </Card>
       )}
 
-      {/* ── Providers section ─────────────────────────────────────── */}
-      <Card className="mb-6">
+      <Card>
         <CardContent className="p-4">
-          <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3">Providers</h2>
+          <div className="flex items-start justify-between gap-4 pb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Model Providers</h2>
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Configure provider access first, then review and curate the models they expose.
+              </p>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {totalProviders} configured
+            </Badge>
+          </div>
+
           {loading && providers.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">Loading providers...</p>
+            <div className="rounded-md border border-[var(--color-border-light)] px-4 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
+              Loading providers...
+            </div>
           ) : providers.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)]">No providers configured yet.</p>
+            <div className="rounded-md border border-[var(--color-border-light)] px-4 py-10 text-center">
+              <BrainCircuit className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">No model providers configured</p>
+              <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                Import a model provider from the external catalog or add one manually.
+              </p>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {providers.map((provider) => (
                 <div
                   key={provider.id}
-                  className="border border-[var(--color-border-light)] rounded-md p-4 flex flex-col gap-2"
+                  className="rounded-none border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-[var(--color-text-primary)]">{provider.name}</span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-[var(--color-text-primary)]">{provider.name}</span>
                       {provider.isActive ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
                           <Power className="w-3 h-3" /> Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
                           <PowerOff className="w-3 h-3" /> Inactive
                         </span>
                       )}
+                      </div>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        {provider.models.length} model{provider.models.length !== 1 ? 's' : ''}
+                        {provider.authConfigRef ? ` | Auth: ${provider.authConfigRef}` : ''}
+                      </p>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEditProvider(provider)}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => deleteProvider(provider)}>
-                        <Trash2 className="w-3.5 h-3.5 text-[var(--color-error)]" />
-                      </Button>
-                    </div>
+                    <DataTableRowActions actions={getProviderActions(provider)} />
                   </div>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">
-                    {provider.models.length} model{provider.models.length !== 1 ? 's' : ''}
-                    {provider.authConfigRef ? ` | Auth: ${provider.authConfigRef}` : ''}
-                  </p>
                 </div>
               ))}
             </div>
           )}
+
+          <div className="mt-6 pt-6 border-t border-[var(--color-border-light)]">
+            <DataTableHeader
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Search models"
+              filterValue={providerFilter}
+              onFilterChange={setProviderFilter}
+              filterOptions={providerFilterOptions}
+              filterPlaceholder="Provider"
+              showViewToggle={false}
+              actions={
+                <Badge variant="outline" className="text-xs">
+                  {filteredModels.length} shown
+                </Badge>
+              }
+              className="px-0 border-b-0"
+            />
+
+            <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+              <DataTable
+                data={filteredModels}
+                columns={modelColumns}
+                getRowId={(model) => model.id}
+                showCheckboxes={false}
+                loading={loading}
+                loadingMessage="Loading models..."
+                emptyIcon={<BrainCircuit className="w-12 h-12" />}
+                emptyTitle="No models found"
+                emptyDescription={
+                  searchQuery || providerFilter
+                    ? 'Try adjusting your filters.'
+                    : 'Create a model or import a model provider to get started.'
+                }
+                rowActions={(model) => <DataTableRowActions actions={getModelActions(model)} />}
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* ── Models section ────────────────────────────────────────── */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Models</h2>
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Search models..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 w-[200px] rounded-sm"
-              />
-              <Select
-                value={providerFilter || undefined}
-                onValueChange={(v) => setProviderFilter(v === '__all__' ? '' : v)}
-              >
-                <SelectTrigger aria-label="Filter by provider" className="h-9 w-[180px] rounded-sm">
-                  <SelectValue placeholder="All providers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All providers</SelectItem>
-                  {providers.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      {/* ── External model catalog dialog ─────────────────────────── */}
+      <Dialog open={showImportDialog} onOpenChange={handleImportDialogOpenChange}>
+        <DialogContent className="sm:max-w-[960px]">
+          <DialogHeader>
+            <DialogTitle>Import Model Provider</DialogTitle>
+            <DialogDescription>
+              Browse the configured model catalog source, select a model provider, and import all of its models.
+              Imported models start inactive so your team can review and enable them deliberately.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2 md:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="catalog-model-provider-search">Model providers</Label>
+                <Input
+                  id="catalog-model-provider-search"
+                  value={catalogQuery}
+                  onChange={(event) => setCatalogQuery(event.target.value)}
+                  placeholder="Search model providers..."
+                />
+              </div>
+
+              <div className="max-h-[420px] overflow-y-auto rounded-md border border-[var(--color-border-light)]">
+                {catalogLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-[var(--color-text-tertiary)]">
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Loading model providers...
+                  </div>
+                ) : filteredCatalogModelProviders.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
+                    No model providers match your search.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-[var(--color-border-light)]">
+                    {filteredCatalogModelProviders.map((modelProvider) => {
+                      const isSelected = modelProvider.modelProviderKey === selectedCatalogModelProviderKey;
+
+                      return (
+                        <button
+                          key={modelProvider.modelProviderKey}
+                          type="button"
+                          onClick={() => setSelectedCatalogModelProviderKey(modelProvider.modelProviderKey)}
+                          className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors ${
+                            isSelected
+                              ? 'bg-[var(--color-surface-inset)]'
+                              : 'hover:bg-[var(--color-surface-inset)]/60'
+                          }`}
+                        >
+                          <span className="font-medium text-[var(--color-text-primary)]">{modelProvider.name}</span>
+                          <span className="text-xs text-[var(--color-text-secondary)]">{modelProvider.modelProviderKey}</span>
+                          <span className="text-xs text-[var(--color-text-tertiary)]">
+                            {modelProvider.modelCount} model{modelProvider.modelCount !== 1 ? 's' : ''}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="min-h-[420px] rounded-md border border-[var(--color-border-light)] p-4">
+              {!selectedCatalogModelProvider ? (
+                <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-tertiary)]">
+                  Select a model provider to preview its metadata and models.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                          {selectedCatalogModelProvider.name}
+                        </h3>
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                          {selectedCatalogModelProvider.modelProviderKey}
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center rounded-full bg-[var(--color-surface-inset)] px-2 py-1 text-xs font-medium text-[var(--color-text-secondary)]">
+                        {selectedCatalogModelProvider.modelCount} model{selectedCatalogModelProvider.modelCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {(selectedCatalogModelProvider.documentationUrl || selectedCatalogModelProvider.sdkPackage) && (
+                      <div className="space-y-1 text-sm text-[var(--color-text-secondary)]">
+                        {selectedCatalogModelProvider.sdkPackage && (
+                          <p>SDK package: {selectedCatalogModelProvider.sdkPackage}</p>
+                        )}
+                        {selectedCatalogModelProvider.documentationUrl && (
+                          <p className="truncate">Docs: {selectedCatalogModelProvider.documentationUrl}</p>
+                        )}
+                        {selectedCatalogModelProvider.apiBaseUrl && (
+                          <p className="truncate">API base: {selectedCatalogModelProvider.apiBaseUrl}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedCatalogModelProvider.environmentVariables.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                          Environment variables
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCatalogModelProvider.environmentVariables.map((environmentVariable) => (
+                            <span
+                              key={environmentVariable}
+                              className="rounded-full bg-[var(--color-surface-inset)] px-2 py-1 text-xs text-[var(--color-text-secondary)]"
+                            >
+                              {environmentVariable}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">Models to import</p>
+                      <span className="text-xs text-[var(--color-text-tertiary)]">
+                        Imported models will be inactive by default
+                      </span>
+                    </div>
+
+                    {catalogLoadingModels ? (
+                      <div className="flex items-center gap-2 rounded-md border border-[var(--color-border-light)] px-4 py-8 text-sm text-[var(--color-text-tertiary)]">
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Loading models...
+                      </div>
+                    ) : catalogModels.length === 0 ? (
+                      <div className="rounded-md border border-[var(--color-border-light)] px-4 py-8 text-sm text-[var(--color-text-tertiary)]">
+                        No models were returned for this model provider.
+                      </div>
+                    ) : (
+                      <div className="max-h-[240px] overflow-y-auto rounded-md border border-[var(--color-border-light)]">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+                              <th className="p-3 text-left font-medium text-[var(--color-text-secondary)]">Model</th>
+                              <th className="p-3 text-left font-medium text-[var(--color-text-secondary)]">Family</th>
+                              <th className="p-3 text-right font-medium text-[var(--color-text-secondary)]">Context</th>
+                              <th className="p-3 text-right font-medium text-[var(--color-text-secondary)]">Output</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {catalogModels.map((catalogModel) => (
+                              <tr
+                                key={catalogModel.modelKey}
+                                className="border-b border-[var(--color-border-light)] last:border-b-0"
+                              >
+                                <td className="p-3 align-top">
+                                  <p className="font-medium text-[var(--color-text-primary)]">{catalogModel.name}</p>
+                                  <p className="text-xs text-[var(--color-text-tertiary)]">{catalogModel.modelKey}</p>
+                                </td>
+                                <td className="p-3 text-[var(--color-text-secondary)]">{catalogModel.family ?? '—'}</td>
+                                <td className="p-3 text-right text-[var(--color-text-secondary)]">
+                                  {catalogModel.contextWindow > 0 ? `${(catalogModel.contextWindow / 1000).toFixed(0)}k` : '—'}
+                                </td>
+                                <td className="p-3 text-right text-[var(--color-text-secondary)]">
+                                  {catalogModel.outputTokenLimit > 0 ? `${(catalogModel.outputTokenLimit / 1000).toFixed(0)}k` : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {loading && models.length === 0 ? (
-            <p className="text-sm text-[var(--color-text-tertiary)] py-8 text-center">Loading models...</p>
-          ) : filteredModels.length === 0 ? (
-            <div className="py-12 text-center">
-              <BrainCircuit className="w-12 h-12 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">No models found</p>
-              <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                {searchQuery || providerFilter ? 'Try adjusting your filters.' : 'Add a model to get started.'}
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-md border border-[var(--color-border-light)] overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
-                    <th className="text-left p-3 font-medium text-[var(--color-text-secondary)]">Model</th>
-                    <th className="text-left p-3 font-medium text-[var(--color-text-secondary)]">Provider</th>
-                    <th className="text-right p-3 font-medium text-[var(--color-text-secondary)]">Context</th>
-                    <th className="text-center p-3 font-medium text-[var(--color-text-secondary)]">Status</th>
-                    <th className="text-left p-3 font-medium text-[var(--color-text-secondary)]">Created</th>
-                    <th className="text-right p-3 font-medium text-[var(--color-text-secondary)]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredModels.map((model) => (
-                    <tr key={model.id} className="border-b border-[var(--color-border-light)] last:border-b-0 hover:bg-[var(--color-surface-inset)]/50">
-                      <td className="p-3">
-                        <p className="font-medium text-[var(--color-text-primary)]">{model.modelName}</p>
-                      </td>
-                      <td className="p-3 text-[var(--color-text-secondary)]">{model.providerName ?? '—'}</td>
-                      <td className="p-3 text-right text-[var(--color-text-secondary)]">
-                        {model.contextWindow > 0 ? `${(model.contextWindow / 1000).toFixed(0)}k` : '—'}
-                      </td>
-                      <td className="p-3 text-center">
-                        {model.isActive ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
-                            <Check className="w-3 h-3" /> Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
-                            <X className="w-3 h-3" /> Inactive
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-[var(--color-text-secondary)]">{formatDate(model.createdAt)}</td>
-                      <td className="p-3 text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openEditModel(model)}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => deleteModel(model)}>
-                            <Trash2 className="w-3.5 h-3.5 text-[var(--color-error)]" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleImportDialogOpenChange(false)} disabled={catalogImporting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={importModelProvider}
+              disabled={!selectedCatalogModelProvider || catalogImporting || catalogLoadingModels}
+            >
+              {catalogImporting ? 'Importing...' : 'Import model provider'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Provider dialog ──────────────────────────────────────── */}
-      <Dialog open={showProviderDialog} onOpenChange={setShowProviderDialog}>
-        <DialogContent>
+      <Dialog open={showProviderDialog} onOpenChange={handleProviderDialogOpenChange}>
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{editingProvider ? 'Edit Provider' : 'New Provider'}</DialogTitle>
             <DialogDescription>
@@ -472,7 +948,7 @@ export function AiModelsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProviderDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => handleProviderDialogOpenChange(false)}>Cancel</Button>
             <Button onClick={saveProvider} disabled={saving || !providerName.trim()}>
               {saving ? 'Saving...' : editingProvider ? 'Update' : 'Create'}
             </Button>
@@ -481,8 +957,8 @@ export function AiModelsPage() {
       </Dialog>
 
       {/* ── Model dialog ─────────────────────────────────────────── */}
-      <Dialog open={showModelDialog} onOpenChange={setShowModelDialog}>
-        <DialogContent>
+      <Dialog open={showModelDialog} onOpenChange={handleModelDialogOpenChange}>
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{editingModel ? 'Edit Model' : 'New Model'}</DialogTitle>
             <DialogDescription>
@@ -495,11 +971,17 @@ export function AiModelsPage() {
             {!editingModel && (
               <div className="grid gap-2">
                 <Label htmlFor="model-provider">Provider</Label>
-                <Select value={modelProviderId} onValueChange={setModelProviderId}>
+                <Select
+                  value={modelProviderId || '__unset__'}
+                  onValueChange={(value) => setModelProviderId(value === '__unset__' ? '' : value)}
+                >
                   <SelectTrigger id="model-provider">
                     <SelectValue placeholder="Select provider" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__unset__" disabled>
+                      Select provider
+                    </SelectItem>
                     {providers.map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
@@ -538,7 +1020,7 @@ export function AiModelsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowModelDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => handleModelDialogOpenChange(false)}>Cancel</Button>
             <Button onClick={saveModel} disabled={saving || !modelName.trim() || (!editingModel && !modelProviderId)}>
               {saving ? 'Saving...' : editingModel ? 'Update' : 'Create'}
             </Button>

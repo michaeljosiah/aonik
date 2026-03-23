@@ -60,6 +60,49 @@ export interface UpdateAiModelRequest {
   isActive?: boolean | null;
 }
 
+// ── External model catalog types ─────────────────────────────────────
+
+export interface AiCatalogModelProviderResponse {
+  modelProviderKey: string;
+  name: string;
+  documentationUrl?: string | null;
+  sdkPackage?: string | null;
+  apiBaseUrl?: string | null;
+  environmentVariables: string[];
+  modelCount: number;
+}
+
+export interface AiCatalogModelResponse {
+  modelProviderKey: string;
+  modelKey: string;
+  name: string;
+  family?: string | null;
+  contextWindow: number;
+  outputTokenLimit: number;
+  costProfileJson: string;
+  inputModalities: string[];
+  outputModalities: string[];
+  supportsReasoning: boolean;
+  supportsToolCall: boolean;
+  supportsStructuredOutput: boolean;
+  supportsAttachments: boolean;
+  isOpenWeights: boolean;
+}
+
+export interface ImportAiCatalogModelProviderRequest {
+  importModelsAsInactive?: boolean;
+}
+
+export interface ImportAiCatalogModelProviderResponse {
+  aiProviderId: string;
+  modelProviderKey: string;
+  providerName: string;
+  providerCreated: boolean;
+  modelsCreated: number;
+  modelsLinked: number;
+  modelsSkipped: number;
+}
+
 // ── Agent Configuration types ───────────────────────────────────────
 
 export interface AgentConfigurationResponse {
@@ -103,6 +146,14 @@ export interface ListAiProvidersResponse {
 
 export interface ListAiModelsResponse {
   models: AiModelResponse[];
+}
+
+export interface ListAiCatalogModelProvidersResponse {
+  modelProviders: AiCatalogModelProviderResponse[];
+}
+
+export interface ListAiCatalogModelsResponse {
+  models: AiCatalogModelResponse[];
 }
 
 export interface ListAgentsResponse {

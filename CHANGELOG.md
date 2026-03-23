@@ -4,6 +4,9 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **AI Model Catalog Import**: Added a source-driven model catalog flow for Admin UI. Operators can now browse externally discovered model providers, preview all models under a selected model provider, and bulk-import them into the local AI provider/model catalog as inactive records for later review and activation.
+
 ### Changed
 - **Bootstrap (First-Run Install Code Flow)**: Reworked initial platform bootstrap to use a one-time `Bootstrap:SetupSecret` plus owner email instead of requiring an IdP login before the first tenant exists. `/bootstrap/status` now reports explicit readiness states, the Admin UI no longer treats status failures as implicit fresh-install setup, bootstrap creates a pending owner profile for later identity linking, and first sign-in links that external identity back to the bootstrap owner record.
 - **Agent Framework (MAF Best Practices Refactor)**: Comprehensive refactoring of the AONIK Agent Framework to align with Microsoft Agent Framework (MAF) idioms and best practices:

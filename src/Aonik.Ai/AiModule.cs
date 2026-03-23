@@ -108,6 +108,7 @@ public sealed class AiModule : IModule
         services.AddScoped<AiModelService>();
         services.AddScoped<IAiModelService>(sp => sp.GetRequiredService<AiModelService>());
         services.AddScoped<IAiModelResolver>(sp => sp.GetRequiredService<AiModelService>());
+        services.AddScoped<IAiModelCatalogImportService, AiModelCatalogImportService>();
 
         // Insight persistence — consumed by domain modules via IInsightWriter contract
         services.AddScoped<IInsightWriter, InsightWriter>();

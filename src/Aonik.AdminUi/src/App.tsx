@@ -189,8 +189,8 @@ function AppLayout() {
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)] min-w-0'}>
             <Routes>
-              {/* Dashboard — always present */}
-              <Route path="/" element={<DashboardHome />} />
+              {/* My Space — default authenticated home */}
+              <Route path="/" element={<MySpacePage />} />
               {/* Workspace — always present */}
               <Route path="/workspace" element={<WorkspacePage />} />
               {/* AI Chat — wired to AG-UI streaming endpoint */}
@@ -226,57 +226,6 @@ function AppLayout() {
       </div>
     </div>
   );
-}
-
-function DashboardHome() {
-  const [setupState, setSetupState] = useState<'loading' | 'ready' | 'journey'>(
-    'loading'
-  );
-
-  useEffect(() => {
-    const checkTenantSetup = async () => {
-      try {
-        // Check if user has skipped or completed the old onboarding flow
-        const skip = localStorage.getItem('aonik:onboarding:skip');
-        const complete = localStorage.getItem('aonik:onboarding:complete');
-        
-        // Tenant wizard setup is now handled at route level in AuthenticatedApp
-        // Only check if they want to see the journey
-        if (!skip && !complete) {
-          setSetupState('journey');
-          return;
-        }
-        
-        setSetupState('ready');
-      } catch (err) {
-        // If we can't check, default to showing the journey (old behavior)
-        const skip = localStorage.getItem('aonik:onboarding:skip');
-        const complete = localStorage.getItem('aonik:onboarding:complete');
-        setSetupState(!skip && !complete ? 'journey' : 'ready');
-      }
-    };
-
-    checkTenantSetup();
-  }, []);
-
-  if (setupState === 'loading') {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (setupState === 'journey') {
-    return (
-      <SetupJourneyPage
-        onSkip={() => setSetupState('ready')}
-        onComplete={() => setSetupState('ready')}
-      />
-    );
-  }
-
-  return <MySpacePage />;
 }
 
 function PlaceholderPage({ title }: { title: string }) {

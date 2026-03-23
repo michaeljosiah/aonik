@@ -142,5 +142,5 @@ export function resolveBreadcrumb(path: string): string[] {
       return bc.trail;
     }
   }
-  return path === '/' ? ['Dashboard'] : ['Dashboard'];
+  return path === '/' ? ['My Space'] : ['My Space'];
 }

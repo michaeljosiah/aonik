@@ -30,7 +30,9 @@ using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.SharedKernel.Abstractions;
 
 using Aonik.Platform.Contracts.Models.Configuration;
+using Aonik.Ai.Contracts.Services;
 using Aonik.Infrastructure.Authentication;
+using Aonik.Infrastructure.Ai.ModelCatalog;
 using Aonik.Infrastructure.Authentication.Account;
 using Aonik.Infrastructure.Authentication.Configuration;
 using Aonik.Infrastructure.Authentication.PasswordReset;
@@ -162,6 +164,11 @@ public static class DependencyInjection
         services.AddScoped<ISettingProvider, SettingService>();
         services.AddScoped<ISettingManager, SettingService>();
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
+        services.AddHttpClient<IAiModelCatalogSource, ModelsDevAiModelCatalogSource>((_, client) =>
+        {
+            client.BaseAddress = new Uri(configuration["AI:ModelCatalog:BaseAddress"] ?? "https://models.dev", UriKind.Absolute);
+            client.Timeout = TimeSpan.FromSeconds(configuration.GetValue<int?>("AI:ModelCatalog:TimeoutSeconds") ?? 30);
+        });
         services.AddHttpClient<Auth0UserProvisioner>();
         services.AddHttpClient<AzureAdUserProvisioner>();
         services.AddHttpClient<Auth0AuthTokenService>();

@@ -14,7 +14,7 @@ export const navigationSections: NavigationSection[] = [
     items: [
       {
         id: 'dashboard',
-        label: 'Dashboard',
+        label: 'My Space',
         icon: 'LayoutDashboard',
         href: '/',
       },
