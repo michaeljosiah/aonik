@@ -55,6 +55,11 @@ on:
         required: true
         default: false
         type: boolean
+      source_ref:
+        description: "Optional git ref or commit SHA to checkout"
+        required: false
+        default: ""
+        type: string
   workflow_call:
     inputs:
       environment:
@@ -92,6 +97,10 @@ on:
         required: false
         default: false
         type: boolean
+      source_ref:
+        required: false
+        default: ""
+        type: string
     secrets:
       AZURE_CLIENT_ID:
         required: true
@@ -141,6 +150,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.sha }}
 
       - name: Azure login
         uses: ./.github/actions/azure-login

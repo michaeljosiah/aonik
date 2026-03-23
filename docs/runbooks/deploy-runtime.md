@@ -56,6 +56,13 @@ If these JSON payloads are omitted, runtime uses image/application defaults and 
 3. Run `mode=deploy`.
 4. Verify endpoints and telemetry.
 
+## Automatic dev deployment
+
+- Workflow: `.github/workflows/cd-dev-auto.yml`
+- Trigger: successful `CI` completion for a `push` to `master`
+- Behavior: builds/pushes runtime images for the exact validated commit SHA, then deploys `dev` with digest-based references
+- Prerequisite: the GitHub `dev` environment must already contain the required Azure secrets/variables and must not require manual approval for routine runtime updates
+
 ## Fail-fast behavior
 - Deployment fails if any required service image for the selected version is missing.
 - Authentication/authorization or transport errors during ACR metadata queries fail fast with a separate message (not classified as missing tags).

@@ -32,6 +32,11 @@ on:
         required: false
         default: ""
         type: string
+      source_ref:
+        description: "Optional git ref or commit SHA to checkout"
+        required: false
+        default: ""
+        type: string
   workflow_call:
     inputs:
       environment:
@@ -50,6 +55,10 @@ on:
         default: ""
         type: string
       acr_name:
+        required: false
+        default: ""
+        type: string
+      source_ref:
         required: false
         default: ""
         type: string
@@ -104,6 +113,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.sha }}
 
       - name: Azure login
         uses: ./.github/actions/azure-login
