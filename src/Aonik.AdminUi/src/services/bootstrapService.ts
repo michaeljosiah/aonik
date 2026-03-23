@@ -1,10 +1,11 @@
 import { apiConfig } from '@/auth';
 import type { BootstrapStatusResponse, BootstrapTenantResult } from '@/types';
 
-// Simple in-memory cache for bootstrap status
-let statusCache: { data: BootstrapStatusResponse; timestamp: number } | null = null;
+// Simple in-memory cache for bootstrap status. Responses vary by auth context,
+// so cache entries are scoped per access token (or anonymous requests).
+const statusCache = new Map<string, { data: BootstrapStatusResponse; timestamp: number }>();
 const CACHE_TTL_MS = 30000; // 30 seconds
-let statusInFlight: Promise<BootstrapStatusResponse> | null = null;
+const statusInFlight = new Map<string, Promise<BootstrapStatusResponse>>();
 
 const statusMessages: Record<number, string> = {
   400: 'The request was invalid. Check your inputs and try again.',
@@ -26,6 +27,10 @@ const buildUrl = (path: string): string => {
     : apiConfig.baseUrl;
 
   return `${baseUrl}${path}`;
+};
+
+const getStatusCacheKey = (accessToken?: string | null): string => {
+  return accessToken ? `bearer:${accessToken}` : 'anonymous';
 };
 
 const tryGetString = (value: unknown): string | null => {
@@ -96,40 +101,46 @@ const requestBootstrap = async <T>(
 export const bootstrapService = {
   bootstrap: async (accessToken?: string | null): Promise<BootstrapTenantResult> => {
     // Clear cache after bootstrap
-    statusCache = null;
-    statusInFlight = null;
+    statusCache.clear();
+    statusInFlight.clear();
     return requestBootstrap<BootstrapTenantResult>('/bootstrap', {
       method: 'POST',
       accessToken,
     });
   },
   status: async (forceRefresh = false, accessToken?: string | null): Promise<BootstrapStatusResponse> => {
+    const cacheKey = getStatusCacheKey(accessToken);
+    const cached = statusCache.get(cacheKey);
+
     // Return cached data if valid
-    if (!forceRefresh && statusCache && Date.now() - statusCache.timestamp < CACHE_TTL_MS) {
-      return statusCache.data;
+    if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
     }
 
-    if (statusInFlight) {
-      return statusInFlight;
+    const inFlight = statusInFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
     }
 
     // Fetch fresh data
-    statusInFlight = requestBootstrap<BootstrapStatusResponse>('/bootstrap/status', {
+    const request = requestBootstrap<BootstrapStatusResponse>('/bootstrap/status', {
       accessToken,
       forceRefresh,
     })
       .then((data) => {
-        statusCache = { data, timestamp: Date.now() };
+        statusCache.set(cacheKey, { data, timestamp: Date.now() });
         return data;
       })
       .finally(() => {
-        statusInFlight = null;
+        statusInFlight.delete(cacheKey);
       });
 
-    return statusInFlight;
+    statusInFlight.set(cacheKey, request);
+
+    return request;
   },
   clearCache: (): void => {
-    statusCache = null;
-    statusInFlight = null;
+    statusCache.clear();
+    statusInFlight.clear();
   },
 };

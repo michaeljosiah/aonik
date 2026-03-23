@@ -101,9 +101,9 @@ export function SetupWizardPage() {
 
   useEffect(() => {
     if (!authLoading) {
-      loadSetupState();
+      void loadSetupState();
     }
-  }, [authLoading]);
+  }, [authLoading, isAuthenticated, accessToken, getAccessToken]);
 
   const handleLogin = async () => {
     await login();

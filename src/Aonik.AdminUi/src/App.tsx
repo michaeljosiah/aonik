@@ -303,13 +303,15 @@ function AuthenticatedApp() {
       // Ensure API layer has the latest token getter before any calls
       setAccessTokenGetter(getAccessToken);
 
+      const bootstrapToken = accessToken ?? (isAuthenticated ? await getAccessToken() : null);
+
       // Retry bootstrap status check up to 3 times on failure.
       // If all retries fail, default to showing bootstrap setup (safe default)
       // because we cannot confirm tenants exist.
       let status: Awaited<ReturnType<typeof bootstrapService.status>> | null = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          status = await bootstrapService.status(attempt > 0);
+          status = await bootstrapService.status(attempt > 0, bootstrapToken);
           break;
         } catch {
           if (attempt < 2) {
