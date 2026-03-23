@@ -12,7 +12,7 @@ Roll back a failed or problematic deployment to a previously known-good release 
 
 ## Prerequisites
 
-- Know the **previous release version** (image tag) that was stable. Check the `image-release-manifest.json` artifact from a prior successful **CD: Container Images** run, or inspect the ACR tags with `az acr repository show-tags`.
+- Know the **previous release version** (image tag) that was stable. Check the `image-release-manifest.json` artifact from a prior successful `master` **CI** run, or inspect the ACR tags with `az acr repository show-tags`.
 - Access to the target GitHub environment secrets (same as any deploy).
 
 ## Rollback Steps
@@ -35,16 +35,7 @@ This is the safest approach — it uses the same deployment pipeline as normal r
    - Check Application Insights for error rate returning to baseline
    - Confirm admin UI loads correctly
 
-### Option B: Re-deploy via CD: Pipeline
-
-Use when you also want to rebuild images from a known-good commit.
-
-1. Go to **Actions > CD: Pipeline** (`cd-pipeline.yml`).
-2. Set `build_images` to `true`.
-3. Set `ref` to the known-good Git commit SHA or tag.
-4. Run through `what-if` then `deploy` for the target environment.
-
-### Option C: Azure CLI Direct Revision Switch (Emergency)
+### Option B: Azure CLI Direct Revision Switch (Emergency)
 
 Use only when GitHub Actions is unavailable or too slow.
 
@@ -82,6 +73,6 @@ az acr repository show-tags \
   --top 10
 
 # Download a prior release manifest artifact from GitHub Actions
-gh run download <run-id> -n image-release-manifest
+gh run download <run-id> -n image-release-<sha>
 cat image-release-manifest.json
 ```

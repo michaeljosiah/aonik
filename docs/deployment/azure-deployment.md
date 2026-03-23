@@ -3,8 +3,8 @@
 This guide defines AONIK's Azure container delivery model with strict separation of concerns:
 
 1. **Platform Bootstrap** (`cd-infra.yml`) provisions/updates shared Azure infrastructure only.
-2. **Image Release** (`cd-images.yml`) builds and pushes a cohesive runtime image set.
-3. **Runtime Deploy** (`cd-deploy.yml`) deploys app runtimes using those exact image references.
+2. **CI** (`ci.yml`) validates pull requests and, on pushes to `master`, builds and pushes a cohesive runtime image set.
+3. **Runtime Deploy** (`cd-deploy.yml`) deploys app runtimes using those exact image references with environment approval gates.
 
 
 
@@ -19,8 +19,10 @@ This guide defines AONIK's Azure container delivery model with strict separation
              │ outputs infra foundations (ACR, SQL, KV, ACA)
              ▼
 ┌──────────────────────────┐
-│ 2) CD: Container Images  │
-│    (build/tag/push)      │
+│ 2) CI                    │
+│    (build/test)          │
+│    push to master =>     │
+│    build/tag/push        │
 │    aonik-api             │
 │    aonik-worker          │
 │    aonik-adminui         │
@@ -40,38 +42,37 @@ This guide defines AONIK's Azure container delivery model with strict separation
 Run order for a fresh environment:
 
 1. **Platform bootstrap** (`mode=deploy`) for target `environment`.
-2. **Image release** with default tag (`git SHA`) or explicit immutable tag.
-3. **Runtime deploy** using the same image version.
+2. Push the desired commit to `master` so **CI** publishes images with the commit SHA.
+3. Run **CD: Deploy** using that same image version.
 
 This removes first-run ambiguity; no skip flags are required for normal bootstrap. Bootstrap uses per-service image defaults so API/Admin UI runtime port assumptions remain valid in first-run ACA deployments.
 
 ## Normal Release Playbook
 
-1. Run **CD: Container Images** with:
-   - `environment`: target env credential scope
-   - `image_tag`: optional override (default `github.sha`)
-   - `semver_alias`: optional mutable alias (e.g. `v1.5.0`)
-2. Capture release artifact `image-release-<version>/image-release-manifest.json`.
-3. Run **CD: Deploy** with:
-   - same `environment`
-   - `image_version=<version from image release>`
+1. Merge or push the desired commit to `master`.
+2. Wait for **CI** to complete:
+   - PRs run build/test only for fast feedback.
+   - `master` pushes run build/test and publish `aonik-api`, `aonik-worker`, and `aonik-adminui` images tagged with the commit SHA.
+3. Capture release artifact `image-release-<sha>/image-release-manifest.json` from the CI run if you need an audit record.
+4. Run **CD: Deploy** with:
+   - target `environment`
+   - `image_version=<master commit SHA>`
    - `use_digest_references=true` (recommended)
 
+### Manual image rebuild fallback
 
-### Optional Operator Orchestrator
+`cd-images.yml` remains available as a manual fallback if you need to rebuild/push runtime images outside the normal `master` CI path.
 
-For teams that want a single entry point, use `cd-pipeline.yml`:
+### Current caveat
 
-- Set `build_images=true` to run image release first and automatically pass the resolved immutable `release_version` into runtime deployment.
-- Set `build_images=false` to skip image build/push and provide `image_version` explicitly (required).
+The Admin UI still uses build-time `VITE_*` settings. That means the automatically published CI image reflects the repository-level defaults used during the build. If staging or prod need different Admin UI auth/API values, either:
 
-This preserves the standard split between build/release and deployment while reducing operator handoff errors.
-
-This orchestrator intentionally exposes a compact input set to satisfy GitHub's `workflow_dispatch` 10-input limit; use `cd-images.yml` or `cd-deploy.yml` directly for advanced overrides such as `semver_alias`, explicit `acr_name` / `acr_login_server`, or `location`.
+- rebuild with `cd-images.yml` for that environment, or
+- move the Admin UI to runtime-injected configuration so one image can be promoted unchanged across environments.
 
 ## Rollback Playbook
 
-1. Identify a prior successful image release version.
+1. Identify a prior successful CI image release version.
 2. Re-run **CD: Deploy** with:
    - `image_version=<previous immutable version>`
    - unchanged environment
@@ -87,32 +88,49 @@ This orchestrator intentionally exposes a compact input set to satisfy GitHub's 
 
 ## Security and Azure Authentication
 
-All three workflows use:
+The delivery workflows use:
 
 - **OIDC (`azure/login`) by default**.
 - **Service principal secret fallback** only when `AZURE_CLIENT_SECRET` is configured.
 
-Required environment secrets:
+Repository variables used by CI image publishing:
 
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
+- `WORKLOAD_NAME`
+- `VITE_AUTH_PROVIDER`
+- `VITE_API_BASE_URL`
+- Provider-specific `VITE_*` values used for the Admin UI build
+
+Environment secrets used by infrastructure/runtime deployment:
+
 - `SQL_ADMIN_PASSWORD` (bootstrap/runtime deployment)
+- `BOOTSTRAP_SETUP_SECRET` (runtime deployment; injected as `Bootstrap__SetupSecret`)
 - `ACS_CONNECTION_STRING` (optional; required for ACS email/SMS dispatch)
 - `VERIFICATION_HASH_KEY` (optional; required for verification hash protection)
 - `AZURE_CLIENT_SECRET` (optional fallback)
 
-Required environment variables for Admin UI image build:
+Environment variables used by deployment workflows:
+
+- `AZURE_RESOURCE_GROUP`
+- Optional `WORKLOAD_NAME` override if you need deployment-specific naming
+
+Repository variables used by the Admin UI image build:
 
 - `VITE_AUTH_PROVIDER` (`azure-ad`, `auth0`, or `mock`)
 - `VITE_API_BASE_URL`
 
-If `VITE_AUTH_PROVIDER` is omitted, image release defaults it to `azure-ad` during Admin UI build.
+If `VITE_AUTH_PROVIDER` is omitted, CI/manual image release defaults it to `azure-ad` during the Admin UI build.
 - If provider is `azure-ad`: `VITE_AZURE_AD_CLIENT_ID`, `VITE_AZURE_AD_TENANT_ID`
 - If provider is `auth0`: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`
 - Optional overrides: `VITE_AZURE_AD_REDIRECT_URI`, `VITE_AZURE_AD_API_SCOPE`, `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_AUDIENCE`
 
-Runtime app settings are injected through JSON payloads:
+Bootstrap install code is injected with a dedicated GitHub Environment secret:
+
+- `BOOTSTRAP_SETUP_SECRET` -> `Bootstrap__SetupSecret`
+
+Use the JSON payloads only for other runtime app settings:
 
 - `API_APP_SETTINGS_JSON`
 - `WORKER_APP_SETTINGS_JSON`
@@ -136,7 +154,7 @@ Auth0 example (`API_APP_SETTINGS_JSON`):
 }
 ```
 
-You can include any other runtime settings in the same payload (for example `PlatformAdmin__*`, `BlobStorage__*`, `Communication__Azure__Email__FromAddress`, `FeatureManagement__*`).
+You can include other runtime settings in the same payload (for example `PlatformAdmin__*`, `BlobStorage__*`, `Communication__Azure__Email__FromAddress`, `FeatureManagement__*`). Avoid placing `Bootstrap__SetupSecret` in the JSON bundle now that the deploy flow supports a dedicated secret.
 
 Recommended least-privilege role scoping:
 
@@ -148,8 +166,8 @@ Recommended least-privilege role scoping:
 
 If runtime deploy fails with missing tags:
 
-1. Confirm `image_version` matches image release output.
-2. Re-run **CD: Container Images** for that version.
+1. Confirm `image_version` matches a successful `master` CI run output.
+2. Re-run CI from the desired commit or use **CD: Container Images** as a manual fallback.
 3. Verify all repositories exist in ACR:
    - `aonik-api`
    - `aonik-worker`
@@ -163,4 +181,3 @@ Avoid mixing ad-hoc service tags. Runtime deploy intentionally blocks partial ve
 - `docs/runbooks/bootstrap.md`
 - `docs/runbooks/build-and-push.md`
 - `docs/runbooks/deploy-runtime.md`
-- `docs/runbooks/release-and-deploy.md`

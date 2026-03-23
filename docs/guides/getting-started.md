@@ -90,6 +90,7 @@ Update `src/Aonik.Api/appsettings.Development.json` (or user secrets) with one o
 
 Notes:
 - `Bootstrap.SetupSecret` should come from user secrets, environment variables, or deployment configuration rather than committed JSON.
+- In GitHub/Azure deployments, prefer the dedicated `BOOTSTRAP_SETUP_SECRET` environment secret so the deploy workflow passes it to the API as `Bootstrap__SetupSecret`.
 - The platform allows bootstrap only when no tenants exist.
 - After bootstrap, the first owner signs in normally and AONIK links that identity to the pending owner profile using the configured email.
 

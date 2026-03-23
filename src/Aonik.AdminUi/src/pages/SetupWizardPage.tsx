@@ -379,15 +379,15 @@ function SetupStep({
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-[var(--color-border-light)] p-4">
-      <div className="flex items-start gap-3">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
         <div className={`flex h-9 w-9 items-center justify-center rounded-full ${config.bg}`}>
           <Icon className={`h-4 w-4 ${config.text}`} />
         </div>
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-[var(--color-text-primary)]">{title}</p>
           <p className="text-sm text-[var(--color-text-secondary)]">{description}</p>
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        {action ? <div className="w-full md:max-w-md md:flex-1">{action}</div> : null}
       </div>
     </div>
   );

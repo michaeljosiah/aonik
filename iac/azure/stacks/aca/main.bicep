@@ -33,6 +33,10 @@ param acsConnectionString string = ''
 @description('HMAC hash key for the verification service. Passed to Key Vault via the data module.')
 param verificationHashKey string = ''
 
+@secure()
+@description('One-time platform bootstrap install code injected into the API container.')
+param bootstrapSetupSecret string = ''
+
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
@@ -175,7 +179,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: apiPullIdentity.id
         }
       ]
-      secrets: enableOptionalSecrets ? [
+      secrets: concat(enableOptionalSecrets ? [
         {
           name: 'sql-connection'
           keyVaultUrl: data.outputs.sqlConnectionSecretUri
@@ -213,7 +217,12 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'verification-hash-key'
           value: 'placeholder'
         }
-      ]
+      ], empty(bootstrapSetupSecret) ? [] : [
+        {
+          name: 'bootstrap-setup-secret'
+          value: bootstrapSetupSecret
+        }
+      ])
     }
     template: {
       containers: [
@@ -241,6 +250,12 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Verification__HashKey'
               secretRef: 'verification-hash-key'
             }
+          ], empty(bootstrapSetupSecret) ? [] : [
+            {
+              name: 'Bootstrap__SetupSecret'
+              secretRef: 'bootstrap-setup-secret'
+            }
+          ], [
             {
               name: 'Cors__AllowedOrigins__0'
               value: 'https://${adminUiApp.properties.configuration.ingress.fqdn}'

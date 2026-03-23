@@ -102,12 +102,6 @@ on:
         default: ""
         type: string
     secrets:
-      AZURE_CLIENT_ID:
-        required: true
-      AZURE_TENANT_ID:
-        required: true
-      AZURE_SUBSCRIPTION_ID:
-        required: true
       SQL_ADMIN_PASSWORD:
         required: true
       ACS_CONNECTION_STRING:
@@ -126,10 +120,9 @@ permissions:
   contents: read
 
 ## No workflow-level concurrency guard here.
-## When called from cd-pipeline.yml the parent already holds the
-## 'deploy-<env>' lock; duplicating it here causes a deadlock that
-## GitHub cancels.  For standalone dispatch the job-level
-## environment protection rule prevents overlapping deploys.
+## Standalone environment protection rules prevent overlapping
+## deployments, and callers can add higher-level orchestration locks
+## without risking nested deadlocks here.
 
 jobs:
   deploy:
@@ -156,9 +149,9 @@ jobs:
       - name: Azure login
         uses: ./.github/actions/azure-login
         with:
-          client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client_id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
 
       - name: Validate deployment files
@@ -227,4 +220,5 @@ jobs:
             --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
             --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
             --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
+            --parameters "bootstrapSetupSecret=${{ secrets.BOOTSTRAP_SETUP_SECRET }}"
             ${{ inputs.location != '' && format('--parameters "location={0}"', inputs.location) || '' }}

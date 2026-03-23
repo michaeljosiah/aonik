@@ -16,7 +16,8 @@ Provision/update Azure platform foundations (ACR, SQL, Key Vault, observability,
 - `bootstrap_adminui_image` (optional Admin UI bootstrap override, port 80)
 
 ## Required GitHub Environment Secrets/Vars
-- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `SQL_ADMIN_PASSWORD`, `ACS_CONNECTION_STRING`, `VERIFICATION_HASH_KEY`
+- Repo vars: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+- Secrets: `SQL_ADMIN_PASSWORD`, `ACS_CONNECTION_STRING`, `VERIFICATION_HASH_KEY`
 - Optional secret fallback: `AZURE_CLIENT_SECRET`
 - Variable: `AZURE_RESOURCE_GROUP`
 

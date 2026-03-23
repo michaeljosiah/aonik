@@ -23,7 +23,7 @@ This folder provides an Azure-first Infrastructure as Code baseline for AONIK us
 - Azure CLI with Bicep support
 - A target subscription and resource group
 
-> For first-run environments, bootstrap infrastructure first using `.github/workflows/cd-infra.yml`; runtime images are published afterward via `.github/workflows/cd-images.yml`.
+> For first-run environments, bootstrap infrastructure first using `.github/workflows/cd-infra.yml`; runtime images are published afterward by `CI` on pushes to `master` (or manually via `.github/workflows/cd-images.yml` if needed).
 
 ## Deploy
 
@@ -74,9 +74,9 @@ A scheduled workflow (`.github/workflows/drift-detection.yml`) runs weekly and c
 Use the separated workflow model:
 
 1. `.github/workflows/cd-infra.yml` (infra-only bootstrap)
-2. `.github/workflows/cd-images.yml` (build/tag/push API/Worker/AdminUI images)
-3. `.github/workflows/cd-deploy.yml` (runtime rollout with fail-fast image checks)
-4. `.github/workflows/cd-pipeline.yml` (orchestrates images + deploy in one run)
+2. `.github/workflows/ci.yml` (PR build/test, plus image publish on pushes to `master`)
+3. `.github/workflows/cd-deploy.yml` (runtime rollout with fail-fast image checks and approval gates)
+4. `.github/workflows/cd-images.yml` (manual image-build fallback)
 5. `.github/workflows/drift-detection.yml` (weekly drift checks)
 
 Reusable composite actions:
@@ -84,36 +84,42 @@ Reusable composite actions:
 - `.github/actions/bicep-deploy` — compile, what-if (with AuthorizationFailed fallback), deploy
 - `.github/actions/resolve-params` — parameter file resolution for bootstrap and runtime modes
 
-### Required GitHub environment secrets (7)
+### Required GitHub environment secrets (5)
 
 Configure these secrets per environment (`dev`, `staging`, `prod`):
 
 | Secret | Description |
 |--------|-------------|
-| `AZURE_CLIENT_ID` | Azure AD application (client) ID |
-| `AZURE_TENANT_ID` | Azure AD directory (tenant) ID |
-| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 | `AZURE_CLIENT_SECRET` | Service principal secret (optional; enables SP fallback over OIDC) |
 | `SQL_ADMIN_PASSWORD` | SQL Server admin password |
 | `ACS_CONNECTION_STRING` | Azure Communication Services connection string (stored in Key Vault) |
 | `VERIFICATION_HASH_KEY` | HMAC hash key for verification service (stored in Key Vault) |
+| `BOOTSTRAP_SETUP_SECRET` | One-time bootstrap install code passed to the API container as `Bootstrap__SetupSecret` |
 
-### Required GitHub environment variables (~12)
+### Required GitHub repository variables (~14)
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
-| `AZURE_RESOURCE_GROUP` | All workflows | Target Azure resource group |
-| `WORKLOAD_NAME` | All workflows | Workload name for naming convention and ACR derivation |
-| `VITE_AUTH_PROVIDER` | cd-images | Admin UI auth provider (`azure-ad`, `auth0`, `mock`) |
-| `VITE_API_BASE_URL` | cd-images | Admin UI API base URL |
-| `VITE_AZURE_AD_CLIENT_ID` | cd-images | Azure AD client ID (if `azure-ad`) |
-| `VITE_AZURE_AD_TENANT_ID` | cd-images | Azure AD tenant ID (if `azure-ad`) |
-| `VITE_AZURE_AD_REDIRECT_URI` | cd-images | Azure AD redirect URI (optional) |
-| `VITE_AZURE_AD_API_SCOPE` | cd-images | Azure AD API scope (optional) |
-| `VITE_AUTH0_DOMAIN` | cd-images | Auth0 domain (if `auth0`) |
-| `VITE_AUTH0_CLIENT_ID` | cd-images | Auth0 client ID (if `auth0`) |
-| `VITE_AUTH0_REDIRECT_URI` | cd-images | Auth0 redirect URI (optional) |
-| `VITE_AUTH0_AUDIENCE` | cd-images | Auth0 audience (optional) |
+| `AZURE_CLIENT_ID` | ci, cd-infra, cd-deploy, drift-detection, cd-images | Azure AD application (client) ID |
+| `AZURE_TENANT_ID` | ci, cd-infra, cd-deploy, drift-detection, cd-images | Azure AD directory (tenant) ID |
+| `AZURE_SUBSCRIPTION_ID` | ci, cd-infra, cd-deploy, drift-detection, cd-images | Azure subscription ID |
+| `WORKLOAD_NAME` | ci, cd-infra, cd-deploy, cd-images | Workload name for naming convention and ACR derivation |
+| `VITE_AUTH_PROVIDER` | ci, cd-images | Admin UI auth provider (`azure-ad`, `auth0`, `mock`) |
+| `VITE_API_BASE_URL` | ci, cd-images | Admin UI API base URL |
+| `VITE_AZURE_AD_CLIENT_ID` | ci, cd-images | Azure AD client ID (if `azure-ad`) |
+| `VITE_AZURE_AD_TENANT_ID` | ci, cd-images | Azure AD tenant ID (if `azure-ad`) |
+| `VITE_AZURE_AD_REDIRECT_URI` | ci, cd-images | Azure AD redirect URI (optional) |
+| `VITE_AZURE_AD_API_SCOPE` | ci, cd-images | Azure AD API scope (optional) |
+| `VITE_AUTH0_DOMAIN` | ci, cd-images | Auth0 domain (if `auth0`) |
+| `VITE_AUTH0_CLIENT_ID` | ci, cd-images | Auth0 client ID (if `auth0`) |
+| `VITE_AUTH0_REDIRECT_URI` | ci, cd-images | Auth0 redirect URI (optional) |
+| `VITE_AUTH0_AUDIENCE` | ci, cd-images | Auth0 audience (optional) |
+
+### Required GitHub environment variables (1)
+
+| Variable | Used by | Description |
+|----------|---------|-------------|
+| `AZURE_RESOURCE_GROUP` | cd-infra, cd-deploy, drift-detection | Target Azure resource group |
 
 ### Optional API/Worker runtime configuration (2 JSON bundles)
 
@@ -147,8 +153,9 @@ The following settings are registered in `SettingDefinitions` and seeded as Glob
 
 1. Ensure GitHub environment secrets are set for the selected environment.
 2. Run **CD: Infrastructure** (`what-if` then `deploy`).
-3. Run **CD: Container Images** and record `image-release-manifest.json`.
-4. Run **CD: Deploy** with the same release version (`what-if` then `deploy`).
+3. Merge or push the desired commit to `master` and wait for **CI** to publish images.
+4. Record `image-release-manifest.json` from the `image-release-<sha>` artifact if needed.
+5. Run **CD: Deploy** with the same release version (`what-if` then `deploy`).
 
 ### Workflow behavior
 

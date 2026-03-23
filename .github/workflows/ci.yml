@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build:
@@ -34,3 +35,206 @@ jobs:
 
       - name: Run tests
         run: dotnet test Aonik.sln --configuration Release --no-build --logger "console;verbosity=normal"
+
+  publish-images:
+    name: Build and push runtime images
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+
+    env:
+      ENVIRONMENT_NAME: dev
+      WORKLOAD_NAME: ${{ vars.WORKLOAD_NAME }}
+      ACR_NAME_OVERRIDE: ${{ vars.ACR_NAME_OVERRIDE }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      VITE_AUTH_PROVIDER: ${{ vars.VITE_AUTH_PROVIDER }}
+      VITE_AZURE_AD_CLIENT_ID: ${{ vars.VITE_AZURE_AD_CLIENT_ID }}
+      VITE_AZURE_AD_TENANT_ID: ${{ vars.VITE_AZURE_AD_TENANT_ID }}
+      VITE_AZURE_AD_REDIRECT_URI: ${{ vars.VITE_AZURE_AD_REDIRECT_URI }}
+      VITE_AZURE_AD_API_SCOPE: ${{ vars.VITE_AZURE_AD_API_SCOPE }}
+      VITE_AUTH0_DOMAIN: ${{ vars.VITE_AUTH0_DOMAIN }}
+      VITE_AUTH0_CLIENT_ID: ${{ vars.VITE_AUTH0_CLIENT_ID }}
+      VITE_AUTH0_REDIRECT_URI: ${{ vars.VITE_AUTH0_REDIRECT_URI }}
+      VITE_AUTH0_AUDIENCE: ${{ vars.VITE_AUTH0_AUDIENCE }}
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate build configuration
+        run: |
+          set -euo pipefail
+
+          test -n "$AZURE_CLIENT_ID" || (echo "Missing repository variable: AZURE_CLIENT_ID" >&2 && exit 1)
+          test -n "$AZURE_TENANT_ID" || (echo "Missing repository variable: AZURE_TENANT_ID" >&2 && exit 1)
+          test -n "$AZURE_SUBSCRIPTION_ID" || (echo "Missing repository variable: AZURE_SUBSCRIPTION_ID" >&2 && exit 1)
+
+          auth_provider="${VITE_AUTH_PROVIDER:-azure-ad}"
+          api_base_url="${VITE_API_BASE_URL:-}"
+
+          test -n "$api_base_url" || (echo "Missing repository variable: VITE_API_BASE_URL" >&2 && exit 1)
+
+          case "$auth_provider" in
+            azure-ad)
+              test -n "${VITE_AZURE_AD_CLIENT_ID:-}" || (echo "Missing repository variable: VITE_AZURE_AD_CLIENT_ID" >&2 && exit 1)
+              test -n "${VITE_AZURE_AD_TENANT_ID:-}" || (echo "Missing repository variable: VITE_AZURE_AD_TENANT_ID" >&2 && exit 1)
+              ;;
+            auth0)
+              test -n "${VITE_AUTH0_DOMAIN:-}" || (echo "Missing repository variable: VITE_AUTH0_DOMAIN" >&2 && exit 1)
+              test -n "${VITE_AUTH0_CLIENT_ID:-}" || (echo "Missing repository variable: VITE_AUTH0_CLIENT_ID" >&2 && exit 1)
+              ;;
+            mock)
+              ;;
+            *)
+              echo "Invalid VITE_AUTH_PROVIDER='$auth_provider'. Use azure-ad, auth0, or mock." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Azure login
+        uses: ./.github/actions/azure-login
+        with:
+          client_id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+
+          release_version="${GITHUB_SHA}"
+          workload_name="${WORKLOAD_NAME:-aonik}"
+          environment_name="${ENVIRONMENT_NAME}"
+
+          normalized_workload=$(echo "$workload_name" | tr '[:upper:]' '[:lower:]')
+          normalized_environment=$(echo "$environment_name" | tr '[:upper:]' '[:lower:]')
+          derived_acr_name="${normalized_workload}-${normalized_environment}acr"
+          derived_acr_name="${derived_acr_name//-/}"
+
+          acr_name="${ACR_NAME_OVERRIDE:-$derived_acr_name}"
+          test -n "$acr_name" || (echo "Unable to resolve ACR name." >&2 && exit 1)
+
+          acr_login_server=$(az acr show --name "$acr_name" --query loginServer -o tsv)
+          test -n "$acr_login_server" || (echo "Unable to resolve ACR login server for '$acr_name'." >&2 && exit 1)
+
+          {
+            echo "release_version=$release_version"
+            echo "acr_name=$acr_name"
+            echo "acr_login_server=$acr_login_server"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Login to ACR
+        run: az acr login --name "${{ steps.metadata.outputs.acr_name }}"
+
+      - name: Build and push runtime images
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+          ACR_LOGIN_SERVER: ${{ steps.metadata.outputs.acr_login_server }}
+          ACR_NAME: ${{ steps.metadata.outputs.acr_name }}
+        run: |
+          set -euo pipefail
+
+          auth_provider="${VITE_AUTH_PROVIDER:-azure-ad}"
+
+          build_and_push() {
+            local service="$1"
+            local dockerfile="$2"
+            local image_ref="${ACR_LOGIN_SERVER}/${service}:${RELEASE_VERSION}"
+            shift 2
+
+            echo "Building ${image_ref}"
+            docker build --file "$dockerfile" --tag "$image_ref" "$@" .
+            docker push "$image_ref"
+
+            digest=$(az acr repository show --name "$ACR_NAME" --image "${service}:${RELEASE_VERSION}" --query digest -o tsv)
+            test -n "$digest" || (echo "Failed to resolve digest for ${service}:${RELEASE_VERSION}" >&2 && exit 1)
+
+            immutable_ref="${ACR_LOGIN_SERVER}/${service}@${digest}"
+            service_key=${service//-/_}
+            {
+              printf '%s=%s\n' "${service_key}_tag" "$image_ref"
+              printf '%s=%s\n' "${service_key}_digest" "$immutable_ref"
+            } >> image-release.env
+          }
+
+          : > image-release.env
+          build_and_push aonik-api docker/api.Dockerfile
+          build_and_push aonik-worker docker/worker.Dockerfile
+          build_and_push aonik-adminui docker/adminui.Dockerfile \
+            --build-arg "VITE_AUTH_PROVIDER=${auth_provider}" \
+            --build-arg "VITE_AZURE_AD_CLIENT_ID=${VITE_AZURE_AD_CLIENT_ID}" \
+            --build-arg "VITE_AZURE_AD_TENANT_ID=${VITE_AZURE_AD_TENANT_ID}" \
+            --build-arg "VITE_AZURE_AD_REDIRECT_URI=${VITE_AZURE_AD_REDIRECT_URI}" \
+            --build-arg "VITE_AZURE_AD_API_SCOPE=${VITE_AZURE_AD_API_SCOPE}" \
+            --build-arg "VITE_AUTH0_DOMAIN=${VITE_AUTH0_DOMAIN}" \
+            --build-arg "VITE_AUTH0_CLIENT_ID=${VITE_AUTH0_CLIENT_ID}" \
+            --build-arg "VITE_AUTH0_REDIRECT_URI=${VITE_AUTH0_REDIRECT_URI}" \
+            --build-arg "VITE_AUTH0_AUDIENCE=${VITE_AUTH0_AUDIENCE}" \
+            --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL}"
+
+      - name: Scan images for vulnerabilities
+        env:
+          ACR_LOGIN_SERVER: ${{ steps.metadata.outputs.acr_login_server }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+          scan_failed=0
+          for service in aonik-api aonik-worker aonik-adminui; do
+            image="${ACR_LOGIN_SERVER}/${service}:${RELEASE_VERSION}"
+            echo "Scanning ${image} ..."
+            trivy image --severity HIGH,CRITICAL --exit-code 0 --format table "$image"
+            if ! trivy image --severity CRITICAL --exit-code 1 --quiet "$image"; then
+              echo "CRITICAL vulnerabilities found in ${service}" >&2
+              scan_failed=1
+            fi
+          done
+
+          if [ "$scan_failed" -ne 0 ]; then
+            echo "Image release blocked: one or more images have CRITICAL vulnerabilities." >&2
+            exit 1
+          fi
+
+      - name: Generate image release manifest
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.release_version }}
+          ACR_LOGIN_SERVER: ${{ steps.metadata.outputs.acr_login_server }}
+        run: |
+          set -euo pipefail
+          source image-release.env
+
+          mkdir -p artifacts
+          cat > artifacts/image-release-manifest.json <<JSON
+          {
+            "releaseVersion": "${RELEASE_VERSION}",
+            "registry": "${ACR_LOGIN_SERVER}",
+            "images": {
+              "api": {
+                "tag": "${aonik_api_tag}",
+                "digest": "${aonik_api_digest}"
+              },
+              "worker": {
+                "tag": "${aonik_worker_tag}",
+                "digest": "${aonik_worker_digest}"
+              },
+              "adminUi": {
+                "tag": "${aonik_adminui_tag}",
+                "digest": "${aonik_adminui_digest}"
+              }
+            }
+          }
+          JSON
+
+          cp image-release.env artifacts/image-release.env
+
+      - name: Upload image release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-release-${{ steps.metadata.outputs.release_version }}
+          path: artifacts/
