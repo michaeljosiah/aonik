@@ -381,6 +381,12 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.5')
             memory: '1Gi'
           }
+          env: [
+            {
+              name: 'API_BACKEND_URL'
+              value: 'https://${apiApp.properties.configuration.ingress.fqdn}'
+            }
+          ]
         }
       ]
       scale: {

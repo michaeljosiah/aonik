@@ -31,6 +31,21 @@ RUN npm run build
 
 FROM nginx:alpine
 RUN apk update && apk upgrade --no-cache
+
+# Remove default nginx site config
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+# Copy nginx config template.
+# The official nginx image entrypoint runs envsubst on *.template files
+# in /etc/nginx/templates/ and writes the result to /etc/nginx/conf.d/.
+# We use a custom entrypoint script instead, to limit envsubst to only
+# the API_BACKEND_URL variable (avoiding clobbering of nginx variables).
+COPY docker/adminui/nginx.conf.template /etc/nginx/nginx.conf.template
+COPY docker/adminui/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Copy built static files
 COPY --from=build /app/dist /usr/share/nginx/html
+
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/entrypoint.sh"]

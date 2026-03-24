@@ -10,6 +10,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 - **Infrastructure (Deploy Workflow Default Mode)**: Changed `cd-deploy.yml` default `mode` from `what-if` to `deploy` for both `workflow_dispatch` and `workflow_call` triggers. The previous default caused all deployments to silently run as dry-run previews unless the caller explicitly passed `-f mode=deploy`, leading to stale containers after CI published new images.
+- **Infrastructure (Admin UI Nginx Reverse Proxy)**: Added custom nginx config with `/api` reverse proxy to the backend API and SPA fallback (`try_files`). The admin UI Docker image previously used the default nginx config with no proxy, causing all `/api/*` requests to return 404 and breaking bootstrap status checks and all API interactions in the deployed environment.
 
 ### Changed
 - **Bootstrap (First-Run Install Code Flow)**: Reworked initial platform bootstrap to use a one-time `Bootstrap:SetupSecret` plus owner email instead of requiring an IdP login before the first tenant exists. `/bootstrap/status` now reports explicit readiness states, the Admin UI no longer treats status failures as implicit fresh-install setup, bootstrap creates a pending owner profile for later identity linking, and first sign-in links that external identity back to the bootstrap owner record.
