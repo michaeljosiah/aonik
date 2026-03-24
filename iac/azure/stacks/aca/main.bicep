@@ -237,6 +237,14 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: environmentName
             }
             {
+              name: 'Database__AutoMigrate'
+              value: 'true'
+            }
+            {
+              name: 'Database__SeedData'
+              value: 'true'
+            }
+            {
               name: 'ConnectionStrings__DefaultConnection'
               secretRef: 'sql-connection'
             }

@@ -76,6 +76,13 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
             policiesCreated += contribution.PoliciesCreated;
         }
 
+        // Seed global permissions if they don't exist yet (required before role-permission assignment)
+        var permissionsSeeded = await EnsurePermissionsSeededAsync(cancellationToken);
+        if (permissionsSeeded > 0)
+        {
+            actionsPerformed.Add($"Seeded {permissionsSeeded} global permissions");
+        }
+
         // Provision Roles
         var rolesCreated = await ProvisionRolesAsync(tenantId, userId, now, actionsPerformed, cancellationToken);
         var rolePermissionsCreated = await EnsureDefaultRolePermissionsAsync(tenantId, actionsPerformed, cancellationToken);
@@ -359,6 +366,79 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
         }
 
         return created;
+    }
+
+    /// <summary>
+    /// Ensures all global permission records exist in the database.
+    /// This is required before role-permission assignment; without it,
+    /// EnsureDefaultRolePermissionsAsync and EnsureGlobalPlatformAdminAsync
+    /// find zero permissions and silently skip role-permission creation.
+    /// Idempotent — safe to call multiple times.
+    /// </summary>
+    private async Task<int> EnsurePermissionsSeededAsync(CancellationToken cancellationToken)
+    {
+        var permissionDefinitions = new (string Key, string Description)[]
+        {
+            ("Invoice.Create", "Create new invoices"),
+            ("Invoice.Read", "View invoices"),
+            ("Invoice.Update", "Update existing invoices"),
+            ("Invoice.Delete", "Delete invoices"),
+            ("Invoice.Issue", "Issue draft invoices"),
+            ("Payment.Create", "Create payment intents"),
+            ("Payment.Read", "View payments"),
+            ("Payment.Capture", "Capture authorized payments"),
+            ("Payment.Cancel", "Cancel payments"),
+            ("Payment.Refund", "Refund payments"),
+            ("Ledger.Read", "View ledger accounts and entries"),
+            ("Ledger.Write", "Create/modify ledger accounts and journal entries"),
+            ("Ledger.Reconcile", "Reconcile ledger accounts"),
+            ("Tenants.Read", "View tenants"),
+            ("Tenants.Write", "Create and manage tenants"),
+            ("Settings.Read", "View tenant settings"),
+            ("Settings.Write", "Modify tenant settings"),
+            ("Users.Read", "View users in tenant"),
+            ("Users.Invite", "Invite users to tenant"),
+            ("Users.Manage", "Manage user roles and permissions"),
+            ("Users.Deactivate", "Deactivate users"),
+            ("UserInfo.Read", "View user information and profile"),
+            ("UserInfo.Update", "Update user information and profile"),
+            ("Roles.Read", "View roles in tenant"),
+            ("Roles.Create", "Create roles in tenant"),
+            ("Roles.Update", "Update roles in tenant"),
+            ("Roles.Delete", "Delete roles in tenant"),
+            ("Permissions.Read", "View all available permissions"),
+            ("Permissions.Write", "Create and manage permissions"),
+            ("Catalog.Read", "View catalog and biller data"),
+            ("Customers.Read", "View customers"),
+            ("Customers.Create", "Create customers"),
+            ("PersonalFinance.Accounts.Read", "View personal finance accounts"),
+            ("PersonalFinance.Accounts.Write", "Create and manage personal finance accounts"),
+            ("PersonalFinance.Transactions.Read", "View personal finance transactions"),
+            ("PersonalFinance.Transactions.Write", "Create and update personal finance transactions"),
+            ("PersonalFinance.Imports.Create", "Create personal finance statement imports"),
+            ("PersonalFinance.Imports.Read", "View personal finance statement imports"),
+            ("PersonalFinance.Classification.Run", "Run personal finance transaction classification"),
+            ("PersonalFinance.Classification.Review", "Review and override personal finance transaction classification"),
+            ("PersonalFinance.Insights.Read", "View personal finance insights")
+        };
+
+        var existingKeys = await _dbContext.Permissions
+            .Select(p => p.Key)
+            .ToListAsync(cancellationToken);
+
+        var existingKeySet = new HashSet<string>(existingKeys, StringComparer.OrdinalIgnoreCase);
+        var newPermissions = permissionDefinitions
+            .Where(pd => !existingKeySet.Contains(pd.Key))
+            .Select(pd => new Permission { Key = pd.Key, Description = pd.Description })
+            .ToList();
+
+        if (newPermissions.Count == 0)
+            return 0;
+
+        await _dbContext.Permissions.AddRangeAsync(newPermissions, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return newPermissions.Count;
     }
 
     private async Task<int> EnsureGlobalPlatformAdminAsync(Guid? userId, DateTime now, CancellationToken cancellationToken)

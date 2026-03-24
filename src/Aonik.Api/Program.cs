@@ -194,11 +194,21 @@ app.Use(async (context, next) =>
     {
         await next();
     }
-    catch
+    catch (Exception ex)
     {
         if (isAllowedCorsOrigin && origin is not null && !context.Response.HasStarted)
         {
+            // Re-apply CORS headers and write a 500 response so the browser
+            // can read the error instead of blocking it as a CORS failure.
             ApplyActualCorsHeaders(context.Response, origin);
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/json";
+            var errorBody = System.Text.Json.JsonSerializer.Serialize(new { error = "An internal error occurred." });
+            await context.Response.WriteAsync(errorBody);
+
+            var logger = context.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("Aonik.CorsMiddleware");
+            logger?.LogError(ex, "Unhandled exception on {Method} {Path}", context.Request.Method, context.Request.Path);
+            return; // Do not re-throw — response is already written with CORS headers
         }
 
         throw;
