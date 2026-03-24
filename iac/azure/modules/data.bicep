@@ -46,7 +46,7 @@ param publicNetworkAccess string = 'Enabled'
 
 var namePrefix = toLower('${workloadName}-${environmentName}')
 var sqlServerHostnameSuffix = environment().suffixes.sqlServerHostname
-var sqlServerFullyQualifiedDomainName = '${sqlServer.name}.${sqlServerHostnameSuffix}'
+var sqlServerFullyQualifiedDomainName = '${sqlServer.name}${sqlServerHostnameSuffix}'
 
 resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
   name: '${namePrefix}-sql'
