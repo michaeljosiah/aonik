@@ -11,6 +11,7 @@ using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Persistence;
 using Aonik.Platform;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Finance;
 using Aonik.Ai;
 using Aonik.Agents;
@@ -122,6 +123,12 @@ if (autoMigrateEnabled || seedDataEnabled)
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IdentitySeedService>>();
             var seedService = new IdentitySeedService(platformDbContext, logger);
             await seedService.SeedAsync();
+
+            // Ensure PlatformAdmin role has role-permission mappings.
+            // IdentitySeedService only seeds Permission rows; if the platform was
+            // bootstrapped before SeedData was enabled, the PlatformAdmin role
+            // exists but has zero RolePermission records, blocking all API calls.
+            await EnsurePlatformAdminRolePermissionsAsync(platformDbContext, startupLogger);
 
             var catalogLogger = scope.ServiceProvider.GetRequiredService<ILogger<CatalogSeedService>>();
             var catalogSeedService = new CatalogSeedService(platformDbContext, catalogLogger);
@@ -427,6 +434,51 @@ static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
     {
         typeof(AonikDbContext)
     };
+}
+
+static async Task EnsurePlatformAdminRolePermissionsAsync(PlatformDbContext dbContext, ILogger logger)
+{
+    var platformAdminRole = await dbContext.Roles
+        .FirstOrDefaultAsync(r => r.TenantId == Guid.Empty && r.Name == "PlatformAdmin");
+
+    if (platformAdminRole == null)
+    {
+        logger.LogInformation("PlatformAdmin role not found — skipping role-permission seed.");
+        return;
+    }
+
+    var allPermissions = await dbContext.Permissions.ToListAsync();
+    if (allPermissions.Count == 0)
+    {
+        logger.LogWarning("No permissions found in database — skipping PlatformAdmin role-permission seed.");
+        return;
+    }
+
+    var existingPermissionIds = await dbContext.RolePermissions
+        .Where(rp => rp.RoleId == platformAdminRole.Id)
+        .Select(rp => rp.PermissionId)
+        .ToListAsync();
+
+    var existingSet = new HashSet<Guid>(existingPermissionIds);
+    var newMappings = allPermissions
+        .Where(p => !existingSet.Contains(p.Id))
+        .Select(p => new RolePermission
+        {
+            Id = Guid.NewGuid(),
+            RoleId = platformAdminRole.Id,
+            PermissionId = p.Id
+        })
+        .ToList();
+
+    if (newMappings.Count == 0)
+    {
+        logger.LogInformation("PlatformAdmin role already has all {Count} permission mappings.", allPermissions.Count);
+        return;
+    }
+
+    dbContext.RolePermissions.AddRange(newMappings);
+    await dbContext.SaveChangesAsync();
+    logger.LogInformation("Seeded {Count} role-permission mappings for PlatformAdmin.", newMappings.Count);
 }
 
 // Make the Program class accessible for testing
