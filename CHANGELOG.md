@@ -8,6 +8,9 @@ All notable changes to the AONIK project will be documented in this file.
 - **AI Model Catalog Import**: Added a source-driven model catalog flow for Admin UI. Operators can now browse externally discovered model providers, preview all models under a selected model provider, and bulk-import them into the local AI provider/model catalog as inactive records for later review and activation.
 - **Infrastructure (Dev Auto Deploy)**: Added automatic dev runtime delivery via GitHub Actions. Successful `CI` runs for pushes to `master` now build/push runtime images for the validated commit SHA and deploy the `dev` Azure Container Apps environment using the existing reusable image-release and runtime-deploy workflows.
 
+### Fixed
+- **Infrastructure (Deploy Workflow Default Mode)**: Changed `cd-deploy.yml` default `mode` from `what-if` to `deploy` for both `workflow_dispatch` and `workflow_call` triggers. The previous default caused all deployments to silently run as dry-run previews unless the caller explicitly passed `-f mode=deploy`, leading to stale containers after CI published new images.
+
 ### Changed
 - **Bootstrap (First-Run Install Code Flow)**: Reworked initial platform bootstrap to use a one-time `Bootstrap:SetupSecret` plus owner email instead of requiring an IdP login before the first tenant exists. `/bootstrap/status` now reports explicit readiness states, the Admin UI no longer treats status failures as implicit fresh-install setup, bootstrap creates a pending owner profile for later identity linking, and first sign-in links that external identity back to the bootstrap owner record.
 - **Infrastructure (Bootstrap Secret Delivery)**: Runtime deployment now passes the bootstrap install code through a dedicated GitHub environment secret (`BOOTSTRAP_SETUP_SECRET`) into ACA as `Bootstrap__SetupSecret`, avoiding the need to place this secret inside `API_APP_SETTINGS_JSON`.

@@ -45,11 +45,11 @@ on:
       mode:
         description: "Run what-if preview or deploy"
         required: true
-        default: "what-if"
+        default: "deploy"
         type: choice
         options:
-          - what-if
           - deploy
+          - what-if
       skip_image_validation:
         description: "Advanced/emergency only: skip preflight image validation"
         required: true
@@ -91,7 +91,7 @@ on:
         type: string
       mode:
         required: false
-        default: "what-if"
+        default: "deploy"
         type: string
       skip_image_validation:
         required: false
