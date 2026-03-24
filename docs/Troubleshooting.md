@@ -7,6 +7,8 @@ Common issues and solutions for the AONIK project.
 - [Build Errors](#build-errors)
 - [Test Failures](#test-failures)
 - [Runtime Issues](#runtime-issues)
+  - [Container App Revision Stuck in Degraded](#error-container-app-revision-stuck-in-degraded--deployment-progress-deadline-exceeded)
+  - [Bootstrap Status Returns Disabled](#error-bootstrap-status-returns-disabled-after-deployment)
 - [Database Issues](#database-issues)
 - [NuGet Package Issues](#nuget-package-issues)
 
@@ -177,6 +179,86 @@ var options = new DbContextOptionsBuilder<AonikDbContext>()
 ---
 
 ## Runtime Issues
+
+### Error: Container App revision stuck in "Degraded" / "Deployment Progress Deadline Exceeded"
+
+**Symptom:**
+New ACA revision never becomes healthy. `az containerapp revision list` shows the revision as `Unhealthy`/`Degraded` with `ProvisioningState: Failed`. Startup probe reports thousands of failures with "connection refused". The old revision continues serving traffic as a fallback.
+
+**Cause:**
+An `IHostedService` (such as `AgentConfigurationSeedingService`) blocks `StartAsync` because it cannot connect to the database. EF Core's `SqlServerRetryingExecutionStrategy` retries internally with exponential backoff (3s, 7s, 15s...) before throwing, which blocks the host from ever starting the Kestrel web server. In .NET, all hosted services must complete `StartAsync` before Kestrel begins listening.
+
+**Common root cause — SQL FQDN double-dot:**
+`environment().suffixes.sqlServerHostname` returns `.database.windows.net` (with leading dot). If the Bicep template constructs the FQDN as `'${sqlServer.name}.${sqlServerHostnameSuffix}'`, the result has a double dot: `aonik-dev-sql..database.windows.net`. This causes DNS resolution failures.
+
+**Fix:**
+1. Check `iac/azure/modules/data.bicep` — the FQDN construction must not add an extra dot:
+   ```bicep
+   // Wrong — double dot
+   var sqlFqdn = '${sqlServer.name}.${sqlServerHostnameSuffix}'
+
+   // Correct — no extra dot
+   var sqlFqdn = '${sqlServer.name}${sqlServerHostnameSuffix}'
+   ```
+2. Verify the Key Vault connection string secret has the correct hostname:
+   ```bash
+   az keyvault secret show --vault-name <vault> --name "ConnectionStrings--DefaultConnection" --query value -o tsv
+   ```
+3. Redeploy after fixing.
+
+**Diagnosis commands:**
+```bash
+# List revisions and health
+az containerapp revision list -n aonik-dev-api -g rg-aonik-dev-uksouth -o table
+
+# Check container logs for SQL errors
+az containerapp logs show -n aonik-dev-api -g rg-aonik-dev-uksouth --type console --follow
+```
+
+---
+
+### Error: Bootstrap status returns "disabled" after deployment
+
+**Symptom:**
+`GET /bootstrap/status` returns:
+```json
+{
+  "state": "disabled",
+  "bootstrapEnabled": false,
+  "message": "Bootstrap is disabled. Enable Bootstrap:Enabled to perform first-run setup."
+}
+```
+The setup wizard shows bootstrap availability but the "Run bootstrap" button never enables.
+
+**Cause:**
+The `Bootstrap__Enabled` environment variable is missing from the API container. The `BootstrapOptions.Enabled` property defaults to `false`. Having only `Bootstrap__SetupSecret` is not sufficient — `Bootstrap__Enabled=true` must also be set.
+
+**Fix:**
+Ensure `iac/azure/stacks/aca/main.bicep` includes both env vars in the conditional block:
+```bicep
+empty(bootstrapSetupSecret) ? [] : [
+  {
+    name: 'Bootstrap__Enabled'
+    value: 'true'
+  }
+  {
+    name: 'Bootstrap__SetupSecret'
+    secretRef: 'bootstrap-setup-secret'
+  }
+]
+```
+
+**Verification:**
+```bash
+# Check env vars on the container
+az containerapp show -n aonik-dev-api -g rg-aonik-dev-uksouth \
+  --query "properties.template.containers[0].env" -o json
+
+# Verify API response
+curl -s https://<api-url>/bootstrap/status | jq .
+```
+
+---
 
 ### Error: No tenant context available
 

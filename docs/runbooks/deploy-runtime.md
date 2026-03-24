@@ -30,6 +30,7 @@ The runtime deploy workflow passes `BOOTSTRAP_SETUP_SECRET` directly into the AP
 - Store it as a GitHub Environment secret per environment.
 - Do not place the bootstrap install code inside `API_APP_SETTINGS_JSON`.
 - If the secret is omitted, the API falls back to image defaults or any value already present on the host platform.
+- When the secret is configured, the Bicep template also sets `Bootstrap__Enabled=true` automatically. Both env vars are required for bootstrap to function — `Bootstrap__SetupSecret` alone is not sufficient.
 
 ### Runtime app settings payload
 
