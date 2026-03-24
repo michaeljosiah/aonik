@@ -241,7 +241,7 @@ function PlaceholderPage({ title }: { title: string }) {
 
 function BootstrapStatusUnavailablePage({ message }: { message: string }) {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)] px-6">
+    <div className="flex items-center justify-center flex-1 h-full overflow-auto bg-[var(--color-background)] px-6">
       <div className="max-w-lg rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
         <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Setup Status Unavailable</p>
         <h1 className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">We could not determine first-run status</h1>
@@ -348,7 +348,7 @@ function AuthenticatedApp() {
 
   if (needsSetup === null || tenantNeedsSetup === null) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
+      <div className="flex items-center justify-center flex-1 h-full bg-[var(--color-background)]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-[var(--color-text-secondary)]">Loading...</p>
