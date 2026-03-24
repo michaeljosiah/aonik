@@ -254,6 +254,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
           ], empty(bootstrapSetupSecret) ? [] : [
             {
+              name: 'Bootstrap__Enabled'
+              value: 'true'
+            }
+            {
               name: 'Bootstrap__SetupSecret'
               secretRef: 'bootstrap-setup-secret'
             }
