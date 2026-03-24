@@ -64,6 +64,8 @@ var namePrefix = toLower('${workloadName}-${environmentName}')
 var containerRegistryName = replace('${namePrefix}acr', '-', '')
 var logAnalyticsWorkspaceName = '${namePrefix}-log'
 var keyVaultName = '${namePrefix}-kv'
+var apiAppName = '${namePrefix}-api'
+var adminUiAppName = '${namePrefix}-adminui'
 @description('Whether real ACS and verification secrets are provided (enables Key Vault references instead of empty inline values).')
 param enableOptionalSecrets bool = false
 var apiAdditionalEnvVars = [for setting in items(apiAppSettings): {
@@ -152,7 +154,7 @@ resource adminUiPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2
 }
 
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
-  name: '${workloadName}-${environmentName}-api'
+  name: apiAppName
   location: location
   tags: tags
   identity: {
@@ -258,7 +260,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           ], [
             {
               name: 'Cors__AllowedOrigins__0'
-              value: 'https://${adminUiApp.properties.configuration.ingress.fqdn}'
+              value: 'https://${adminUiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
             }
           ], apiAdditionalEnvVars)
           resources: {
@@ -276,7 +278,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
-  name: '${workloadName}-${environmentName}-worker'
+  name: '${namePrefix}-worker'
   location: location
   tags: tags
   identity: {
@@ -344,7 +346,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
-  name: '${workloadName}-${environmentName}-adminui'
+  name: adminUiAppName
   location: location
   tags: tags
   identity: {
@@ -384,7 +386,7 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             {
               name: 'API_BACKEND_URL'
-              value: 'https://${apiApp.properties.configuration.ingress.fqdn}'
+              value: 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
             }
           ]
         }
