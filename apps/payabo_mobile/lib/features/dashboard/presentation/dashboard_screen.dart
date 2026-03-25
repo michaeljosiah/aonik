@@ -24,8 +24,11 @@ import '../../spending/presentation/spending_accounts_state.dart';
 
 final FutureProvider<DashboardSummary> dashboardSummaryProvider =
     FutureProvider<DashboardSummary>((Ref ref) async {
-  ref.watch(demoDataModeProvider);
-  ref.watch(accountLinksSummaryProvider);
+  // Await account-links so we make only one API call after dependencies
+  // have settled, instead of re-firing on every loading → data transition.
+  // demoDataModeProvider is already captured via dashboardRepositoryProvider,
+  // so we don't watch it here (avoids diamond-dependency double invalidation).
+  await ref.watch(accountLinksSummaryProvider.future);
   final repository = ref.watch(dashboardRepositoryProvider);
   return repository.getSummary();
 });
