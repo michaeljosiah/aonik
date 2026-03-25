@@ -31,11 +31,12 @@ import { wrapPage } from '../utils';
 const navigation: NavigationSection[] = [
   {
     id: 'platform-core-access',
-    label: 'Finance',
+    label: 'Team & Access',
+    audience: 'host',
     items: [
       {
         id: 'identity-access',
-        label: 'Access',
+        label: 'Team & Access',
         icon: 'Users',
         viewAllHref: '/access/users',
         viewAllLabel: 'View all',
@@ -83,22 +84,8 @@ const navigation: NavigationSection[] = [
               { id: 'settings-webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
               { id: 'settings-api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
               { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
+              { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
               { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'catalog',
-        label: 'Catalog',
-        icon: 'Store',
-        viewAllHref: '/catalog',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Overview',
-            items: [
-              { id: 'catalog-overview', label: 'Home', icon: 'Store', href: '/catalog' },
             ],
           },
         ],
@@ -184,7 +171,7 @@ const panelComponents = {
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
-  { pathPrefix: '/access', trail: ['Users & Access'] },
+  { pathPrefix: '/access', trail: ['Team & Access'] },
   { pathPrefix: '/tenants', trail: ['Tenants'] },
   { pathPrefix: '/settings', trail: ['Settings'] },
   { pathPrefix: '/cms', trail: ['Content'] },

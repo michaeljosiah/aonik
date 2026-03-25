@@ -58,38 +58,29 @@ const navigation: NavigationSection[] = [
         id: 'orders',
         label: 'Orders',
         icon: 'ClipboardList',
-        viewAllHref: '/orders/activity',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Actions',
-            items: [
-              { id: 'order-bill-payments', label: 'New Bill Payment', icon: 'Receipt', href: '/orders/bill-payments/new' },
-            ],
-          },
-        ],
+        href: '/orders/activity',
       },
       {
-        id: 'ledger',
-        label: 'Ledger',
+        id: 'accounting',
+        label: 'Accounting',
         icon: 'BookOpen',
         viewAllHref: '/ledger',
         viewAllLabel: 'View all',
         childGroups: [
           {
-            label: 'Core ledger',
+            label: 'Accounting',
             items: [
-              { id: 'ledger-overview', label: 'Ledgers', icon: 'BookOpen', href: '/ledger' },
+              { id: 'ledger-overview', label: 'Books', icon: 'BookOpen', href: '/ledger' },
               { id: 'ledger-accounts', label: 'Accounts', icon: 'Landmark', href: '/ledger/accounts' },
-              { id: 'ledger-journal-entries', label: 'Journal Entries', icon: 'ClipboardList', href: '/ledger/journal-entries' },
+              { id: 'ledger-journal-entries', label: 'Transactions', icon: 'ClipboardList', href: '/ledger/journal-entries' },
             ],
           },
         ],
       },
       {
-        id: 'partner-network-routing',
-        label: 'Network',
-        icon: 'Network',
+        id: 'service-catalog',
+        label: 'Service Catalog',
+        icon: 'Store',
         viewAllHref: '/catalog',
         viewAllLabel: 'View all',
         childGroups: [
@@ -97,6 +88,7 @@ const navigation: NavigationSection[] = [
             label: 'Coverage',
             items: [
               { id: 'catalog-countries', label: 'Countries', icon: 'Globe', href: '/catalog/countries' },
+              { id: 'fx-rates', label: 'Exchange Rates', icon: 'ArrowRightLeft', href: '/settings/fx-rates' },
             ],
           },
           {
@@ -110,35 +102,10 @@ const navigation: NavigationSection[] = [
         ],
       },
       {
-        id: 'pricing-policy',
-        label: 'Pricing',
-        icon: 'ArrowRightLeft',
-        viewAllHref: '/settings/fx-rates',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Rates & Rules',
-            items: [
-              { id: 'fx-rates', label: 'FX Rates', icon: 'ArrowRightLeft', href: '/settings/fx-rates' },
-              { id: 'autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'compliance-risk',
-        label: 'Compliance',
-        icon: 'ClipboardCheck',
-        viewAllHref: '/compliance',
-        viewAllLabel: 'View all',
-        childGroups: [
-          {
-            label: 'Screening',
-            items: [
-              { id: 'compliance-documents', label: 'Documents', icon: 'FileText', href: '/compliance/documents' },
-            ],
-          },
-        ],
+        id: 'compliance-documents',
+        label: 'Documents',
+        icon: 'FileText',
+        href: '/compliance/documents',
       },
     ],
   },
@@ -234,9 +201,9 @@ const breadcrumbs = [
   { pathPrefix: '/customers', trail: ['Customers'] },
   { pathPrefix: '/orders/bill-payments', trail: ['Orders', 'Bill Payments'] },
   { pathPrefix: '/orders', trail: ['Orders'] },
-  { pathPrefix: '/ledger', trail: ['Ledger'] },
-  { pathPrefix: '/catalog', trail: ['Catalog'] },
-  { pathPrefix: '/compliance', trail: ['Compliance'] },
+  { pathPrefix: '/ledger', trail: ['Accounting'] },
+  { pathPrefix: '/catalog', trail: ['Service Catalog'] },
+  { pathPrefix: '/compliance', trail: ['Documents'] },
   { pathPrefix: '/billing', trail: ['Billing'] },
   { pathPrefix: '/payments', trail: ['Payments'] },
 ];
