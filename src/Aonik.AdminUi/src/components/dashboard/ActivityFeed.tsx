@@ -1,14 +1,8 @@
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { MoreVertical, FileText, CheckCircle, Calendar, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { ActivityItem } from '@/types';
+import { ArrowUpRight, MoreVertical } from 'lucide-react';
 
-const iconMap: Record<string, React.ElementType> = {
-  FileText,
-  CheckCircle,
-  Calendar,
-  AlertCircle,
-};
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import type { ActivityItem } from '@/types';
 
 interface ActivityFeedProps {
   items: ActivityItem[];
@@ -16,36 +10,41 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ items }: ActivityFeedProps) {
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-base font-semibold">Activity feed</CardTitle>
+    <Card className="h-full rounded-[4px] px-4 py-3 flex flex-col overflow-hidden">
+      <div className="mb-2 flex items-center justify-between shrink-0">
+        <h2 className="text-[18px] font-bold text-[var(--color-text-primary)]">Activity feed</h2>
         <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-tertiary)]">
           <MoreVertical className="w-4 h-4" />
         </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {items.map((item) => {
-          const Icon = iconMap[item.icon || 'FileText'] || FileText;
-          return (
-            <div key={item.id} className="flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-                  {item.title}
-                </p>
-                {item.description && (
-                  <p className="text-xs text-[var(--color-text-secondary)] truncate">
-                    {item.description}
-                  </p>
-                )}
-                <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">{item.timestamp}</p>
-              </div>
-              <div className="flex-shrink-0 p-2 rounded-full bg-[var(--color-brand-primary-light)]">
-                <Icon className="w-4 h-4 text-[var(--color-brand-primary)]" />
-              </div>
+      </div>
+
+      <div className="flex flex-col overflow-y-auto flex-1 visible-scrollbar">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-3 border-b border-[var(--color-border-light)] py-3 last:border-b-0"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-semibold text-[var(--color-text-primary)]">
+                {item.title}
+              </p>
+              {item.description ? (
+                <p className="truncate text-[12px] text-[var(--color-text-secondary)]">{item.description}</p>
+              ) : null}
+              <p className="text-[11px] text-[var(--color-text-tertiary)]">{item.timestamp}</p>
             </div>
-          );
-        })}
-      </CardContent>
+
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]">
+              <ArrowUpRight className="h-3 w-3" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-2 flex items-center justify-center gap-2 text-[var(--color-gray-300)] shrink-0">
+        <span className="h-[3px] w-[10px] rounded-full bg-[var(--color-gray-300)]" />
+        <span className="h-[3px] w-[10px] rounded-full bg-[var(--color-gray-200)]" />
+      </div>
     </Card>
   );
 }

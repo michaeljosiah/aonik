@@ -1,0 +1,728 @@
+Runtime deploy (aca / dev)	UNKNOWN STEP	﻿2026-03-24T00:58:17.4040147Z Current runner version: '2.332.0'
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4072751Z ##[group]Runner Image Provisioner
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4074186Z Hosted Compute Agent
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4075125Z Version: 20260213.493
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4076090Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4077330Z Build Date: 2026-02-13T00:28:41Z
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4078502Z Worker ID: {9507cc4c-b55a-4b62-8f0e-e94e7223c6d9}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4079958Z Azure Region: eastus
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4080880Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4083314Z ##[group]Operating System
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4084403Z Ubuntu
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4085225Z 24.04.3
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4086035Z LTS
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4086787Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4087683Z ##[group]Runner Image
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4088607Z Image: ubuntu-24.04
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4089776Z Version: 20260309.50.1
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4091771Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260309.50/images/ubuntu/Ubuntu2404-Readme.md
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4094479Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260309.50
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4096002Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4098372Z ##[group]GITHUB_TOKEN Permissions
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4101438Z Contents: read
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4102424Z Metadata: read
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4103209Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4106057Z Secret source: Actions
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4107775Z Prepare workflow directory
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4919078Z Prepare all required actions
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.4965817Z Getting action download info
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.7014953Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.8974561Z Complete job name: Runtime deploy (aca / dev)
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9721758Z ##[group]Run actions/checkout@v4
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9722609Z with:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9723076Z   ref: 23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9723687Z   repository: michaeljosiah/aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9724366Z   token: ***
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9724776Z   ssh-strict: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9725185Z   ssh-user: git
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9725622Z   persist-credentials: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9726105Z   clean: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9726545Z   sparse-checkout-cone-mode: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9727055Z   fetch-depth: 1
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9727469Z   fetch-tags: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9727899Z   show-progress: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9728337Z   lfs: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9728939Z   submodules: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9729376Z   set-safe-directory: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9730080Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9730541Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9731276Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9732118Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9732878Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9733401Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9733857Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9734440Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9734918Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:17.9735406Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0810603Z Syncing repository: michaeljosiah/aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0812454Z ##[group]Getting Git version info
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0813130Z Working directory is '/home/runner/work/aonik/aonik'
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0814066Z [command]/usr/bin/git version
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0905970Z git version 2.53.0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0932632Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0946807Z Temporarily overriding HOME='/home/runner/work/_temp/d67b348c-b7a8-4afd-a05f-22a604ef5660' before making global git config changes
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0949271Z Adding repository directory to the temporary git global config as a safe directory
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0959707Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/aonik/aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.0998393Z Deleting the contents of '/home/runner/work/aonik/aonik'
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1002593Z ##[group]Initializing the repository
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1006814Z [command]/usr/bin/git init /home/runner/work/aonik/aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1119770Z hint: Using 'master' as the name for the initial branch. This default branch name
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1121345Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1122813Z hint: to use in all of your new repositories, which will suppress this warning,
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1123933Z hint: call:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1124566Z hint:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1125385Z hint: 	git config --global init.defaultBranch <name>
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1126322Z hint:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1127246Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1128556Z hint: 'development'. The just-created branch can be renamed via this command:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1129612Z hint:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1130286Z hint: 	git branch -m <name>
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1131025Z hint:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1131983Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1132952Z Initialized empty Git repository in /home/runner/work/aonik/aonik/.git/
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1136677Z [command]/usr/bin/git remote add origin https://github.com/michaeljosiah/aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1173107Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1174332Z ##[group]Disabling automatic garbage collection
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1178372Z [command]/usr/bin/git config --local gc.auto 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1208181Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1209766Z ##[group]Setting up auth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1216484Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1249612Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1619559Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1651287Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1886666Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.1929767Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.2169379Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.2205757Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.2207081Z ##[group]Fetching the repository
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:18.2215957Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin 23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9520099Z From https://github.com/michaeljosiah/aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9521322Z  * branch            23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6 -> FETCH_HEAD
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9551659Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9552501Z ##[group]Determining the checkout info
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9554074Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9560351Z [command]/usr/bin/git sparse-checkout disable
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9604590Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9633164Z ##[group]Checking out the ref
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:19.9637831Z [command]/usr/bin/git checkout --progress --force 23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3762706Z Note: switching to '23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6'.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3764129Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3765122Z You are in 'detached HEAD' state. You can look around, make experimental
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3767361Z changes and commit them, and you can discard any commits you make in this
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3769902Z state without impacting any branches by switching back to a branch.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3771525Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3772451Z If you want to create a new branch to retain commits you create, you may
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3774546Z do so (now or later) by using -c with the switch command. Example:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3775853Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3776453Z   git switch -c <new-branch-name>
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3777338Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3777882Z Or undo this operation with:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3778853Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3779318Z   git switch -
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3779971Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3781090Z Turn off this advice by setting config variable advice.detachedHead to false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3782747Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3784175Z HEAD is now at 23fcbad fix(admin-ui): fix bootstrap setup page layout and full-screen rendering
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3803345Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3842714Z [command]/usr/bin/git log -1 --format=%H
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.3866106Z 23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.4200801Z Prepare all required actions
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.4202292Z Getting action download info
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.5261259Z Download action repository 'azure/login@v2' (SHA:a457da9ea143d694b1b9c7c869ebb04ebe844ef5)
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7340526Z ##[group]Run ./.github/actions/azure-login
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7341676Z with:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7342557Z   client_id: 9d052d06-612e-47f5-b1e1-63fdfd03b672
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7343865Z   tenant_id: bca913ea-aec0-4528-a999-2f95c9daf398
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7345272Z   subscription_id: 336d38e2-bb96-4510-a4c5-5c313139eef9
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7346976Z   client_secret: ***
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7347831Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7348891Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7350361Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7352181Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7353820Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7354949Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7355878Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7356869Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7357832Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7358899Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7528972Z ##[group]Run azure/login@v2
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7529920Z with:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7533070Z   creds: {"clientId":"9d052d06-612e-47f5-b1e1-63fdfd03b672","clientSecret":"***","subscriptionId":"336d38e2-bb96-4510-a4c5-5c313139eef9","tenantId":"bca913ea-aec0-4528-a999-2f95c9daf398"}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7535874Z   enable-AzPSSession: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7536818Z   environment: azurecloud
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7537763Z   allow-no-subscriptions: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7538993Z   audience: api://AzureADTokenExchange
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7540085Z   auth-type: SERVICE_PRINCIPAL
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7541010Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7541860Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7543274Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7545017Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7546597Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7547660Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7548563Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7549704Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7550634Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.7551562Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:20.8014659Z Running Azure CLI Login.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:26.0045459Z [command]/usr/bin/az cloud set -n azurecloud
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:26.2391717Z Done setting cloud: "azurecloud"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:26.2397899Z Note: Azure/login action also supports OIDC login mechanism. Refer https://github.com/azure/login#configure-a-service-principal-with-a-federated-credential-to-use-oidc-based-authentication for more details.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:26.2400802Z Attempting Azure CLI login by using service principal with secret...
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4360582Z Subscription is set successfully.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4399200Z Azure CLI login succeeds by using service principal with secret.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4477868Z ##[group]Run test -n "$RESOURCE_GROUP" || (echo "RESOURCE_GROUP is empty. Set workflow input 'resource_group' or environment variable AZURE_RESOURCE_GROUP." && exit 1)
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4479273Z [36;1mtest -n "$RESOURCE_GROUP" || (echo "RESOURCE_GROUP is empty. Set workflow input 'resource_group' or environment variable AZURE_RESOURCE_GROUP." && exit 1)[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4480002Z [36;1mtest -f "$TEMPLATE_FILE"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4480305Z [36;1mtest -f "$PARAM_FILE"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4535643Z shell: /usr/bin/bash -e {0}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4535964Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4536238Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4536665Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4537173Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4537643Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4537974Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4538281Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4538580Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4539036Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4539311Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4666550Z ##[group]Run python - <<'PY'
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4666921Z [36;1mpython - <<'PY'[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4667218Z [36;1mimport json, os[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4667485Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4667721Z [36;1mdef env(name: str) -> str:[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4668076Z [36;1m    return os.environ.get(name, "").strip()[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4668418Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4668855Z [36;1mapi = {}[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4669186Z [36;1mraw_api = env("API_APP_SETTINGS_JSON")[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4669552Z [36;1mif raw_api:[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4669821Z [36;1m    api = json.loads(raw_api)[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4670110Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4670332Z [36;1mworker = {}[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4670655Z [36;1mraw_worker = env("WORKER_APP_SETTINGS_JSON")[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4671002Z [36;1mif raw_worker:[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4671288Z [36;1m    worker = json.loads(raw_worker)[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4671596Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4671850Z [36;1mmerged = {}[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4672098Z [36;1mif api:[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4672358Z [36;1m    merged["apiAppSettings"] = api[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4672665Z [36;1mif worker:[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4672945Z [36;1m    merged["workerAppSettings"] = worker[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4673263Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4673564Z [36;1mgithub_output = os.environ.get("GITHUB_OUTPUT", "")[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4673941Z [36;1mif github_output:[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4674251Z [36;1m    with open(github_output, "a") as f:[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4674653Z [36;1m        f.write(f"app_settings_json={json.dumps(merged)}\n")[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4675018Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4675351Z [36;1mprint(f"Merged {len(api)} API and {len(worker)} Worker settings")[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4675746Z [36;1mPY[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4725738Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4726117Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4726397Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4726824Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4727308Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4727759Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4728068Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4728335Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4728615Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4729171Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4729438Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.4993229Z Merged 0 API and 0 Worker settings
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5161181Z Prepare all required actions
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5270534Z ##[group]Run ./.github/actions/resolve-params
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5271419Z with:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5271950Z   base_param_file: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5272514Z   output_param_file: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5273052Z   mode: runtime
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5273314Z   workload_name: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5273615Z   environment_name: dev
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5273949Z   release_version: 23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5274331Z   use_digest_references: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5274624Z   skip_image_validation: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5274909Z   app_settings: {}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5275147Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5275410Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5275826Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5276352Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5276809Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5277121Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5277385Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5277661Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5277931Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5278195Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5303313Z ##[group]Run python "/home/runner/work/aonik/aonik/./.github/actions/resolve-params/resolve_params.py"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5304050Z [36;1mpython "/home/runner/work/aonik/aonik/./.github/actions/resolve-params/resolve_params.py"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5356907Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5357290Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5357610Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5358028Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5358531Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5359245Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5359564Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5359827Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5360108Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5360380Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5360761Z   INPUT_BASE_PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5361280Z   INPUT_OUTPUT_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5361715Z   INPUT_MODE: runtime
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5361976Z   INPUT_WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5362251Z   INPUT_ENVIRONMENT_NAME: dev
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5362614Z   INPUT_RELEASE_VERSION: 23fcbadc6cf8d5153ecd60ca964e3adbcb8a56f6
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5362994Z   INPUT_ACR_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5363253Z   INPUT_USE_DIGEST_REFERENCES: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5363554Z   INPUT_SKIP_IMAGE_VALIDATION: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5364049Z   INPUT_BOOTSTRAP_IMAGES: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5364380Z   INPUT_ADMIN_UI_TARGET_PORT: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5364659Z   INPUT_APP_SETTINGS: {}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5364926Z   INPUT_IMAGE_REPOS: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:27.5365168Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9985782Z Workload name: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9986264Z ACR name: aonikdevacr
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9986712Z ACR login server: aonikdevacr.azurecr.io
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9987250Z Resolved images:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9988151Z   - apiImage=aonikdevacr.azurecr.io/aonik-api@sha256:38cfa25a370f18413639b28e64cd08f3a045605681eb435cf855d78277bb792e
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9989921Z   - workerImage=aonikdevacr.azurecr.io/aonik-worker@sha256:2978377cdb7adcf40531b7c327297a4c2303793646ec621dd302db0942edd224
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9991544Z   - adminUiImage=aonikdevacr.azurecr.io/aonik-adminui@sha256:f9be3cb00b8515f61cbbbc264e463ce2e9c4a03d12fddf3a483d7e214770ae86
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:44.9992920Z Effective parameters written to iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0115902Z Prepare all required actions
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0159693Z ##[group]Run ./.github/actions/bicep-deploy
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0160108Z with:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0160285Z   mode: what-if
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0160498Z   resource_group: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0160794Z   template_file: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0161177Z   param_file: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0162261Z   extra_params: --parameters "sqlAdminPassword=***" --parameters "acsConnectionString=" --parameters "verificationHashKey=" --parameters "bootstrapSetupSecret=***" 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0162929Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0163133Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0163486Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0163925Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0164352Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0164610Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0164817Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0165053Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0165275Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0165493Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0180652Z ##[group]Run az bicep build --file "iac/azure/stacks/aca/main.bicep"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0181102Z [36;1maz bicep build --file "iac/azure/stacks/aca/main.bicep"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0231100Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0231432Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0231657Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0232024Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0232489Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0232891Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0233145Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0233371Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0233599Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0233811Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:45.0234026Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:55.9325718Z WARNING: /home/runner/work/aonik/aonik/iac/azure/stacks/aca/main.bicep(123,38) : Warning BCP318: The value of type "module | null" may be null at the start of the deployment, which would cause this access expression (and the overall deployment with it) to fail. [https://aka.ms/bicep/core-diagnostics#BCP318]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:55.9327621Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0479057Z ##[group]Run set +e
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0479489Z [36;1mset +e[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0479813Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0480115Z [36;1mwhat_if_args=([0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0480612Z [36;1m  --resource-group "rg-aonik-dev-uksouth"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0481302Z [36;1m  --template-file "iac/azure/stacks/aca/main.bicep"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0482210Z [36;1m  --parameters "@iac/azure/environments/dev/aca.runtime.parameters.json"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0484311Z [36;1m  --parameters "sqlAdminPassword=***" --parameters "acsConnectionString=" --parameters "verificationHashKey=" --parameters "bootstrapSetupSecret=***" [0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0485648Z [36;1m)[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0485953Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0486527Z [36;1mwhat_if_output=$(az deployment group what-if "${what_if_args[@]}" 2>&1)[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0487279Z [36;1mwhat_if_exit_code=$?[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0487705Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0488087Z [36;1mif [ $what_if_exit_code -eq 0 ]; then[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0488609Z [36;1m  echo "$what_if_output"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0489256Z [36;1m  exit 0[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0489586Z [36;1mfi[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0489897Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0490243Z [36;1mecho "$what_if_output"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0490668Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0491276Z [36;1mif [[ "$what_if_output" == *"Microsoft.Resources/deployments/whatIf/action"* ]] || \[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0492519Z [36;1m   [[ "$what_if_output" == *"AuthorizationFailed"* ]]; then[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0493461Z [36;1m  echo "what-if permissions are missing. Falling back to template validation."[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0494434Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0494748Z [36;1m  validate_args=([0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0495238Z [36;1m    --resource-group "rg-aonik-dev-uksouth"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0495843Z [36;1m    --template-file "iac/azure/stacks/aca/main.bicep"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0496677Z [36;1m    --parameters "@iac/azure/environments/dev/aca.runtime.parameters.json"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0499168Z [36;1m    --parameters "sqlAdminPassword=***" --parameters "acsConnectionString=" --parameters "verificationHashKey=" --parameters "bootstrapSetupSecret=***" [0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0500500Z [36;1m  )[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0500902Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0501381Z [36;1m  az deployment group validate "${validate_args[@]}"[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0501983Z [36;1m  exit 0[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0502376Z [36;1mfi[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0502695Z [36;1m[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0503026Z [36;1mexit $what_if_exit_code[0m
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0574256Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0574852Z env:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0575251Z   TEMPLATE_FILE: iac/azure/stacks/aca/main.bicep
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0575945Z   PARAM_FILE: iac/azure/environments/dev/aca.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0576813Z   EFFECTIVE_PARAM_FILE: iac/azure/environments/dev/aca.runtime.parameters.json
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0577572Z   RESOURCE_GROUP: rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0578051Z   WORKLOAD_NAME: aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0578431Z   ACR_LOGIN_SERVER_OVERRIDE: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0579225Z   API_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0579659Z   WORKER_APP_SETTINGS_JSON: 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:58:56.0580136Z ##[endgroup]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7634090Z WARNING: /home/runner/work/aonik/aonik/iac/azure/stacks/aca/main.bicep(123,38) : Warning BCP318: The value of type "module | null" may be null at the start of the deployment, which would cause this access expression (and the overall deployment with it) to fail. [https://aka.ms/bicep/core-diagnostics#BCP318]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7636860Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7637242Z Note: The result may contain false positive predictions (noise).
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7638317Z You can help us improve the accuracy of the result by opening an issue here: https://aka.ms/WhatIfIssues
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7639347Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7639684Z Resource and property changes are indicated with these symbols:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7640345Z   - Delete
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7640658Z   + Create
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7640967Z   ~ Modify
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7641266Z   = Nochange
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7641578Z   * Ignore
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7641906Z   x Noeffect
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7642380Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7642627Z The deployment will update the following scope:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7643052Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7643602Z Scope: /subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7644342Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7644672Z   ~ Microsoft.App/containerApps/aonik-dev-adminui [2024-03-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7645450Z     - properties.configuration.ingress.exposedPort: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7646163Z     - properties.configuration.ingress.traffic: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7646711Z         0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7646904Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7647060Z           latestRevision: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7647466Z           weight:         100
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7647723Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7647841Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7648250Z     - properties.runningStatus:                     "Running"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7649384Z     ~ identity.type:                                "SystemAssigned, UserAssigned" => "SystemAssigned,UserAssigned"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7650251Z     ~ properties.configuration.registries: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7650737Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7650928Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7652915Z         ~ server: "aonikdevacr.azurecr.io" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.ContainerRegistry/registries/aonikdevacr', '2023-07-01').loginServer]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7654802Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7654925Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7655275Z     ~ properties.template.containers: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7655736Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7655904Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7657464Z         ~ image: "aonikdevacr.azurecr.io/aonik-adminui@sha256:313482b98544716388730412f76543d302676346c18d9d46593e732fbfff7d88" => "aonikdevacr.azurecr.io/aonik-adminui@sha256:f9be3cb00b8515f61cbbbc264e463ce2e9c4a03d12fddf3a483d7e214770ae86"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7659521Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7659656Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7659838Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7660115Z   ~ Microsoft.App/containerApps/aonik-dev-api [2024-03-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7660863Z     - properties.configuration.ingress.exposedPort: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7661582Z     - properties.configuration.ingress.traffic: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7662145Z         0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7662330Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7662494Z           latestRevision: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7662926Z           weight:         100
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7663201Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7663318Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7663760Z     - properties.runningStatus:                     "Running"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7664754Z     ~ identity.type:                                "SystemAssigned, UserAssigned" => "SystemAssigned,UserAssigned"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7665711Z     ~ properties.configuration.registries: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7666232Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7666420Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7667976Z         ~ server: "aonikdevacr.azurecr.io" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.ContainerRegistry/registries/aonikdevacr', '2023-07-01').loginServer]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7669955Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7670087Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7670479Z     ~ properties.configuration.secrets: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7670987Z         0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7671169Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7671327Z           identity:    "system"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7672249Z           keyVaultUrl: "https://aonik-dev-kv.vault.azure.net/secrets/ConnectionStrings--DefaultConnection"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7673250Z           name:        "sql-connection"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7673592Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7673713Z         1:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7673894Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7674098Z           name: "app-insights-connection-string"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7674496Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7674616Z         2:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7674808Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7674978Z           name: "acs-connection-string"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7675323Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7675456Z         3:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7675688Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7675884Z           name: "verification-hash-key"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7676238Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7676382Z         4:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7676577Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7676768Z           name: "bootstrap-setup-secret"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7677129Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7683502Z       ] => "[concat(createArray(createObject('name', 'sql-connection', 'keyVaultUrl', reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.KeyVault/vaults/aonik-dev-kv/secrets/ConnectionStrings--DefaultConnection', '2023-07-01').secretUri, 'identity', 'system'), createObject('name', 'app-insights-connection-string', 'value', reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.Insights/components/aonik-dev-appi', '2020-02-02').ConnectionString), createObject('name', 'acs-connection-string', 'value', 'placeholder'), createObject('name', 'verification-hash-key', 'value', 'placeholder')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'bootstrap-setup-secret', 'value', parameters('bootstrapSetupSecret')))))]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7690525Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7690956Z     ~ properties.template.containers: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7691479Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7691663Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7692014Z         ~ env: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7692347Z             0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7692555Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7692745Z               name:  "ASPNETCORE_ENVIRONMENT"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7693237Z               value: "dev"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7693500Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7693628Z             1:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7693822Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7694086Z               name:      "ConnectionStrings__DefaultConnection"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7694697Z               secretRef: "sql-connection"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7695035Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7695158Z             2:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7695357Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7695600Z               name:      "APPLICATIONINSIGHTS_CONNECTION_STRING"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7696291Z               secretRef: "app-insights-connection-string"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7696733Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7696859Z             3:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7697049Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7697298Z               name:      "Communication__Azure__ConnectionString"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7697928Z               secretRef: "acs-connection-string"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7698317Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7698451Z             4:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7698920Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7699137Z               name:      "Verification__HashKey"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7699736Z               secretRef: "verification-hash-key"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7700113Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7700231Z             5:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7700423Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7700649Z               name:      "Bootstrap__SetupSecret"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7701225Z               secretRef: "bootstrap-setup-secret"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7701603Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7701728Z             6:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7701935Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7702113Z               name:  "Cors__AllowedOrigins__0"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7703137Z               value: "https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7704007Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7710812Z           ] => "[concat(createArray(createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', 'dev'), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Communication__Azure__ConnectionString', 'secretRef', 'acs-connection-string'), createObject('name', 'Verification__HashKey', 'secretRef', 'verification-hash-key')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'Bootstrap__SetupSecret', 'secretRef', 'bootstrap-setup-secret'))), createArray(createObject('name', 'Cors__AllowedOrigins__0', 'value', format('https://{0}', reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/containerApps/aonik-dev-adminui', '2024-03-01').configuration.ingress.fqdn))), createArray())]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7717454Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7719212Z         ~ image: "aonikdevacr.azurecr.io/aonik-api@sha256:2f338a3f2a45bf38888aee413e10b8443d75d092b01ee8e4f8696d4a3cd99026" => "aonikdevacr.azurecr.io/aonik-api@sha256:38cfa25a370f18413639b28e64cd08f3a045605681eb435cf855d78277bb792e"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7720961Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7721103Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7721287Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7721588Z   ~ Microsoft.App/containerApps/aonik-dev-worker [2024-03-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7722295Z     - properties.runningStatus: "Running"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7723155Z     ~ identity.type:            "SystemAssigned, UserAssigned" => "SystemAssigned,UserAssigned"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7724066Z     ~ properties.configuration.registries: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7724570Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7724745Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7726573Z         ~ server: "aonikdevacr.azurecr.io" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.ContainerRegistry/registries/aonikdevacr', '2023-07-01').loginServer]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7728385Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7728524Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7729323Z     ~ properties.configuration.secrets: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7729836Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7730026Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7732360Z         ~ keyVaultUrl: "https://aonik-dev-kv.vault.azure.net/secrets/ConnectionStrings--DefaultConnection" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.KeyVault/vaults/aonik-dev-kv/secrets/ConnectionStrings--DefaultConnection', '2023-07-01').secretUri]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7734853Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7734979Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7735329Z     ~ properties.template.containers: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7735789Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7735971Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7737614Z         ~ image: "aonikdevacr.azurecr.io/aonik-worker@sha256:e53899553a76717aeaa2bee287a550b7b1d783af48c112fc2909a21df83981cd" => "aonikdevacr.azurecr.io/aonik-worker@sha256:2978377cdb7adcf40531b7c327297a4c2303793646ec621dd302db0942edd224"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7739663Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7739805Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7740000Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7740317Z   ~ Microsoft.App/managedEnvironments/aonik-dev-acae [2024-03-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7740991Z     - properties.peerAuthentication:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7741344Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7741492Z         mtls.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7741786Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7742009Z     - properties.peerTrafficConfiguration:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7742397Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7742570Z         encryption.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7742872Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7745128Z     ~ properties.appLogsConfiguration.logAnalyticsConfiguration.customerId: "b1113764-a441-41ec-b9f7-7a83bfadef9b" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.OperationalInsights/workspaces/aonik-dev-log', '2023-09-01').customerId]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7747609Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7747982Z   ~ Microsoft.ContainerRegistry/registries/aonikdevacr [2023-07-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7748937Z     - properties.anonymousPullEnabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7749549Z     - properties.dataEndpointEnabled:  false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7750100Z     - properties.encryption:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7750406Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7750550Z         status: "disabled"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7750821Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7751149Z     - properties.policies.azureADAuthenticationAsArmPolicy:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7751654Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7751801Z         status: "enabled"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7752051Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7752057Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7753074Z   ~ Microsoft.ContainerRegistry/registries/aonikdevacr/providers/Microsoft.Authorization/roleAssignments/14ca4a60-762e-5bc1-8ba1-c4d58654e7dd [2022-04-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7756125Z     ~ properties.principalId:   "c8c84546-e8f4-4f23-89b3-40baf3276ddb" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.ManagedIdentity/userAssignedIdentities/aonik-dev-adminui-pull-id', '2023-01-31').principalId]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7758411Z     x properties.principalType: "ServicePrincipal"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7759004Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7759937Z   ~ Microsoft.ContainerRegistry/registries/aonikdevacr/providers/Microsoft.Authorization/roleAssignments/95036538-6082-5eee-ba59-aaa4a010e9b3 [2022-04-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7762896Z     ~ properties.principalId:   "5582bd4f-7af1-49c5-a9c2-debb5ecd1bf3" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.ManagedIdentity/userAssignedIdentities/aonik-dev-worker-pull-id', '2023-01-31').principalId]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7765133Z     x properties.principalType: "ServicePrincipal"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7765526Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7766465Z   ~ Microsoft.ContainerRegistry/registries/aonikdevacr/providers/Microsoft.Authorization/roleAssignments/9d038d4d-b1d5-5a85-9dfa-b3bbc7352e64 [2022-04-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7769783Z     ~ properties.principalId:   "0cbce166-c570-4d06-9786-8e25b32978f9" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.ManagedIdentity/userAssignedIdentities/aonik-dev-api-pull-id', '2023-01-31').principalId]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7772181Z     x properties.principalType: "ServicePrincipal"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7772587Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7772872Z   ~ Microsoft.Insights/components/aonik-dev-appi [2020-02-02]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7773498Z     + properties.Flow_Type:      "Bluefield"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7773998Z     + properties.Request_Source: "rest"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7774318Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7775164Z   ~ Microsoft.KeyVault/vaults/aonik-dev-kv/providers/Microsoft.Authorization/roleAssignments/326af268-9e1e-5a95-b85f-ff2e627ee813 [2022-04-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7777932Z     ~ properties.principalId:   "5f38a49a-470e-46e4-a65c-b567e35cc6d4" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/containerApps/aonik-dev-api', '2024-03-01', 'full').identity.principalId]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7780339Z     x properties.principalType: "ServicePrincipal"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7780744Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7781578Z   ~ Microsoft.KeyVault/vaults/aonik-dev-kv/providers/Microsoft.Authorization/roleAssignments/cd21464a-d5b7-575f-a79a-35496ce42377 [2022-04-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7784371Z     ~ properties.principalId:   "706f9adf-7bbd-47ef-8eda-2644421575dc" => "[reference('/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/containerApps/aonik-dev-worker', '2024-03-01', 'full').identity.principalId]"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7786611Z     x properties.principalType: "ServicePrincipal"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7787100Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7787871Z   ~ Microsoft.KeyVault/vaults/aonik-dev-kv/providers/Microsoft.Insights/diagnosticSettings/aonik-dev-kv-diag [2021-05-01-preview]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7789390Z     - properties.logAnalyticsDestinationType: "AzureDiagnostics"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7790035Z     ~ properties.logs: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7790396Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7790559Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7790718Z         - retentionPolicy.days: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7791005Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7791121Z       - 1:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7791283Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7791444Z           categoryGroup:           "allLogs"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7791912Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7792363Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7792824Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7793142Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7793257Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7793553Z     ~ properties.metrics: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7793910Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7794083Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7794236Z         - retentionPolicy.days: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7794528Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7794630Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7794789Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7795148Z   ~ Microsoft.Sql/servers/aonik-dev-sql/databases/aonik [2023-08-01-preview]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7795836Z     ~ sku.name: "Standard" => "S0"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7796128Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7796944Z   ~ Microsoft.Sql/servers/aonik-dev-sql/databases/aonik/providers/Microsoft.Insights/diagnosticSettings/aonik-diag [2021-05-01-preview]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7798066Z     ~ properties.logs: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7798409Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7798576Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7798915Z         - retentionPolicy.days: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7799227Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7799338Z       ~ 1:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7799505Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7799652Z         - retentionPolicy.days: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7799932Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7800045Z       ~ 2:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7800203Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7800368Z         - retentionPolicy.days: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7800646Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7800756Z       - 3:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7800922Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7801105Z           category:                "AutomaticTuning"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7801804Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7802277Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7802898Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7803219Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7803336Z       - 4:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7803505Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7803750Z           category:                "QueryStoreRuntimeStatistics"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7804320Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7804765Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7805228Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7805546Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7805663Z       - 5:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7805825Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7806059Z           category:                "QueryStoreWaitStatistics"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7806606Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7807045Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7807504Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7807826Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7807945Z       - 6:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7808106Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7808327Z           category:                "DatabaseWaitStatistics"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7809083Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7809523Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7809979Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7810307Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7810419Z       - 7:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7810587Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7810736Z           category:                "Timeouts"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7811192Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7811646Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7812109Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7812438Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7812553Z       - 8:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7812730Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7812872Z           category:                "Blocks"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7813314Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7813776Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7814247Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7814562Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7814674Z       - 9:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7814850Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7815007Z           category:                "Deadlocks"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7815462Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7815903Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7816367Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7816689Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7816804Z       - 10:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7816969Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7817182Z           category:                "DevOpsOperationsAudit"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7817704Z           enabled:                 false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7818139Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7818600Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7819135Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7819249Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7819552Z     ~ properties.metrics: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7819931Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7820101Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7820253Z         - retentionPolicy.days: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7820738Z         ~ category:             "Basic" => "AllMetrics"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7821116Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7821240Z       - 1:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7821414Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7821647Z           category:                "InstanceAndAppAdvanced"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7822161Z           enabled:                 true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7822608Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7823069Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7823389Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7823502Z       - 2:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7823670Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7823876Z           category:                "WorkloadManagement"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7824372Z           enabled:                 true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7824799Z           retentionPolicy.days:    0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7825254Z           retentionPolicy.enabled: false
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7825575Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7825995Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7826183Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7826930Z   ~ Microsoft.Sql/servers/aonik-dev-sql/providers/Microsoft.Insights/diagnosticSettings/aonik-dev-sql-diag [2021-05-01-preview]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7828183Z     ~ properties.metrics: [
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7828557Z       ~ 0:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7828903Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7829062Z         - retentionPolicy.days: 0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7829369Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7829476Z       ]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7829636Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7829858Z   = Microsoft.KeyVault/vaults/aonik-dev-kv [2023-07-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7830814Z   = Microsoft.KeyVault/vaults/aonik-dev-kv/secrets/Communication--Azure--ConnectionString [2023-07-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7832104Z   = Microsoft.KeyVault/vaults/aonik-dev-kv/secrets/ConnectionStrings--DefaultConnection [2023-07-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7833257Z   = Microsoft.KeyVault/vaults/aonik-dev-kv/secrets/Verification--HashKey [2023-07-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7834372Z   = Microsoft.ManagedIdentity/userAssignedIdentities/aonik-dev-adminui-pull-id [2023-01-31]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7835506Z   = Microsoft.ManagedIdentity/userAssignedIdentities/aonik-dev-api-pull-id [2023-01-31]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7836640Z   = Microsoft.ManagedIdentity/userAssignedIdentities/aonik-dev-worker-pull-id [2023-01-31]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7837651Z   = Microsoft.OperationalInsights/workspaces/aonik-dev-log [2023-09-01]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7838327Z     x properties.features:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7838588Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7838969Z         searchVersion:                               1
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7839602Z         enableLogAccessUsingOnlyResourcePermissions: true
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7840032Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7840039Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7840300Z   = Microsoft.Sql/servers/aonik-dev-sql [2023-08-01-preview]
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7840938Z   * Microsoft.ContainerRegistry/registries/aoniktest
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7841564Z   * Microsoft.Sql/servers/aonik-dev-sql/databases/master
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7842437Z   * microsoft.alertsmanagement/smartDetectorAlertRules/Failure Anomalies - aonik-dev-appi
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7843120Z 
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7843361Z Resource changes: 15 to modify, 9 no change, 3 to ignore.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7911273Z Post job cleanup.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.7947188Z Post job cleanup.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.8375177Z Clearing azure cli accounts from the local cache.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:18.8384756Z [command]/usr/bin/az account clear
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.3352382Z Post job cleanup.
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4337054Z [command]/usr/bin/git version
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4376301Z git version 2.53.0
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4419997Z Temporarily overriding HOME='/home/runner/work/_temp/319dc53b-5254-4d68-af57-038b407cd067' before making global git config changes
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4421008Z Adding repository directory to the temporary git global config as a safe directory
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4432743Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/aonik/aonik
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4467032Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4500926Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4748063Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4769358Z http.https://github.com/.extraheader
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4781878Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.4813239Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.5055236Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.5088129Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.5467593Z Cleaning up orphan processes
+Runtime deploy (aca / dev)	UNKNOWN STEP	2026-03-24T00:59:19.5832983Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, azure/login@v2. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

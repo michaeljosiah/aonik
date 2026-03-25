@@ -26,7 +26,7 @@ function AuthLoading() {
         alignItems: 'center', 
         justifyContent: 'center', 
         minHeight: '100vh', 
-        backgroundColor: '#F8F9FA' 
+        backgroundColor: 'var(--color-gray-100, #F8F9FA)' 
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
@@ -34,13 +34,13 @@ function AuthLoading() {
           style={{ 
             width: '40px', 
             height: '40px', 
-            border: '4px solid #0D7377', 
+            border: '4px solid var(--color-brand-primary, #055a60)', 
             borderTopColor: 'transparent', 
             borderRadius: '50%', 
             animation: 'spin 1s linear infinite' 
           }} 
         />
-        <p style={{ fontSize: '14px', color: '#6B7280' }}>Initializing authentication...</p>
+        <p style={{ fontSize: '14px', color: 'var(--color-text-secondary, #6B7280)' }}>Initializing authentication...</p>
       </div>
       <style>{`
         @keyframes spin {

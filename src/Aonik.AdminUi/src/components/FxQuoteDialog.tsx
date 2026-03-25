@@ -84,7 +84,7 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
 
           <div className="grid gap-4 py-4">
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
+              <div className="p-3 rounded-lg bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] text-[var(--color-danger)] text-sm">{error}</div>
             )}
 
             <div className="grid grid-cols-2 gap-4">

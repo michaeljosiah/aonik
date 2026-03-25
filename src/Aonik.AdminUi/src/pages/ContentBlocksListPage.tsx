@@ -80,13 +80,13 @@ export function ContentBlocksListPage() {
         <div className="flex items-center gap-2">
           {row.isEnabled ? (
             <>
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span className="text-sm text-green-600">Enabled</span>
+              <CheckCircle className="w-4 h-4 text-[var(--color-success)]" />
+              <span className="text-sm text-[var(--color-success)]">Enabled</span>
             </>
           ) : (
             <>
-              <XCircle className="w-4 h-4 text-red-500" />
-              <span className="text-sm text-red-600">Disabled</span>
+              <XCircle className="w-4 h-4 text-[var(--color-danger)]" />
+              <span className="text-sm text-[var(--color-danger)]">Disabled</span>
             </>
           )}
         </div>

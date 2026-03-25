@@ -347,10 +347,10 @@ export function UserDetailPage() {
                         <button
                           onClick={handleDeletePhoto}
                           disabled={uploadingPhoto}
-                          className="p-2 bg-white rounded-full hover:bg-red-100 transition-colors disabled:opacity-50"
+                          className="p-2 bg-white rounded-full hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)] transition-colors disabled:opacity-50"
                           title="Delete photo"
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4 text-[var(--color-danger)]" />
                         </button>
                       )}
                     </div>

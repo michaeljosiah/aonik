@@ -161,7 +161,7 @@ export function FxRatesPage() {
           )}
 
           {error && (
-            <div className="flex items-center gap-2 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700">
+            <div className="flex items-center gap-2 p-4 rounded-lg bg-[color-mix(in_srgb,var(--color-danger)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] text-[var(--color-danger)]">
               <AlertCircle className="w-5 h-5" />
               <div>
                 <div className="font-semibold">Error loading quotes</div>
@@ -231,10 +231,10 @@ export function FxRatesPage() {
                       <div
                         className={`text-sm font-semibold ${
                           isExpired(quote.expiresAt)
-                            ? 'text-red-600'
+                            ? 'text-[var(--color-danger)]'
                             : getTimeUntilExpiry(quote.expiresAt).endsWith('m')
-                              ? 'text-orange-600'
-                              : 'text-green-600'
+                              ? 'text-[var(--color-warning)]'
+                              : 'text-[var(--color-success)]'
                         }`}
                       >
                         {getTimeUntilExpiry(quote.expiresAt)}
@@ -254,7 +254,7 @@ export function FxRatesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(quote.id)}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-[var(--color-danger)] hover:text-[var(--color-danger)]"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

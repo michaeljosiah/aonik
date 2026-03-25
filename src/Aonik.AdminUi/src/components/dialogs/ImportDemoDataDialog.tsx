@@ -34,7 +34,7 @@ const demoOptions: Array<{
     description:
       'Seeds multi-country corridors, partner routing, FX quotes, households, and richer customer relationships.',
     icon: ArrowLeftRight,
-    gradientClass: 'from-[#0f766e] to-[#115e59]',
+    gradientClass: 'from-[#055a60] to-[#044448]',
   },
   {
     seedType: 'BillCollection',

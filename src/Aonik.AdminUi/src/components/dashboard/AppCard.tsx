@@ -18,23 +18,23 @@ function StatusBadge({ status, onLaunch }: { status: AppStatus; onLaunch?: () =>
         <Button
           variant="success"
           size="sm"
-          className="h-7 text-xs gap-1.5"
+          className="h-6 gap-1 rounded-[2px] px-2 text-[10px] font-medium"
           onClick={onLaunch}
           disabled={!onLaunch}
         >
-          <Play className="w-3 h-3" />
+          <Play className="w-2.5 h-2.5" />
           Launch
         </Button>
       );
     case 'pending':
       return (
-        <Badge variant="pending" className="gap-1">
+        <Badge variant="pending" className="h-6 gap-1 rounded-[2px] px-2 text-[10px] font-medium">
           Pending
         </Badge>
       );
     case 'request':
       return (
-        <Button variant="outline" size="sm" className="h-7 text-xs border-[var(--color-brand-primary)] text-[var(--color-brand-primary)]">
+        <Button variant="outline" size="sm" className="h-6 rounded-[2px] border-[var(--color-brand-primary)] px-2 text-[10px] font-medium text-[var(--color-brand-primary)]">
           Request
         </Button>
       );
@@ -47,8 +47,8 @@ function AppIcon({ app }: { app: AppCardType }) {
   if (app.icon === 'insights' || app.icon === 'semanticx') {
     return (
       <div
-        className="w-14 h-14 rounded-md flex items-center justify-center"
-        style={{ backgroundColor: app.iconBgColor || '#0D7377' }}
+        className="h-[68px] w-[68px] rounded-[6px] flex items-center justify-center border border-[#cfcdd9]"
+        style={{ backgroundColor: app.iconBgColor || '#055a60' }}
       >
         <svg viewBox="0 0 24 24" className="w-8 h-8 text-white" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round" />
@@ -57,49 +57,52 @@ function AppIcon({ app }: { app: AppCardType }) {
       </div>
     );
   }
-  
+
   return (
-    <div className="w-14 h-14 rounded-md bg-[var(--color-background)] flex items-center justify-center border border-dashed border-[var(--color-border)]">
-      <Grid2x2Plus className="w-6 h-6 text-[var(--color-text-tertiary)]" />
+    <div className="h-[68px] w-[68px] rounded-[6px] bg-[#ECECEF] flex items-center justify-center border border-[#CFCDD9]">
+      <Grid2x2Plus className="w-7 h-7 text-[#ABA7B7]" />
     </div>
   );
 }
 
 export function AppCard({ app, onLaunch }: AppCardProps) {
   return (
-    <div className="relative pt-7">
-      {/* Icon positioned to overlap the card top */}
-      <div className="absolute top-0 left-4 z-10">
+    <div className="relative w-full pt-10 cursor-pointer group">
+      <div className="absolute left-6 -top-[6px] z-[2]">
         <AppIcon app={app} />
       </div>
-      
-      <Card className="flex flex-col h-full overflow-visible hover:shadow-md transition-shadow bg-[var(--color-surface-elevated)] border-[var(--color-border)]">
-        {/* Header with Actions (icon space reserved) */}
-        <div className="p-4 pb-0 flex items-start justify-end">
-          <div className="flex items-center gap-1">
-            <StatusBadge status={app.status} onLaunch={onLaunch ? () => onLaunch(app.id) : undefined} />
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-tertiary)]">
-              <CheckSquare className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-tertiary)]">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </div>
+
+      <Card className={cn(
+        'relative flex flex-col min-h-[260px] overflow-visible',
+        'border border-[#d9d9e3] rounded-[4px]',
+        'transition-all duration-300',
+        'hoverBorder hover:border-[var(--color-brand-primary)] hover:shadow-lg hover:scale-[1.01]',
+        'bg-[var(--color-surface-elevated)]',
+      )}>
+        <div className="flex items-center justify-end gap-0.5 px-4 pt-3">
+          <StatusBadge status={app.status} onLaunch={onLaunch ? () => onLaunch(app.id) : undefined} />
+          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+            <CheckSquare className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+            <MoreVertical className="w-3.5 h-3.5" />
+          </Button>
         </div>
 
-      {/* Content */}
-      <div className="p-4 flex-1 flex flex-col">
-        <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-1.5">
-          {app.name}
-        </h3>
-        <p className="text-sm text-[var(--color-text-secondary)] line-clamp-3 mb-4">
-          {app.description}
-        </p>
+        <div className="flex flex-1 flex-col px-4 pb-4 mt-4 pt-2">
+          <h3 className="mb-1.5 line-clamp-1 text-[18px] font-bold text-[var(--color-text-heading)]">
+            {app.name}
+          </h3>
+          <p className="mb-4 min-h-[54px] line-clamp-3 text-[13px] leading-6 text-[var(--color-text-secondary)]">
+            {app.description}
+          </p>
+        </div>
 
-        {/* Owners and Date */}
-        <div className="flex items-center justify-between text-xs mt-auto mb-3">
+        <div className="w-4/5 h-px bg-[#E2E1E8] self-center" />
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-4">
           <div>
-            <p className="text-[var(--color-text-tertiary)] uppercase tracking-wide mb-1">Owner(s)</p>
+            <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1">Owners</p>
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
                 {app.owners.slice(0, 3).map((owner, index) => (
@@ -117,38 +120,42 @@ export function AppCard({ app, onLaunch }: AppCardProps) {
                 )}
               </div>
               <div>
-                <p className="font-medium text-[var(--color-text-primary)]">{app.owners[0].name}</p>
+                <p className="text-[16px] font-bold text-[var(--color-text-primary)]">{app.owners[0].name}</p>
                 {app.owners[0].role && (
-                  <p className="text-[var(--color-text-tertiary)]">{app.owners[0].role}</p>
+                  <p className="text-[12px] text-[var(--color-text-tertiary)]">{app.owners[0].role}</p>
                 )}
               </div>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-[var(--color-text-tertiary)] uppercase tracking-wide mb-1">Date Modified</p>
-            <p className="font-medium text-[var(--color-text-primary)]">{app.dateModified}</p>
-            <p className="text-[var(--color-text-tertiary)]">by {app.modifiedBy}</p>
-          </div>
-        </div>
 
-        {/* Tags */}
-        <div>
-          <p className="text-[var(--color-text-tertiary)] uppercase tracking-wide text-xs mb-1.5">Tags</p>
-          <div className="flex flex-wrap gap-1.5">
-            {app.tags.slice(0, 2).map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-            {app.tags.length > 2 && (
-              <Badge variant="default" className="text-xs">
-                +{app.tags.length - 2}
-              </Badge>
-            )}
+          {/* Date Modified */}
+          <div>
+            <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1">Date Modified</p>
+            <p className="text-[16px] font-bold text-[var(--color-text-primary)]">{app.dateModified}</p>
+            <p className="text-[12px] text-[var(--color-text-tertiary)]">by {app.modifiedBy}</p>
+          </div>
+
+          {/* Tags — spanning full width */}
+          <div className="col-span-2">
+            <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Tags</p>
+            <div className="flex flex-wrap gap-1.5">
+              {app.tags.slice(0, 2).map((tag) => (
+                <span
+                  key={tag}
+                  className="bg-[#e2e1e8] text-[#3f3b47] px-3 py-1.5 rounded-full text-xs font-medium"
+                >
+                  {tag}
+                </span>
+              ))}
+              {app.tags.length > 2 && (
+                <span className="bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] px-3 py-1.5 rounded-full text-xs font-medium">
+                  +{app.tags.length - 2}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </Card>
+      </Card>
     </div>
   );
 }

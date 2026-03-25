@@ -41,9 +41,9 @@ const trendIconMap = {
 function TrendBadge({ trend }: { trend: TrendMeta }) {
   const Icon = trendIconMap[trend.direction];
   const colorClass = trend.direction === 'up'
-    ? 'text-emerald-500'
+    ? 'text-[var(--color-success)]'
     : trend.direction === 'down'
-      ? 'text-rose-500'
+      ? 'text-[var(--color-danger)]'
       : 'text-[var(--color-text-tertiary)]';
 
   return (
