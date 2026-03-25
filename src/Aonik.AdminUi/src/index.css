@@ -151,15 +151,15 @@
   --sidebar-collapsed-width: 81px;
 }
 
-/* Dark Theme Overrides -- aligned with Centrali .dark layout */
+/* Dark Theme Overrides -- Aonik original design palette */
 [data-theme="dark"] {
-  /* Brand colors */
-  --color-brand-primary: #0a7c84;
-  --color-brand-primary-dark: #066a71;
-  --color-brand-primary-light: #0a7c841f;
-  --color-brand-primary-10: #0a7c841f;
-  --color-brand-primary-20: #0a7c8433;
-  --color-brand-primary-60: #0a7c8499;
+  /* Brand colors — keep teal primary, slightly brighter for dark bg contrast */
+  --color-brand-primary: #055a60;
+  --color-brand-primary-dark: #044c51;
+  --color-brand-primary-light: #055a601f;
+  --color-brand-primary-10: #055a601f;
+  --color-brand-primary-20: #055a6033;
+  --color-brand-primary-60: #055a6099;
   --color-brand-secondary: #eb5c37;
   --color-brand-secondary-dark: #d44a28;
   --color-brand-secondary-light: #eb5c3720;
@@ -167,39 +167,39 @@
   --color-brand-secondary-20: #eb5c3733;
   --color-brand-secondary-60: #eb5c3799;
   
-  /* Neutral Colors */
-  --color-background: #161d31;
-  --color-surface: #283046;
-  --color-surface-inset: #1e232f;
-  --color-surface-elevated: #283046;
-  --color-border: #3b4253;
-  --color-border-light: #3b4253;
+  /* Neutral Colors — dark charcoal, NOT navy/indigo */
+  --color-background: #1a1d21;
+  --color-surface: #22262b;
+  --color-surface-inset: #1e2125;
+  --color-surface-elevated: #282c32;
+  --color-border: #2e3338;
+  --color-border-light: #2e3338;
   
   /* Gray Scale (inverted for dark mode contrast) */
-  --color-gray-50: #161d31;
-  --color-gray-100: #1e232f;
-  --color-gray-200: #283046;
-  --color-gray-300: #3b4253;
-  --color-gray-400: #545a6a;
-  --color-gray-500: #9ca3af;
-  --color-gray-600: #b4b7bd;
-  --color-gray-700: #d0d2d6;
-  --color-gray-800: #e5e7eb;
-  --color-gray-900: #f9fafb;
+  --color-gray-50: #1a1d21;
+  --color-gray-100: #1e2125;
+  --color-gray-200: #22262b;
+  --color-gray-300: #2e3338;
+  --color-gray-400: #4a4f56;
+  --color-gray-500: #8b9098;
+  --color-gray-600: #a8adb5;
+  --color-gray-700: #c8ccd2;
+  --color-gray-800: #e0e3e7;
+  --color-gray-900: #f3f4f6;
   
   /* Text Colors */
-  --color-text-primary: #d0d2d6;
-  --color-text-secondary: #b4b7bd;
-  --color-text-tertiary: #676d7d;
-  --color-text-inverse: #161d31;
-  --color-text-heading: #d0d2d6;
+  --color-text-primary: #e8eaed;
+  --color-text-secondary: #9aa0a8;
+  --color-text-tertiary: #6b7078;
+  --color-text-inverse: #1a1d21;
+  --color-text-heading: #e0e3e7;
 
   /* Form Fields */
-  --color-form-field-border: #404656;
-  --color-form-field-border-focus: #0a7c84;
-  --color-form-field-bg: #283046;
-  --color-form-field-text: #b4b7bd;
-  --color-form-field-placeholder: #676d7d;
+  --color-form-field-border: #3a3f46;
+  --color-form-field-border-focus: #055a60;
+  --color-form-field-bg: #22262b;
+  --color-form-field-text: #c8ccd2;
+  --color-form-field-placeholder: #6b7078;
   --color-form-date-indicator-filter: invert(1) brightness(1.1);
   
   /* Status Colors */
@@ -219,18 +219,18 @@
   --color-pending-light: #eb5c3720;
   
   /* Sidebar */
-  --color-sidebar-bg: #283046;
-  --color-sidebar-active: #0a7c84;
-  --color-sidebar-hover: rgba(10, 124, 132, 0.12);
+  --color-sidebar-bg: #1a1d21;
+  --color-sidebar-active: #055a60;
+  --color-sidebar-hover: rgba(5, 90, 96, 0.12);
   
   /* Chat bubbles */
-  --color-chat-bot-bubble: #283046;
+  --color-chat-bot-bubble: #22262b;
   --color-chat-user-bubble: var(--color-brand-primary-10);
   
   /* Navbar */
-  --color-navbar-bg: #283046;
-  --color-navbar-border: #3b4253;
-  --color-navbar-border-right: #404656;
+  --color-navbar-bg: #22262b;
+  --color-navbar-border: #2e3338;
+  --color-navbar-border-right: #3a3f46;
   
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
