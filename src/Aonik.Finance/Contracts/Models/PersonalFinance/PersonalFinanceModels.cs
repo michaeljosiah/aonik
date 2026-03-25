@@ -232,6 +232,7 @@ public record ListPersonalTransactionsRequest(
     DateTime? From,
     DateTime? To,
     Guid? PersonalAccountId,
+    Guid? FinancialContextId,
     string? Category,
     string? Search,
     int Page = 1,
@@ -241,6 +242,7 @@ public record PersonalTransactionResponse(
     Guid PersonalTransactionId,
     Guid UserId,
     Guid? PersonalAccountId,
+    Guid? FinancialContextId,
     DateTime OccurredAt,
     decimal Amount,
     string Currency,
@@ -732,3 +734,57 @@ public record PartyObligationSummaryResponse(
     IReadOnlyList<PartyObligationItemResponse> Obligations,
     decimal TotalMonthlyEstimate,
     string? PrimaryCurrency);
+
+// ── Financial Context (Spaces) ────────────────────────────────────────
+
+public record CreateFinancialContextRequest(
+    string Name,
+    string ContextType,
+    Guid? RelatedPartyId,
+    string? Notes,
+    string? MetadataJson);
+
+public record UpdateFinancialContextRequest(
+    string Name,
+    string ContextType,
+    Guid? RelatedPartyId,
+    string? Notes,
+    string? MetadataJson);
+
+public record FinancialContextResponse(
+    Guid FinancialContextId,
+    Guid UserId,
+    string Name,
+    string ContextType,
+    Guid? RelatedPartyId,
+    string Status,
+    string? Notes,
+    string MetadataJson,
+    IReadOnlyList<FinancialContextFundingSourceResponse> FundingSources,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
+public record FinancialContextFundingSourceResponse(
+    Guid FundingSourceId,
+    Guid FinancialContextId,
+    Guid PersonalAccountId,
+    bool IsPrimary,
+    DateTime CreatedAt);
+
+public record AddFundingSourceRequest(
+    Guid PersonalAccountId,
+    bool IsPrimary);
+
+public record AssignTransactionContextRequest(
+    Guid? FinancialContextId);
+
+public record FinancialContextSummaryResponse(
+    Guid FinancialContextId,
+    string Name,
+    string ContextType,
+    decimal TotalInflow,
+    decimal TotalOutflow,
+    decimal NetAmount,
+    int TransactionCount,
+    DateTime PeriodStart,
+    DateTime PeriodEnd);

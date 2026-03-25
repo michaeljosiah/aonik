@@ -59,6 +59,8 @@ internal sealed class PersonalTransactionConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.Category, x.OccurredAt });
         builder.HasIndex(x => new { x.PersonalAccountId, x.OccurredAt });
 
+        builder.HasIndex(x => new { x.TenantId, x.UserId, x.FinancialContextId, x.OccurredAt });
+
         builder.HasIndex(x => x.ImportFingerprint)
             .IsUnique()
             .HasFilter("[ImportFingerprint] IS NOT NULL");

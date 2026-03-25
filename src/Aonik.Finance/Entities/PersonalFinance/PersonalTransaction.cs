@@ -28,6 +28,7 @@ public class PersonalTransaction : AuditableEntity, ITenantScoped
     public string? ImportFingerprint { get; set; }
     public string? Notes { get; set; }
     public string TagsJson { get; set; } = string.Empty;
+    public Guid? FinancialContextId { get; set; }
 
     public List<TransactionAttachment> Attachments { get; set; } = new();
 }

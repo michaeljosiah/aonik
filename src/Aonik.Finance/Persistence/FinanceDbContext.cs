@@ -121,6 +121,8 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
     public DbSet<FinancialLifeGraphEdge> FinancialLifeGraphEdges { get; set; } = null!;
     public DbSet<TransactionAttachment> TransactionAttachments { get; set; } = null!;
+    public DbSet<FinancialContext> FinancialContexts { get; set; } = null!;
+    public DbSet<FinancialContextFundingSource> FinancialContextFundingSources { get; set; } = null!;
 
     public FinanceDbContext(
         DbContextOptions<FinanceDbContext> options,
@@ -216,6 +218,8 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<StatementImportRow>(modelBuilder, "StatementImportRows");
         MapTable<FinancialLifeGraphNode>(modelBuilder, "FinancialLifeGraphNodes");
         MapTable<FinancialLifeGraphEdge>(modelBuilder, "FinancialLifeGraphEdges");
+        MapTable<FinancialContext>(modelBuilder, "FinancialContexts");
+        MapTable<FinancialContextFundingSource>(modelBuilder, "FinancialContextFundingSources");
 
         MapPlatformTable<PartyReadModel>(modelBuilder, "Parties");
         MapPlatformTable<PartyRelationshipReadModel>(modelBuilder, "PartyRelationships");
