@@ -47,7 +47,7 @@ function AppIcon({ app }: { app: AppCardType }) {
   if (app.icon === 'insights' || app.icon === 'semanticx') {
     return (
       <div
-        className="h-[68px] w-[68px] rounded-[6px] flex items-center justify-center border border-[#cfcdd9]"
+        className="h-24 w-24 rounded-xl flex items-center justify-center border border-[#cfcdd9]"
         style={{ backgroundColor: app.iconBgColor || '#055a60' }}
       >
         <svg viewBox="0 0 24 24" className="w-8 h-8 text-white" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -59,7 +59,7 @@ function AppIcon({ app }: { app: AppCardType }) {
   }
 
   return (
-    <div className="h-[68px] w-[68px] rounded-[6px] bg-[#ECECEF] flex items-center justify-center border border-[#CFCDD9]">
+    <div className="h-24 w-24 rounded-xl bg-[#ECECEF] flex items-center justify-center border border-[#CFCDD9]">
       <Grid2x2Plus className="w-7 h-7 text-[#ABA7B7]" />
     </div>
   );
@@ -67,29 +67,30 @@ function AppIcon({ app }: { app: AppCardType }) {
 
 export function AppCard({ app, onLaunch }: AppCardProps) {
   return (
-    <div className="relative w-full pt-10 cursor-pointer group">
-      <div className="absolute left-6 -top-[6px] z-[2]">
+    <div className="relative w-full pt-24 cursor-pointer group">
+      <div className="absolute left-6 top-0 z-[2]">
         <AppIcon app={app} />
       </div>
 
       <Card className={cn(
-        'relative flex flex-col min-h-[260px] overflow-visible',
+        'relative flex flex-col overflow-visible',
         'border border-[#d9d9e3] rounded-[4px]',
         'transition-all duration-300',
         'hoverBorder hover:border-[var(--color-brand-primary)] hover:shadow-lg hover:scale-[1.01]',
         'bg-[var(--color-surface-elevated)]',
       )}>
-        <div className="flex items-center justify-end gap-0.5 px-4 pt-3">
-          <StatusBadge status={app.status} onLaunch={onLaunch ? () => onLaunch(app.id) : undefined} />
-          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
-            <CheckSquare className="w-3.5 h-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
-            <MoreVertical className="w-3.5 h-3.5" />
-          </Button>
-        </div>
+        <div className="relative w-full mt-4 p-2 flex flex-col flex-1">
+          <div className="absolute -top-10 right-4 flex items-center justify-end gap-0.5">
+            <StatusBadge status={app.status} onLaunch={onLaunch ? () => onLaunch(app.id) : undefined} />
+            <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+              <CheckSquare className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+              <MoreVertical className="w-3.5 h-3.5" />
+            </Button>
+          </div>
 
-        <div className="flex flex-1 flex-col px-4 pb-4 mt-4 pt-2">
+          <div className="flex flex-1 flex-col px-2 pb-4">
           <h3 className="mb-1.5 line-clamp-1 text-[18px] font-bold text-[var(--color-text-heading)]">
             {app.name}
           </h3>
@@ -98,9 +99,9 @@ export function AppCard({ app, onLaunch }: AppCardProps) {
           </p>
         </div>
 
-        <div className="w-4/5 h-px bg-[#E2E1E8] self-center" />
+          <div className="w-4/5 h-px bg-[#E2E1E8] self-center" />
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-2 pb-4 pt-4">
           <div>
             <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1">Owners</p>
             <div className="flex items-center gap-2">
@@ -154,6 +155,7 @@ export function AppCard({ app, onLaunch }: AppCardProps) {
               )}
             </div>
           </div>
+        </div>
         </div>
       </Card>
     </div>
