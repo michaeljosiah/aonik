@@ -67,12 +67,15 @@ abstract class PaymentFlowPersistence {
 
 class SharedPreferencesPaymentFlowPersistence
     implements PaymentFlowPersistence {
+  SharedPreferencesPaymentFlowPersistence(this._prefs);
+
   static const String _storageKey = 'payabo.payment_flow_state.v1';
+
+  final SharedPreferences _prefs;
 
   @override
   Future<PersistedPaymentFlowSnapshot?> read() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? raw = prefs.getString(_storageKey);
+    final String? raw = _prefs.getString(_storageKey);
     if (raw == null || raw.isEmpty) {
       return null;
     }
@@ -117,7 +120,6 @@ class SharedPreferencesPaymentFlowPersistence
 
   @override
   Future<void> write(PersistedPaymentFlowSnapshot snapshot) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
     final Map<String, dynamic> payload = <String, dynamic>{
       'demoDataMode': snapshot.demoDataModeName,
       'countryCode': snapshot.countryCode,
@@ -146,17 +148,39 @@ class SharedPreferencesPaymentFlowPersistence
       'statusChecks': snapshot.statusChecks,
     };
 
-    await prefs.setString(_storageKey, jsonEncode(payload));
+    await _prefs.setString(_storageKey, jsonEncode(payload));
   }
 
   @override
   Future<void> clear() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_storageKey);
+    await _prefs.remove(_storageKey);
   }
 }
 
+final FutureProvider<SharedPreferences> _sharedPreferencesProvider =
+    FutureProvider<SharedPreferences>(
+  (Ref ref) => SharedPreferences.getInstance(),
+);
+
 final Provider<PaymentFlowPersistence> paymentFlowPersistenceProvider =
     Provider<PaymentFlowPersistence>(
-  (Ref ref) => SharedPreferencesPaymentFlowPersistence(),
+  (Ref ref) {
+    final prefs = ref.watch(_sharedPreferencesProvider).asData?.value;
+    if (prefs == null) {
+      return _NoOpPaymentFlowPersistence();
+    }
+    return SharedPreferencesPaymentFlowPersistence(prefs);
+  },
 );
+
+/// Fallback that silently no-ops while SharedPreferences is loading.
+class _NoOpPaymentFlowPersistence implements PaymentFlowPersistence {
+  @override
+  Future<PersistedPaymentFlowSnapshot?> read() async => null;
+
+  @override
+  Future<void> write(PersistedPaymentFlowSnapshot snapshot) async {}
+
+  @override
+  Future<void> clear() async {}
+}

@@ -419,18 +419,19 @@ class AgUiClient {
 
       // SSE events are `data: {json}\n\n`. We accumulate bytes into lines,
       // splitting on \n. Each non-empty line starting with `data:` is one event.
-      String buffer = '';
+      final StringBuffer buffer = StringBuffer();
 
       await for (final chunk in stream) {
         if (controller.isClosed) break;
 
-        buffer += utf8.decode(chunk, allowMalformed: true);
+        buffer.write(utf8.decode(chunk, allowMalformed: true));
 
         // Process all complete lines in the buffer.
-        while (buffer.contains('\n')) {
-          final newlineIndex = buffer.indexOf('\n');
-          final line = buffer.substring(0, newlineIndex);
-          buffer = buffer.substring(newlineIndex + 1);
+        String buffered = buffer.toString();
+        while (buffered.contains('\n')) {
+          final newlineIndex = buffered.indexOf('\n');
+          final line = buffered.substring(0, newlineIndex);
+          buffered = buffered.substring(newlineIndex + 1);
 
           final event = parseSseLine(line);
           if (event != null && !controller.isClosed) {
@@ -443,11 +444,17 @@ class AgUiClient {
             }
           }
         }
+
+        // Keep only unprocessed remainder in the buffer.
+        buffer
+          ..clear()
+          ..write(buffered);
       }
 
       // Process any remaining data in the buffer.
-      if (buffer.isNotEmpty && !controller.isClosed) {
-        final event = parseSseLine(buffer);
+      final remaining = buffer.toString();
+      if (remaining.isNotEmpty && !controller.isClosed) {
+        final event = parseSseLine(remaining);
         if (event != null) {
           controller.add(event);
         }

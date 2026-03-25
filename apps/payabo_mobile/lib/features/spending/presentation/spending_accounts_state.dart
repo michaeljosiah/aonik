@@ -131,9 +131,6 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
       );
     }
 
-    final String androidPackageName =
-        _environment.resolvedAccountLinkAndroidPackageName;
-
     final _PlaidLinkAwaiter awaiter = _PlaidLinkAwaiter();
 
     try {
@@ -153,7 +150,7 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
       }
 
       throw AccountLinkLaunchException(
-        'We could not open the secure Plaid connection right now. Check the mobile token setup for $androidPackageName and try again.',
+        'We could not open the secure Plaid connection right now. Check the mobile token setup for ${_environment.resolvedAccountLinkAndroidPackageName} and try again.',
       );
     }
   }
@@ -186,9 +183,6 @@ class _PlaidLinkAwaiter {
       }
       await dispose();
     });
-
-    _eventSubscription = PlaidLink.onEvent.listen((LinkEvent event) {});
-    _loadSubscription = PlaidLink.onLoad.listen((LinkOnLoad event) {});
   }
 
   final Completer<AccountLinkLaunchResult?> _completer =
@@ -196,8 +190,6 @@ class _PlaidLinkAwaiter {
   bool _disposed = false;
   StreamSubscription<LinkSuccess>? _successSubscription;
   StreamSubscription<LinkExit>? _exitSubscription;
-  StreamSubscription<LinkEvent>? _eventSubscription;
-  StreamSubscription<LinkOnLoad>? _loadSubscription;
 
   Future<AccountLinkLaunchResult?> waitForResult() async {
     return _completer.future.timeout(
@@ -216,12 +208,8 @@ class _PlaidLinkAwaiter {
     _disposed = true;
     await _successSubscription?.cancel();
     await _exitSubscription?.cancel();
-    await _eventSubscription?.cancel();
-    await _loadSubscription?.cancel();
     _successSubscription = null;
     _exitSubscription = null;
-    _eventSubscription = null;
-    _loadSubscription = null;
   }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,10 +22,12 @@ Future<void> main() async {
   final DemoDataMode initialDemoDataMode = await loadInitialDemoDataMode();
   final ThemeMode initialThemeMode = await loadInitialThemeMode();
   configureDevHttpOverrides(environment);
-  developer.log(
-    'Starting Payabo with baseUrl=${environment.runtimeApiBaseUrl}, flavor=${environment.label}, useMocks=${environment.useMocks}',
-    name: 'Payabo.Main',
-  );
+  if (kDebugMode) {
+    developer.log(
+      'Starting Payabo with baseUrl=${environment.runtimeApiBaseUrl}, flavor=${environment.label}, useMocks=${environment.useMocks}',
+      name: 'Payabo.Main',
+    );
+  }
 
   runApp(
     ProviderScope(

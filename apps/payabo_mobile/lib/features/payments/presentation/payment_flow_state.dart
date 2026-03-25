@@ -6,6 +6,7 @@ import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/order_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
+import '../../../mock/mock_payment_seed_data.dart';
 import 'payment_country_reference_service.dart';
 import 'payment_flow_persistence.dart';
 
@@ -186,52 +187,10 @@ class PaymentFlowState {
     );
   }
 
-  factory PaymentFlowState.initial(DemoDataMode demoDataMode) {
-    final savedCards = demoDataMode == DemoDataMode.fresh
-        ? const <SavedCard>[]
-        : const <SavedCard>[
-            SavedCard(
-              id: 'card_visa_4567',
-              brand: 'Card type',
-              last4: '4567',
-              expiryLabel: '12/24',
-            ),
-            SavedCard(
-              id: 'card_master_9021',
-              brand: 'Card type',
-              last4: '9021',
-              expiryLabel: '08/27',
-            ),
-          ];
-    final friends = demoDataMode == DemoDataMode.fresh
-        ? const <PaymentFriend>[]
-        : const <PaymentFriend>[
-            PaymentFriend(
-              id: 'friend_dany',
-              firstName: 'Dany',
-              lastName: 'Keys',
-              email: 'dany.keys@mailinator.com',
-              relationship: 'Sister',
-              isFavorite: true,
-            ),
-            PaymentFriend(
-              id: 'friend_alicia',
-              firstName: 'Alicia',
-              lastName: 'Keys',
-              email: 'alicia.keys@mailinator.com',
-              relationship: 'Mother',
-              isFavorite: false,
-            ),
-            PaymentFriend(
-              id: 'friend_ken',
-              firstName: 'Ken',
-              lastName: 'Keys',
-              email: 'ken.keys@mailinator.com',
-              relationship: 'Uncle',
-              isFavorite: false,
-            ),
-          ];
-
+  factory PaymentFlowState.initial({
+    List<SavedCard> savedCards = const <SavedCard>[],
+    List<PaymentFriend> friends = const <PaymentFriend>[],
+  }) {
     return PaymentFlowState(
       countryCode: 'GH',
       providerId: '',
@@ -263,8 +222,15 @@ class PaymentFlowState {
 }
 
 class PaymentFlowController extends StateNotifier<PaymentFlowState> {
-  PaymentFlowController(this._ref, this._demoDataMode)
-      : super(PaymentFlowState.initial(_demoDataMode)) {
+  PaymentFlowController(
+    this._ref,
+    this._demoDataMode, {
+    List<SavedCard> initialSavedCards = const <SavedCard>[],
+    List<PaymentFriend> initialFriends = const <PaymentFriend>[],
+  }) : super(PaymentFlowState.initial(
+          savedCards: initialSavedCards,
+          friends: initialFriends,
+        )) {
     _restoreState();
   }
 
@@ -278,112 +244,104 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       _ref.read(paymentCountryReferenceServiceProvider);
 
   void setCountryCode(String countryCode) {
-    _commit(
-      state.copyWith(
-        countryCode: countryCode.toUpperCase(),
-        providerId: '',
-        providerName: '',
-        orderId: '',
-        paymentIntentId: '',
-        providerReference: '',
-        paymentResult: null,
-        statusChecks: 0,
-      ),
+    state = state.copyWith(
+      countryCode: countryCode.toUpperCase(),
+      providerId: '',
+      providerName: '',
+      orderId: '',
+      paymentIntentId: '',
+      providerReference: '',
+      paymentResult: null,
+      statusChecks: 0,
     );
     _persistState();
   }
 
   void setCategory(String category) {
-    _commit(state.copyWith(category: category));
+    state = state.copyWith(category: category);
   }
 
   void setProvider({required String providerId, required String providerName}) {
-    _commit(
-      state.copyWith(
-        providerId: providerId,
-        providerName: providerName,
-        orderId: '',
-        paymentIntentId: '',
-        providerReference: '',
-        paymentResult: null,
-        statusChecks: 0,
-      ),
+    state = state.copyWith(
+      providerId: providerId,
+      providerName: providerName,
+      orderId: '',
+      paymentIntentId: '',
+      providerReference: '',
+      paymentResult: null,
+      statusChecks: 0,
     );
     _persistState();
   }
 
   void setServiceType(String serviceType) {
-    _commit(state.copyWith(serviceType: serviceType));
+    state = state.copyWith(serviceType: serviceType);
   }
 
   void setSmartCardId(String smartCardId) {
-    _commit(state.copyWith(smartCardId: smartCardId));
+    state = state.copyWith(smartCardId: smartCardId);
   }
 
   void setContactReference(String value) {
-    _commit(state.copyWith(contactReference: value));
+    state = state.copyWith(contactReference: value);
   }
 
   void setAmount(String amount) {
-    _commit(state.copyWith(amount: amount));
+    state = state.copyWith(amount: amount);
   }
 
   void setRecurringBill(bool recurringBill) {
-    _commit(
-      state.copyWith(
-        recurringBill: recurringBill,
-        recurringStartsOn: recurringBill ? state.recurringStartsOn : null,
-        recurringEndsOn: recurringBill ? state.recurringEndsOn : null,
-      ),
+    state = state.copyWith(
+      recurringBill: recurringBill,
+      recurringStartsOn: recurringBill ? state.recurringStartsOn : null,
+      recurringEndsOn: recurringBill ? state.recurringEndsOn : null,
     );
   }
 
   void setRecurringFrequency(String frequency) {
-    _commit(state.copyWith(recurringFrequency: frequency));
+    state = state.copyWith(recurringFrequency: frequency);
   }
 
   void setRecurringStartsOn(DateTime? date) {
-    _commit(state.copyWith(recurringStartsOn: date));
+    state = state.copyWith(recurringStartsOn: date);
   }
 
   void setRecurringEndsOn(DateTime? date) {
-    _commit(state.copyWith(recurringEndsOn: date));
+    state = state.copyWith(recurringEndsOn: date);
   }
 
   void setUseSamePaymentMethodForRecurring(bool value) {
-    _commit(state.copyWith(useSamePaymentMethodForRecurring: value));
+    state = state.copyWith(useSamePaymentMethodForRecurring: value);
   }
 
   void setPaymentMethod(PaymentMethodType type) {
-    _commit(
-      state.copyWith(
-        paymentMethod: type,
-        selectedFriendId:
-            type == PaymentMethodType.card ? '' : state.selectedFriendId,
-        friendMessage:
-            type == PaymentMethodType.card ? '' : state.friendMessage,
-      ),
+    state = state.copyWith(
+      paymentMethod: type,
+      selectedFriendId:
+          type == PaymentMethodType.card ? '' : state.selectedFriendId,
+      friendMessage:
+          type == PaymentMethodType.card ? '' : state.friendMessage,
     );
     _persistState();
   }
 
   void selectCard(String cardId) {
-    _commit(state.copyWith(selectedCardId: cardId));
+    state = state.copyWith(selectedCardId: cardId);
     _persistState();
   }
 
   void setSaveCard(bool saveCard) {
-    _commit(state.copyWith(saveCard: saveCard));
+    state = state.copyWith(saveCard: saveCard);
     _persistState();
   }
 
   void selectFriend(String friendId) {
-    _commit(state.copyWith(selectedFriendId: friendId));
+    state = state.copyWith(selectedFriendId: friendId);
     _persistState();
   }
 
   void setFriendMessage(String message, {bool persist = false}) {
-    _commit(state.copyWith(friendMessage: message));
+    state = state.copyWith(friendMessage: message);
     if (persist) {
       _persistState();
     }
@@ -407,11 +365,9 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       isFavorite: saveAsFavorite,
     );
 
-    _commit(
-      state.copyWith(
-        friends: <PaymentFriend>[friend, ...state.friends],
-        selectedFriendId: friend.id,
-      ),
+    state = state.copyWith(
+      friends: <PaymentFriend>[friend, ...state.friends],
+      selectedFriendId: friend.id,
     );
     _persistState();
   }
@@ -426,14 +382,12 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       currency: _countryReferences.resolveCurrency(state.countryCode),
     );
 
-    _commit(
-      state.copyWith(
-        orderId: draft.orderId,
-        paymentIntentId: '',
-        providerReference: '',
-        paymentResult: null,
-        statusChecks: 0,
-      ),
+    state = state.copyWith(
+      orderId: draft.orderId,
+      paymentIntentId: '',
+      providerReference: '',
+      paymentResult: null,
+      statusChecks: 0,
     );
     _persistState();
   }
@@ -444,13 +398,11 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
     }
 
     final intent = await repository.createPaymentIntent(orderId: state.orderId);
-    _commit(
-      state.copyWith(
-        paymentIntentId: intent.paymentIntentId,
-        providerReference: intent.providerReference,
-        paymentResult: intent.status,
-        statusChecks: 0,
-      ),
+    state = state.copyWith(
+      paymentIntentId: intent.paymentIntentId,
+      providerReference: intent.providerReference,
+      paymentResult: intent.status,
+      statusChecks: 0,
     );
     _persistState();
   }
@@ -465,27 +417,23 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       paymentIntentId: state.paymentIntentId,
     );
 
-    _commit(
-      state.copyWith(
-        paymentResult: result,
-        statusChecks: state.statusChecks + 1,
-      ),
+    state = state.copyWith(
+      paymentResult: result,
+      statusChecks: state.statusChecks + 1,
     );
     _persistState();
     return result;
   }
 
   void resetForNewCheckout() {
-    _commit(
-      state.copyWith(
-        orderId: '',
-        paymentIntentId: '',
-        providerReference: '',
-        paymentResult: null,
-        statusChecks: 0,
-        selectedFriendId: '',
-        friendMessage: '',
-      ),
+    state = state.copyWith(
+      orderId: '',
+      paymentIntentId: '',
+      providerReference: '',
+      paymentResult: null,
+      statusChecks: 0,
+      selectedFriendId: '',
+      friendMessage: '',
     );
     _persistState();
   }
@@ -501,37 +449,35 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       return;
     }
 
-    _commit(
-      state.copyWith(
-        countryCode: snapshot.countryCode,
-        providerId: snapshot.providerId,
-        providerName: snapshot.providerName,
-        category: snapshot.category,
-        serviceType: snapshot.serviceType,
-        smartCardId: snapshot.smartCardId,
-        contactReference: snapshot.contactReference,
-        amount: snapshot.amount,
-        recurringBill: snapshot.recurringBill,
-        recurringFrequency: snapshot.recurringFrequency,
-        recurringStartsOn: snapshot.recurringStartsOn,
-        recurringEndsOn: snapshot.recurringEndsOn,
-        useSamePaymentMethodForRecurring:
-            snapshot.useSamePaymentMethodForRecurring,
-        paymentMethod: PaymentMethodType.values[snapshot.paymentMethodIndex
-            .clamp(0, PaymentMethodType.values.length - 1)],
-        selectedCardId: snapshot.selectedCardId,
-        saveCard: snapshot.saveCard,
-        selectedFriendId: snapshot.selectedFriendId,
-        friendMessage: snapshot.friendMessage,
-        orderId: snapshot.orderId,
-        paymentIntentId: snapshot.paymentIntentId,
-        providerReference: snapshot.providerReference,
-        paymentResult: snapshot.paymentResultIndex == null
-            ? null
-            : PaymentResult.values[snapshot.paymentResultIndex!
-                .clamp(0, PaymentResult.values.length - 1)],
-        statusChecks: snapshot.statusChecks,
-      ),
+    state = state.copyWith(
+      countryCode: snapshot.countryCode,
+      providerId: snapshot.providerId,
+      providerName: snapshot.providerName,
+      category: snapshot.category,
+      serviceType: snapshot.serviceType,
+      smartCardId: snapshot.smartCardId,
+      contactReference: snapshot.contactReference,
+      amount: snapshot.amount,
+      recurringBill: snapshot.recurringBill,
+      recurringFrequency: snapshot.recurringFrequency,
+      recurringStartsOn: snapshot.recurringStartsOn,
+      recurringEndsOn: snapshot.recurringEndsOn,
+      useSamePaymentMethodForRecurring:
+          snapshot.useSamePaymentMethodForRecurring,
+      paymentMethod: PaymentMethodType.values[snapshot.paymentMethodIndex
+          .clamp(0, PaymentMethodType.values.length - 1)],
+      selectedCardId: snapshot.selectedCardId,
+      saveCard: snapshot.saveCard,
+      selectedFriendId: snapshot.selectedFriendId,
+      friendMessage: snapshot.friendMessage,
+      orderId: snapshot.orderId,
+      paymentIntentId: snapshot.paymentIntentId,
+      providerReference: snapshot.providerReference,
+      paymentResult: snapshot.paymentResultIndex == null
+          ? null
+          : PaymentResult.values[snapshot.paymentResultIndex!
+              .clamp(0, PaymentResult.values.length - 1)],
+      statusChecks: snapshot.statusChecks,
     );
   }
 
@@ -565,10 +511,6 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
         statusChecks: state.statusChecks,
       ),
     );
-  }
-
-  void _commit(PaymentFlowState nextState) {
-    state = nextState;
   }
 
   static double _parseAmount(String input) {
@@ -651,7 +593,12 @@ final StateNotifierProvider<PaymentFlowController, PaymentFlowState>
     StateNotifierProvider<PaymentFlowController, PaymentFlowState>(
   (Ref ref) {
     final demoDataMode = ref.watch(demoDataModeProvider);
-    return PaymentFlowController(ref, demoDataMode);
+    return PaymentFlowController(
+      ref,
+      demoDataMode,
+      initialSavedCards: MockPaymentSeedData.savedCards(demoDataMode),
+      initialFriends: MockPaymentSeedData.friends(demoDataMode),
+    );
   },
 );
 
