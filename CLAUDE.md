@@ -64,11 +64,24 @@ src/Aonik.Finance/Persistence/Configurations/Billing/InvoiceConfiguration.cs
 ## Non-Negotiable Architectural Rules
 
 1. **Ledger is the source of financial truth** (double-entry, immutable)
-2. **Orders represent business intent**, not payments — never collapse them
+2. **Orders are the canonical record of a requested financial service** — not payments, not ledger entries — never collapse them
 3. **Agents propose; systems execute** — never bypass human-in-the-loop for mutations
 4. **Every AI action is auditable** (recorded as `AiRun`)
 5. **Risk tier determines AI autonomy**
 6. **Domain entities are anemic** — all business logic lives in services, not entities
+
+## Orders
+
+An Order is the canonical record of a customer's intent to use an AONIK-powered financial service. It captures the requested service, the parties involved, the amounts and currencies, and the lifecycle from funding through fulfilment. Orders capture the requested financial service and why money should move.
+
+An Order records: what service was requested, who the relevant parties are, what amounts/currencies are involved, how the request is funded, and how it is fulfilled.
+
+**Order vs Payment vs Ledger:**
+- **Order** = the requested financial service (bill payment, money transfer, bill collection, payout, remittance)
+- **Payment** = how the order is funded or executed
+- **Ledger** = the financial truth proving what happened
+
+**Not Orders:** a standalone imported bank transaction, a manual categorisation, or a ledger correction (unless it exists to fulfil a service request).
 
 ## Code Patterns
 
