@@ -488,6 +488,78 @@ class LiveChatRepository implements ChatRepository {
   // ── History methods (backed by /ai/threads endpoints) ───
 
   @override
+  Future<ChatConversation?> getThread(String threadId) async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/ai/threads/$threadId',
+      );
+
+      final data = response.data;
+      if (data == null) return null;
+
+      final messages = (data['messages'] as List<dynamic>? ?? const [])
+          .whereType<Map<Object?, Object?>>()
+          .map((item) {
+            final map = Map<String, dynamic>.from(item);
+            final role = map['role']?.toString() ?? 'user';
+            final content = map['content']?.toString() ?? '';
+
+            // Parse tool calls from JSON if present (assistant messages).
+            final toolCalls = <ChatToolCallInfo>[];
+            if (role == 'assistant' && map['toolCallsJson'] != null) {
+              try {
+                final decoded = map['toolCallsJson'];
+                if (decoded is List) {
+                  for (final tc in decoded) {
+                    if (tc is Map) {
+                      final tcMap = Map<String, dynamic>.from(tc);
+                      final fn = tcMap['function'] as Map<String, dynamic>?;
+                      toolCalls.add(ChatToolCallInfo(
+                        toolCallId: tcMap['id']?.toString() ?? '',
+                        name: fn?['name']?.toString() ?? '',
+                        arguments: fn?['arguments']?.toString(),
+                        result: null,
+                        isComplete: true,
+                      ));
+                    }
+                  }
+                }
+              } catch (_) {
+                // Ignore malformed tool calls JSON.
+              }
+            }
+
+            return ChatMessage(
+              id: map['id']?.toString(),
+              sender: role == 'assistant'
+                  ? ChatSender.assistant
+                  : ChatSender.user,
+              lines: content.isEmpty ? const [''] : [content],
+              toolCalls: toolCalls,
+            );
+          })
+          // Only surface user and assistant messages in the UI.
+          .where((m) => true)
+          .toList(growable: false);
+
+      return ChatConversation(
+        id: data['id']?.toString() ?? threadId,
+        title: data['title']?.toString() ?? 'Untitled',
+        dateLabel: _formatDateLabel(data['lastMessageAt'] ?? data['createdAt']),
+        messages: messages,
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      developer.log(
+        'Failed to fetch thread $threadId',
+        error: e,
+        name: 'LiveChatRepository',
+      );
+      return null;
+    }
+  }
+
+  @override
   Future<List<ChatConversation>> getConversations() async {
     // Load the full thread list, then fetch each thread's messages.
     // For now we fetch summaries only — callers that need messages

@@ -280,6 +280,9 @@ abstract class ChatRepository {
     List<ChatMessage> history,
   });
 
+  /// Fetches a thread with its full message history from the backend.
+  Future<ChatConversation?> getThread(String threadId);
+
   /// Archives (soft-deletes) a conversation thread by ID.
   Future<void> deleteConversation(String id);
 

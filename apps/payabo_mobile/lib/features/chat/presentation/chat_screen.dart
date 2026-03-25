@@ -234,6 +234,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           next.displayWidgets.length > prev.displayWidgets.length) {
         _scrollToBottom();
       }
+      // Refresh thread list when a streaming run completes so new
+      // conversations appear in history.
+      if (prev != null &&
+          prev.activity != ChatActivity.idle &&
+          next.activity == ChatActivity.idle &&
+          next.messages.isNotEmpty) {
+        ref.invalidate(_chatConversationsProvider);
+      }
     });
 
     // Sync seeded conversations from provider (for history navigation only).
@@ -389,15 +397,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    // Try to load from seeded conversations (mock mode).
+    // In mock mode with populated conversations, load directly from the
+    // in-memory data. Otherwise fetch the full thread from the backend.
     final conversations = conversationsAsync.value ?? const [];
     final match = conversations.cast<ChatConversation?>().firstWhere(
           (c) => c?.id == selectedId,
           orElse: () => null,
         );
 
-    if (match != null) {
+    if (match != null && match.messages.isNotEmpty) {
       ref.read(chatControllerProvider.notifier).loadConversation(match);
+    } else {
+      await ref.read(chatControllerProvider.notifier).loadThread(selectedId);
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

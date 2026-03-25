@@ -40,12 +40,21 @@ Received User Prompt: {userPrompt[..Math.Min(100, userPrompt.Length)]}...";
         return new ChatResponse([new ChatMessage(ChatRole.Assistant, completion)]);
     }
 
-    public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+    public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> chatMessages,
         ChatOptions? options = null,
-        CancellationToken cancellationToken = default)
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        throw new NotSupportedException("Streaming is not supported by the stub chat client.");
+        // Build the same placeholder response as GetResponseAsync, then yield
+        // it as a single streaming chunk so the AG-UI endpoint works in stub mode.
+        var response = await GetResponseAsync(chatMessages, options, cancellationToken);
+        var text = response.Messages.FirstOrDefault()?.Text ?? "[STUB AI RESPONSE]";
+
+        yield return new ChatResponseUpdate
+        {
+            Role = ChatRole.Assistant,
+            Contents = [new TextContent(text)],
+        };
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null)

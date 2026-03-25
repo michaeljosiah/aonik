@@ -454,6 +454,29 @@ class MockChatRepository implements ChatRepository {
   }
 
   // ─────────────────────────────────────────────────────────
+  //  getThread
+  // ─────────────────────────────────────────────────────────
+
+  @override
+  Future<ChatConversation?> getThread(String threadId) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('chat.getThread');
+
+    final match = _populatedConversations
+        .cast<ChatConversation?>()
+        .firstWhere((c) => c?.id == threadId, orElse: () => null);
+
+    if (match == null) return null;
+
+    return ChatConversation(
+      id: match.id,
+      title: match.title,
+      dateLabel: match.dateLabel,
+      messages: List<ChatMessage>.of(match.messages),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────
   //  deleteConversation
   // ─────────────────────────────────────────────────────────
 

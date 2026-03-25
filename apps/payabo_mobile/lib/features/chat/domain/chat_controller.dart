@@ -569,6 +569,38 @@ class ChatController extends StateNotifier<ChatState> {
     );
   }
 
+  /// Fetches a thread from the backend and loads its messages.
+  Future<void> loadThread(String threadId) async {
+    _subscription?.cancel();
+
+    // Reject any pending approvals.
+    for (final approval in state.pendingApprovals) {
+      approval.onReject('Conversation changed');
+    }
+
+    state = ChatState.initial().copyWith(activity: ChatActivity.connecting);
+
+    try {
+      final conversation = await _repository.getThread(threadId);
+      if (conversation != null) {
+        state = ChatState(
+          messages: List.of(conversation.messages),
+          threadId: conversation.id,
+        );
+      } else {
+        state = ChatState.initial().copyWith(
+          activity: ChatActivity.error,
+          errorMessage: 'Conversation not found',
+        );
+      }
+    } catch (e) {
+      state = ChatState.initial().copyWith(
+        activity: ChatActivity.error,
+        errorMessage: 'Failed to load conversation: $e',
+      );
+    }
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();
