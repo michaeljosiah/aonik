@@ -1,6 +1,6 @@
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Eye, ArrowUpDown } from 'lucide-react';
+import { Eye, ArrowUpDown, UserRound } from 'lucide-react';
 import type { Databox } from '@/types';
 
 interface DataboxesTableProps {
@@ -9,10 +9,10 @@ interface DataboxesTableProps {
 
 export function DataboxesTable({ databoxes }: DataboxesTableProps) {
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+    <Card className="h-full rounded-[4px] flex flex-col px-4 py-3">
+      <div className="mb-4 flex flex-row items-center justify-between space-y-0">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-md bg-[var(--color-brand-primary)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--color-brand-primary)]">
             <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="7" height="7" rx="1" />
               <rect x="14" y="3" width="7" height="7" rx="1" />
@@ -21,7 +21,7 @@ export function DataboxesTable({ databoxes }: DataboxesTableProps) {
             </svg>
           </div>
           <div>
-            <CardTitle className="text-base font-semibold">My databoxes</CardTitle>
+            <h2 className="text-[18px] font-bold text-[var(--color-text-primary)]">My databoxes</h2>
             <p className="text-sm text-[var(--color-text-secondary)]">Your personal and team databoxes.</p>
           </div>
         </div>
@@ -29,34 +29,31 @@ export function DataboxesTable({ databoxes }: DataboxesTableProps) {
           <Eye className="w-4 h-4" />
           View all databoxes
         </Button>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
-        {/* Table Header */}
-        <div className="flex items-center justify-between py-2 border-b border-[var(--color-border-light)] text-xs text-[var(--color-text-tertiary)] uppercase tracking-wide">
-          <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--color-text-secondary)]">
+      </div>
+      <CardContent className="flex-1 overflow-hidden px-0 pb-0">
+        <div className="flex items-center justify-between rounded-[2px] bg-[var(--color-surface-inset)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
+          <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--color-text-primary)]">
             Databox
             <ArrowUpDown className="w-3 h-3" />
           </div>
-          <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--color-text-secondary)]">
+          <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--color-text-primary)]">
             Last Modified
             <ArrowUpDown className="w-3 h-3" />
           </div>
         </div>
 
-        {/* Table Body */}
-        <div className="divide-y divide-[var(--color-border-light)] overflow-y-auto max-h-[400px]">
+        <div className="visible-scrollbar divide-y divide-[var(--color-border-light)] overflow-y-auto max-h-[400px]">
           {databoxes.map((databox) => (
             <div
               key={databox.id}
-              className="flex items-center justify-between py-3 hover:bg-[var(--color-background)] -mx-2 px-2 rounded-md cursor-pointer transition-colors"
+              className="flex items-center justify-between px-3 py-3 hover:bg-[var(--color-background)] cursor-pointer transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div
-                  className="w-1.5 h-10 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: databox.color }}
-                />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-background)_65%,transparent)]">
+                  <UserRound className="h-4 w-4" style={{ color: databox.color }} />
+                </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
                     {databox.name}
                   </p>
                   <p className="text-xs text-[var(--color-text-secondary)] truncate">

@@ -155,10 +155,8 @@ internal class UserRoleService : AdminServiceBase, IUserRoleService
     {
         var roles = await _dbContext.UserRoles
             .Where(ur => ur.UserId == userId)
-            .Include(ur => ur.Role)
-.Select(ur => new RoleSummary(ur.Role.Id, ur.Role.Name))
-
-            .OrderBy(role => role.Name)
+            .OrderBy(ur => ur.Role.Name)
+            .Select(ur => new RoleSummary(ur.Role.Id, ur.Role.Name))
             .ToListAsync(cancellationToken);
 
         return new UserRoleResponse(userId, roles);

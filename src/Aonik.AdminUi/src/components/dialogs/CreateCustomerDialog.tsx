@@ -224,7 +224,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
           className="cursor-pointer overflow-hidden hover:shadow-lg transition-all hover:border-[var(--color-brand-primary)] group"
           onClick={handleSelectBusiness}
         >
-          <div className="h-32 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center relative overflow-hidden">
+          <div className="h-32 bg-gradient-to-br from-[#055a60] to-[#044448] flex items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 opacity-20">
               <img
                 src="/assets/images/business-card.png"

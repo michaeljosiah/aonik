@@ -84,6 +84,7 @@ function AppLayout() {
   const [showAiChat, setShowAiChat] = useState(false);
   const previousSidebarCollapsed = useRef<boolean | null>(null);
   const preFullscreenSidebarState = useRef<boolean | null>(null);
+  const preChatSidebarState = useRef<boolean | null>(null);
 
   // Module system: aggregated routes and breadcrumbs
   const { routes, getBreadcrumb } = useModules();
@@ -159,6 +160,21 @@ function AppLayout() {
     }
   };
 
+  // Toggle AI chat panel — auto-collapse sidebar on screens < 1800px
+  const handleAiChatToggle = () => {
+    setShowAiChat((prev) => {
+      const willShow = !prev;
+      if (willShow && window.innerWidth < 1800 && !sidebarCollapsed) {
+        preChatSidebarState.current = sidebarCollapsed;
+        setSidebarCollapsed(true);
+      } else if (!willShow && preChatSidebarState.current !== null) {
+        setSidebarCollapsed(preChatSidebarState.current);
+        preChatSidebarState.current = null;
+      }
+      return willShow;
+    });
+  };
+
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
       <Sidebar
@@ -169,7 +185,7 @@ function AppLayout() {
         <Header
           breadcrumb={getBreadcrumb(window.location.pathname)}
           isWorkspace={isWorkspace}
-          onAiChatToggle={() => setShowAiChat((prev) => !prev)}
+          onAiChatToggle={handleAiChatToggle}
           leftSlot={
             isAiChat ? (
               <AiAgentSelector
@@ -187,7 +203,9 @@ function AppLayout() {
           onFullscreenChange={handleFullscreenChange}
         />
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          <main className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)] min-w-0'}>
+          <main
+            className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0 transition-[width] duration-400 ease-in-out' : 'flex-1 overflow-auto bg-[var(--color-surface-inset)] min-w-0 transition-[width] duration-400 ease-in-out'}
+          >
             <Routes>
               {/* My Space — default authenticated home */}
               <Route path="/" element={<MySpacePage />} />
@@ -215,8 +233,13 @@ function AppLayout() {
           </main>
           {showAiChat && (
             <AiChatPanel
-              onClose={() => setShowAiChat(false)}
+              onClose={handleAiChatToggle}
               onExpand={() => {
+                // Restore sidebar before navigating away
+                if (preChatSidebarState.current !== null) {
+                  setSidebarCollapsed(preChatSidebarState.current);
+                  preChatSidebarState.current = null;
+                }
                 setShowAiChat(false);
                 navigate('/ai/chat');
               }}

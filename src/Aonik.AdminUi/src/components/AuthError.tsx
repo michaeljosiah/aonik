@@ -15,129 +15,79 @@ interface AuthErrorProps {
   onRetry?: () => void;
 }
 
+const iconStyles: Record<string, { icon: string; bg: string; border: string }> = {
+  configuration: {
+    icon: 'text-[var(--color-warning)]',
+    bg: 'bg-[color-mix(in_srgb,var(--color-warning)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--color-warning)_30%,transparent)]',
+  },
+  network: {
+    icon: 'text-[var(--color-info)]',
+    bg: 'bg-[color-mix(in_srgb,var(--color-info)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--color-info)_30%,transparent)]',
+  },
+  provider: {
+    icon: 'text-[var(--color-danger)]',
+    bg: 'bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)]',
+  },
+  unknown: {
+    icon: 'text-[var(--color-danger)]',
+    bg: 'bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]',
+    border: 'border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)]',
+  },
+};
+
 export function AuthError({ error, onRetry }: AuthErrorProps) {
+  const style = iconStyles[error.type] ?? iconStyles.unknown;
+
   const getIcon = () => {
     switch (error.type) {
       case 'configuration':
-        return <Settings className="w-12 h-12 text-amber-500" />;
+        return <Settings className={`w-12 h-12 ${style.icon}`} />;
       case 'network':
-        return <RefreshCw className="w-12 h-12 text-blue-500" />;
+        return <RefreshCw className={`w-12 h-12 ${style.icon}`} />;
       default:
-        return <AlertCircle className="w-12 h-12 text-red-500" />;
-    }
-  };
-
-  const getBackgroundColor = () => {
-    switch (error.type) {
-      case 'configuration':
-        return '#FFFBEB'; // amber-50
-      case 'network':
-        return '#EFF6FF'; // blue-50
-      default:
-        return '#FEF2F2'; // red-50
-    }
-  };
-
-  const getBorderColor = () => {
-    switch (error.type) {
-      case 'configuration':
-        return '#FDE68A'; // amber-200
-      case 'network':
-        return '#BFDBFE'; // blue-200
-      default:
-        return '#FECACA'; // red-200
+        return <AlertCircle className={`w-12 h-12 ${style.icon}`} />;
     }
   };
 
   return (
-    <div 
-      style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '100vh', 
-        backgroundColor: '#F8F9FA',
-        padding: '24px'
-      }}
-    >
-      <Card style={{ maxWidth: '500px', width: '100%', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}>
-        <CardContent style={{ padding: '32px' }}>
+    <div className="flex items-center justify-center min-h-screen bg-[var(--color-gray-100)] p-6">
+      <Card className="max-w-[500px] w-full border-none shadow-lg">
+        <CardContent className="p-8">
           {/* Icon */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-            <div 
-              style={{ 
-                width: '80px', 
-                height: '80px', 
-                borderRadius: '50%', 
-                backgroundColor: getBackgroundColor(),
-                border: `2px solid ${getBorderColor()}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
+          <div className="flex justify-center mb-6">
+            <div className={`w-20 h-20 rounded-full ${style.bg} border-2 ${style.border} flex items-center justify-center`}>
               {getIcon()}
             </div>
           </div>
 
           {/* Title */}
-          <h1 style={{ 
-            fontSize: '24px', 
-            fontWeight: 'bold', 
-            color: '#1A1A1A', 
-            textAlign: 'center',
-            marginBottom: '8px'
-          }}>
+          <h1 className="text-2xl font-bold text-[var(--color-text-heading)] text-center mb-2">
             {error.title}
           </h1>
 
           {/* Message */}
-          <p style={{ 
-            fontSize: '15px', 
-            color: '#6B7280', 
-            textAlign: 'center',
-            marginBottom: '24px',
-            lineHeight: 1.6
-          }}>
+          <p className="text-[15px] text-[var(--color-text-secondary)] text-center mb-6 leading-relaxed">
             {error.message}
           </p>
 
           {/* Details box */}
           {error.details && (
-            <div 
-              style={{ 
-                backgroundColor: '#F3F4F6',
-                borderRadius: '8px',
-                padding: '16px',
-                marginBottom: '24px',
-                fontFamily: 'monospace',
-                fontSize: '13px',
-                color: '#4B5563',
-                overflowX: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
-              }}
-            >
+            <div className="bg-[var(--color-gray-100)] rounded-lg p-4 mb-6 font-mono text-[13px] text-[var(--color-gray-600)] overflow-x-auto whitespace-pre-wrap break-words">
               {error.details}
             </div>
           )}
 
           {/* Configuration help for config errors */}
           {error.type === 'configuration' && (
-            <div 
-              style={{ 
-                backgroundColor: '#F0FDFA',
-                border: '1px solid #99F6E4',
-                borderRadius: '8px',
-                padding: '16px',
-                marginBottom: '24px'
-              }}
-            >
-              <p style={{ fontSize: '14px', fontWeight: '600', color: '#0F766E', marginBottom: '8px' }}>
+            <div className="bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)] border border-[color-mix(in_srgb,var(--color-brand-primary)_25%,transparent)] rounded-lg p-4 mb-6">
+              <p className="text-sm font-semibold text-[var(--color-brand-primary)] mb-2">
                 How to fix this:
               </p>
-              <ol style={{ fontSize: '13px', color: '#0F766E', margin: 0, paddingLeft: '20px', lineHeight: 1.8 }}>
-                <li>Copy <code style={{ backgroundColor: '#CCFBF1', padding: '2px 6px', borderRadius: '4px' }}>.env.example</code> to <code style={{ backgroundColor: '#CCFBF1', padding: '2px 6px', borderRadius: '4px' }}>.env.local</code></li>
+              <ol className="text-[13px] text-[var(--color-brand-primary)] m-0 pl-5 leading-[1.8]">
+                <li>Copy <code className="bg-[color-mix(in_srgb,var(--color-brand-primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.example</code> to <code className="bg-[color-mix(in_srgb,var(--color-brand-primary)_12%,transparent)] px-1.5 py-0.5 rounded">.env.local</code></li>
                 <li>Fill in your {error.provider || 'identity provider'} credentials</li>
                 <li>Restart the development server</li>
               </ol>
@@ -145,13 +95,13 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
           )}
 
           {/* Actions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="flex flex-col gap-3">
             {onRetry && (
               <Button 
                 onClick={onRetry}
-                style={{ width: '100%', padding: '12px 16px' }}
+                className="w-full py-3 px-4"
               >
-                <RefreshCw style={{ width: '18px', height: '18px', marginRight: '8px' }} />
+                <RefreshCw className="w-[18px] h-[18px] mr-2" />
                 Try Again
               </Button>
             )}
@@ -161,34 +111,16 @@ export function AuthError({ error, onRetry }: AuthErrorProps) {
                 href="https://github.com/michaeljosiah/aonik#authentication-setup"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #E5E7EB',
-                  backgroundColor: 'white',
-                  color: '#1A1A1A',
-                  textDecoration: 'none',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-[var(--color-gray-200)] bg-[var(--color-surface)] text-[var(--color-text-heading)] no-underline text-sm font-medium hover:bg-[var(--color-gray-50)] transition-colors"
               >
-                <ExternalLink style={{ width: '18px', height: '18px' }} />
+                <ExternalLink className="w-[18px] h-[18px]" />
                 View Documentation
               </a>
             )}
           </div>
 
           {/* Footer */}
-          <p style={{ 
-            marginTop: '24px', 
-            textAlign: 'center', 
-            fontSize: '12px', 
-            color: '#9CA3AF' 
-          }}>
+          <p className="mt-6 text-center text-xs text-[var(--color-text-muted)]">
             If this problem persists, please contact your administrator.
           </p>
         </CardContent>

@@ -22,10 +22,16 @@ export function Conversation({ className, ...props }: ConversationProps) {
 
 export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>;
 
+/**
+ * Scrollable content area inside a Conversation.
+ *
+ * Centrali: ChatHistoryContainer — max-width: 900px, margin: auto (centered).
+ * Gap: 16px (1rem) between messages.
+ */
 export function ConversationContent({ className, ...props }: ConversationContentProps) {
   return (
     <StickToBottom.Content
-      className={cn('flex flex-col gap-6 p-4', className)}
+      className={cn('mx-auto flex w-full max-w-[900px] flex-col gap-4 p-4', className)}
       {...props}
     />
   );

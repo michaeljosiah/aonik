@@ -1,56 +1,121 @@
 @import "tailwindcss";
 @import "dockview/dist/styles/dockview.css";
 
+@font-face {
+  font-family: "Infra";
+  src: url("/fonts/InfraRegular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Infra";
+  src: url("/fonts/InfraMedium.otf") format("opentype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Infra";
+  src: url("/fonts/InfraBold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 @theme {
-  /* Colors - Based on Aonik Design (Light Theme - Default) */
-  --color-brand-primary: #0D7377;
-  --color-brand-primary-dark: #0A5C5F;
-  --color-brand-primary-light: #E6F3F3;
-  --color-brand-secondary: #E8A838;
-  --color-brand-secondary-dark: #D4942A;
-  --color-brand-secondary-light: #FDF4E4;
+  /* Colors - Centrali-aligned palette (Light Theme - Default) */
+  --color-brand-primary: #055a60;
+  --color-brand-primary-dark: #044c51;
+  --color-brand-primary-light: #055a601f;
+  --color-brand-primary-10: #055a601f;
+  --color-brand-primary-20: #055a6033;
+  --color-brand-primary-60: #055a6099;
+  --color-brand-secondary: #eb5c37;
+  --color-brand-secondary-dark: #d44a28;
+  --color-brand-secondary-light: #eb5c3720;
+  --color-brand-secondary-10: #eb5c3720;
+  --color-brand-secondary-20: #eb5c3733;
+  --color-brand-secondary-60: #eb5c3799;
   
   /* Neutral Colors */
-  --color-background: #F8F9FA;
-  --color-surface: #FFFFFF;
-  --color-surface-inset: #F8F9FA;
-  --color-surface-elevated: #FFFFFF;
-  --color-border: #E5E7EB;
-  --color-border-light: #F0F0F0;
+  --color-background: #f9fafb;
+  --color-surface: #ffffff;
+  --color-surface-inset: #f6f6f9;
+  --color-surface-elevated: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-light: #f0f0f0;
+  
+  /* Gray Scale */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
   
   /* Text Colors */
-  --color-text-primary: #1A1A1A;
-  --color-text-secondary: #6B7280;
-  --color-text-tertiary: #9CA3AF;
-  --color-text-inverse: #FFFFFF;
+  --color-text-primary: #2f2f2f;
+  --color-text-secondary: #888888;
+  --color-text-tertiary: #9ca3af;
+  --color-text-inverse: #ffffff;
+  --color-text-heading: #4b5563;
 
   /* Form Fields */
-  --color-form-field-border: #D1D5DB;
-  --color-form-field-border-focus: #9CA3AF;
-  --color-form-field-bg: #FFFFFF;
+  --color-form-field-border: #d1d5db;
+  --color-form-field-border-focus: #055a60;
+  --color-form-field-bg: #ffffff;
   --color-form-field-text: #111827;
-  --color-form-field-placeholder: #9CA3AF;
+  --color-form-field-placeholder: #9ca3af;
   --color-form-date-indicator-filter: none;
   
   /* Status Colors */
-  --color-success: #10B981;
-  --color-success-light: #D1FAE5;
-  --color-warning: #F59E0B;
-  --color-warning-light: #FEF3C7;
-  --color-error: #EF4444;
-  --color-error-light: #FEE2E2;
-  --color-info: #3B82F6;
-  --color-info-light: #DBEAFE;
-  --color-pending: #F97316;
-  --color-pending-light: #FED7AA;
+  --color-success: #4caf50;
+  --color-success-light: #4caf5020;
+  --color-warning: #ebc334;
+  --color-warning-light: #ebc33420;
+  --color-error: #cc2e2e;
+  --color-error-light: #cc2e2e20;
+  --color-danger: #cc2e2e;
+  --color-danger-10: #cc2e2e20;
+  --color-danger-20: #cc2e2e33;
+  --color-danger-60: #cc2e2e99;
+  --color-info: #3b82f6;
+  --color-info-light: #3b82f620;
+  --color-pending: #eb5c37;
+  --color-pending-light: #eb5c3720;
+  
+  /* Extended Status Colors (legacy accent variants) */
+  --color-violet: #7b76b6;
+  --color-patrol: #0097a9;
+  --color-jade: #17b0ad;
   
   /* Sidebar */
-  --color-sidebar-bg: #F8F9FA;
-  --color-sidebar-active: #0D7377;
-  --color-sidebar-hover: rgba(13, 115, 119, 0.08);
+  --color-sidebar-bg: #f6f6f9;
+  --color-sidebar-active: #055a60;
+  --color-sidebar-hover: rgba(5, 90, 96, 0.08);
+  
+  /* Chat/Agent Theme Scoping */
+  --color-team-agent: #5facbd;
+  --color-enterprise-agent: #3ab795;
+  --color-chat-bot-bubble: #f5f5f5;
+  --color-chat-user-bubble: var(--color-brand-primary-10);
+  
+  /* Navbar */
+  --color-navbar-bg: #f9f9f9;
+  --color-navbar-border: #ececef;
+  --color-navbar-border-right: #d1d5db;
+  --navbar-border-radius: 0.5rem;
+  --navbar-border-width: 1px;
   
   /* Fonts */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Infra', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   
   /* Font Sizes */
   --text-xs: 0.75rem;
@@ -70,10 +135,10 @@
   --spacing-2xl: 3rem;
   
   /* Border Radius */
-  --radius-sm: 0.25rem;
+  --radius-sm: 2px;
   --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
   --radius-full: 9999px;
   
   /* Shadows */
@@ -82,60 +147,92 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   
   /* Sidebar Width */
-  --sidebar-width: 240px;
-  --sidebar-collapsed-width: 64px;
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 81px;
 }
 
-/* Dark Theme Overrides */
+/* Dark Theme Overrides -- aligned with Centrali .dark layout */
 [data-theme="dark"] {
-  /* Brand colors - slightly adjusted for dark mode */
-  --color-brand-primary: #14B8A6;
-  --color-brand-primary-dark: #0D9488;
-  --color-brand-primary-light: #134E4A;
-  --color-brand-secondary: #FBBF24;
-  --color-brand-secondary-dark: #F59E0B;
-  --color-brand-secondary-light: #422006;
+  /* Brand colors */
+  --color-brand-primary: #0a7c84;
+  --color-brand-primary-dark: #066a71;
+  --color-brand-primary-light: #0a7c841f;
+  --color-brand-primary-10: #0a7c841f;
+  --color-brand-primary-20: #0a7c8433;
+  --color-brand-primary-60: #0a7c8499;
+  --color-brand-secondary: #eb5c37;
+  --color-brand-secondary-dark: #d44a28;
+  --color-brand-secondary-light: #eb5c3720;
+  --color-brand-secondary-10: #eb5c3720;
+  --color-brand-secondary-20: #eb5c3733;
+  --color-brand-secondary-60: #eb5c3799;
   
   /* Neutral Colors */
-  --color-background: #0F172A;
-  --color-surface: #1E293B;
-  --color-surface-inset: #0F172A;
-  --color-surface-elevated: #334155;
-  --color-border: #334155;
-  --color-border-light: #334155;
+  --color-background: #161d31;
+  --color-surface: #283046;
+  --color-surface-inset: #1e232f;
+  --color-surface-elevated: #283046;
+  --color-border: #3b4253;
+  --color-border-light: #3b4253;
+  
+  /* Gray Scale (inverted for dark mode contrast) */
+  --color-gray-50: #161d31;
+  --color-gray-100: #1e232f;
+  --color-gray-200: #283046;
+  --color-gray-300: #3b4253;
+  --color-gray-400: #545a6a;
+  --color-gray-500: #9ca3af;
+  --color-gray-600: #b4b7bd;
+  --color-gray-700: #d0d2d6;
+  --color-gray-800: #e5e7eb;
+  --color-gray-900: #f9fafb;
   
   /* Text Colors */
-  --color-text-primary: #F1F5F9;
-  --color-text-secondary: #94A3B8;
-  --color-text-tertiary: #64748B;
-  --color-text-inverse: #0F172A;
+  --color-text-primary: #d0d2d6;
+  --color-text-secondary: #b4b7bd;
+  --color-text-tertiary: #676d7d;
+  --color-text-inverse: #161d31;
+  --color-text-heading: #d0d2d6;
 
   /* Form Fields */
-  --color-form-field-border: #475569;
-  --color-form-field-border-focus: #94A3B8;
-  --color-form-field-bg: #0F172A;
-  --color-form-field-text: #E2E8F0;
-  --color-form-field-placeholder: #64748B;
+  --color-form-field-border: #404656;
+  --color-form-field-border-focus: #0a7c84;
+  --color-form-field-bg: #283046;
+  --color-form-field-text: #b4b7bd;
+  --color-form-field-placeholder: #676d7d;
   --color-form-date-indicator-filter: invert(1) brightness(1.1);
   
-  /* Status Colors - adjusted for dark backgrounds */
-  --color-success: #34D399;
-  --color-success-light: #064E3B;
-  --color-warning: #FBBF24;
-  --color-warning-light: #451A03;
-  --color-error: #F87171;
-  --color-error-light: #450A0A;
-  --color-info: #60A5FA;
-  --color-info-light: #1E3A5F;
-  --color-pending: #FB923C;
-  --color-pending-light: #431407;
+  /* Status Colors */
+  --color-success: #4caf50;
+  --color-success-light: #4caf5020;
+  --color-warning: #ebc334;
+  --color-warning-light: #ebc33420;
+  --color-error: #cc2e2e;
+  --color-error-light: #cc2e2e20;
+  --color-danger: #cc2e2e;
+  --color-danger-10: #cc2e2e20;
+  --color-danger-20: #cc2e2e33;
+  --color-danger-60: #cc2e2e99;
+  --color-info: #3b82f6;
+  --color-info-light: #3b82f620;
+  --color-pending: #eb5c37;
+  --color-pending-light: #eb5c3720;
   
   /* Sidebar */
-  --color-sidebar-bg: #0F172A;
-  --color-sidebar-active: #14B8A6;
-  --color-sidebar-hover: rgba(20, 184, 166, 0.12);
+  --color-sidebar-bg: #283046;
+  --color-sidebar-active: #0a7c84;
+  --color-sidebar-hover: rgba(10, 124, 132, 0.12);
   
-  /* Shadows - more subtle in dark mode */
+  /* Chat bubbles */
+  --color-chat-bot-bubble: #283046;
+  --color-chat-user-bubble: var(--color-brand-primary-10);
+  
+  /* Navbar */
+  --color-navbar-bg: #283046;
+  --color-navbar-border: #3b4253;
+  --color-navbar-border-right: #404656;
+  
+  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
@@ -159,6 +256,11 @@ body {
   padding: 0;
   background-color: var(--color-background);
   color: var(--color-text-primary);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #a8a8a8 #ffffff;
 }
 
 /* Normalize form element baselines (prevents select/input misalignment) */
@@ -188,23 +290,58 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   min-width: 0;
 }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Scrollbar Styling -- Centrali default hides WebKit scrollbars globally */
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
 }
 
-::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #a8a8a8;
+  border-radius: 12px;
+  border: 3px solid #ffffff;
+}
+
+[data-theme="dark"] * {
+  scrollbar-color: var(--color-brand-primary) var(--color-background);
+}
+
+[data-theme="dark"] *::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+
+[data-theme="dark"] *::-webkit-scrollbar-thumb {
+  background-color: var(--color-brand-primary);
+  border-color: var(--color-background);
+}
+
+.visible-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-color, var(--color-brand-primary)) transparent;
+}
+
+.visible-scrollbar::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.visible-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-full);
+.visible-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--theme-color, var(--color-brand-primary));
+  border-radius: 4px;
+  border: 0;
+  min-height: 40px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-tertiary);
+.visible-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-primary-dark);
 }
 
 /* Custom Utility Classes */
@@ -288,5 +425,179 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     background: none;
     -webkit-text-fill-color: currentColor;
     color: var(--color-text-tertiary);
+  }
+}
+
+/* ─── Chat Theme Scoping (Centrali pattern) ────────────────────────────────── */
+/* Each chat-{color} class sets --theme-color for descendant components */
+.chat-primary {
+  --theme-color: var(--color-brand-primary);
+  --theme-color-100: var(--color-brand-primary-10);
+  --theme-color-200: var(--color-brand-primary-20);
+  --theme-color-600: var(--color-brand-primary-60);
+}
+.chat-secondary {
+  --theme-color: var(--color-brand-secondary);
+  --theme-color-100: var(--color-brand-secondary-10);
+  --theme-color-200: var(--color-brand-secondary-20);
+  --theme-color-600: var(--color-brand-secondary-60);
+}
+.chat-success {
+  --theme-color: var(--color-success);
+  --theme-color-100: #4caf5020;
+  --theme-color-200: #4caf5033;
+  --theme-color-600: #4caf5099;
+}
+.chat-warning {
+  --theme-color: var(--color-warning);
+  --theme-color-100: #ebc33420;
+  --theme-color-200: #ebc33433;
+  --theme-color-600: #ebc33499;
+}
+.chat-info {
+  --theme-color: var(--color-info);
+  --theme-color-100: #3b82f620;
+  --theme-color-200: #3b82f633;
+  --theme-color-600: #3b82f699;
+}
+
+/* Theme utility classes */
+.theme-text-color {
+  color: var(--theme-color);
+}
+.theme-bg {
+  background-color: var(--theme-color);
+}
+.theme-bg-light {
+  background-color: var(--theme-color-100);
+}
+.theme-border {
+  border-color: var(--theme-color);
+}
+.theme-active {
+  background-color: var(--theme-color-100);
+  color: var(--theme-color);
+}
+
+/* Hover effect using theme variables */
+.hover-theme-effect {
+  cursor: pointer;
+  color: var(--color-gray-500);
+  transition: all 0.2s ease;
+  outline: none;
+}
+.hover-theme-effect:hover {
+  color: var(--theme-color);
+  background-color: var(--theme-color-100);
+  box-shadow: 0 0 0 10px var(--theme-color-100);
+  border-radius: 50%;
+}
+
+.theme-image-hover {
+  transition: all 0.2s ease;
+}
+
+.theme-image-hover:hover {
+  box-shadow: 0 0 0 4px var(--theme-color-100);
+  background-color: var(--theme-color-100);
+  border-radius: 50%;
+}
+
+.theme-text-hover {
+  transition: color 0.2s ease;
+}
+
+.theme-text-hover:hover {
+  color: var(--theme-color);
+}
+
+.chat-history-item {
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.chat-prompt-icon {
+  transition: border-color 0.2s, color 0.2s;
+}
+
+/* ─── Centrali Hover & Interaction Effects ─────────────────────────────────── */
+.hover-border:hover,
+.hoverBorder:hover {
+  border: 1px solid #9ca3af;
+  transition: 0.5s all ease-in-out;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Shine effect for cards/banners */
+.shine-effect {
+  position: absolute;
+  bottom: -60%;
+  left: -60%;
+  width: 40px;
+  height: 620%;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  filter: blur(0.5px);
+  border-radius: 20px;
+  animation: shine-anim-diagonal 1.2s linear forwards;
+  pointer-events: none;
+  z-index: 30;
+}
+
+@keyframes shine-anim-diagonal {
+  100% {
+    bottom: 50%;
+    left: 100%;
+  }
+}
+
+/* ─── Input Focus Effect (Centrali bottom-border pattern) ──────────────────── */
+.input-focused {
+  border-bottom-color: var(--theme-color, var(--color-brand-primary));
+  box-shadow: 0px 4px 0px -2px var(--theme-color-600, rgba(5, 90, 96, 0.6));
+}
+
+.chat-file-drop-zone {
+  min-height: 100px;
+  border: 1px dashed var(--color-text-primary);
+  border-radius: 20px;
+  background: var(--theme-color-100, var(--color-brand-primary-10));
+}
+
+.pulse-speak-active {
+  animation: pulseScale 0.6s infinite ease-in-out, pulseStrokeColor 0.6s infinite ease-in-out;
+}
+
+@keyframes pulseStrokeColor {
+  0% {
+    stroke: var(--color-gray-300);
+  }
+  50% {
+    stroke: var(--theme-color, var(--color-brand-primary));
+  }
+  100% {
+    stroke: var(--color-gray-300);
+  }
+}
+
+@keyframes pulseScale {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ─── Responsive Zoom (Centrali pattern for smaller monitors) ──────────────── */
+@media (max-width: 1650px) {
+  .zoom-responsive {
+    zoom: 0.75;
   }
 }

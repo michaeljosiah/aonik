@@ -93,6 +93,7 @@ export interface UseAguiChatReturn {
   streamError: string | null;
   activeSteps: ChatStep[];
   handleSend: () => Promise<void>;
+  stopStreaming: () => void;
   resetChat: () => void;
   /** Register a frontend tool the agent can call. */
   registerTool: (config: FrontendToolConfig) => void;
@@ -294,6 +295,12 @@ export function useAguiChat(): UseAguiChatReturn {
     setStreamError(null);
     setActiveSteps([]);
     setPendingApprovals([]);
+  }, []);
+
+  const stopStreaming = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setIsStreaming(false);
   }, []);
 
   /** Load a persisted thread's messages into the chat view. */
@@ -640,6 +647,7 @@ export function useAguiChat(): UseAguiChatReturn {
     streamError,
     activeSteps,
     handleSend,
+    stopStreaming,
     resetChat,
     registerTool,
     unregisterTool,

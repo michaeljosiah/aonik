@@ -165,7 +165,7 @@ function FlyoutMenu({
   return (
     <div
       ref={menuRef}
-      className="flyout-menu fixed w-56 bg-[var(--color-surface)] rounded-md shadow-lg border border-[var(--color-border)] z-[9999] overflow-hidden"
+      className="flyout-menu fixed w-56 bg-[var(--color-surface)] rounded-[4px] shadow-lg border border-[var(--color-border)] z-[9999] overflow-hidden"
       style={{ top: `${position.top}px`, left: `${position.left}px` }}
       onMouseLeave={onClose}
     >
@@ -189,7 +189,7 @@ function FlyoutMenu({
                     key={child.id}
                     to={resolveHref(child.href)}
                     className={cn(
-                      'flex items-center gap-2.5 px-2 py-1 rounded-md text-sm transition-colors',
+                      'flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] text-sm transition-colors',
                       isActive
                         ? 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]'
                         : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-text-primary)]'
@@ -214,7 +214,7 @@ function FlyoutMenu({
         <div className="px-1.5 py-1 border-t border-[var(--color-border-light)]">
           <Link
             to={resolveHref(item.viewAllHref)}
-            className="flex items-center justify-center gap-1 px-2 py-1 rounded-sm text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
+            className="flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
             onClick={onClose}
           >
             <span>{item.viewAllLabel || 'View all'}</span>
@@ -284,7 +284,9 @@ function NavItemComponent({
   };
 
   const baseClasses = cn(
-    'flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-all duration-200 cursor-pointer relative',
+    collapsed
+      ? 'mx-auto flex h-10 w-10 items-center justify-center rounded-[4px] p-0 text-sm font-medium transition-all duration-200 cursor-pointer relative'
+      : 'flex items-center gap-2.5 p-2 rounded-[4px] text-sm font-medium transition-all duration-200 cursor-pointer relative',
     'hover:bg-[var(--color-sidebar-hover)]',
     isActive && 'bg-[var(--color-sidebar-active)] text-white hover:bg-[var(--color-sidebar-active)]',
     !isActive && 'text-[var(--color-text-secondary)]',
@@ -637,7 +639,7 @@ function UserProfile({ user, collapsed, onLogout }: { user: AuthUser; collapsed:
               {menuItems.map((item) => (
                 <button
                   key={item.label}
-                  className="flex items-center gap-3 w-full px-2 py-2.5 rounded-md text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
+                  className="flex items-center gap-3 w-full px-2 py-2.5 rounded-[4px] text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)] transition-colors"
                   onClick={() => {
                     if (item.href) {
                       window.location.href = item.href;
@@ -805,12 +807,12 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       <aside
         className={cn(
           'sticky top-0 flex flex-col h-screen bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border-light)] transition-all duration-300 z-40',
-          collapsed ? 'w-16' : 'w-60'
+          collapsed ? 'w-[var(--sidebar-collapsed-width)]' : 'w-[var(--sidebar-width)]'
         )}
       >
         {/* Logo */}
         <div className={cn(
-          'flex items-center h-14 px-4 border-b border-[var(--color-border-light)] shrink-0',
+          'flex items-center h-[50px] px-4 border-b border-[var(--color-border-light)] shrink-0',
           collapsed && 'justify-center px-2'
         )}>
           {!collapsed ? (
@@ -833,7 +835,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-3">
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
           {visibleSections.map((section: NavigationSection) => {
             const sectionItems = filterNavItems(section.items);
             if (sectionItems.length === 0) {

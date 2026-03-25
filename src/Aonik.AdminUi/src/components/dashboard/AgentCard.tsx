@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MoreVertical, CheckSquare, MessageSquare } from 'lucide-react';
 import type { AgentCard as AgentCardType, VisibilityLevel } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface AgentCardProps {
   agent: AgentCardType;
@@ -24,15 +25,15 @@ function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
 
 function AgentAvatar() {
   return (
-    <div className="w-16 h-16 rounded-full bg-[var(--color-brand-secondary-light)] flex items-center justify-center">
-      <svg viewBox="0 0 48 48" className="w-10 h-10">
+    <div className="w-[60px] h-[60px] rounded-full bg-[var(--color-brand-secondary-light)] flex items-center justify-center border border-[#CFCDD9]">
+      <svg viewBox="0 0 48 48" className="w-9 h-9">
         {/* Simple owl/agent avatar */}
-        <circle cx="24" cy="24" r="20" fill="#E8A838" />
+        <circle cx="24" cy="24" r="20" fill="#eb5c37" />
         <circle cx="18" cy="20" r="6" fill="white" />
         <circle cx="30" cy="20" r="6" fill="white" />
-        <circle cx="18" cy="20" r="3" fill="#1A1A1A" />
-        <circle cx="30" cy="20" r="3" fill="#1A1A1A" />
-        <ellipse cx="24" cy="30" rx="4" ry="3" fill="#D4942A" />
+        <circle cx="18" cy="20" r="3" fill="#2f2f2f" />
+        <circle cx="30" cy="20" r="3" fill="#2f2f2f" />
+        <ellipse cx="24" cy="30" rx="4" ry="3" fill="#d44a28" />
       </svg>
     </div>
   );
@@ -52,69 +53,70 @@ function PluginIcon({ color }: { color: string }) {
 }
 
 export function AgentCard({ agent, onChat }: AgentCardProps) {
-  const pluginColors = ['#E8A838', '#0D7377', '#3B82F6'];
+  const pluginColors = ['#eb5c37', '#055a60', '#3B82F6'];
 
   return (
-    <div className="relative pt-8">
-      {/* Avatar positioned to overlap the card top */}
-      <div className="absolute top-0 left-4 z-10">
+    <div className="relative w-full pt-10 cursor-pointer group">
+      <div className="absolute left-4 top-4 z-[2]">
         <AgentAvatar />
       </div>
-      
-      <Card className="flex flex-col h-full overflow-visible hover:shadow-md transition-shadow bg-[var(--color-surface-elevated)] border-[var(--color-border)]">
-        {/* Header with Actions (avatar space reserved) */}
-        <div className="p-4 pb-0 flex items-start justify-end">
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-tertiary)]">
-              <CheckSquare className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-tertiary)]">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </div>
+
+      <Card className={cn(
+        'flex flex-col h-full overflow-visible',
+        'border border-[#d9d9e3] rounded-[4px]',
+        'transition-all duration-300',
+        'hoverBorder hover:border-[var(--color-brand-primary)] hover:shadow-lg hover:scale-[1.01]',
+        'bg-[var(--color-surface-elevated)]',
+      )}>
+        <div className="flex items-center justify-end gap-0.5 px-4 pt-3">
+          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+            <CheckSquare className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+            <MoreVertical className="w-3.5 h-3.5" />
+          </Button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 flex-1 flex flex-col">
-          <h3 className="text-base font-semibold text-[var(--color-text-primary)] mb-1.5">
+        <div className="flex flex-1 flex-col px-4 pb-4 mt-6 pt-2">
+          <h3 className="text-[18px] font-bold text-[var(--color-text-heading)] line-clamp-1 mb-1.5">
             {agent.name}
           </h3>
-          <p className="text-sm text-[var(--color-text-secondary)] line-clamp-3 mb-4">
+          <p className="text-[13px] leading-6 text-[var(--color-text-secondary)] line-clamp-3 mb-4 min-h-[54px]">
             {agent.description}
           </p>
 
-          {/* Visibility and Source */}
           <div className="flex items-center justify-between text-xs mb-4">
             <div>
-              <p className="text-[var(--color-text-tertiary)] uppercase tracking-wide mb-1.5">Visibility</p>
+              <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Visibility</p>
               <VisibilityBadge visibility={agent.visibility} />
             </div>
             <div className="text-right">
-              <p className="text-[var(--color-text-tertiary)] uppercase tracking-wide mb-1.5">Source</p>
+              <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Source</p>
               <p className="font-medium text-[var(--color-text-primary)]">{agent.source}</p>
             </div>
           </div>
 
-          {/* Skills */}
           <div className="mb-4">
-            <p className="text-[var(--color-text-tertiary)] uppercase tracking-wide text-xs mb-1.5">Skills</p>
+            <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Skills</p>
             <div className="flex flex-wrap gap-1.5">
               {agent.skills.slice(0, 3).map((skill) => (
-                <Badge key={skill} variant="secondary" className="text-xs">
+                <span
+                  key={skill}
+                  className="bg-[#e2e1e8] text-[#3f3b47] px-3 py-1.5 rounded-full text-xs font-medium"
+                >
                   {skill}
-                </Badge>
+                </span>
               ))}
               {agent.skills.length > 3 && (
-                <Badge variant="default" className="text-xs">
+                <span className="bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] px-3 py-1.5 rounded-full text-xs font-medium">
                   +{agent.skills.length - 3}
-                </Badge>
+                </span>
               )}
             </div>
           </div>
 
-          {/* Plugins */}
           <div className="mb-4">
-            <p className="text-[var(--color-text-tertiary)] uppercase tracking-wide text-xs mb-1.5">Plugins</p>
+            <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Plugins</p>
             <div className="flex gap-2">
               {agent.plugins.slice(0, 3).map((_, index) => (
                 <PluginIcon key={index} color={pluginColors[index % pluginColors.length]} />
@@ -122,10 +124,9 @@ export function AgentCard({ agent, onChat }: AgentCardProps) {
             </div>
           </div>
 
-          {/* Chat Button */}
           <Button
             variant="default"
-            className="w-full mt-auto gap-2"
+            className="w-full mt-auto gap-2 rounded-[2px]"
             onClick={() => onChat?.(agent.id)}
             disabled={!onChat}
           >

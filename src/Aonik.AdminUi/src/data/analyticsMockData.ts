@@ -54,7 +54,7 @@ export const analyticsOverviewCards: AnalyticsCard[] = [
     trend: { direction: 'up', value: '12.1%', label: 'vs last 30 days' },
     footerLabel: 'View transactions',
     footerHref: '/payments/transactions',
-    accent: '#14B8A6',
+    accent: '#055a60',
   },
   {
     id: 'active-customers',
@@ -112,7 +112,7 @@ export const analyticsPerformanceCards: AnalyticsCard[] = [
     trend: { direction: 'up', value: '18.7%', label: 'automation coverage' },
     footerLabel: 'View agents',
     footerHref: '/ai/agents',
-    accent: '#0F766E',
+    accent: '#0a7c84',
   },
 ];
 
