@@ -21,11 +21,18 @@ internal sealed class FileBasedPromptStore : IPromptStore
         var fileName = $"{promptName}.{version}.{role}.md";
         var filePath = Path.Combine(_promptTemplatesPath, fileName);
 
-        if (!File.Exists(filePath))
+        var fullPath = Path.GetFullPath(filePath);
+        var basePath = Path.GetFullPath(_promptTemplatesPath + Path.DirectorySeparatorChar);
+        if (!fullPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
         {
-            throw new FileNotFoundException($"Prompt template not found: {fileName}", filePath);
+            throw new ArgumentException($"Invalid prompt template path: {promptName}");
         }
 
-        return await File.ReadAllTextAsync(filePath, cancellationToken);
+        if (!File.Exists(fullPath))
+        {
+            throw new FileNotFoundException($"Prompt template not found: {fileName}", fullPath);
+        }
+
+        return await File.ReadAllTextAsync(fullPath, cancellationToken);
     }
 }

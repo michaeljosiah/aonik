@@ -75,7 +75,9 @@ internal class DocumentService : IDocumentService
         var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
 
-        var query = _dbContext.Documents.AsNoTracking();
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var query = _dbContext.Documents.AsNoTracking()
+            .Where(document => document.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(request.DocumentType))
         {
@@ -220,15 +222,15 @@ internal class DocumentService : IDocumentService
             throw new ArgumentException("Content type is required.", nameof(request.ContentType));
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var document = await _dbContext.Documents
-            .FirstOrDefaultAsync(d => d.Id == request.DocumentId, cancellationToken);
+            .FirstOrDefaultAsync(d => d.Id == request.DocumentId && d.TenantId == tenantId, cancellationToken);
 
         if (document == null)
         {
             throw new InvalidOperationException($"Document {request.DocumentId} not found.");
         }
 
-        var tenantId = _tenantProvider.GetCurrentTenantId();
         var file = new DocumentFile
         {
             Id = Guid.NewGuid(),
@@ -274,15 +276,15 @@ internal class DocumentService : IDocumentService
             throw new ArgumentException("Content type is required.", nameof(request.ContentType));
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var document = await _dbContext.Documents
-            .FirstOrDefaultAsync(d => d.Id == request.DocumentId, cancellationToken);
+            .FirstOrDefaultAsync(d => d.Id == request.DocumentId && d.TenantId == tenantId, cancellationToken);
 
         if (document == null)
         {
             throw new InvalidOperationException($"Document {request.DocumentId} not found.");
         }
 
-        var tenantId = _tenantProvider.GetCurrentTenantId();
         var uploadResult = await _documentFileStore.UploadDocumentFileAsync(
             tenantId,
             document.Id,
@@ -325,16 +327,15 @@ internal class DocumentService : IDocumentService
             throw new ArgumentException("Purpose is required.", nameof(request.Purpose));
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var documentExists = await _dbContext.Documents
             .AsNoTracking()
-            .AnyAsync(d => d.Id == request.DocumentId, cancellationToken);
+            .AnyAsync(d => d.Id == request.DocumentId && d.TenantId == tenantId, cancellationToken);
 
         if (!documentExists)
         {
             throw new InvalidOperationException($"Document {request.DocumentId} not found.");
         }
-
-        var tenantId = _tenantProvider.GetCurrentTenantId();
         var usage = new DocumentUsage
         {
             Id = Guid.NewGuid(),
@@ -368,15 +369,14 @@ internal class DocumentService : IDocumentService
             throw new ArgumentException("Verifier type is required.", nameof(request.VerifierType));
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var usage = await _dbContext.DocumentUsages
-            .FirstOrDefaultAsync(u => u.Id == request.DocumentUsageId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Id == request.DocumentUsageId && u.TenantId == tenantId, cancellationToken);
 
         if (usage == null)
         {
             throw new InvalidOperationException($"Document usage {request.DocumentUsageId} not found.");
         }
-
-        var tenantId = _tenantProvider.GetCurrentTenantId();
         var verification = new DocumentVerification
         {
             Id = Guid.NewGuid(),
@@ -408,13 +408,14 @@ internal class DocumentService : IDocumentService
         Guid documentId,
         CancellationToken cancellationToken = default)
     {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var document = await _dbContext.Documents
             .AsNoTracking()
             .Include(d => d.Files)
             .Include(d => d.Usages)
             .ThenInclude(u => u.Verifications)
             .Include(d => d.Versions)
-            .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken);
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.TenantId == tenantId, cancellationToken);
 
         if (document == null)
         {

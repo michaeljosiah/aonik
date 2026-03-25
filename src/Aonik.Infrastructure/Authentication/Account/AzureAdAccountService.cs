@@ -58,14 +58,12 @@ public class AzureAdAccountService : IIdpAccountService
     public async Task UpdateEmailAsync(User user, string newEmail, CancellationToken cancellationToken = default)
     {
         var token = await GetGraphTokenAsync(cancellationToken);
-        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var request = new { mail = newEmail, userPrincipalName = newEmail, otherMails = new[] { newEmail } };
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Patch, $"https://graph.microsoft.com/v1.0/users/{user.ExternalSubject}");
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        httpRequest.Content = JsonContent.Create(new { mail = newEmail, userPrincipalName = newEmail, otherMails = new[] { newEmail } });
 
-        using var response = await _httpClient.PatchAsJsonAsync(
-            $"https://graph.microsoft.com/v1.0/users/{user.ExternalSubject}",
-            request,
-            cancellationToken);
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -77,21 +75,19 @@ public class AzureAdAccountService : IIdpAccountService
     public async Task UpdatePasswordAsync(User user, string newPassword, CancellationToken cancellationToken = default)
     {
         var token = await GetGraphTokenAsync(cancellationToken);
-        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var request = new
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Patch, $"https://graph.microsoft.com/v1.0/users/{user.ExternalSubject}");
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        httpRequest.Content = JsonContent.Create(new
         {
             passwordProfile = new
             {
                 forceChangePasswordNextSignIn = false,
                 password = newPassword
             }
-        };
+        });
 
-        using var response = await _httpClient.PatchAsJsonAsync(
-            $"https://graph.microsoft.com/v1.0/users/{user.ExternalSubject}",
-            request,
-            cancellationToken);
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {

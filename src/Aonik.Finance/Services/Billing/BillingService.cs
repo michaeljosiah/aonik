@@ -79,9 +79,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
     public async Task<InvoiceResponse?> GetInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Read", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var invoice = await _dbContext.Invoices
             .Include(i => i.Lines)
-            .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+            .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         return invoice == null ? null : MapToResponse(invoice);
     }
@@ -93,7 +94,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
 
         var invoice = await _dbContext.Invoices
             .Include(i => i.Lines)
-            .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+            .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
             throw new InvalidOperationException($"Invoice {invoiceId} not found");
@@ -122,9 +123,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
     public async Task ApplyDiscountAsync(Guid invoiceId, decimal discountTotal, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Update", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var invoice = await _dbContext.Invoices
             .Include(i => i.Lines)
-            .FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+            .FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
             throw new InvalidOperationException($"Invoice {invoiceId} not found");
@@ -138,7 +140,8 @@ internal class BillingService : FinanceServiceBase, IBillingService
     public async Task IssueInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Issue", cancellationToken);
-        var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
             throw new InvalidOperationException($"Invoice {invoiceId} not found");
@@ -153,7 +156,8 @@ internal class BillingService : FinanceServiceBase, IBillingService
     public async Task MarkInvoiceAsPaidAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Update", cancellationToken);
-        var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
             throw new InvalidOperationException($"Invoice {invoiceId} not found");
@@ -168,7 +172,8 @@ internal class BillingService : FinanceServiceBase, IBillingService
     public async Task CancelInvoiceAsync(Guid invoiceId, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Update", cancellationToken);
-        var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var invoice = await _dbContext.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId && i.TenantId == tenantId, cancellationToken);
 
         if (invoice == null)
             throw new InvalidOperationException($"Invoice {invoiceId} not found");
@@ -183,8 +188,9 @@ internal class BillingService : FinanceServiceBase, IBillingService
     public async Task UpdateLineQuantityAsync(Guid invoiceLineId, decimal quantity, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Update", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var line = await _dbContext.InvoiceLines
-            .FirstOrDefaultAsync(l => l.Id == invoiceLineId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == invoiceLineId && l.TenantId == tenantId, cancellationToken);
 
         if (line == null)
             throw new InvalidOperationException($"Invoice line {invoiceLineId} not found");
@@ -207,8 +213,9 @@ internal class BillingService : FinanceServiceBase, IBillingService
     public async Task UpdateLineUnitPriceAsync(Guid invoiceLineId, decimal unitPrice, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Invoice.Update", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var line = await _dbContext.InvoiceLines
-            .FirstOrDefaultAsync(l => l.Id == invoiceLineId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == invoiceLineId && l.TenantId == tenantId, cancellationToken);
 
         if (line == null)
             throw new InvalidOperationException($"Invoice line {invoiceLineId} not found");

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Persistence;
@@ -22,19 +23,22 @@ internal class ComplianceService : IComplianceService
     private readonly IClock _clock;
     private readonly IAuditLogWriter _auditLogWriter;
     private readonly IOrderExistenceChecker _orderExistenceChecker;
+    private readonly ILogger<ComplianceService> _logger;
 
     public ComplianceService(
         PlatformDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
         IAuditLogWriter auditLogWriter,
-        IOrderExistenceChecker orderExistenceChecker)
+        IOrderExistenceChecker orderExistenceChecker,
+        ILogger<ComplianceService> logger)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _auditLogWriter = auditLogWriter;
         _orderExistenceChecker = orderExistenceChecker;
+        _logger = logger;
     }
 
     public async Task<ScreeningResult> ScreenPartyAsync(
@@ -47,17 +51,19 @@ internal class ComplianceService : IComplianceService
             throw new ArgumentException("Check type is required.", nameof(checkType));
         }
 
+        var tenantId = _tenantProvider.GetCurrentTenantId();
         var partyExists = await _dbContext.Parties
             .AsNoTracking()
-            .AnyAsync(party => party.Id == partyId, cancellationToken);
+            .AnyAsync(party => party.Id == partyId && party.TenantId == tenantId, cancellationToken);
 
         if (!partyExists)
         {
             throw new InvalidOperationException($"Party {partyId} not found.");
         }
 
+        _logger.LogWarning("Compliance screening is a stub — always returns Passed for Party {PartyId}", partyId);
+
         var now = _clock.UtcNow;
-        var tenantId = _tenantProvider.GetCurrentTenantId();
         var screening = new ScreeningCheck
         {
             Id = Guid.NewGuid(),

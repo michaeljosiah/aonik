@@ -60,15 +60,13 @@ public class Auth0AccountService : IIdpAccountService
     {
         var baseUrl = await GetManagementBaseUrlAsync(cancellationToken);
         var token = await GetManagementTokenAsync(baseUrl, cancellationToken);
-        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var request = new { email = newEmail, verify_email = true };
         var userId = Uri.EscapeDataString(user.ExternalSubject);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Patch, $"{baseUrl}/api/v2/users/{userId}");
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        httpRequest.Content = JsonContent.Create(new { email = newEmail, verify_email = true });
 
-        using var response = await _httpClient.PatchAsJsonAsync(
-            $"{baseUrl}/api/v2/users/{userId}",
-            request,
-            cancellationToken);
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -81,15 +79,13 @@ public class Auth0AccountService : IIdpAccountService
     {
         var baseUrl = await GetManagementBaseUrlAsync(cancellationToken);
         var token = await GetManagementTokenAsync(baseUrl, cancellationToken);
-        _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        var request = new { password = newPassword };
         var userId = Uri.EscapeDataString(user.ExternalSubject);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Patch, $"{baseUrl}/api/v2/users/{userId}");
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        httpRequest.Content = JsonContent.Create(new { password = newPassword });
 
-        using var response = await _httpClient.PatchAsJsonAsync(
-            $"{baseUrl}/api/v2/users/{userId}",
-            request,
-            cancellationToken);
+        using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
