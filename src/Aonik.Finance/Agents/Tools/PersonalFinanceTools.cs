@@ -54,18 +54,19 @@ internal sealed class PersonalFinanceTools
 
     // ── Transaction Read Tools ────────────────────────────────────
 
-    [Description("Lists personal transactions with optional filters. Supports filtering by date range, account, category, and free-text search. Results are paginated.")]
+    [Description("Lists personal transactions with optional filters. Supports filtering by date range, account, financial context (space), category, and free-text search. Results are paginated.")]
     public async Task<IReadOnlyList<PersonalTransactionResponse>> ListTransactions(
         [Description("Start date filter (UTC, inclusive)")] DateTime? from = null,
         [Description("End date filter (UTC, inclusive)")] DateTime? to = null,
         [Description("Filter by personal account ID")] Guid? personalAccountId = null,
+        [Description("Filter by financial context (space) ID")] Guid? financialContextId = null,
         [Description("Filter by category name")] string? category = null,
         [Description("Free-text search in merchant/description")] string? search = null,
         [Description("Page number (default: 1)")] int page = 1,
         [Description("Page size (default: 50, max: 100)")] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var request = new ListPersonalTransactionsRequest(from, to, personalAccountId, category, search, page, pageSize);
+        var request = new ListPersonalTransactionsRequest(from, to, personalAccountId, financialContextId, category, search, page, pageSize);
         return await _transactionService.ListTransactionsAsync(request, cancellationToken);
     }
 

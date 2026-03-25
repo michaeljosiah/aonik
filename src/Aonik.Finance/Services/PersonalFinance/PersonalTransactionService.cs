@@ -96,6 +96,11 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
             query = query.Where(transaction => transaction.PersonalAccountId == request.PersonalAccountId.Value);
         }
 
+        if (request.FinancialContextId.HasValue)
+        {
+            query = query.Where(transaction => transaction.FinancialContextId == request.FinancialContextId.Value);
+        }
+
         if (request.From.HasValue)
         {
             query = query.Where(transaction => transaction.OccurredAt >= request.From.Value);
@@ -256,6 +261,7 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
             transaction.Id,
             transaction.UserId,
             transaction.PersonalAccountId,
+            transaction.FinancialContextId,
             transaction.OccurredAt,
             transaction.Amount,
             transaction.Currency,

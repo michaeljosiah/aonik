@@ -120,6 +120,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.PersonalFinance.IFinancialLifeGraphTraversalService, Services.PersonalFinance.FinancialLifeGraphTraversalService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IFinancialLifeGraphRetrievalService, Services.PersonalFinance.FinancialLifeGraphRetrievalService>();
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAttachmentService, Services.PersonalFinance.TransactionAttachmentService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.IFinancialContextService, Services.PersonalFinance.FinancialContextService>();
         services.AddTransient<Contracts.Services.PersonalFinance.IPersonalAccountLinkProviderGateway>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;
