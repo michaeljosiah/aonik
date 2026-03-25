@@ -63,18 +63,11 @@ internal sealed class DashboardService : IDashboardService
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
 
-        // ── Run all queries in parallel ─────────────────────────────
-        var accountsTask = GetActiveAccountsAsync(tenantId, userId, cancellationToken);
-        var billsTask = GetUpcomingBillsAsync(tenantId, userId, now, cancellationToken);
-        var transactionsTask = GetMonthTransactionsAsync(tenantId, userId, monthStart, monthEnd, cancellationToken);
-        var ordersTask = GetRecentOrdersAsync(tenantId, userId, cancellationToken);
-
-        await Task.WhenAll(accountsTask, billsTask, transactionsTask, ordersTask);
-
-        var accounts = accountsTask.Result;
-        var upcomingBills = billsTask.Result;
-        var transactions = transactionsTask.Result;
-        var recentOrders = ordersTask.Result;
+        // ── Run queries sequentially (DbContext is not thread-safe) ──
+        var accounts = await GetActiveAccountsAsync(tenantId, userId, cancellationToken);
+        var upcomingBills = await GetUpcomingBillsAsync(tenantId, userId, now, cancellationToken);
+        var transactions = await GetMonthTransactionsAsync(tenantId, userId, monthStart, monthEnd, cancellationToken);
+        var recentOrders = await GetRecentOrdersAsync(tenantId, userId, cancellationToken);
 
         // ── Determine primary currency from accounts ────────────────
         var currency = DeterminePrimaryCurrency(accounts);
