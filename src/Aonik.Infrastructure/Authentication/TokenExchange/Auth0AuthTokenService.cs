@@ -25,13 +25,19 @@ public class Auth0AuthTokenService : IAuthTokenService
     public async Task<TokenResponse> ExchangeAsync(TokenRequest request, CancellationToken cancellationToken = default)
     {
         var domain = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0Domain, cancellationToken);
-        var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientId, cancellationToken);
         var audience = await _settingProvider.GetAsync(AuthSettingNames.Auth0Audience, cancellationToken);
         var connection = await _settingProvider.GetAsync(AuthSettingNames.Auth0Connection, cancellationToken);
 
-        var effectiveClientId = string.IsNullOrWhiteSpace(request.ClientId)
-            ? clientId
-            : request.ClientId;
+        string effectiveClientId;
+        if (!string.IsNullOrWhiteSpace(request.ClientId))
+        {
+            effectiveClientId = request.ClientId;
+        }
+        else
+        {
+            var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientId, cancellationToken);
+            effectiveClientId = clientId;
+        }
 
         var effectiveGrantType = request.GrantType;
         string? realm = null;
