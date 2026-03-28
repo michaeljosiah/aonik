@@ -704,6 +704,10 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const { user, logout } = useAuth();
   const [navRoles, setNavRoles] = useState<string[]>([]);
   const [isLoadingNavRoles, setIsLoadingNavRoles] = useState(false);
+  const [menuHover, setMenuHover] = useState(false);
+
+  // When collapsed and hovered, visually expand the sidebar
+  const isVisuallyCollapsed = collapsed && !menuHover;
 
   const handleLogout = async () => {
     try {
@@ -789,20 +793,56 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     }, []);
   };
 
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  const handleMouseEnter = () => {
+    if (collapsed) {
+      setMenuHover(true);
+    }
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    // Don't collapse if the mouse moved into a flyout menu
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    if (relatedTarget?.closest('.flyout-menu')) {
+      return;
+    }
+    setMenuHover(false);
+  };
+
+  // When a flyout is open and the mouse leaves it, collapse the sidebar
+  // unless the mouse moved back into the sidebar
+  useEffect(() => {
+    if (!menuHover) return;
+    const handleFlyoutLeave = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target?.closest('.flyout-menu')) return;
+      const relatedTarget = e.relatedTarget as HTMLElement | null;
+      if (relatedTarget?.closest('aside') || relatedTarget?.closest('.flyout-menu')) {
+        return;
+      }
+      setMenuHover(false);
+    };
+    document.addEventListener('mouseleave', handleFlyoutLeave, true);
+    return () => document.removeEventListener('mouseleave', handleFlyoutLeave, true);
+  }, [menuHover]);
+
   return (
     <TooltipProvider delayDuration={300}>
       <aside
         className={cn(
           'sticky top-0 flex flex-col h-screen bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border-light)] transition-all duration-300 z-40',
-          collapsed ? 'w-[var(--sidebar-collapsed-width)]' : 'w-[var(--sidebar-width)]'
+          isVisuallyCollapsed ? 'w-[var(--sidebar-collapsed-width)]' : 'w-[var(--sidebar-width)]'
         )}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {/* Logo */}
         <div className={cn(
           'flex items-center h-[50px] px-4 border-b border-[var(--color-border-light)] shrink-0',
-          collapsed && 'justify-center px-2'
+          isVisuallyCollapsed && 'justify-center px-2'
         )}>
-          {!collapsed ? (
+          {!isVisuallyCollapsed ? (
             <Link to="/" className="flex items-center gap-1">
               <span className="text-xl font-bold text-[var(--color-text-primary)]">Aonik</span>
               <span className="text-xl text-[var(--color-brand-secondary)]">.</span>
@@ -814,7 +854,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             onClick={onToggle}
             className={cn(
               'p-1.5 rounded-sm hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-tertiary)] transition-colors',
-              collapsed ? 'ml-0' : 'ml-auto'
+              isVisuallyCollapsed ? 'ml-0' : 'ml-auto'
             )}
           >
             {collapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
@@ -831,7 +871,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
             return (
               <div key={section.id} className="space-y-1">
-                {section.label && !collapsed && (
+                {section.label && !isVisuallyCollapsed && (
                   <div className="px-3 pt-2 pb-1">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
                       {section.label}
@@ -839,7 +879,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   </div>
                 )}
                 {sectionItems.map((item) => (
-                  <NavItemComponent key={item.id} item={item} collapsed={collapsed} />
+                  <NavItemComponent key={item.id} item={item} collapsed={isVisuallyCollapsed} />
                 ))}
               </div>
             );
@@ -848,7 +888,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
         {/* User Profile - fixed at bottom */}
         <div className="shrink-0 mt-auto">
-          {user && <UserProfile user={user} collapsed={collapsed} onLogout={handleLogout} />}
+          {user && <UserProfile user={user} collapsed={isVisuallyCollapsed} onLogout={handleLogout} />}
         </div>
       </aside>
     </TooltipProvider>

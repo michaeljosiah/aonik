@@ -80,7 +80,7 @@ function AppLayout() {
   const navigate = useNavigate();
   const isAiChat = location.pathname.startsWith('/ai/chat');
   const isWorkspace = location.pathname.startsWith('/workspace');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showAiChat, setShowAiChat] = useState(false);
   const previousSidebarCollapsed = useRef<boolean | null>(null);
   const preFullscreenSidebarState = useRef<boolean | null>(null);
