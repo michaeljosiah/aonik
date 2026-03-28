@@ -1,8 +1,14 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Platform.Entities.Party;
+namespace Aonik.Finance.Entities.ExternalAccounts;
 
-public class ExternalAccount : AuditableEntity, ITenantScoped
+/// <summary>
+/// Read-only projection of the ExternalAccount entity for cross-module queries.
+/// The authoritative ExternalAccount entity lives in Aonik.Platform.
+/// TEMPORARY: Will be replaced by service contracts when inter-module
+/// communication is fully implemented.
+/// </summary>
+public class ExternalAccountReadModel : Entity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid PartyId { get; set; }

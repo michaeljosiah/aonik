@@ -1,6 +1,7 @@
 using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.Catalog;
+using Aonik.Finance.Entities.ExternalAccounts;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
@@ -98,6 +99,16 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<CountryReadModel> Countries { get; set; } = null!;
     public DbSet<CurrencyReadModel> Currencies { get; set; } = null!;
     public DbSet<CountryCurrencyReadModel> CountryCurrencies { get; set; } = null!;
+
+    // ── ExternalAccounts (Tenant-Scoped Bank Linking) ──────────────
+    public DbSet<ExternalAccountConnection> ExternalAccountConnections { get; set; } = null!;
+    public DbSet<ExternalAccountConnectionSession> ExternalAccountConnectionSessions { get; set; } = null!;
+    public DbSet<ExternalAccountLinkedAccount> ExternalAccountLinkedAccounts { get; set; } = null!;
+    public DbSet<ExternalAccountTransaction> ExternalAccountTransactions { get; set; } = null!;
+    public DbSet<ExternalAccountTransactionAttachment> ExternalAccountTransactionAttachments { get; set; } = null!;
+
+    /// <summary>Read-only projection of ExternalAccount (authoritative entity in Platform module)</summary>
+    public DbSet<ExternalAccountReadModel> ExternalAccountReadModels { get; set; } = null!;
 
     // ── PersonalFinance ─────────────────────────────────────────────
     public DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
@@ -198,6 +209,12 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<CatalogBillerCategory>(modelBuilder, "CatalogBillerCategories");
         MapTable<CatalogBiller>(modelBuilder, "CatalogBillers");
         MapTable<CatalogBillerService>(modelBuilder, "CatalogBillerServices");
+
+        // ExternalAccount entities use explicit table names from their configurations
+        // (no Ank prefix) to match the migration-generated table names.
+        // ExternalAccountReadModel maps to the Platform-owned ExternalAccounts table.
+        modelBuilder.Entity<ExternalAccountReadModel>()
+            .ToTable($"{ModuleTablePrefixes.Platform}ExternalAccounts", SchemaNames.Default);
 
         MapTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
         MapTable<Household>(modelBuilder, "Households");

@@ -306,6 +306,8 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
                 ea.MaskedIdentifier,
                 ea.ProviderRef,
                 ea.VerificationStatus,
+                ea.Currency,
+                ea.Country,
                 ea.MetadataJson))
             .ToListAsync(cancellationToken);
 

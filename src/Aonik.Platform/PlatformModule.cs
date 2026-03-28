@@ -95,6 +95,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
+        services.AddScoped<IExternalAccountService, ExternalAccountService>();
 
         // ── CMS Services ─────────────────────────────────────────────
         services.AddScoped<IContentBlockService, ContentBlockService>();

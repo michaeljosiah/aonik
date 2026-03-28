@@ -1204,3 +1204,131 @@ export interface GenerateAutonumberResponse {
   sequenceValue: number;
   reference: string;
 }
+
+// ── External Account Connections (Tenant-Scoped Bank Linking) ────
+export interface ExternalAccountConnectionResponse {
+  connectionId: string;
+  provider: string;
+  providerDisplayName: string;
+  institutionName: string;
+  institutionReference?: string | null;
+  status: string;
+  consentStatus: string;
+  autoSyncEnabled: boolean;
+  lastSyncedAt?: string | null;
+  lastSyncStatus?: string | null;
+  lastError?: string | null;
+  disconnectedAt?: string | null;
+  linkedAccounts: ExternalAccountLinkedAccountResponse[];
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface ExternalAccountLinkedAccountResponse {
+  linkedAccountId: string;
+  externalAccountId: string;
+  name: string;
+  accountType: string;
+  accountSubtype?: string | null;
+  currency: string;
+  last4?: string | null;
+  status: string;
+  lastSyncedAt?: string | null;
+  lastSyncStatus?: string | null;
+  lastError?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface ExternalAccountLinkSessionResponse {
+  sessionId: string;
+  provider: string;
+  providerDisplayName: string;
+  mode: string;
+  status: string;
+  connectionId?: string | null;
+  launchToken: string;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface ExternalAccountLinkExchangeResponse {
+  sessionId: string;
+  connection: ExternalAccountConnectionResponse;
+}
+
+export interface ExternalAccountTransactionResponse {
+  transactionId: string;
+  externalAccountId: string;
+  externalAccountConnectionId: string | null;
+  occurredAt: string;
+  amount: number;
+  currency: string;
+  counterparty?: string | null;
+  description?: string | null;
+  reference?: string | null;
+  category?: string | null;
+  pending: boolean;
+  reconciliationStatus: string;
+  matchedLedgerEntryId?: string | null;
+  matchedPayoutId?: string | null;
+  reconciledAt?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface ExternalAccountTransactionSyncResponse {
+  connectionId: string;
+  transactionsAdded: number;
+  transactionsUpdated: number;
+  transactionsRemoved: number;
+  transactionsSkipped: number;
+  syncStatus: string;
+  nextCursor?: string | null;
+  syncedAt: string;
+}
+
+// ── Manual External Account CRUD ─────────────────────────────────
+export interface ExternalAccountResponse {
+  externalAccountId: string;
+  externalAccountType: string;
+  maskedIdentifier: string;
+  providerRef?: string | null;
+  verificationStatus: string;
+  currency?: string | null;
+  country?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface CreateExternalAccountRequest {
+  name: string;
+  externalAccountType: string;
+  currency: string;
+  country?: string | null;
+  institutionName?: string | null;
+  last4?: string | null;
+  notes?: string | null;
+}
+
+export interface CreateExternalAccountTransactionRequest {
+  externalAccountId: string;
+  occurredAt: string;
+  amount: number;
+  currency: string;
+  counterparty?: string | null;
+  description?: string | null;
+  reference?: string | null;
+  category?: string | null;
+  notes?: string | null;
+}
+
+export interface ExternalAccountTransactionAttachmentResponse {
+  attachmentId: string;
+  fileName: string;
+  contentType: string;
+  url: string;
+  fileSizeBytes: number;
+  createdAt: string;
+}

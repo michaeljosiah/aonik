@@ -1,0 +1,307 @@
+using System.Security.Cryptography;
+using System.Text;
+
+using Aonik.Finance.Contracts.Models.ExternalAccounts;
+using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace Aonik.Finance.Services.ExternalAccounts;
+
+internal sealed class ExternalAccountTransactionSyncOrchestrator
+{
+    private readonly FinanceDbContext _financeDbContext;
+    private readonly ITenantContext _tenantContext;
+    private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
+    private readonly ExternalAccountConnectionSyncOptions _options;
+    private readonly ILogger<ExternalAccountTransactionSyncOrchestrator> _logger;
+
+    public ExternalAccountTransactionSyncOrchestrator(
+        FinanceDbContext financeDbContext,
+        ITenantContext tenantContext,
+        IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
+        IOptions<ExternalAccountConnectionSyncOptions> options,
+        ILogger<ExternalAccountTransactionSyncOrchestrator> logger)
+    {
+        _financeDbContext = financeDbContext;
+        _tenantContext = tenantContext;
+        _providerGateways = providerGateways;
+        _options = options.Value;
+        _logger = logger;
+    }
+
+    public async Task<ExternalAccountTransactionSyncResponse?> SyncConnectionTransactionsAsync(
+        Guid tenantId,
+        Guid connectionId,
+        string trigger,
+        CancellationToken cancellationToken = default)
+    {
+        var originalTenantId = _tenantContext.TenantId;
+        var originalResolutionSource = _tenantContext.ResolutionSource;
+        ExternalAccountConnection? connection = null;
+
+        try
+        {
+            _tenantContext.TenantId = tenantId;
+            _tenantContext.ResolutionSource = $"ExternalAccountSync:{trigger}";
+
+            var utcNow = DateTime.UtcNow;
+
+            connection = await _financeDbContext.ExternalAccountConnections
+                .FirstOrDefaultAsync(
+                    item => item.Id == connectionId
+                        && item.TenantId == tenantId,
+                    cancellationToken);
+
+            if (connection == null)
+            {
+                return null;
+            }
+
+            if (connection.DisconnectedAt != null || string.Equals(connection.Status, "Disconnected", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Disconnected account links cannot sync transactions.");
+            }
+
+            if (string.Equals(connection.Status, "ActionRequired", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(connection.ConsentStatus, "ActionRequired", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Reconnect this account link before syncing transactions.");
+            }
+
+            var linkedAccounts = await _financeDbContext.ExternalAccountLinkedAccounts
+                .Where(item => item.TenantId == tenantId
+                    && item.ExternalAccountConnectionId == connection.Id)
+                .OrderBy(item => item.Name)
+                .ToListAsync(cancellationToken);
+
+            if (linkedAccounts.Count == 0)
+            {
+                throw new InvalidOperationException("No linked accounts are available for transaction sync.");
+            }
+
+            var linkedAccountsByReference = linkedAccounts
+                .ToDictionary(item => item.ProviderAccountReference, StringComparer.Ordinal);
+
+            var gateway = ResolveProvider(connection.Provider);
+            var syncResult = await gateway.SyncTransactionsAsync(
+                new AccountLinkProviderTransactionsSyncRequest(
+                    tenantId,
+                    Guid.Empty, // UserId not relevant for tenant-scoped
+                    connection.Id,
+                    connection.ProviderConnectionReference,
+                    connection.SecretReference,
+                    connection.SyncCursor),
+                cancellationToken);
+
+            connection.LastSyncedAt = syncResult.SyncedAt;
+            connection.LastSyncStatus = syncResult.SyncStatus;
+            connection.SyncCursor = syncResult.NextCursor ?? connection.SyncCursor;
+
+            if (!string.IsNullOrWhiteSpace(syncResult.LastError))
+            {
+                ApplyActionRequiredState(connection, linkedAccounts, syncResult.SyncStatus, syncResult.LastError);
+
+                await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+                return new ExternalAccountTransactionSyncResponse(
+                    connection.Id, 0, 0, 0, 0,
+                    syncResult.SyncStatus,
+                    connection.SyncCursor,
+                    syncResult.SyncedAt);
+            }
+
+            connection.Status = "Connected";
+            connection.ConsentStatus = "Granted";
+            connection.LastError = null;
+            connection.DisconnectedAt = null;
+            connection.NextScheduledSyncAt = ComputeNextSyncAt(connection, syncResult.SyncedAt);
+
+            foreach (var linkedAccount in linkedAccounts)
+            {
+                linkedAccount.Status = "Connected";
+                linkedAccount.LastSyncedAt = syncResult.SyncedAt;
+                linkedAccount.LastSyncStatus = syncResult.SyncStatus;
+                linkedAccount.LastError = null;
+            }
+
+            // Fetch existing transactions for idempotent upsert
+            var providerTransactionRefs = syncResult.Transactions
+                .Select(item => item.ProviderTransactionReference)
+                .Distinct()
+                .ToList();
+
+            var existingTransactionsByRef = providerTransactionRefs.Count == 0
+                ? new Dictionary<string, ExternalAccountTransaction>()
+                : await _financeDbContext.ExternalAccountTransactions
+                    .Where(item => item.TenantId == tenantId
+                        && item.ExternalAccountConnectionId == connection.Id
+                        && providerTransactionRefs.Contains(item.ProviderTransactionReference))
+                    .ToDictionaryAsync(item => item.ProviderTransactionReference, cancellationToken);
+
+            var added = 0;
+            var updated = 0;
+            var skipped = 0;
+
+            foreach (var providerTransaction in syncResult.Transactions)
+            {
+                if (!linkedAccountsByReference.TryGetValue(providerTransaction.ProviderAccountReference, out var linkedAccount))
+                {
+                    skipped += 1;
+                    continue;
+                }
+
+                if (!existingTransactionsByRef.TryGetValue(providerTransaction.ProviderTransactionReference, out var transaction))
+                {
+                    transaction = new ExternalAccountTransaction
+                    {
+                        TenantId = tenantId,
+                        ExternalAccountId = linkedAccount.ExternalAccountId,
+                        ExternalAccountConnectionId = connection.Id,
+                        ProviderTransactionReference = providerTransaction.ProviderTransactionReference,
+                        ReconciliationStatus = "Unmatched"
+                    };
+
+                    ApplyProviderTransaction(transaction, providerTransaction);
+                    _financeDbContext.ExternalAccountTransactions.Add(transaction);
+                    existingTransactionsByRef[providerTransaction.ProviderTransactionReference] = transaction;
+                    added += 1;
+                    continue;
+                }
+
+                transaction.ExternalAccountId = linkedAccount.ExternalAccountId;
+                ApplyProviderTransaction(transaction, providerTransaction);
+                updated += 1;
+            }
+
+            var removed = 0;
+            if (syncResult.RemovedTransactionReferences.Count > 0)
+            {
+                var removedRefs = syncResult.RemovedTransactionReferences.Distinct().ToList();
+
+                var existingRemovedTransactions = await _financeDbContext.ExternalAccountTransactions
+                    .Where(item => item.TenantId == tenantId
+                        && item.ExternalAccountConnectionId == connection.Id
+                        && removedRefs.Contains(item.ProviderTransactionReference))
+                    .ToListAsync(cancellationToken);
+
+                if (existingRemovedTransactions.Count > 0)
+                {
+                    _financeDbContext.ExternalAccountTransactions.RemoveRange(existingRemovedTransactions);
+                    removed = existingRemovedTransactions.Count;
+                }
+            }
+
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+            return new ExternalAccountTransactionSyncResponse(
+                connection.Id,
+                added,
+                updated,
+                removed,
+                skipped,
+                syncResult.SyncStatus,
+                connection.SyncCursor,
+                syncResult.SyncedAt);
+        }
+        catch (Exception ex) when (connection != null)
+        {
+            _logger.LogWarning(
+                ex,
+                "External account transaction sync failed for connection {ConnectionId} via {Trigger}.",
+                connectionId,
+                trigger);
+
+            connection.LastSyncStatus = "SyncFailed";
+            connection.LastError = LimitText(ex.Message, 1000);
+            connection.NextScheduledSyncAt = ComputeFailureRetryAt(connection, DateTime.UtcNow);
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+            throw;
+        }
+        finally
+        {
+            _tenantContext.TenantId = originalTenantId;
+            _tenantContext.ResolutionSource = originalResolutionSource;
+        }
+    }
+
+    private static void ApplyProviderTransaction(
+        ExternalAccountTransaction transaction,
+        AccountLinkProviderTransactionResult providerTransaction)
+    {
+        transaction.OccurredAt = providerTransaction.OccurredAt;
+        transaction.Amount = providerTransaction.Amount;
+        transaction.Currency = providerTransaction.Currency.Trim().ToUpperInvariant();
+        transaction.Counterparty = TrimNullable(providerTransaction.Merchant);
+        transaction.Description = TrimNullable(providerTransaction.Description);
+        transaction.Category = TrimNullable(providerTransaction.Category);
+        transaction.Pending = providerTransaction.Pending;
+    }
+
+    private static void ApplyActionRequiredState(
+        ExternalAccountConnection connection,
+        IReadOnlyList<ExternalAccountLinkedAccount> linkedAccounts,
+        string syncStatus,
+        string message)
+    {
+        connection.Status = "ActionRequired";
+        connection.ConsentStatus = "ActionRequired";
+        connection.LastSyncStatus = syncStatus;
+        connection.LastError = LimitText(message, 1000);
+        connection.NextScheduledSyncAt = null;
+
+        foreach (var linkedAccount in linkedAccounts)
+        {
+            linkedAccount.Status = "ActionRequired";
+            linkedAccount.LastSyncStatus = syncStatus;
+            linkedAccount.LastError = LimitText(message, 1000);
+        }
+    }
+
+    private IPersonalAccountLinkProviderGateway ResolveProvider(string provider)
+    {
+        var gateway = _providerGateways.FirstOrDefault(item =>
+            string.Equals(item.ProviderCode, provider, StringComparison.OrdinalIgnoreCase));
+
+        return gateway ?? throw new ArgumentException($"Unsupported account-link provider '{provider}'.", nameof(provider));
+    }
+
+    private DateTime? ComputeNextSyncAt(ExternalAccountConnection connection, DateTime syncedAt)
+    {
+        if (!_options.EnableRecurringSync || !connection.AutoSyncEnabled)
+        {
+            return null;
+        }
+
+        var intervalMinutes = connection.SyncIntervalMinutes > 0
+            ? connection.SyncIntervalMinutes
+            : _options.DefaultSyncIntervalMinutes;
+
+        return syncedAt.AddMinutes(intervalMinutes);
+    }
+
+    private DateTime? ComputeFailureRetryAt(ExternalAccountConnection connection, DateTime utcNow)
+    {
+        if (!_options.EnableRecurringSync || !connection.AutoSyncEnabled)
+        {
+            return null;
+        }
+
+        return utcNow.AddMinutes(Math.Max(_options.FailureRetryDelayMinutes, 1));
+    }
+
+    private static string? TrimNullable(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? LimitText(string? value, int maxLength)
+    {
+        var normalized = TrimNullable(value);
+        return normalized == null ? null
+            : normalized.Length <= maxLength ? normalized
+            : normalized[..maxLength];
+    }
+}

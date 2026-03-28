@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    partial class AonikDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328173758_AddManualExternalAccountCrud")]
+    partial class AddManualExternalAccountCrud
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -15237,17 +15240,11 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Country")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Currency")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");

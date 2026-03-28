@@ -6,6 +6,11 @@ import {
   CustomerDetailPage,
 } from '@/pages/customers';
 import {
+  AccountsListPage,
+  AccountConnectionDetailPage,
+  AccountTransactionsPage,
+} from '@/pages/accounts';
+import {
   OrdersLandingPage,
   OrdersListPage,
   BillPaymentOrderFormPage,
@@ -52,6 +57,12 @@ const navigation: NavigationSection[] = [
         label: 'Customers',
         icon: 'Building2',
         href: '/customers',
+      },
+      {
+        id: 'accounts',
+        label: 'Accounts',
+        icon: 'Landmark',
+        href: '/accounts',
       },
       {
         id: 'orders',
@@ -116,6 +127,9 @@ const navigation: NavigationSection[] = [
 const routes = [
   { path: '/customers', element: CustomersListPage },
   { path: '/customers/:partyId', element: CustomerDetailPage, isDynamic: true },
+  { path: '/accounts', element: AccountsListPage },
+  { path: '/accounts/:accountId/transactions', element: AccountTransactionsPage, isDynamic: true },
+  { path: '/accounts/connections/:connectionId', element: AccountConnectionDetailPage, isDynamic: true },
   { path: '/orders', element: OrdersLandingPage },
   { path: '/orders/activity', element: OrdersListPage },
   { path: '/orders/bill-payments/new', element: BillPaymentOrderFormPage },
@@ -145,6 +159,7 @@ const routes = [
 // ---------------------------------------------------------------------------
 const panels: WorkspacePanelConfig[] = [
   { id: 'customers', title: 'Customers', type: 'internal', componentKey: 'customers-list', route: '/customers' },
+  { id: 'accounts', title: 'Accounts', type: 'internal', componentKey: 'accounts-list', route: '/accounts' },
   { id: 'orders', title: 'Orders', type: 'internal', componentKey: 'orders-landing', route: '/orders' },
   { id: 'orders-bill-payments-new', title: 'Create Bill Payment', type: 'internal', componentKey: 'bill-payment-form', route: '/orders/bill-payments/new' },
   { id: 'orders-activity', title: 'Order Activity', type: 'internal', componentKey: 'orders-list', route: '/orders/activity' },
@@ -177,6 +192,7 @@ const panels: WorkspacePanelConfig[] = [
 
 const panelComponents = {
   'customers-list': wrapPage(CustomersListPage),
+  'accounts-list': wrapPage(AccountsListPage),
   'orders-landing': wrapPage(OrdersLandingPage),
   'orders-list': wrapPage(OrdersListPage),
   'bill-payment-form': wrapPage(BillPaymentOrderFormPage),
@@ -198,6 +214,7 @@ const panelComponents = {
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/customers', trail: ['Customers'] },
+  { pathPrefix: '/accounts', trail: ['Accounts'] },
   { pathPrefix: '/orders/bill-payments', trail: ['Orders', 'Bill Payments'] },
   { pathPrefix: '/orders', trail: ['Orders'] },
   { pathPrefix: '/ledger', trail: ['Accounting'] },

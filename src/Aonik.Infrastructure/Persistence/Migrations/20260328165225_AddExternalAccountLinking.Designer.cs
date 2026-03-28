@@ -4,6 +4,7 @@ using Aonik.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    partial class AonikDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328165225_AddExternalAccountLinking")]
+    partial class AddExternalAccountLinking
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2105,7 +2108,7 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<Guid?>("ExternalAccountConnectionId")
+                    b.Property<Guid>("ExternalAccountConnectionId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ExternalAccountId")
@@ -2172,95 +2175,11 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "ReconciliationStatus");
 
                     b.HasIndex("TenantId", "ExternalAccountConnectionId", "ProviderTransactionReference")
-                        .IsUnique()
-                        .HasFilter("[ExternalAccountConnectionId] IS NOT NULL");
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "ExternalAccountId", "OccurredAt");
 
-                    b.HasIndex("TenantId", "ExternalAccountId", "ProviderTransactionReference")
-                        .IsUnique()
-                        .HasFilter("[ExternalAccountConnectionId] IS NULL");
-
                     b.ToTable("ExternalAccountTransactions", "dbo");
-                });
-
-            modelBuilder.Entity("Aonik.Finance.Entities.ExternalAccounts.ExternalAccountTransactionAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<long>("FileSizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<string>("Sha256")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("StorageContainer")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("StorageKey")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("StorageProvider")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("TransactionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TransactionId");
-
-                    b.HasIndex("TenantId", "TransactionId");
-
-                    b.ToTable("ExternalAccountTransactionAttachments", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Finance.Entities.Ledger.BalanceSnapshot", b =>
@@ -15237,17 +15156,11 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Country")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Currency")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -16259,14 +16172,6 @@ namespace Aonik.Infrastructure.Persistence.Migrations
                     b.HasOne("Aonik.Finance.Entities.ExternalAccounts.ExternalAccountConnection", null)
                         .WithMany()
                         .HasForeignKey("ExternalAccountConnectionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-                });
-
-            modelBuilder.Entity("Aonik.Finance.Entities.ExternalAccounts.ExternalAccountTransactionAttachment", b =>
-                {
-                    b.HasOne("Aonik.Finance.Entities.ExternalAccounts.ExternalAccountTransaction", null)
-                        .WithMany()
-                        .HasForeignKey("TransactionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

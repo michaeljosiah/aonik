@@ -33,6 +33,8 @@ public record ExternalAccountDetail(
     string MaskedIdentifier,
     string? ProviderRef,
     string VerificationStatus,
+    string? Currency,
+    string? Country,
     string MetadataJson
 );
 
