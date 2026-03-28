@@ -234,8 +234,6 @@ function NavItemComponent({
 }) {
   const location = useLocation();
   const [showFlyout, setShowFlyout] = useState(false);
-  const [clickedOpen, setClickedOpen] = useState(false);
-  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const Icon = iconMap[item.icon] || LayoutDashboard;
   const isWorkspace = location.pathname === '/workspace';
@@ -243,44 +241,35 @@ function NavItemComponent({
   const isActive = item.href === location.pathname || (isWorkspace && item.href === activeWorkspaceHref);
   const hasChildren = (item.childGroups && item.childGroups.length > 0) || (item.children && item.children.length > 0);
 
-  // Clean up timeout on unmount
+  // Click-outside-to-close for flyout (deferred to avoid catching the opening click)
   useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
+    if (!showFlyout) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        setShowFlyout(false);
       }
     };
-  }, []);
+    // Defer so the current click event doesn't immediately close the flyout
+    const raf = requestAnimationFrame(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFlyout]);
 
-  const handleMouseEnter = () => {
-    if (!collapsed && hasChildren) {
-      // Small delay to prevent accidental triggers
-      hoverTimeoutRef.current = setTimeout(() => {
-        setShowFlyout(true);
-      }, 100);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    if (!clickedOpen) {
-      setShowFlyout(false);
-    }
-  };
-
-  const handleCollapsedToggleClick = () => {
-    if (collapsed && hasChildren) {
-      // In collapsed mode, click toggles flyout
-      setClickedOpen(!clickedOpen);
+  const handleToggleClick = () => {
+    if (hasChildren) {
       setShowFlyout(!showFlyout);
     }
   };
 
   const handleFlyoutClose = () => {
     setShowFlyout(false);
-    setClickedOpen(false);
   };
 
   const baseClasses = cn(
@@ -316,7 +305,7 @@ function NavItemComponent({
       <div ref={triggerRef} className="relative" onMouseLeave={handleFlyoutClose}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className={baseClasses} onClick={handleCollapsedToggleClick}>
+            <div className={baseClasses} onClick={handleToggleClick}>
               {content}
             </div>
           </TooltipTrigger>
@@ -355,16 +344,14 @@ function NavItemComponent({
     );
   }
 
-  // For expanded sidebar with children, show flyout on hover
+  // For expanded sidebar with children, show flyout on click
   if (hasChildren) {
     return (
       <div
         ref={triggerRef}
         className="relative"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
-        <div className={baseClasses}>
+        <div className={baseClasses} onClick={handleToggleClick}>
           {content}
         </div>
         {showFlyout && <FlyoutMenu item={item} onClose={handleFlyoutClose} triggerRef={triggerRef} />}
