@@ -8,6 +8,7 @@ import type {
   UpdateAiModelRequest,
   AgentConfigurationResponse,
   UpsertAgentConfigurationRequest,
+  AgentRunSummary,
   ListAiProvidersResponse,
   ListAiModelsResponse,
   AiCatalogModelProviderResponse,
@@ -17,6 +18,7 @@ import type {
   ListAiCatalogModelProvidersResponse,
   ListAiCatalogModelsResponse,
 } from '@/types/ai';
+import type { PagedResult } from '@/types';
 
 // ── Provider service ────────────────────────────────────────────────
 
@@ -117,5 +119,15 @@ export const agentConfigService = {
 
   delete: async (agentName: string): Promise<void> => {
     await api.delete(`/ai/agents/configurations/${agentName}`);
+  },
+};
+
+// ── Agent run service ────────────────────────────────────────────────
+
+export const agentRunService = {
+  list: async (agentId: string, page = 1, pageSize = 20): Promise<PagedResult<AgentRunSummary>> => {
+    return api.get<PagedResult<AgentRunSummary>>(
+      `/ai/agents/${agentId}/runs?page=${page}&pageSize=${pageSize}`,
+    );
   },
 };

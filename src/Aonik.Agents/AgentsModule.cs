@@ -47,6 +47,9 @@ public sealed class AgentsModule : IModule
         // two-level override model (global defaults + tenant overrides).
         services.AddScoped<IAgentConfigurationService, AgentConfigurationService>();
 
+        // Agent run service — queries agent execution history.
+        services.AddScoped<IAgentRunService, AgentRunService>();
+
         // Seed global default agent configurations on startup
         services.AddHostedService<AgentConfigurationSeedingService>();
 

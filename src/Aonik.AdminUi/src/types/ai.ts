@@ -138,6 +138,19 @@ export interface AgentInfo {
   description: string;
 }
 
+// ── Agent Run types ─────────────────────────────────────────────────
+
+export interface AgentRunSummary {
+  id: string;
+  agentId: string;
+  goal: string;
+  status: string;
+  stepCount: number;
+  linkedAiRunCount: number;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
 // ── API response wrappers ───────────────────────────────────────────
 
 export interface ListAiProvidersResponse {
