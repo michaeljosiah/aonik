@@ -1,0 +1,1 @@
+{"parameters":[{"name":"countryCode","in":"query","schema":{"type":"string"},"description":"Filter by country."}]}

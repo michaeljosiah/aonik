@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","properties":{"baseCurrency":{"type":"string","description":"The base currency for the ledger (e.g. USD, NGN)."}},"required":["baseCurrency"]}}}}}

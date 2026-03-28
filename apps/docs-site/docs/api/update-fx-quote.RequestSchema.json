@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","properties":{"rate":{"type":"number","format":"decimal"},"expiresAt":{"type":"string","format":"date-time"},"provider":{"type":"string","nullable":true}},"required":["rate","expiresAt"],"title":"UpdateFxQuoteRequest"}}}}}

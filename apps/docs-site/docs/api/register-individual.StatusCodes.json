@@ -1,0 +1,1 @@
+{"responses":{"201":{"description":"Registration successful.","content":{"application/json":{"schema":{"type":"object","properties":{"userId":{"type":"string","format":"uuid"},"partyId":{"type":"string","format":"uuid"}},"title":"RegistrationResult"}}}}}}

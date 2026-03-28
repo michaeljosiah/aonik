@@ -1,0 +1,1 @@
+{"parameters":[{"name":"countryCode","in":"query","schema":{"type":"string"}},{"name":"categoryId","in":"query","schema":{"type":"string","format":"uuid"}},{"name":"search","in":"query","schema":{"type":"string"}},{"name":"page","in":"query","schema":{"type":"integer","default":1}},{"name":"pageSize","in":"query","schema":{"type":"integer","default":20}}]}

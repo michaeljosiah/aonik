@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"A list of currencies.","content":{"application/json":{"schema":{"type":"object","properties":{"currencies":{"type":"array","items":{"type":"object","properties":{"code":{"type":"string"},"name":{"type":"string"}}}},"defaultCurrencyCode":{"type":"string"}}}}}}}}

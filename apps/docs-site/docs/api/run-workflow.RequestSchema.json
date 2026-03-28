@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","properties":{"workflowName":{"type":"string"},"parameters":{"type":"object","additionalProperties":true}},"required":["workflowName"]}}}}}

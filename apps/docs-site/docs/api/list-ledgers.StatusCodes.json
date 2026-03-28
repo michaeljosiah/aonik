@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"A list of ledgers.","content":{"application/json":{"schema":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string","format":"uuid"},"baseCurrency":{"type":"string"},"createdUtc":{"type":"string","format":"date-time"}},"title":"LedgerResponse"}}}}}}}

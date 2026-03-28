@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"The access token.","content":{"application/json":{"schema":{"type":"object","properties":{"accessToken":{"type":"string"},"refreshToken":{"type":"string","nullable":true},"expiresIn":{"type":"integer","description":"Token lifetime in seconds.","example":3600},"tokenType":{"type":"string","example":"Bearer"}},"title":"TokenResponse"}}}}}}

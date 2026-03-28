@@ -1,0 +1,117 @@
+---
+id: aonik-api
+title: "AONIK API"
+description: "The AONIK API lets you build on top of a modular financial platform that powers bill payments, remittances, and billing."
+sidebar_label: Introduction
+sidebar_position: 0
+hide_title: true
+custom_edit_url: null
+---
+
+import ApiLogo from "@theme/ApiLogo";
+import Heading from "@theme/Heading";
+import SchemaTabs from "@theme/SchemaTabs";
+import TabItem from "@theme/TabItem";
+import Export from "@theme/ApiExplorer/Export";
+
+<span
+  className={"theme-doc-version-badge badge badge--secondary"}
+  children={"Version: 1.0.0"}
+>
+</span>
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"AONIK API"}
+>
+</Heading>
+
+
+
+The AONIK API lets you build on top of a modular financial platform that powers bill payments, remittances, and billing.
+
+## Base URL
+
+```
+https://api.aonik.io
+```
+
+## Authentication
+
+All API requests require a Bearer token in the `Authorization` header.
+
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+You can obtain an access token by calling the [Get Token](/api/get-token) endpoint with your credentials, or through the OAuth 2.0 authorization code flow via your configured auth provider (Auth0 or Azure AD).
+
+## Pagination
+
+List endpoints return paginated results. Use `page` and `pageSize` query parameters to navigate through results. Responses include pagination metadata.
+
+## Errors
+
+The API uses standard HTTP status codes. Error responses include a `message` field with a human-readable description.
+
+| Status | Description |
+|--------|-------------|
+| 400 | Bad request — check your parameters |
+| 401 | Unauthorized — invalid or missing token |
+| 403 | Forbidden — insufficient permissions |
+| 404 | Not found |
+| 409 | Conflict — resource already exists |
+| 422 | Validation error |
+| 500 | Server error |
+
+
+<div
+  style={{"marginBottom":"2rem"}}
+>
+  <Heading
+    id={"authentication"}
+    as={"h2"}
+    className={"openapi-tabs__heading"}
+    children={"Authentication"}
+  >
+  </Heading><SchemaTabs
+    className={"openapi-tabs__security-schemes"}
+  >
+    <TabItem
+      label={"HTTP: Bearer Auth"}
+      value={"bearerAuth"}
+    >
+      
+      
+      Pass your access token in the Authorization header.
+      
+      <div>
+        <table>
+          <tbody>
+            <tr>
+              <th>
+                Security Scheme Type:
+              </th><td>
+                http
+              </td>
+            </tr><tr>
+              <th>
+                HTTP Authorization Scheme:
+              </th><td>
+                bearer
+              </td>
+            </tr><tr>
+              <th>
+                Bearer format:
+              </th><td>
+                JWT
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </TabItem>
+  </SchemaTabs>
+</div>
+      

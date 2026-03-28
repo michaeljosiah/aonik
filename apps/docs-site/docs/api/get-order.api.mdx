@@ -1,0 +1,69 @@
+---
+id: get-order
+title: "Retrieve an order"
+description: "Get a single order with all its items."
+sidebar_label: "Retrieve an order"
+hide_title: true
+hide_table_of_contents: true
+api: eJyVV8FyGzcM/RUMe0lmNrLiuofqJjtO6iZje2y5nYztiaAlpGXMJTckVrEiaaYf0S/sl7TgrmQpSlzHFy/J9wAQAAFornxFAdl4d6JVT02Iz4KmoDLFOImqd63SOqrbTGmKeTCVgFVPvSEGhGjcxBJ4AcFnwwWgtWA4gmEqY0dlqsKAJbEI6V3PlcOSVE8lxolWmTIirUIuVKYCfapNIK16HGrKVMwLKlH15opnldAiB+MmKlNjH0pk1VN1bbRaLm+FHCvvIkXB73e78m/b5kHRmip25d4xORYUVpU1eXLD3sco0Pmuaj/6SDnLhYI4jU2jaHWR/7cxa7CDhNpF0z2WlZWtkbH2Q4WzUsxbZioych0f5+iA4wSucEbhHAPPnmhUIpymqHyNTiabiXFHvnYcZo8h6hDI5d+GsGe0/VKEnLgNhKvLUUq2tVGaclOiXZNeE8WG+EO0hnJWP5mVB0Im3edHXaaR6QWbkoSSEnwDjiHgTO3uP5o3TOUTwyRJ8UicIoWpyem754FyMtNHBOAPhidvA77F+Frcj0SglbdNeRA4JooDie1TBdJ9XqCb0AUyPZXzvZe2lMQynF7a2SpwF229UcvN40Nj7XnzdhNyE7XM1EH3YLcuJSA4zzD2tdOdpK8kLnxblFMZ5UL11F7Km7g3b+vOUjWxX5XXOljVUwVzFXt7e1iZDnpn7jrGq68r+Hnwus5lAf3zEyUlNFJeB8OzJGpEGCj0a9F7fbt5fCm1sUnjTdDaa6JetdU7FbQEUln78Xrl+d//HOxahTHCzNcBMM8pRmB/Rw6MAy4IRJEP5kuq1VAQpmIu7jJu7JMJbRz6Z6cnb9PFMiXeaaS/7HQ73R2d0hfWeLDEyQIY1cZq8A7YV+DHgFB6XVsMMDYOXW7QQmWRJZOAC2So/GcKEeStQlvAYwaBSsOMLqeYATqdzo2bdG7cjfvpJzjESHB18U6Ww+Hwxn0rfO1RIogXyHHbsmSzb22yXRooRY7QdlJAOEw+33bjcMuPw5Uj1wZsHfdWIt6fXV186B8dHV9efhicvT0+Xdv03teQowM/YjQO0G0HbzSDHNOVk/ZrmR0GcnL7TO64NyF+kZDPgZyuvHHcDBMpD/JAWm6LNmbgA3ARfD0pkqgzsRT2O13ArczIvSYYW/8ZpgZbMd6NzaQOpBMWquCnRt7dM5HRFcn9L3Ug6L96vorMOU6MWzv5nYm8NlBczHVwUDUY0hAo1pZjB64iwbDCCQ1TuNPnpflCQ/hUU5jBw0gE7MHh1EyQaX2xtZxV7YhgXG5rTStlcsWSGDUyrmw9DsGHKIuUzucnUAszMjqNQcNvg8E5NAUuuSd2GgqEHS0Iw5JiTBcYG7K6He2gqEt0LwKhxpEl2HhFyYoFXDbyF/Dq4QgWN27xov1bfzQr4Rx0u7CAQ9Sr7IV//vob8oLyuyZyG+5qCS9hAVduFXLSiWHcFK3REsjSxJiyLaVfS/oZFvDah5HR+r+cbBixHo9NbsgxVBQSzbu1mgNYwOmqKq82f4UFHHk3tiZvLA0UfR1yArTimRnQvZEn2OD392EBf4hhTdgo+Tyd/ZIufpmq98N+msl85BJTZ23n5QviYGhK8rZ8O6JvFbH5w0D79Nm8rddM97xXWTRJeWoh87bhXDeDSlSZ6q1G3dtMFT6yHM7nI4x0FexyKdspvaVbZGqKwUiSpFaiTZRvrXpjtJEeMf3ZRfsT4Dl8z77VvOVk2pqirWWlMnVHs40fFsvbZaaaupZMaE77eU4Vb/B2Rn/pc+vW++Z4oJbLfwEp9pYl
+sidebar_class_name: "get api-method"
+info_path: api/aonik-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Retrieve an order"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/orders/{orderId}"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Get a single order with all its items.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-order.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-order.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-order.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

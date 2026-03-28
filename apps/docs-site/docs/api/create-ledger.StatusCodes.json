@@ -1,0 +1,1 @@
+{"responses":{"201":{"description":"The created ledger.","content":{"application/json":{"schema":{"type":"object","properties":{"id":{"type":"string","format":"uuid"},"baseCurrency":{"type":"string"},"createdUtc":{"type":"string","format":"date-time"}},"title":"LedgerResponse"}}}}}}

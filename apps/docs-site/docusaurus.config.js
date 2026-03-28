@@ -23,6 +23,7 @@ module.exports = {
           routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
           editUrl: 'https://github.com/michaeljosiah/aonik/edit/main/apps/docs-site/',
+          docItemComponent: '@theme/ApiItem',
         },
         blog: false,
         theme: {
@@ -31,11 +32,46 @@ module.exports = {
       },
     ],
   ],
+  themes: ['docusaurus-theme-openapi-docs'],
+  plugins: [
+    [
+      'docusaurus-plugin-openapi-docs',
+      {
+        id: 'api',
+        docsPluginId: 'classic',
+        config: {
+          aonik: {
+            specPath: 'openapi/aonik-api.yaml',
+            outputDir: 'docs/api',
+            sidebarOptions: {
+              groupPathsBy: 'tag',
+              categoryLinkSource: 'tag',
+            },
+          },
+        },
+      },
+    ],
+    function polyfillPlugin() {
+      return {
+        name: 'node-polyfill-plugin',
+        configureWebpack() {
+          return {
+            resolve: {
+              fallback: {
+                path: require.resolve('path-browserify'),
+              },
+            },
+          };
+        },
+      };
+    },
+  ],
   themeConfig: {
     navbar: {
       title: 'Aonik',
       items: [
         { to: '/', label: 'Docs', position: 'left' },
+        { to: '/api/aonik-api', label: 'API', position: 'left' },
         {
           href: 'https://github.com/michaeljosiah/aonik',
           label: 'GitHub',
@@ -50,6 +86,12 @@ module.exports = {
           title: 'Docs',
           items: [
             { label: 'Getting Started', to: '/guides/getting-started' },
+          ],
+        },
+        {
+          title: 'API',
+          items: [
+            { label: 'API Reference', to: '/api/aonik-api' },
           ],
         },
         {
