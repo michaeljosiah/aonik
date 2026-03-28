@@ -30,29 +30,38 @@ import { wrapPage } from '../utils';
 // ---------------------------------------------------------------------------
 const navigation: NavigationSection[] = [
   {
-    id: 'platform-core-access',
-    label: 'Team & Access',
+    id: 'admin',
     audience: 'host',
     items: [
       {
-        id: 'identity-access',
-        label: 'Team & Access',
-        icon: 'Users',
-        viewAllHref: '/access/users',
-        viewAllLabel: 'View all',
+        id: 'admin',
+        label: 'Admin',
+        icon: 'Settings',
         audience: 'host',
         childGroups: [
           {
             label: 'Team',
             items: [
-              { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users', audience: 'host' },
+              { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users' },
+              { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles' },
+              { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions' },
             ],
           },
           {
-            label: 'Permissions',
+            label: 'Content',
             items: [
-              { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles', audience: 'host' },
-              { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions', audience: 'host' },
+              { id: 'content-blocks', label: 'Content Blocks', icon: 'Layers', href: '/cms/content-blocks' },
+              { id: 'media-library', label: 'Media Library', icon: 'Image', href: '/cms/media' },
+            ],
+          },
+          {
+            label: 'Settings',
+            items: [
+              { id: 'settings-general', label: 'General', icon: 'Cog', href: '/settings/general' },
+              { id: 'settings-webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
+              { id: 'settings-api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
+              { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
+              { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
             ],
           },
         ],
@@ -60,48 +69,25 @@ const navigation: NavigationSection[] = [
     ],
   },
   {
-    id: 'platform-admin',
-    label: 'Admin',
+    id: 'system',
     audience: 'host',
     items: [
       {
-        id: 'tenants',
-        label: 'Tenants',
-        icon: 'Building',
-        href: '/tenants',
-      },
-      {
-        id: 'settings',
-        label: 'Settings',
+        id: 'system',
+        label: 'System',
         icon: 'Cog',
-        viewAllHref: '/settings',
-        viewAllLabel: 'View all',
+        audience: 'host',
         childGroups: [
           {
-            label: 'Workspace',
+            label: 'Infrastructure',
             items: [
-              { id: 'settings-general', label: 'General', icon: 'Cog', href: '/settings/general' },
-              { id: 'settings-webhooks', label: 'Webhooks', icon: 'Webhook', href: '/settings/webhooks' },
-              { id: 'settings-api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
-              { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
-              { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
-              { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
+              { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
             ],
           },
-        ],
-      },
-      {
-        id: 'cms',
-        label: 'Content',
-        icon: 'Layers',
-        viewAllHref: '/cms/content-blocks',
-        viewAllLabel: 'View all',
-        childGroups: [
           {
-            label: 'Library',
+            label: 'Tools',
             items: [
-              { id: 'content-blocks', label: 'Content Blocks', icon: 'Layers', href: '/cms/content-blocks' },
-              { id: 'media-library', label: 'Media Library', icon: 'Image', href: '/cms/media' },
+              { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
             ],
           },
         ],
@@ -171,10 +157,10 @@ const panelComponents = {
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
-  { pathPrefix: '/access', trail: ['Team & Access'] },
-  { pathPrefix: '/tenants', trail: ['Tenants'] },
-  { pathPrefix: '/settings', trail: ['Settings'] },
-  { pathPrefix: '/cms', trail: ['Content'] },
+  { pathPrefix: '/access', trail: ['Admin', 'Team'] },
+  { pathPrefix: '/tenants', trail: ['System', 'Tenants'] },
+  { pathPrefix: '/settings', trail: ['Admin', 'Settings'] },
+  { pathPrefix: '/cms', trail: ['Admin', 'Content'] },
 ];
 
 // ---------------------------------------------------------------------------

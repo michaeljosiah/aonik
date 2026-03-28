@@ -14,24 +14,22 @@ import { PlaceholderPanel } from '@/workspace/apps/PlaceholderPanel';
 // ---------------------------------------------------------------------------
 const navigation: NavigationSection[] = [
   {
-    id: 'cross-functional',
-    label: 'Home',
+    id: 'core',
     items: [
       {
         id: 'dashboard',
-        label: 'My Space',
+        label: 'Dashboard',
         icon: 'LayoutDashboard',
         href: '/',
       },
     ],
   },
   {
-    id: 'ai-agents',
-    label: 'AI & Agents',
+    id: 'ai',
     items: [
       {
         id: 'ai',
-        label: 'AI & Agents',
+        label: 'AI',
         icon: 'Bot',
         viewAllHref: '/ai/agents',
         viewAllLabel: 'View all',
@@ -94,9 +92,9 @@ const panelComponents = {
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/analytics', trail: ['Analytics'] },
-  { pathPrefix: '/ai/models', trail: ['AI & Agents', 'Models'] },
-  { pathPrefix: '/ai/agents', trail: ['AI & Agents', 'Agents'] },
-  { pathPrefix: '/ai', trail: ['AI & Agents'] },
+  { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
+  { pathPrefix: '/ai/agents', trail: ['AI', 'Agents'] },
+  { pathPrefix: '/ai', trail: ['AI'] },
   { pathPrefix: '/workspace', trail: ['Workspace'] },
 ];
 

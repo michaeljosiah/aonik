@@ -57,16 +57,6 @@ export function getAggregatedNavigation(enabledModuleIds?: string[]): Navigation
     }
   }
 
-  // Special handling: merge "platform-core-access" items into "platform-core"
-  // (Platform's Access nav lives under the Finance label section)
-  const accessSection = sectionMap.get('platform-core-access');
-  const coreSection = sectionMap.get('platform-core');
-  if (accessSection && coreSection) {
-    // Insert access items at the beginning of the finance section
-    coreSection.items = [...accessSection.items, ...coreSection.items];
-    sectionMap.delete('platform-core-access');
-  }
-
   return Array.from(sectionMap.values());
 }
 
@@ -142,5 +132,5 @@ export function resolveBreadcrumb(path: string): string[] {
       return bc.trail;
     }
   }
-  return path === '/' ? ['My Space'] : ['My Space'];
+  return path === '/' ? ['Dashboard'] : ['Dashboard'];
 }

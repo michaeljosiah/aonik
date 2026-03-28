@@ -45,8 +45,7 @@ import { wrapPage } from '../utils';
 // ---------------------------------------------------------------------------
 const navigation: NavigationSection[] = [
   {
-    id: 'platform-core',
-    label: 'Finance',
+    id: 'finance',
     items: [
       {
         id: 'party-profiles',
@@ -79,7 +78,7 @@ const navigation: NavigationSection[] = [
       },
       {
         id: 'service-catalog',
-        label: 'Service Catalog',
+        label: 'Catalog',
         icon: 'Store',
         viewAllHref: '/catalog',
         viewAllLabel: 'View all',
@@ -202,7 +201,7 @@ const breadcrumbs = [
   { pathPrefix: '/orders/bill-payments', trail: ['Orders', 'Bill Payments'] },
   { pathPrefix: '/orders', trail: ['Orders'] },
   { pathPrefix: '/ledger', trail: ['Accounting'] },
-  { pathPrefix: '/catalog', trail: ['Service Catalog'] },
+  { pathPrefix: '/catalog', trail: ['Catalog'] },
   { pathPrefix: '/compliance', trail: ['Documents'] },
   { pathPrefix: '/billing', trail: ['Billing'] },
   { pathPrefix: '/payments', trail: ['Payments'] },
