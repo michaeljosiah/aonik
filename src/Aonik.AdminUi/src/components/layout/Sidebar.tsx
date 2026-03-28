@@ -793,8 +793,6 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     }, []);
   };
 
-  const sidebarRef = useRef<HTMLElement>(null);
-
   const handleMouseEnter = () => {
     if (collapsed) {
       setMenuHover(true);
