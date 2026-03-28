@@ -130,31 +130,24 @@ Bootstrap install code is injected with a dedicated GitHub Environment secret:
 
 - `BOOTSTRAP_SETUP_SECRET` -> `Bootstrap__SetupSecret`
 
-Use the JSON payloads only for other runtime app settings:
+All other runtime app settings are defined as **individual** GitHub Environment variables or secrets (no JSON blobs). The deploy workflow collects any env var matching a recognised prefix (`AI__`, `SETTINGS__`, `FINANCE__`, `WORKER__`) and forwards it to the container.
 
-- `API_APP_SETTINGS_JSON`
-- `WORKER_APP_SETTINGS_JSON`
+Use the `.NET` double-underscore convention for nested keys. Store credentials as **Secrets** and non-sensitive values as **Variables**.
 
-You can define these as GitHub Environment **Secrets** (recommended when they include credentials) or **Variables**. The deploy workflow prefers secrets when both are set.
+Auth0 example (individual variables):
 
-Each payload must be a JSON object where keys are final .NET configuration environment variable names.
+| Variable | Value |
+|----------|-------|
+| `SETTINGS__AUTH_PROVIDER` | `Auth0` |
+| `SETTINGS__AUTH_AUTH0_DOMAIN` | `aonik.uk.auth0.com` |
+| `SETTINGS__AUTH_AUTH0_AUDIENCE` | `https://api.aonik.com` |
+| `SETTINGS__AUTH_AUTH0_CLIENTID` | `<spa-client-id>` |
+| `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTID` | `<m2m-client-id>` |
+| `SETTINGS__AUTH_AUTH0_CONNECTION` | `Username-Password-Authentication` |
+| `SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE` | `https://aonik.uk.auth0.com/api/v2/` |
+| `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET` (secret) | `<m2m-client-secret>` |
 
-Auth0 example (`API_APP_SETTINGS_JSON`):
-
-```json
-{
-  "Settings__Auth.Provider": "Auth0",
-  "Settings__Auth.Auth0.Domain": "aonik.uk.auth0.com",
-  "Settings__Auth.Auth0.Audience": "https://api.aonik.com",
-  "Settings__Auth.Auth0.ClientId": "<spa-client-id>",
-  "Settings__Auth.Auth0.ManagementClientId": "<m2m-client-id>",
-  "Settings__Auth.Auth0.ManagementClientSecret": "<m2m-client-secret>",
-  "Settings__Auth.Auth0.Connection": "Username-Password-Authentication",
-  "Settings__Auth.Auth0.ManagementAudience": "https://aonik.uk.auth0.com/api/v2/"
-}
-```
-
-You can include other runtime settings in the same payload (for example `PlatformAdmin__*`, `BlobStorage__*`, `Communication__Azure__Email__FromAddress`, `FeatureManagement__*`). Avoid placing `Bootstrap__SetupSecret` in the JSON bundle now that the deploy flow supports a dedicated secret.
+See `docs/runbooks/deploy-runtime.md` for the full list of supported variables.
 
 Recommended least-privilege role scoping:
 

@@ -84,19 +84,22 @@ Reusable composite actions:
 - `.github/actions/bicep-deploy` — compile, what-if (with AuthorizationFailed fallback), deploy
 - `.github/actions/resolve-params` — parameter file resolution for bootstrap and runtime modes
 
-### Required GitHub environment secrets (5)
+### Required GitHub environment secrets
 
 Configure these secrets per environment (`dev`, `staging`, `prod`):
 
-| Secret | Description |
-|--------|-------------|
-| `AZURE_CLIENT_SECRET` | Service principal secret (optional; enables SP fallback over OIDC) |
-| `SQL_ADMIN_PASSWORD` | SQL Server admin password |
-| `ACS_CONNECTION_STRING` | Azure Communication Services connection string (stored in Key Vault) |
-| `VERIFICATION_HASH_KEY` | HMAC hash key for verification service (stored in Key Vault) |
-| `BOOTSTRAP_SETUP_SECRET` | One-time bootstrap install code passed to the API container as `Bootstrap__SetupSecret` |
+| Secret | Used by | Description |
+|--------|---------|-------------|
+| `SQL_ADMIN_PASSWORD` | cd-infra, cd-deploy | SQL Server admin password |
+| `BOOTSTRAP_SETUP_SECRET` | cd-deploy | One-time bootstrap install code → `Bootstrap__SetupSecret` |
+| `ACS_CONNECTION_STRING` | cd-infra | Azure Communication Services connection string (optional) |
+| `VERIFICATION_HASH_KEY` | cd-infra | HMAC hash key for verification service (optional) |
+| `AZURE_CLIENT_SECRET` | all | Service principal secret (optional; enables SP fallback over OIDC) |
+| `AI__OPENAI__APIKEY` | cd-deploy | OpenAI API key for AI subsystem |
+| `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET` | cd-deploy | Auth0 Management API client secret |
+| `FINANCE__PERSONALFINANCE__PLAID__SECRET` | cd-deploy | Plaid API secret key |
 
-### Required GitHub repository variables (~14)
+### Required GitHub repository variables
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
@@ -115,28 +118,24 @@ Configure these secrets per environment (`dev`, `staging`, `prod`):
 | `VITE_AUTH0_REDIRECT_URI` | ci, cd-images | Auth0 redirect URI (optional) |
 | `VITE_AUTH0_AUDIENCE` | ci, cd-images | Auth0 audience (optional) |
 
-### Required GitHub environment variables (1)
+### Required GitHub environment variables
 
 | Variable | Used by | Description |
 |----------|---------|-------------|
 | `AZURE_RESOURCE_GROUP` | cd-infra, cd-deploy, drift-detection | Target Azure resource group |
 
-### Optional API/Worker runtime configuration (2 JSON bundles)
+### Optional API/Worker runtime configuration
 
-Runtime app settings for API and Worker containers are passed as **JSON bundle** GitHub environment variables. These are merged into ACA container app settings during deployment.
+Runtime app settings for API and Worker containers are defined as **individual** GitHub Environment variables or secrets. The deploy workflow collects any env var matching a recognised prefix and forwards it to the container.
 
-| Variable | Description |
-|----------|-------------|
-| `API_APP_SETTINGS_JSON` | JSON object of `"DotNet__Config__Key": "value"` pairs for the API container |
-| `WORKER_APP_SETTINGS_JSON` | JSON object of `"DotNet__Config__Key": "value"` pairs for the Worker container |
+| Prefix | Target | Example |
+|--------|--------|---------|
+| `AI__` | API | `AI__PROVIDER`, `AI__OPENAI__MODEL` |
+| `SETTINGS__` | API | `SETTINGS__AUTH_PROVIDER`, `SETTINGS__AUTH_AUTH0_DOMAIN` |
+| `FINANCE__` | API | `FINANCE__PERSONALFINANCE__PLAID__CLIENTID` |
+| `WORKER__` | Worker | (reserved for future Worker-specific settings) |
 
-Example `API_APP_SETTINGS_JSON`:
-```json
-{
-  "Auth__Provider": "Auth0",
-  "Auth__Auth0__Authority": "https://yourtenant.auth0.com/"
-}
-```
+See `docs/runbooks/deploy-runtime.md` for the full variable list.
 
 ### Settings managed via the database (not GitHub variables)
 

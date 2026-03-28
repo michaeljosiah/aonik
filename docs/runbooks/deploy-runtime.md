@@ -28,38 +28,27 @@ Deploy ACA runtime updates using one explicit image release version.
 The runtime deploy workflow passes `BOOTSTRAP_SETUP_SECRET` directly into the API Container App as `Bootstrap__SetupSecret`.
 
 - Store it as a GitHub Environment secret per environment.
-- Do not place the bootstrap install code inside `API_APP_SETTINGS_JSON`.
 - If the secret is omitted, the API falls back to image defaults or any value already present on the host platform.
 - When the secret is configured, the Bicep template also sets `Bootstrap__Enabled=true` automatically. Both env vars are required for bootstrap to function — `Bootstrap__SetupSecret` alone is not sufficient.
 
-### Runtime app settings payload
+### Runtime app settings
 
-The runtime workflow reads optional app settings from:
+All runtime app settings are defined as **individual** GitHub Environment variables or secrets. The deploy workflow collects any env var whose name starts with a recognised prefix and forwards it to the API or Worker container.
 
-- `API_APP_SETTINGS_JSON`
-- `WORKER_APP_SETTINGS_JSON`
+Recognised API prefixes: `AI__`, `SETTINGS__`, `FINANCE__`
+Recognised Worker prefixes: `WORKER__`
 
-These can be provided as either GitHub Environment **Secrets** (preferred when they include credentials) or **Variables**. The workflow gives precedence to secrets when both are set.
+Use `.NET` double-underscore convention for nested keys (e.g. `Finance:PersonalFinance:Plaid:ClientId` → `FINANCE__PERSONALFINANCE__PLAID__CLIENTID`).
 
-Use JSON objects where keys are final .NET configuration environment variable names (for example, `Settings__Auth.Provider`).
+Store credentials as **Secrets**; non-sensitive values as **Variables**.
 
-Auth0 example for `API_APP_SETTINGS_JSON`:
+| Category | Variable (var) | Secret |
+|----------|---------------|--------|
+| AI | `AI__PROVIDER`, `AI__OPENAI__MODEL` | `AI__OPENAI__APIKEY` |
+| Auth | `SETTINGS__AUTH_PROVIDER`, `SETTINGS__AUTH_AUTH0_DOMAIN`, `SETTINGS__AUTH_AUTH0_AUDIENCE`, `SETTINGS__AUTH_AUTH0_CLIENTID`, `SETTINGS__AUTH_AUTH0_CONNECTION`, `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTID`, `SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE` | `SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET` |
+| Plaid | `FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI`, `FINANCE__PERSONALFINANCE__PLAID__BASEURL`, `FINANCE__PERSONALFINANCE__PLAID__CLIENTID`, `FINANCE__PERSONALFINANCE__PLAID__WEBHOOKURL` | `FINANCE__PERSONALFINANCE__PLAID__SECRET` |
 
-```json
-{
-  "Settings__Auth.Provider": "Auth0",
-  "Settings__Auth.Auth0.Domain": "aonik.uk.auth0.com",
-  "Settings__Auth.Auth0.Audience": "https://api.aonik.com",
-  "Settings__Auth.Auth0.ClientId": "<spa-client-id>",
-  "Settings__Auth.Auth0.ManagementClientId": "<m2m-client-id>",
-  "Settings__Auth.Auth0.ManagementClientSecret": "<m2m-client-secret>",
-  "Settings__Auth.Auth0.Connection": "Username-Password-Authentication",
-  "Settings__Auth.Auth0.ManagementAudience": "https://aonik.uk.auth0.com/api/v2/"
-}
-```
-
-If these JSON payloads are omitted, runtime uses image/application defaults and any environment values already defined in the host platform.
-Use these JSON payloads for non-bootstrap runtime overrides; the bootstrap install code now has a dedicated secret path.
+If a variable is omitted or empty, runtime uses image/application defaults and any values already defined in the host platform.
 
 ## Steps
 1. Set `image_version` to a known image release version.

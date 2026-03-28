@@ -110,10 +110,6 @@ on:
         required: false
       AZURE_CLIENT_SECRET:
         required: false
-      API_APP_SETTINGS_JSON:
-        required: false
-      WORKER_APP_SETTINGS_JSON:
-        required: false
 
 permissions:
   id-token: write
@@ -137,12 +133,29 @@ jobs:
       RESOURCE_GROUP: ${{ inputs.resource_group != '' && inputs.resource_group || vars.AZURE_RESOURCE_GROUP }}
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME }}
       ACR_LOGIN_SERVER_OVERRIDE: ${{ inputs.acr_login_server }}
-      API_APP_SETTINGS_JSON: ${{ secrets.API_APP_SETTINGS_JSON != '' && secrets.API_APP_SETTINGS_JSON || vars.API_APP_SETTINGS_JSON }}
-      WORKER_APP_SETTINGS_JSON: ${{ secrets.WORKER_APP_SETTINGS_JSON != '' && secrets.WORKER_APP_SETTINGS_JSON || vars.WORKER_APP_SETTINGS_JSON }}
-      # Individual AI settings (vars + secret) — collected by the Python script below.
+      # Explicit app settings — any env var matching a recognised prefix is
+      # forwarded to the API or Worker container.  Add new settings here as
+      # individual vars/secrets instead of a JSON blob.
+      #
+      # AI
       AI__PROVIDER: ${{ vars.AI__PROVIDER }}
       AI__OPENAI__MODEL: ${{ vars.AI__OPENAI__MODEL }}
       AI__OPENAI__APIKEY: ${{ secrets.AI__OPENAI__APIKEY }}
+      # Auth (Settings module IdP management)
+      SETTINGS__AUTH_PROVIDER: ${{ vars.SETTINGS__AUTH_PROVIDER }}
+      SETTINGS__AUTH_AUTH0_DOMAIN: ${{ vars.SETTINGS__AUTH_AUTH0_DOMAIN }}
+      SETTINGS__AUTH_AUTH0_AUDIENCE: ${{ vars.SETTINGS__AUTH_AUTH0_AUDIENCE }}
+      SETTINGS__AUTH_AUTH0_CLIENTID: ${{ vars.SETTINGS__AUTH_AUTH0_CLIENTID }}
+      SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTID: ${{ vars.SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTID }}
+      SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET: ${{ secrets.SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET }}
+      SETTINGS__AUTH_AUTH0_CONNECTION: ${{ vars.SETTINGS__AUTH_AUTH0_CONNECTION }}
+      SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE: ${{ vars.SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE }}
+      # Plaid (Personal Finance linked accounts)
+      FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI }}
+      FINANCE__PERSONALFINANCE__PLAID__BASEURL: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__BASEURL }}
+      FINANCE__PERSONALFINANCE__PLAID__CLIENTID: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__CLIENTID }}
+      FINANCE__PERSONALFINANCE__PLAID__SECRET: ${{ secrets.FINANCE__PERSONALFINANCE__PLAID__SECRET }}
+      FINANCE__PERSONALFINANCE__PLAID__WEBHOOKURL: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__WEBHOOKURL }}
 
     steps:
       - name: Checkout repository
@@ -164,32 +177,34 @@ jobs:
           test -f "$TEMPLATE_FILE"
           test -f "$PARAM_FILE"
 
-      - name: Build app settings JSON
+      - name: Build app settings from explicit env vars
         id: app-settings
         shell: bash
         run: |
           python - <<'PY'
           import json, os
 
-          def env(name: str) -> str:
-              return os.environ.get(name, "").strip()
+          # Collect API app settings from explicit env vars.
+          # Any env var whose name starts with a recognised prefix is forwarded
+          # to the API container as a .NET configuration environment variable.
+          # Add new prefixes here when new config sections need runtime overrides.
+          API_SETTING_PREFIXES = (
+              "AI__",
+              "SETTINGS__",
+              "FINANCE__",
+          )
 
           api = {}
-          raw_api = env("API_APP_SETTINGS_JSON")
-          if raw_api:
-              api = json.loads(raw_api)
-
-          # Collect individual API app settings from env vars.
-          # Any env var matching these prefixes is forwarded to the container.
-          APP_SETTING_PREFIXES = ("AI__",)
-          for key, val in os.environ.items():
-              if any(key.startswith(p) for p in APP_SETTING_PREFIXES) and val.strip():
+          for key, val in sorted(os.environ.items()):
+              if any(key.startswith(p) for p in API_SETTING_PREFIXES) and val.strip():
                   api[key] = val.strip()
 
+          # Worker settings use WORKER__ prefix.
+          WORKER_SETTING_PREFIXES = ("WORKER__",)
           worker = {}
-          raw_worker = env("WORKER_APP_SETTINGS_JSON")
-          if raw_worker:
-              worker = json.loads(raw_worker)
+          for key, val in sorted(os.environ.items()):
+              if any(key.startswith(p) for p in WORKER_SETTING_PREFIXES) and val.strip():
+                  worker[key] = val.strip()
 
           merged = {}
           if api:
@@ -202,7 +217,7 @@ jobs:
               with open(github_output, "a") as f:
                   f.write(f"app_settings_json={json.dumps(merged)}\n")
 
-          print(f"Merged {len(api)} API and {len(worker)} Worker settings")
+          print(f"Collected {len(api)} API and {len(worker)} Worker settings")
           PY
 
       - name: Resolve and validate runtime images

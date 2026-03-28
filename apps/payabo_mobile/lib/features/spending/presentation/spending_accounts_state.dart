@@ -121,6 +121,12 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
   @override
   String get experienceLabel => 'Plaid Link';
 
+  /// Real Plaid link tokens always begin with `link-`.  The simulated backend
+  /// gateway returns tokens like `plaid_link_<guid>_<key>` which the native
+  /// Plaid SDK rejects with [MalformedLinkTokenException].
+  static bool _isRealPlaidLinkToken(String token) =>
+      token.startsWith('link-');
+
   @override
   Future<AccountLinkLaunchResult?> launch(
     AccountLinkLaunchRequest request,
@@ -128,6 +134,24 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
     if (request.session.provider.toLowerCase() != 'plaid') {
       throw const AccountLinkLaunchException(
         'This mobile launcher only supports Plaid-backed account-link sessions right now.',
+      );
+    }
+
+    if (!_isRealPlaidLinkToken(request.session.launchToken)) {
+      debugPrint(
+        '[PlaidAccountLinkLauncher] Backend returned a simulated link token '
+        '("${request.session.launchToken.length > 20 ? '${request.session.launchToken.substring(0, 20)}...' : request.session.launchToken}"). '
+        'Falling back to simulated handoff. Set Finance:PersonalFinance:Plaid:UseRealPlaidApi=true '
+        'on the backend to use the real Plaid SDK.',
+      );
+
+      // Simulate a short delay and return the token as the temporary code so
+      // the backend simulated gateway can still exchange it.
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+      final int now = DateTime.now().microsecondsSinceEpoch;
+      return AccountLinkLaunchResult(
+        temporaryCode:
+            'mobile-${request.session.provider.toLowerCase()}-$now',
       );
     }
 
@@ -142,15 +166,21 @@ class PlaidAccountLinkLauncher implements AccountLinkLauncher {
       await PlaidLink.open();
 
       return await awaiter.waitForResult();
-    } catch (error) {
+    } catch (error, stackTrace) {
       await awaiter.dispose();
 
       if (error is AccountLinkLaunchException) {
         rethrow;
       }
 
+      debugPrint(
+        '[PlaidAccountLinkLauncher] PlaidLink failed: $error\n$stackTrace',
+      );
+
       throw AccountLinkLaunchException(
-        'We could not open the secure Plaid connection right now. Check the mobile token setup for ${_environment.resolvedAccountLinkAndroidPackageName} and try again.',
+        'We could not open the secure Plaid connection right now. '
+        'Package: ${_environment.resolvedAccountLinkAndroidPackageName}. '
+        'Detail: $error',
       );
     }
   }
