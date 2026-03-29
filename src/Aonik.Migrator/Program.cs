@@ -146,26 +146,15 @@ static async Task SkipAlreadyAppliedInitialMigrations(
         return;
 
     // Check whether the schema already exists by probing for a representative table.
-    var schemaExists = false;
-    try
-    {
-        schemaExists = await dbContext.Database.ExecuteSqlRawAsync(
-            "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND name = 'Tenants') THEN 1 ELSE 0 END") > 0;
-    }
-    catch
-    {
-        // ExecuteSqlRawAsync returns rows-affected, not scalar. Use a different approach.
-    }
+    // Use the connection string directly to avoid interfering with EF's internal connection state.
+    var connectionString = dbContext.Database.GetConnectionString();
+    await using var connection = new Microsoft.Data.SqlClient.SqlConnection(connectionString);
+    await connection.OpenAsync();
 
-    // Fall back to a proper scalar check.
-    var connection = dbContext.Database.GetDbConnection();
-    if (connection.State != System.Data.ConnectionState.Open)
-        await connection.OpenAsync();
-
-    using var cmd = connection.CreateCommand();
-    cmd.CommandText = "SELECT COUNT(1) FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND name = 'Tenants'";
-    var result = await cmd.ExecuteScalarAsync();
-    schemaExists = Convert.ToInt32(result) > 0;
+    await using var checkCmd = connection.CreateCommand();
+    checkCmd.CommandText = "SELECT COUNT(1) FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND name = 'Tenants'";
+    var result = await checkCmd.ExecuteScalarAsync();
+    var schemaExists = Convert.ToInt32(result) > 0;
 
     if (!schemaExists)
         return;
@@ -177,7 +166,7 @@ static async Task SkipAlreadyAppliedInitialMigrations(
 
     // Insert the migration into __EFMigrationsHistory so EF considers it applied.
     var productVersion = typeof(DbContext).Assembly.GetName().Version?.ToString() ?? "10.0.0";
-    using var insertCmd = connection.CreateCommand();
+    await using var insertCmd = connection.CreateCommand();
     insertCmd.CommandText =
         $"INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('{initialCreate}', '{productVersion}')";
     await insertCmd.ExecuteNonQueryAsync();
