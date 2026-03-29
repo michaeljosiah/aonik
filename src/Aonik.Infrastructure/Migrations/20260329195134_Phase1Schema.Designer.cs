@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260329183253_AddAgentType")]
-    partial class AddAgentType
+    [Migration("20260329195134_Phase1Schema")]
+    partial class Phase1Schema
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
