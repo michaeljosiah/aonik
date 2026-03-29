@@ -79,6 +79,7 @@ function TenantContextSetup() {
 function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const isAiChat = location.pathname.startsWith('/ai/chat');
   const isWorkspace = location.pathname.startsWith('/workspace');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -126,8 +127,10 @@ function AppLayout() {
   }, []);
 
   useEffect(() => {
-    fetchAgents();
-  }, [fetchAgents]);
+    if (isAuthenticated) {
+      fetchAgents();
+    }
+  }, [isAuthenticated, fetchAgents]);
 
   // Auto-collapse main nav on AI chat page.
   useEffect(() => {
