@@ -67,16 +67,29 @@ try
         foreach (var dbContextType in dbContextTypes)
         {
             var dbContext = (DbContext)scope.ServiceProvider.GetRequiredService(dbContextType);
-            var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
+            var pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToList();
             if (!pendingMigrations.Any())
             {
                 logger.LogInformation("No pending migrations for {DbContext}.", dbContextType.Name);
                 continue;
             }
 
+            // If InitialCreate is pending but the schema already exists (created by
+            // auto-migrate or a prior deployment), mark it as applied without running
+            // its DDL. This avoids "object already exists" errors on consolidated
+            // initial migrations.
+            await SkipAlreadyAppliedInitialMigrations(dbContext, pendingMigrations, logger);
+
+            pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToList();
+            if (!pendingMigrations.Any())
+            {
+                logger.LogInformation("No remaining pending migrations for {DbContext}.", dbContextType.Name);
+                continue;
+            }
+
             logger.LogInformation(
                 "Running {Count} pending migration(s) for {DbContext}...",
-                pendingMigrations.Count(),
+                pendingMigrations.Count,
                 dbContextType.Name);
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("Migrations for {DbContext} completed successfully.", dbContextType.Name);
@@ -120,4 +133,54 @@ static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
     {
         typeof(AonikDbContext)
     };
+}
+
+static async Task SkipAlreadyAppliedInitialMigrations(
+    DbContext dbContext,
+    List<string> pendingMigrations,
+    ILogger logger)
+{
+    // Only act when InitialCreate is pending.
+    var initialCreate = pendingMigrations.FirstOrDefault(m => m.EndsWith("_InitialCreate"));
+    if (initialCreate is null)
+        return;
+
+    // Check whether the schema already exists by probing for a representative table.
+    var schemaExists = false;
+    try
+    {
+        schemaExists = await dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND name = 'Tenants') THEN 1 ELSE 0 END") > 0;
+    }
+    catch
+    {
+        // ExecuteSqlRawAsync returns rows-affected, not scalar. Use a different approach.
+    }
+
+    // Fall back to a proper scalar check.
+    var connection = dbContext.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open)
+        await connection.OpenAsync();
+
+    using var cmd = connection.CreateCommand();
+    cmd.CommandText = "SELECT COUNT(1) FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND name = 'Tenants'";
+    var result = await cmd.ExecuteScalarAsync();
+    schemaExists = Convert.ToInt32(result) > 0;
+
+    if (!schemaExists)
+        return;
+
+    logger.LogWarning(
+        "Schema already exists but migration '{Migration}' is pending. " +
+        "Recording it as applied without running DDL.",
+        initialCreate);
+
+    // Insert the migration into __EFMigrationsHistory so EF considers it applied.
+    var productVersion = typeof(DbContext).Assembly.GetName().Version?.ToString() ?? "10.0.0";
+    using var insertCmd = connection.CreateCommand();
+    insertCmd.CommandText =
+        $"INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('{initialCreate}', '{productVersion}')";
+    await insertCmd.ExecuteNonQueryAsync();
+
+    logger.LogInformation("Recorded '{Migration}' as applied.", initialCreate);
 }

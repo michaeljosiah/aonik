@@ -13,18 +13,6 @@ namespace Aonik.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Guard: skip if schema already exists (e.g. created by a previous
-            // auto-migrate or an earlier migration history that was consolidated).
-            // We check for a representative table; if it exists the full schema
-            // is assumed to be in place and we bail out early.
-            migrationBuilder.Sql(@"
-IF EXISTS (SELECT 1 FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND name = 'Tenants')
-BEGIN
-    -- Schema already exists — nothing to do.
-    -- EF will still record this migration in __EFMigrationsHistory.
-    RETURN;
-END");
-
             migrationBuilder.EnsureSchema(
                 name: "dbo");
 
