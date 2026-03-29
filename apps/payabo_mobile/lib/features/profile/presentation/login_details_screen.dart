@@ -95,20 +95,13 @@ class _ProfileLoginDetailsScreenState
             child: Row(
               children: <Widget>[
                 const Expanded(child: Text('Touch ID')),
-                SizedBox(
-                  width: 60,
-                  height: 30,
-                  child: FittedBox(
-                    fit: BoxFit.fill,
-                    child: Switch.adaptive(
-                      value: state.touchIdEnabled,
-                      onChanged: _onTouchIdChanged,
-                      activeThumbColor: c.surfaceBase,
-                      activeTrackColor: c.success,
-                      inactiveThumbColor: c.surfaceBase,
-                      inactiveTrackColor: c.background,
-                    ),
-                  ),
+                Switch.adaptive(
+                  value: state.touchIdEnabled,
+                  onChanged: _onTouchIdChanged,
+                  activeThumbColor: c.surfaceBase,
+                  activeTrackColor: c.success,
+                  inactiveThumbColor: c.surfaceBase,
+                  inactiveTrackColor: c.background,
                 ),
               ],
             ),

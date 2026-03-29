@@ -213,20 +213,13 @@ class _ToggleCard extends StatelessWidget {
         child: Row(
           children: <Widget>[
             Expanded(child: Text(label)),
-            SizedBox(
-              width: 60,
-              height: 30,
-              child: FittedBox(
-                fit: BoxFit.fill,
-                child: Switch.adaptive(
-                  value: value,
-                  onChanged: onChanged,
-                  activeThumbColor: c.surfaceBase,
-                  activeTrackColor: c.success,
-                  inactiveThumbColor: c.surfaceBase,
-                  inactiveTrackColor: c.background,
-                ),
-              ),
+            Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              activeThumbColor: c.surfaceBase,
+              activeTrackColor: c.success,
+              inactiveThumbColor: c.surfaceBase,
+              inactiveTrackColor: c.background,
             ),
           ],
         ),
