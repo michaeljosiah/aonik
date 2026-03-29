@@ -12,9 +12,12 @@ using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.Platform.Services.Compliance;
+using Aonik.Platform.Contracts.Models.Notifications;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.Platform.Contracts.Services.Identity;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Notifications;
 using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Platform.Services.Identity;
@@ -31,6 +34,7 @@ internal class VerificationService : IVerificationService
     private readonly ILogger<VerificationService> _logger;
     private readonly ICorrelationContext _correlationContext;
     private readonly IPermissionService _permissionService;
+    private readonly INotificationTemplateService _notificationTemplateService;
 
     public VerificationService(
         PlatformDbContext dbContext,
@@ -42,7 +46,8 @@ internal class VerificationService : IVerificationService
         IOptions<VerificationOptions> options,
         ILogger<VerificationService> logger,
         ICorrelationContext correlationContext,
-        IPermissionService permissionService)
+        IPermissionService permissionService,
+        INotificationTemplateService notificationTemplateService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -54,6 +59,7 @@ internal class VerificationService : IVerificationService
         _logger = logger;
         _correlationContext = correlationContext;
         _permissionService = permissionService;
+        _notificationTemplateService = notificationTemplateService;
     }
 
     public Task<VerificationChallengeResult> StartEmailVerificationAsync(
@@ -315,21 +321,30 @@ internal class VerificationService : IVerificationService
         string code,
         CancellationToken cancellationToken)
     {
+        var templateName = channel == VerificationChannel.Email
+            ? NotificationTemplateNames.EmailOtp
+            : NotificationTemplateNames.SmsOtp;
+
+        var channelName = channel == VerificationChannel.Email ? "Email" : "SMS";
+
+        var model = new Dictionary<string, object?>
+        {
+            ["otp_code"] = code,
+            ["expiry_minutes"] = _options.CodeTtlMinutes
+        };
+
+        var rendered = await _notificationTemplateService.RenderAsync(
+            new RenderNotificationTemplateRequest(templateName, channelName, model),
+            cancellationToken);
+
         if (channel == VerificationChannel.Email)
         {
-            var message = new EmailMessage(
-                target,
-                "Your verification code",
-                $"Your verification code is {code}. It expires in {_options.CodeTtlMinutes} minutes.");
-
+            var message = new EmailMessage(target, rendered.Subject, rendered.Body);
             await _emailSender.SendAsync(message, cancellationToken);
         }
         else
         {
-            var message = new SmsMessage(
-                target,
-                $"Your verification code is {code}. It expires in {_options.CodeTtlMinutes} minutes.");
-
+            var message = new SmsMessage(target, rendered.Body);
             await _smsSender.SendAsync(message, cancellationToken);
         }
     }

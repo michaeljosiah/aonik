@@ -10,12 +10,7 @@ import '../../../shared/widgets/payabo_otp_field.dart';
 import 'auth_flow_scaffold.dart';
 
 class PhoneCodeScreen extends StatefulWidget {
-  const PhoneCodeScreen({
-    super.key,
-    this.initialDisabled = false,
-  });
-
-  final bool initialDisabled;
+  const PhoneCodeScreen({super.key});
 
   @override
   State<PhoneCodeScreen> createState() => _PhoneCodeScreenState();
@@ -28,13 +23,12 @@ class _PhoneCodeScreenState extends State<PhoneCodeScreen> {
 
   bool get isLocked => _secondsRemaining > 0;
 
+  static const int _resendCooldownSeconds = 60;
+
   @override
   void initState() {
     super.initState();
-
-    if (widget.initialDisabled) {
-      _startResendCountdown(5);
-    }
+    _startResendCountdown(_resendCooldownSeconds);
   }
 
   @override
@@ -84,20 +78,27 @@ class _PhoneCodeScreenState extends State<PhoneCodeScreen> {
           Center(
             child: isLocked
                 ? Text(
-                    'Request new code in $_secondsRemaining seconds',
+                    'Request new code in ${_formatCountdown(_secondsRemaining)}',
                     style: Theme.of(context)
                         .textTheme
                         .bodyMedium
                         ?.copyWith(color: PayaboColors.muted),
                   )
                 : TextButton(
-                    onPressed: () => _startResendCountdown(5),
+                    onPressed: () =>
+                        _startResendCountdown(_resendCooldownSeconds),
                     child: const Text('Request new code'),
                   ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatCountdown(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   void _startResendCountdown(int seconds) {

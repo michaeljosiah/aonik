@@ -240,10 +240,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
         GoRoute(
           path: '/auth/register/phone-code',
           name: 'phone-code',
-          builder: (context, state) {
-            final disabled = state.uri.queryParameters['disabled'] == 'true';
-            return PhoneCodeScreen(initialDisabled: disabled);
-          },
+          builder: (context, state) => const PhoneCodeScreen(),
         ),
         GoRoute(
           path: '/auth/register/login-details',

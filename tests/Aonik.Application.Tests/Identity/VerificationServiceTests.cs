@@ -10,7 +10,9 @@ using Microsoft.Extensions.Options;
 using MicrosoftOptions = Microsoft.Extensions.Options.Options;
 
 
+using Aonik.Platform.Contracts.Models.Notifications;
 using Aonik.Platform.Contracts.Services.Messaging;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.Platform.Services.Compliance;
@@ -108,6 +110,32 @@ public class VerificationServiceTests
             Task.FromResult(new List<string>());
     }
 
+    private sealed class StubNotificationTemplateService : INotificationTemplateService
+    {
+        public Task<RenderNotificationTemplateResult> RenderAsync(
+            RenderNotificationTemplateRequest request, CancellationToken cancellationToken = default)
+        {
+            var model = request.Model as Dictionary<string, object?>;
+            var code = model?["otp_code"]?.ToString() ?? "";
+            return Task.FromResult(new RenderNotificationTemplateResult(
+                $"Your verification code: {code}",
+                $"Your verification code is {code}.",
+                Guid.NewGuid(),
+                null));
+        }
+
+        public Task<List<NotificationTemplateSummary>> ListTemplatesAsync(string? channel = null, bool? isActive = null, CancellationToken cancellationToken = default) => Task.FromResult(new List<NotificationTemplateSummary>());
+        public Task<NotificationTemplateResponse?> GetTemplateAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<NotificationTemplateResponse?>(null);
+        public Task<NotificationTemplateResponse> CreateTemplateAsync(CreateNotificationTemplateRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<NotificationTemplateResponse> UpdateTemplateAsync(Guid id, UpdateNotificationTemplateRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteTemplateAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<PreviewNotificationTemplateResponse> PreviewTemplateAsync(PreviewNotificationTemplateRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<List<NotificationTemplateBindingResponse>> ListBindingsAsync(CancellationToken cancellationToken = default) => Task.FromResult(new List<NotificationTemplateBindingResponse>());
+        public Task<NotificationTemplateBindingResponse> CreateBindingAsync(CreateNotificationTemplateBindingRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<NotificationTemplateBindingResponse> UpdateBindingAsync(Guid id, UpdateNotificationTemplateBindingRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteBindingAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    }
+
     [Fact]
     public async Task StartEmailVerificationAsync_ShouldCreateChallenge_AndConfirmSuccessfully()
     {
@@ -152,7 +180,8 @@ public class VerificationServiceTests
             verificationOptions,
             NullLogger<VerificationService>.Instance,
             new TestCorrelationContext("corr-start"),
-            new AllowAllPermissionService());
+            new AllowAllPermissionService(),
+            new StubNotificationTemplateService());
 
         // Act
         await service.StartEmailVerificationAsync(userId, "jane@example.com", CancellationToken.None);
@@ -222,7 +251,8 @@ public class VerificationServiceTests
             verificationOptions,
             NullLogger<VerificationService>.Instance,
             new TestCorrelationContext(null),
-            new AllowAllPermissionService());
+            new AllowAllPermissionService(),
+            new StubNotificationTemplateService());
 
         // Act
         var firstAttempt = await service.ConfirmEmailVerificationAsync(userId, "lockout@example.com", "000000", CancellationToken.None);
@@ -292,7 +322,8 @@ public class VerificationServiceTests
             verificationOptions,
             NullLogger<VerificationService>.Instance,
             new TestCorrelationContext(null),
-            new AllowAllPermissionService());
+            new AllowAllPermissionService(),
+            new StubNotificationTemplateService());
 
         // Act
         var act = async () => await service.StartPhoneVerificationAsync(userId, "+15551234567", CancellationToken.None);
@@ -336,7 +367,8 @@ public class VerificationServiceTests
             verificationOptions,
             NullLogger<VerificationService>.Instance,
             new TestCorrelationContext(correlationId),
-            new AllowAllPermissionService());
+            new AllowAllPermissionService(),
+            new StubNotificationTemplateService());
 
         // Act
         await service.StartEmailVerificationAsync(userId, "jane@example.com", CancellationToken.None);

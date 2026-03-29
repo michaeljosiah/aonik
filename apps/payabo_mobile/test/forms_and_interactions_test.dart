@@ -221,13 +221,16 @@ void main() {
     expect(find.text('Password recovery is unavailable'), findsOneWidget);
   });
 
-  testWidgets('phone code disabled state shows countdown then unlocks',
+  testWidgets('phone code auto-starts 60s countdown then unlocks',
       (WidgetTester tester) async {
     await tester
-        .pumpWidget(buildTestApp(const PhoneCodeScreen(initialDisabled: true)));
+        .pumpWidget(buildTestApp(const PhoneCodeScreen()));
 
     expect(find.textContaining('Request new code in'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 6));
+    // Pump through the full 60-second countdown
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(seconds: 1));
+    }
     await tester.pump();
     expect(find.text('Request new code'), findsOneWidget);
   });
