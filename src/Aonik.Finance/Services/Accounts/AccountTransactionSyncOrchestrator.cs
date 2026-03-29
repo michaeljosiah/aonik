@@ -85,7 +85,8 @@ internal sealed class AccountTransactionSyncOrchestrator
             }
 
             var linkedAccountsByReference = linkedAccounts
-                .ToDictionary(item => item.ProviderAccountReference, StringComparer.Ordinal);
+                .Where(item => item.ProviderAccountReference != null)
+                .ToDictionary(item => item.ProviderAccountReference!, StringComparer.Ordinal);
 
             var gateway = ResolveProvider(connection.Provider);
             var syncResult = await gateway.SyncTransactionsAsync(

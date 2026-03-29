@@ -573,8 +573,9 @@ internal sealed class AccountLinkService : IAccountLinkService
 
         var linkedAccountsByReference = await _financeDbContext.Accounts
             .Where(item => item.TenantId == tenantId
-                && item.AccountConnectionId == connection.Id)
-            .ToDictionaryAsync(item => item.ProviderAccountReference, cancellationToken);
+                && item.AccountConnectionId == connection.Id
+                && item.ProviderAccountReference != null)
+            .ToDictionaryAsync(item => item.ProviderAccountReference!, cancellationToken);
 
         // Resolve the tenant's own party ID for Account creation
         var tenantPartyId = await ResolveTenantPartyIdAsync(tenantId, cancellationToken);
