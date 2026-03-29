@@ -440,6 +440,7 @@ export function NotificationTemplatesPage() {
                 columns={templateColumns}
                 data={templates}
                 loading={loadingTemplates}
+                getRowId={(row) => row.id}
               />
             </CardContent>
           </Card>
@@ -460,6 +461,7 @@ export function NotificationTemplatesPage() {
                 columns={bindingColumns}
                 data={bindings}
                 loading={loadingBindings}
+                getRowId={(row) => row.id}
               />
             </CardContent>
           </Card>
