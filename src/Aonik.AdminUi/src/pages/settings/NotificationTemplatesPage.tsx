@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, Plus, Pencil, Trash2, Eye, Link2 } from 'lucide-react';
+import { Bell, Plus, Pencil, Trash2, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,7 +23,6 @@ import {
 import { notificationTemplateService } from '@/services/notificationTemplateService';
 import type {
   NotificationTemplateSummary,
-  NotificationTemplateResponse,
   NotificationTemplateBindingResponse,
 } from '@/types';
 
@@ -296,44 +294,47 @@ export function NotificationTemplatesPage() {
   // ── Template columns ──────────────────────────────────────────────────
   const templateColumns = useMemo<ColumnDef<NotificationTemplateSummary>[]>(
     () => [
-      { accessorKey: 'name', header: 'Name' },
+      { id: 'name', accessorKey: 'name', header: 'Name' },
       {
+        id: 'channel',
         accessorKey: 'channel',
         header: 'Channel',
-        cell: ({ row }) => (
-          <Badge variant="outline">{row.original.channel}</Badge>
+        cell: (row) => (
+          <Badge variant="outline">{row.channel}</Badge>
         ),
       },
-      { accessorKey: 'description', header: 'Description' },
+      { id: 'description', accessorKey: 'description', header: 'Description' },
       {
+        id: 'isShared',
         accessorKey: 'isShared',
         header: 'Shared',
-        cell: ({ row }) =>
-          row.original.isShared ? (
+        cell: (row) =>
+          row.isShared ? (
             <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Shared</Badge>
           ) : null,
       },
       {
+        id: 'isActive',
         accessorKey: 'isActive',
         header: 'Status',
-        cell: ({ row }) => (
-          <Badge className={row.original.isActive
+        cell: (row) => (
+          <Badge className={row.isActive
             ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
             : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
           }>
-            {row.original.isActive ? 'Active' : 'Inactive'}
+            {row.isActive ? 'Active' : 'Inactive'}
           </Badge>
         ),
       },
       {
         id: 'actions',
-        cell: ({ row }) => (
+        header: '',
+        cell: (row) => (
           <DataTableRowActions
-            row={row}
             actions={[
-              { label: 'Preview', icon: Eye, onClick: () => openPreview(row.original) },
-              { label: 'Edit', icon: Pencil, onClick: () => openEditTemplate(row.original.id) },
-              { label: 'Delete', icon: Trash2, onClick: () => deleteTemplate(row.original.id), variant: 'destructive' },
+              { label: 'Preview', icon: <Eye className="w-4 h-4" />, onClick: () => openPreview(row) },
+              { label: 'Edit', icon: <Pencil className="w-4 h-4" />, onClick: () => openEditTemplate(row.id) },
+              { label: 'Delete', icon: <Trash2 className="w-4 h-4" />, onClick: () => deleteTemplate(row.id), variant: 'danger' },
             ]}
           />
         ),
@@ -345,48 +346,52 @@ export function NotificationTemplatesPage() {
   // ── Binding columns ────────────────────────────────────────────────────
   const bindingColumns = useMemo<ColumnDef<NotificationTemplateBindingResponse>[]>(
     () => [
-      { accessorKey: 'templateName', header: 'Template Name' },
+      { id: 'templateName', accessorKey: 'templateName', header: 'Template Name' },
       {
+        id: 'channel',
         accessorKey: 'channel',
         header: 'Channel',
-        cell: ({ row }) => (
-          <Badge variant="outline">{row.original.channel}</Badge>
+        cell: (row) => (
+          <Badge variant="outline">{row.channel}</Badge>
         ),
       },
       {
+        id: 'baseTemplateId',
         accessorKey: 'baseTemplateId',
         header: 'Base Template',
-        cell: ({ row }) => row.original.baseTemplateId
-          ? <span className="font-mono text-xs">{row.original.baseTemplateId.slice(0, 8)}...</span>
+        cell: (row) => row.baseTemplateId
+          ? <span className="font-mono text-xs">{row.baseTemplateId.slice(0, 8)}...</span>
           : <span className="text-[var(--color-text-tertiary)]">None</span>,
       },
       {
+        id: 'overrideTemplateId',
         accessorKey: 'overrideTemplateId',
         header: 'Override Template',
-        cell: ({ row }) => row.original.overrideTemplateId
-          ? <span className="font-mono text-xs">{row.original.overrideTemplateId.slice(0, 8)}...</span>
+        cell: (row) => row.overrideTemplateId
+          ? <span className="font-mono text-xs">{row.overrideTemplateId.slice(0, 8)}...</span>
           : <span className="text-[var(--color-text-tertiary)]">None</span>,
       },
       {
+        id: 'isEnabled',
         accessorKey: 'isEnabled',
         header: 'Status',
-        cell: ({ row }) => (
-          <Badge className={row.original.isEnabled
+        cell: (row) => (
+          <Badge className={row.isEnabled
             ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
             : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
           }>
-            {row.original.isEnabled ? 'Enabled' : 'Disabled'}
+            {row.isEnabled ? 'Enabled' : 'Disabled'}
           </Badge>
         ),
       },
       {
         id: 'actions',
-        cell: ({ row }) => (
+        header: '',
+        cell: (row) => (
           <DataTableRowActions
-            row={row}
             actions={[
-              { label: 'Edit', icon: Pencil, onClick: () => openEditBinding(row.original) },
-              { label: 'Delete', icon: Trash2, onClick: () => deleteBinding(row.original.id), variant: 'destructive' },
+              { label: 'Edit', icon: <Pencil className="w-4 h-4" />, onClick: () => openEditBinding(row) },
+              { label: 'Delete', icon: <Trash2 className="w-4 h-4" />, onClick: () => deleteBinding(row.id), variant: 'danger' },
             ]}
           />
         ),
