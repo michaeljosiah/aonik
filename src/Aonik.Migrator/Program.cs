@@ -35,6 +35,7 @@ using var host = builder.Build();
 
 var runMigrations = !args.Contains("--seed-only", StringComparer.OrdinalIgnoreCase);
 var runSeed = !args.Contains("--migrate-only", StringComparer.OrdinalIgnoreCase);
+var resetDatabase = args.Contains("--reset", StringComparer.OrdinalIgnoreCase);
 
 var configMigrate = builder.Configuration.GetValue<bool?>("Migrator:RunMigrations");
 if (configMigrate.HasValue)
@@ -67,29 +68,24 @@ try
         foreach (var dbContextType in dbContextTypes)
         {
             var dbContext = (DbContext)scope.ServiceProvider.GetRequiredService(dbContextType);
-            var pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToList();
+
+            if (resetDatabase)
+            {
+                logger.LogWarning("Resetting database for {DbContext}...", dbContextType.Name);
+                await dbContext.Database.EnsureDeletedAsync();
+                logger.LogInformation("Database deleted. Recreating with migrations...");
+            }
+
+            var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync();
             if (!pendingMigrations.Any())
             {
                 logger.LogInformation("No pending migrations for {DbContext}.", dbContextType.Name);
                 continue;
             }
 
-            // If InitialCreate is pending but the schema already exists (created by
-            // auto-migrate or a prior deployment), mark it as applied without running
-            // its DDL. This avoids "object already exists" errors on consolidated
-            // initial migrations.
-            await SkipAlreadyAppliedInitialMigrations(dbContext, pendingMigrations, logger);
-
-            pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToList();
-            if (!pendingMigrations.Any())
-            {
-                logger.LogInformation("No remaining pending migrations for {DbContext}.", dbContextType.Name);
-                continue;
-            }
-
             logger.LogInformation(
                 "Running {Count} pending migration(s) for {DbContext}...",
-                pendingMigrations.Count,
+                pendingMigrations.Count(),
                 dbContextType.Name);
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("Migrations for {DbContext} completed successfully.", dbContextType.Name);
@@ -133,43 +129,4 @@ static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
     {
         typeof(AonikDbContext)
     };
-}
-
-static async Task SkipAlreadyAppliedInitialMigrations(
-    DbContext dbContext,
-    List<string> pendingMigrations,
-    ILogger logger)
-{
-    // Only act when InitialCreate is pending.
-    var initialCreate = pendingMigrations.FirstOrDefault(m => m.EndsWith("_InitialCreate"));
-    if (initialCreate is null)
-        return;
-
-    // Check whether the schema already exists by probing for a representative table.
-    // Use the connection string directly to avoid interfering with EF's internal connection state.
-    var connectionString = dbContext.Database.GetConnectionString();
-    await using var connection = new Microsoft.Data.SqlClient.SqlConnection(connectionString);
-    await connection.OpenAsync();
-
-    await using var checkCmd = connection.CreateCommand();
-    checkCmd.CommandText = "SELECT COUNT(1) FROM sys.tables WHERE schema_id = SCHEMA_ID('dbo') AND name = 'Tenants'";
-    var result = await checkCmd.ExecuteScalarAsync();
-    var schemaExists = Convert.ToInt32(result) > 0;
-
-    if (!schemaExists)
-        return;
-
-    logger.LogWarning(
-        "Schema already exists but migration '{Migration}' is pending. " +
-        "Recording it as applied without running DDL.",
-        initialCreate);
-
-    // Insert the migration into __EFMigrationsHistory so EF considers it applied.
-    var productVersion = typeof(DbContext).Assembly.GetName().Version?.ToString() ?? "10.0.0";
-    await using var insertCmd = connection.CreateCommand();
-    insertCmd.CommandText =
-        $"INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('{initialCreate}', '{productVersion}')";
-    await insertCmd.ExecuteNonQueryAsync();
-
-    logger.LogInformation("Recorded '{Migration}' as applied.", initialCreate);
 }

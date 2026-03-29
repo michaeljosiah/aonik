@@ -36,6 +36,11 @@ on:
         required: true
         default: false
         type: boolean
+      reset:
+        description: "Drop and recreate database before migrating (destructive!)"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -139,7 +144,11 @@ jobs:
               ;;
           esac
 
-          echo "Running migrator (mode: ${mode})..."
+          if [ "${{ inputs.reset }}" = "true" ]; then
+            args="$args --reset"
+          fi
+
+          echo "Running migrator (mode: ${mode}, reset: ${{ inputs.reset }})..."
           dotnet run \
             --project src/Aonik.Migrator/Aonik.Migrator.csproj \
             --configuration Release \
