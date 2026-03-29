@@ -607,14 +607,14 @@ export function CustomerDetailPage() {
                           ) : (
                             externalAccounts.map((account) => (
                               <div
-                                key={account.externalAccountId}
+                                key={account.partyAccountId}
                                 className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-3 last:border-b-0"
                               >
                                 <div className="flex items-start gap-3">
                                   <Wallet className="w-4 h-4 text-[var(--color-text-tertiary)] mt-0.5" />
                                   <div>
                                     <div className="text-sm text-[var(--color-text-primary)]">
-                                      {account.externalAccountType}
+                                      {account.accountType}
                                     </div>
                                     <div className="text-xs text-[var(--color-text-tertiary)]">{account.maskedIdentifier}</div>
                                     {account.providerRef && (

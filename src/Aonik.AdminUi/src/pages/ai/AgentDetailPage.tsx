@@ -412,7 +412,6 @@ export function AgentDetailPage() {
   // ── Derived data ────────────────────────────────────────────────
 
   const tools = parseJsonArray(agent.toolsetIdsJson);
-  const riskStyle = riskTierStyles[agent.riskTier] ?? riskTierStyles.low;
   const domainStyle = domainStyles[agent.domain] ?? domainStyles.custom;
 
   // ── Render ──────────────────────────────────────────────────────
