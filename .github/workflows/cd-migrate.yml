@@ -60,6 +60,12 @@ jobs:
       WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME || 'aonik' }}
 
     steps:
+      - name: Block --reset on production
+        if: ${{ inputs.reset && inputs.environment == 'prod' }}
+        run: |
+          echo "::error::--reset is permanently blocked for production. This would destroy all data."
+          exit 1
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:

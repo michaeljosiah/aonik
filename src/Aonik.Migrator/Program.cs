@@ -37,6 +37,13 @@ var runMigrations = !args.Contains("--seed-only", StringComparer.OrdinalIgnoreCa
 var runSeed = !args.Contains("--migrate-only", StringComparer.OrdinalIgnoreCase);
 var resetDatabase = args.Contains("--reset", StringComparer.OrdinalIgnoreCase);
 
+if (resetDatabase && builder.Environment.IsProduction())
+{
+    Console.Error.WriteLine("FATAL: --reset is permanently blocked in production.");
+    Environment.ExitCode = 1;
+    return;
+}
+
 var configMigrate = builder.Configuration.GetValue<bool?>("Migrator:RunMigrations");
 if (configMigrate.HasValue)
 {
