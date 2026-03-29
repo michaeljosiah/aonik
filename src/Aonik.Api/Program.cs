@@ -138,6 +138,10 @@ if (autoMigrateEnabled || seedDataEnabled)
             var settingsSeedService = new SettingsSeedService(platformDbContext, settingsLogger);
             await settingsSeedService.SeedAsync();
 
+            var notificationTemplateLogger = scope.ServiceProvider.GetRequiredService<ILogger<NotificationTemplateSeedService>>();
+            var notificationTemplateSeedService = new NotificationTemplateSeedService(platformDbContext, notificationTemplateLogger);
+            await notificationTemplateSeedService.SeedAsync();
+
             startupLogger.LogInformation("Database seed routines completed successfully.");
         }
     }

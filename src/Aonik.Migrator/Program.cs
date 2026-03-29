@@ -117,6 +117,10 @@ try
         var settingsLogger = loggerFactory.CreateLogger<SettingsSeedService>();
         var settingsSeed = new SettingsSeedService(platformDbContext, settingsLogger);
         await settingsSeed.SeedAsync();
+
+        var notificationTemplateLogger = loggerFactory.CreateLogger<NotificationTemplateSeedService>();
+        var notificationTemplateSeed = new NotificationTemplateSeedService(platformDbContext, notificationTemplateLogger);
+        await notificationTemplateSeed.SeedAsync();
     }
 
     logger.LogInformation("Migrator completed successfully.");
