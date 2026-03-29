@@ -27,9 +27,9 @@ public record PartyConsentDetail(
     DateTime? RevokedAt
 );
 
-public record ExternalAccountDetail(
+public record PartyAccountDetail(
     Guid ExternalAccountId,
-    string ExternalAccountType,
+    string AccountType,
     string MaskedIdentifier,
     string? ProviderRef,
     string VerificationStatus,
@@ -80,7 +80,7 @@ public record CustomerDetail(
     List<Aonik.Platform.Contracts.Models.Identity.PartyContactDetail> Contacts,
     List<Aonik.Platform.Contracts.Models.Identity.PartyAddressDetail> Addresses,
     List<PartyConsentDetail> Consents,
-    List<ExternalAccountDetail> ExternalAccounts,
+    List<PartyAccountDetail> ExternalAccounts,
     List<PartyRoleAssignmentDetail> RoleAssignments,
     List<PartyRelationshipDetail> Relationships
 );

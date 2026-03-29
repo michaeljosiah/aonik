@@ -5,3 +5,5 @@ export { AppCard } from './AppCard';
 export { AgentCard } from './AgentCard';
 export { DataboxesTable } from './DataboxesTable';
 export { SectionHeader, MyAppsHeader, MyAgentsHeader } from './SectionHeader';
+export { FinancialSnapshotCard } from './FinancialSnapshotCard';
+export type { FinancialSnapshotData } from './FinancialSnapshotCard';

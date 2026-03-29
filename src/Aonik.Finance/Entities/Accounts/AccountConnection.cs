@@ -1,8 +1,8 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.ExternalAccounts;
+namespace Aonik.Finance.Entities.Accounts;
 
-public class ExternalAccountConnection : AuditableEntity, ITenantScoped
+public class AccountConnection : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid CreatedByUserId { get; set; }

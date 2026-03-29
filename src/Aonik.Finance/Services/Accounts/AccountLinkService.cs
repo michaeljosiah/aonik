@@ -1,9 +1,9 @@
 using System.Text.Json;
 
-using Aonik.Finance.Contracts.Models.ExternalAccounts;
-using Aonik.Finance.Contracts.Services.ExternalAccounts;
+using Aonik.Finance.Contracts.Models.Accounts;
+using Aonik.Finance.Contracts.Services.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -12,32 +12,32 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Services.ExternalAccounts;
+namespace Aonik.Finance.Services.Accounts;
 
-internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
+internal sealed class AccountLinkService : IAccountLinkService
 {
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ITenantContext _tenantContext;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
-    private readonly ExternalAccountTransactionSyncOrchestrator _transactionSyncOrchestrator;
-    private readonly IExternalAccountService _externalAccountService;
+    private readonly AccountTransactionSyncOrchestrator _transactionSyncOrchestrator;
+    private readonly IPartyAccountService _partyAccountService;
     private readonly IFileStore _fileStore;
-    private readonly ExternalAccountConnectionSyncOptions _syncOptions;
-    private readonly ILogger<ExternalAccountLinkService> _logger;
+    private readonly AccountConnectionSyncOptions _syncOptions;
+    private readonly ILogger<AccountLinkService> _logger;
 
-    public ExternalAccountLinkService(
+    public AccountLinkService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ITenantContext tenantContext,
         ICurrentUserProvider currentUserProvider,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
-        ExternalAccountTransactionSyncOrchestrator transactionSyncOrchestrator,
-        IExternalAccountService externalAccountService,
+        AccountTransactionSyncOrchestrator transactionSyncOrchestrator,
+        IPartyAccountService partyAccountService,
         IFileStore fileStore,
-        IOptions<ExternalAccountConnectionSyncOptions> syncOptions,
-        ILogger<ExternalAccountLinkService> logger)
+        IOptions<AccountConnectionSyncOptions> syncOptions,
+        ILogger<AccountLinkService> logger)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
@@ -45,14 +45,14 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         _currentUserProvider = currentUserProvider;
         _providerGateways = providerGateways;
         _transactionSyncOrchestrator = transactionSyncOrchestrator;
-        _externalAccountService = externalAccountService;
+        _partyAccountService = partyAccountService;
         _fileStore = fileStore;
         _syncOptions = syncOptions.Value;
         _logger = logger;
     }
 
-    public async Task<ExternalAccountLinkSessionResponse> CreateSessionAsync(
-        CreateExternalAccountLinkSessionRequest request,
+    public async Task<AccountLinkSessionResponse> CreateSessionAsync(
+        CreateAccountLinkSessionRequest request,
         CancellationToken cancellationToken = default)
     {
         ValidateRequiredText(request.Provider, nameof(request.Provider));
@@ -62,7 +62,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
 
-        ExternalAccountConnection? connection = null;
+        AccountConnection? connection = null;
         if (mode == "update")
         {
             if (request.ConnectionId == null || request.ConnectionId == Guid.Empty)
@@ -87,11 +87,11 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             }
         }
 
-        var session = new ExternalAccountConnectionSession
+        var session = new AccountConnectionSession
         {
             TenantId = tenantId,
             UserId = userId,
-            ExternalAccountConnectionId = connection?.Id,
+            AccountConnectionId = connection?.Id,
             Provider = gateway.ProviderCode,
             Mode = mode,
             Status = "Ready"
@@ -117,14 +117,14 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         session.ProviderSessionReference = providerSession.ProviderSessionReference;
         session.ExpiresAt = providerSession.ExpiresAt;
 
-        _financeDbContext.ExternalAccountConnectionSessions.Add(session);
+        _financeDbContext.AccountConnectionSessions.Add(session);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
         return MapSessionToResponse(session, gateway.DisplayName);
     }
 
-    public async Task<ExternalAccountLinkExchangeResponse> ExchangeSessionAsync(
-        ExchangeExternalAccountLinkSessionRequest request,
+    public async Task<AccountLinkExchangeResponse> ExchangeSessionAsync(
+        ExchangeAccountLinkSessionRequest request,
         CancellationToken cancellationToken = default)
     {
         ValidateRequiredText(request.TemporaryCode, nameof(request.TemporaryCode));
@@ -133,7 +133,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         var userId = GetCurrentUserId();
         var utcNow = DateTime.UtcNow;
 
-        var session = await _financeDbContext.ExternalAccountConnectionSessions
+        var session = await _financeDbContext.AccountConnectionSessions
             .FirstOrDefaultAsync(
                 item => item.Id == request.SessionId
                     && item.TenantId == tenantId,
@@ -205,16 +205,16 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             gateway.DisplayName,
             cancellationToken);
 
-        return new ExternalAccountLinkExchangeResponse(session.Id, response);
+        return new AccountLinkExchangeResponse(session.Id, response);
     }
 
-    public async Task<IReadOnlyList<ExternalAccountConnectionResponse>> ListConnectionsAsync(
+    public async Task<IReadOnlyList<AccountConnectionResponse>> ListConnectionsAsync(
         bool includeDisconnected = false,
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var connectionsQuery = _financeDbContext.ExternalAccountConnections
+        var connectionsQuery = _financeDbContext.AccountConnections
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId);
 
@@ -234,9 +234,9 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         }
 
         var connectionIds = connections.Select(item => item.Id).ToList();
-        var linkedAccounts = await _financeDbContext.ExternalAccountLinkedAccounts
+        var linkedAccounts = await _financeDbContext.Accounts
             .AsNoTracking()
-            .Where(item => connectionIds.Contains(item.ExternalAccountConnectionId))
+            .Where(item => item.AccountConnectionId.HasValue && connectionIds.Contains(item.AccountConnectionId.Value))
             .OrderBy(item => item.Name)
             .ToListAsync(cancellationToken);
 
@@ -245,7 +245,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             .ToList();
     }
 
-    public async Task<ExternalAccountConnectionResponse?> RefreshConnectionAsync(
+    public async Task<AccountConnectionResponse?> RefreshConnectionAsync(
         Guid connectionId,
         CancellationToken cancellationToken = default)
     {
@@ -288,7 +288,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         return await BuildConnectionResponseAsync(connection, gateway.DisplayName, cancellationToken);
     }
 
-    public async Task<ExternalAccountConnectionResponse?> DisconnectConnectionAsync(
+    public async Task<AccountConnectionResponse?> DisconnectConnectionAsync(
         Guid connectionId,
         CancellationToken cancellationToken = default)
     {
@@ -302,9 +302,9 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             return null;
         }
 
-        var linkedAccounts = await _financeDbContext.ExternalAccountLinkedAccounts
+        var linkedAccounts = await _financeDbContext.Accounts
             .Where(item => item.TenantId == tenantId
-                && item.ExternalAccountConnectionId == connection.Id)
+                && item.AccountConnectionId == connection.Id)
             .OrderBy(item => item.Name)
             .ToListAsync(cancellationToken);
 
@@ -327,7 +327,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         return MapConnectionToResponse(connection, linkedAccounts, ResolveProvider(connection.Provider).DisplayName);
     }
 
-    public async Task<ExternalAccountTransactionSyncResponse?> SyncConnectionTransactionsAsync(
+    public async Task<AccountTransactionSyncResponse?> SyncConnectionTransactionsAsync(
         Guid connectionId,
         CancellationToken cancellationToken = default)
     {
@@ -340,24 +340,24 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             cancellationToken);
     }
 
-    public async Task<PagedResult<ExternalAccountTransactionResponse>> ListTransactionsAsync(
-        ListExternalAccountTransactionsRequest request,
+    public async Task<PagedResult<AccountTransactionResponse>> ListTransactionsAsync(
+        ListAccountTransactionsRequest request,
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var query = _financeDbContext.ExternalAccountTransactions
+        var query = _financeDbContext.AccountTransactions
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId);
 
-        if (request.ExternalAccountId.HasValue)
+        if (request.AccountId.HasValue)
         {
-            query = query.Where(item => item.ExternalAccountId == request.ExternalAccountId.Value);
+            query = query.Where(item => item.AccountId == request.AccountId.Value);
         }
 
         if (request.ConnectionId.HasValue)
         {
-            query = query.Where(item => item.ExternalAccountConnectionId == request.ConnectionId.Value);
+            query = query.Where(item => item.AccountConnectionId == request.ConnectionId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(request.ReconciliationStatus))
@@ -384,10 +384,10 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             .OrderByDescending(item => item.OccurredAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(item => new ExternalAccountTransactionResponse(
+            .Select(item => new AccountTransactionResponse(
                 item.Id,
-                item.ExternalAccountId,
-                item.ExternalAccountConnectionId,
+                item.AccountId,
+                item.AccountConnectionId,
                 item.OccurredAt,
                 item.Amount,
                 item.Currency,
@@ -404,11 +404,11 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
                 item.UpdatedAt))
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<ExternalAccountTransactionResponse>(items, totalCount, pageNumber, pageSize);
+        return new PagedResult<AccountTransactionResponse>(items, totalCount, pageNumber, pageSize);
     }
 
     public async Task ProcessPlaidWebhookAsync(
-        PlaidExternalAccountWebhookRequest request,
+        PlaidAccountWebhookRequest request,
         CancellationToken cancellationToken = default)
     {
         var utcNow = DateTime.UtcNow;
@@ -423,7 +423,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
                 return;
             }
 
-            var connection = await _financeDbContext.ExternalAccountConnections
+            var connection = await _financeDbContext.AccountConnections
                 .FirstOrDefaultAsync(
                     item => item.Provider == "Plaid"
                         && item.ProviderConnectionReference == request.ItemId.Trim(),
@@ -436,12 +436,12 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             }
 
             _tenantContext.TenantId = connection.TenantId;
-            _tenantContext.ResolutionSource = "PlaidExternalAccountWebhook";
+            _tenantContext.ResolutionSource = "PlaidAccountWebhook";
 
             connection.LastWebhookReceivedAt = utcNow;
 
-            var linkedAccounts = await _financeDbContext.ExternalAccountLinkedAccounts
-                .Where(item => item.ExternalAccountConnectionId == connection.Id)
+            var linkedAccounts = await _financeDbContext.Accounts
+                .Where(item => item.AccountConnectionId == connection.Id)
                 .OrderBy(item => item.Name)
                 .ToListAsync(cancellationToken);
 
@@ -457,9 +457,9 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
     }
 
     private void ApplyPlaidWebhook(
-        PlaidExternalAccountWebhookRequest request,
-        ExternalAccountConnection connection,
-        IReadOnlyList<ExternalAccountLinkedAccount> linkedAccounts,
+        PlaidAccountWebhookRequest request,
+        AccountConnection connection,
+        IReadOnlyList<Account> linkedAccounts,
         DateTime utcNow)
     {
         var webhookType = NormalizeWebhookValue(request.WebhookType);
@@ -531,8 +531,8 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         }
     }
 
-    private async Task<ExternalAccountConnection> ApplyProviderSyncAsync(
-        ExternalAccountConnection? existingConnection,
+    private async Task<AccountConnection> ApplyProviderSyncAsync(
+        AccountConnection? existingConnection,
         string providerCode,
         AccountLinkProviderExchangeResult providerState,
         Guid tenantId,
@@ -543,7 +543,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         var connection = existingConnection;
         if (connection == null)
         {
-            connection = await _financeDbContext.ExternalAccountConnections
+            connection = await _financeDbContext.AccountConnections
                 .FirstOrDefaultAsync(
                     item => item.TenantId == tenantId
                         && item.Provider == providerCode
@@ -553,7 +553,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
 
         if (connection == null)
         {
-            connection = new ExternalAccountConnection
+            connection = new AccountConnection
             {
                 TenantId = tenantId,
                 CreatedByUserId = userId,
@@ -562,7 +562,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
                 SyncIntervalMinutes = Math.Max(_syncOptions.DefaultSyncIntervalMinutes, 1)
             };
 
-            _financeDbContext.ExternalAccountConnections.Add(connection);
+            _financeDbContext.AccountConnections.Add(connection);
         }
 
         UpdateConnectionState(connection, providerState);
@@ -571,12 +571,12 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             ? ComputeNextScheduledSyncAt(connection, providerState.LastSyncedAt ?? utcNow)
             : null;
 
-        var linkedAccountsByReference = await _financeDbContext.ExternalAccountLinkedAccounts
+        var linkedAccountsByReference = await _financeDbContext.Accounts
             .Where(item => item.TenantId == tenantId
-                && item.ExternalAccountConnectionId == connection.Id)
+                && item.AccountConnectionId == connection.Id)
             .ToDictionaryAsync(item => item.ProviderAccountReference, cancellationToken);
 
-        // Resolve the tenant's own party ID for ExternalAccount creation
+        // Resolve the tenant's own party ID for Account creation
         var tenantPartyId = await ResolveTenantPartyIdAsync(tenantId, cancellationToken);
 
         foreach (var providerAccount in providerState.Accounts)
@@ -596,20 +596,20 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
 
     private async Task UpsertLinkedAccountAsync(
         AccountLinkProviderAccountResult providerAccount,
-        ExternalAccountConnection connection,
-        IDictionary<string, ExternalAccountLinkedAccount> linkedAccountsByReference,
+        AccountConnection connection,
+        IDictionary<string, Account> linkedAccountsByReference,
         Guid tenantId,
         Guid tenantPartyId,
         AccountLinkProviderExchangeResult providerExchange,
         CancellationToken cancellationToken)
     {
         var maskedIdentifier = NormalizeLast4(providerAccount.Last4) ?? providerAccount.ProviderAccountReference;
-        var accountType = NormalizeExternalAccountType(providerAccount.AccountType);
+        var accountType = NormalizeAccountType(providerAccount.AccountType);
 
         if (!linkedAccountsByReference.TryGetValue(providerAccount.ProviderAccountReference, out var linkedAccount))
         {
-            // Find or create the ExternalAccount in Platform
-            var externalAccountId = await _externalAccountService.FindOrCreateExternalAccountAsync(
+            // Find or create the Account in Platform
+            var externalAccountId = await _partyAccountService.FindOrCreatePartyAccountAsync(
                 tenantId,
                 tenantPartyId,
                 accountType,
@@ -617,24 +617,23 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
                 providerAccount.ProviderAccountReference,
                 cancellationToken);
 
-            linkedAccount = new ExternalAccountLinkedAccount
+            linkedAccount = new Account
             {
                 TenantId = tenantId,
-                ExternalAccountConnectionId = connection.Id,
-                ExternalAccountId = externalAccountId,
+                AccountConnectionId = connection.Id,
                 ProviderAccountReference = providerAccount.ProviderAccountReference,
                 Name = providerAccount.Name,
                 AccountType = accountType,
                 AccountSubtype = TrimNullable(providerAccount.AccountSubtype),
                 Currency = providerAccount.Currency.Trim().ToUpperInvariant(),
-                Last4 = NormalizeLast4(providerAccount.Last4),
+                MaskedIdentifier = NormalizeLast4(providerAccount.Last4),
                 Status = providerAccount.Status,
                 LastSyncedAt = providerExchange.LastSyncedAt,
                 LastSyncStatus = providerExchange.LastSyncStatus,
                 LastError = DetermineConnectionError(providerExchange)
             };
 
-            _financeDbContext.ExternalAccountLinkedAccounts.Add(linkedAccount);
+            _financeDbContext.Accounts.Add(linkedAccount);
             linkedAccountsByReference[providerAccount.ProviderAccountReference] = linkedAccount;
             return;
         }
@@ -644,7 +643,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         linkedAccount.AccountType = accountType;
         linkedAccount.AccountSubtype = TrimNullable(providerAccount.AccountSubtype);
         linkedAccount.Currency = providerAccount.Currency.Trim().ToUpperInvariant();
-        linkedAccount.Last4 = NormalizeLast4(providerAccount.Last4);
+        linkedAccount.MaskedIdentifier = NormalizeLast4(providerAccount.Last4);
         linkedAccount.Status = providerAccount.Status;
         linkedAccount.LastSyncedAt = providerExchange.LastSyncedAt;
         linkedAccount.LastSyncStatus = providerExchange.LastSyncStatus;
@@ -671,8 +670,8 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
     }
 
     private static void ApplyLocalDisconnectState(
-        ExternalAccountConnection connection,
-        IReadOnlyList<ExternalAccountLinkedAccount> linkedAccounts,
+        AccountConnection connection,
+        IReadOnlyList<Account> linkedAccounts,
         DateTime utcNow,
         string syncStatus)
     {
@@ -692,8 +691,8 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
     }
 
     private static void ApplyActionRequiredState(
-        ExternalAccountConnection connection,
-        IReadOnlyList<ExternalAccountLinkedAccount> linkedAccounts,
+        AccountConnection connection,
+        IReadOnlyList<Account> linkedAccounts,
         string syncStatus,
         string message)
     {
@@ -712,7 +711,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
     }
 
     private static void UpdateConnectionState(
-        ExternalAccountConnection connection,
+        AccountConnection connection,
         AccountLinkProviderExchangeResult providerState)
     {
         connection.ProviderConnectionReference = providerState.ProviderConnectionReference;
@@ -735,7 +734,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         connection.DisconnectedAt = null;
     }
 
-    private void EnsureRecurringSyncDefaults(ExternalAccountConnection connection)
+    private void EnsureRecurringSyncDefaults(AccountConnection connection)
     {
         if (connection.SyncIntervalMinutes <= 0)
         {
@@ -743,7 +742,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         }
     }
 
-    private DateTime? ComputeNextScheduledSyncAt(ExternalAccountConnection connection, DateTime fromUtc)
+    private DateTime? ComputeNextScheduledSyncAt(AccountConnection connection, DateTime fromUtc)
     {
         if (!_syncOptions.EnableRecurringSync || !connection.AutoSyncEnabled)
         {
@@ -757,31 +756,31 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         return fromUtc.AddMinutes(intervalMinutes);
     }
 
-    private async Task<ExternalAccountConnectionResponse> BuildConnectionResponseAsync(
-        ExternalAccountConnection connection,
+    private async Task<AccountConnectionResponse> BuildConnectionResponseAsync(
+        AccountConnection connection,
         string providerDisplayName,
         CancellationToken cancellationToken)
     {
-        var linkedAccounts = await _financeDbContext.ExternalAccountLinkedAccounts
+        var linkedAccounts = await _financeDbContext.Accounts
             .AsNoTracking()
-            .Where(item => item.ExternalAccountConnectionId == connection.Id)
+            .Where(item => item.AccountConnectionId == connection.Id)
             .OrderBy(item => item.Name)
             .ToListAsync(cancellationToken);
 
         return MapConnectionToResponse(connection, linkedAccounts, providerDisplayName);
     }
 
-    private async Task<ExternalAccountConnection?> LoadSessionTargetConnectionAsync(
-        ExternalAccountConnectionSession session,
+    private async Task<AccountConnection?> LoadSessionTargetConnectionAsync(
+        AccountConnectionSession session,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
-        if (session.ExternalAccountConnectionId == null)
+        if (session.AccountConnectionId == null)
         {
             return null;
         }
 
-        var connection = await GetTenantConnectionAsync(session.ExternalAccountConnectionId.Value, tenantId, cancellationToken);
+        var connection = await GetTenantConnectionAsync(session.AccountConnectionId.Value, tenantId, cancellationToken);
         if (connection == null)
         {
             throw new InvalidOperationException("The requested account link connection could not be found for this session.");
@@ -790,24 +789,24 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         return connection;
     }
 
-    private Task<ExternalAccountConnection?> GetTenantConnectionAsync(
+    private Task<AccountConnection?> GetTenantConnectionAsync(
         Guid connectionId,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
-        return _financeDbContext.ExternalAccountConnections
+        return _financeDbContext.AccountConnections
             .FirstOrDefaultAsync(
                 item => item.Id == connectionId
                     && item.TenantId == tenantId,
                 cancellationToken);
     }
 
-    private static ExternalAccountConnectionResponse MapConnectionToResponse(
-        ExternalAccountConnection connection,
-        IReadOnlyList<ExternalAccountLinkedAccount> linkedAccounts,
+    private static AccountConnectionResponse MapConnectionToResponse(
+        AccountConnection connection,
+        IReadOnlyList<Account> linkedAccounts,
         string providerDisplayName)
     {
-        return new ExternalAccountConnectionResponse(
+        return new AccountConnectionResponse(
             connection.Id,
             connection.Provider,
             providerDisplayName,
@@ -821,7 +820,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             connection.LastError,
             connection.DisconnectedAt,
             linkedAccounts
-                .Where(item => item.ExternalAccountConnectionId == connection.Id)
+                .Where(item => item.AccountConnectionId == connection.Id)
                 .OrderBy(item => item.Name)
                 .Select(MapLinkedAccountToResponse)
                 .ToList(),
@@ -829,16 +828,16 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             connection.UpdatedAt);
     }
 
-    private static ExternalAccountLinkedAccountResponse MapLinkedAccountToResponse(ExternalAccountLinkedAccount linkedAccount)
+    private static LinkedAccountResponse MapLinkedAccountToResponse(Account linkedAccount)
     {
-        return new ExternalAccountLinkedAccountResponse(
+        return new LinkedAccountResponse(
             linkedAccount.Id,
-            linkedAccount.ExternalAccountId,
+            linkedAccount.Id,
             linkedAccount.Name,
             linkedAccount.AccountType,
             linkedAccount.AccountSubtype,
             linkedAccount.Currency,
-            linkedAccount.Last4,
+            linkedAccount.MaskedIdentifier,
             linkedAccount.Status,
             linkedAccount.LastSyncedAt,
             linkedAccount.LastSyncStatus,
@@ -847,17 +846,17 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             linkedAccount.UpdatedAt);
     }
 
-    private static ExternalAccountLinkSessionResponse MapSessionToResponse(
-        ExternalAccountConnectionSession session,
+    private static AccountLinkSessionResponse MapSessionToResponse(
+        AccountConnectionSession session,
         string providerDisplayName)
     {
-        return new ExternalAccountLinkSessionResponse(
+        return new AccountLinkSessionResponse(
             session.Id,
             session.Provider,
             providerDisplayName,
             session.Mode,
             session.Status,
-            session.ExternalAccountConnectionId,
+            session.AccountConnectionId,
             session.SessionToken,
             session.ExpiresAt,
             session.CreatedAt,
@@ -931,7 +930,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         }
     }
 
-    private static string NormalizeExternalAccountType(string value)
+    private static string NormalizeAccountType(string value)
     {
         var normalized = value.Trim().ToLowerInvariant();
 
@@ -975,12 +974,12 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
 
     // ── Manual Account CRUD ──────────────────────────────────────
 
-    public async Task<ExternalAccountResponse> CreateAccountAsync(
-        CreateExternalAccountRequest request,
+    public async Task<AccountResponse> CreateAccountAsync(
+        CreateAccountRequest request,
         CancellationToken cancellationToken = default)
     {
         ValidateRequiredText(request.Name, nameof(request.Name));
-        ValidateRequiredText(request.ExternalAccountType, nameof(request.ExternalAccountType));
+        ValidateRequiredText(request.AccountType, nameof(request.AccountType));
         ValidateRequiredText(request.Currency, nameof(request.Currency));
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
@@ -992,10 +991,10 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         var currency = string.IsNullOrWhiteSpace(request.Currency) ? null : request.Currency.Trim().ToUpperInvariant();
         var country = TrimNullable(request.Country);
 
-        var result = await _externalAccountService.CreateExternalAccountAsync(
+        var result = await _partyAccountService.CreatePartyAccountAsync(
             tenantId,
             tenantPartyId,
-            request.ExternalAccountType.Trim(),
+            request.AccountType.Trim(),
             maskedIdentifier,
             null,
             "Manual",
@@ -1004,23 +1003,23 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             metadataJson,
             cancellationToken);
 
-        return MapExternalAccountToResponse(result);
+        return MapAccountToResponse(result);
     }
 
-    public async Task<IReadOnlyList<ExternalAccountResponse>> ListAccountsAsync(
+    public async Task<IReadOnlyList<AccountResponse>> ListAccountsAsync(
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var results = await _externalAccountService.ListExternalAccountsAsync(tenantId, cancellationToken);
+        var results = await _partyAccountService.ListPartyAccountsAsync(tenantId, cancellationToken);
 
-        return results.Select(MapExternalAccountToResponse).ToList();
+        return results.Select(MapAccountToResponse).ToList();
     }
 
     // ── Manual Transaction CRUD ──────────────────────────────────
 
-    public async Task<ExternalAccountTransactionResponse> CreateTransactionAsync(
-        CreateExternalAccountTransactionRequest request,
+    public async Task<AccountTransactionResponse> CreateTransactionAsync(
+        CreateAccountTransactionRequest request,
         CancellationToken cancellationToken = default)
     {
         if (request.Amount == 0)
@@ -1033,21 +1032,21 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         // Verify account exists for this tenant
-        var accountExists = await _financeDbContext.ExternalAccountReadModels
-            .AnyAsync(
-                ea => ea.Id == request.ExternalAccountId && ea.TenantId == tenantId,
-                cancellationToken);
+        var existingAccount = await _partyAccountService.GetPartyAccountAsync(
+            tenantId,
+            request.AccountId,
+            cancellationToken);
 
-        if (!accountExists)
+        if (existingAccount == null)
         {
-            throw new InvalidOperationException($"External account {request.ExternalAccountId} not found.");
+            throw new InvalidOperationException($"Account {request.AccountId} not found.");
         }
 
-        var transaction = new ExternalAccountTransaction
+        var transaction = new AccountTransaction
         {
             TenantId = tenantId,
-            ExternalAccountId = request.ExternalAccountId,
-            ExternalAccountConnectionId = null,
+            AccountId = request.AccountId,
+            AccountConnectionId = null,
             ProviderTransactionReference = $"manual-{Guid.NewGuid():N}",
             OccurredAt = request.OccurredAt,
             Amount = request.Amount,
@@ -1061,13 +1060,13 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             Notes = TrimNullable(request.Notes)
         };
 
-        _financeDbContext.ExternalAccountTransactions.Add(transaction);
+        _financeDbContext.AccountTransactions.Add(transaction);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
-        return new ExternalAccountTransactionResponse(
+        return new AccountTransactionResponse(
             transaction.Id,
-            transaction.ExternalAccountId,
-            transaction.ExternalAccountConnectionId,
+            transaction.AccountId,
+            transaction.AccountConnectionId,
             transaction.OccurredAt,
             transaction.Amount,
             transaction.Currency,
@@ -1086,7 +1085,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
 
     // ── Transaction Attachments ──────────────────────────────────
 
-    public async Task<ExternalAccountTransactionAttachmentResponse> AddTransactionAttachmentAsync(
+    public async Task<AccountTransactionAttachmentResponse> AddTransactionAttachmentAsync(
         Guid transactionId,
         Stream fileStream,
         string fileName,
@@ -1095,7 +1094,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var transactionExists = await _financeDbContext.ExternalAccountTransactions
+        var transactionExists = await _financeDbContext.AccountTransactions
             .AnyAsync(t => t.Id == transactionId && t.TenantId == tenantId, cancellationToken);
 
         if (!transactionExists)
@@ -1111,7 +1110,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             contentType,
             cancellationToken);
 
-        var attachment = new ExternalAccountTransactionAttachment
+        var attachment = new AccountTransactionAttachment
         {
             TenantId = tenantId,
             TransactionId = transactionId,
@@ -1124,19 +1123,19 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             Sha256 = uploadResult.Sha256
         };
 
-        _financeDbContext.ExternalAccountTransactionAttachments.Add(attachment);
+        _financeDbContext.AccountTransactionAttachments.Add(attachment);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
 
         return MapAttachmentToResponse(attachment);
     }
 
-    public async Task<IReadOnlyList<ExternalAccountTransactionAttachmentResponse>> ListTransactionAttachmentsAsync(
+    public async Task<IReadOnlyList<AccountTransactionAttachmentResponse>> ListTransactionAttachmentsAsync(
         Guid transactionId,
         CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var attachments = await _financeDbContext.ExternalAccountTransactionAttachments
+        var attachments = await _financeDbContext.AccountTransactionAttachments
             .AsNoTracking()
             .Where(a => a.TransactionId == transactionId && a.TenantId == tenantId)
             .OrderByDescending(a => a.CreatedAt)
@@ -1151,7 +1150,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        var attachment = await _financeDbContext.ExternalAccountTransactionAttachments
+        var attachment = await _financeDbContext.AccountTransactionAttachments
             .FirstOrDefaultAsync(a => a.Id == attachmentId && a.TenantId == tenantId, cancellationToken);
 
         if (attachment == null)
@@ -1168,14 +1167,14 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             // Best-effort blob deletion; entity removal is authoritative
         }
 
-        _financeDbContext.ExternalAccountTransactionAttachments.Remove(attachment);
+        _financeDbContext.AccountTransactionAttachments.Remove(attachment);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private ExternalAccountTransactionAttachmentResponse MapAttachmentToResponse(
-        ExternalAccountTransactionAttachment attachment)
+    private AccountTransactionAttachmentResponse MapAttachmentToResponse(
+        AccountTransactionAttachment attachment)
     {
-        return new ExternalAccountTransactionAttachmentResponse(
+        return new AccountTransactionAttachmentResponse(
             attachment.Id,
             attachment.FileName,
             attachment.ContentType,
@@ -1184,11 +1183,11 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             attachment.CreatedAt);
     }
 
-    private static ExternalAccountResponse MapExternalAccountToResponse(ExternalAccountResult result)
+    private static AccountResponse MapAccountToResponse(PartyAccountResult result)
     {
-        return new ExternalAccountResponse(
+        return new AccountResponse(
             result.Id,
-            result.ExternalAccountType,
+            result.AccountType,
             result.MaskedIdentifier,
             result.ProviderRef,
             result.VerificationStatus,
@@ -1198,7 +1197,7 @@ internal sealed class ExternalAccountLinkService : IExternalAccountLinkService
             result.UpdatedAt);
     }
 
-    private static string BuildAccountMetadataJson(CreateExternalAccountRequest request)
+    private static string BuildAccountMetadataJson(CreateAccountRequest request)
     {
         var metadata = new Dictionary<string, string?>();
         if (!string.IsNullOrWhiteSpace(request.Name))

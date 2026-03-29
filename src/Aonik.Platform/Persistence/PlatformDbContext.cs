@@ -45,7 +45,7 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<PartyConsent> PartyConsents { get; set; } = null!;
     public DbSet<PersonProfile> PersonProfiles { get; set; } = null!;
     public DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
-    public DbSet<ExternalAccount> ExternalAccounts { get; set; } = null!;
+    public DbSet<PartyAccount> PartyAccounts { get; set; } = null!;
     public DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
     public DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
     public DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
@@ -150,7 +150,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<PartyConsent>(modelBuilder, "PartyConsents");
         MapTable<PersonProfile>(modelBuilder, "PersonProfiles");
         MapTable<BusinessProfile>(modelBuilder, "BusinessProfiles");
-        MapTable<ExternalAccount>(modelBuilder, "ExternalAccounts");
+        MapTable<PartyAccount>(modelBuilder, "PartyAccounts");
         MapTable<PartyRoleAssignment>(modelBuilder, "PartyRoleAssignments");
         MapTable<PartyRelationship>(modelBuilder, "PartyRelationships");
         MapTable<NotificationPreference>(modelBuilder, "NotificationPreferences");

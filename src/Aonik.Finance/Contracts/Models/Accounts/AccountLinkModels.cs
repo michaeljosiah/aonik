@@ -1,21 +1,21 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Aonik.Finance.Contracts.Models.ExternalAccounts;
+namespace Aonik.Finance.Contracts.Models.Accounts;
 
-public record CreateExternalAccountLinkSessionRequest(
+public record CreateAccountLinkSessionRequest(
     string Provider,
     string Mode = "connect",
     Guid? ConnectionId = null,
     string? CountryCode = null,
     string? ClientName = null);
 
-public record ExchangeExternalAccountLinkSessionRequest(
+public record ExchangeAccountLinkSessionRequest(
     Guid SessionId,
     string TemporaryCode);
 
-public record ListExternalAccountTransactionsRequest(
-    Guid? ExternalAccountId = null,
+public record ListAccountTransactionsRequest(
+    Guid? AccountId = null,
     Guid? ConnectionId = null,
     string? ReconciliationStatus = null,
     DateTime? From = null,
@@ -23,7 +23,7 @@ public record ListExternalAccountTransactionsRequest(
     int PageNumber = 1,
     int PageSize = 50);
 
-public record ExternalAccountLinkSessionResponse(
+public record AccountLinkSessionResponse(
     Guid SessionId,
     string Provider,
     string ProviderDisplayName,
@@ -35,9 +35,9 @@ public record ExternalAccountLinkSessionResponse(
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 
-public record ExternalAccountLinkedAccountResponse(
+public record LinkedAccountResponse(
     Guid LinkedAccountId,
-    Guid ExternalAccountId,
+    Guid AccountId,
     string Name,
     string AccountType,
     string? AccountSubtype,
@@ -50,7 +50,7 @@ public record ExternalAccountLinkedAccountResponse(
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 
-public record ExternalAccountConnectionResponse(
+public record AccountConnectionResponse(
     Guid ConnectionId,
     string Provider,
     string ProviderDisplayName,
@@ -63,22 +63,22 @@ public record ExternalAccountConnectionResponse(
     string? LastSyncStatus,
     string? LastError,
     DateTime? DisconnectedAt,
-    IReadOnlyList<ExternalAccountLinkedAccountResponse> LinkedAccounts,
+    IReadOnlyList<LinkedAccountResponse> LinkedAccounts,
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 
-public record ExternalAccountLinkExchangeResponse(
+public record AccountLinkExchangeResponse(
     Guid SessionId,
-    ExternalAccountConnectionResponse Connection);
+    AccountConnectionResponse Connection);
 
-public record ExternalAccountLinkActionResponse(
+public record AccountLinkActionResponse(
     string Action,
-    ExternalAccountConnectionResponse Connection);
+    AccountConnectionResponse Connection);
 
-public record ExternalAccountTransactionResponse(
+public record AccountTransactionResponse(
     Guid TransactionId,
-    Guid ExternalAccountId,
-    Guid? ExternalAccountConnectionId,
+    Guid AccountId,
+    Guid? AccountConnectionId,
     DateTime OccurredAt,
     decimal Amount,
     string Currency,
@@ -94,7 +94,7 @@ public record ExternalAccountTransactionResponse(
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 
-public record ExternalAccountTransactionSyncResponse(
+public record AccountTransactionSyncResponse(
     Guid ConnectionId,
     int TransactionsAdded,
     int TransactionsUpdated,
@@ -104,7 +104,7 @@ public record ExternalAccountTransactionSyncResponse(
     string? NextCursor,
     DateTime SyncedAt);
 
-public record ExternalAccountLinkActionRequiredErrorResponse(
+public record AccountLinkActionRequiredErrorResponse(
     string Error,
     string Message,
     string RequiredAction,
@@ -113,9 +113,9 @@ public record ExternalAccountLinkActionRequiredErrorResponse(
     string Provider,
     string? ProviderErrorCode);
 
-public record ExternalAccountLinkWebhookResponse(string Status);
+public record AccountLinkWebhookResponse(string Status);
 
-public class PlaidExternalAccountWebhookRequest
+public class PlaidAccountWebhookRequest
 {
     [JsonPropertyName("webhook_type")]
     public string WebhookType { get; set; } = string.Empty;
@@ -130,13 +130,13 @@ public class PlaidExternalAccountWebhookRequest
     public string? Environment { get; set; }
 
     [JsonPropertyName("error")]
-    public PlaidExternalAccountWebhookError? Error { get; set; }
+    public PlaidAccountWebhookError? Error { get; set; }
 
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? AdditionalData { get; set; }
 }
 
-public class PlaidExternalAccountWebhookError
+public class PlaidAccountWebhookError
 {
     [JsonPropertyName("error_type")]
     public string? ErrorType { get; set; }
@@ -153,18 +153,18 @@ public class PlaidExternalAccountWebhookError
 
 // ── Manual Account CRUD ──────────────────────────────────────────
 
-public record CreateExternalAccountRequest(
+public record CreateAccountRequest(
     string Name,
-    string ExternalAccountType,
+    string AccountType,
     string Currency,
     string? Country,
     string? InstitutionName,
     string? Last4,
     string? Notes);
 
-public record ExternalAccountResponse(
-    Guid ExternalAccountId,
-    string ExternalAccountType,
+public record AccountResponse(
+    Guid AccountId,
+    string AccountType,
     string MaskedIdentifier,
     string? ProviderRef,
     string VerificationStatus,
@@ -175,8 +175,8 @@ public record ExternalAccountResponse(
 
 // ── Manual Transaction CRUD ──────────────────────────────────────
 
-public record CreateExternalAccountTransactionRequest(
-    Guid ExternalAccountId,
+public record CreateAccountTransactionRequest(
+    Guid AccountId,
     DateTime OccurredAt,
     decimal Amount,
     string Currency,
@@ -188,7 +188,7 @@ public record CreateExternalAccountTransactionRequest(
 
 // ── Transaction Attachments ──────────────────────────────────────
 
-public record ExternalAccountTransactionAttachmentResponse(
+public record AccountTransactionAttachmentResponse(
     Guid AttachmentId,
     string FileName,
     string ContentType,

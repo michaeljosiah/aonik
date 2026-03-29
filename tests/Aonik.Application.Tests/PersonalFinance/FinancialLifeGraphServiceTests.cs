@@ -187,7 +187,7 @@ public class FinancialLifeGraphServiceTests
             Currency = "USD",
             Status = "Active"
         });
-        context.FinancialLinkedAccounts.Add(new FinancialLinkedAccount
+        context.PersonalLinkedAccounts.Add(new PersonalLinkedAccount
         {
             Id = linkedAccountId,
             TenantId = tenantId,

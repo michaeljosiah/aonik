@@ -176,9 +176,9 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             var parentAccountNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalAccount, linkedAccount.PersonalAccountId);
             nodes.Add(new FinancialLifeGraphNodeResponse(
                 linkedAccountNodeId,
-                FinancialLifeGraphNodeTypes.FinancialLinkedAccount,
+                FinancialLifeGraphNodeTypes.PersonalLinkedAccount,
                 linkedAccount.Name,
-                nameof(FinancialLinkedAccount),
+                nameof(PersonalLinkedAccount),
                 linkedAccount.Id,
                 FinancialLifeGraphFormatting.SerializeMetadata(new
                 {
@@ -480,7 +480,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         var sourceCoverage = new List<FinancialLifeGraphSourceCoverageItemResponse>
         {
             new(FinancialLifeGraphNodeTypes.PersonalAccount, snapshot.Accounts.Count),
-            new(FinancialLifeGraphNodeTypes.FinancialLinkedAccount, snapshot.LinkedAccounts.Count),
+            new(FinancialLifeGraphNodeTypes.PersonalLinkedAccount, snapshot.LinkedAccounts.Count),
             new(FinancialLifeGraphNodeTypes.PersonalTransaction, snapshot.Transactions.Count),
             new(FinancialLifeGraphNodeTypes.Bill, snapshot.Bills.Count),
             new(FinancialLifeGraphNodeTypes.Goal, snapshot.Goals.Count),

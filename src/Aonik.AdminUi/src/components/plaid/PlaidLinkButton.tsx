@@ -2,11 +2,11 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
 import { Button } from '@/components/ui/button';
 import { Landmark, Loader2 } from 'lucide-react';
-import { externalAccountService } from '@/services/externalAccountService';
-import type { ExternalAccountLinkExchangeResponse } from '@/types';
+import { accountService } from '@/services/accountService';
+import type { AccountLinkExchangeResponse } from '@/types';
 
 interface PlaidLinkButtonProps {
-  onSuccess: (result: ExternalAccountLinkExchangeResponse) => void;
+  onSuccess: (result: AccountLinkExchangeResponse) => void;
   onError?: (error: string) => void;
   className?: string;
   children?: React.ReactNode;
@@ -23,7 +23,7 @@ export function PlaidLinkButton({ onSuccess, onError, className, children }: Pla
       if (!sessionId) return;
       try {
         setLoading(true);
-        const result = await externalAccountService.exchangeSession({
+        const result = await accountService.exchangeSession({
           sessionId,
           temporaryCode: publicToken,
         });
@@ -66,7 +66,7 @@ export function PlaidLinkButton({ onSuccess, onError, className, children }: Pla
     try {
       setLoading(true);
       openedRef.current = false;
-      const session = await externalAccountService.createSession({ provider: 'Plaid' });
+      const session = await accountService.createSession({ provider: 'Plaid' });
       setLinkToken(session.launchToken);
       setSessionId(session.sessionId);
     } catch (err: unknown) {

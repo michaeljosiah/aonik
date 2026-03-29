@@ -1,11 +1,11 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.ExternalAccounts;
+namespace Aonik.Finance.Entities.Accounts;
 
 /// <summary>
-/// A file (receipt, statement, document) attached to an external account transaction.
+/// A file (receipt, statement, document) attached to an account transaction.
 /// </summary>
-public class ExternalAccountTransactionAttachment : AuditableEntity, ITenantScoped
+public class AccountTransactionAttachment : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid TransactionId { get; set; }

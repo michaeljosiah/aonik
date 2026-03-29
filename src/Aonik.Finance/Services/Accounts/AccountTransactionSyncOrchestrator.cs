@@ -1,31 +1,31 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using Aonik.Finance.Contracts.Models.ExternalAccounts;
+using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Finance.Services.ExternalAccounts;
+namespace Aonik.Finance.Services.Accounts;
 
-internal sealed class ExternalAccountTransactionSyncOrchestrator
+internal sealed class AccountTransactionSyncOrchestrator
 {
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantContext _tenantContext;
     private readonly IEnumerable<IPersonalAccountLinkProviderGateway> _providerGateways;
-    private readonly ExternalAccountConnectionSyncOptions _options;
-    private readonly ILogger<ExternalAccountTransactionSyncOrchestrator> _logger;
+    private readonly AccountConnectionSyncOptions _options;
+    private readonly ILogger<AccountTransactionSyncOrchestrator> _logger;
 
-    public ExternalAccountTransactionSyncOrchestrator(
+    public AccountTransactionSyncOrchestrator(
         FinanceDbContext financeDbContext,
         ITenantContext tenantContext,
         IEnumerable<IPersonalAccountLinkProviderGateway> providerGateways,
-        IOptions<ExternalAccountConnectionSyncOptions> options,
-        ILogger<ExternalAccountTransactionSyncOrchestrator> logger)
+        IOptions<AccountConnectionSyncOptions> options,
+        ILogger<AccountTransactionSyncOrchestrator> logger)
     {
         _financeDbContext = financeDbContext;
         _tenantContext = tenantContext;
@@ -34,7 +34,7 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
         _logger = logger;
     }
 
-    public async Task<ExternalAccountTransactionSyncResponse?> SyncConnectionTransactionsAsync(
+    public async Task<AccountTransactionSyncResponse?> SyncConnectionTransactionsAsync(
         Guid tenantId,
         Guid connectionId,
         string trigger,
@@ -42,16 +42,16 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
     {
         var originalTenantId = _tenantContext.TenantId;
         var originalResolutionSource = _tenantContext.ResolutionSource;
-        ExternalAccountConnection? connection = null;
+        AccountConnection? connection = null;
 
         try
         {
             _tenantContext.TenantId = tenantId;
-            _tenantContext.ResolutionSource = $"ExternalAccountSync:{trigger}";
+            _tenantContext.ResolutionSource = $"AccountSync:{trigger}";
 
             var utcNow = DateTime.UtcNow;
 
-            connection = await _financeDbContext.ExternalAccountConnections
+            connection = await _financeDbContext.AccountConnections
                 .FirstOrDefaultAsync(
                     item => item.Id == connectionId
                         && item.TenantId == tenantId,
@@ -73,9 +73,9 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
                 throw new InvalidOperationException("Reconnect this account link before syncing transactions.");
             }
 
-            var linkedAccounts = await _financeDbContext.ExternalAccountLinkedAccounts
+            var linkedAccounts = await _financeDbContext.Accounts
                 .Where(item => item.TenantId == tenantId
-                    && item.ExternalAccountConnectionId == connection.Id)
+                    && item.AccountConnectionId == connection.Id)
                 .OrderBy(item => item.Name)
                 .ToListAsync(cancellationToken);
 
@@ -108,7 +108,7 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
 
                 await _financeDbContext.SaveChangesAsync(cancellationToken);
 
-                return new ExternalAccountTransactionSyncResponse(
+                return new AccountTransactionSyncResponse(
                     connection.Id, 0, 0, 0, 0,
                     syncResult.SyncStatus,
                     connection.SyncCursor,
@@ -136,10 +136,10 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
                 .ToList();
 
             var existingTransactionsByRef = providerTransactionRefs.Count == 0
-                ? new Dictionary<string, ExternalAccountTransaction>()
-                : await _financeDbContext.ExternalAccountTransactions
+                ? new Dictionary<string, AccountTransaction>()
+                : await _financeDbContext.AccountTransactions
                     .Where(item => item.TenantId == tenantId
-                        && item.ExternalAccountConnectionId == connection.Id
+                        && item.AccountConnectionId == connection.Id
                         && providerTransactionRefs.Contains(item.ProviderTransactionReference))
                     .ToDictionaryAsync(item => item.ProviderTransactionReference, cancellationToken);
 
@@ -157,23 +157,23 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
 
                 if (!existingTransactionsByRef.TryGetValue(providerTransaction.ProviderTransactionReference, out var transaction))
                 {
-                    transaction = new ExternalAccountTransaction
+                    transaction = new AccountTransaction
                     {
                         TenantId = tenantId,
-                        ExternalAccountId = linkedAccount.ExternalAccountId,
-                        ExternalAccountConnectionId = connection.Id,
+                        AccountId = linkedAccount.Id,
+                        AccountConnectionId = connection.Id,
                         ProviderTransactionReference = providerTransaction.ProviderTransactionReference,
                         ReconciliationStatus = "Unmatched"
                     };
 
                     ApplyProviderTransaction(transaction, providerTransaction);
-                    _financeDbContext.ExternalAccountTransactions.Add(transaction);
+                    _financeDbContext.AccountTransactions.Add(transaction);
                     existingTransactionsByRef[providerTransaction.ProviderTransactionReference] = transaction;
                     added += 1;
                     continue;
                 }
 
-                transaction.ExternalAccountId = linkedAccount.ExternalAccountId;
+                transaction.AccountId = linkedAccount.Id;
                 ApplyProviderTransaction(transaction, providerTransaction);
                 updated += 1;
             }
@@ -183,22 +183,22 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
             {
                 var removedRefs = syncResult.RemovedTransactionReferences.Distinct().ToList();
 
-                var existingRemovedTransactions = await _financeDbContext.ExternalAccountTransactions
+                var existingRemovedTransactions = await _financeDbContext.AccountTransactions
                     .Where(item => item.TenantId == tenantId
-                        && item.ExternalAccountConnectionId == connection.Id
+                        && item.AccountConnectionId == connection.Id
                         && removedRefs.Contains(item.ProviderTransactionReference))
                     .ToListAsync(cancellationToken);
 
                 if (existingRemovedTransactions.Count > 0)
                 {
-                    _financeDbContext.ExternalAccountTransactions.RemoveRange(existingRemovedTransactions);
+                    _financeDbContext.AccountTransactions.RemoveRange(existingRemovedTransactions);
                     removed = existingRemovedTransactions.Count;
                 }
             }
 
             await _financeDbContext.SaveChangesAsync(cancellationToken);
 
-            return new ExternalAccountTransactionSyncResponse(
+            return new AccountTransactionSyncResponse(
                 connection.Id,
                 added,
                 updated,
@@ -212,7 +212,7 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
         {
             _logger.LogWarning(
                 ex,
-                "External account transaction sync failed for connection {ConnectionId} via {Trigger}.",
+                "Account transaction sync failed for connection {ConnectionId} via {Trigger}.",
                 connectionId,
                 trigger);
 
@@ -230,7 +230,7 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
     }
 
     private static void ApplyProviderTransaction(
-        ExternalAccountTransaction transaction,
+        AccountTransaction transaction,
         AccountLinkProviderTransactionResult providerTransaction)
     {
         transaction.OccurredAt = providerTransaction.OccurredAt;
@@ -243,8 +243,8 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
     }
 
     private static void ApplyActionRequiredState(
-        ExternalAccountConnection connection,
-        IReadOnlyList<ExternalAccountLinkedAccount> linkedAccounts,
+        AccountConnection connection,
+        IReadOnlyList<Account> linkedAccounts,
         string syncStatus,
         string message)
     {
@@ -270,7 +270,7 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
         return gateway ?? throw new ArgumentException($"Unsupported account-link provider '{provider}'.", nameof(provider));
     }
 
-    private DateTime? ComputeNextSyncAt(ExternalAccountConnection connection, DateTime syncedAt)
+    private DateTime? ComputeNextSyncAt(AccountConnection connection, DateTime syncedAt)
     {
         if (!_options.EnableRecurringSync || !connection.AutoSyncEnabled)
         {
@@ -284,7 +284,7 @@ internal sealed class ExternalAccountTransactionSyncOrchestrator
         return syncedAt.AddMinutes(intervalMinutes);
     }
 
-    private DateTime? ComputeFailureRetryAt(ExternalAccountConnection connection, DateTime utcNow)
+    private DateTime? ComputeFailureRetryAt(AccountConnection connection, DateTime utcNow)
     {
         if (!_options.EnableRecurringSync || !connection.AutoSyncEnabled)
         {

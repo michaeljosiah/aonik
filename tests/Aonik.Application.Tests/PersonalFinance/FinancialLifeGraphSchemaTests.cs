@@ -68,7 +68,7 @@ public class FinancialLifeGraphSchemaTests
             "Household",
             "Party",
             "PersonalAccount",
-            "FinancialLinkedAccount",
+            "PersonalLinkedAccount",
             "PersonalTransaction",
             "Bill",
             "Goal",

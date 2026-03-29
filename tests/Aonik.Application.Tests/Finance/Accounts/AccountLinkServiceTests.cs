@@ -1,10 +1,10 @@
-using Aonik.Finance.Contracts.Models.ExternalAccounts;
-using Aonik.Finance.Contracts.Services.ExternalAccounts;
+using Aonik.Finance.Contracts.Models.Accounts;
+using Aonik.Finance.Contracts.Services.Accounts;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities;
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.Finance.Persistence;
-using Aonik.Finance.Services.ExternalAccounts;
+using Aonik.Finance.Services.Accounts;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Storage;
@@ -13,9 +13,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
-namespace Aonik.Application.Tests.Finance.ExternalAccounts;
+namespace Aonik.Application.Tests.Finance.Accounts;
 
-public class ExternalAccountLinkServiceTests
+public class AccountLinkServiceTests
 {
     private static readonly Guid TestTenantId = Guid.NewGuid();
     private static readonly Guid TestUserId = Guid.NewGuid();
@@ -64,26 +64,26 @@ public class ExternalAccountLinkServiceTests
         public bool IsResolved => TenantId.HasValue;
     }
 
-    private sealed class FakeExternalAccountService : IExternalAccountService
+    private sealed class FakePartyAccountService : IPartyAccountService
     {
         private readonly Guid _partyId;
         private readonly Dictionary<string, Guid> _accounts = new();
-        private readonly List<ExternalAccountResult> _createdAccounts = new();
+        private readonly List<PartyAccountResult> _createdAccounts = new();
 
-        public FakeExternalAccountService(Guid partyId)
+        public FakePartyAccountService(Guid partyId)
         {
             _partyId = partyId;
         }
 
-        public Task<Guid> FindOrCreateExternalAccountAsync(
+        public Task<Guid> FindOrCreatePartyAccountAsync(
             Guid tenantId,
             Guid partyId,
-            string externalAccountType,
+            string accountType,
             string maskedIdentifier,
             string? providerRef,
             CancellationToken cancellationToken = default)
         {
-            var key = $"{tenantId}:{partyId}:{externalAccountType}:{maskedIdentifier}";
+            var key = $"{tenantId}:{partyId}:{accountType}:{maskedIdentifier}";
             if (!_accounts.TryGetValue(key, out var id))
             {
                 id = Guid.NewGuid();
@@ -92,14 +92,14 @@ public class ExternalAccountLinkServiceTests
             return Task.FromResult(id);
         }
 
-        public Task<ExternalAccountResult> CreateExternalAccountAsync(
-            Guid tenantId, Guid partyId, string externalAccountType,
+        public Task<PartyAccountResult> CreatePartyAccountAsync(
+            Guid tenantId, Guid partyId, string accountType,
             string maskedIdentifier, string? providerRef, string verificationStatus,
             string? currency, string? country,
             string? metadataJson, CancellationToken cancellationToken = default)
         {
-            var result = new ExternalAccountResult(
-                Guid.NewGuid(), tenantId, partyId, externalAccountType,
+            var result = new PartyAccountResult(
+                Guid.NewGuid(), tenantId, partyId, accountType,
                 maskedIdentifier, providerRef, verificationStatus,
                 currency, country,
                 metadataJson ?? "{}", DateTime.UtcNow, null);
@@ -107,14 +107,14 @@ public class ExternalAccountLinkServiceTests
             return Task.FromResult(result);
         }
 
-        public Task<IReadOnlyList<ExternalAccountResult>> ListExternalAccountsAsync(
+        public Task<IReadOnlyList<PartyAccountResult>> ListPartyAccountsAsync(
             Guid tenantId, CancellationToken cancellationToken = default)
         {
             var results = _createdAccounts.Where(a => a.TenantId == tenantId).ToList();
-            return Task.FromResult<IReadOnlyList<ExternalAccountResult>>(results);
+            return Task.FromResult<IReadOnlyList<PartyAccountResult>>(results);
         }
 
-        public Task<ExternalAccountResult?> GetExternalAccountAsync(
+        public Task<PartyAccountResult?> GetPartyAccountAsync(
             Guid tenantId, Guid accountId, CancellationToken cancellationToken = default)
         {
             var result = _createdAccounts.FirstOrDefault(a => a.Id == accountId && a.TenantId == tenantId);
@@ -240,7 +240,7 @@ public class ExternalAccountLinkServiceTests
         return new FinanceDbContext(options, new TestTenantProvider(tenantId));
     }
 
-    private static ExternalAccountLinkService CreateService(
+    private static AccountLinkService CreateService(
         FinanceDbContext context,
         Guid tenantId,
         Guid userId,
@@ -249,31 +249,31 @@ public class ExternalAccountLinkServiceTests
     {
         gateway ??= new FakeAccountLinkProviderGateway();
 
-        var syncOptions = Microsoft.Extensions.Options.Options.Create(new ExternalAccountConnectionSyncOptions
+        var syncOptions = Microsoft.Extensions.Options.Options.Create(new AccountConnectionSyncOptions
         {
             EnableRecurringSync = true,
             DefaultSyncIntervalMinutes = 60,
             FailureRetryDelayMinutes = 5
         });
 
-        var orchestrator = new ExternalAccountTransactionSyncOrchestrator(
+        var orchestrator = new AccountTransactionSyncOrchestrator(
             context,
             tenantContext,
             new[] { gateway },
             syncOptions,
-            NullLogger<ExternalAccountTransactionSyncOrchestrator>.Instance);
+            NullLogger<AccountTransactionSyncOrchestrator>.Instance);
 
-        return new ExternalAccountLinkService(
+        return new AccountLinkService(
             context,
             new TestTenantProvider(tenantId),
             tenantContext,
             new TestCurrentUserProvider(userId),
             new[] { gateway },
             orchestrator,
-            new FakeExternalAccountService(TestPartyId),
+            new FakePartyAccountService(TestPartyId),
             new FakeFileStore(),
             syncOptions,
-            NullLogger<ExternalAccountLinkService>.Instance);
+            NullLogger<AccountLinkService>.Instance);
     }
 
     private static async Task SeedTenantParty(FinanceDbContext context, Guid tenantId)
@@ -298,7 +298,7 @@ public class ExternalAccountLinkServiceTests
 
         // Act
         var response = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
 
         // Assert
         response.Should().NotBeNull();
@@ -319,11 +319,11 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
 
         // Act
         var response = await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
 
         // Assert
         response.Should().NotBeNull();
@@ -345,17 +345,17 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
 
         // Manually expire the session
-        var sessionEntity = await context.ExternalAccountConnectionSessions
+        var sessionEntity = await context.AccountConnectionSessions
             .FirstAsync(s => s.Id == session.SessionId);
         sessionEntity.ExpiresAt = DateTime.UtcNow.AddMinutes(-5);
         await context.SaveChangesAsync();
 
         // Act
         var act = () => service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -372,13 +372,13 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
         await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
 
         // Act
         var act = () => service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -395,9 +395,9 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
         await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
 
         // Act
         var connections = await service.ListConnectionsAsync();
@@ -418,9 +418,9 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
         var connectionId = exchange.Connection.ConnectionId;
 
         // Act
@@ -442,9 +442,9 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
 
         // Act — the initial sync during exchange already created transactions,
         // so a second sync will update (not add) them. Either way, verify
@@ -455,7 +455,7 @@ public class ExternalAccountLinkServiceTests
         syncResult.Should().NotBeNull();
         (syncResult!.TransactionsAdded + syncResult.TransactionsUpdated).Should().BeGreaterThan(0);
 
-        var transactions = await context.ExternalAccountTransactions
+        var transactions = await context.AccountTransactions
             .Where(t => t.TenantId == TestTenantId)
             .ToListAsync();
 
@@ -473,14 +473,14 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-test1234"));
         await service.SyncConnectionTransactionsAsync(exchange.Connection.ConnectionId);
 
         // Act
         var result = await service.ListTransactionsAsync(
-            new ListExternalAccountTransactionsRequest(
+            new ListAccountTransactionsRequest(
                 ConnectionId: exchange.Connection.ConnectionId));
 
         // Assert
@@ -492,7 +492,7 @@ public class ExternalAccountLinkServiceTests
     // ── Manual Account CRUD Tests ────────────────────────────────
 
     [Fact]
-    public async Task CreateAccountAsync_Should_CreateExternalAccount()
+    public async Task CreateAccountAsync_Should_CreateAccount()
     {
         // Arrange
         await using var context = CreateDbContext(TestTenantId);
@@ -502,11 +502,11 @@ public class ExternalAccountLinkServiceTests
 
         // Act
         var response = await service.CreateAccountAsync(
-            new CreateExternalAccountRequest("GTBank Naira", "BankAccount", "NGN", "GTBank", "1234", null));
+            new CreateAccountRequest("GTBank Naira", "BankAccount", "NGN", null, "GTBank", "1234", null));
 
         // Assert
         response.Should().NotBeNull();
-        response.ExternalAccountType.Should().Be("BankAccount");
+        response.AccountType.Should().Be("BankAccount");
         response.VerificationStatus.Should().Be("Manual");
     }
 
@@ -520,9 +520,9 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         await service.CreateAccountAsync(
-            new CreateExternalAccountRequest("Account A", "BankAccount", "USD", null, null, null));
+            new CreateAccountRequest("Account A", "BankAccount", "USD", null, null, null, null));
         await service.CreateAccountAsync(
-            new CreateExternalAccountRequest("Account B", "CreditCard", "GBP", null, null, null));
+            new CreateAccountRequest("Account B", "CreditCard", "GBP", null, null, null, null));
 
         // Act
         var accounts = await service.ListAccountsAsync();
@@ -543,25 +543,12 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var account = await service.CreateAccountAsync(
-            new CreateExternalAccountRequest("Test Account", "BankAccount", "USD", null, null, null));
-
-        // Seed the ExternalAccountReadModel so the transaction creation can verify it
-        context.ExternalAccountReadModels.Add(new ExternalAccountReadModel
-        {
-            Id = account.ExternalAccountId,
-            TenantId = TestTenantId,
-            PartyId = TestPartyId,
-            ExternalAccountType = "BankAccount",
-            MaskedIdentifier = "Test Account",
-            VerificationStatus = "Manual",
-            MetadataJson = "{}"
-        });
-        await context.SaveChangesAsync();
+            new CreateAccountRequest("Test Account", "BankAccount", "USD", null, null, null, null));
 
         // Act
         var transaction = await service.CreateTransactionAsync(
-            new CreateExternalAccountTransactionRequest(
-                account.ExternalAccountId,
+            new CreateAccountTransactionRequest(
+                account.AccountId,
                 DateTime.UtcNow.Date,
                 -500.00m,
                 "USD",
@@ -576,7 +563,7 @@ public class ExternalAccountLinkServiceTests
         transaction.Amount.Should().Be(-500.00m);
         transaction.Counterparty.Should().Be("Office Supplies Inc");
         transaction.ReconciliationStatus.Should().Be("Unmatched");
-        transaction.ExternalAccountConnectionId.Should().BeNull();
+        transaction.AccountConnectionId.Should().BeNull();
     }
 
     [Fact]
@@ -590,7 +577,7 @@ public class ExternalAccountLinkServiceTests
 
         // Act
         var act = () => service.CreateTransactionAsync(
-            new CreateExternalAccountTransactionRequest(
+            new CreateAccountTransactionRequest(
                 Guid.NewGuid(),
                 DateTime.UtcNow.Date,
                 -100m,
@@ -615,11 +602,11 @@ public class ExternalAccountLinkServiceTests
 
         // Create a transaction to attach to (via Plaid flow for simplicity)
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-attach"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-attach"));
 
-        var transactions = await context.ExternalAccountTransactions
+        var transactions = await context.AccountTransactions
             .Where(t => t.TenantId == TestTenantId)
             .ToListAsync();
 
@@ -648,11 +635,11 @@ public class ExternalAccountLinkServiceTests
         var service = CreateService(context, TestTenantId, TestUserId, tenantContext);
 
         var session = await service.CreateSessionAsync(
-            new CreateExternalAccountLinkSessionRequest("Plaid"));
+            new CreateAccountLinkSessionRequest("Plaid"));
         var exchange = await service.ExchangeSessionAsync(
-            new ExchangeExternalAccountLinkSessionRequest(session.SessionId, "public-sandbox-del"));
+            new ExchangeAccountLinkSessionRequest(session.SessionId, "public-sandbox-del"));
 
-        var transactions = await context.ExternalAccountTransactions
+        var transactions = await context.AccountTransactions
             .Where(t => t.TenantId == TestTenantId)
             .ToListAsync();
         var transactionId = transactions.First().Id;

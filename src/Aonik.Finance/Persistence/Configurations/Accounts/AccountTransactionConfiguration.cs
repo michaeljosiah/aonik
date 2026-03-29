@@ -1,15 +1,15 @@
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.ExternalAccounts;
+namespace Aonik.Finance.Persistence.Configurations.Accounts;
 
-internal class ExternalAccountTransactionConfiguration : IEntityTypeConfiguration<ExternalAccountTransaction>
+internal class AccountTransactionConfiguration : IEntityTypeConfiguration<AccountTransaction>
 {
-    public void Configure(EntityTypeBuilder<ExternalAccountTransaction> builder)
+    public void Configure(EntityTypeBuilder<AccountTransaction> builder)
     {
-        builder.ToTable("ExternalAccountTransactions", SchemaNames.Default);
+        builder.ToTable("AccountTransactions", SchemaNames.Default);
 
         builder.HasKey(x => x.Id);
 
@@ -43,20 +43,20 @@ internal class ExternalAccountTransactionConfiguration : IEntityTypeConfiguratio
         builder.Property(x => x.Notes)
             .HasMaxLength(1000);
 
-        builder.HasIndex(x => new { x.TenantId, x.ExternalAccountConnectionId, x.ProviderTransactionReference })
+        builder.HasIndex(x => new { x.TenantId, x.AccountConnectionId, x.ProviderTransactionReference })
             .IsUnique()
-            .HasFilter("[ExternalAccountConnectionId] IS NOT NULL");
+            .HasFilter("[AccountConnectionId] IS NOT NULL");
 
-        builder.HasIndex(x => new { x.TenantId, x.ExternalAccountId, x.ProviderTransactionReference })
+        builder.HasIndex(x => new { x.TenantId, x.AccountId, x.ProviderTransactionReference })
             .IsUnique()
-            .HasFilter("[ExternalAccountConnectionId] IS NULL");
+            .HasFilter("[AccountConnectionId] IS NULL");
 
-        builder.HasIndex(x => new { x.TenantId, x.ExternalAccountId, x.OccurredAt });
+        builder.HasIndex(x => new { x.TenantId, x.AccountId, x.OccurredAt });
         builder.HasIndex(x => new { x.TenantId, x.ReconciliationStatus });
 
-        builder.HasOne<ExternalAccountConnection>()
+        builder.HasOne<AccountConnection>()
             .WithMany()
-            .HasForeignKey(x => x.ExternalAccountConnectionId)
+            .HasForeignKey(x => x.AccountConnectionId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.SetNull);
     }

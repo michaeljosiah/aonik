@@ -1,15 +1,15 @@
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.ExternalAccounts;
+namespace Aonik.Finance.Persistence.Configurations.Accounts;
 
-internal class ExternalAccountConnectionSessionConfiguration : IEntityTypeConfiguration<ExternalAccountConnectionSession>
+internal class AccountConnectionSessionConfiguration : IEntityTypeConfiguration<AccountConnectionSession>
 {
-    public void Configure(EntityTypeBuilder<ExternalAccountConnectionSession> builder)
+    public void Configure(EntityTypeBuilder<AccountConnectionSession> builder)
     {
-        builder.ToTable("ExternalAccountConnectionSessions", SchemaNames.Default);
+        builder.ToTable("AccountConnectionSessions", SchemaNames.Default);
 
         builder.HasKey(x => x.Id);
 
@@ -32,7 +32,7 @@ internal class ExternalAccountConnectionSessionConfiguration : IEntityTypeConfig
             .IsRequired()
             .HasMaxLength(50);
 
-        builder.HasIndex(x => x.ExternalAccountConnectionId);
+        builder.HasIndex(x => x.AccountConnectionId);
 
         builder.HasIndex(x => x.SessionToken)
             .IsUnique();

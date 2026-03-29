@@ -18,9 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { externalAccountService } from '@/services/externalAccountService';
+import { accountService } from '@/services/accountService';
 import { catalogService } from '@/services/catalogService';
-import type { CreateExternalAccountRequest, CatalogCountryItem, CatalogCurrencyItem } from '@/types';
+import type { CreateAccountRequest, CatalogCountryItem, CatalogCurrencyItem } from '@/types';
 
 interface CreateAccountDialogProps {
   open: boolean;
@@ -37,9 +37,9 @@ const accountTypes = [
   'Other',
 ] as const;
 
-const createEmptyForm = (): CreateExternalAccountRequest => ({
+const createEmptyForm = (): CreateAccountRequest => ({
   name: '',
-  externalAccountType: '',
+  accountType: '',
   currency: '',
   country: null,
   institutionName: null,
@@ -51,7 +51,7 @@ const fieldClassName =
   'flex h-10 w-full rounded-none border border-[var(--color-form-field-border)] bg-[var(--color-form-field-bg)] px-3 py-2 text-sm leading-5 text-[var(--color-form-field-text)] placeholder:text-[var(--color-form-field-placeholder)] focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[var(--color-form-field-border-focus)]';
 
 export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAccountDialogProps) {
-  const [formData, setFormData] = useState<CreateExternalAccountRequest>(() => createEmptyForm());
+  const [formData, setFormData] = useState<CreateAccountRequest>(() => createEmptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countries, setCountries] = useState<CatalogCountryItem[]>([]);
@@ -65,10 +65,10 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
 
   const isValid = useMemo(() => {
     if (!formData.name.trim()) return false;
-    if (!formData.externalAccountType) return false;
+    if (!formData.accountType) return false;
     if (!formData.currency) return false;
     return true;
-  }, [formData.name, formData.externalAccountType, formData.currency]);
+  }, [formData.name, formData.accountType, formData.currency]);
 
   const resetForm = () => {
     setFormData(createEmptyForm());
@@ -87,7 +87,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
     setSaving(true);
     setError(null);
     try {
-      const payload: CreateExternalAccountRequest = {
+      const payload: CreateAccountRequest = {
         ...formData,
         currency: formData.currency.trim().toUpperCase(),
         country: formData.country?.trim().toUpperCase() || null,
@@ -95,7 +95,7 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
         last4: formData.last4?.trim() || null,
         notes: formData.notes?.trim() || null,
       };
-      await externalAccountService.createAccount(payload);
+      await accountService.createAccount(payload);
       toast.success('Account created successfully.');
       onSuccess();
       handleClose(false);
@@ -111,9 +111,9 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
     }
   };
 
-  const updateField = <K extends keyof CreateExternalAccountRequest>(
+  const updateField = <K extends keyof CreateAccountRequest>(
     field: K,
-    value: CreateExternalAccountRequest[K]
+    value: CreateAccountRequest[K]
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -122,9 +122,9 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add External Account</DialogTitle>
+          <DialogTitle>Add Account</DialogTitle>
           <DialogDescription>
-            Manually create an external account (not linked via a provider).
+            Manually create an account (not linked via a provider).
           </DialogDescription>
         </DialogHeader>
 
@@ -147,8 +147,8 @@ export function CreateAccountDialog({ open, onOpenChange, onSuccess }: CreateAcc
               Account Type <span className="text-[var(--color-error)]">*</span>
             </label>
             <Select
-              value={formData.externalAccountType}
-              onValueChange={(value) => updateField('externalAccountType', value)}
+              value={formData.accountType}
+              onValueChange={(value) => updateField('accountType', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select account type" />

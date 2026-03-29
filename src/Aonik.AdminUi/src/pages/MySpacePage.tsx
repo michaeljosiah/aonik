@@ -1,23 +1,23 @@
 import { useNavigate } from 'react-router-dom';
+import { BarChart3 } from 'lucide-react';
 import {
   ActivityFeed,
   BannerCarousel,
   QuickLinks,
-  AppCard,
   AgentCard,
   DataboxesTable,
-  MyAppsHeader,
+  SectionHeader,
   MyAgentsHeader,
+  FinancialSnapshotCard,
 } from '@/components/dashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   activityFeed,
   quickLinks,
-  myApps,
   myAgents,
   myDataboxes,
+  myFinancialSnapshots,
 } from '@/data/mockData';
-import { getWorkspacePanelForApp } from '@/workspace/registry';
 
 export function MySpacePage() {
   const navigate = useNavigate();
@@ -26,12 +26,6 @@ export function MySpacePage() {
     { src: '/images/banners/myspace-default-02.png', alt: 'Banner placeholder' },
     { src: '/images/banners/myspace-default-03.png', alt: 'Banner placeholder' },
   ];
-
-  const handleLaunchApp = (appId: string) => {
-    const panel = getWorkspacePanelForApp(appId);
-    if (!panel) return;
-    navigate(`/workspace?panel=${panel.id}`);
-  };
 
   const handleChatAgent = (agentId: string) => {
     void agentId;
@@ -67,12 +61,16 @@ export function MySpacePage() {
         </div>
 
         <div className="mb-6">
-            <Card className="shadow-sm rounded-[4px]">
-              <CardContent className="p-5">
-                <MyAppsHeader />
-              <div className="grid grid-cols-1 gap-5 pt-2 mt-1 pb-4 md:grid-cols-2 xl:grid-cols-4">
-                {myApps.map((app) => (
-                  <AppCard key={app.id} app={app} onLaunch={handleLaunchApp} />
+          <Card className="shadow-sm rounded-[4px]">
+            <CardContent className="p-5">
+              <SectionHeader
+                icon={<BarChart3 className="w-6 h-6 text-white" />}
+                title="Financial snapshot"
+                description="Key metrics and insights on how your business is performing."
+              />
+              <div className="grid grid-cols-1 gap-5 pt-2 mt-1 pb-4 md:grid-cols-2 xl:grid-cols-3">
+                {myFinancialSnapshots.map((card) => (
+                  <FinancialSnapshotCard key={card.id} card={card} />
                 ))}
               </div>
             </CardContent>

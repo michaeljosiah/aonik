@@ -85,7 +85,7 @@ internal static class ProviderTransactionMapper
     /// </summary>
     public static void ApplyActionRequiredState(
         FinancialConnection connection,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalLinkedAccount> linkedAccounts,
         IReadOnlyList<PersonalAccount> personalAccounts,
         string syncStatus,
         string message)
@@ -115,7 +115,7 @@ internal static class ProviderTransactionMapper
     /// </summary>
     public static void ApplyConnectedPersonalAccountState(
         PersonalAccount personalAccount,
-        FinancialLinkedAccount? linkedAccount,
+        PersonalLinkedAccount? linkedAccount,
         DateTime? previousDisconnectedAt,
         string connectedStatus = "Connected")
     {
@@ -141,7 +141,7 @@ internal static class ProviderTransactionMapper
     /// </summary>
     public static bool ShouldRestoreArchivedPersonalAccount(
         PersonalAccount personalAccount,
-        FinancialLinkedAccount? linkedAccount,
+        PersonalLinkedAccount? linkedAccount,
         DateTime? previousDisconnectedAt)
     {
         return personalAccount.IsArchived

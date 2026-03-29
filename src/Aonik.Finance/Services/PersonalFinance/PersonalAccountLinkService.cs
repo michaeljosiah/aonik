@@ -236,7 +236,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         }
 
         var connectionIds = connections.Select(item => item.Id).ToList();
-        var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
+        var linkedAccounts = await _financeDbContext.PersonalLinkedAccounts
             .AsNoTracking()
             .Where(item => connectionIds.Contains(item.FinancialConnectionId))
             .OrderBy(item => item.Name)
@@ -317,7 +317,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             return null;
         }
 
-        var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
+        var linkedAccounts = await _financeDbContext.PersonalLinkedAccounts
             .Where(item => item.TenantId == tenantId
                 && item.UserId == userId
                 && item.FinancialConnectionId == connection.Id)
@@ -425,7 +425,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             _tenantContext.TenantId = connection.TenantId;
             _tenantContext.ResolutionSource = "PlaidWebhook";
 
-            var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
+            var linkedAccounts = await _financeDbContext.PersonalLinkedAccounts
                 .Where(item => item.FinancialConnectionId == connection.Id)
                 .OrderBy(item => item.Name)
                 .ToListAsync(cancellationToken);
@@ -491,7 +491,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         }
 
         var personalAccountIds = personalAccounts.Select(item => item.Id).ToList();
-        var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
+        var linkedAccounts = await _financeDbContext.PersonalLinkedAccounts
             .AsNoTracking()
             .Where(item => personalAccountIds.Contains(item.PersonalAccountId))
             .ToListAsync(cancellationToken);
@@ -576,7 +576,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             ? ComputeNextScheduledSyncAt(connection, providerState.LastSyncedAt ?? utcNow)
             : null;
 
-        var linkedAccountsByReference = await _financeDbContext.FinancialLinkedAccounts
+        var linkedAccountsByReference = await _financeDbContext.PersonalLinkedAccounts
             .Where(item => item.TenantId == tenantId
                 && item.UserId == userId
                 && item.FinancialConnectionId == connection.Id)
@@ -653,7 +653,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private string ApplyPlaidWebhook(
         PlaidAccountLinkWebhookRequest request,
         FinancialConnection connection,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalLinkedAccount> linkedAccounts,
         IReadOnlyList<PersonalAccount> personalAccounts,
         DateTime utcNow)
     {
@@ -734,7 +734,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
     private static void ApplyActionRequiredState(
         FinancialConnection connection,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalLinkedAccount> linkedAccounts,
         IReadOnlyList<PersonalAccount> personalAccounts,
         string syncStatus,
         string message)
@@ -750,7 +750,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
     private static void ApplyLocalDisconnectState(
         FinancialConnection connection,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalLinkedAccount> linkedAccounts,
         IReadOnlyList<PersonalAccount> personalAccounts,
         DateTime utcNow,
         string syncStatus)
@@ -850,7 +850,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
     private void UpsertLinkedAccount(
         AccountLinkProviderAccountResult providerAccount,
         FinancialConnection connection,
-        IDictionary<string, FinancialLinkedAccount> linkedAccountsByReference,
+        IDictionary<string, PersonalLinkedAccount> linkedAccountsByReference,
         IDictionary<string, PersonalAccount> personalAccountsByExternalRef,
         IDictionary<Guid, PersonalAccount> personalAccountsById,
         DateTime? previousDisconnectedAt,
@@ -895,7 +895,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 ProviderTransactionMapper.ApplyConnectedPersonalAccountState(personalAccount, null, previousDisconnectedAt, providerAccount.Status);
             }
 
-            linkedAccount = new FinancialLinkedAccount
+            linkedAccount = new PersonalLinkedAccount
             {
                 TenantId = tenantId,
                 UserId = userId,
@@ -913,7 +913,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
                 LastError = DetermineAccountError(providerExchange)
             };
 
-            _financeDbContext.FinancialLinkedAccounts.Add(linkedAccount);
+            _financeDbContext.PersonalLinkedAccounts.Add(linkedAccount);
             linkedAccountsByReference[providerAccount.ProviderAccountReference] = linkedAccount;
             return;
         }
@@ -967,7 +967,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
         string providerDisplayName,
         CancellationToken cancellationToken)
     {
-        var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
+        var linkedAccounts = await _financeDbContext.PersonalLinkedAccounts
             .AsNoTracking()
             .Where(item => item.FinancialConnectionId == connection.Id)
             .OrderBy(item => item.Name)
@@ -978,7 +978,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
     private static AccountLinkConnectionResponse MapConnectionToResponse(
         FinancialConnection connection,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts,
+        IReadOnlyList<PersonalLinkedAccount> linkedAccounts,
         string providerDisplayName)
     {
         return new AccountLinkConnectionResponse(
@@ -1003,7 +1003,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             connection.UpdatedAt);
     }
 
-    private static AccountLinkConnectionAccountResponse MapLinkedAccountToResponse(FinancialLinkedAccount linkedAccount)
+    private static AccountLinkConnectionAccountResponse MapLinkedAccountToResponse(PersonalLinkedAccount linkedAccount)
     {
         return new AccountLinkConnectionAccountResponse(
             linkedAccount.Id,
@@ -1023,7 +1023,7 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
 
     private static AccountLinkSummaryItemResponse MapSummaryItem(
         PersonalAccount account,
-        FinancialLinkedAccount? linkedAccount,
+        PersonalLinkedAccount? linkedAccount,
         FinancialConnection? connection)
     {
         return new AccountLinkSummaryItemResponse(

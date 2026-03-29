@@ -86,7 +86,9 @@ public abstract class AonikDbContextBase : DbContext
             {
                 modelBuilder.Entity(entityType.ClrType)
                     .Property(nameof(AuditableEntity.RowVersion))
-                    .IsRowVersion();
+                    .IsRowVersion()
+                    .ValueGeneratedOnAddOrUpdate()
+                    .HasAnnotation("Relational:ColumnType", "rowversion");
             }
         }
     }

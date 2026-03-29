@@ -60,7 +60,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<PartyConsent> PartyConsents { get; set; } = null!;
     public virtual DbSet<PersonProfile> PersonProfiles { get; set; } = null!;
     public virtual DbSet<BusinessProfile> BusinessProfiles { get; set; } = null!;
-    public virtual DbSet<ExternalAccount> ExternalAccounts { get; set; } = null!;
+    public virtual DbSet<PartyAccount> PartyAccounts { get; set; } = null!;
     public virtual DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; } = null!;
     public virtual DbSet<PartyRelationship> PartyRelationships { get; set; } = null!;
     public virtual DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
@@ -104,7 +104,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
     public virtual DbSet<FinancialConnectionSession> FinancialConnectionSessions { get; set; } = null!;
     public virtual DbSet<FinancialConnection> FinancialConnections { get; set; } = null!;
-    public virtual DbSet<FinancialLinkedAccount> FinancialLinkedAccounts { get; set; } = null!;
+    public virtual DbSet<PersonalLinkedAccount> PersonalLinkedAccounts { get; set; } = null!;
     public virtual DbSet<FinancialWebhookEvent> FinancialWebhookEvents { get; set; } = null!;
     public virtual DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public virtual DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
@@ -215,7 +215,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapPlatformTable<PartyConsent>(modelBuilder, "PartyConsents");
         MapPlatformTable<PersonProfile>(modelBuilder, "PersonProfiles");
         MapPlatformTable<BusinessProfile>(modelBuilder, "BusinessProfiles");
-        MapPlatformTable<ExternalAccount>(modelBuilder, "ExternalAccounts");
+        MapPlatformTable<PartyAccount>(modelBuilder, "PartyAccounts");
         MapPlatformTable<PartyRoleAssignment>(modelBuilder, "PartyRoleAssignments");
         MapPlatformTable<PartyRelationship>(modelBuilder, "PartyRelationships");
         MapPlatformTable<NotificationPreference>(modelBuilder, "NotificationPreferences");
@@ -292,7 +292,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapFinanceTable<HouseholdMember>(modelBuilder, "HouseholdMembers");
         MapFinanceTable<FinancialConnectionSession>(modelBuilder, "FinancialConnectionSessions");
         MapFinanceTable<FinancialConnection>(modelBuilder, "FinancialConnections");
-        MapFinanceTable<FinancialLinkedAccount>(modelBuilder, "FinancialLinkedAccounts");
+        MapFinanceTable<PersonalLinkedAccount>(modelBuilder, "PersonalLinkedAccounts");
         MapFinanceTable<FinancialWebhookEvent>(modelBuilder, "FinancialWebhookEvents");
         MapFinanceTable<PersonalAccount>(modelBuilder, "PersonalAccounts");
         MapFinanceTable<PersonalTransaction>(modelBuilder, "PersonalTransactions");

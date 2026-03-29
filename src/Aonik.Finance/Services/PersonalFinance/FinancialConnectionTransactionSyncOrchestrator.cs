@@ -77,7 +77,7 @@ internal sealed class FinancialConnectionTransactionSyncOrchestrator
                 throw new InvalidOperationException("Reconnect this account link before syncing transactions.");
             }
 
-            var linkedAccounts = await _financeDbContext.FinancialLinkedAccounts
+            var linkedAccounts = await _financeDbContext.PersonalLinkedAccounts
                 .Where(item => item.TenantId == tenantId
                     && item.UserId == userId
                     && item.FinancialConnectionId == connection.Id)

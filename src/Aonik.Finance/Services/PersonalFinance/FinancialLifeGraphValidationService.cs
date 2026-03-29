@@ -381,10 +381,10 @@ internal sealed class FinancialLifeGraphValidationService
                     : null;
 
             case FinancialLifeGraphNodeKeys.LinkedAccount:
-                return await _financeDbContext.FinancialLinkedAccounts
+                return await _financeDbContext.PersonalLinkedAccounts
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
-                    ? FinancialLifeGraphNodeTypes.FinancialLinkedAccount
+                    ? FinancialLifeGraphNodeTypes.PersonalLinkedAccount
                     : null;
 
             case FinancialLifeGraphNodeKeys.PersonalTransaction:

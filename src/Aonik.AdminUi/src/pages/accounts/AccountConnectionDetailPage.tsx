@@ -27,11 +27,11 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import { externalAccountService } from '@/services/externalAccountService';
+import { accountService } from '@/services/accountService';
 import type {
-  ExternalAccountConnectionResponse,
-  ExternalAccountTransactionResponse,
-  ExternalAccountTransactionAttachmentResponse,
+  AccountConnectionResponse,
+  AccountTransactionResponse,
+  AccountTransactionAttachmentResponse,
   PagedResult,
 } from '@/types';
 import {
@@ -105,8 +105,8 @@ export function AccountConnectionDetailPage() {
   const { connectionId } = useParams<{ connectionId: string }>();
   const navigate = useNavigate();
 
-  const [connection, setConnection] = useState<ExternalAccountConnectionResponse | null>(null);
-  const [transactions, setTransactions] = useState<ExternalAccountTransactionResponse[]>([]);
+  const [connection, setConnection] = useState<AccountConnectionResponse | null>(null);
+  const [transactions, setTransactions] = useState<AccountTransactionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [txLoading, setTxLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +118,7 @@ export function AccountConnectionDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingTxId, setUploadingTxId] = useState<string | null>(null);
   const [attachmentsDialogTxId, setAttachmentsDialogTxId] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<ExternalAccountTransactionAttachmentResponse[]>([]);
+  const [attachments, setAttachments] = useState<AccountTransactionAttachmentResponse[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
 
   const loadConnection = useCallback(async () => {
@@ -126,7 +126,7 @@ export function AccountConnectionDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const all = await externalAccountService.listConnections(true);
+      const all = await accountService.listConnections(true);
       const found = all.find((c) => c.connectionId === connectionId);
       if (!found) {
         setError('Connection not found.');
@@ -150,8 +150,8 @@ export function AccountConnectionDetailPage() {
     if (!connectionId) return;
     setTxLoading(true);
     try {
-      const result: PagedResult<ExternalAccountTransactionResponse> =
-        await externalAccountService.listTransactions({
+      const result: PagedResult<AccountTransactionResponse> =
+        await accountService.listTransactions({
           connectionId,
           pageNumber,
           pageSize,
@@ -177,7 +177,7 @@ export function AccountConnectionDetailPage() {
     if (!connectionId) return;
     setActionLoading(true);
     try {
-      await externalAccountService.refreshConnection(connectionId);
+      await accountService.refreshConnection(connectionId);
       toast.success('Connection refreshed successfully.');
       await loadConnection();
     } catch (err: unknown) {
@@ -192,7 +192,7 @@ export function AccountConnectionDetailPage() {
     if (!connectionId) return;
     setActionLoading(true);
     try {
-      const result = await externalAccountService.syncTransactions(connectionId);
+      const result = await accountService.syncTransactions(connectionId);
       toast.success(
         `Sync complete: ${result.transactionsAdded} added, ${result.transactionsUpdated} updated.`
       );
@@ -211,7 +211,7 @@ export function AccountConnectionDetailPage() {
     if (!window.confirm(`Are you sure you want to disconnect ${connection.institutionName}?`)) return;
     setActionLoading(true);
     try {
-      await externalAccountService.disconnectConnection(connectionId);
+      await accountService.disconnectConnection(connectionId);
       toast.success(`${connection.institutionName} disconnected.`);
       navigate('/accounts');
     } catch (err: unknown) {
@@ -239,7 +239,7 @@ export function AccountConnectionDetailPage() {
       return;
     }
     try {
-      await externalAccountService.uploadAttachment(uploadingTxId, file);
+      await accountService.uploadAttachment(uploadingTxId, file);
       toast.success(`File "${file.name}" uploaded successfully.`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to upload file';
@@ -261,7 +261,7 @@ export function AccountConnectionDetailPage() {
     setAttachmentsDialogTxId(transactionId);
     setAttachmentsLoading(true);
     try {
-      const result = await externalAccountService.listAttachments(transactionId);
+      const result = await accountService.listAttachments(transactionId);
       setAttachments(result);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load attachments';
@@ -275,7 +275,7 @@ export function AccountConnectionDetailPage() {
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!window.confirm('Are you sure you want to delete this attachment?')) return;
     try {
-      await externalAccountService.deleteAttachment(attachmentId);
+      await accountService.deleteAttachment(attachmentId);
       toast.success('Attachment deleted.');
       setAttachments((prev) => prev.filter((a) => a.attachmentId !== attachmentId));
     } catch (err: unknown) {
@@ -284,7 +284,7 @@ export function AccountConnectionDetailPage() {
     }
   };
 
-  const getTxRowActions = (tx: ExternalAccountTransactionResponse): DataTableAction[] => [
+  const getTxRowActions = (tx: AccountTransactionResponse): DataTableAction[] => [
     {
       label: 'Upload File',
       icon: <FileUp className="w-4 h-4" />,
@@ -297,7 +297,7 @@ export function AccountConnectionDetailPage() {
     },
   ];
 
-  const txColumns: ColumnDef<ExternalAccountTransactionResponse>[] = [
+  const txColumns: ColumnDef<AccountTransactionResponse>[] = [
     {
       id: 'occurredAt',
       header: 'Date',

@@ -133,12 +133,12 @@ public sealed class FinanceModule : IModule
             return new Services.PersonalFinance.PlaidSimulatedAccountLinkProviderGateway();
         });
 
-        // ExternalAccounts (Tenant-Scoped Bank Linking)
-        services.Configure<Services.ExternalAccounts.ExternalAccountConnectionSyncOptions>(
-            configuration.GetSection("Finance:ExternalAccounts:LinkedAccountSync"));
-        services.AddScoped<Services.ExternalAccounts.ExternalAccountTransactionSyncOrchestrator>();
-        services.AddScoped<Contracts.Services.ExternalAccounts.IExternalAccountLinkService,
-            Services.ExternalAccounts.ExternalAccountLinkService>();
+        // Accounts (Tenant-Scoped Bank Linking)
+        services.Configure<Services.Accounts.AccountConnectionSyncOptions>(
+            configuration.GetSection("Finance:Accounts:LinkedAccountSync"));
+        services.AddScoped<Services.Accounts.AccountTransactionSyncOrchestrator>();
+        services.AddScoped<Contracts.Services.Accounts.IAccountLinkService,
+            Services.Accounts.AccountLinkService>();
 
         // ── Finance AI Insights ──────────────────────────────────────
         services.AddScoped<Services.Ai.InvoiceInsightWorkflow>();

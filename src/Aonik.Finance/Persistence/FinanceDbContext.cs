@@ -1,7 +1,7 @@
 using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.Catalog;
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
@@ -100,15 +100,12 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<CurrencyReadModel> Currencies { get; set; } = null!;
     public DbSet<CountryCurrencyReadModel> CountryCurrencies { get; set; } = null!;
 
-    // ── ExternalAccounts (Tenant-Scoped Bank Linking) ──────────────
-    public DbSet<ExternalAccountConnection> ExternalAccountConnections { get; set; } = null!;
-    public DbSet<ExternalAccountConnectionSession> ExternalAccountConnectionSessions { get; set; } = null!;
-    public DbSet<ExternalAccountLinkedAccount> ExternalAccountLinkedAccounts { get; set; } = null!;
-    public DbSet<ExternalAccountTransaction> ExternalAccountTransactions { get; set; } = null!;
-    public DbSet<ExternalAccountTransactionAttachment> ExternalAccountTransactionAttachments { get; set; } = null!;
-
-    /// <summary>Read-only projection of ExternalAccount (authoritative entity in Platform module)</summary>
-    public DbSet<ExternalAccountReadModel> ExternalAccountReadModels { get; set; } = null!;
+    // ── Accounts (Tenant-Scoped Bank Linking) ──────────────
+    public DbSet<AccountConnection> AccountConnections { get; set; } = null!;
+    public DbSet<AccountConnectionSession> AccountConnectionSessions { get; set; } = null!;
+    public DbSet<Account> Accounts { get; set; } = null!;
+    public DbSet<AccountTransaction> AccountTransactions { get; set; } = null!;
+    public DbSet<AccountTransactionAttachment> AccountTransactionAttachments { get; set; } = null!;
 
     // ── PersonalFinance ─────────────────────────────────────────────
     public DbSet<PersonalProfile> PersonalProfiles { get; set; } = null!;
@@ -116,7 +113,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<HouseholdMember> HouseholdMembers { get; set; } = null!;
     public DbSet<FinancialConnectionSession> FinancialConnectionSessions { get; set; } = null!;
     public DbSet<FinancialConnection> FinancialConnections { get; set; } = null!;
-    public DbSet<FinancialLinkedAccount> FinancialLinkedAccounts { get; set; } = null!;
+    public DbSet<PersonalLinkedAccount> PersonalLinkedAccounts { get; set; } = null!;
     public DbSet<FinancialWebhookEvent> FinancialWebhookEvents { get; set; } = null!;
     public DbSet<PersonalAccount> PersonalAccounts { get; set; } = null!;
     public DbSet<PersonalTransaction> PersonalTransactions { get; set; } = null!;
@@ -210,18 +207,12 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<CatalogBiller>(modelBuilder, "CatalogBillers");
         MapTable<CatalogBillerService>(modelBuilder, "CatalogBillerServices");
 
-        // ExternalAccount entities use explicit table names from their configurations
-        // (no Ank prefix) to match the migration-generated table names.
-        // ExternalAccountReadModel maps to the Platform-owned ExternalAccounts table.
-        modelBuilder.Entity<ExternalAccountReadModel>()
-            .ToTable($"{ModuleTablePrefixes.Platform}ExternalAccounts", SchemaNames.Default);
-
         MapTable<PersonalProfile>(modelBuilder, "PersonalProfiles");
         MapTable<Household>(modelBuilder, "Households");
         MapTable<HouseholdMember>(modelBuilder, "HouseholdMembers");
         MapTable<FinancialConnectionSession>(modelBuilder, "FinancialConnectionSessions");
         MapTable<FinancialConnection>(modelBuilder, "FinancialConnections");
-        MapTable<FinancialLinkedAccount>(modelBuilder, "FinancialLinkedAccounts");
+        MapTable<PersonalLinkedAccount>(modelBuilder, "PersonalLinkedAccounts");
         MapTable<FinancialWebhookEvent>(modelBuilder, "FinancialWebhookEvents");
         MapTable<PersonalAccount>(modelBuilder, "PersonalAccounts");
         MapTable<PersonalTransaction>(modelBuilder, "PersonalTransactions");

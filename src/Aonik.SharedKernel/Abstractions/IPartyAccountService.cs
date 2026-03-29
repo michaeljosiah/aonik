@@ -1,13 +1,13 @@
 namespace Aonik.SharedKernel.Abstractions;
 
 /// <summary>
-/// Cross-module result for ExternalAccount queries.
+/// Cross-module result for PartyAccount queries.
 /// </summary>
-public record ExternalAccountResult(
+public record PartyAccountResult(
     Guid Id,
     Guid TenantId,
     Guid PartyId,
-    string ExternalAccountType,
+    string AccountType,
     string MaskedIdentifier,
     string? ProviderRef,
     string VerificationStatus,
@@ -18,30 +18,30 @@ public record ExternalAccountResult(
     DateTime? UpdatedAt);
 
 /// <summary>
-/// Cross-module contract for managing ExternalAccount entities.
+/// Cross-module contract for managing PartyAccount entities.
 /// The authoritative implementation lives in the Platform module.
 /// </summary>
-public interface IExternalAccountService
+public interface IPartyAccountService
 {
     /// <summary>
-    /// Finds an existing ExternalAccount by tenant, party, type, and masked identifier,
-    /// or creates one if it does not exist. Returns the ExternalAccount ID.
+    /// Finds an existing PartyAccount by tenant, party, type, and masked identifier,
+    /// or creates one if it does not exist. Returns the PartyAccount ID.
     /// </summary>
-    Task<Guid> FindOrCreateExternalAccountAsync(
+    Task<Guid> FindOrCreatePartyAccountAsync(
         Guid tenantId,
         Guid partyId,
-        string externalAccountType,
+        string accountType,
         string maskedIdentifier,
         string? providerRef,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Creates a new ExternalAccount. Returns the result with the assigned ID.
+    /// Creates a new PartyAccount. Returns the result with the assigned ID.
     /// </summary>
-    Task<ExternalAccountResult> CreateExternalAccountAsync(
+    Task<PartyAccountResult> CreatePartyAccountAsync(
         Guid tenantId,
         Guid partyId,
-        string externalAccountType,
+        string accountType,
         string maskedIdentifier,
         string? providerRef,
         string verificationStatus,
@@ -51,16 +51,16 @@ public interface IExternalAccountService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lists all ExternalAccounts for a tenant.
+    /// Lists all PartyAccounts for a tenant.
     /// </summary>
-    Task<IReadOnlyList<ExternalAccountResult>> ListExternalAccountsAsync(
+    Task<IReadOnlyList<PartyAccountResult>> ListPartyAccountsAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets a single ExternalAccount by ID within a tenant.
+    /// Gets a single PartyAccount by ID within a tenant.
     /// </summary>
-    Task<ExternalAccountResult?> GetExternalAccountAsync(
+    Task<PartyAccountResult?> GetPartyAccountAsync(
         Guid tenantId,
         Guid accountId,
         CancellationToken cancellationToken = default);

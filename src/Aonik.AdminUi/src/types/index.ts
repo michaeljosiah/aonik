@@ -776,9 +776,9 @@ export interface PartyConsentDetail {
   revokedAt?: string | null;
 }
 
-export interface ExternalAccountDetail {
-  externalAccountId: string;
-  externalAccountType: string;
+export interface PartyAccountDetail {
+  partyAccountId: string;
+  accountType: string;
   maskedIdentifier: string;
   providerRef?: string | null;
   verificationStatus: string;
@@ -827,7 +827,7 @@ export interface CustomerDetail {
   contacts: PartyContactDetail[];
   addresses: PartyAddressDetail[];
   consents: PartyConsentDetail[];
-  externalAccounts: ExternalAccountDetail[];
+  externalAccounts: PartyAccountDetail[];
   roleAssignments: PartyRoleAssignmentDetail[];
   relationships: PartyRelationshipDetail[];
 }
@@ -1205,8 +1205,8 @@ export interface GenerateAutonumberResponse {
   reference: string;
 }
 
-// ── External Account Connections (Tenant-Scoped Bank Linking) ────
-export interface ExternalAccountConnectionResponse {
+// ── Account Connections (Tenant-Scoped Bank Linking) ────
+export interface AccountConnectionResponse {
   connectionId: string;
   provider: string;
   providerDisplayName: string;
@@ -1219,14 +1219,14 @@ export interface ExternalAccountConnectionResponse {
   lastSyncStatus?: string | null;
   lastError?: string | null;
   disconnectedAt?: string | null;
-  linkedAccounts: ExternalAccountLinkedAccountResponse[];
+  linkedAccounts: LinkedAccountResponse[];
   createdAt: string;
   updatedAt?: string | null;
 }
 
-export interface ExternalAccountLinkedAccountResponse {
+export interface LinkedAccountResponse {
   linkedAccountId: string;
-  externalAccountId: string;
+  accountId: string;
   name: string;
   accountType: string;
   accountSubtype?: string | null;
@@ -1240,7 +1240,7 @@ export interface ExternalAccountLinkedAccountResponse {
   updatedAt?: string | null;
 }
 
-export interface ExternalAccountLinkSessionResponse {
+export interface AccountLinkSessionResponse {
   sessionId: string;
   provider: string;
   providerDisplayName: string;
@@ -1253,15 +1253,15 @@ export interface ExternalAccountLinkSessionResponse {
   updatedAt?: string | null;
 }
 
-export interface ExternalAccountLinkExchangeResponse {
+export interface AccountLinkExchangeResponse {
   sessionId: string;
-  connection: ExternalAccountConnectionResponse;
+  connection: AccountConnectionResponse;
 }
 
-export interface ExternalAccountTransactionResponse {
+export interface AccountTransactionResponse {
   transactionId: string;
-  externalAccountId: string;
-  externalAccountConnectionId: string | null;
+  accountId: string;
+  accountConnectionId: string | null;
   occurredAt: string;
   amount: number;
   currency: string;
@@ -1278,7 +1278,7 @@ export interface ExternalAccountTransactionResponse {
   updatedAt?: string | null;
 }
 
-export interface ExternalAccountTransactionSyncResponse {
+export interface AccountTransactionSyncResponse {
   connectionId: string;
   transactionsAdded: number;
   transactionsUpdated: number;
@@ -1289,10 +1289,10 @@ export interface ExternalAccountTransactionSyncResponse {
   syncedAt: string;
 }
 
-// ── Manual External Account CRUD ─────────────────────────────────
-export interface ExternalAccountResponse {
-  externalAccountId: string;
-  externalAccountType: string;
+// ── Manual Account CRUD ─────────────────────────────────
+export interface AccountResponse {
+  accountId: string;
+  accountType: string;
   maskedIdentifier: string;
   providerRef?: string | null;
   verificationStatus: string;
@@ -1302,9 +1302,9 @@ export interface ExternalAccountResponse {
   updatedAt?: string | null;
 }
 
-export interface CreateExternalAccountRequest {
+export interface CreateAccountRequest {
   name: string;
-  externalAccountType: string;
+  accountType: string;
   currency: string;
   country?: string | null;
   institutionName?: string | null;
@@ -1312,8 +1312,8 @@ export interface CreateExternalAccountRequest {
   notes?: string | null;
 }
 
-export interface CreateExternalAccountTransactionRequest {
-  externalAccountId: string;
+export interface CreateAccountTransactionRequest {
+  accountId: string;
   occurredAt: string;
   amount: number;
   currency: string;
@@ -1324,7 +1324,7 @@ export interface CreateExternalAccountTransactionRequest {
   notes?: string | null;
 }
 
-export interface ExternalAccountTransactionAttachmentResponse {
+export interface AccountTransactionAttachmentResponse {
   attachmentId: string;
   fileName: string;
   contentType: string;

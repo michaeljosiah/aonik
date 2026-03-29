@@ -22,11 +22,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { externalAccountService } from '@/services/externalAccountService';
+import { accountService } from '@/services/accountService';
 import type {
-  ExternalAccountResponse,
-  ExternalAccountTransactionResponse,
-  ExternalAccountTransactionAttachmentResponse,
+  AccountResponse,
+  AccountTransactionResponse,
+  AccountTransactionAttachmentResponse,
 } from '@/types';
 import {
   DataTable,
@@ -41,8 +41,8 @@ export function AccountTransactionsPage() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
 
-  const [account, setAccount] = useState<ExternalAccountResponse | null>(null);
-  const [transactions, setTransactions] = useState<ExternalAccountTransactionResponse[]>([]);
+  const [account, setAccount] = useState<AccountResponse | null>(null);
+  const [transactions, setTransactions] = useState<AccountTransactionResponse[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [pageNumber, setPageNumber] = useState(1);
@@ -52,7 +52,7 @@ export function AccountTransactionsPage() {
 
   // Attachment state
   const [attachmentsDialogTxId, setAttachmentsDialogTxId] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<ExternalAccountTransactionAttachmentResponse[]>([]);
+  const [attachments, setAttachments] = useState<AccountTransactionAttachmentResponse[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetTxIdRef = useRef<string | null>(null);
@@ -60,8 +60,8 @@ export function AccountTransactionsPage() {
   const loadAccount = useCallback(async () => {
     if (!accountId) return;
     try {
-      const accounts = await externalAccountService.listAccounts();
-      const found = accounts.find((a) => a.externalAccountId === accountId);
+      const accounts = await accountService.listAccounts();
+      const found = accounts.find((a) => a.accountId === accountId);
       setAccount(found ?? null);
     } catch {
       // Non-fatal
@@ -72,8 +72,8 @@ export function AccountTransactionsPage() {
     if (!accountId) return;
     setLoading(true);
     try {
-      const result = await externalAccountService.listTransactions({
-        externalAccountId: accountId,
+      const result = await accountService.listTransactions({
+        accountId: accountId,
         pageNumber,
         pageSize,
       });
@@ -97,7 +97,7 @@ export function AccountTransactionsPage() {
   const loadAttachments = useCallback(async (transactionId: string) => {
     setAttachmentsLoading(true);
     try {
-      const result = await externalAccountService.listAttachments(transactionId);
+      const result = await accountService.listAttachments(transactionId);
       setAttachments(result);
     } catch {
       toast.error('Failed to load attachments.');
@@ -117,7 +117,7 @@ export function AccountTransactionsPage() {
     if (!file || !txId) return;
 
     try {
-      await externalAccountService.uploadAttachment(txId, file);
+      await accountService.uploadAttachment(txId, file);
       toast.success('File uploaded successfully.');
       if (attachmentsDialogTxId === txId) {
         await loadAttachments(txId);
@@ -133,7 +133,7 @@ export function AccountTransactionsPage() {
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!window.confirm('Delete this attachment?')) return;
     try {
-      await externalAccountService.deleteAttachment(attachmentId);
+      await accountService.deleteAttachment(attachmentId);
       toast.success('Attachment deleted.');
       if (attachmentsDialogTxId) {
         await loadAttachments(attachmentsDialogTxId);
@@ -148,7 +148,7 @@ export function AccountTransactionsPage() {
     loadAttachments(transactionId);
   };
 
-  const getRowActions = (tx: ExternalAccountTransactionResponse): DataTableAction[] => [
+  const getRowActions = (tx: AccountTransactionResponse): DataTableAction[] => [
     {
       label: 'Upload File',
       icon: <FileUp className="w-4 h-4" />,
@@ -161,7 +161,7 @@ export function AccountTransactionsPage() {
     },
   ];
 
-  const columns: ColumnDef<ExternalAccountTransactionResponse>[] = [
+  const columns: ColumnDef<AccountTransactionResponse>[] = [
     {
       id: 'occurredAt',
       header: 'Date',
@@ -261,7 +261,7 @@ export function AccountTransactionsPage() {
               {account?.maskedIdentifier ?? 'Account'} Transactions
             </h1>
             <p className="text-[var(--color-text-secondary)]">
-              {account ? `${account.externalAccountType} — ${account.verificationStatus === 'Verified' ? 'Linked' : 'Manual'}` : ''}
+              {account ? `${account.accountType} — ${account.verificationStatus === 'Verified' ? 'Linked' : 'Manual'}` : ''}
             </p>
           </div>
         </div>

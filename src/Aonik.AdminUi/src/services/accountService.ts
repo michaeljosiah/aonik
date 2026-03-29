@@ -1,19 +1,19 @@
 import { api } from '@/lib/api';
 import type {
-  ExternalAccountConnectionResponse,
-  ExternalAccountLinkSessionResponse,
-  ExternalAccountLinkExchangeResponse,
-  ExternalAccountTransactionResponse,
-  ExternalAccountTransactionSyncResponse,
-  ExternalAccountResponse,
-  CreateExternalAccountRequest,
-  CreateExternalAccountTransactionRequest,
-  ExternalAccountTransactionAttachmentResponse,
+  AccountConnectionResponse,
+  AccountLinkSessionResponse,
+  AccountLinkExchangeResponse,
+  AccountTransactionResponse,
+  AccountTransactionSyncResponse,
+  AccountResponse,
+  CreateAccountRequest,
+  CreateAccountTransactionRequest,
+  AccountTransactionAttachmentResponse,
   PagedResult,
 } from '@/types';
 
-export interface ListExternalAccountTransactionsParams {
-  externalAccountId?: string;
+export interface ListAccountTransactionsParams {
+  accountId?: string;
   connectionId?: string;
   reconciliationStatus?: string;
   from?: string;
@@ -22,30 +22,30 @@ export interface ListExternalAccountTransactionsParams {
   pageSize?: number;
 }
 
-export const externalAccountService = {
-  listConnections: async (includeDisconnected = false): Promise<ExternalAccountConnectionResponse[]> =>
-    api.get<ExternalAccountConnectionResponse[]>(
-      `/admin/external-accounts/connections?includeDisconnected=${includeDisconnected}`
+export const accountService = {
+  listConnections: async (includeDisconnected = false): Promise<AccountConnectionResponse[]> =>
+    api.get<AccountConnectionResponse[]>(
+      `/admin/accounts/connections?includeDisconnected=${includeDisconnected}`
     ),
 
-  createSession: async (data: { provider: string; mode?: string; connectionId?: string }): Promise<ExternalAccountLinkSessionResponse> =>
-    api.post<ExternalAccountLinkSessionResponse>('/admin/external-accounts/connections/sessions', data),
+  createSession: async (data: { provider: string; mode?: string; connectionId?: string }): Promise<AccountLinkSessionResponse> =>
+    api.post<AccountLinkSessionResponse>('/admin/accounts/connections/sessions', data),
 
-  exchangeSession: async (data: { sessionId: string; temporaryCode: string }): Promise<ExternalAccountLinkExchangeResponse> =>
-    api.post<ExternalAccountLinkExchangeResponse>('/admin/external-accounts/connections/exchanges', data),
+  exchangeSession: async (data: { sessionId: string; temporaryCode: string }): Promise<AccountLinkExchangeResponse> =>
+    api.post<AccountLinkExchangeResponse>('/admin/accounts/connections/exchanges', data),
 
-  refreshConnection: async (connectionId: string): Promise<ExternalAccountConnectionResponse> =>
-    api.post<ExternalAccountConnectionResponse>(`/admin/external-accounts/connections/${connectionId}/refresh`),
+  refreshConnection: async (connectionId: string): Promise<AccountConnectionResponse> =>
+    api.post<AccountConnectionResponse>(`/admin/accounts/connections/${connectionId}/refresh`),
 
-  disconnectConnection: async (connectionId: string): Promise<ExternalAccountConnectionResponse> =>
-    api.post<ExternalAccountConnectionResponse>(`/admin/external-accounts/connections/${connectionId}/disconnect`),
+  disconnectConnection: async (connectionId: string): Promise<AccountConnectionResponse> =>
+    api.post<AccountConnectionResponse>(`/admin/accounts/connections/${connectionId}/disconnect`),
 
-  syncTransactions: async (connectionId: string): Promise<ExternalAccountTransactionSyncResponse> =>
-    api.post<ExternalAccountTransactionSyncResponse>(`/admin/external-accounts/connections/${connectionId}/transactions/sync`),
+  syncTransactions: async (connectionId: string): Promise<AccountTransactionSyncResponse> =>
+    api.post<AccountTransactionSyncResponse>(`/admin/accounts/connections/${connectionId}/transactions/sync`),
 
-  listTransactions: async (params: ListExternalAccountTransactionsParams = {}): Promise<PagedResult<ExternalAccountTransactionResponse>> => {
+  listTransactions: async (params: ListAccountTransactionsParams = {}): Promise<PagedResult<AccountTransactionResponse>> => {
     const queryParams = new URLSearchParams();
-    if (params.externalAccountId) queryParams.append('externalAccountId', params.externalAccountId);
+    if (params.accountId) queryParams.append('accountId', params.accountId);
     if (params.connectionId) queryParams.append('connectionId', params.connectionId);
     if (params.reconciliationStatus) queryParams.append('reconciliationStatus', params.reconciliationStatus);
     if (params.from) queryParams.append('from', params.from);
@@ -53,35 +53,35 @@ export const externalAccountService = {
     if (params.pageNumber) queryParams.append('pageNumber', params.pageNumber.toString());
     if (params.pageSize) queryParams.append('pageSize', params.pageSize.toString());
     const query = queryParams.toString();
-    return api.get<PagedResult<ExternalAccountTransactionResponse>>(
-      `/admin/external-accounts/transactions${query ? `?${query}` : ''}`
+    return api.get<PagedResult<AccountTransactionResponse>>(
+      `/admin/accounts/transactions${query ? `?${query}` : ''}`
     );
   },
 
-  createAccount: async (data: CreateExternalAccountRequest): Promise<ExternalAccountResponse> =>
-    api.post<ExternalAccountResponse>('/admin/external-accounts', data),
+  createAccount: async (data: CreateAccountRequest): Promise<AccountResponse> =>
+    api.post<AccountResponse>('/admin/accounts', data),
 
-  listAccounts: async (): Promise<ExternalAccountResponse[]> =>
-    api.get<ExternalAccountResponse[]>('/admin/external-accounts'),
+  listAccounts: async (): Promise<AccountResponse[]> =>
+    api.get<AccountResponse[]>('/admin/accounts'),
 
-  createTransaction: async (data: CreateExternalAccountTransactionRequest): Promise<ExternalAccountTransactionResponse> =>
-    api.post<ExternalAccountTransactionResponse>('/admin/external-accounts/transactions', data),
+  createTransaction: async (data: CreateAccountTransactionRequest): Promise<AccountTransactionResponse> =>
+    api.post<AccountTransactionResponse>('/admin/accounts/transactions', data),
 
-  uploadAttachment: async (transactionId: string, file: File): Promise<ExternalAccountTransactionAttachmentResponse> => {
+  uploadAttachment: async (transactionId: string, file: File): Promise<AccountTransactionAttachmentResponse> => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post<ExternalAccountTransactionAttachmentResponse>(
-      `/admin/external-accounts/transactions/${transactionId}/attachments`,
+    return api.post<AccountTransactionAttachmentResponse>(
+      `/admin/accounts/transactions/${transactionId}/attachments`,
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     );
   },
 
-  listAttachments: async (transactionId: string): Promise<ExternalAccountTransactionAttachmentResponse[]> =>
-    api.get<ExternalAccountTransactionAttachmentResponse[]>(
-      `/admin/external-accounts/transactions/${transactionId}/attachments`
+  listAttachments: async (transactionId: string): Promise<AccountTransactionAttachmentResponse[]> =>
+    api.get<AccountTransactionAttachmentResponse[]>(
+      `/admin/accounts/transactions/${transactionId}/attachments`
     ),
 
   deleteAttachment: async (attachmentId: string): Promise<void> =>
-    api.delete<void>(`/admin/external-accounts/attachments/${attachmentId}`),
+    api.delete<void>(`/admin/accounts/attachments/${attachmentId}`),
 };

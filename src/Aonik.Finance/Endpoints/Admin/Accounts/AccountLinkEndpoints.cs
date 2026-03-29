@@ -1,32 +1,32 @@
-using Aonik.Finance.Contracts.Models.ExternalAccounts;
-using Aonik.Finance.Contracts.Services.ExternalAccounts;
+using Aonik.Finance.Contracts.Models.Accounts;
+using Aonik.Finance.Contracts.Services.Accounts;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-namespace Aonik.Finance.Endpoints.Admin.ExternalAccounts;
+namespace Aonik.Finance.Endpoints.Admin.Accounts;
 
-internal sealed class ListExternalAccountConnectionsRequest
+internal sealed class ListAccountConnectionsRequest
 {
     public bool IncludeDisconnected { get; set; }
 }
 
-internal sealed class CreateExternalAccountLinkSessionEndpoint : Endpoint<CreateExternalAccountLinkSessionRequest, ExternalAccountLinkSessionResponse>
+internal sealed class CreateAccountLinkSessionEndpoint : Endpoint<CreateAccountLinkSessionRequest, AccountLinkSessionResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public CreateExternalAccountLinkSessionEndpoint(IExternalAccountLinkService service)
+    public CreateAccountLinkSessionEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/connections/sessions");
+        Post("/admin/accounts/connections/sessions");
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(CreateExternalAccountLinkSessionRequest req, CancellationToken ct)
+    public override async Task HandleAsync(CreateAccountLinkSessionRequest req, CancellationToken ct)
     {
         try
         {
@@ -40,22 +40,22 @@ internal sealed class CreateExternalAccountLinkSessionEndpoint : Endpoint<Create
     }
 }
 
-internal sealed class ExchangeExternalAccountLinkSessionEndpoint : Endpoint<ExchangeExternalAccountLinkSessionRequest, ExternalAccountLinkExchangeResponse>
+internal sealed class ExchangeAccountLinkSessionEndpoint : Endpoint<ExchangeAccountLinkSessionRequest, AccountLinkExchangeResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public ExchangeExternalAccountLinkSessionEndpoint(IExternalAccountLinkService service)
+    public ExchangeAccountLinkSessionEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/connections/exchanges");
+        Post("/admin/accounts/connections/exchanges");
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(ExchangeExternalAccountLinkSessionRequest req, CancellationToken ct)
+    public override async Task HandleAsync(ExchangeAccountLinkSessionRequest req, CancellationToken ct)
     {
         try
         {
@@ -73,40 +73,40 @@ internal sealed class ExchangeExternalAccountLinkSessionEndpoint : Endpoint<Exch
     }
 }
 
-internal sealed class ListExternalAccountConnectionsEndpoint : Endpoint<ListExternalAccountConnectionsRequest, IReadOnlyList<ExternalAccountConnectionResponse>>
+internal sealed class ListAccountConnectionsEndpoint : Endpoint<ListAccountConnectionsRequest, IReadOnlyList<AccountConnectionResponse>>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public ListExternalAccountConnectionsEndpoint(IExternalAccountLinkService service)
+    public ListAccountConnectionsEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Get("/admin/external-accounts/connections");
+        Get("/admin/accounts/connections");
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(ListExternalAccountConnectionsRequest req, CancellationToken ct)
+    public override async Task HandleAsync(ListAccountConnectionsRequest req, CancellationToken ct)
     {
         var response = await _service.ListConnectionsAsync(req.IncludeDisconnected, ct);
         await Send.OkAsync(response, ct);
     }
 }
 
-internal sealed class RefreshExternalAccountConnectionEndpoint : EndpointWithoutRequest<ExternalAccountLinkActionResponse>
+internal sealed class RefreshAccountConnectionEndpoint : EndpointWithoutRequest<AccountLinkActionResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public RefreshExternalAccountConnectionEndpoint(IExternalAccountLinkService service)
+    public RefreshAccountConnectionEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/connections/{id}/refresh");
+        Post("/admin/accounts/connections/{id}/refresh");
         Policies("AdminPolicy");
     }
 
@@ -122,7 +122,7 @@ internal sealed class RefreshExternalAccountConnectionEndpoint : EndpointWithout
                 return;
             }
 
-            await Send.OkAsync(new ExternalAccountLinkActionResponse("refresh", response), ct);
+            await Send.OkAsync(new AccountLinkActionResponse("refresh", response), ct);
         }
         catch (InvalidOperationException ex)
         {
@@ -131,18 +131,18 @@ internal sealed class RefreshExternalAccountConnectionEndpoint : EndpointWithout
     }
 }
 
-internal sealed class DisconnectExternalAccountConnectionEndpoint : EndpointWithoutRequest<ExternalAccountLinkActionResponse>
+internal sealed class DisconnectAccountConnectionEndpoint : EndpointWithoutRequest<AccountLinkActionResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public DisconnectExternalAccountConnectionEndpoint(IExternalAccountLinkService service)
+    public DisconnectAccountConnectionEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/connections/{id}/disconnect");
+        Post("/admin/accounts/connections/{id}/disconnect");
         Policies("AdminPolicy");
     }
 
@@ -156,22 +156,22 @@ internal sealed class DisconnectExternalAccountConnectionEndpoint : EndpointWith
             return;
         }
 
-        await Send.OkAsync(new ExternalAccountLinkActionResponse("disconnect", response), ct);
+        await Send.OkAsync(new AccountLinkActionResponse("disconnect", response), ct);
     }
 }
 
-internal sealed class SyncExternalAccountTransactionsEndpoint : EndpointWithoutRequest<ExternalAccountTransactionSyncResponse>
+internal sealed class SyncAccountTransactionsEndpoint : EndpointWithoutRequest<AccountTransactionSyncResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public SyncExternalAccountTransactionsEndpoint(IExternalAccountLinkService service)
+    public SyncAccountTransactionsEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/connections/{id}/transactions/sync");
+        Post("/admin/accounts/connections/{id}/transactions/sync");
         Policies("AdminPolicy");
     }
 
@@ -196,7 +196,7 @@ internal sealed class SyncExternalAccountTransactionsEndpoint : EndpointWithoutR
     }
 }
 
-internal sealed class ListExternalAccountTransactionsRequest
+internal sealed class ListAccountTransactionsRequest
 {
     public Guid? ExternalAccountId { get; set; }
     public Guid? ConnectionId { get; set; }
@@ -207,25 +207,25 @@ internal sealed class ListExternalAccountTransactionsRequest
     public int PageSize { get; set; } = 50;
 }
 
-internal sealed class ListExternalAccountTransactionsEndpoint : Endpoint<ListExternalAccountTransactionsRequest, PagedResult<ExternalAccountTransactionResponse>>
+internal sealed class ListAccountTransactionsEndpoint : Endpoint<ListAccountTransactionsRequest, PagedResult<AccountTransactionResponse>>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public ListExternalAccountTransactionsEndpoint(IExternalAccountLinkService service)
+    public ListAccountTransactionsEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Get("/admin/external-accounts/transactions");
+        Get("/admin/accounts/transactions");
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(ListExternalAccountTransactionsRequest req, CancellationToken ct)
+    public override async Task HandleAsync(ListAccountTransactionsRequest req, CancellationToken ct)
     {
         var response = await _service.ListTransactionsAsync(
-            new Contracts.Models.ExternalAccounts.ListExternalAccountTransactionsRequest(
+            new Contracts.Models.Accounts.ListAccountTransactionsRequest(
                 req.ExternalAccountId,
                 req.ConnectionId,
                 req.ReconciliationStatus,
@@ -238,46 +238,46 @@ internal sealed class ListExternalAccountTransactionsEndpoint : Endpoint<ListExt
     }
 }
 
-internal sealed class PlaidExternalAccountWebhookEndpoint : Endpoint<PlaidExternalAccountWebhookRequest, ExternalAccountLinkWebhookResponse>
+internal sealed class PlaidAccountWebhookEndpoint : Endpoint<PlaidAccountWebhookRequest, AccountLinkWebhookResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public PlaidExternalAccountWebhookEndpoint(IExternalAccountLinkService service)
+    public PlaidAccountWebhookEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/webhooks/plaid");
+        Post("/admin/accounts/webhooks/plaid");
         AllowAnonymous();
     }
 
-    public override async Task HandleAsync(PlaidExternalAccountWebhookRequest req, CancellationToken ct)
+    public override async Task HandleAsync(PlaidAccountWebhookRequest req, CancellationToken ct)
     {
         await _service.ProcessPlaidWebhookAsync(req, ct);
-        await Send.OkAsync(new ExternalAccountLinkWebhookResponse("accepted"), ct);
+        await Send.OkAsync(new AccountLinkWebhookResponse("accepted"), ct);
     }
 }
 
 // ── Manual Account CRUD ──────────────────────────────────────────
 
-internal sealed class CreateExternalAccountEndpoint : Endpoint<CreateExternalAccountRequest, ExternalAccountResponse>
+internal sealed class CreateAccountEndpoint : Endpoint<CreateAccountRequest, AccountResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public CreateExternalAccountEndpoint(IExternalAccountLinkService service)
+    public CreateAccountEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts");
+        Post("/admin/accounts");
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(CreateExternalAccountRequest req, CancellationToken ct)
+    public override async Task HandleAsync(CreateAccountRequest req, CancellationToken ct)
     {
         try
         {
@@ -291,18 +291,18 @@ internal sealed class CreateExternalAccountEndpoint : Endpoint<CreateExternalAcc
     }
 }
 
-internal sealed class ListExternalAccountsEndpoint : EndpointWithoutRequest<IReadOnlyList<ExternalAccountResponse>>
+internal sealed class ListAccountsEndpoint : EndpointWithoutRequest<IReadOnlyList<AccountResponse>>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public ListExternalAccountsEndpoint(IExternalAccountLinkService service)
+    public ListAccountsEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Get("/admin/external-accounts");
+        Get("/admin/accounts");
         Policies("AdminPolicy");
     }
 
@@ -315,22 +315,22 @@ internal sealed class ListExternalAccountsEndpoint : EndpointWithoutRequest<IRea
 
 // ── Manual Transaction CRUD ──────────────────────────────────────
 
-internal sealed class CreateExternalAccountTransactionEndpoint : Endpoint<CreateExternalAccountTransactionRequest, ExternalAccountTransactionResponse>
+internal sealed class CreateAccountTransactionEndpoint : Endpoint<CreateAccountTransactionRequest, AccountTransactionResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public CreateExternalAccountTransactionEndpoint(IExternalAccountLinkService service)
+    public CreateAccountTransactionEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/transactions");
+        Post("/admin/accounts/transactions");
         Policies("AdminPolicy");
     }
 
-    public override async Task HandleAsync(CreateExternalAccountTransactionRequest req, CancellationToken ct)
+    public override async Task HandleAsync(CreateAccountTransactionRequest req, CancellationToken ct)
     {
         try
         {
@@ -350,19 +350,19 @@ internal sealed class CreateExternalAccountTransactionEndpoint : Endpoint<Create
 
 // ── Transaction Attachments ──────────────────────────────────────
 
-internal sealed class UploadExternalAccountTransactionAttachmentEndpoint
-    : EndpointWithoutRequest<ExternalAccountTransactionAttachmentResponse>
+internal sealed class UploadAccountTransactionAttachmentEndpoint
+    : EndpointWithoutRequest<AccountTransactionAttachmentResponse>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public UploadExternalAccountTransactionAttachmentEndpoint(IExternalAccountLinkService service)
+    public UploadAccountTransactionAttachmentEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Post("/admin/external-accounts/transactions/{transactionId}/attachments");
+        Post("/admin/accounts/transactions/{transactionId}/attachments");
         Policies("AdminPolicy");
         AllowFileUploads();
     }
@@ -412,19 +412,19 @@ internal sealed class UploadExternalAccountTransactionAttachmentEndpoint
     }
 }
 
-internal sealed class ListExternalAccountTransactionAttachmentsEndpoint
-    : EndpointWithoutRequest<IReadOnlyList<ExternalAccountTransactionAttachmentResponse>>
+internal sealed class ListAccountTransactionAttachmentsEndpoint
+    : EndpointWithoutRequest<IReadOnlyList<AccountTransactionAttachmentResponse>>
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public ListExternalAccountTransactionAttachmentsEndpoint(IExternalAccountLinkService service)
+    public ListAccountTransactionAttachmentsEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Get("/admin/external-accounts/transactions/{transactionId}/attachments");
+        Get("/admin/accounts/transactions/{transactionId}/attachments");
         Policies("AdminPolicy");
     }
 
@@ -436,18 +436,18 @@ internal sealed class ListExternalAccountTransactionAttachmentsEndpoint
     }
 }
 
-internal sealed class DeleteExternalAccountTransactionAttachmentEndpoint : EndpointWithoutRequest
+internal sealed class DeleteAccountTransactionAttachmentEndpoint : EndpointWithoutRequest
 {
-    private readonly IExternalAccountLinkService _service;
+    private readonly IAccountLinkService _service;
 
-    public DeleteExternalAccountTransactionAttachmentEndpoint(IExternalAccountLinkService service)
+    public DeleteAccountTransactionAttachmentEndpoint(IAccountLinkService service)
     {
         _service = service;
     }
 
     public override void Configure()
     {
-        Delete("/admin/external-accounts/attachments/{attachmentId}");
+        Delete("/admin/accounts/attachments/{attachmentId}");
         Policies("AdminPolicy");
     }
 

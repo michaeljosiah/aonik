@@ -17,7 +17,7 @@ export default defineConfig({
     proxy: {
       // Proxy API requests to the backend during development
       '/api': {
-        target: process.env.services__api__https__0 || process.env.services__api__http__0 || 'https://localhost:5001',
+        target: process.env.services__api__https__0 || process.env.services__api__http__0 || 'http://localhost:5049',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),

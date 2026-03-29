@@ -1,21 +1,17 @@
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.ExternalAccounts;
+namespace Aonik.Finance.Persistence.Configurations.Accounts;
 
-internal class ExternalAccountLinkedAccountConfiguration : IEntityTypeConfiguration<ExternalAccountLinkedAccount>
+internal class AccountConfiguration : IEntityTypeConfiguration<Account>
 {
-    public void Configure(EntityTypeBuilder<ExternalAccountLinkedAccount> builder)
+    public void Configure(EntityTypeBuilder<Account> builder)
     {
-        builder.ToTable("ExternalAccountLinkedAccounts", SchemaNames.Default);
+        builder.ToTable("Accounts", SchemaNames.Default);
 
         builder.HasKey(x => x.Id);
-
-        builder.Property(x => x.ProviderAccountReference)
-            .IsRequired()
-            .HasMaxLength(200);
 
         builder.Property(x => x.Name)
             .IsRequired()
@@ -32,12 +28,24 @@ internal class ExternalAccountLinkedAccountConfiguration : IEntityTypeConfigurat
             .IsRequired()
             .HasMaxLength(3);
 
-        builder.Property(x => x.Last4)
-            .HasMaxLength(4);
+        builder.Property(x => x.Country)
+            .HasMaxLength(3);
+
+        builder.Property(x => x.MaskedIdentifier)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.InstitutionName)
+            .HasMaxLength(200);
 
         builder.Property(x => x.Status)
             .IsRequired()
             .HasMaxLength(50);
+
+        builder.Property(x => x.Notes)
+            .HasMaxLength(1000);
+
+        builder.Property(x => x.ProviderAccountReference)
+            .HasMaxLength(200);
 
         builder.Property(x => x.LastSyncStatus)
             .HasMaxLength(100);
@@ -45,14 +53,15 @@ internal class ExternalAccountLinkedAccountConfiguration : IEntityTypeConfigurat
         builder.Property(x => x.LastError)
             .HasMaxLength(500);
 
-        builder.HasIndex(x => new { x.TenantId, x.ExternalAccountConnectionId, x.ProviderAccountReference })
-            .IsUnique();
+        builder.HasIndex(x => new { x.TenantId, x.AccountConnectionId, x.ProviderAccountReference })
+            .IsUnique()
+            .HasFilter("[AccountConnectionId] IS NOT NULL");
 
-        builder.HasIndex(x => new { x.TenantId, x.ExternalAccountId });
+        builder.HasIndex(x => new { x.TenantId, x.AccountType });
 
-        builder.HasOne<ExternalAccountConnection>()
+        builder.HasOne<AccountConnection>()
             .WithMany()
-            .HasForeignKey(x => x.ExternalAccountConnectionId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .HasForeignKey(x => x.AccountConnectionId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

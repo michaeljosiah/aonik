@@ -1,12 +1,12 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.ExternalAccounts;
+namespace Aonik.Finance.Entities.Accounts;
 
-public class ExternalAccountTransaction : AuditableEntity, ITenantScoped
+public class AccountTransaction : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
-    public Guid ExternalAccountId { get; set; }
-    public Guid? ExternalAccountConnectionId { get; set; }
+    public Guid AccountId { get; set; }
+    public Guid? AccountConnectionId { get; set; }
     public string ProviderTransactionReference { get; set; } = string.Empty;
     public DateTime OccurredAt { get; set; }
     public decimal Amount { get; set; }

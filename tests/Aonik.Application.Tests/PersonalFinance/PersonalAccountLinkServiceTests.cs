@@ -303,7 +303,7 @@ public class PersonalAccountLinkServiceTests
         result.Connection.Accounts.Should().HaveCount(2);
 
         context.FinancialConnections.Should().ContainSingle();
-        context.FinancialLinkedAccounts.Should().HaveCount(2);
+        context.PersonalLinkedAccounts.Should().HaveCount(2);
         context.PersonalAccounts.Should().HaveCount(2);
         context.FinancialConnectionSessions.Single().Status.Should().Be("Exchanged");
     }
@@ -503,7 +503,7 @@ public class PersonalAccountLinkServiceTests
         connection.LastSyncStatus.Should().Be("PENDING_DISCONNECT");
         connection.NextScheduledSyncAt.Should().BeNull();
 
-        context.FinancialLinkedAccounts.Should().OnlyContain(item => item.Status == "ActionRequired");
+        context.PersonalLinkedAccounts.Should().OnlyContain(item => item.Status == "ActionRequired");
         context.FinancialWebhookEvents.Should().ContainSingle(item => item.ProviderEventCode == "PENDING_DISCONNECT");
     }
 

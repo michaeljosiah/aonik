@@ -2,11 +2,11 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Platform.Entities.Party;
 
-public class ExternalAccount : AuditableEntity, ITenantScoped
+public class PartyAccount : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid PartyId { get; set; }
-    public string ExternalAccountType { get; set; } = string.Empty;
+    public string AccountType { get; set; } = string.Empty;
     public string MaskedIdentifier { get; set; } = string.Empty;
     public string? ProviderRef { get; set; }
     public string VerificationStatus { get; set; } = string.Empty;

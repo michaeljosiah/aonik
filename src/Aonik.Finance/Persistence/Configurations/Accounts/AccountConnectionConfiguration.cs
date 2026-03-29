@@ -1,15 +1,15 @@
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.ExternalAccounts;
+namespace Aonik.Finance.Persistence.Configurations.Accounts;
 
-internal class ExternalAccountConnectionConfiguration : IEntityTypeConfiguration<ExternalAccountConnection>
+internal class AccountConnectionConfiguration : IEntityTypeConfiguration<AccountConnection>
 {
-    public void Configure(EntityTypeBuilder<ExternalAccountConnection> builder)
+    public void Configure(EntityTypeBuilder<AccountConnection> builder)
     {
-        builder.ToTable("ExternalAccountConnections", SchemaNames.Default);
+        builder.ToTable("AccountConnections", SchemaNames.Default);
 
         builder.HasKey(x => x.Id);
 

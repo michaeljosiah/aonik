@@ -4,6 +4,7 @@ import type { WorkspacePanelConfig } from '@/workspace/types';
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { AiModelsPage } from '@/pages/ai/AiModelsPage';
 import { AgentConfigPage } from '@/pages/ai/AgentConfigPage';
+import { AgentDetailPage } from '@/pages/ai/AgentDetailPage';
 import { AnalyticsPanel } from '@/workspace/apps/AnalyticsPanel';
 import { AiModelsPanel } from '@/workspace/apps/AiModelsPanel';
 import { AgentConfigPanel } from '@/workspace/apps/AgentConfigPanel';
@@ -66,6 +67,7 @@ const routes = [
   { path: '/analytics', element: AnalyticsPage },
   { path: '/ai/models', element: AiModelsPage },
   { path: '/ai/agents', element: AgentConfigPage },
+  { path: '/ai/agents/:agentName', element: AgentDetailPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -93,6 +95,7 @@ const panelComponents = {
 const breadcrumbs = [
   { pathPrefix: '/analytics', trail: ['Analytics'] },
   { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
+  { pathPrefix: '/ai/agents/', trail: ['AI', 'Agents', 'Agent Details'] },
   { pathPrefix: '/ai/agents', trail: ['AI', 'Agents'] },
   { pathPrefix: '/ai', trail: ['AI'] },
   { pathPrefix: '/workspace', trail: ['Workspace'] },

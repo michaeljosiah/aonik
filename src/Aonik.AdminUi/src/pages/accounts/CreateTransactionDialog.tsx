@@ -18,10 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { externalAccountService } from '@/services/externalAccountService';
+import { accountService } from '@/services/accountService';
 import type {
-  CreateExternalAccountTransactionRequest,
-  ExternalAccountResponse,
+  CreateAccountTransactionRequest,
+  AccountResponse,
 } from '@/types';
 
 interface CreateTransactionDialogProps {
@@ -34,7 +34,7 @@ interface CreateTransactionDialogProps {
 const todayString = () => new Date().toISOString().slice(0, 10);
 
 interface TransactionFormData {
-  externalAccountId: string;
+  accountId: string;
   occurredAt: string;
   amount: string;
   currency: string;
@@ -46,7 +46,7 @@ interface TransactionFormData {
 }
 
 const createEmptyForm = (preselectedAccountId?: string): TransactionFormData => ({
-  externalAccountId: preselectedAccountId || '',
+  accountId: preselectedAccountId || '',
   occurredAt: todayString(),
   amount: '',
   currency: '',
@@ -69,7 +69,7 @@ export function CreateTransactionDialog({
   const [formData, setFormData] = useState<TransactionFormData>(() =>
     createEmptyForm(preselectedAccountId)
   );
-  const [accounts, setAccounts] = useState<ExternalAccountResponse[]>([]);
+  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export function CreateTransactionDialog({
   useEffect(() => {
     if (!open) return;
     setAccountsLoading(true);
-    externalAccountService
+    accountService
       .listAccounts()
       .then((result) => setAccounts(result))
       .catch((err) => {
@@ -95,13 +95,13 @@ export function CreateTransactionDialog({
   }, [open, preselectedAccountId]);
 
   const isValid = useMemo(() => {
-    if (!formData.externalAccountId) return false;
+    if (!formData.accountId) return false;
     if (!formData.occurredAt) return false;
     const amt = parseFloat(formData.amount);
     if (isNaN(amt) || amt === 0) return false;
     if (!formData.currency.trim() || formData.currency.trim().length !== 3) return false;
     return true;
-  }, [formData.externalAccountId, formData.occurredAt, formData.amount, formData.currency]);
+  }, [formData.accountId, formData.occurredAt, formData.amount, formData.currency]);
 
   const handleClose = (nextOpen: boolean) => {
     if (!nextOpen) {
@@ -116,8 +116,8 @@ export function CreateTransactionDialog({
     setSaving(true);
     setError(null);
     try {
-      const payload: CreateExternalAccountTransactionRequest = {
-        externalAccountId: formData.externalAccountId,
+      const payload: CreateAccountTransactionRequest = {
+        accountId: formData.accountId,
         occurredAt: new Date(formData.occurredAt).toISOString(),
         amount: parseFloat(formData.amount),
         currency: formData.currency.trim().toUpperCase(),
@@ -127,7 +127,7 @@ export function CreateTransactionDialog({
         category: formData.category.trim() || null,
         notes: formData.notes.trim() || null,
       };
-      await externalAccountService.createTransaction(payload);
+      await accountService.createTransaction(payload);
       toast.success('Transaction created successfully.');
       onSuccess();
       handleClose(false);
@@ -151,8 +151,8 @@ export function CreateTransactionDialog({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const formatAccountLabel = (account: ExternalAccountResponse) => {
-    const parts = [account.maskedIdentifier, account.externalAccountType];
+  const formatAccountLabel = (account: AccountResponse) => {
+    const parts = [account.maskedIdentifier, account.accountType];
     return parts.filter(Boolean).join(' - ');
   };
 
@@ -175,15 +175,15 @@ export function CreateTransactionDialog({
               <p className="text-sm text-[var(--color-text-tertiary)]">Loading accounts...</p>
             ) : (
               <Select
-                value={formData.externalAccountId}
-                onValueChange={(value) => updateField('externalAccountId', value)}
+                value={formData.accountId}
+                onValueChange={(value) => updateField('accountId', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select an account" />
                 </SelectTrigger>
                 <SelectContent>
                   {accounts.map((account) => (
-                    <SelectItem key={account.externalAccountId} value={account.externalAccountId}>
+                    <SelectItem key={account.accountId} value={account.accountId}>
                       {formatAccountLabel(account)}
                     </SelectItem>
                   ))}

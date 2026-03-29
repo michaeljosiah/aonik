@@ -49,7 +49,7 @@ public interface IAonikDbContext
     DbSet<PartyConsent> PartyConsents { get; set; }
     DbSet<PersonProfile> PersonProfiles { get; set; }
     DbSet<BusinessProfile> BusinessProfiles { get; set; }
-    DbSet<ExternalAccount> ExternalAccounts { get; set; }
+    DbSet<PartyAccount> PartyAccounts { get; set; }
     DbSet<PartyRoleAssignment> PartyRoleAssignments { get; set; }
     DbSet<PartyRelationship> PartyRelationships { get; set; }
 

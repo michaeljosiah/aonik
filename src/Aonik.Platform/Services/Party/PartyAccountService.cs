@@ -5,28 +5,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Platform.Services.Party;
 
-internal class ExternalAccountService : IExternalAccountService
+internal class PartyAccountService : IPartyAccountService
 {
     private readonly PlatformDbContext _dbContext;
 
-    public ExternalAccountService(PlatformDbContext dbContext)
+    public PartyAccountService(PlatformDbContext dbContext)
     {
         _dbContext = dbContext;
     }
 
-    public async Task<Guid> FindOrCreateExternalAccountAsync(
+    public async Task<Guid> FindOrCreatePartyAccountAsync(
         Guid tenantId,
         Guid partyId,
-        string externalAccountType,
+        string accountType,
         string maskedIdentifier,
         string? providerRef,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _dbContext.ExternalAccounts
+        var existing = await _dbContext.PartyAccounts
             .FirstOrDefaultAsync(
                 ea => ea.TenantId == tenantId
                     && ea.PartyId == partyId
-                    && ea.ExternalAccountType == externalAccountType
+                    && ea.AccountType == accountType
                     && ea.MaskedIdentifier == maskedIdentifier,
                 cancellationToken);
 
@@ -41,27 +41,27 @@ internal class ExternalAccountService : IExternalAccountService
             return existing.Id;
         }
 
-        var account = new ExternalAccount
+        var account = new PartyAccount
         {
             TenantId = tenantId,
             PartyId = partyId,
-            ExternalAccountType = externalAccountType,
+            AccountType = accountType,
             MaskedIdentifier = maskedIdentifier,
             ProviderRef = providerRef,
             VerificationStatus = "Verified",
             MetadataJson = "{}"
         };
 
-        _dbContext.ExternalAccounts.Add(account);
+        _dbContext.PartyAccounts.Add(account);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return account.Id;
     }
 
-    public async Task<ExternalAccountResult> CreateExternalAccountAsync(
+    public async Task<PartyAccountResult> CreatePartyAccountAsync(
         Guid tenantId,
         Guid partyId,
-        string externalAccountType,
+        string accountType,
         string maskedIdentifier,
         string? providerRef,
         string verificationStatus,
@@ -70,11 +70,11 @@ internal class ExternalAccountService : IExternalAccountService
         string? metadataJson,
         CancellationToken cancellationToken = default)
     {
-        var account = new ExternalAccount
+        var account = new PartyAccount
         {
             TenantId = tenantId,
             PartyId = partyId,
-            ExternalAccountType = externalAccountType,
+            AccountType = accountType,
             MaskedIdentifier = maskedIdentifier,
             ProviderRef = providerRef,
             VerificationStatus = verificationStatus,
@@ -83,17 +83,17 @@ internal class ExternalAccountService : IExternalAccountService
             MetadataJson = metadataJson ?? "{}"
         };
 
-        _dbContext.ExternalAccounts.Add(account);
+        _dbContext.PartyAccounts.Add(account);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapToResult(account);
     }
 
-    public async Task<IReadOnlyList<ExternalAccountResult>> ListExternalAccountsAsync(
+    public async Task<IReadOnlyList<PartyAccountResult>> ListPartyAccountsAsync(
         Guid tenantId,
         CancellationToken cancellationToken = default)
     {
-        var accounts = await _dbContext.ExternalAccounts
+        var accounts = await _dbContext.PartyAccounts
             .AsNoTracking()
             .Where(ea => ea.TenantId == tenantId)
             .OrderByDescending(ea => ea.CreatedAt)
@@ -102,12 +102,12 @@ internal class ExternalAccountService : IExternalAccountService
         return accounts.Select(MapToResult).ToList();
     }
 
-    public async Task<ExternalAccountResult?> GetExternalAccountAsync(
+    public async Task<PartyAccountResult?> GetPartyAccountAsync(
         Guid tenantId,
         Guid accountId,
         CancellationToken cancellationToken = default)
     {
-        var account = await _dbContext.ExternalAccounts
+        var account = await _dbContext.PartyAccounts
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 ea => ea.Id == accountId && ea.TenantId == tenantId,
@@ -116,13 +116,13 @@ internal class ExternalAccountService : IExternalAccountService
         return account == null ? null : MapToResult(account);
     }
 
-    private static ExternalAccountResult MapToResult(ExternalAccount account)
+    private static PartyAccountResult MapToResult(PartyAccount account)
     {
-        return new ExternalAccountResult(
+        return new PartyAccountResult(
             account.Id,
             account.TenantId,
             account.PartyId,
-            account.ExternalAccountType,
+            account.AccountType,
             account.MaskedIdentifier,
             account.ProviderRef,
             account.VerificationStatus,

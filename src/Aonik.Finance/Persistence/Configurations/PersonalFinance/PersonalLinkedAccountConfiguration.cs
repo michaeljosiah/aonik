@@ -5,11 +5,11 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Aonik.Finance.Persistence.Configurations.PersonalFinance;
 
-internal class FinancialLinkedAccountConfiguration : IEntityTypeConfiguration<FinancialLinkedAccount>
+internal class PersonalLinkedAccountConfiguration : IEntityTypeConfiguration<PersonalLinkedAccount>
 {
-    public void Configure(EntityTypeBuilder<FinancialLinkedAccount> builder)
+    public void Configure(EntityTypeBuilder<PersonalLinkedAccount> builder)
     {
-        builder.ToTable("FinancialLinkedAccounts", SchemaNames.Default);
+        builder.ToTable("PersonalLinkedAccounts", SchemaNames.Default);
 
         builder.HasKey(x => x.Id);
 

@@ -1,67 +1,67 @@
-using Aonik.Finance.Contracts.Models.ExternalAccounts;
+using Aonik.Finance.Contracts.Models.Accounts;
 using Aonik.SharedKernel.Abstractions;
 
-namespace Aonik.Finance.Contracts.Services.ExternalAccounts;
+namespace Aonik.Finance.Contracts.Services.Accounts;
 
-public interface IExternalAccountLinkService
+public interface IAccountLinkService
 {
-    Task<ExternalAccountLinkSessionResponse> CreateSessionAsync(
-        CreateExternalAccountLinkSessionRequest request,
+    Task<AccountLinkSessionResponse> CreateSessionAsync(
+        CreateAccountLinkSessionRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<ExternalAccountLinkExchangeResponse> ExchangeSessionAsync(
-        ExchangeExternalAccountLinkSessionRequest request,
+    Task<AccountLinkExchangeResponse> ExchangeSessionAsync(
+        ExchangeAccountLinkSessionRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<ExternalAccountConnectionResponse>> ListConnectionsAsync(
+    Task<IReadOnlyList<AccountConnectionResponse>> ListConnectionsAsync(
         bool includeDisconnected = false,
         CancellationToken cancellationToken = default);
 
-    Task<ExternalAccountConnectionResponse?> RefreshConnectionAsync(
+    Task<AccountConnectionResponse?> RefreshConnectionAsync(
         Guid connectionId,
         CancellationToken cancellationToken = default);
 
-    Task<ExternalAccountConnectionResponse?> DisconnectConnectionAsync(
+    Task<AccountConnectionResponse?> DisconnectConnectionAsync(
         Guid connectionId,
         CancellationToken cancellationToken = default);
 
-    Task<ExternalAccountTransactionSyncResponse?> SyncConnectionTransactionsAsync(
+    Task<AccountTransactionSyncResponse?> SyncConnectionTransactionsAsync(
         Guid connectionId,
         CancellationToken cancellationToken = default);
 
-    Task<PagedResult<ExternalAccountTransactionResponse>> ListTransactionsAsync(
-        ListExternalAccountTransactionsRequest request,
+    Task<PagedResult<AccountTransactionResponse>> ListTransactionsAsync(
+        ListAccountTransactionsRequest request,
         CancellationToken cancellationToken = default);
 
     Task ProcessPlaidWebhookAsync(
-        PlaidExternalAccountWebhookRequest request,
+        PlaidAccountWebhookRequest request,
         CancellationToken cancellationToken = default);
 
     // ── Manual Account CRUD ──────────────────────────────────────
 
-    Task<ExternalAccountResponse> CreateAccountAsync(
-        CreateExternalAccountRequest request,
+    Task<AccountResponse> CreateAccountAsync(
+        CreateAccountRequest request,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<ExternalAccountResponse>> ListAccountsAsync(
+    Task<IReadOnlyList<AccountResponse>> ListAccountsAsync(
         CancellationToken cancellationToken = default);
 
     // ── Manual Transaction CRUD ──────────────────────────────────
 
-    Task<ExternalAccountTransactionResponse> CreateTransactionAsync(
-        CreateExternalAccountTransactionRequest request,
+    Task<AccountTransactionResponse> CreateTransactionAsync(
+        CreateAccountTransactionRequest request,
         CancellationToken cancellationToken = default);
 
     // ── Transaction Attachments ──────────────────────────────────
 
-    Task<ExternalAccountTransactionAttachmentResponse> AddTransactionAttachmentAsync(
+    Task<AccountTransactionAttachmentResponse> AddTransactionAttachmentAsync(
         Guid transactionId,
         Stream fileStream,
         string fileName,
         string contentType,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<ExternalAccountTransactionAttachmentResponse>> ListTransactionAttachmentsAsync(
+    Task<IReadOnlyList<AccountTransactionAttachmentResponse>> ListTransactionAttachmentsAsync(
         Guid transactionId,
         CancellationToken cancellationToken = default);
 

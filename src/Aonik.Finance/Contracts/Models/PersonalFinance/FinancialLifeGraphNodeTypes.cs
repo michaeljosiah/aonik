@@ -34,7 +34,7 @@ public static class FinancialLifeGraphNodeTypes
     /// <summary>
     /// A linked account synchronized from an external aggregation provider.
     /// </summary>
-    public const string FinancialLinkedAccount = "FinancialLinkedAccount";
+    public const string PersonalLinkedAccount = "PersonalLinkedAccount";
 
     /// <summary>
     /// A personal finance transaction projected into the graph.

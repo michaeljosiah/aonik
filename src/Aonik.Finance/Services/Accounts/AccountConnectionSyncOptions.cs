@@ -1,6 +1,6 @@
-namespace Aonik.Finance.Services.ExternalAccounts;
+namespace Aonik.Finance.Services.Accounts;
 
-public class ExternalAccountConnectionSyncOptions
+public class AccountConnectionSyncOptions
 {
     public bool EnableRecurringSync { get; set; } = true;
     public int DefaultSyncIntervalMinutes { get; set; } = 120;

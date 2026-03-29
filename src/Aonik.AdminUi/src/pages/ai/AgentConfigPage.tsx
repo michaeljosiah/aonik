@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,8 @@ const formatDate = (dateString?: string | null) => {
 };
 
 export function AgentConfigPage() {
+  const navigate = useNavigate();
+
   // ── State ──────────────────────────────────────────────────────────
   const [configs, setConfigs] = useState<AgentConfigurationResponse[]>([]);
   const [models, setModels] = useState<AiModelResponse[]>([]);
@@ -257,7 +260,7 @@ export function AgentConfigPage() {
             const riskStyle = riskTierStyles[config.riskTier] ?? riskTierStyles.low;
 
             return (
-              <Card key={config.id}>
+              <Card key={config.id} className="cursor-pointer hover:border-[var(--color-brand-primary)] transition-colors" onClick={() => navigate(`/ai/agents/${config.name}`)}>
                 <CardContent className="p-5">
                   {/* Header */}
                   <div className="flex items-start justify-between mb-3">
@@ -271,11 +274,11 @@ export function AgentConfigPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(config)}>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(config); }}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
                       {config.isOverride && (
-                        <Button variant="ghost" size="sm" onClick={() => deleteOverride(config)} title="Delete override (revert to global)">
+                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deleteOverride(config); }} title="Delete override (revert to global)">
                           <RotateCcw className="w-3.5 h-3.5 text-[var(--color-warning)]" />
                         </Button>
                       )}

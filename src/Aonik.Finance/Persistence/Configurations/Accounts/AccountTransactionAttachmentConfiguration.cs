@@ -1,15 +1,15 @@
-using Aonik.Finance.Entities.ExternalAccounts;
+using Aonik.Finance.Entities.Accounts;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Aonik.Finance.Persistence.Configurations.ExternalAccounts;
+namespace Aonik.Finance.Persistence.Configurations.Accounts;
 
-internal class ExternalAccountTransactionAttachmentConfiguration : IEntityTypeConfiguration<ExternalAccountTransactionAttachment>
+internal class AccountTransactionAttachmentConfiguration : IEntityTypeConfiguration<AccountTransactionAttachment>
 {
-    public void Configure(EntityTypeBuilder<ExternalAccountTransactionAttachment> builder)
+    public void Configure(EntityTypeBuilder<AccountTransactionAttachment> builder)
     {
-        builder.ToTable("ExternalAccountTransactionAttachments", SchemaNames.Default);
+        builder.ToTable("AccountTransactionAttachments", SchemaNames.Default);
 
         builder.HasKey(x => x.Id);
 
@@ -37,7 +37,7 @@ internal class ExternalAccountTransactionAttachmentConfiguration : IEntityTypeCo
 
         builder.HasIndex(x => new { x.TenantId, x.TransactionId });
 
-        builder.HasOne<ExternalAccountTransaction>()
+        builder.HasOne<AccountTransaction>()
             .WithMany()
             .HasForeignKey(x => x.TransactionId)
             .OnDelete(DeleteBehavior.Cascade);

@@ -58,7 +58,7 @@ internal sealed class FinancialLifeGraphLoader
 
         var linkedAccounts = accountIds.Count == 0
             ? []
-            : await _financeDbContext.FinancialLinkedAccounts
+            : await _financeDbContext.PersonalLinkedAccounts
                 .AsNoTracking()
                 .Where(item => item.TenantId == tenantId && item.UserId == userId && accountIds.Contains(item.PersonalAccountId))
                 .OrderBy(item => item.Name)
@@ -212,7 +212,7 @@ internal sealed class FinancialLifeGraphLoader
 
     public static List<string> GetRelevantAccountCurrencies(
         IReadOnlyList<PersonalAccount> accounts,
-        IReadOnlyList<FinancialLinkedAccount> linkedAccounts)
+        IReadOnlyList<PersonalLinkedAccount> linkedAccounts)
     {
         return accounts
             .Select(item => item.Currency)

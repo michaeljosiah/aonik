@@ -21,8 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import { externalAccountService } from '@/services/externalAccountService';
-import type { ExternalAccountResponse } from '@/types';
+import { accountService } from '@/services/accountService';
+import type { AccountResponse } from '@/types';
 import {
   DataTable,
   DataTableHeader,
@@ -41,7 +41,7 @@ const statusFilterOptions: FilterOption[] = [
 
 export function AccountsListPage() {
   const navigate = useNavigate();
-  const [accounts, setAccounts] = useState<ExternalAccountResponse[]>([]);
+  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
@@ -56,7 +56,7 @@ export function AccountsListPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await externalAccountService.listAccounts();
+      const result = await accountService.listAccounts();
       setAccounts(result);
     } catch (err: unknown) {
       const message =
@@ -94,7 +94,7 @@ export function AccountsListPage() {
       const query = searchQuery.toLowerCase();
       return (
         a.maskedIdentifier.toLowerCase().includes(query) ||
-        a.externalAccountType.toLowerCase().includes(query) ||
+        a.accountType.toLowerCase().includes(query) ||
         (a.providerRef ?? '').toLowerCase().includes(query) ||
         (a.currency ?? '').toLowerCase().includes(query) ||
         (a.country ?? '').toLowerCase().includes(query)
@@ -109,15 +109,15 @@ export function AccountsListPage() {
     pageNumber * pageSize
   );
 
-  const getRowActions = (account: ExternalAccountResponse): DataTableAction[] => [
+  const getRowActions = (account: AccountResponse): DataTableAction[] => [
     {
       label: 'View Transactions',
       icon: <Eye className="w-4 h-4" />,
-      onClick: () => navigate(`/accounts/${account.externalAccountId}/transactions`),
+      onClick: () => navigate(`/accounts/${account.accountId}/transactions`),
     },
   ];
 
-  const columns: ColumnDef<ExternalAccountResponse>[] = [
+  const columns: ColumnDef<AccountResponse>[] = [
     {
       id: 'maskedIdentifier',
       header: 'Account',
@@ -126,20 +126,20 @@ export function AccountsListPage() {
       cell: (account) => (
         <button
           className="text-left hover:underline"
-          onClick={() => navigate(`/accounts/${account.externalAccountId}/transactions`)}
+          onClick={() => navigate(`/accounts/${account.accountId}/transactions`)}
         >
           <p className="font-medium text-[var(--color-text-primary)]">{account.maskedIdentifier}</p>
-          <p className="text-xs text-[var(--color-text-tertiary)]">{account.externalAccountId.slice(0, 8)}...</p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">{account.accountId.slice(0, 8)}...</p>
         </button>
       ),
     },
     {
-      id: 'externalAccountType',
+      id: 'accountType',
       header: 'Type',
-      accessorKey: 'externalAccountType',
+      accessorKey: 'accountType',
       sortable: true,
       cell: (account) => (
-        <span className="text-sm text-[var(--color-text-secondary)]">{account.externalAccountType}</span>
+        <span className="text-sm text-[var(--color-text-secondary)]">{account.accountType}</span>
       ),
     },
     {
@@ -207,7 +207,7 @@ export function AccountsListPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Accounts</h1>
           <p className="text-[var(--color-text-secondary)]">
-            Manage external accounts for this tenant.
+            Manage accounts for this tenant.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -321,7 +321,7 @@ export function AccountsListPage() {
             <DataTable
               data={paginatedAccounts}
               columns={columns}
-              getRowId={(a) => a.externalAccountId}
+              getRowId={(a) => a.accountId}
               loading={loading}
               loadingMessage="Loading accounts..."
               emptyIcon={<Landmark className="w-12 h-12" />}

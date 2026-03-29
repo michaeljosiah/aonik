@@ -1,12 +1,12 @@
 using Aonik.SharedKernel.Primitives;
 
-namespace Aonik.Finance.Entities.ExternalAccounts;
+namespace Aonik.Finance.Entities.Accounts;
 
-public class ExternalAccountConnectionSession : AuditableEntity, ITenantScoped
+public class AccountConnectionSession : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
-    public Guid? ExternalAccountConnectionId { get; set; }
+    public Guid? AccountConnectionId { get; set; }
     public string Provider { get; set; } = string.Empty;
     public string Mode { get; set; } = string.Empty;
     public string SessionToken { get; set; } = string.Empty;

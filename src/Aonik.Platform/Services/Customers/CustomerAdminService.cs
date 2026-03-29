@@ -296,13 +296,13 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
                 c.RevokedAt))
             .ToListAsync(cancellationToken);
 
-        var externalAccounts = await _dbContext.ExternalAccounts
+        var externalAccounts = await _dbContext.PartyAccounts
             .AsNoTracking()
             .Where(ea => ea.TenantId == tenantId && ea.PartyId == partyId)
             .OrderByDescending(ea => ea.CreatedAt)
-            .Select(ea => new ExternalAccountDetail(
+            .Select(ea => new PartyAccountDetail(
                 ea.Id,
-                ea.ExternalAccountType,
+                ea.AccountType,
                 ea.MaskedIdentifier,
                 ea.ProviderRef,
                 ea.VerificationStatus,
