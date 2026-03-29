@@ -1,0 +1,147 @@
+name: "CD: Migrate Database"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      mode:
+        description: "Migration mode"
+        required: true
+        default: "migrate-and-seed"
+        type: choice
+        options:
+          - migrate-and-seed
+          - migrate-only
+          - seed-only
+      workload_name:
+        description: "Workload name override (optional)"
+        required: false
+        default: ""
+        type: string
+      source_ref:
+        description: "Optional git ref or commit SHA to checkout"
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: "Dry run — list pending migrations without applying"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: migrate-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Run migrator (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    env:
+      WORKLOAD_NAME: ${{ inputs.workload_name != '' && inputs.workload_name || vars.WORKLOAD_NAME || 'aonik' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.sha }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Azure login
+        uses: ./.github/actions/azure-login
+        with:
+          client_id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant_id: ${{ vars.AZURE_TENANT_ID }}
+          subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+
+      - name: Resolve Key Vault name
+        id: kv
+        run: |
+          set -euo pipefail
+          workload=$(echo "${WORKLOAD_NAME}" | tr '[:upper:]' '[:lower:]')
+          environment=$(echo "${{ inputs.environment }}" | tr '[:upper:]' '[:lower:]')
+          kv_name="${workload}-${environment}-kv"
+          echo "name=${kv_name}" >> "$GITHUB_OUTPUT"
+          echo "Key Vault: ${kv_name}"
+
+      - name: Fetch connection string from Key Vault
+        id: secret
+        run: |
+          set -euo pipefail
+          connection_string=$(az keyvault secret show \
+            --vault-name "${{ steps.kv.outputs.name }}" \
+            --name "ConnectionStrings--DefaultConnection" \
+            --query value -o tsv)
+
+          if [ -z "$connection_string" ]; then
+            echo "Failed to retrieve connection string from Key Vault '${{ steps.kv.outputs.name }}'." >&2
+            exit 1
+          fi
+
+          echo "::add-mask::${connection_string}"
+          echo "connection_string=${connection_string}" >> "$GITHUB_OUTPUT"
+          echo "Connection string retrieved successfully."
+
+      - name: Build migrator
+        run: dotnet build src/Aonik.Migrator/Aonik.Migrator.csproj --configuration Release
+
+      - name: List pending migrations (dry run)
+        if: ${{ inputs.dry_run }}
+        env:
+          ConnectionStrings__DefaultConnection: ${{ steps.secret.outputs.connection_string }}
+        run: |
+          set -euo pipefail
+          dotnet ef migrations list \
+            --project src/Aonik.Infrastructure \
+            --startup-project src/Aonik.Migrator \
+            --configuration Release \
+            --no-build
+          echo "Dry run complete — no migrations were applied."
+
+      - name: Run migrator
+        if: ${{ !inputs.dry_run }}
+        env:
+          ConnectionStrings__DefaultConnection: ${{ steps.secret.outputs.connection_string }}
+        run: |
+          set -euo pipefail
+
+          mode="${{ inputs.mode }}"
+          args=""
+
+          case "$mode" in
+            migrate-only)
+              args="--migrate-only"
+              ;;
+            seed-only)
+              args="--seed-only"
+              ;;
+            migrate-and-seed)
+              # default behaviour — no args needed
+              ;;
+          esac
+
+          echo "Running migrator (mode: ${mode})..."
+          dotnet run \
+            --project src/Aonik.Migrator/Aonik.Migrator.csproj \
+            --configuration Release \
+            --no-build \
+            -- $args
