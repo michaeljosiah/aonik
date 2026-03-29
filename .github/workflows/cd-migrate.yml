@@ -160,3 +160,23 @@ jobs:
             --configuration Release \
             --no-build \
             -- $args
+
+      - name: Restart API container after --reset
+        if: ${{ !inputs.dry_run && inputs.reset }}
+        run: |
+          set -euo pipefail
+          workload=$(echo "${WORKLOAD_NAME}" | tr '[:upper:]' '[:lower:]')
+          environment=$(echo "${{ inputs.environment }}" | tr '[:upper:]' '[:lower:]')
+          rg="rg-${workload}-${environment}-uksouth"
+          app="${workload}-${environment}-api"
+
+          echo "Restarting ${app} so hosted services re-seed data wiped by --reset..."
+          revision=$(az containerapp revision list \
+            --name "$app" \
+            --resource-group "$rg" \
+            --query "[0].name" -o tsv)
+          az containerapp revision restart \
+            --name "$app" \
+            --resource-group "$rg" \
+            --revision "$revision"
+          echo "API container restarted."
