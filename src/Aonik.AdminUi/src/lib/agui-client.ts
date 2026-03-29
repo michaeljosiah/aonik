@@ -393,6 +393,8 @@ export interface RunAgentInput {
   tools?: Tool[];
   context?: Context[];
   forwardedProps?: unknown;
+  /** Optional agent ID to route directly to a specific domain agent (bypassing the master orchestrator). */
+  agentId?: string;
 }
 
 // ─── Frontend Tool Handler ────────────────────────────────────────────────────

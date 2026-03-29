@@ -23,5 +23,11 @@ builder.Services.AddAgentsModule(builder.Configuration);
 builder.Services.AddHostedService<QuartzHostedService>();
 builder.Services.AddHostedService<FinancialConnectionRecurringSyncWorker>();
 
+// User Brief: stale session detection and conversation summary generation
+builder.Services.AddHostedService<StaleSessionDetectorWorker>();
+
+// Behavioural insight pre-computation (runs every 6 hours)
+builder.Services.AddHostedService<BehaviouralInsightWorker>();
+
 var host = builder.Build();
 host.Run();

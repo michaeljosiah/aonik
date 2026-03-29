@@ -20,6 +20,7 @@ internal class AgentsDbContext : AonikDbContextBase
     public DbSet<Proposal> Proposals { get; set; } = null!;
     public DbSet<ChatThread> ChatThreads { get; set; } = null!;
     public DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
+    public DbSet<ConversationSummary> ConversationSummaries { get; set; } = null!;
 
     public AgentsDbContext(
         DbContextOptions<AgentsDbContext> options,
@@ -60,6 +61,7 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<Proposal>(modelBuilder, "Proposals");
         MapTable<ChatThread>(modelBuilder, "ChatThreads");
         MapTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
+        MapTable<ConversationSummary>(modelBuilder, "ConversationSummaries");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

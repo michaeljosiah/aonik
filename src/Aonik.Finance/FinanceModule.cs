@@ -122,6 +122,12 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAttachmentService, Services.PersonalFinance.TransactionAttachmentService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IFinancialContextService, Services.PersonalFinance.FinancialContextService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IBudgetService, Services.PersonalFinance.BudgetService>();
+
+        // Cross-module data provider for the UserBriefProjector (Agents module)
+        services.AddScoped<SharedKernel.Abstractions.PersonalFinance.IUserBriefDataProvider, Services.PersonalFinance.UserBriefDataProvider>();
+
+        // Behavioural insight pre-computation (consumed by background worker)
+        services.AddScoped<Services.PersonalFinance.BehaviouralInsightGenerator>();
         services.AddTransient<Contracts.Services.PersonalFinance.IPersonalAccountLinkProviderGateway>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;

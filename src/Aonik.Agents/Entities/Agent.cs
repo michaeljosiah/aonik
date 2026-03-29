@@ -34,4 +34,11 @@ public class Agent : AuditableEntity
     /// instead of the platform default.
     /// </summary>
     public Guid? ModelId { get; set; }
+
+    /// <summary>
+    /// Classifies this agent as a top-level orchestrator or a sub-agent (domain specialist).
+    /// Sub-agents are invoked as tools by orchestrators.
+    /// Orchestrators route user messages and may inject contextual payloads (e.g. UserBrief).
+    /// </summary>
+    public AgentType AgentType { get; set; } = AgentType.SubAgent;
 }

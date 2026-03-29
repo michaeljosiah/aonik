@@ -234,7 +234,8 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
                 InstructionsText = descriptor.Instructions ?? string.Empty,
                 ToolsetIdsJson = toolsetJson,
                 RiskTier = hasMutatingTools ? "medium" : "low",
-                IsActive = true
+                IsActive = true,
+                AgentType = AgentType.SubAgent,
             };
 
             _dbContext.Agents.Add(agent);
@@ -313,6 +314,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             ModelId = agent.ModelId,
             ModelName = modelName,
             IsOverride = agent.TenantId is not null && agent.TenantId != Guid.Empty,
+            AgentType = agent.AgentType,
             CreatedAt = agent.CreatedAt,
             UpdatedAt = agent.UpdatedAt
         };

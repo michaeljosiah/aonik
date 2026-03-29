@@ -68,3 +68,24 @@ public record JournalEntryPostedEvent(
     Guid LedgerId,
     decimal Amount,
     string Currency) : IIntegrationEvent;
+
+/// <summary>
+/// Raised when an account sync (Open Banking) completes for a user.
+/// FLG cache invalidator and behavioural insight pipeline subscribe.
+/// </summary>
+public record AccountSyncCompletedEvent(
+    Guid TenantId,
+    Guid UserId,
+    Guid ExternalAccountId,
+    DateTime SyncTimestamp,
+    int TransactionCount,
+    bool BalanceUpdated) : IIntegrationEvent;
+
+/// <summary>
+/// Raised when a chat conversation session ends (explicit close or inactivity timeout).
+/// ConversationSummary generator subscribes to produce session summaries.
+/// </summary>
+public record ConversationSessionEndedEvent(
+    Guid TenantId,
+    Guid UserId,
+    Guid ChatThreadId) : IIntegrationEvent;

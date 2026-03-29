@@ -24,6 +24,14 @@ public interface IDomainAgentDescriptor
     string? Instructions => null;
 
     /// <summary>
+    /// When <c>true</c>, the AG-UI endpoint will project and inject the User Brief
+    /// as a system message before the conversation history on every request.
+    /// Only agents that are user-facing product agents (e.g. Payabo's Simi) should
+    /// set this — admin and platform agents do not need per-user financial context.
+    /// </summary>
+    bool RequiresUserBrief => false;
+
+    /// <summary>
     /// Builds a <see cref="ChatClientAgent"/> configured with this agent's
     /// name, instructions, and tools.
     /// </summary>

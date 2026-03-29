@@ -113,7 +113,7 @@ export interface UseAguiChatReturn {
 
 // ─── Hook Implementation ──────────────────────────────────────────────────────
 
-export function useAguiChat(): UseAguiChatReturn {
+export function useAguiChat(agentId?: string): UseAguiChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -591,6 +591,7 @@ export function useAguiChat(): UseAguiChatReturn {
           runId,
           messages: aguiMessages,
           tools: tools.length > 0 ? tools : undefined,
+          agentId: agentId || undefined,
         },
         callbacks,
         getAccessToken,

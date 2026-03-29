@@ -70,6 +70,15 @@ public sealed class AgentsModule : IModule
         // Scoped because it depends on IChatClient (scoped from AiModule).
         services.AddScoped<IChatThreadTitleGenerator, ChatThreadTitleGenerator>();
 
+        // User brief projector — assembles the compact user context payload for agent sessions.
+        services.AddScoped<IUserBriefProjector, Services.UserBriefProjector>();
+
+
+        // Conversation summary generator — produces session summaries from chat threads.
+        services.AddScoped<Services.ConversationSummaryGenerator>();
+        services.AddScoped<IConversationSummaryService>(sp =>
+            sp.GetRequiredService<Services.ConversationSummaryGenerator>());
+
         // Workflow factories — keyed by workflow name (R10).
         // RunWorkflowEndpoint resolves the factory via GetKeyedService<IWorkflowFactory>(name).
         services.AddKeyedSingleton<IWorkflowFactory, InvoiceProcessingWorkflowFactory>(

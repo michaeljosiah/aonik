@@ -16,6 +16,13 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
 {
     public string Name => "personal-finance-agent";
 
+    /// <summary>
+    /// Simi is a user-facing product agent — she needs the User Brief injected
+    /// into her system prompt so she has full context about the user's financial
+    /// state, preferences, and goals before responding.
+    /// </summary>
+    public bool RequiresUserBrief => true;
+
     public string Description =>
         "Manages personal financial accounts, transactions, bills, and spending insights " +
         "for the current user. Can list and query accounts, transactions, and bills; " +

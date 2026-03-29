@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Agents.AI;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -147,14 +148,38 @@ public static class AguiStreamingEndpoint
         context.Response.Headers["Pragma"] = "no-cache";
         context.Response.Headers["X-Accel-Buffering"] = "no"; // Disable nginx buffering
 
-        // Resolve the agent to stream against. When agentId is specified, build
-        // the named domain agent directly (bypassing the orchestrator). Otherwise
-        // fall back to the master orchestrator — the original behaviour.
+        // Resolve the agent to stream against.
+        // Named agentId → build the domain agent descriptor directly; if the descriptor
+        //   declares RequiresUserBrief, the User Brief is projected and prepended as a
+        //   system message so the agent has full user context before responding.
+        // No agentId → master orchestrator (Admin UI default).
         AIAgent agent;
+        List<ChatMessage>? userBriefPreamble = null;
+
         if (!string.IsNullOrEmpty(input.AgentId))
         {
-            agent = await ResolveDomainAgentAsync(
+            var (builtAgent, descriptor) = await ResolveDomainAgentAsync(
                 input.AgentId, context.RequestServices, logger, cancellationToken);
+            agent = builtAgent;
+
+            // If the descriptor declares it needs the User Brief, project it now
+            // and prepend as a system message so the persona has full user context.
+            if (descriptor.RequiresUserBrief)
+            {
+                var userProvider = context.RequestServices.GetService<ICurrentUserProvider>();
+                var tenantProvider = context.RequestServices.GetService<ITenantProvider>();
+                if (userProvider is not null
+                    && tenantProvider is not null
+                    && userProvider.TryGetCurrentUserId(out var briefUserId)
+                    && tenantProvider.TryGetCurrentTenantId(out var briefTenantId))
+                {
+                    var briefMessage = await BuildUserBriefMessageAsync(
+                        context.RequestServices, briefTenantId, briefUserId,
+                        logger, cancellationToken);
+                    if (briefMessage is not null)
+                        userBriefPreamble = [briefMessage];
+                }
+            }
         }
         else
         {
@@ -167,8 +192,12 @@ public static class AguiStreamingEndpoint
 
         try
         {
-            // Convert AG-UI messages to M.E.AI ChatMessage list
+            // Convert AG-UI messages to M.E.AI ChatMessage list.
+            // For agents that declare RequiresUserBrief, the brief is prepended as a
+            // system message so the LLM receives current user context before the history.
             var chatMessages = ConvertMessages(input.Messages);
+            if (userBriefPreamble is not null)
+                chatMessages = [.. userBriefPreamble, .. chatMessages];
 
             // Convert frontend tool definitions to declaration-only AITool instances.
             // These are passed to the LLM so it knows the tools exist, but they cannot
@@ -384,17 +413,16 @@ public static class AguiStreamingEndpoint
     /// <summary>
     /// Resolves a named <see cref="IDomainAgentDescriptor"/> by its agent name,
     /// applies any database-level configuration overrides (instructions, tool set,
-    /// active flag), and builds the domain agent. This allows product clients
-    /// (e.g. Payabo) to bypass the master orchestrator and talk to a specific
-    /// domain agent directly via the AG-UI protocol.
+    /// active flag), and builds the domain agent. Returns both the built agent and
+    /// the descriptor so the caller can inspect flags like
+    /// <see cref="IDomainAgentDescriptor.RequiresUserBrief"/>.
     /// </summary>
-    private static async Task<AIAgent> ResolveDomainAgentAsync(
+    private static async Task<(AIAgent Agent, IDomainAgentDescriptor Descriptor)> ResolveDomainAgentAsync(
         string agentId,
         IServiceProvider services,
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        // Resolve all registered descriptors and find the one matching agentId
         var descriptors = services.GetRequiredService<IEnumerable<IDomainAgentDescriptor>>();
         var descriptor = descriptors.FirstOrDefault(
             d => string.Equals(d.Name, agentId, StringComparison.OrdinalIgnoreCase));
@@ -406,15 +434,11 @@ public static class AguiStreamingEndpoint
                 $"Available: {string.Join(", ", descriptors.Select(d => d.Name))}");
         }
 
-        // Check for database configuration overrides (tenant → global default)
         var configService = services.GetRequiredService<IAgentConfigurationService>();
         var config = await configService.GetResolvedAsync(agentId, cancellationToken);
 
         if (config is { IsActive: false })
-        {
-            throw new InvalidOperationException(
-                $"Agent '{agentId}' is inactive per configuration.");
-        }
+            throw new InvalidOperationException($"Agent '{agentId}' is inactive per configuration.");
 
         var chatClient = services.GetRequiredService<IChatClient>();
         AIAgent agent;
@@ -426,8 +450,7 @@ public static class AguiStreamingEndpoint
                 : null;
 
             HashSet<string>? allowedToolNames = null;
-            if (!string.IsNullOrWhiteSpace(config.ToolsetIdsJson)
-                && config.ToolsetIdsJson != "[]")
+            if (!string.IsNullOrWhiteSpace(config.ToolsetIdsJson) && config.ToolsetIdsJson != "[]")
             {
                 try
                 {
@@ -437,29 +460,64 @@ public static class AguiStreamingEndpoint
                 }
                 catch (JsonException ex)
                 {
-                    logger.LogWarning(
-                        ex,
-                        "Invalid ToolsetIdsJson for agent '{AgentName}' — using all tools",
-                        agentId);
+                    logger.LogWarning(ex, "Invalid ToolsetIdsJson for agent '{AgentName}' — using all tools", agentId);
                 }
             }
 
             agent = descriptor.Build(chatClient, services, instructionsOverride, allowedToolNames);
-
-            logger.LogInformation(
-                "AG-UI: resolved domain agent '{AgentName}' directly with config override",
-                agentId);
+            logger.LogInformation("AG-UI: resolved domain agent '{AgentName}' with config override", agentId);
         }
         else
         {
             agent = descriptor.Build(chatClient, services);
-
-            logger.LogInformation(
-                "AG-UI: resolved domain agent '{AgentName}' directly with code defaults",
-                agentId);
+            logger.LogInformation("AG-UI: resolved domain agent '{AgentName}' with code defaults", agentId);
         }
 
-        return agent;
+        return (agent, descriptor);
+    }
+
+    /// <summary>
+    /// Projects the User Brief for the given user and returns it as a
+    /// <see cref="ChatMessage"/> with <see cref="ChatRole.System"/> role,
+    /// ready to be prepended to the conversation history.
+    /// Returns <c>null</c> if projection fails (agent proceeds without brief).
+    /// </summary>
+    private static async Task<ChatMessage?> BuildUserBriefMessageAsync(
+        IServiceProvider services,
+        Guid tenantId,
+        Guid userId,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var projector = services.GetRequiredService<IUserBriefProjector>();
+            var brief = await projector.ProjectAsync(tenantId, userId, cancellationToken: cancellationToken);
+
+            var briefJson = JsonSerializer.Serialize(brief, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            });
+
+            var content = $"""
+                ## User Brief (current context — treat as ground truth for this session)
+
+                ```json
+                {briefJson}
+                ```
+                """;
+
+            return new ChatMessage(ChatRole.System, content);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to build User Brief for user {UserId} in tenant {TenantId} — proceeding without brief",
+                userId, tenantId);
+            return null;
+        }
     }
 
     /// <summary>

@@ -119,6 +119,8 @@ export interface AgentConfigurationResponse {
   modelId?: string | null;
   modelName?: string | null;
   isOverride: boolean;
+  /** 0 = SubAgent, 1 = Orchestrator */
+  agentType: number;
   createdAt: string;
   updatedAt?: string | null;
 }

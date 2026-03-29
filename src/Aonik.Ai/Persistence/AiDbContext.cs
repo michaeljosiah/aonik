@@ -40,6 +40,9 @@ internal class AiDbContext : AonikDbContextBase
     public DbSet<Insight> Insights { get; set; } = null!;
     public DbSet<Signal> Signals { get; set; } = null!;
 
+    // ── User Memory ────────────────────────────────────────────────
+    public DbSet<UserMemoryEntry> UserMemoryEntries { get; set; } = null!;
+
     public AiDbContext(
         DbContextOptions<AiDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -85,6 +88,7 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<EvalRun>(modelBuilder, "EvalRuns");
         MapTable<Insight>(modelBuilder, "Insights");
         MapTable<Signal>(modelBuilder, "Signals");
+        MapTable<UserMemoryEntry>(modelBuilder, "UserMemoryEntries");
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

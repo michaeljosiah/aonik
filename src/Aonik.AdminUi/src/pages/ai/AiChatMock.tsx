@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   BookOpenText,
   ChevronDown,
@@ -75,7 +75,7 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
     rejectAction,
     threadId,
     loadThread,
-  } = useAguiChat();
+  } = useAguiChat(agentId || undefined);
 
   const {
     threads,
@@ -85,11 +85,22 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
     archiveThread,
   } = useThreads();
 
+  // Reset chat when the selected agent changes
+  const prevAgentIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (prevAgentIdRef.current !== undefined && prevAgentIdRef.current !== agentId) {
+      resetChat();
+      setActiveThreadId(null);
+    }
+    prevAgentIdRef.current = agentId;
+  }, [agentId, resetChat]);
+
   const agentLabel = useMemo(() => {
     if (!agentId) return 'AONIK Orchestrator';
-    if (agentId === 'a-personal') return 'Personal Assistant';
-    if (agentId === 'a-centrali') return 'AONIK Orchestrator';
-    return 'AONIK Orchestrator';
+    return agentId
+      .replace(/-agent$/, '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }, [agentId]);
 
   const filteredThreads = useMemo(() => {

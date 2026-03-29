@@ -114,6 +114,12 @@ public sealed class AiModule : IModule
         services.AddScoped<IInsightWriter, InsightWriter>();
         services.AddScoped<IAiRunWriter, AiRunWriter>();
 
+        // User memory — manages AI-learned facts, preferences, and corrections about users
+        services.AddScoped<Contracts.Services.IUserMemoryService, UserMemoryService>();
+
+        // Cross-module data provider for the UserBriefProjector (Agents module)
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IUserBriefAiDataProvider, UserBriefAiDataProvider>();
+
         // Cross-module provisioning contributor
         services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.AiTenantProvisioningContributor>();
 

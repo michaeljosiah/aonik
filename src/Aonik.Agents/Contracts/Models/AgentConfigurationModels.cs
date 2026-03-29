@@ -1,3 +1,5 @@
+using Aonik.Agents.Entities;
+
 namespace Aonik.Agents.Contracts.Models;
 
 /// <summary>
@@ -34,6 +36,11 @@ public sealed record AgentConfigurationResponse
     /// True if this row is a tenant-specific override rather than the global default.
     /// </summary>
     public required bool IsOverride { get; init; }
+
+    /// <summary>
+    /// Classifies this agent as an orchestrator or a sub-agent (domain specialist).
+    /// </summary>
+    public AgentType AgentType { get; init; }
 
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, createElement } from 'react';
+import { useEffect, useRef, useState, createElement, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Sidebar, Header, AiChatPanel } from '@/components/layout';
@@ -23,6 +23,7 @@ import { setAccessTokenGetter } from '@/lib/api';
 import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
 import { identityService } from '@/services/identityService';
+import { agentConfigService } from '@/services/aiService';
 import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
 import { isTenantScopedHostname } from '@/lib/tenantRouting';
 
@@ -89,45 +90,44 @@ function AppLayout() {
   // Module system: aggregated routes and breadcrumbs
   const { routes, getBreadcrumb } = useModules();
 
-  const agents = useRef<AiAgentSelectorItem[]>([
-    {
-      id: 'a-personal',
-      title: 'Agent name',
-      description: 'Short description',
-      group: 'personal',
-      icon: 'fox',
-    },
-    {
-      id: 'a-centrali',
-      title: 'Centrali Ai',
-      description: 'Short description',
-      group: 'agents',
-      icon: 'centrali',
-    },
-    {
-      id: 'a-2',
-      title: 'Agent name',
-      description: 'Short description',
-      group: 'agents',
-      icon: 'fox',
-    },
-    {
-      id: 'a-3',
-      title: 'Agent name',
-      description: 'Short description',
-      group: 'agents',
-      icon: 'fox',
-    },
-    {
-      id: 'a-4',
-      title: 'Agent name',
-      description: 'Short description',
-      group: 'agents',
-      icon: 'fox',
-    },
-  ]);
+  // Orchestrator entry: empty id = route via master orchestrator (no agentId in request)
+  const orchestratorEntry = useRef<AiAgentSelectorItem>({
+    id: '',
+    title: 'AONIK Orchestrator',
+    description: 'Routes to domain agents automatically',
+    group: 'personal',
+    icon: 'centrali',
+  });
 
-  const [selectedAgentId, setSelectedAgentId] = useState('a-centrali');
+  const [agents, setAgents] = useState<AiAgentSelectorItem[]>([orchestratorEntry.current]);
+  const [selectedAgentId, setSelectedAgentId] = useState('');
+
+  const fetchAgents = useCallback(async () => {
+    try {
+      const configs = await agentConfigService.list();
+      const items: AiAgentSelectorItem[] = configs
+        .filter((a) => a.isActive && !a.tenantId) // global defaults only
+        .map((a) => ({
+          id: a.name,
+          title: a.name
+            .replace(/-agent$/, '')
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase()),
+          description: a.description || a.domain,
+          group: a.agentType === 1 ? ('personal' as const) : ('agents' as const),
+          icon: a.agentType === 1 ? ('centrali' as const) : ('fox' as const),
+        }));
+
+      // Orchestrator always first in its group
+      setAgents([orchestratorEntry.current, ...items]);
+    } catch {
+      // Keep default entry on error
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
 
   // Auto-collapse main nav on AI chat page.
   useEffect(() => {
@@ -189,7 +189,7 @@ function AppLayout() {
           leftSlot={
             isAiChat ? (
               <AiAgentSelector
-                agents={agents.current}
+                agents={agents}
                 selectedAgentId={selectedAgentId}
                 onSelectAgent={setSelectedAgentId}
               />
