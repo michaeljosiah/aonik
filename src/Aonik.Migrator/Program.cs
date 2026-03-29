@@ -68,6 +68,7 @@ try
         foreach (var dbContextType in dbContextTypes)
         {
             var dbContext = (DbContext)scope.ServiceProvider.GetRequiredService(dbContextType);
+            dbContext.Database.SetCommandTimeout(TimeSpan.FromMinutes(5));
 
             if (resetDatabase)
             {
