@@ -1332,3 +1332,81 @@ export interface AccountTransactionAttachmentResponse {
   fileSizeBytes: number;
   createdAt: string;
 }
+
+// ── Notification Templates ───────────────────────────────────────────────────
+
+export interface NotificationTemplateResponse {
+  id: string;
+  tenantId: string | null;
+  name: string;
+  channel: string;
+  subjectTemplate: string;
+  bodyTemplate: string;
+  description: string;
+  isShared: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface NotificationTemplateSummary {
+  id: string;
+  name: string;
+  channel: string;
+  description: string;
+  isShared: boolean;
+  isActive: boolean;
+}
+
+export interface CreateNotificationTemplateRequest {
+  name: string;
+  channel: string;
+  subjectTemplate: string;
+  bodyTemplate: string;
+  description: string;
+  isShared: boolean;
+  isActive: boolean;
+}
+
+export interface UpdateNotificationTemplateRequest {
+  subjectTemplate: string;
+  bodyTemplate: string;
+  description: string;
+  isShared: boolean;
+  isActive: boolean;
+}
+
+export interface PreviewNotificationTemplateRequest {
+  subjectTemplate: string;
+  bodyTemplate: string;
+  sampleModelJson: string;
+}
+
+export interface PreviewNotificationTemplateResponse {
+  subject: string;
+  body: string;
+}
+
+export interface NotificationTemplateBindingResponse {
+  id: string;
+  tenantId: string;
+  templateName: string;
+  channel: string;
+  baseTemplateId: string | null;
+  overrideTemplateId: string | null;
+  isEnabled: boolean;
+}
+
+export interface CreateNotificationTemplateBindingRequest {
+  templateName: string;
+  channel: string;
+  baseTemplateId: string | null;
+  overrideTemplateId: string | null;
+  isEnabled: boolean;
+}
+
+export interface UpdateNotificationTemplateBindingRequest {
+  baseTemplateId: string | null;
+  overrideTemplateId: string | null;
+  isEnabled: boolean;
+}

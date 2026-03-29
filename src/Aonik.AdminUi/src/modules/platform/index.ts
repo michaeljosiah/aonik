@@ -19,6 +19,7 @@ import {
   SettingsApiKeysPage,
   SettingsAuditLogsPage,
   SystemToolsPage,
+  NotificationTemplatesPage,
 } from '@/pages/settings';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
@@ -62,6 +63,7 @@ const navigation: NavigationSection[] = [
               { id: 'settings-api-keys', label: 'API Keys', icon: 'KeyRound', href: '/settings/api-keys' },
               { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
               { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
+              { id: 'settings-notification-templates', label: 'Notifications', icon: 'Bell', href: '/settings/notification-templates' },
             ],
           },
         ],
@@ -113,6 +115,7 @@ const routes = [
   { path: '/settings/api-keys', element: SettingsApiKeysPage },
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   { path: '/settings/system-tools', element: SystemToolsPage },
+  { path: '/settings/notification-templates', element: NotificationTemplatesPage },
   { path: '/cms/content-blocks', element: ContentBlocksListPage },
   { path: '/cms/content-blocks/new', element: ContentBlockEditPage },
   { path: '/cms/content-blocks/:id', element: ContentBlockEditPage, isDynamic: true },
@@ -133,6 +136,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'settings-api-keys', title: 'API Keys', type: 'internal', componentKey: 'settings-api-keys', route: '/settings/api-keys' },
   { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
   { id: 'settings-system-tools', title: 'System Tools', type: 'internal', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
+  { id: 'settings-notification-templates', title: 'Notifications', type: 'internal', componentKey: 'settings-notification-templates', route: '/settings/notification-templates' },
   { id: 'cms', title: 'Content', type: 'internal', componentKey: 'placeholder', route: '/cms' },
   { id: 'cms-content-blocks', title: 'Content Blocks', type: 'internal', componentKey: 'content-blocks', route: '/cms/content-blocks' },
   { id: 'cms-media', title: 'Media Library', type: 'internal', componentKey: 'media-library', route: '/cms/media' },
@@ -149,6 +153,7 @@ const panelComponents = {
   'settings-api-keys': wrapPage(SettingsApiKeysPage),
   'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
   'settings-system-tools': wrapPage(SystemToolsPage),
+  'settings-notification-templates': wrapPage(NotificationTemplatesPage),
   'content-blocks': wrapPage(ContentBlocksListPage),
   'media-library': wrapPage(MediaLibraryPage),
 };
