@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { ShieldCheck, Wrench, RefreshCw, AlertCircle, ServerCog, Database } from 'lucide-react';
+import { ShieldCheck, Wrench, RefreshCw, AlertCircle, ServerCog, Database, Sprout, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,9 @@ import { ImportDemoDataDialog } from '@/components/dialogs/ImportDemoDataDialog'
 import { demoSeedService } from '@/services/demoSeedService';
 import { permissionSeedService } from '@/services/permissionSeedService';
 import { cacheManagementService } from '@/services/cacheManagementService';
+import { dataSeedService } from '@/services/dataSeedService';
 import { getSelectedTenant } from '@/lib/tenantContext';
-import type { CacheOverviewResponse, DemoSeedResponse, DemoSeedType, PermissionSeedResponse } from '@/types';
+import type { CacheOverviewResponse, DataSeedInfo, DataSeedResponse, DemoSeedResponse, DemoSeedType, PermissionSeedResponse } from '@/types';
 
 type ToolStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -27,6 +28,11 @@ export function SystemToolsPage() {
   const [cacheStatus, setCacheStatus] = useState<ToolStatus>('idle');
   const [cacheError, setCacheError] = useState<string | null>(null);
   const [invalidatingCacheSet, setInvalidatingCacheSet] = useState<string | null>(null);
+  const [availableSeeds, setAvailableSeeds] = useState<DataSeedInfo[]>([]);
+  const [selectedSeedKeys, setSelectedSeedKeys] = useState<Set<string>>(new Set());
+  const [dataSeedResult, setDataSeedResult] = useState<DataSeedResponse | null>(null);
+  const [dataSeedStatus, setDataSeedStatus] = useState<ToolStatus>('idle');
+  const [dataSeedError, setDataSeedError] = useState<string | null>(null);
 
   const tenantLabel = selectedTenant?.name
     ? `${selectedTenant.name} (${selectedTenant.tenantId})`
@@ -122,8 +128,60 @@ export function SystemToolsPage() {
     }
   };
 
+  const loadAvailableSeeds = async () => {
+    try {
+      const result = await dataSeedService.list();
+      setAvailableSeeds(result.seeds);
+      setSelectedSeedKeys(new Set(result.seeds.map((s) => s.key)));
+    } catch (err) {
+      console.error('Failed to load available seeds:', err);
+    }
+  };
+
+  const toggleSeedKey = (key: string) => {
+    setSelectedSeedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllSeeds = () => {
+    if (selectedSeedKeys.size === availableSeeds.length) {
+      setSelectedSeedKeys(new Set());
+    } else {
+      setSelectedSeedKeys(new Set(availableSeeds.map((s) => s.key)));
+    }
+  };
+
+  const handleRunDataSeed = async () => {
+    if (selectedSeedKeys.size === 0) return;
+
+    setDataSeedStatus('running');
+    setDataSeedError(null);
+
+    try {
+      const keys = selectedSeedKeys.size === availableSeeds.length
+        ? undefined
+        : Array.from(selectedSeedKeys);
+      const result = await dataSeedService.run(keys);
+      setDataSeedResult(result);
+      setDataSeedStatus('success');
+      toast.success(`Data seed completed — ${result.results.length} seed(s) ran.`);
+    } catch (err: unknown) {
+      console.error('Data seed failed:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setDataSeedError(message || 'Data seed failed. Please try again.');
+      setDataSeedStatus('error');
+    }
+  };
+
   useEffect(() => {
     void loadCacheOverview();
+    void loadAvailableSeeds();
   }, []);
 
   const breadcrumbItems = [
@@ -163,6 +221,104 @@ export function SystemToolsPage() {
       )}
 
       <div className="grid gap-6">
+
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Sprout className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                Data Seeds
+              </CardTitle>
+              <CardDescription>
+                Run global data seed routines on demand. These are the same seeds that run at startup — idempotent and safe to re-run.
+              </CardDescription>
+            </div>
+            <Button
+              onClick={() => void handleRunDataSeed()}
+              disabled={dataSeedStatus === 'running' || selectedSeedKeys.size === 0}
+              className="rounded-sm"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${dataSeedStatus === 'running' ? 'animate-spin' : ''}`} />
+              {dataSeedStatus === 'running' ? 'Running...' : 'Run Selected'}
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {dataSeedError && (
+              <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+                {dataSeedError}
+              </div>
+            )}
+
+            {availableSeeds.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={toggleAllSeeds}
+                    className="text-xs text-[var(--color-brand-primary)] hover:underline"
+                  >
+                    {selectedSeedKeys.size === availableSeeds.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                    {selectedSeedKeys.size} of {availableSeeds.length} selected
+                  </span>
+                </div>
+                <div className="rounded-md border border-[var(--color-border-light)] divide-y divide-[var(--color-border-light)]">
+                  {availableSeeds.map((seed) => (
+                    <label
+                      key={seed.key}
+                      className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--color-surface-inset)]/30"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedSeedKeys.has(seed.key)}
+                        onChange={() => toggleSeedKey(seed.key)}
+                        className="h-4 w-4 rounded border-[var(--color-border-light)] text-[var(--color-brand-primary)] focus:ring-[var(--color-brand-primary)]"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[var(--color-text-primary)]">{seed.displayName}</p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">{seed.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-tertiary)]">
+                Loading available seeds...
+              </p>
+            )}
+
+            {dataSeedResult && (
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                  <span>Last run</span>
+                  <span>{new Date(dataSeedResult.seededAt).toLocaleString()}</span>
+                </div>
+                <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/30 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">
+                    Results
+                  </p>
+                  <div className="space-y-2">
+                    {dataSeedResult.results.map((item) => (
+                      <div key={item.key}>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" />
+                          {item.displayName}
+                        </p>
+                        <ul className="ml-5 space-y-0.5">
+                          {item.operations.map((op) => (
+                            <li key={op} className="text-xs text-[var(--color-text-tertiary)]">{op}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">

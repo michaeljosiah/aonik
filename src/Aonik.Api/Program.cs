@@ -14,6 +14,9 @@ using Aonik.Platform;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Finance;
 using Aonik.Ai;
+using Aonik.Ai.Persistence;
+using Aonik.Ai.Services;
+using Aonik.Ai.Services.Seeding;
 using Aonik.Agents;
 using Aonik.Agents.Endpoints;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -141,6 +144,12 @@ if (autoMigrateEnabled || seedDataEnabled)
             var notificationTemplateLogger = scope.ServiceProvider.GetRequiredService<ILogger<NotificationTemplateSeedService>>();
             var notificationTemplateSeedService = new NotificationTemplateSeedService(platformDbContext, notificationTemplateLogger);
             await notificationTemplateSeedService.SeedAsync();
+
+            var aiDbContext = scope.ServiceProvider.GetRequiredService<AiDbContext>();
+            var fileBasedPromptStore = scope.ServiceProvider.GetRequiredService<FileBasedPromptStore>();
+            var promptSeedLogger = scope.ServiceProvider.GetRequiredService<ILogger<PromptSpecSeedService>>();
+            var promptSeedService = new PromptSpecSeedService(aiDbContext, fileBasedPromptStore, promptSeedLogger);
+            await promptSeedService.SeedAsync();
 
             startupLogger.LogInformation("Database seed routines completed successfully.");
         }

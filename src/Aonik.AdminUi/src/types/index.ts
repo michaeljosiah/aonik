@@ -1073,6 +1073,28 @@ export interface InvalidateCacheSetResponse {
   invalidatedAtUtc: string;
 }
 
+export interface DataSeedInfo {
+  key: string;
+  displayName: string;
+  description: string;
+  sortOrder: number;
+}
+
+export interface DataSeedAvailableResponse {
+  seeds: DataSeedInfo[];
+}
+
+export interface DataSeedResultItem {
+  key: string;
+  displayName: string;
+  operations: string[];
+}
+
+export interface DataSeedResponse {
+  seededAt: string;
+  results: DataSeedResultItem[];
+}
+
 export type AuthProviderType = 'AzureAd' | 'Auth0';
 
 export interface Auth0SettingsResponse {

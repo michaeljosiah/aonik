@@ -142,6 +142,9 @@ public sealed class AiModule : IModule
         // Cross-module provisioning contributor
         services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.AiTenantProvisioningContributor>();
 
+        // Global seed contributor (on-demand via admin endpoint)
+        services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.PromptSpecSeedContributor>();
+
         return services;
     }
 }

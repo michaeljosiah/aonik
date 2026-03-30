@@ -107,6 +107,12 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IDemoSeedService, DemoSeedService>();
         services.AddScoped<IPermissionSeedService, PermissionSeedService>();
 
+        // ── Global Seed Contributors (on-demand via admin endpoint) ──
+        services.AddScoped<IGlobalSeedContributor, Services.Seeding.Contributors.IdentitySeedContributor>();
+        services.AddScoped<IGlobalSeedContributor, Services.Seeding.Contributors.CatalogSeedContributor>();
+        services.AddScoped<IGlobalSeedContributor, Services.Seeding.Contributors.SettingsSeedContributor>();
+        services.AddScoped<IGlobalSeedContributor, Services.Seeding.Contributors.NotificationTemplateSeedContributor>();
+
         // ── Platform Domain Agent ────────────────────────────────────
         services.AddSingleton<IDomainAgentDescriptor, PlatformAgentDescriptor>();
 
