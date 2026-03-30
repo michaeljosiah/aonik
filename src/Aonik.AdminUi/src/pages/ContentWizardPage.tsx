@@ -9,7 +9,6 @@ import { WizardStepReview } from '@/components/content-wizard/WizardStepReview';
 import { WizardStepSave } from '@/components/content-wizard/WizardStepSave';
 import { WizardChatPanel } from '@/components/content-wizard/WizardChatPanel';
 import { WIZARD_STEPS } from '@/types/contentWizard';
-import type { WizardStep } from '@/types/contentWizard';
 
 export function ContentWizardPage() {
   const navigate = useNavigate();
