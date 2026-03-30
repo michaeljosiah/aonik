@@ -20,7 +20,7 @@ public class QuartzBackgroundJobManager : IBackgroundJobManager
     public const string RetryIntervalKey = "RetryInterval";
     public const string JobArgsKey = "JobArgs";
 
-    private readonly IScheduler _scheduler;
+    private readonly ISchedulerFactory _schedulerFactory;
     private readonly QuartzBackgroundJobOptions _options;
     private readonly IJsonSerializer _jsonSerializer;
     private readonly ILogger<QuartzBackgroundJobManager> _logger;
@@ -29,12 +29,12 @@ public class QuartzBackgroundJobManager : IBackgroundJobManager
     /// Creates a new instance of <see cref="QuartzBackgroundJobManager"/>
     /// </summary>
     public QuartzBackgroundJobManager(
-        IScheduler scheduler,
+        ISchedulerFactory schedulerFactory,
         QuartzBackgroundJobOptions options,
         IJsonSerializer jsonSerializer,
         ILogger<QuartzBackgroundJobManager>? logger = null)
     {
-        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
+        _schedulerFactory = schedulerFactory ?? throw new ArgumentNullException(nameof(schedulerFactory));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _jsonSerializer = jsonSerializer ?? throw new ArgumentNullException(nameof(jsonSerializer));
         _logger = logger ?? NullLogger<QuartzBackgroundJobManager>.Instance;
@@ -95,7 +95,8 @@ public class QuartzBackgroundJobManager : IBackgroundJobManager
 
         var trigger = triggerBuilder.Build();
 
-        await _scheduler.ScheduleJob(jobDetail, trigger);
+        var scheduler = await _schedulerFactory.GetScheduler();
+        await scheduler.ScheduleJob(jobDetail, trigger);
 
         _logger.LogInformation(
             "Enqueued background job {JobId} of type {JobType} with priority {Priority} and delay {Delay}",

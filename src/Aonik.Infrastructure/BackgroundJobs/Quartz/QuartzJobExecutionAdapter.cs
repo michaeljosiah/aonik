@@ -131,7 +131,8 @@ public class QuartzJobExecutionAdapter<TArgs> : IJob where TArgs : class
                     .StartAt(DateTimeOffset.UtcNow.Add(TimeSpan.FromMilliseconds(retryIntervalMs)))
                     .WithPriority(context.Trigger.Priority);
 
-                var scheduler = _serviceScopeFactory.CreateScope().ServiceProvider.GetRequiredService<IScheduler>();
+                var schedulerFactory = _serviceScopeFactory.CreateScope().ServiceProvider.GetRequiredService<ISchedulerFactory>();
+                var scheduler = await schedulerFactory.GetScheduler();
                 await scheduler.RescheduleJob(context.Trigger.Key, triggerBuilder.Build());
 
                 _logger.LogInformation(

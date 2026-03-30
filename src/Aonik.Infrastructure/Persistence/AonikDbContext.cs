@@ -188,7 +188,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
 
     protected override bool IsGlobalEntity(object entity)
     {
-        return entity is Role;
+        return entity is Role or Job;
     }
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)

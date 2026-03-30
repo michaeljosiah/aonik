@@ -20,6 +20,7 @@ import {
   SettingsAuditLogsPage,
   SystemToolsPage,
   NotificationTemplatesPage,
+  BackgroundJobsPage,
 } from '@/pages/settings';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
@@ -61,6 +62,7 @@ const navigation: NavigationSection[] = [
             label: 'Infrastructure',
             items: [
               { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
+              { id: 'background-jobs', label: 'Background Jobs', icon: 'Timer', href: '/settings/background-jobs' },
               { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
             ],
           },
@@ -97,6 +99,7 @@ const routes = [
   { path: '/settings/webhooks', element: SettingsWebhooksPage },
   { path: '/settings/api-keys', element: SettingsApiKeysPage },
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
+  { path: '/settings/background-jobs', element: BackgroundJobsPage },
   { path: '/settings/system-tools', element: SystemToolsPage },
   { path: '/settings/notification-templates', element: NotificationTemplatesPage },
   { path: '/cms/content-blocks', element: ContentBlocksListPage },
@@ -119,6 +122,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'settings-webhooks', title: 'Webhooks', type: 'internal', componentKey: 'settings-webhooks', route: '/settings/webhooks' },
   { id: 'settings-api-keys', title: 'API Keys', type: 'internal', componentKey: 'settings-api-keys', route: '/settings/api-keys' },
   { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
+  { id: 'background-jobs', title: 'Background Jobs', type: 'internal', componentKey: 'background-jobs', route: '/settings/background-jobs' },
   { id: 'settings-system-tools', title: 'System Tools', type: 'internal', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
   { id: 'settings-notification-templates', title: 'Notifications', type: 'internal', componentKey: 'settings-notification-templates', route: '/settings/notification-templates' },
   { id: 'cms', title: 'Content', type: 'internal', componentKey: 'placeholder', route: '/cms' },
@@ -136,6 +140,7 @@ const panelComponents = {
   'settings-webhooks': wrapPage(SettingsWebhooksPage),
   'settings-api-keys': wrapPage(SettingsApiKeysPage),
   'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
+  'background-jobs': wrapPage(BackgroundJobsPage),
   'settings-system-tools': wrapPage(SystemToolsPage),
   'settings-notification-templates': wrapPage(NotificationTemplatesPage),
   'content-blocks': wrapPage(ContentBlocksListPage),
