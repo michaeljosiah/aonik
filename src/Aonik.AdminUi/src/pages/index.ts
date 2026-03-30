@@ -27,6 +27,7 @@ export { LedgerOverviewPage, LedgerAccountsPage, LedgerJournalEntriesPage } from
 export { AiChatMock } from './ai/AiChatMock';
 export { ContentBlocksListPage } from './ContentBlocksListPage';
 export { ContentBlockEditPage } from './ContentBlockEditPage';
+export { ContentWizardPage } from './ContentWizardPage';
 export { MediaLibraryPage } from './MediaLibraryPage';
 export {
   AutonumberingPage,

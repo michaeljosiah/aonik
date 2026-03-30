@@ -309,6 +309,21 @@ if (app.Environment.IsDevelopment() && string.Equals(blobStorageProvider, "Local
             ctx.Context.Response.Headers.CacheControl = "public, max-age=3600";
         }
     });
+
+    // Serve AI-generated content media (hero images, etc.)
+    var contentMediaPath = builder.Configuration["BlobStorage:ContentMedia:Path"] ?? "content-media";
+    var contentMediaPhysicalPath = Path.Combine(Directory.GetCurrentDirectory(), localBasePath, contentMediaPath);
+    Directory.CreateDirectory(contentMediaPhysicalPath);
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(contentMediaPhysicalPath),
+        RequestPath = "/storage/content-media",
+        OnPrepareResponse = ctx =>
+        {
+            ctx.Context.Response.Headers.CacheControl = "public, max-age=3600";
+        }
+    });
 }
 
 // CRITICAL: Middleware order matters!

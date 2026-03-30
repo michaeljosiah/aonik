@@ -93,6 +93,8 @@ export interface UseAguiChatReturn {
   streamError: string | null;
   activeSteps: ChatStep[];
   handleSend: () => Promise<void>;
+  /** Send a message directly without needing to set draft first. */
+  sendMessage: (text: string) => Promise<void>;
   stopStreaming: () => void;
   resetChat: () => void;
   /** Register a frontend tool the agent can call. */
@@ -334,8 +336,7 @@ export function useAguiChat(agentId?: string): UseAguiChatReturn {
     setPendingApprovals([]);
   }, []);
 
-  const handleSend = useCallback(async () => {
-    const text = draft.trim();
+  const sendInternal = useCallback(async (text: string) => {
     if (!text || isStreaming) return;
 
     setStreamError(null);
@@ -349,7 +350,6 @@ export function useAguiChat(agentId?: string): UseAguiChatReturn {
       ...prev,
       { type: 'user', id: userMessageId, content: text },
     ]);
-    setDraft('');
     setIsStreaming(true);
 
     // Build AG-UI message history from current chat messages
@@ -638,7 +638,21 @@ export function useAguiChat(agentId?: string): UseAguiChatReturn {
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [draft, isStreaming, messages, getAccessToken]);
+  }, [isStreaming, messages, getAccessToken]);
+
+  const handleSend = useCallback(async () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    await sendInternal(text);
+  }, [draft, sendInternal]);
+
+  const sendMessage = useCallback(async (messageText: string) => {
+    const text = messageText.trim();
+    if (!text) return;
+    setDraft('');
+    await sendInternal(text);
+  }, [sendInternal]);
 
   return {
     messages,
@@ -648,6 +662,7 @@ export function useAguiChat(agentId?: string): UseAguiChatReturn {
     streamError,
     activeSteps,
     handleSend,
+    sendMessage,
     stopStreaming,
     resetChat,
     registerTool,

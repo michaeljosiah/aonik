@@ -14,6 +14,7 @@ public record ContentBlockResponse(
     DateTimeOffset? EndAt,
     int Priority,
     string? TargetingJson,
+    Guid? AiRunId,
     List<ContentBlockMediaResponse> Media,
     DateTime CreatedAt,
     DateTime? UpdatedAt);
@@ -40,7 +41,8 @@ public record CreateContentBlockRequest(
     DateTimeOffset? StartAt,
     DateTimeOffset? EndAt,
     int Priority,
-    string? TargetingJson);
+    string? TargetingJson,
+    Guid? AiRunId = null);
 
 public record UpdateContentBlockRequest(
     string Title,

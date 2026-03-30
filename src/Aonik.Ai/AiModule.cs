@@ -101,6 +101,13 @@ public sealed class AiModule : IModule
                 .Build();
         });
 
+        // ── Image Generation ─────────────────────────────────────────
+        var aiProvider = (configuration["AI:Provider"] ?? "Stub").ToLowerInvariant();
+        if (aiProvider == "openai")
+            services.AddScoped<IContentImageGenerator, ContentImageGenerator>();
+        else
+            services.AddSingleton<IContentImageGenerator, StubContentImageGenerator>();
+
         // ── AI Services ──────────────────────────────────────────────
         // Provider & Model catalog CRUD + model resolution.
         // AiModelService implements both IAiModelService (module-internal CRUD)

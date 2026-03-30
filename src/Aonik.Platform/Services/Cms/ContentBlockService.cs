@@ -42,6 +42,7 @@ internal class ContentBlockService : IContentBlockService
             EndAt = request.EndAt,
             Priority = request.Priority,
             TargetingJson = request.TargetingJson,
+            AiRunId = request.AiRunId,
             Media = new List<ContentBlockMedia>()
         };
 
@@ -287,6 +288,7 @@ internal class ContentBlockService : IContentBlockService
             contentBlock.EndAt,
             contentBlock.Priority,
             contentBlock.TargetingJson,
+            contentBlock.AiRunId,
             contentBlock.Media.OrderBy(m => m.Order).Select(MapToMediaResponse).ToList(),
             contentBlock.CreatedAt,
             contentBlock.UpdatedAt);

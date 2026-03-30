@@ -1,7 +1,6 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import {
   BookOpenText,
-  ChevronDown,
   Loader2,
   MoreHorizontal,
   Plus,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/auth/useAuth';
+import { AiAgentSelector, type AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiChatComposer } from '@/components/ai/AiChatComposer';
 import { ChatMessageList } from '@/components/ai/ChatMessageList';
 import {
@@ -28,6 +28,8 @@ import { useThreads, type ThreadSummary } from '@/hooks/useThreads';
 
 type AiChatMockProps = {
   agentId?: string;
+  agents?: AiAgentSelectorItem[];
+  onSelectAgent?: (agentId: string) => void;
 };
 
 const welcomePrompts = [
@@ -57,7 +59,7 @@ function getGreeting(name?: string) {
   return name ? `${period} ${name}!` : `${period}!`;
 }
 
-export function AiChatMock({ agentId }: AiChatMockProps) {
+export function AiChatMock({ agentId, agents, onSelectAgent }: AiChatMockProps) {
   const [query, setQuery] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const { user } = useAuth();
@@ -281,16 +283,20 @@ export function AiChatMock({ agentId }: AiChatMockProps) {
             <Button variant="ghost" size="icon-sm" className="text-[var(--color-text-secondary)]" onClick={handleNewChat}>
               <SquarePen className="w-4 h-4" />
             </Button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-[2px] px-2 py-1.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-background)]"
-            >
-              <div className="grid h-7 w-7 place-items-center rounded-full bg-[var(--color-brand-primary)] text-white">
-                <span className="text-xs font-semibold">A</span>
+            {agents && onSelectAgent ? (
+              <AiAgentSelector
+                agents={agents}
+                selectedAgentId={agentId ?? ''}
+                onSelectAgent={onSelectAgent}
+              />
+            ) : (
+              <div className="inline-flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--color-text-primary)]">
+                <div className="grid h-7 w-7 place-items-center rounded-full bg-[var(--color-brand-primary)] text-white">
+                  <span className="text-xs font-semibold">A</span>
+                </div>
+                <span className="max-w-[270px] truncate font-medium">{agentLabel}</span>
               </div>
-              <span className="max-w-[270px] truncate font-medium">{agentLabel}</span>
-              <ChevronDown className="h-4 w-4 theme-text-color" />
-            </button>
+            )}
           </div>
 
           <div className="min-w-0 flex-1 px-4 text-center">

@@ -59,6 +59,16 @@ public class BlobStorageOptions
         ContainerName = "attachments",
         PublicBaseUrl = null
     };
+
+    /// <summary>
+    /// Configuration for AI-generated content media (hero images, etc.).
+    /// </summary>
+    public ContentTypeOptions ContentMedia { get; set; } = new()
+    {
+        Path = "content-media",
+        ContainerName = "content-media",
+        PublicBaseUrl = null
+    };
 }
 
 /// <summary>

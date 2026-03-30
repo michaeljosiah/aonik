@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DataTableRowActions } from '@/components/ui/data-table';
-import { Plus, Layers, Image, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Layers, Image, CheckCircle, XCircle, Sparkles } from 'lucide-react';
 import { getContentBlocks, deleteContentBlock, type ContentBlock } from '@/services/contentBlockService';
 
 export function ContentBlocksListPage() {
@@ -154,15 +154,26 @@ export function ContentBlocksListPage() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => navigate('/cms/content-blocks/new')}
-            >
-              <Plus className="w-4 h-4" />
-              Create Content Block
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => navigate('/cms/content-wizard')}
+              >
+                <Sparkles className="w-4 h-4" />
+                AI Wizard
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => navigate('/cms/content-blocks/new')}
+              >
+                <Plus className="w-4 h-4" />
+                Create Content Block
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <DataTable

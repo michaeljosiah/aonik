@@ -24,6 +24,7 @@ export interface ContentBlock {
   startAt?: string;
   endAt?: string;
   priority: number;
+  aiRunId?: string;
   media: ContentBlockMedia[];
   createdAt: string;
   updatedAt?: string;
@@ -42,6 +43,7 @@ export interface CreateContentBlockRequest {
   endAt?: string;
   priority: number;
   targetingJson?: string;
+  aiRunId?: string;
 }
 
 export interface UpdateContentBlockRequest {
@@ -102,6 +104,13 @@ export async function addContentBlockMedia(
   request: AddContentBlockMediaRequest
 ): Promise<ContentBlockMedia> {
   return api.post<ContentBlockMedia>(`/cms/content-blocks/${contentBlockId}/media`, request);
+}
+
+export async function generateContentImage(
+  contentBlockId: string,
+  request: { prompt: string; alt?: string; width?: number; height?: number }
+): Promise<ContentBlockMedia> {
+  return api.post<ContentBlockMedia>(`/cms/content-blocks/${contentBlockId}/generate-image`, request);
 }
 
 export async function removeContentBlockMedia(contentBlockId: string, mediaId: string): Promise<void> {

@@ -22,6 +22,12 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // Proxy static content media files served by the API
+      '/storage': {
+        target: process.env.services__api__https__0 || process.env.services__api__http__0 || 'http://localhost:5049',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })
