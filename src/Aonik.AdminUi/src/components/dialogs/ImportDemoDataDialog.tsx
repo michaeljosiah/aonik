@@ -82,7 +82,7 @@ export function ImportDemoDataDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0">
         <div className="p-6 space-y-6">
           {step === 'selection' ? (
             <>

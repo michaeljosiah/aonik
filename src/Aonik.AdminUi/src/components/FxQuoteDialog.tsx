@@ -73,7 +73,7 @@ export function FxQuoteDialog({ open, onOpenChange, quote, onSuccess }: FxQuoteD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-w-[500px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? 'Edit FX Quote' : 'Create FX Quote'}</DialogTitle>

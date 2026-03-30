@@ -596,7 +596,7 @@ export function AccountConnectionDetailPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-[500px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Transaction Attachments</DialogTitle>
           </DialogHeader>

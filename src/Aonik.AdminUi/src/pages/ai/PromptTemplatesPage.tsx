@@ -221,14 +221,14 @@ export function PromptTemplatesPage() {
       )}
 
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[700px]">
           <DialogHeader>
             <DialogTitle>{editingPrompt ? `Edit: ${editingPrompt.name}` : 'Create Prompt Template'}</DialogTitle>
             <DialogDescription>
               {editingPrompt ? 'Update the prompt template configuration.' : 'Create a new versioned prompt template.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto">
+          <div className="grid gap-4 py-2 max-h-[80vh] overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="prompt-name">Name</label>

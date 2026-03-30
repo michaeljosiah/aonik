@@ -106,7 +106,7 @@ export function CreatePartnerDialog({ open, onOpenChange, onSave }: CreatePartne
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Add Partner</DialogTitle>
           <DialogDescription>

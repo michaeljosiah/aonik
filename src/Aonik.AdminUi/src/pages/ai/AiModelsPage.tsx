@@ -720,7 +720,7 @@ export function AiModelsPage() {
 
       {/* ── External model catalog dialog ─────────────────────────── */}
       <Dialog open={showImportDialog} onOpenChange={handleImportDialogOpenChange}>
-        <DialogContent className="sm:max-w-[960px]">
+        <DialogContent className="max-w-[960px]">
           <DialogHeader>
             <DialogTitle>Import Model Provider</DialogTitle>
             <DialogDescription>
@@ -908,7 +908,7 @@ export function AiModelsPage() {
 
       {/* ── Provider dialog ──────────────────────────────────────── */}
       <Dialog open={showProviderDialog} onOpenChange={handleProviderDialogOpenChange}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{editingProvider ? 'Edit Provider' : 'New Provider'}</DialogTitle>
             <DialogDescription>
@@ -958,7 +958,7 @@ export function AiModelsPage() {
 
       {/* ── Model dialog ─────────────────────────────────────────── */}
       <Dialog open={showModelDialog} onOpenChange={handleModelDialogOpenChange}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="max-w-[560px]">
           <DialogHeader>
             <DialogTitle>{editingModel ? 'Edit Model' : 'New Model'}</DialogTitle>
             <DialogDescription>

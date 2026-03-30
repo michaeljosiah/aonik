@@ -253,7 +253,7 @@ export function RoutePoliciesPage() {
       )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-[600px]">
           <DialogHeader>
             <DialogTitle>{editingPolicy ? `Edit: ${editingPolicy.useCase}` : 'Create Route Policy'}</DialogTitle>
             <DialogDescription>

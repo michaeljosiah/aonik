@@ -508,7 +508,7 @@ export function NotificationTemplatesPage() {
           Template Dialog
           ═══════════════════════════════════════════════════════════════ */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingTemplateId ? 'Edit Template' : 'Create Template'}</DialogTitle>
             <DialogDescription>
@@ -633,7 +633,7 @@ export function NotificationTemplatesPage() {
           Preview Dialog
           ═══════════════════════════════════════════════════════════════ */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Template Preview</DialogTitle>
             <DialogDescription>
@@ -681,7 +681,7 @@ export function NotificationTemplatesPage() {
           Binding Dialog
           ═══════════════════════════════════════════════════════════════ */}
       <Dialog open={bindingDialogOpen} onOpenChange={setBindingDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{editingBindingId ? 'Edit Binding' : 'Create Binding'}</DialogTitle>
             <DialogDescription>

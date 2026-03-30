@@ -816,7 +816,7 @@ export function CreateCustomerDialog({ open, onOpenChange, onSave }: CreateCusto
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent 
         className={`
-          ${step === 'selection' ? 'sm:max-w-[700px]' : 'sm:max-w-[600px]'} 
+          ${step === 'selection' ? 'max-w-[700px]' : 'max-w-[600px]'}
           max-h-[90vh] overflow-y-auto
         `}
       >

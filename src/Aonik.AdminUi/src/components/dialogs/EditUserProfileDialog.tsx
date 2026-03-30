@@ -55,7 +55,7 @@ export function EditUserProfileDialog({ open, onOpenChange, profile, onSave }: E
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit User Profile</DialogTitle>
           <DialogDescription>

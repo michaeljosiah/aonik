@@ -348,7 +348,7 @@ export function AgentConfigPage() {
 
       {/* ── Edit dialog ──────────────────────────────────────────── */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Edit Agent: {editingAgent?.name}</DialogTitle>
             <DialogDescription>

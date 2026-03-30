@@ -239,7 +239,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
               <Plus className="w-4 h-4" />
             </Button>
             <Dialog open={isCreateWorkspaceOpen} onOpenChange={setIsCreateWorkspaceOpen}>
-              <DialogContent className="sm:max-w-[420px]">
+              <DialogContent className="max-w-[420px]">
                 <DialogHeader>
                   <DialogTitle>Create workspace</DialogTitle>
                   <DialogDescription>Save the current layout as a named workspace.</DialogDescription>
@@ -277,7 +277,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
                 setConfirmWorkspaceName('');
               }}
             >
-              <DialogContent className="sm:max-w-[420px]">
+              <DialogContent className="max-w-[420px]">
                 <DialogHeader>
                   <DialogTitle>Close workspace</DialogTitle>
                   <DialogDescription>

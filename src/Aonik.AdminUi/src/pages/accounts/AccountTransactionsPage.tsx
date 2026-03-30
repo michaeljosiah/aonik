@@ -319,7 +319,7 @@ export function AccountTransactionsPage() {
 
       {/* Attachments dialog */}
       <Dialog open={!!attachmentsDialogTxId} onOpenChange={(open) => { if (!open) setAttachmentsDialogTxId(null); }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-[32rem]">
           <DialogHeader>
             <DialogTitle>Attachments</DialogTitle>
           </DialogHeader>
