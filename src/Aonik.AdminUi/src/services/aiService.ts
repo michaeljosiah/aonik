@@ -17,6 +17,14 @@ import type {
   ImportAiCatalogModelProviderResponse,
   ListAiCatalogModelProvidersResponse,
   ListAiCatalogModelsResponse,
+  PromptSpecResponse,
+  CreatePromptSpecRequest,
+  UpdatePromptSpecRequest,
+  ListPromptSpecsResponse,
+  RoutePolicyResponse,
+  CreateRoutePolicyRequest,
+  UpdateRoutePolicyRequest,
+  ListRoutePoliciesResponse,
 } from '@/types/ai';
 import type { PagedResult } from '@/types';
 
@@ -129,5 +137,57 @@ export const agentRunService = {
     return api.get<PagedResult<AgentRunSummary>>(
       `/ai/agents/${agentId}/runs?page=${page}&pageSize=${pageSize}`,
     );
+  },
+};
+
+// ── Prompt spec service ─────────────────────────────────────────────
+
+export const promptSpecService = {
+  list: async (name?: string): Promise<PromptSpecResponse[]> => {
+    const query = name ? `?name=${encodeURIComponent(name)}` : '';
+    const res = await api.get<ListPromptSpecsResponse>(`/ai/prompts${query}`);
+    return res.prompts;
+  },
+
+  get: async (id: string): Promise<PromptSpecResponse> => {
+    return api.get<PromptSpecResponse>(`/ai/prompts/${id}`);
+  },
+
+  create: async (request: CreatePromptSpecRequest): Promise<PromptSpecResponse> => {
+    return api.post<PromptSpecResponse>('/ai/prompts', request);
+  },
+
+  update: async (id: string, request: UpdatePromptSpecRequest): Promise<PromptSpecResponse> => {
+    return api.put<PromptSpecResponse>(`/ai/prompts/${id}`, request);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/ai/prompts/${id}`);
+  },
+};
+
+// ── Route policy service ────────────────────────────────────────────
+
+export const routePolicyService = {
+  list: async (useCase?: string): Promise<RoutePolicyResponse[]> => {
+    const query = useCase ? `?useCase=${encodeURIComponent(useCase)}` : '';
+    const res = await api.get<ListRoutePoliciesResponse>(`/ai/route-policies${query}`);
+    return res.policies;
+  },
+
+  get: async (id: string): Promise<RoutePolicyResponse> => {
+    return api.get<RoutePolicyResponse>(`/ai/route-policies/${id}`);
+  },
+
+  create: async (request: CreateRoutePolicyRequest): Promise<RoutePolicyResponse> => {
+    return api.post<RoutePolicyResponse>('/ai/route-policies', request);
+  },
+
+  update: async (id: string, request: UpdateRoutePolicyRequest): Promise<RoutePolicyResponse> => {
+    return api.put<RoutePolicyResponse>(`/ai/route-policies/${id}`, request);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/ai/route-policies/${id}`);
   },
 };

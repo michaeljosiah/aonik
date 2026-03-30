@@ -17,7 +17,7 @@ public class PersonalFinanceNarrativeInsightsServiceTests
         var insightWriter = new FakeInsightWriter();
         var service = new PersonalFinanceNarrativeInsightsService(
             new FakeInsightsService(),
-            new FakePromptStore(),
+            new FakeTaskProfileResolver(),
             new ThrowingChatClient(),
             insightWriter,
             runWriter);
@@ -47,7 +47,7 @@ public class PersonalFinanceNarrativeInsightsServiceTests
         var runWriter = new FakeAiRunWriter();
         var service = new PersonalFinanceNarrativeInsightsService(
             new FakeInsightsService(),
-            new FakePromptStore(),
+            new FakeTaskProfileResolver(),
             new SuccessfulChatClient(),
             new FakeInsightWriter(),
             runWriter);
@@ -132,19 +132,18 @@ public class PersonalFinanceNarrativeInsightsServiceTests
         }
     }
 
-    private sealed class FakePromptStore : IPromptStore
+    private sealed class FakeTaskProfileResolver : IAiTaskProfileResolver
     {
-        public Task<string> LoadPromptAsync(
-            string promptName,
-            string version = "v1",
-            string role = "system",
+        public Task<AiTaskProfile> ResolveAsync(
+            string useCase,
+            string? promptName = null,
+            string? defaultModelId = null,
             CancellationToken cancellationToken = default)
         {
-            var prompt = role == "system"
-                ? "You are a spending analyst."
-                : "Input data: {{SPENDING_DATA}}";
-
-            return Task.FromResult(prompt);
+            return Task.FromResult(new AiTaskProfile(
+                null,
+                "You are a spending analyst.",
+                "Input data: {{SPENDING_DATA}}"));
         }
     }
 

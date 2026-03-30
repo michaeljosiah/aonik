@@ -168,6 +168,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Country));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(Currency));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(PromptSpec));
 
         // Apply soft-delete filters for AuditableEntity types that are not tenant-scoped
         // and not already covered by nullable tenant filters above
@@ -177,7 +179,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
             typeof(ReferenceDataItem),
             typeof(Country),
             typeof(Currency),
-            typeof(NotificationTemplate));
+            typeof(NotificationTemplate),
+            typeof(AiRoutePolicy),
+            typeof(PromptSpec));
 
         ApplyDboPrefixedTableNames(modelBuilder);
     }

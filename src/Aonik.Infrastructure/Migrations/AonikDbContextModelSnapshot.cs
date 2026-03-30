@@ -1150,11 +1150,18 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("UpdatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserTemplate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("VariablesSchemaJson")
                         .IsRequired()

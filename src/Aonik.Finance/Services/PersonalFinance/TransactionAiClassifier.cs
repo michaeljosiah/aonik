@@ -33,18 +33,18 @@ internal sealed class TransactionAiClassifier : ITransactionAiClassifier
     };
 
     private readonly IChatClient _chatClient;
-    private readonly IPromptStore _promptStore;
+    private readonly IAiTaskProfileResolver _profileResolver;
     private readonly IAiRunWriter _aiRunWriter;
     private readonly ILogger<TransactionAiClassifier> _logger;
 
     public TransactionAiClassifier(
         IChatClient chatClient,
-        IPromptStore promptStore,
+        IAiTaskProfileResolver profileResolver,
         IAiRunWriter aiRunWriter,
         ILogger<TransactionAiClassifier> logger)
     {
         _chatClient = chatClient;
-        _promptStore = promptStore;
+        _profileResolver = profileResolver;
         _aiRunWriter = aiRunWriter;
         _logger = logger;
     }
@@ -93,19 +93,15 @@ internal sealed class TransactionAiClassifier : ITransactionAiClassifier
 
         var transactionsJson = JsonSerializer.Serialize(transactionInputs, JsonOptions);
 
-        var systemPrompt = await _promptStore.LoadPromptAsync(
-            PromptName, PromptVersion, "system", cancellationToken);
+        var profile = await _profileResolver.ResolveAsync(UseCase, PromptName, cancellationToken: cancellationToken);
 
-        var userPromptTemplate = await _promptStore.LoadPromptAsync(
-            PromptName, PromptVersion, "user", cancellationToken);
+        var userPrompt = (profile.UserPromptTemplate ?? "{{TRANSACTIONS_JSON}}")
+            .Replace("{{TRANSACTIONS_JSON}}", transactionsJson);
 
-        var userPrompt = userPromptTemplate.Replace("{{TRANSACTIONS_JSON}}", transactionsJson);
-
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userPrompt),
-        };
+        var messages = new List<ChatMessage>();
+        if (!string.IsNullOrEmpty(profile.SystemPrompt))
+            messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
+        messages.Add(new ChatMessage(ChatRole.User, userPrompt));
 
         var inputRefsJson = JsonSerializer.Serialize(
             new { TransactionIds = transactions.Select(t => t.Id).ToList() }, JsonOptions);
@@ -114,7 +110,8 @@ internal sealed class TransactionAiClassifier : ITransactionAiClassifier
 
         try
         {
-            var chatResponse = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+            var chatOptions = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+            var chatResponse = await _chatClient.GetResponseAsync(messages, options: chatOptions, cancellationToken: cancellationToken);
             var responseText = chatResponse.Text ?? string.Empty;
 
             var classifications = ParseClassifications(responseText);

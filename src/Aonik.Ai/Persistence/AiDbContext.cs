@@ -71,6 +71,9 @@ internal class AiDbContext : AonikDbContextBase
 
         // AiRoutePolicy has nullable TenantId (global + tenant-specific policies)
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
+
+        // PromptSpec has nullable TenantId (global defaults + tenant-specific overrides)
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(PromptSpec));
     }
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)

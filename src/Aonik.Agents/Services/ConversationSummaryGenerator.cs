@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -16,15 +17,21 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
 {
     private readonly AgentsDbContext _dbContext;
     private readonly IChatClient _chatClient;
+    private readonly IAiTaskProfileResolver _profileResolver;
     private readonly ILogger<ConversationSummaryGenerator> _logger;
+
+    private const string UseCase = "conversation-summary";
+    private const string PromptName = "conversation_summary";
 
     public ConversationSummaryGenerator(
         AgentsDbContext dbContext,
         IChatClient chatClient,
+        IAiTaskProfileResolver profileResolver,
         ILogger<ConversationSummaryGenerator> logger)
     {
         _dbContext = dbContext;
         _chatClient = chatClient;
+        _profileResolver = profileResolver;
         _logger = logger;
     }
 
@@ -101,23 +108,20 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
         // Build conversation transcript for the LLM
         var transcript = BuildTranscript(thread.Messages);
 
-        var systemPrompt = """
-            You are a conversation summariser. Given a transcript of a financial assistant conversation,
-            produce a JSON object with these fields:
-            - "summary": A 1-2 sentence natural language summary of what was discussed and decided.
-            - "keyDecisions": Array of {"decision": "...", "context": "..."} for any decisions the user made.
-            - "openLoops": Array of {"description": "...", "priority": "high|medium|low", "dueDate": "..."} for unresolved items.
-            - "recommendationOutcomes": Array of {"recommendationId": "...", "outcome": "Accepted|Declined|Deferred", "reason": "..."} for any recommendations the assistant made.
-            Return ONLY valid JSON. If a field has no entries, return an empty array.
-            """;
+        var profile = await _profileResolver.ResolveAsync(UseCase, PromptName, cancellationToken: cancellationToken);
 
         try
         {
+            var messages = new List<ChatMessage>();
+            if (!string.IsNullOrEmpty(profile.SystemPrompt))
+                messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
+            messages.Add(new ChatMessage(ChatRole.User, transcript));
+
+            var options = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+
             var response = await _chatClient.GetResponseAsync(
-                [
-                    new ChatMessage(ChatRole.System, systemPrompt),
-                    new ChatMessage(ChatRole.User, transcript)
-                ],
+                messages,
+                options: options,
                 cancellationToken: cancellationToken);
 
             var responseText = response.Text ?? "{}";

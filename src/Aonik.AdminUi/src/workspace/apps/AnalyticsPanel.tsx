@@ -1,6 +1,5 @@
 import { AnalyticsPage } from '@/pages/AnalyticsPage';
-import type { WorkspacePanelRenderProps } from '../types';
 
-export function AnalyticsPanel(_: WorkspacePanelRenderProps) {
+export function AnalyticsPanel() {
   return <AnalyticsPage />;
 }

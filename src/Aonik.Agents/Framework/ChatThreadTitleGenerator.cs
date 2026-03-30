@@ -10,33 +10,26 @@ namespace Aonik.Agents.Framework;
 /// user's initial prompt. Falls back to truncation on any failure so that
 /// title generation never blocks the primary chat flow.
 ///
-/// The model used for title generation is resolved via <see cref="IAiModelResolver"/>
+/// The model and prompt are resolved via <see cref="IAiTaskProfileResolver"/>
 /// using the "title-generation" use-case key. If no policy is configured, falls
 /// back to <see cref="DefaultTitleModelId"/>.
 /// </summary>
 internal sealed class ChatThreadTitleGenerator : IChatThreadTitleGenerator
 {
     private readonly IChatClient _chatClient;
-    private readonly IAiModelResolver _modelResolver;
+    private readonly IAiTaskProfileResolver _profileResolver;
     private readonly ILogger<ChatThreadTitleGenerator> _logger;
     private const string DefaultTitleModelId = "gpt-5-nano";
     private const string TitleGenerationUseCase = "title-generation";
-
-    private const string SystemPrompt =
-        """
-        You are a title generator. Given a user message from a chat conversation,
-        produce a short, descriptive title (maximum 8 words) that captures the
-        intent of the message. Return ONLY the title text — no quotes, no
-        punctuation wrapping, no explanation.
-        """;
+    private const string PromptName = "thread_title";
 
     public ChatThreadTitleGenerator(
         IChatClient chatClient,
-        IAiModelResolver modelResolver,
+        IAiTaskProfileResolver profileResolver,
         ILogger<ChatThreadTitleGenerator> logger)
     {
         _chatClient = chatClient;
-        _modelResolver = modelResolver;
+        _profileResolver = profileResolver;
         _logger = logger;
     }
 
@@ -46,22 +39,19 @@ internal sealed class ChatThreadTitleGenerator : IChatThreadTitleGenerator
     {
         try
         {
-            // Resolve model from AiRoutePolicy; fall back to default if not configured
-            var modelId = await _modelResolver.ResolveModelNameAsync(
-                TitleGenerationUseCase, cancellationToken)
-                ?? DefaultTitleModelId;
+            var profile = await _profileResolver.ResolveAsync(
+                TitleGenerationUseCase, PromptName, DefaultTitleModelId, cancellationToken);
 
-            var messages = new List<ChatMessage>
-            {
-                new(ChatRole.System, SystemPrompt),
-                new(ChatRole.User, firstUserMessage),
-            };
+            var messages = new List<ChatMessage>();
+            if (!string.IsNullOrEmpty(profile.SystemPrompt))
+                messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
+            messages.Add(new ChatMessage(ChatRole.User, firstUserMessage));
 
             var response = await _chatClient.GetResponseAsync(
                 messages,
                 options: new ChatOptions
                 {
-                    ModelId = modelId,
+                    ModelId = profile.ModelId ?? DefaultTitleModelId,
                 },
                 cancellationToken: cancellationToken);
 
@@ -77,7 +67,7 @@ internal sealed class ChatThreadTitleGenerator : IChatThreadTitleGenerator
                     title = title[..197] + "...";
 
                 _logger.LogDebug(
-                    "Generated thread title: {Title} (model: {ModelId})", title, modelId);
+                    "Generated thread title: {Title} (model: {ModelId})", title, profile.ModelId);
 
                 return title;
             }

@@ -8,7 +8,11 @@ import { AgentDetailPage } from '@/pages/ai/AgentDetailPage';
 import { AnalyticsPanel } from '@/workspace/apps/AnalyticsPanel';
 import { AiModelsPanel } from '@/workspace/apps/AiModelsPanel';
 import { AgentConfigPanel } from '@/workspace/apps/AgentConfigPanel';
+import { PromptTemplatesPage } from '@/pages/ai/PromptTemplatesPage';
+import { RoutePoliciesPage } from '@/pages/ai/RoutePoliciesPage';
 import { PlaceholderPanel } from '@/workspace/apps/PlaceholderPanel';
+import { PromptTemplatesPanel } from '@/workspace/apps/PromptTemplatesPanel';
+import { RoutePoliciesPanel } from '@/workspace/apps/RoutePoliciesPanel';
 
 // ---------------------------------------------------------------------------
 // Navigation — "Home" section shared across all modules
@@ -50,6 +54,18 @@ const navigation: NavigationSection[] = [
                 icon: 'Brain',
                 href: '/ai/models',
               },
+              {
+                id: 'ai-prompts-item',
+                label: 'Prompt Templates',
+                icon: 'FileText',
+                href: '/ai/prompts',
+              },
+              {
+                id: 'ai-routing-item',
+                label: 'Route Policies',
+                icon: 'Route',
+                href: '/ai/routing',
+              },
             ],
           },
         ],
@@ -68,6 +84,8 @@ const routes = [
   { path: '/ai/models', element: AiModelsPage },
   { path: '/ai/agents', element: AgentConfigPage },
   { path: '/ai/agents/:agentName', element: AgentDetailPage },
+  { path: '/ai/prompts', element: PromptTemplatesPage },
+  { path: '/ai/routing', element: RoutePoliciesPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -80,12 +98,16 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'ai-agents', title: 'Agents', description: 'Configure domain agents, assign models, and manage overrides.', type: 'internal', componentKey: 'agentConfig', route: '/ai/agents' },
   { id: 'ai-models', title: 'AI Models', description: 'Manage AI providers and models used across the platform.', type: 'internal', componentKey: 'aiModels', route: '/ai/models' },
   { id: 'ai-orchestrator', title: 'Orchestrator', type: 'internal', componentKey: 'placeholder', route: '/ai/orchestrator' },
+  { id: 'ai-prompts', title: 'Prompt Templates', description: 'Manage versioned prompt templates for AI tasks.', type: 'internal', componentKey: 'promptTemplates', route: '/ai/prompts' },
+  { id: 'ai-routing', title: 'Route Policies', description: 'Configure AI model routing policies per use-case.', type: 'internal', componentKey: 'routePolicies', route: '/ai/routing' },
 ];
 
 const panelComponents = {
   analytics: AnalyticsPanel,
   aiModels: AiModelsPanel,
   agentConfig: AgentConfigPanel,
+  promptTemplates: PromptTemplatesPanel,
+  routePolicies: RoutePoliciesPanel,
   placeholder: PlaceholderPanel,
 };
 
@@ -95,6 +117,8 @@ const panelComponents = {
 const breadcrumbs = [
   { pathPrefix: '/analytics', trail: ['Analytics'] },
   { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
+  { pathPrefix: '/ai/prompts', trail: ['AI', 'Prompt Templates'] },
+  { pathPrefix: '/ai/routing', trail: ['AI', 'Route Policies'] },
   { pathPrefix: '/ai/agents/', trail: ['AI', 'Agents', 'Agent Details'] },
   { pathPrefix: '/ai/agents', trail: ['AI', 'Agents'] },
   { pathPrefix: '/ai', trail: ['AI'] },

@@ -6,31 +6,29 @@ namespace Aonik.Finance.Services.Ai;
 
 /// <summary>
 /// Workflow that generates AI insights for invoices.
-/// Uses IChatClient (Microsoft.Extensions.AI) and IPromptStore (SharedKernel) for AI infrastructure.
+/// Uses IAiTaskProfileResolver for centralized model + prompt resolution.
 /// Persists insights via IInsightWriter (SharedKernel contract, implemented by AI module).
 /// </summary>
 internal sealed class InvoiceInsightWorkflow
 {
     private readonly IBillingService _billingService;
-    private readonly IPromptStore _promptStore;
+    private readonly IAiTaskProfileResolver _profileResolver;
     private readonly IChatClient _chatClient;
     private readonly IInsightWriter _insightWriter;
 
+    private const string UseCase = "invoice-insight";
+    private const string PromptName = "invoice_insight";
+
     public InvoiceInsightWorkflow(
         IBillingService billingService,
-        IPromptStore promptStore,
+        IAiTaskProfileResolver profileResolver,
         IChatClient chatClient,
         IInsightWriter insightWriter)
     {
         _billingService = billingService;
-        _promptStore = promptStore;
+        _profileResolver = profileResolver;
         _chatClient = chatClient;
         _insightWriter = insightWriter;
-    }
-
-    internal static class PromptNames
-    {
-        public const string InvoiceInsight = "invoice_insight";
     }
 
     public async Task<InsightResponse> ExecuteAsync(Guid invoiceId, CancellationToken cancellationToken = default)
@@ -43,18 +41,8 @@ internal sealed class InvoiceInsightWorkflow
             throw new InvalidOperationException($"Invoice with ID {invoiceId} not found");
         }
 
-        // Step 2: Load prompts
-        var systemPrompt = await _promptStore.LoadPromptAsync(
-            PromptNames.InvoiceInsight,
-            "v1",
-            "system",
-            cancellationToken);
-
-        var userPromptTemplate = await _promptStore.LoadPromptAsync(
-            PromptNames.InvoiceInsight,
-            "v1",
-            "user",
-            cancellationToken);
+        // Step 2: Resolve AI task profile (model + prompts)
+        var profile = await _profileResolver.ResolveAsync(UseCase, PromptName, cancellationToken: cancellationToken);
 
         // Step 3: Build user prompt with invoice data
         var invoiceData = $@"
@@ -65,16 +53,17 @@ Due Date: {invoice.DueUtc:yyyy-MM-dd}
 Line Items Count: {invoice.LineItems.Count}
 ";
 
-        var userPrompt = userPromptTemplate.Replace("{{INVOICE_DATA}}", invoiceData);
+        var userPrompt = (profile.UserPromptTemplate ?? "{{INVOICE_DATA}}")
+            .Replace("{{INVOICE_DATA}}", invoiceData);
 
         // Step 4: Call AI model via IChatClient
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userPrompt)
-        };
+        var messages = new List<ChatMessage>();
+        if (!string.IsNullOrEmpty(profile.SystemPrompt))
+            messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
+        messages.Add(new ChatMessage(ChatRole.User, userPrompt));
 
-        var response = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+        var options = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+        var response = await _chatClient.GetResponseAsync(messages, options: options, cancellationToken: cancellationToken);
         var completion = response.Text ?? string.Empty;
 
         // Step 5: Persist insight via AI module's IInsightWriter

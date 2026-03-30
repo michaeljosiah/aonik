@@ -10,20 +10,23 @@ namespace Aonik.Finance.Services.PersonalFinance;
 internal sealed class PersonalFinanceNarrativeInsightsService : IPersonalFinanceNarrativeInsightsService
 {
     private readonly IPersonalFinanceInsightsService _insightsService;
-    private readonly IPromptStore _promptStore;
+    private readonly IAiTaskProfileResolver _profileResolver;
     private readonly IChatClient _chatClient;
     private readonly IInsightWriter _insightWriter;
     private readonly IAiRunWriter _aiRunWriter;
 
+    private const string UseCase = "personal_finance_spending_narrative";
+    private const string PromptName = "personal_spending_insight";
+
     public PersonalFinanceNarrativeInsightsService(
         IPersonalFinanceInsightsService insightsService,
-        IPromptStore promptStore,
+        IAiTaskProfileResolver profileResolver,
         IChatClient chatClient,
         IInsightWriter insightWriter,
         IAiRunWriter aiRunWriter)
     {
         _insightsService = insightsService;
-        _promptStore = promptStore;
+        _profileResolver = profileResolver;
         _chatClient = chatClient;
         _insightWriter = insightWriter;
         _aiRunWriter = aiRunWriter;
@@ -62,17 +65,7 @@ internal sealed class PersonalFinanceNarrativeInsightsService : IPersonalFinance
             5,
             cancellationToken);
 
-        var systemPrompt = await _promptStore.LoadPromptAsync(
-            "personal_spending_insight",
-            "v1",
-            "system",
-            cancellationToken);
-
-        var userPromptTemplate = await _promptStore.LoadPromptAsync(
-            "personal_spending_insight",
-            "v1",
-            "user",
-            cancellationToken);
+        var profile = await _profileResolver.ResolveAsync(UseCase, PromptName, cancellationToken: cancellationToken);
 
         var insightData = new
         {
@@ -86,13 +79,13 @@ internal sealed class PersonalFinanceNarrativeInsightsService : IPersonalFinance
             WriteIndented = true
         });
 
-        var userPrompt = userPromptTemplate.Replace("{{SPENDING_DATA}}", insightDataJson);
+        var userPrompt = (profile.UserPromptTemplate ?? "{{SPENDING_DATA}}")
+            .Replace("{{SPENDING_DATA}}", insightDataJson);
 
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userPrompt)
-        };
+        var messages = new List<ChatMessage>();
+        if (!string.IsNullOrEmpty(profile.SystemPrompt))
+            messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
+        messages.Add(new ChatMessage(ChatRole.User, userPrompt));
 
         var inputRefsJson = JsonSerializer.Serialize(new
         {
@@ -102,13 +95,14 @@ internal sealed class PersonalFinanceNarrativeInsightsService : IPersonalFinance
         });
 
         var aiRunId = await _aiRunWriter.StartRunAsync(
-            "personal_finance_spending_narrative",
+            UseCase,
             inputRefsJson,
             cancellationToken);
 
         try
         {
-            var chatResponse = await _chatClient.GetResponseAsync(messages, cancellationToken: cancellationToken);
+            var chatOptions = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+            var chatResponse = await _chatClient.GetResponseAsync(messages, options: chatOptions, cancellationToken: cancellationToken);
             var narrative = chatResponse.Text ?? string.Empty;
 
             var subjectId = Guid.NewGuid();

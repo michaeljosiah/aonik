@@ -3,6 +3,7 @@ using Aonik.Ai.Contracts.Services;
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -11,11 +12,16 @@ namespace Aonik.Ai.Services;
 internal sealed class AiModelService : IAiModelService, IAiModelResolver
 {
     private readonly AiDbContext _dbContext;
+    private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<AiModelService> _logger;
 
-    public AiModelService(AiDbContext dbContext, ILogger<AiModelService> logger)
+    public AiModelService(
+        AiDbContext dbContext,
+        ITenantProvider tenantProvider,
+        ILogger<AiModelService> logger)
     {
         _dbContext = dbContext;
+        _tenantProvider = tenantProvider;
         _logger = logger;
     }
 
@@ -213,11 +219,17 @@ internal sealed class AiModelService : IAiModelService, IAiModelResolver
 
     public async Task<string?> ResolveModelNameAsync(string useCase, CancellationToken ct = default)
     {
-        // Look for an active route policy matching this use-case
-        // Nullable tenant filter on AiRoutePolicy means we see both global and tenant-specific
-        var policy = await _dbContext.AiRoutePolicies
+        var hasTenantContext = _tenantProvider.TryGetCurrentTenantId(out var tenantId);
+
+        var query = _dbContext.AiRoutePolicies
+            .AsNoTracking()
             .Where(p => p.UseCase == useCase && p.IsActive && !p.IsDeleted)
-            .OrderByDescending(p => p.TenantId) // tenant-specific wins (non-null sorts after null)
+            .Where(p => hasTenantContext
+                ? p.TenantId == tenantId || p.TenantId == null
+                : p.TenantId == null);
+
+        var policy = await query
+            .OrderByDescending(p => p.TenantId.HasValue)
             .FirstOrDefaultAsync(ct);
 
         if (policy is null)

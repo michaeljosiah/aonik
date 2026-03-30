@@ -48,12 +48,15 @@ public sealed class AiModule : IModule
         });
 
         // ── AI Infrastructure ────────────────────────────────────────
-        // Prompt store (loads .md templates from disk)
-        services.AddSingleton<IPromptStore>(sp =>
+        // File-based prompt store (loads .md templates from disk) — used as fallback
+        services.AddSingleton<FileBasedPromptStore>(sp =>
         {
             var promptPath = configuration["AI:PromptTemplatesPath"];
             return new FileBasedPromptStore(promptPath);
         });
+
+        // Tenant-aware prompt store: DB overrides (tenant → global) → file-based fallback
+        services.AddScoped<IPromptStore, TenantAwarePromptStore>();
 
         // IChatClient — registered directly with AuditMiddleware in the pipeline.
         // Provider is selected via AI:Provider config key (Stub | OpenAI | AzureOpenAI).
@@ -116,6 +119,15 @@ public sealed class AiModule : IModule
         services.AddScoped<IAiModelService>(sp => sp.GetRequiredService<AiModelService>());
         services.AddScoped<IAiModelResolver>(sp => sp.GetRequiredService<AiModelService>());
         services.AddScoped<IAiModelCatalogImportService, AiModelCatalogImportService>();
+
+        // AI task profile resolution — composes model + prompt resolution
+        services.AddScoped<IAiTaskProfileResolver, AiTaskProfileResolver>();
+
+        // Prompt spec CRUD — manages versioned prompt templates
+        services.AddScoped<Contracts.Services.IPromptSpecService, PromptSpecService>();
+
+        // Route policy CRUD — manages AI model routing policies
+        services.AddScoped<Contracts.Services.IRoutePolicyService, RoutePolicyService>();
 
         // Insight persistence — consumed by domain modules via IInsightWriter contract
         services.AddScoped<IInsightWriter, InsightWriter>();
