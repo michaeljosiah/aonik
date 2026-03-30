@@ -215,8 +215,8 @@ function AppLayout() {
               {/* Workspace — always present */}
               <Route path="/workspace" element={<WorkspacePage />} />
               {/* AI Chat — wired to AG-UI streaming endpoint */}
-              <Route path="/ai/chat" element={<AiChatMock agentId={selectedAgentId} />} />
-              <Route path="/ai/chat/:agentId" element={<AiChatMock agentId={selectedAgentId} />} />
+              <Route path="/ai/chat" element={<AiChatMock agentId={selectedAgentId} agents={agents} onSelectAgent={setSelectedAgentId} />} />
+              <Route path="/ai/chat/:agentId" element={<AiChatMock agentId={selectedAgentId} agents={agents} onSelectAgent={setSelectedAgentId} />} />
               {/* Module-contributed routes */}
               {routes.map((route) => (
                 <Route
@@ -267,8 +267,8 @@ function PlaceholderPage({ title }: { title: string }) {
 
 function BootstrapStatusUnavailablePage({ message }: { message: string }) {
   return (
-    <div className="flex items-center justify-center flex-1 h-full overflow-auto bg-[var(--color-background)] px-6">
-      <div className="max-w-lg rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
+    <div className="flex items-center justify-center min-h-screen w-screen overflow-auto bg-[var(--color-background)] px-6">
+      <div className="max-w-[32rem] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
         <p className="text-sm font-semibold text-[var(--color-brand-primary)]">Setup Status Unavailable</p>
         <h1 className="mt-2 text-2xl font-bold text-[var(--color-text-primary)]">We could not determine first-run status</h1>
         <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">{message}</p>
