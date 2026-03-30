@@ -29,7 +29,7 @@ RUN dotnet publish src/Aonik.Worker/Aonik.Worker.csproj \
     -o /app/publish \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/runtime:${DOTNET_VERSION} AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_VERSION} AS runtime
 WORKDIR /app
 
 ARG APP_UID=1654
