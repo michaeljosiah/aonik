@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, Plus, Pencil, Trash2, Eye } from 'lucide-react';
+import { Bell, Plus, Pencil, Trash2, Eye, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { notificationTemplateService } from '@/services/notificationTemplateService';
+import { api } from '@/lib/api';
 import type {
   NotificationTemplateSummary,
   NotificationTemplateBindingResponse,
@@ -83,6 +84,9 @@ export function NotificationTemplatesPage() {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [templateForm, setTemplateForm] = useState<TemplateForm>(emptyTemplateForm);
   const [savingTemplate, setSavingTemplate] = useState(false);
+
+  // ── AI generation state ─────────────────────────────────────────────
+  const [generatingDescription, setGeneratingDescription] = useState(false);
 
   // ── Preview state ──────────────────────────────────────────────────────
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -230,6 +234,38 @@ export function NotificationTemplatesPage() {
       toast.error('Preview failed — check your template syntax');
     } finally {
       setPreviewing(false);
+    }
+  }
+
+  // ── AI description generation ──────────────────────────────────────
+  async function generateDescription() {
+    const { name, channel, bodyTemplate } = templateForm;
+    if (!name && !bodyTemplate) {
+      toast.error('Enter a template name or body first so AI has context to work with');
+      return;
+    }
+
+    try {
+      setGeneratingDescription(true);
+      const prompt = [
+        'Generate a short, clear description (1-2 sentences) for a notification template.',
+        `Template name: ${name || '(not set)'}`,
+        `Channel: ${channel}`,
+        bodyTemplate ? `Body template:\n${bodyTemplate}` : null,
+        'Reply with ONLY the description text, no quotes or extra formatting.',
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      const response = await api.post<{ message: string }>('/ai/chat', { message: prompt });
+      if (response.message) {
+        setTemplateForm((prev) => ({ ...prev, description: response.message.trim() }));
+        toast.success('Description generated');
+      }
+    } catch {
+      toast.error('Failed to generate description');
+    } finally {
+      setGeneratingDescription(false);
     }
   }
 
@@ -514,7 +550,24 @@ export function NotificationTemplatesPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="tpl-description">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="tpl-description">Description</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-brand-primary)]"
+                  onClick={generateDescription}
+                  disabled={generatingDescription}
+                >
+                  {generatingDescription ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  {generatingDescription ? 'Generating...' : 'AI Generate'}
+                </Button>
+              </div>
               <Input
                 id="tpl-description"
                 placeholder="Brief description of this template"
