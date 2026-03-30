@@ -98,6 +98,31 @@ export interface Databox {
   modifiedBy: string;
 }
 
+// MySpace Summary Types
+export interface FinancialMetricDto {
+  metricKey: string;
+  formattedValue: string;
+  valueLabel?: string | null;
+  trendDirection: 'up' | 'down' | 'neutral';
+  trendPercent: number;
+  sparkline: number[];
+  count?: number | null;
+  total?: number | null;
+}
+
+export interface ActivityItemDto {
+  id: string;
+  title: string;
+  description?: string | null;
+  timestamp: string;
+  icon: string;
+}
+
+export interface MySpaceSummaryResponse {
+  financialMetrics: FinancialMetricDto[];
+  recentActivity: ActivityItemDto[];
+}
+
 // Tenant Types
 export type TenantStatus = 'Active' | 'Provisioning' | 'Deactivated' | 'Suspended';
 export type TenantEnvironment = 'Dev' | 'Test' | 'Staging' | 'Prod';

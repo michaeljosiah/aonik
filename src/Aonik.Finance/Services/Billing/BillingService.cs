@@ -242,6 +242,25 @@ internal class BillingService : FinanceServiceBase, IBillingService
         invoice.Total = invoice.Subtotal + invoice.TaxTotal - invoice.DiscountTotal;
     }
 
+    public async Task<IReadOnlyList<InvoiceResponse>> ListInvoicesAsync(string? statusFilter = null, CancellationToken cancellationToken = default)
+    {
+        await EnsurePermissionAsync("Invoice.Read", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var query = _dbContext.Invoices
+            .Include(i => i.Lines)
+            .Where(i => i.TenantId == tenantId);
+
+        if (!string.IsNullOrEmpty(statusFilter))
+            query = query.Where(i => i.Status == statusFilter);
+
+        var invoices = await query
+            .OrderByDescending(i => i.IssueDate)
+            .ToListAsync(cancellationToken);
+
+        return invoices.Select(MapToResponse).ToList();
+    }
+
     private static InvoiceResponse MapToResponse(Invoice invoice)
     {
         return new InvoiceResponse(

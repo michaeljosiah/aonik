@@ -54,6 +54,9 @@ public sealed class FinanceModule : IModule
         // Billing
         services.AddScoped<Contracts.Services.Billing.IBillingService, Services.Billing.BillingService>();
 
+        // Insights
+        services.AddScoped<Contracts.Services.Insights.IMySpaceSummaryService, Services.Insights.MySpaceSummaryService>();
+
         // Orders
         services.AddScoped<Contracts.Services.Orders.IOrderService, Services.Orders.OrderService>();
         services.AddScoped<Contracts.Services.Orders.IPublicOrderService, Services.Orders.PublicOrderService>();
