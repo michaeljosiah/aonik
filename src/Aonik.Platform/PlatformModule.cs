@@ -7,6 +7,7 @@ using Aonik.Platform.Contracts.Services.Customers;
 using Aonik.Platform.Contracts.Services.Features;
 using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Contracts.Services.Notifications;
+using Aonik.Platform.Contracts.Services.Operations;
 using Aonik.Platform.Contracts.Services.Seeding;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Onboarding;
@@ -21,6 +22,7 @@ using Aonik.Platform.Services.Features;
 using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Services.Notifications;
 using Aonik.Platform.Services.Onboarding;
+using Aonik.Platform.Services.Operations;
 using Aonik.Platform.Services.Party;
 using Aonik.Platform.Services.Registration;
 using Aonik.Platform.Services.Seeding;
@@ -96,6 +98,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
         services.AddScoped<IPartyAccountService, PartyAccountService>();
+        services.AddScoped<IScheduledJobAdminService, ScheduledJobAdminService>();
 
         // ── CMS Services ─────────────────────────────────────────────
         services.AddScoped<IContentBlockService, ContentBlockService>();

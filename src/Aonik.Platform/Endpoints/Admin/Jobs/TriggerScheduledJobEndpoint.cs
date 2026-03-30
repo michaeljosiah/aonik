@@ -1,7 +1,6 @@
 using Aonik.Platform.Contracts.Api.Jobs;
-using Aonik.Platform.Persistence;
+using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
-using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -11,11 +10,11 @@ namespace Aonik.Platform.Endpoints.Admin.Jobs;
 /// </summary>
 internal class TriggerScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJobActionResponse>
 {
-    private readonly PlatformDbContext _dbContext;
+    private readonly IScheduledJobAdminService _scheduledJobAdminService;
 
-    public TriggerScheduledJobEndpoint(PlatformDbContext dbContext)
+    public TriggerScheduledJobEndpoint(IScheduledJobAdminService scheduledJobAdminService)
     {
-        _dbContext = dbContext;
+        _scheduledJobAdminService = scheduledJobAdminService;
     }
 
     public override void Configure()
@@ -27,25 +26,14 @@ internal class TriggerScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJob
     public override async Task HandleAsync(CancellationToken ct)
     {
         var jobName = Route<string>("jobName")!;
-        var jobType = $"Scheduled:{jobName}";
 
-        var job = await _dbContext.Jobs
-            .FirstOrDefaultAsync(j => j.JobType == jobType, ct);
-
-        if (job is null)
+        var result = await _scheduledJobAdminService.QueueTriggerAsync(jobName, ct);
+        if (result is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
 
-        job.LastResultJson = "{\"requestedAction\":\"trigger\"}";
-
-        await _dbContext.SaveChangesAsync(ct);
-
-        await Send.OkAsync(new ScheduledJobActionResponse(
-            jobName,
-            "trigger",
-            true,
-            "Trigger request queued. The job will be executed on the next Worker poll cycle."), ct);
+        await Send.OkAsync(result, ct);
     }
 }

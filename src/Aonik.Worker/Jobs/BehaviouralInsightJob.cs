@@ -1,5 +1,6 @@
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.Platform.Entities.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,8 @@ namespace Aonik.Worker.Jobs;
 [DisallowConcurrentExecution]
 internal sealed class BehaviouralInsightJob : IJob
 {
+    public static readonly JobKey Key = new("BehaviouralInsightJob", ScheduledJobGroups.ScheduledJobs);
+
     private readonly FinanceDbContext _financeDbContext;
     private readonly BehaviouralInsightGenerator _insightGenerator;
     private readonly ScheduledJobOptions _options;

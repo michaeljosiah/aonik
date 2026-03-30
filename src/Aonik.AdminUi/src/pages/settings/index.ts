@@ -7,3 +7,4 @@ export { SettingsApiKeysPage } from './SettingsApiKeysPage';
 export { SettingsAuditLogsPage } from './SettingsAuditLogsPage';
 export { NotificationTemplatesPage } from './NotificationTemplatesPage';
 export { BackgroundJobsPage } from './BackgroundJobsPage';
+export { BackgroundJobDetailPage } from './BackgroundJobDetailPage';

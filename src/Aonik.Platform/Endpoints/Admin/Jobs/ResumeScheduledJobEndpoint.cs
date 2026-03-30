@@ -1,7 +1,6 @@
 using Aonik.Platform.Contracts.Api.Jobs;
-using Aonik.Platform.Persistence;
+using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
-using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -10,11 +9,11 @@ namespace Aonik.Platform.Endpoints.Admin.Jobs;
 /// </summary>
 internal class ResumeScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJobActionResponse>
 {
-    private readonly PlatformDbContext _dbContext;
+    private readonly IScheduledJobAdminService _scheduledJobAdminService;
 
-    public ResumeScheduledJobEndpoint(PlatformDbContext dbContext)
+    public ResumeScheduledJobEndpoint(IScheduledJobAdminService scheduledJobAdminService)
     {
-        _dbContext = dbContext;
+        _scheduledJobAdminService = scheduledJobAdminService;
     }
 
     public override void Configure()
@@ -26,25 +25,14 @@ internal class ResumeScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJobA
     public override async Task HandleAsync(CancellationToken ct)
     {
         var jobName = Route<string>("jobName")!;
-        var jobType = $"Scheduled:{jobName}";
 
-        var job = await _dbContext.Jobs
-            .FirstOrDefaultAsync(j => j.JobType == jobType, ct);
-
-        if (job is null)
+        var result = await _scheduledJobAdminService.QueueResumeAsync(jobName, ct);
+        if (result is null)
         {
             await Send.NotFoundAsync(ct);
             return;
         }
 
-        job.Status = "Active";
-
-        await _dbContext.SaveChangesAsync(ct);
-
-        await Send.OkAsync(new ScheduledJobActionResponse(
-            jobName,
-            "resume",
-            true,
-            "Job resumed successfully."), ct);
+        await Send.OkAsync(result, ct);
     }
 }

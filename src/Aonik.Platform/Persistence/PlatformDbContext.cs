@@ -70,6 +70,10 @@ internal class PlatformDbContext : AonikDbContextBase
     // Operations
     public DbSet<WorkItem> WorkItems { get; set; } = null!;
     public DbSet<Job> Jobs { get; set; } = null!;
+    public DbSet<ScheduledJobProjection> ScheduledJobProjections { get; set; } = null!;
+    public DbSet<ScheduledJobAdminCommand> ScheduledJobAdminCommands { get; set; } = null!;
+    public DbSet<ScheduledJobRun> ScheduledJobRuns { get; set; } = null!;
+    public DbSet<SchedulerHealthSnapshot> SchedulerHealthSnapshots { get; set; } = null!;
 
     // Settings
     public DbSet<Setting> Settings { get; set; } = null!;
@@ -110,6 +114,10 @@ internal class PlatformDbContext : AonikDbContextBase
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PlatformDbContext).Assembly);
 
         ApplyDboPrefixedTableNames(modelBuilder);
+        ConfigureScheduledJobProjection(modelBuilder);
+        ConfigureScheduledJobAdminCommand(modelBuilder);
+        ConfigureScheduledJobRun(modelBuilder);
+        ConfigureSchedulerHealthSnapshot(modelBuilder);
 
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);
@@ -128,7 +136,7 @@ internal class PlatformDbContext : AonikDbContextBase
 
     protected override bool IsGlobalEntity(object entity)
     {
-        return entity is Role or Job;
+        return entity is Role or Job or ScheduledJobProjection or ScheduledJobAdminCommand or ScheduledJobRun or SchedulerHealthSnapshot;
     }
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
@@ -172,6 +180,10 @@ internal class PlatformDbContext : AonikDbContextBase
 
         MapTable<WorkItem>(modelBuilder, "WorkItems");
         MapTable<Job>(modelBuilder, "Jobs");
+        MapTable<ScheduledJobProjection>(modelBuilder, "ScheduledJobProjections");
+        MapTable<ScheduledJobAdminCommand>(modelBuilder, "ScheduledJobAdminCommands");
+        MapTable<ScheduledJobRun>(modelBuilder, "ScheduledJobRuns");
+        MapTable<SchedulerHealthSnapshot>(modelBuilder, "SchedulerHealthSnapshots");
 
         MapTable<Setting>(modelBuilder, "Settings");
         MapTable<TenantFeature>(modelBuilder, "TenantFeatures");
@@ -193,5 +205,151 @@ internal class PlatformDbContext : AonikDbContextBase
     {
         modelBuilder.Entity<TEntity>()
             .ToTable($"{ModuleTablePrefixes.Platform}{tableName}", SchemaNames.Default);
+    }
+
+    private static void ConfigureScheduledJobProjection(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<ScheduledJobProjection>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.JobName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.GroupName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.DisplayName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.Description)
+            .IsRequired()
+            .HasMaxLength(1000);
+
+        builder.Property(x => x.CronExpression)
+            .IsRequired()
+            .HasMaxLength(120);
+
+        builder.Property(x => x.TimeZoneId)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.State)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.LastOutcome)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.LastOutcomeSummary)
+            .HasMaxLength(1000);
+
+        builder.HasIndex(x => new { x.GroupName, x.JobName })
+            .IsUnique()
+            .HasDatabaseName("IX_ScheduledJobProjection_GroupName_JobName");
+    }
+
+    private static void ConfigureScheduledJobAdminCommand(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<ScheduledJobAdminCommand>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.JobName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.GroupName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.CommandType)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.PayloadJson)
+            .IsRequired();
+
+        builder.Property(x => x.Status)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.ResultMessage)
+            .HasMaxLength(1000);
+
+        builder.HasIndex(x => new { x.Status, x.CreatedAt })
+            .HasDatabaseName("IX_ScheduledJobAdminCommand_Status_CreatedAt");
+
+        builder.HasIndex(x => new { x.GroupName, x.JobName, x.Status })
+            .HasDatabaseName("IX_ScheduledJobAdminCommand_GroupName_JobName_Status");
+    }
+
+    private static void ConfigureScheduledJobRun(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<ScheduledJobRun>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.JobName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.GroupName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.Outcome)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.ErrorMessage)
+            .HasMaxLength(2000);
+
+        builder.Property(x => x.TriggeredBy)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.FireInstanceId)
+            .HasMaxLength(200);
+
+        builder.HasIndex(x => new { x.GroupName, x.JobName, x.FiredAtUtc })
+            .HasDatabaseName("IX_ScheduledJobRun_GroupName_JobName_FiredAtUtc");
+
+        builder.HasIndex(x => x.FiredAtUtc)
+            .HasDatabaseName("IX_ScheduledJobRun_FiredAtUtc");
+    }
+
+    private static void ConfigureSchedulerHealthSnapshot(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<SchedulerHealthSnapshot>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.SchedulerName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.SchedulerInstanceId)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.HasIndex(x => new { x.SchedulerName, x.SchedulerInstanceId })
+            .IsUnique()
+            .HasDatabaseName("IX_SchedulerHealthSnapshot_Name_InstanceId");
     }
 }

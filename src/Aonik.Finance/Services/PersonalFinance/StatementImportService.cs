@@ -29,9 +29,9 @@ internal sealed class StatementImportService : IStatementImportService
     private static readonly string[] KnownHeaderKeywords =
     [
         "date", "transactiondate", "posteddate", "occurredat",
-        "amount", "transactionamount", "value",
-        "description", "details", "memo", "narration",
-        "merchant", "payee", "vendor",
+        "amount", "amountgbp", "transactionamount", "value",
+        "description", "details", "memo", "narration", "reference",
+        "merchant", "payee", "vendor", "counterparty",
         "currency", "ccy",
         "credit", "debit"
     ];
@@ -466,9 +466,9 @@ internal sealed class StatementImportService : IStatementImportService
             .ToList();
 
         var dateIndex = FindHeaderIndex(headers, "date", "transactiondate", "posteddate", "occurredat");
-        var amountIndex = FindHeaderIndex(headers, "amount", "transactionamount", "value");
-        var descriptionIndex = FindHeaderIndex(headers, "description", "details", "memo", "narration");
-        var merchantIndex = FindHeaderIndex(headers, "merchant", "payee", "vendor");
+        var amountIndex = FindHeaderIndex(headers, "amount", "amountgbp", "transactionamount", "value");
+        var descriptionIndex = FindHeaderIndex(headers, "description", "details", "memo", "narration", "reference");
+        var merchantIndex = FindHeaderIndex(headers, "merchant", "payee", "vendor", "counterparty");
         var currencyIndex = FindHeaderIndex(headers, "currency", "ccy");
         var creditIndex = FindHeaderIndex(headers, "credit");
         var debitIndex = FindHeaderIndex(headers, "debit");

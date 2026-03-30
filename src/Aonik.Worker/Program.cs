@@ -1,4 +1,5 @@
 using Aonik.Infrastructure;
+using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
@@ -24,57 +25,67 @@ builder.Services.AddAgentsModule(builder.Configuration);
 builder.Services.Configure<ScheduledJobOptions>(
     builder.Configuration.GetSection("Quartz:ScheduledJobs"));
 
+// Read Quartz persistence options
+var quartzPersistenceEnabled = builder.Configuration.GetValue<bool>("Quartz:Persistence:Enabled");
+var quartzTablePrefix = builder.Configuration.GetValue<string>("Quartz:Persistence:TablePrefix") ?? "QRTZ_";
+var quartzSchedulerName = builder.Configuration.GetValue<string>("Quartz:Persistence:SchedulerName") ?? "AonikScheduler";
+var quartzMisfireThresholdSeconds = builder.Configuration.GetValue<int>("Quartz:Persistence:MisfireThresholdSeconds", 60);
+
 // Read job options for Quartz configuration
 var jobOptions = builder.Configuration
     .GetSection("Quartz:ScheduledJobs")
     .Get<ScheduledJobOptions>() ?? new ScheduledJobOptions();
 
-// Register job listener and startup registrar
+var scheduledJobDefinitions = ScheduledJobDefinitions.Create(jobOptions);
+
+foreach (var definition in scheduledJobDefinitions)
+{
+    builder.Services.AddSingleton<IScheduledJobDefinition>(definition);
+}
+
+// Register the Quartz runtime only in the Worker host.
+builder.Services.AddQuartzBackgroundJobRuntime();
+
+// Register job listener, projection sync, and admin command processing.
 builder.Services.AddSingleton<ScheduledJobListener>();
+builder.Services.AddSingleton<ScheduledJobProjectionSynchronizer>();
 builder.Services.AddHostedService<ScheduledJobRegistrar>();
+builder.Services.AddHostedService<ScheduledJobCommandProcessor>();
+builder.Services.AddHostedService<SchedulerHealthPublisher>();
 
 // Configure Quartz scheduler with cron-scheduled jobs
 builder.Services.AddQuartz(q =>
 {
+    q.SchedulerName = quartzSchedulerName;
+    q.SchedulerId = "AUTO";
+    q.MisfireThreshold = TimeSpan.FromSeconds(quartzMisfireThresholdSeconds);
+
     q.UseDefaultThreadPool(tp => tp.MaxConcurrency = 3);
 
-    // Add listener that updates Job entity after each execution
+    if (quartzPersistenceEnabled)
+    {
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? builder.Configuration.GetConnectionString("AonikDb");
+
+        q.UsePersistentStore(store =>
+        {
+            store.UseProperties = true;
+            store.UseSqlServer(sql =>
+            {
+                sql.ConnectionString = connectionString!;
+                sql.TablePrefix = quartzTablePrefix;
+            });
+            store.UseSystemTextJsonSerializer();
+            store.PerformSchemaValidation = true;
+        });
+    }
+
+    // Refresh projection state after each scheduled execution.
     q.AddJobListener<ScheduledJobListener>();
 
-    if (jobOptions.FinancialConnectionSync.Enabled)
+    foreach (var definition in scheduledJobDefinitions)
     {
-        var jobKey = new JobKey("FinancialConnectionRecurringSyncJob", "ScheduledJobs");
-        q.AddJob<FinancialConnectionRecurringSyncJob>(opts => opts
-            .WithIdentity(jobKey)
-            .WithDescription("Synchronises linked financial account transactions for connections due for recurring sync."));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity("FinancialConnectionSync-trigger", "ScheduledJobs")
-            .WithCronSchedule(jobOptions.FinancialConnectionSync.CronExpression));
-    }
-
-    if (jobOptions.StaleSessionDetector.Enabled)
-    {
-        var jobKey = new JobKey("StaleSessionDetectorJob", "ScheduledJobs");
-        q.AddJob<StaleSessionDetectorJob>(opts => opts
-            .WithIdentity(jobKey)
-            .WithDescription("Detects stale chat sessions and generates conversation summaries."));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity("StaleSessionDetector-trigger", "ScheduledJobs")
-            .WithCronSchedule(jobOptions.StaleSessionDetector.CronExpression));
-    }
-
-    if (jobOptions.BehaviouralInsight.Enabled)
-    {
-        var jobKey = new JobKey("BehaviouralInsightJob", "ScheduledJobs");
-        q.AddJob<BehaviouralInsightJob>(opts => opts
-            .WithIdentity(jobKey)
-            .WithDescription("Pre-computes behavioural spending insights for personal finance users."));
-        q.AddTrigger(opts => opts
-            .ForJob(jobKey)
-            .WithIdentity("BehaviouralInsight-trigger", "ScheduledJobs")
-            .WithCronSchedule(jobOptions.BehaviouralInsight.CronExpression));
+        definition.Configure(q);
     }
 });
 

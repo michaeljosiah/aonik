@@ -1,4 +1,5 @@
 using Aonik.Agents.Contracts.Services;
+using Aonik.Platform.Entities.Operations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Quartz;
@@ -12,6 +13,8 @@ namespace Aonik.Worker.Jobs;
 [DisallowConcurrentExecution]
 internal sealed class StaleSessionDetectorJob : IJob
 {
+    public static readonly JobKey Key = new("StaleSessionDetectorJob", ScheduledJobGroups.ScheduledJobs);
+
     private readonly IConversationSummaryService _conversationSummaryService;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<StaleSessionDetectorJob> _logger;

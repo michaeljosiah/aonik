@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Timer, Play, Pause, RefreshCw, ServerCog } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Timer, Play, Pause, RefreshCw, ServerCog, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { jobService, type ScheduledJobSummary } from '@/services/jobService';
+import { jobService, type ScheduledJobSummary, type SchedulerHealthResponse } from '@/services/jobService';
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return '--';
@@ -36,14 +37,14 @@ function statusBadge(status: string) {
   }
 }
 
-function friendlyJobName(name: string): string {
-  return name
-    .replace(/Job$/, '')
-    .replace(/([a-z])([A-Z])/g, '$1 $2');
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export function BackgroundJobsPage() {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<ScheduledJobSummary[]>([]);
+  const [health, setHealth] = useState<SchedulerHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
@@ -58,19 +59,32 @@ export function BackgroundJobsPage() {
     }
   }, []);
 
+  const loadHealth = useCallback(async () => {
+    try {
+      const result = await jobService.getSchedulerHealth();
+      setHealth(result);
+    } catch {
+      // Health endpoint may not be available yet
+    }
+  }, []);
+
   useEffect(() => {
     void loadJobs();
+    void loadHealth();
 
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(() => void loadJobs(), 30_000);
+    const interval = setInterval(() => {
+      void loadJobs();
+      void loadHealth();
+    }, 30_000);
     return () => clearInterval(interval);
-  }, [loadJobs]);
+  }, [loadJobs, loadHealth]);
 
   const handleTrigger = async (jobName: string) => {
     setActionInProgress(jobName);
     try {
       const result = await jobService.triggerJob(jobName);
-      toast.success(result.message ?? 'Job triggered.');
+      toast.success(result.message ?? 'Trigger command queued.');
+      await wait(1500);
       await loadJobs();
     } catch (err) {
       console.error('Trigger failed:', err);
@@ -84,7 +98,8 @@ export function BackgroundJobsPage() {
     setActionInProgress(jobName);
     try {
       const result = await jobService.pauseJob(jobName);
-      toast.success(result.message ?? 'Job paused.');
+      toast.success(result.message ?? 'Pause command queued.');
+      await wait(1500);
       await loadJobs();
     } catch (err) {
       console.error('Pause failed:', err);
@@ -98,7 +113,8 @@ export function BackgroundJobsPage() {
     setActionInProgress(jobName);
     try {
       const result = await jobService.resumeJob(jobName);
-      toast.success(result.message ?? 'Job resumed.');
+      toast.success(result.message ?? 'Resume command queued.');
+      await wait(1500);
       await loadJobs();
     } catch (err) {
       console.error('Resume failed:', err);
@@ -125,7 +141,7 @@ export function BackgroundJobsPage() {
           </p>
         </div>
         <Button
-          onClick={() => void loadJobs()}
+          onClick={() => { void loadJobs(); void loadHealth(); }}
           disabled={loading}
           variant="secondary"
           className="rounded-sm"
@@ -134,6 +150,31 @@ export function BackgroundJobsPage() {
           Refresh
         </Button>
       </div>
+
+      {health && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Activity className="w-4 h-4 text-[var(--color-brand-primary)]" />
+              Scheduler Health
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${health.isStarted && !health.inStandbyMode ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span>{health.isStarted ? (health.inStandbyMode ? 'Standby' : 'Running') : 'Stopped'}</span>
+              </div>
+              <span className="text-[var(--color-text-tertiary)]">
+                {health.totalJobCount} jobs &middot; {health.totalTriggerCount} triggers &middot; {health.activeJobCount} active &middot; {health.threadPoolSize} threads
+              </span>
+              <span className="text-[var(--color-text-tertiary)]">
+                Updated {formatRelativeTime(health.recordedAtUtc)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -163,15 +204,25 @@ export function BackgroundJobsPage() {
                   <div key={job.jobName} className="flex items-center justify-between px-4 py-4 gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                          {friendlyJobName(job.jobName)}
-                        </p>
+                        <button
+                          type="button"
+                          className="text-sm font-medium text-[var(--color-brand-primary)] hover:underline cursor-pointer"
+                          onClick={() => navigate(`/settings/background-jobs/${encodeURIComponent(job.jobName)}`)}
+                        >
+                          {job.displayName ?? job.jobName}
+                        </button>
                         {statusBadge(job.status)}
                       </div>
+                      {job.description ? (
+                        <p className="text-xs text-[var(--color-text-tertiary)] mb-2">
+                          {job.description}
+                        </p>
+                      ) : null}
                       <div className="flex items-center gap-4 text-xs text-[var(--color-text-tertiary)]">
                         <span title="Cron expression">
                           Cron: <code className="font-mono bg-[var(--color-surface-inset)] px-1 py-0.5 rounded">{job.cronExpression ?? '--'}</code>
                         </span>
+                        <span>Next run: {formatRelativeTime(job.nextFireTimeUtc)}</span>
                         <span>Last run: {formatRelativeTime(job.previousFireTimeUtc)}</span>
                       </div>
                     </div>

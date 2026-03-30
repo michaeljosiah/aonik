@@ -14,36 +14,36 @@ namespace Aonik.Infrastructure.BackgroundJobs;
 public static class BackgroundJobsExtensions
 {
     /// <summary>
-    /// Adds background job services (executor, serializer, job manager) and a
-    /// baseline Quartz scheduler. Host projects (e.g. Worker) can call
-    /// <c>AddQuartz()</c> again to add cron jobs, persistent store, etc.
-    /// — Quartz merges multiple <c>AddQuartz</c> calls.
+    /// Adds the core background job services shared by all hosts.
     /// </summary>
-    public static IServiceCollection AddAonikBackgroundJobs(
+    public static IServiceCollection AddAonikBackgroundJobCoreServices(
         this IServiceCollection services,
-        Action<QuartzBackgroundJobOptions>? configureOptions = null)
+        Action<AonikBackgroundJobOptions>? configureOptions = null)
     {
-        // Register options
         services.Configure<AonikBackgroundJobOptions>(options =>
         {
             options.IsJobExecutionEnabled = true;
+            configureOptions?.Invoke(options);
         });
 
+        services.AddScoped<IBackgroundJobExecuter, BackgroundJobExecuter>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds the Quartz-backed background job runtime. Only execution hosts such
+    /// as the Worker should register this runtime scheduler integration.
+    /// </summary>
+    public static IServiceCollection AddQuartzBackgroundJobRuntime(
+        this IServiceCollection services,
+        Action<QuartzBackgroundJobOptions>? configureOptions = null)
+    {
         var quartzOptions = new QuartzBackgroundJobOptions();
         configureOptions?.Invoke(quartzOptions);
         services.AddSingleton(quartzOptions);
 
-        // Register a baseline Quartz scheduler (IScheduler) so that
-        // QuartzBackgroundJobManager can resolve it in any host project.
-        // Host projects that need cron jobs or a persistent store call
-        // AddQuartz() again — Quartz merges the configurations.
         services.AddQuartz();
-
-        // Register job executor
-        services.AddScoped<IBackgroundJobExecuter, BackgroundJobExecuter>();
-
-        // Register JSON serializer
-        services.AddSingleton<IJsonSerializer, SystemTextJsonSerializer>();
 
         // Register Quartz job adapter (for on-demand enqueued jobs)
         services.AddScoped(typeof(QuartzJobExecutionAdapter<>));
@@ -51,6 +51,18 @@ public static class BackgroundJobsExtensions
         // Register background job manager (for on-demand enqueued jobs)
         services.AddScoped<IBackgroundJobManager, QuartzBackgroundJobManager>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// Adds the shared core services and Quartz runtime in one call.
+    /// </summary>
+    public static IServiceCollection AddAonikBackgroundJobs(
+        this IServiceCollection services,
+        Action<QuartzBackgroundJobOptions>? configureOptions = null)
+    {
+        services.AddAonikBackgroundJobCoreServices();
+        services.AddQuartzBackgroundJobRuntime(configureOptions);
         return services;
     }
 

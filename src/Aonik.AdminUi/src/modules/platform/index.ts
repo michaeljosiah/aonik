@@ -21,6 +21,7 @@ import {
   SystemToolsPage,
   NotificationTemplatesPage,
   BackgroundJobsPage,
+  BackgroundJobDetailPage,
 } from '@/pages/settings';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
@@ -100,6 +101,7 @@ const routes = [
   { path: '/settings/api-keys', element: SettingsApiKeysPage },
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
+  { path: '/settings/background-jobs/:jobName', element: BackgroundJobDetailPage, isDynamic: true },
   { path: '/settings/system-tools', element: SystemToolsPage },
   { path: '/settings/notification-templates', element: NotificationTemplatesPage },
   { path: '/cms/content-blocks', element: ContentBlocksListPage },

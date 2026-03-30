@@ -1,7 +1,6 @@
 using Aonik.Platform.Contracts.Api.Jobs;
-using Aonik.Platform.Persistence;
+using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
-using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -11,11 +10,11 @@ namespace Aonik.Platform.Endpoints.Admin.Jobs;
 /// </summary>
 internal class ListScheduledJobsEndpoint : EndpointWithoutRequest<ScheduledJobListResponse>
 {
-    private readonly PlatformDbContext _dbContext;
+    private readonly IScheduledJobAdminService _scheduledJobAdminService;
 
-    public ListScheduledJobsEndpoint(PlatformDbContext dbContext)
+    public ListScheduledJobsEndpoint(IScheduledJobAdminService scheduledJobAdminService)
     {
-        _dbContext = dbContext;
+        _scheduledJobAdminService = scheduledJobAdminService;
     }
 
     public override void Configure()
@@ -26,20 +25,7 @@ internal class ListScheduledJobsEndpoint : EndpointWithoutRequest<ScheduledJobLi
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var jobs = await _dbContext.Jobs
-            .AsNoTracking()
-            .Where(j => j.JobType.StartsWith("Scheduled:"))
-            .OrderBy(j => j.JobType)
-            .Select(j => new ScheduledJobSummary(
-                j.JobType.Replace("Scheduled:", ""),
-                "ScheduledJobs",
-                null,
-                j.ScheduleCron,
-                j.Status,
-                null,
-                j.LastRunAt))
-            .ToListAsync(ct);
-
-        await Send.OkAsync(new ScheduledJobListResponse(jobs), ct);
+        var result = await _scheduledJobAdminService.ListScheduledJobsAsync(ct);
+        await Send.OkAsync(result, ct);
     }
 }

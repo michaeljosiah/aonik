@@ -187,8 +187,8 @@ public static class DependencyInjection
 
 
 
-        // Background Jobs (Quartz)
-        services.AddAonikBackgroundJobs();
+        // Background jobs core services. Quartz runtime registration is owned by execution hosts.
+        services.AddAonikBackgroundJobCoreServices();
         
         return services;
     }

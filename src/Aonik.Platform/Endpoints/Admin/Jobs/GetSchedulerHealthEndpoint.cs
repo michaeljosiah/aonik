@@ -4,30 +4,24 @@ using FastEndpoints;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
-/// <summary>
-/// Pauses a scheduled job by updating its status in the Job entity.
-/// The Worker service reads this status and skips execution when paused.
-/// </summary>
-internal class PauseScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJobActionResponse>
+internal class GetSchedulerHealthEndpoint : EndpointWithoutRequest<SchedulerHealthResponse>
 {
     private readonly IScheduledJobAdminService _scheduledJobAdminService;
 
-    public PauseScheduledJobEndpoint(IScheduledJobAdminService scheduledJobAdminService)
+    public GetSchedulerHealthEndpoint(IScheduledJobAdminService scheduledJobAdminService)
     {
         _scheduledJobAdminService = scheduledJobAdminService;
     }
 
     public override void Configure()
     {
-        Post("/admin/jobs/scheduled/{jobName}/pause");
+        Get("/admin/scheduler/health");
         Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        var jobName = Route<string>("jobName")!;
-
-        var result = await _scheduledJobAdminService.QueuePauseAsync(jobName, ct);
+        var result = await _scheduledJobAdminService.GetSchedulerHealthAsync(ct);
         if (result is null)
         {
             await Send.NotFoundAsync(ct);

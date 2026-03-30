@@ -395,6 +395,48 @@ public class StatementImportServiceTests
     }
 
     [Fact]
+    public async Task UploadStatementAsync_ShouldParseUkStyleHeaders_WithReferenceAndAmountGbp()
+    {
+        // Arrange
+        var (service, account) = await CreateServiceWithAccount("GBP");
+        var csv = """
+            Account Name,Alex Morgan Current Account
+            Sort Code,20-45-67
+
+            Date,Counter Party,Reference,Type,Amount_GBP,Balance_GBP,Spending Category
+            01/02/2026,Tesco,TESCO STORES 5721 LONDON,Card Payment,-42.85,2841.37,Groceries
+            02/02/2026,Northstar Digital Ltd,Salary - Northstar Digital Ltd,Faster Payment,2850.00,5594.95,Income
+            """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+
+        // Act
+        var result = await service.UploadStatementAsync(
+            new UploadStatementImportRequest(account.Id, "uk-style.csv", "text/csv"), stream);
+
+        var applied = await service.ApplyImportAsync(result.StatementImportId);
+        var transactions = await GetTransactions(service);
+
+        // Assert
+        result.RowsTotal.Should().Be(2);
+        result.RowsParsed.Should().Be(2);
+        result.RowsFailed.Should().Be(0);
+        result.Status.Should().Be("Parsed");
+
+        applied.RowsImported.Should().Be(2);
+        transactions.Should().HaveCount(2);
+        transactions.Should().ContainSingle(item =>
+            item.Merchant == "Tesco"
+            && item.Description == "TESCO STORES 5721 LONDON"
+            && item.Amount == -42.85m
+            && item.Currency == "GBP");
+        transactions.Should().ContainSingle(item =>
+            item.Merchant == "Northstar Digital Ltd"
+            && item.Description == "Salary - Northstar Digital Ltd"
+            && item.Amount == 2850.00m
+            && item.Currency == "GBP");
+    }
+
+    [Fact]
     public async Task UploadStatementAsync_ShouldFailWithClearMessage_WhenNoRecognizableHeaders()
     {
         // Arrange
