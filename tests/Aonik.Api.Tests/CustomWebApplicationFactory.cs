@@ -14,6 +14,9 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Contracts.Services.Messaging;
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Entities.Notifications;
+using Aonik.Platform.Notifications;
+using Aonik.Platform.Persistence;
 using Aonik.Infrastructure.Persistence;
 
 
@@ -177,6 +180,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             await dbContext.SaveChangesAsync();
         }
 
+        // Seed shared notification templates (needed by VerificationService for OTP rendering)
+        await SeedNotificationTemplatesAsync(scope.ServiceProvider);
 
         if (options.Permissions.Count == 0)
         {
@@ -238,6 +243,61 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
 
         await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task SeedNotificationTemplatesAsync(IServiceProvider sp)
+    {
+        var platformDb = sp.GetRequiredService<PlatformDbContext>();
+
+        var alreadySeeded = await platformDb.NotificationTemplates
+            .IgnoreQueryFilters()
+            .AnyAsync(t => t.TenantId == null && t.IsShared);
+
+        if (alreadySeeded) return;
+
+        platformDb.NotificationTemplates.AddRange(
+            new NotificationTemplate
+            {
+                Name = NotificationTemplateNames.SmsOtp,
+                Channel = "SMS",
+                IsShared = true,
+                IsActive = true,
+                Description = "Test SMS OTP template",
+                SubjectTemplate = "",
+                BodyTemplate = "Your code is {{ otp_code }}."
+            },
+            new NotificationTemplate
+            {
+                Name = NotificationTemplateNames.EmailOtp,
+                Channel = "Email",
+                IsShared = true,
+                IsActive = true,
+                Description = "Test Email OTP template",
+                SubjectTemplate = "Code: {{ otp_code }}",
+                BodyTemplate = "Your code is {{ otp_code }}."
+            },
+            new NotificationTemplate
+            {
+                Name = NotificationTemplateNames.EmailConfirmation,
+                Channel = "Email",
+                IsShared = true,
+                IsActive = true,
+                Description = "Test Email confirmation template",
+                SubjectTemplate = "Confirm your email",
+                BodyTemplate = "<a href=\"{{ confirmation_url }}\">Confirm</a>"
+            },
+            new NotificationTemplate
+            {
+                Name = NotificationTemplateNames.WelcomeEmail,
+                Channel = "Email",
+                IsShared = true,
+                IsActive = true,
+                Description = "Test welcome email template",
+                SubjectTemplate = "Welcome!",
+                BodyTemplate = "Welcome, {{ first_name }}!"
+            });
+
+        await platformDb.SaveChangesAsync();
     }
 
     private static async Task<List<Permission>> EnsurePermissionsAsync(
