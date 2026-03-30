@@ -15,8 +15,8 @@ import { platformModule } from './platform';
 // ---------------------------------------------------------------------------
 const allModules: AdminModule[] = [
   coreModule,
-  platformModule,
   financeModule,
+  platformModule,
 ];
 
 /**

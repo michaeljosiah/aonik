@@ -23,6 +23,7 @@ import {
 } from '@/pages/settings';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
+import { ContentWizardPage } from '@/pages/ContentWizardPage';
 import { MediaLibraryPage } from '@/pages/MediaLibraryPage';
 import { wrapPage } from '../utils';
 
@@ -52,7 +53,15 @@ const navigation: NavigationSection[] = [
             label: 'Content',
             items: [
               { id: 'content-blocks', label: 'Content Blocks', icon: 'Layers', href: '/cms/content-blocks' },
+              { id: 'content-wizard', label: 'Content Wizard', icon: 'Sparkles', href: '/cms/content-wizard' },
               { id: 'media-library', label: 'Media Library', icon: 'Image', href: '/cms/media' },
+            ],
+          },
+          {
+            label: 'Infrastructure',
+            items: [
+              { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
+              { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
             ],
           },
           {
@@ -64,32 +73,6 @@ const navigation: NavigationSection[] = [
               { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
               { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
               { id: 'settings-notification-templates', label: 'Notifications', icon: 'Bell', href: '/settings/notification-templates' },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'system',
-    audience: 'host',
-    items: [
-      {
-        id: 'system',
-        label: 'System',
-        icon: 'Cog',
-        audience: 'host',
-        childGroups: [
-          {
-            label: 'Infrastructure',
-            items: [
-              { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
-            ],
-          },
-          {
-            label: 'Tools',
-            items: [
-              { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
             ],
           },
         ],
@@ -119,6 +102,7 @@ const routes = [
   { path: '/cms/content-blocks', element: ContentBlocksListPage },
   { path: '/cms/content-blocks/new', element: ContentBlockEditPage },
   { path: '/cms/content-blocks/:id', element: ContentBlockEditPage, isDynamic: true },
+  { path: '/cms/content-wizard', element: ContentWizardPage },
   { path: '/cms/media', element: MediaLibraryPage },
 ];
 
@@ -163,7 +147,7 @@ const panelComponents = {
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/access', trail: ['Admin', 'Team'] },
-  { pathPrefix: '/tenants', trail: ['System', 'Tenants'] },
+  { pathPrefix: '/tenants', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/settings', trail: ['Admin', 'Settings'] },
   { pathPrefix: '/cms', trail: ['Admin', 'Content'] },
 ];
