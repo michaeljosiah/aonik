@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Services;
 using Aonik.Finance.Agents;
 using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -159,6 +160,9 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<IDomainAgentDescriptor, FinanceAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PersonalFinanceAgentDescriptor>();
+
+        // ── Global Seed Contributors ────────────────────────────────────
+        services.AddScoped<IGlobalSeedContributor, Services.Seeding.PersonalFinanceSeedContributor>();
 
         return services;
     }
