@@ -61,7 +61,11 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<Proposal>(modelBuilder, "Proposals");
         MapTable<ChatThread>(modelBuilder, "ChatThreads");
         MapTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
-        MapTable<ConversationSummary>(modelBuilder, "ConversationSummaries");
+
+        // ConversationSummary is already owned by the canonical AonikDbContext
+        // migration stream as dbo.ConversationSummaries.
+        modelBuilder.Entity<ConversationSummary>()
+            .ToTable("ConversationSummaries", SchemaNames.Default);
     }
 
     private static void MapTable<TEntity>(ModelBuilder modelBuilder, string tableName)

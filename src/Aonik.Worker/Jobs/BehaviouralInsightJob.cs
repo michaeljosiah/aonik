@@ -1,6 +1,7 @@
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.Platform.Entities.Operations;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,17 +20,20 @@ internal sealed class BehaviouralInsightJob : IJob
 
     private readonly FinanceDbContext _financeDbContext;
     private readonly BehaviouralInsightGenerator _insightGenerator;
+    private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<BehaviouralInsightJob> _logger;
 
     public BehaviouralInsightJob(
         FinanceDbContext financeDbContext,
         BehaviouralInsightGenerator insightGenerator,
+        ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
         ILogger<BehaviouralInsightJob> logger)
     {
         _financeDbContext = financeDbContext;
         _insightGenerator = insightGenerator;
+        _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
     }
@@ -53,6 +57,9 @@ internal sealed class BehaviouralInsightJob : IJob
         {
             try
             {
+                _tenantContext.TenantId = user.TenantId;
+                _tenantContext.ResolutionSource = "system";
+
                 await _insightGenerator.GenerateAllForUserAsync(
                     user.TenantId,
                     user.UserId,
@@ -67,5 +74,8 @@ internal sealed class BehaviouralInsightJob : IJob
                     user.TenantId);
             }
         }
+
+        _tenantContext.TenantId = Guid.Empty;
+        _tenantContext.ResolutionSource = "system";
     }
 }
