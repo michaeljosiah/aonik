@@ -143,11 +143,12 @@ catch (Exception ex)
 static List<Type> GetRegisteredDbContextTypes(IServiceProvider serviceProvider)
 {
     // Canonical EF migration stream lives in AonikDbContext.
-    // Module-scoped DbContexts share this physical database but do not maintain
-    // independent migration histories.
+    // Module-scoped DbContexts share this physical database but maintain
+    // independent migration histories for their own entities.
     _ = serviceProvider;
     return new List<Type>
     {
-        typeof(AonikDbContext)
+        typeof(AonikDbContext),
+        typeof(PlatformDbContext),
     };
 }
