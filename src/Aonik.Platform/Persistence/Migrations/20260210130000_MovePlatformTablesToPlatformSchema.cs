@@ -83,17 +83,19 @@ END
                 "AutonumberReservations"
             };
 
-            // Pre-check: ensure required tables exist in dbo (if intended to be moved). If any are missing, fail early and update the log.
-            foreach (var table in tables)
-            {
-                migrationBuilder.Sql($@"
-IF OBJECT_ID('dbo.{table}', 'U') IS NULL AND OBJECT_ID('platform.{table}', 'U') IS NULL
+            // Pre-check: if tables exist in neither dbo nor platform, skip gracefully.
+            // On fresh environments, AonikDbContext creates tables with the Ank prefix
+            // (e.g. dbo.AnkTenants), so the bare dbo.Tenants won't exist — that's expected.
+            // Only attempt the schema transfer when there's actually something to move.
+            migrationBuilder.Sql($@"
+DECLARE @MissingCount INT = 0;
+{string.Join("\n", tables.Select(t => $"IF OBJECT_ID('dbo.{t}', 'U') IS NULL AND OBJECT_ID('platform.{t}', 'U') IS NULL SET @MissingCount = @MissingCount + 1;"))}
+IF @MissingCount = {tables.Length}
 BEGIN
-    UPDATE platform.MigrationRunLogs SET FinishedAtUtc = SYSUTCDATETIME(), Status = 'Failed', Details = 'Missing table dbo.{table}' WHERE Id = '{runId}';
-    THROW 51000, 'Missing required table dbo.{table}', 1;
+    UPDATE platform.MigrationRunLogs SET FinishedAtUtc = SYSUTCDATETIME(), Status = 'Skipped', Details = 'No bare-named tables found — fresh environment with prefixed tables' WHERE Id = '{runId}';
+    RETURN;
 END
 ");
-            }
 
             // Transfer tables that exist in dbo and not yet in platform
             foreach (var table in tables)
@@ -106,8 +108,8 @@ END
 ");
             }
 
-            // Mark completed
-            migrationBuilder.Sql($"UPDATE platform.MigrationRunLogs SET FinishedAtUtc = SYSUTCDATETIME(), Status = 'Completed' WHERE Id = '{runId}'");
+            // Mark completed (only if not already skipped by the pre-check)
+            migrationBuilder.Sql($"UPDATE platform.MigrationRunLogs SET FinishedAtUtc = SYSUTCDATETIME(), Status = 'Completed' WHERE Id = '{runId}' AND Status = 'Started'");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
