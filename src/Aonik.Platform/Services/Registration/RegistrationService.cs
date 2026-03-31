@@ -9,6 +9,7 @@ using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Settings;
+using Aonik.SharedKernel.Abstractions.PersonalFinance;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ internal class RegistrationService : IRegistrationService
     private readonly IUserProfileService _userProfileService;
     private readonly IVerificationService _verificationService;
     private readonly IOnboardingPolicyEvaluator _onboardingPolicyEvaluator;
+    private readonly IPersonalProfileProvisioner _personalProfileProvisioner;
     private readonly PlatformDbContext _dbContext;
     private readonly ILogger<RegistrationService> _logger;
 
@@ -33,6 +35,7 @@ internal class RegistrationService : IRegistrationService
         IUserProfileService userProfileService,
         IVerificationService verificationService,
         IOnboardingPolicyEvaluator onboardingPolicyEvaluator,
+        IPersonalProfileProvisioner personalProfileProvisioner,
         PlatformDbContext dbContext,
         ILogger<RegistrationService> logger)
     {
@@ -42,6 +45,7 @@ internal class RegistrationService : IRegistrationService
         _userProfileService = userProfileService;
         _verificationService = verificationService;
         _onboardingPolicyEvaluator = onboardingPolicyEvaluator;
+        _personalProfileProvisioner = personalProfileProvisioner;
         _dbContext = dbContext;
         _logger = logger;
     }
@@ -76,6 +80,12 @@ internal class RegistrationService : IRegistrationService
 
         var provisioningResult = await _userProvisioningService.EnsureUserAndCustomerAsync(identity, cancellationToken);
         await EnsurePersonalUserRoleAssignmentAsync(request.TenantId.Value, provisioningResult.UserId, cancellationToken);
+
+        await _personalProfileProvisioner.EnsurePersonalProfileAsync(
+            request.TenantId.Value,
+            provisioningResult.UserId,
+            provisioningResult.PartyId,
+            cancellationToken);
 
         await _userProfileService.UpdateCustomerProfileForRegistrationAsync(
             provisioningResult.UserId,

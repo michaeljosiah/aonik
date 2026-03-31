@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Observability;
+using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Models.Authentication;
 using Aonik.Platform.Contracts.Models.Identity;
@@ -210,7 +211,8 @@ public class IdentityServiceTests
                 new SystemClock(),
                 new TestCurrentUserProvider(currentUserContext),
                 new TestCorrelationContext()),
-            new AllowAllPermissionService());
+            new AllowAllPermissionService(),
+            new NoOpPersonalProfileProvisioner());
 
         var response = await service.TokenAsync(new TokenRequest("password", "client", "user", "pass", null, null, null, null, null));
 
@@ -246,7 +248,8 @@ public class IdentityServiceTests
                 new SystemClock(),
                 new TestCurrentUserProvider(currentUserContext),
                 new TestCorrelationContext()),
-            new AllowAllPermissionService());
+            new AllowAllPermissionService(),
+            new NoOpPersonalProfileProvisioner());
 
         var response = await service.SendPasswordResetAsync(
             new ForgotPasswordRequest("user@example.com", tenantId));
@@ -325,7 +328,8 @@ public class IdentityServiceTests
                 new SystemClock(),
                 new TestCurrentUserProvider(currentUserContext),
                 new TestCorrelationContext()),
-            new AllowAllPermissionService());
+            new AllowAllPermissionService(),
+            new NoOpPersonalProfileProvisioner());
 
         var response = await service.GetUserInfoAsync();
 
@@ -357,6 +361,12 @@ public class IdentityServiceTests
 
         dbContext.SaveChanges();
         return dbContext;
+    }
+
+    private sealed class NoOpPersonalProfileProvisioner : IPersonalProfileProvisioner
+    {
+        public Task EnsurePersonalProfileAsync(Guid tenantId, Guid userId, Guid partyId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class TestCurrentUserProvider : ICurrentUserProvider

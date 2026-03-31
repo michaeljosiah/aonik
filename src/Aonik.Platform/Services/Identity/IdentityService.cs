@@ -13,6 +13,7 @@ using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.PersonalFinance;
 
 namespace Aonik.Platform.Services.Identity;
 
@@ -27,6 +28,7 @@ internal class IdentityService : IIdentityService
     private readonly PlatformDbContext _dbContext;
     private readonly IUserProvisioningService _userProvisioningService;
     private readonly IPermissionService _permissionService;
+    private readonly IPersonalProfileProvisioner _personalProfileProvisioner;
 
     public IdentityService(
         ISettingProvider settingProvider,
@@ -37,7 +39,8 @@ internal class IdentityService : IIdentityService
         ICorrelationContext correlationContext,
         PlatformDbContext dbContext,
         IUserProvisioningService userProvisioningService,
-        IPermissionService permissionService)
+        IPermissionService permissionService,
+        IPersonalProfileProvisioner personalProfileProvisioner)
     {
         _settingProvider = settingProvider;
         _authTokenServiceFactory = authTokenServiceFactory;
@@ -48,6 +51,7 @@ internal class IdentityService : IIdentityService
         _dbContext = dbContext;
         _userProvisioningService = userProvisioningService;
         _permissionService = permissionService;
+        _personalProfileProvisioner = personalProfileProvisioner;
     }
 
     public async Task<TokenResponse> TokenAsync(TokenRequest request, CancellationToken cancellationToken = default)
@@ -106,6 +110,12 @@ internal class IdentityService : IIdentityService
 
             var provisioned = await _userProvisioningService.EnsureUserAndCustomerAsync(identity, cancellationToken);
             partyId = provisioned.PartyId;
+
+            await _personalProfileProvisioner.EnsurePersonalProfileAsync(
+                tenantId,
+                userId,
+                provisioned.PartyId,
+                cancellationToken);
         }
 
         var names = await GetPrimaryNameAsync(partyId.Value, cancellationToken);
