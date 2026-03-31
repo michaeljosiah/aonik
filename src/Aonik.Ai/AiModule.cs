@@ -131,6 +131,7 @@ public sealed class AiModule : IModule
 
         // Insight persistence — consumed by domain modules via IInsightWriter contract
         services.AddScoped<IInsightWriter, InsightWriter>();
+        services.AddScoped<IInsightReader, InsightReader>();
         services.AddScoped<IAiRunWriter, AiRunWriter>();
 
         // User memory — manages AI-learned facts, preferences, and corrections about users

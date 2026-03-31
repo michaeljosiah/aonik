@@ -5,6 +5,7 @@ import {
   AlertCircle,
   CalendarClock,
   FileText,
+  Lightbulb,
   Link2,
   Mail,
   MapPin,
@@ -25,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { customerService } from '@/services/customerService';
+import type { CustomerInsightItem } from '@/services/customerService';
 import { documentService } from '@/services/documentService';
 import type { CurrencyAmount, CustomerDetail, CustomerStats, DocumentListItem } from '@/types';
 
@@ -57,6 +59,9 @@ export function CustomerDetailPage() {
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
+  const [insights, setInsights] = useState<CustomerInsightItem[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
 
   const loadCustomer = useCallback(async () => {
     if (!partyId) return;
@@ -116,6 +121,25 @@ export function CustomerDetailPage() {
     }
   }, [partyId]);
 
+  const loadInsights = useCallback(async () => {
+    if (!partyId) return;
+
+    setInsightsLoading(true);
+    setInsightsError(null);
+    try {
+      const result = await customerService.listInsights(partyId);
+      setInsights(result.items);
+    } catch (err: unknown) {
+      console.error('Failed to load customer insights:', err);
+      const message = err && typeof err === 'object' && 'userMessage' in err
+        ? String((err as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setInsightsError(message || 'Failed to load insights.');
+    } finally {
+      setInsightsLoading(false);
+    }
+  }, [partyId]);
+
   useEffect(() => {
     loadCustomer();
     loadStats();
@@ -125,7 +149,10 @@ export function CustomerDetailPage() {
     if (activeTab === 'documents') {
       loadDocuments();
     }
-  }, [activeTab, loadDocuments]);
+    if (activeTab === 'insights') {
+      loadInsights();
+    }
+  }, [activeTab, loadDocuments, loadInsights]);
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return '—';
@@ -405,6 +432,7 @@ export function CustomerDetailPage() {
                         { value: 'relationships', label: 'Relationships' },
                         { value: 'consents', label: 'Consents' },
                         { value: 'activity', label: 'Activity' },
+                        { value: 'insights', label: 'Insights' },
                         { value: 'documents', label: 'Documents' },
                       ].map((tab) => (
                         <TabsTrigger
@@ -735,6 +763,65 @@ export function CustomerDetailPage() {
                           </CardContent>
                         </Card>
                       </div>
+                    </TabsContent>
+
+                    <TabsContent value="insights" className="mt-0">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">Behavioural Insights</CardTitle>
+                          <p className="text-xs text-[var(--color-text-tertiary)]">
+                            AI-generated behavioural patterns detected from transaction history.
+                          </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {insightsError && (
+                            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                              {insightsError}
+                            </div>
+                          )}
+                          {insightsLoading ? (
+                            <div className="flex items-center justify-center py-6">
+                              <div className="w-6 h-6 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          ) : insights.length === 0 ? (
+                            <div className="text-center py-6">
+                              <Lightbulb className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-tertiary)]" />
+                              <p className="text-sm text-[var(--color-text-secondary)]">No insights generated yet.</p>
+                              <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                                Insights are generated automatically from transaction patterns.
+                              </p>
+                            </div>
+                          ) : (
+                            insights.map((insight) => (
+                              <div
+                                key={insight.id}
+                                className="border border-[var(--color-border-light)] rounded-md p-4"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <Lightbulb className="w-4 h-4 mt-0.5 text-[var(--color-warning)] flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                                      {insight.title}
+                                    </div>
+                                    <div className="text-sm text-[var(--color-text-secondary)] mt-1">
+                                      {insight.summary}
+                                    </div>
+                                    <div className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                                      Detected {new Date(insight.createdUtc).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </CardContent>
+                      </Card>
                     </TabsContent>
 
                     <TabsContent value="documents" className="mt-0">

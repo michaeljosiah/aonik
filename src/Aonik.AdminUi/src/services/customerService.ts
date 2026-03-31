@@ -37,4 +37,19 @@ export const customerService = {
   create: async (data: CreateCustomerRequest): Promise<CreateCustomerResponse> => {
     return api.post<CreateCustomerResponse>('/admin/customers', data);
   },
+  listInsights: async (partyId: string): Promise<CustomerInsightsResponse> => {
+    return api.get<CustomerInsightsResponse>(`/admin/customers/${partyId}/insights`);
+  },
 };
+
+export interface CustomerInsightItem {
+  id: string;
+  subjectType: string;
+  title: string;
+  summary: string;
+  createdUtc: string;
+}
+
+export interface CustomerInsightsResponse {
+  items: CustomerInsightItem[];
+}
