@@ -128,6 +128,36 @@ jobs:
             --no-build
           echo "Dry run complete — no migrations were applied."
 
+      - name: Provision Quartz schema (idempotent)
+        if: ${{ !inputs.dry_run }}
+        env:
+          ConnectionStrings__DefaultConnection: ${{ steps.secret.outputs.connection_string }}
+        run: |
+          set -euo pipefail
+          SCRIPT="database/quartz-schema-sqlserver.sql"
+          if [ -f "$SCRIPT" ]; then
+            echo "Applying Quartz schema (idempotent — uses IF NOT EXISTS)..."
+            # Install sqlcmd via the mssql-tools package
+            curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc > /dev/null
+            sudo add-apt-repository "$(curl -sSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list)" 2>/dev/null || true
+            sudo apt-get update -qq && sudo apt-get install -y -qq sqlcmd 2>/dev/null || sudo apt-get install -y -qq mssql-tools18 unixodbc-dev 2>/dev/null || true
+
+            # Parse connection string components
+            SERVER=$(echo "$ConnectionStrings__DefaultConnection" | grep -oP 'Server=tcp:\K[^;]+')
+            DATABASE=$(echo "$ConnectionStrings__DefaultConnection" | grep -oP 'Initial Catalog=\K[^;]+')
+            USER=$(echo "$ConnectionStrings__DefaultConnection" | grep -oP 'User ID=\K[^;]+')
+            PASSWORD=$(echo "$ConnectionStrings__DefaultConnection" | grep -oP 'Password=\K[^;]+')
+
+            # Try sqlcmd (go-sqlcmd) first, fall back to /opt/mssql-tools18/bin/sqlcmd
+            SQLCMD="sqlcmd"
+            command -v sqlcmd >/dev/null 2>&1 || SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+
+            $SQLCMD -S "tcp:${SERVER}" -d "$DATABASE" -U "$USER" -P "$PASSWORD" -i "$SCRIPT" -C
+            echo "Quartz schema provisioned."
+          else
+            echo "No Quartz schema script found at $SCRIPT — skipping."
+          fi
+
       - name: Run migrator
         if: ${{ !inputs.dry_run }}
         env:
