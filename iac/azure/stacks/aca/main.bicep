@@ -350,7 +350,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 1
+        minReplicas: environmentName == 'prod' ? 2 : 1
         maxReplicas: environmentName == 'prod' ? 5 : 2
       }
     }

@@ -55,7 +55,17 @@ internal sealed class ScheduledJobCommandProcessor : BackgroundService
         }
 
         command.Status = ScheduledJobCommandStatuses.Processing;
-        await dbContext.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Another replica already claimed this command — skip it.
+            _logger.LogDebug("Command {CommandId} was already claimed by another instance.", command.Id);
+            return false;
+        }
 
         var jobKey = new JobKey(command.JobName, command.GroupName);
 

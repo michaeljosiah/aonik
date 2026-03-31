@@ -30,6 +30,8 @@ var quartzPersistenceEnabled = builder.Configuration.GetValue<bool>("Quartz:Pers
 var quartzTablePrefix = builder.Configuration.GetValue<string>("Quartz:Persistence:TablePrefix") ?? "QRTZ_";
 var quartzSchedulerName = builder.Configuration.GetValue<string>("Quartz:Persistence:SchedulerName") ?? "AonikScheduler";
 var quartzMisfireThresholdSeconds = builder.Configuration.GetValue<int>("Quartz:Persistence:MisfireThresholdSeconds", 60);
+var quartzClustered = builder.Configuration.GetValue<bool>("Quartz:Persistence:Clustered");
+var quartzClusterCheckinIntervalSeconds = builder.Configuration.GetValue<int>("Quartz:Persistence:ClusterCheckinIntervalSeconds", 15);
 
 // Read job options for Quartz configuration
 var jobOptions = builder.Configuration
@@ -77,6 +79,14 @@ builder.Services.AddQuartz(q =>
             });
             store.UseSystemTextJsonSerializer();
             store.PerformSchemaValidation = true;
+
+            if (quartzClustered)
+            {
+                store.UseClustering(cluster =>
+                {
+                    cluster.CheckinInterval = TimeSpan.FromSeconds(quartzClusterCheckinIntervalSeconds);
+                });
+            }
         });
     }
 
