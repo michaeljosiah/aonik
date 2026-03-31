@@ -124,6 +124,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
     public DbSet<Goal> Goals { get; set; } = null!;
     public DbSet<Budget> Budgets { get; set; } = null!;
+    public DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
     public DbSet<StatementImport> StatementImports { get; set; } = null!;
     public DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
     public DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
@@ -222,6 +223,7 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<Subscription>(modelBuilder, "Subscriptions");
         MapTable<Goal>(modelBuilder, "Goals");
         MapTable<Budget>(modelBuilder, "Budgets");
+        MapTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
         MapTable<StatementImport>(modelBuilder, "StatementImports");
         MapTable<StatementImportRow>(modelBuilder, "StatementImportRows");
         MapTable<FinancialLifeGraphNode>(modelBuilder, "FinancialLifeGraphNodes");

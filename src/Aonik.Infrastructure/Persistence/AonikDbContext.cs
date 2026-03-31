@@ -115,6 +115,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<Subscription> Subscriptions { get; set; } = null!;
     public virtual DbSet<Goal> Goals { get; set; } = null!;
     public virtual DbSet<Budget> Budgets { get; set; } = null!;
+    public virtual DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
     public virtual DbSet<StatementImport> StatementImports { get; set; } = null!;
     public virtual DbSet<StatementImportRow> StatementImportRows { get; set; } = null!;
     public virtual DbSet<FinancialLifeGraphNode> FinancialLifeGraphNodes { get; set; } = null!;
@@ -306,6 +307,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapFinanceTable<Subscription>(modelBuilder, "Subscriptions");
         MapFinanceTable<Goal>(modelBuilder, "Goals");
         MapFinanceTable<Budget>(modelBuilder, "Budgets");
+        MapFinanceTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");
         MapFinanceTable<StatementImport>(modelBuilder, "StatementImports");
         MapFinanceTable<StatementImportRow>(modelBuilder, "StatementImportRows");
         MapFinanceTable<FinancialLifeGraphNode>(modelBuilder, "FinancialLifeGraphNodes");

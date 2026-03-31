@@ -5,6 +5,7 @@ All notable changes to the AONIK project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Personal Finance (Customer Insight Snapshot Phase 1)**: Added the deterministic personal-finance customer insight snapshot foundation, including the canonical `CustomerInsightSnapshot` entity and migration, structured `SnapshotJson` contracts/schema, deterministic metric and signal generation, idempotent current-versus-superseded persistence, read APIs for current/history retrieval, and focused service/API test coverage for hash stability and versioning behavior.
 - **AI Model Catalog Import**: Added a source-driven model catalog flow for Admin UI. Operators can now browse externally discovered model providers, preview all models under a selected model provider, and bulk-import them into the local AI provider/model catalog as inactive records for later review and activation.
 - **Infrastructure (Dev Auto Deploy)**: Added automatic dev runtime delivery via GitHub Actions. Successful `CI` runs for pushes to `master` now build/push runtime images for the validated commit SHA and deploy the `dev` Azure Container Apps environment using the existing reusable image-release and runtime-deploy workflows.
 - **AI Task Profiles + Tenant Overrides**: Added centralized non-agent LLM task profile resolution (`IAiTaskProfileResolver`), tenant-aware prompt/template overrides backed by `PromptSpec`, admin APIs for prompt templates and route policies, and Admin UI pages for managing prompt templates and AI routing configuration.

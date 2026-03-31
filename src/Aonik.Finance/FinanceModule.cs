@@ -110,6 +110,9 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAiClassifier, Services.PersonalFinance.TransactionAiClassifier>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceInsightsService, Services.PersonalFinance.PersonalFinanceInsightsService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IPersonalFinanceNarrativeInsightsService, Services.PersonalFinance.PersonalFinanceNarrativeInsightsService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotGenerator, Services.PersonalFinance.CustomerInsightSnapshotGenerator>();
+        services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotService, Services.PersonalFinance.CustomerInsightSnapshotService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.ICustomerInsightSnapshotReader, Services.PersonalFinance.CustomerInsightSnapshotReader>();
         services.AddSingleton<Services.PersonalFinance.FinancialLifeGraphSchema>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphLoader>();
         services.AddScoped<Services.PersonalFinance.FinancialLifeGraphSnapshotMetrics>();
