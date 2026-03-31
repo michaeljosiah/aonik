@@ -1,4 +1,16 @@
-var builder = DistributedApplication.CreateBuilder(args);
+var hasDashboardFrontend = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS"));
+var hasDashboardOtlpEndpoint =
+    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL")) ||
+    !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL"));
+
+// Aspire 13.2 validates dashboard endpoints eagerly. When the app host is started
+// without its launch profile, those variables are absent, so disable the dashboard
+// instead of crashing the host.
+var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions
+{
+    Args = args,
+    DisableDashboard = !hasDashboardFrontend || !hasDashboardOtlpEndpoint,
+});
 
 const string LocalDbConnectionString = @"Server=(localdb)\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
 

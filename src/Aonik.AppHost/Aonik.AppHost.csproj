@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
+<Project Sdk="Aspire.AppHost.Sdk/13.2.1">
 
   <ItemGroup>
     <ProjectReference Include="..\Aonik.Api\Aonik.Api.csproj" />
@@ -6,8 +6,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.1.0" />
-    <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.2.1" />
+    <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.2.1" />
   </ItemGroup>
 
   <PropertyGroup>
