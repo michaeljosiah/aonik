@@ -1,9 +1,14 @@
 using Aonik.Platform.Contracts.Api.Jobs;
+using Aonik.Platform.Contracts.Models.Notifications;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Platform.Contracts.Services.Operations;
+using Aonik.Platform.Notifications;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Platform.Services.Operations;
 
@@ -11,13 +16,22 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
 {
     private readonly PlatformDbContext _dbContext;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly INotificationService _notificationService;
+    private readonly ILogger<ScheduledJobAdminService> _logger;
 
     public ScheduledJobAdminService(
         PlatformDbContext dbContext,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ITenantProvider tenantProvider,
+        INotificationService notificationService,
+        ILogger<ScheduledJobAdminService> logger)
     {
         _dbContext = dbContext;
         _currentUserProvider = currentUserProvider;
+        _tenantProvider = tenantProvider;
+        _notificationService = notificationService;
+        _logger = logger;
     }
 
     public async Task<ScheduledJobListResponse> ListScheduledJobsAsync(CancellationToken cancellationToken = default)
@@ -184,6 +198,8 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
         _dbContext.ScheduledJobAdminCommands.Add(command);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        await TryNotifyCommandQueuedAsync(projection, command, commandType, cancellationToken);
+
         return new ScheduledJobActionResponse(
             projection.JobName,
             commandType.ToLowerInvariant(),
@@ -191,5 +207,41 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
             $"{commandType} command queued successfully.",
             command.Id,
             command.Status);
+    }
+
+    private async Task TryNotifyCommandQueuedAsync(
+        ScheduledJobProjection projection,
+        ScheduledJobAdminCommand command,
+        string commandType,
+        CancellationToken cancellationToken)
+    {
+        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId)
+            || !_currentUserProvider.TryGetCurrentUserId(out var userId))
+        {
+            return;
+        }
+
+        try
+        {
+            var lowerCommandType = commandType.ToLowerInvariant();
+            await _notificationService.CreateForUserAsync(
+                new CreateNotificationRequest(
+                    tenantId,
+                    userId,
+                    Type: "ScheduledJobCommandQueued",
+                    Source: "Scheduler",
+                    Title: $"{projection.DisplayName} {lowerCommandType} queued",
+                    Body: $"{commandType} command queued successfully for {projection.DisplayName}.",
+                    Severity: NotificationSeverities.Info,
+                    ActionUrl: "/settings/background-jobs",
+                    CorrelationId: command.Id.ToString(),
+                    AiRunId: null,
+                    MetadataJson: $"{{\"jobName\":\"{projection.JobName}\",\"groupName\":\"{projection.GroupName}\",\"commandId\":\"{command.Id}\",\"commandType\":\"{commandType}\"}}"),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create notification for scheduled job command {CommandId}", command.Id);
+        }
     }
 }

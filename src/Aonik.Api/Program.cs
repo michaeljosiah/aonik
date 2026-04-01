@@ -11,6 +11,7 @@ using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Persistence;
 using Aonik.Platform;
+using Aonik.Platform.Endpoints.Admin.Notifications;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Finance;
 using Aonik.Ai;
@@ -357,6 +358,10 @@ app.UseFastEndpoints(c =>
 // 6. AG-UI streaming endpoint (minimal API, separate from FastEndpoints)
 app.MapAguiStreaming("/ai/agui")
     .RequireAuthorization("AdminUserPolicy")
+    .RequireCors("AonikCors");
+
+app.MapAdminNotificationStreaming("/admin/notifications/stream")
+    .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");
 
 app.Run();

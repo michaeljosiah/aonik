@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { useState, useRef, useEffect } from 'react';
 import { NotificationsPanel } from '@/components/layout/NotificationsPanel';
+import { useNotifications } from '@/hooks/useNotifications';
 
 import { loadWorkspaceState } from '@/workspace/storage';
 
@@ -36,6 +37,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [confirmWorkspaceId, setConfirmWorkspaceId] = useState<string | null>(null);
   const [confirmWorkspaceName, setConfirmWorkspaceName] = useState('');
+  const { notifications, unreadCount, loading: notificationsLoading, markRead, dismiss, markAllRead } = useNotifications();
 
   useEffect(() => {
     if (!isWorkspace) {
@@ -338,11 +340,16 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-[var(--color-text-secondary)]"
+          className="relative text-[var(--color-text-secondary)]"
           onClick={() => setShowNotifications(true)}
           aria-label="Open notifications"
         >
           <Bell className="w-4 h-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-[var(--color-error)] text-white text-[10px] leading-[1.1rem] text-center font-semibold">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </Button>
         <Button
           variant="ghost"
@@ -365,7 +372,16 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
         </Button>
       </div>
     </header>
-    <NotificationsPanel open={showNotifications} onClose={() => setShowNotifications(false)} />
+    <NotificationsPanel
+      open={showNotifications}
+      onClose={() => setShowNotifications(false)}
+      notifications={notifications}
+      unreadCount={unreadCount}
+      loading={notificationsLoading}
+      onMarkRead={markRead}
+      onDismiss={dismiss}
+      onMarkAllRead={markAllRead}
+    />
     </>
   );
 }
