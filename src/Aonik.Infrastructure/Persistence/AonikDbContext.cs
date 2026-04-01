@@ -42,6 +42,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<RolePermission> RolePermissions { get; set; } = null!;
     public virtual DbSet<UserParty> UserParties { get; set; } = null!;
     public virtual DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
+    public virtual DbSet<PreRegistrationChallenge> PreRegistrationChallenges { get; set; } = null!;
 
     // Autonumbering
     public virtual DbSet<AutonumberProfile> AutonumberProfiles { get; set; } = null!;
@@ -204,6 +205,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapPlatformTable<RolePermission>(modelBuilder, "RolePermissions");
         MapPlatformTable<UserParty>(modelBuilder, "UserParties");
         MapPlatformTable<VerificationChallenge>(modelBuilder, "VerificationChallenges");
+        MapPlatformTable<PreRegistrationChallenge>(modelBuilder, "PreRegistrationChallenges");
 
         MapPlatformTable<AutonumberProfile>(modelBuilder, "AutonumberProfiles");
         MapPlatformTable<AutonumberReservation>(modelBuilder, "AutonumberReservations");

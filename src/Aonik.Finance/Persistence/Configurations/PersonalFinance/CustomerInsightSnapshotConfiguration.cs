@@ -33,7 +33,7 @@ internal sealed class CustomerInsightSnapshotConfiguration : IEntityTypeConfigur
         builder.HasOne<CustomerInsightSnapshot>()
             .WithMany()
             .HasForeignKey(x => x.SupersededById)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.Status })
             .HasFilter($"[Status] = '{CustomerInsightSnapshotContract.StatusCurrent}'")

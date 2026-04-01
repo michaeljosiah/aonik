@@ -48,7 +48,7 @@ namespace Aonik.Infrastructure.Migrations
                         principalSchema: "dbo",
                         principalTable: "AnkCustomerInsightSnapshots",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(

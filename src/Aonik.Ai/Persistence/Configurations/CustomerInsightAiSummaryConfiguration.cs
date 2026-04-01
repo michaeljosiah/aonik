@@ -34,7 +34,7 @@ internal sealed class CustomerInsightAiSummaryConfiguration : IEntityTypeConfigu
         builder.HasOne<CustomerInsightAiSummary>()
             .WithMany()
             .HasForeignKey(x => x.SupersededById)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.Status })
             .HasFilter($"[Status] = '{CustomerInsightAiSummaryContract.StatusCurrent}'")

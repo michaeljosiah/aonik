@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -152,8 +151,6 @@ public static class DependencyInjection
             {
                 options.UseSqlServer(connectionString, sqlServerOptions =>
                     sqlServerOptions.EnableRetryOnFailure());
-                options.ConfigureWarnings(warnings =>
-                    warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
         }
 

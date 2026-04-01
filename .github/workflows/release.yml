@@ -31,6 +31,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Aonik.sln
 
+      - name: Validate canonical migration stream
+        run: dotnet ef migrations has-pending-model-changes --project src/Aonik.Infrastructure --startup-project src/Aonik.Migrator
+
       - name: Build solution
         run: dotnet build Aonik.sln --configuration Release --no-restore
 

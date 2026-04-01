@@ -115,6 +115,9 @@ jobs:
       - name: Build migrator
         run: dotnet build src/Aonik.Migrator/Aonik.Migrator.csproj --configuration Release
 
+      - name: Validate canonical migration stream
+        run: dotnet ef migrations has-pending-model-changes --project src/Aonik.Infrastructure --startup-project src/Aonik.Migrator --configuration Release --no-build
+
       - name: List pending migrations (dry run)
         if: ${{ inputs.dry_run }}
         env:
