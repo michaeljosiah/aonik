@@ -35,11 +35,11 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Host/bootstrap routes are public or provide auth explicitly at the call site.
-    // Avoid auto-attaching bearer tokens there so cross-origin public requests do not
-    // depend on the XHR auth path.
+    // Bootstrap routes are intentionally unauthenticated.
+    // Host routes mix public and protected endpoints, so attach the bearer token by
+    // default unless a caller already set Authorization explicitly.
     const hasExplicitAuthorization = !!config.headers.Authorization;
-    if (!isHostRoute && !isBootstrapRoute && !hasExplicitAuthorization && getAccessTokenFn) {
+    if (!isBootstrapRoute && !hasExplicitAuthorization && getAccessTokenFn) {
       try {
         const token = await getAccessTokenFn();
         if (token) {
