@@ -10,6 +10,9 @@
 *.userosscache
 *.sln.docstates
 *.env
+.claude/settings.local.json
+.opobj/
+**/.opobj/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -431,6 +434,9 @@ token.txt
 
 # Frontend build output
 apps/Payabo/dist/
+apps/docs-site/.claude/
+apps/docs-site/.docusaurus/
+apps/docs-site/build/
 
 /src/Aonik.Ai/output.xml
 /src/Aonik.Agents/output.xml
