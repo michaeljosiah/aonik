@@ -19,6 +19,11 @@ namespace Aonik.Platform.Services.Identity;
 
 internal class TenantService : AdminServiceBase, ITenantService
 {
+    private sealed record TenantCountrySettings(
+        string[] SupportedCountries,
+        string[] AllowedOriginCountries,
+        string[] AllowedDestinationCountries);
+
     private readonly PlatformDbContext _dbContext;
     private readonly ITenantProvisioner _provisioner;
     private readonly IAuditLogWriter _auditLogWriter;
@@ -53,7 +58,7 @@ internal class TenantService : AdminServiceBase, ITenantService
     {
         await EnsurePermissionAsync("Tenants.Write", cancellationToken);
         var normalizedCurrency = NormalizeCurrencyCode(request.DefaultCurrency);
-        var normalizedCountries = await ValidateAndNormalizeCountryCodesAsync(request.SupportedCountries, cancellationToken);
+        var countrySettings = await ResolveTenantCountrySettingsForCreateAsync(request, cancellationToken);
         var normalizedCurrencies = await ValidateAndNormalizeCurrencyCodesAsync(
             request.SupportedCurrencies is { Length: > 0 } ? request.SupportedCurrencies : new[] { normalizedCurrency },
             cancellationToken);
@@ -76,7 +81,9 @@ internal class TenantService : AdminServiceBase, ITenantService
             Name = request.Name,
             Environment = request.Environment,
             DefaultCurrency = normalizedCurrency,
-            SupportedCountriesJson = JsonSerializer.Serialize(normalizedCountries),
+            SupportedCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.SupportedCountries),
+            AllowedOriginCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.AllowedOriginCountries),
+            AllowedDestinationCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.AllowedDestinationCountries),
             Status = TenantStatus.Provisioning,
             CreatedAt = now,
             CreatedBy = userId
@@ -87,7 +94,7 @@ internal class TenantService : AdminServiceBase, ITenantService
 
 
         _dbContext.Tenants.Add(tenant);
-        await UpsertTenantCountriesAsync(tenant.Id, normalizedCountries, cancellationToken);
+        await UpsertTenantCountriesAsync(tenant.Id, countrySettings.SupportedCountries, cancellationToken);
         await UpsertTenantCurrenciesAsync(tenant.Id, normalizedCurrencies, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -175,6 +182,19 @@ internal class TenantService : AdminServiceBase, ITenantService
 
         var userId = CurrentUserProvider.GetCurrentUserId();
 
+        var currentSupportedCountries = await GetTenantSupportedCountryCodesAsync(tenant.Id, cancellationToken);
+        if (currentSupportedCountries.Length == 0)
+        {
+            currentSupportedCountries = TenantCountryCodeSerializer.Deserialize(tenant.SupportedCountriesJson);
+        }
+
+        var currentAllowedOriginCountries = TenantCountryCodeSerializer.ResolveWithFallback(
+            tenant.AllowedOriginCountriesJson,
+            currentSupportedCountries);
+        var currentAllowedDestinationCountries = TenantCountryCodeSerializer.ResolveWithFallback(
+            tenant.AllowedDestinationCountriesJson,
+            currentSupportedCountries);
+
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
             var existingTenant = await _dbContext.Tenants
@@ -205,12 +225,22 @@ internal class TenantService : AdminServiceBase, ITenantService
             await UpsertTenantCurrenciesAsync(tenant.Id, new[] { tenant.DefaultCurrency }, cancellationToken);
         }
 
-        if (request.SupportedCountries is { Length: > 0 })
+        if (request.SupportedCountries != null ||
+            request.AllowedOriginCountries != null ||
+            request.AllowedDestinationCountries != null)
         {
-            var normalizedCountries = await ValidateAndNormalizeCountryCodesAsync(request.SupportedCountries, cancellationToken);
-            tenant.SupportedCountriesJson = JsonSerializer.Serialize(normalizedCountries);
+            var countrySettings = await ResolveTenantCountrySettingsForUpdateAsync(
+                currentSupportedCountries,
+                currentAllowedOriginCountries,
+                currentAllowedDestinationCountries,
+                request,
+                cancellationToken);
 
-            await UpsertTenantCountriesAsync(tenant.Id, normalizedCountries, cancellationToken);
+            tenant.SupportedCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.SupportedCountries);
+            tenant.AllowedOriginCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.AllowedOriginCountries);
+            tenant.AllowedDestinationCountriesJson = TenantCountryCodeSerializer.Serialize(countrySettings.AllowedDestinationCountries);
+
+            await UpsertTenantCountriesAsync(tenant.Id, countrySettings.SupportedCountries, cancellationToken);
         }
 
         if (!string.IsNullOrEmpty(request.Environment))
@@ -363,10 +393,15 @@ internal class TenantService : AdminServiceBase, ITenantService
 
         if (supportedCountries.Length == 0)
         {
-            supportedCountries = string.IsNullOrEmpty(tenant.SupportedCountriesJson)
-                ? Array.Empty<string>()
-                : JsonSerializer.Deserialize<string[]>(tenant.SupportedCountriesJson) ?? Array.Empty<string>();
+            supportedCountries = TenantCountryCodeSerializer.Deserialize(tenant.SupportedCountriesJson);
         }
+
+        var allowedOriginCountries = TenantCountryCodeSerializer.ResolveWithFallback(
+            tenant.AllowedOriginCountriesJson,
+            supportedCountries);
+        var allowedDestinationCountries = TenantCountryCodeSerializer.ResolveWithFallback(
+            tenant.AllowedDestinationCountriesJson,
+            supportedCountries);
 
         if (supportedCurrencies.Length == 0)
         {
@@ -380,6 +415,8 @@ internal class TenantService : AdminServiceBase, ITenantService
             tenant.Environment,
             tenant.DefaultCurrency,
             supportedCountries,
+            allowedOriginCountries,
+            allowedDestinationCountries,
             supportedCurrencies,
             tenant.Status,
             tenant.CreatedAt,
@@ -480,10 +517,21 @@ internal class TenantService : AdminServiceBase, ITenantService
         return distinct;
     }
 
-    private async Task<string[]> ValidateAndNormalizeCountryCodesAsync(string[]? countries, CancellationToken cancellationToken)
+    private async Task<string[]> ValidateAndNormalizeCountryCodesAsync(
+        string[]? countries,
+        string parameterName,
+        bool requireAtLeastOne,
+        CancellationToken cancellationToken)
     {
-        if (countries is not { Length: > 0 })
-            throw new ArgumentException("At least one supported country is required", nameof(countries));
+        if (countries == null || countries.Length == 0)
+        {
+            if (requireAtLeastOne)
+            {
+                throw new ArgumentException("At least one supported country is required", parameterName);
+            }
+
+            return Array.Empty<string>();
+        }
 
         var normalized = countries
             .Select(c => c?.Trim())
@@ -492,12 +540,19 @@ internal class TenantService : AdminServiceBase, ITenantService
             .ToArray();
 
         if (normalized.Length == 0)
-            throw new ArgumentException("At least one supported country is required", nameof(countries));
+        {
+            if (requireAtLeastOne)
+            {
+                throw new ArgumentException("At least one supported country is required", parameterName);
+            }
+
+            return Array.Empty<string>();
+        }
 
         foreach (var country in normalized)
         {
             if (country.Length != 2)
-                throw new ArgumentException($"Invalid country code: {country}. Must be a 2-letter ISO 3166-1 alpha-2 code", nameof(countries));
+                throw new ArgumentException($"Invalid country code: {country}. Must be a 2-letter ISO 3166-1 alpha-2 code", parameterName);
         }
 
         var distinct = normalized.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
@@ -514,9 +569,121 @@ internal class TenantService : AdminServiceBase, ITenantService
             .ToArray();
 
         if (missing.Length > 0)
-            throw new ArgumentException($"Unsupported country codes: {string.Join(", ", missing)}", nameof(countries));
+            throw new ArgumentException($"Unsupported country codes: {string.Join(", ", missing)}", parameterName);
 
         return distinct;
+    }
+
+    private async Task<TenantCountrySettings> ResolveTenantCountrySettingsForCreateAsync(
+        CreateTenantRequest request,
+        CancellationToken cancellationToken)
+    {
+        var supportedCountries = await ValidateAndNormalizeCountryCodesAsync(
+            request.SupportedCountries,
+            nameof(CreateTenantRequest.SupportedCountries),
+            requireAtLeastOne: true,
+            cancellationToken);
+
+        var allowedOriginCountries = request.AllowedOriginCountries == null
+            ? supportedCountries
+            : await ValidateAndNormalizeCountryCodesAsync(
+                request.AllowedOriginCountries,
+                nameof(CreateTenantRequest.AllowedOriginCountries),
+                requireAtLeastOne: false,
+                cancellationToken);
+
+        var allowedDestinationCountries = request.AllowedDestinationCountries == null
+            ? supportedCountries
+            : await ValidateAndNormalizeCountryCodesAsync(
+                request.AllowedDestinationCountries,
+                nameof(CreateTenantRequest.AllowedDestinationCountries),
+                requireAtLeastOne: false,
+                cancellationToken);
+
+        EnsureCountrySubset(allowedOriginCountries, supportedCountries, nameof(CreateTenantRequest.AllowedOriginCountries));
+        EnsureCountrySubset(allowedDestinationCountries, supportedCountries, nameof(CreateTenantRequest.AllowedDestinationCountries));
+
+        return new TenantCountrySettings(
+            supportedCountries,
+            allowedOriginCountries,
+            allowedDestinationCountries);
+    }
+
+    private async Task<TenantCountrySettings> ResolveTenantCountrySettingsForUpdateAsync(
+        string[] currentSupportedCountries,
+        string[] currentAllowedOriginCountries,
+        string[] currentAllowedDestinationCountries,
+        UpdateTenantRequest request,
+        CancellationToken cancellationToken)
+    {
+        var supportedCountries = request.SupportedCountries == null
+            ? currentSupportedCountries
+            : await ValidateAndNormalizeCountryCodesAsync(
+                request.SupportedCountries,
+                nameof(UpdateTenantRequest.SupportedCountries),
+                requireAtLeastOne: true,
+                cancellationToken);
+
+        var allowedOriginCountries = request.AllowedOriginCountries == null
+            ? currentAllowedOriginCountries
+            : await ValidateAndNormalizeCountryCodesAsync(
+                request.AllowedOriginCountries,
+                nameof(UpdateTenantRequest.AllowedOriginCountries),
+                requireAtLeastOne: false,
+                cancellationToken);
+
+        var allowedDestinationCountries = request.AllowedDestinationCountries == null
+            ? currentAllowedDestinationCountries
+            : await ValidateAndNormalizeCountryCodesAsync(
+                request.AllowedDestinationCountries,
+                nameof(UpdateTenantRequest.AllowedDestinationCountries),
+                requireAtLeastOne: false,
+                cancellationToken);
+
+        if (request.SupportedCountries != null && request.AllowedOriginCountries == null)
+        {
+            allowedOriginCountries = IntersectCountryCodes(allowedOriginCountries, supportedCountries);
+        }
+
+        if (request.SupportedCountries != null && request.AllowedDestinationCountries == null)
+        {
+            allowedDestinationCountries = IntersectCountryCodes(allowedDestinationCountries, supportedCountries);
+        }
+
+        EnsureCountrySubset(allowedOriginCountries, supportedCountries, nameof(UpdateTenantRequest.AllowedOriginCountries));
+        EnsureCountrySubset(allowedDestinationCountries, supportedCountries, nameof(UpdateTenantRequest.AllowedDestinationCountries));
+
+        return new TenantCountrySettings(
+            supportedCountries,
+            allowedOriginCountries,
+            allowedDestinationCountries);
+    }
+
+    private static void EnsureCountrySubset(string[] subsetCountries, string[] supportedCountries, string parameterName)
+    {
+        var supported = new HashSet<string>(supportedCountries, StringComparer.OrdinalIgnoreCase);
+        var invalid = subsetCountries
+            .Where(code => !supported.Contains(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(code => code, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (invalid.Length > 0)
+        {
+            throw new ArgumentException(
+                $"Countries must be a subset of supported countries: {string.Join(", ", invalid)}",
+                parameterName);
+        }
+    }
+
+    private static string[] IntersectCountryCodes(string[] sourceCountries, string[] supportedCountries)
+    {
+        var supported = new HashSet<string>(supportedCountries, StringComparer.OrdinalIgnoreCase);
+        return sourceCountries
+            .Where(code => supported.Contains(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(code => code, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private async Task UpsertTenantCountriesAsync(Guid tenantId, string[] countryCodes, CancellationToken cancellationToken)

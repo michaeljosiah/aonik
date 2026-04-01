@@ -134,6 +134,8 @@ export interface Tenant {
   environment: TenantEnvironment;
   defaultCurrency: string;
   supportedCountries: string[];
+  allowedOriginCountries: string[];
+  allowedDestinationCountries: string[];
   supportedCurrencies: string[];
   status: TenantStatus;
   createdAt: string;
@@ -165,6 +167,8 @@ export interface CreateTenantRequest {
   environment: TenantEnvironment;
   defaultCurrency: string;
   supportedCountries: string[];
+  allowedOriginCountries?: string[];
+  allowedDestinationCountries?: string[];
   supportedCurrencies?: string[];
 }
 
@@ -173,6 +177,8 @@ export interface UpdateTenantRequest {
   environment?: TenantEnvironment;
   defaultCurrency?: string;
   supportedCountries?: string[];
+  allowedOriginCountries?: string[];
+  allowedDestinationCountries?: string[];
   supportedCurrencies?: string[];
   // Company Setup fields
   logoUrl?: string | null;

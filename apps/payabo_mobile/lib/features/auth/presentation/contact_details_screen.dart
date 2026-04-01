@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/api/api_exception.dart';
@@ -8,6 +7,7 @@ import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
+import '../../../shared/widgets/payabo_country_flag.dart';
 import 'auth_flow_scaffold.dart';
 import 'onboarding_flow_state.dart';
 
@@ -75,10 +75,11 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
                   ),
                   child: Row(
                     children: <Widget>[
-                      SvgPicture.asset(
-                        phoneCountry.flagAsset!,
+                      PayaboCountryFlag(
+                        country: phoneCountry,
                         width: 26,
                         height: 20,
+                        fontSize: 18,
                       ),
                       const SizedBox(width: PayaboSpacing.sm),
                       Text(
@@ -140,8 +141,7 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
   Future<void> _sendPhoneOtp() async {
     final onboarding = ref.read(onboardingControllerProvider);
     final dialCode = onboarding.phoneCountry.dialCode.trim();
-    final digits =
-        _phoneController.text.trim().replaceAll(RegExp(r'\D'), '');
+    final digits = _phoneController.text.trim().replaceAll(RegExp(r'\D'), '');
     final fullPhone = '$dialCode$digits';
 
     setState(() => _isSending = true);

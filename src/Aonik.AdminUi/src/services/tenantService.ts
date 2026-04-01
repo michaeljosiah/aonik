@@ -43,6 +43,11 @@ export const tenantService = {
     return api.get<Tenant>(`/admin/tenants/${tenantId}`);
   },
 
+  // Get current tenant settings
+  getSettings: async (): Promise<Tenant> => {
+    return api.get<Tenant>('/tenant/settings');
+  },
+
   // Create a new tenant
   create: async (request: CreateTenantRequest): Promise<Tenant> => {
     return api.post<Tenant>('/admin/tenants', request);
@@ -51,6 +56,11 @@ export const tenantService = {
   // Update a tenant
   update: async (tenantId: string, request: UpdateTenantRequest): Promise<Tenant> => {
     return api.patch<Tenant>(`/admin/tenants/${tenantId}`, request);
+  },
+
+  // Update current tenant settings
+  updateSettings: async (request: UpdateTenantRequest): Promise<Tenant> => {
+    return api.patch<Tenant>('/tenant/settings', request);
   },
 
   // Activate a tenant

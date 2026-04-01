@@ -160,7 +160,179 @@ public class TenantServiceTests
         // Assert
         response.DefaultCurrency.Should().Be("NGN");
         response.SupportedCountries.Should().BeEquivalentTo(new[] { "NG" });
+        response.AllowedOriginCountries.Should().BeEquivalentTo(new[] { "NG" });
+        response.AllowedDestinationCountries.Should().BeEquivalentTo(new[] { "NG" });
         response.SupportedCurrencies.Should().BeEquivalentTo(new[] { "NGN" });
+    }
+
+    [Fact]
+    public async Task UpdateTenantAsync_ShouldRejectAllowedOriginCountriesOutsideSupportedCountries()
+    {
+        // Arrange
+        var tenantContext = new TestTenantContext();
+        var userId = Guid.NewGuid();
+        var clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var dbContext = new PlatformDbContext(
+            options,
+            new HttpContextTenantProvider(tenantContext),
+            new TestCurrentUserProvider(userId),
+            clock);
+        dbContext.Countries.AddRange(
+            new Country
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                IsoAlpha2 = "US",
+                IsoAlpha3 = "USA",
+                IsoNumeric = 840,
+                Name = "United States",
+                SortOrder = 1,
+                IsActive = true
+            },
+            new Country
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                IsoAlpha2 = "NG",
+                IsoAlpha3 = "NGA",
+                IsoNumeric = 566,
+                Name = "Nigeria",
+                SortOrder = 2,
+                IsActive = true
+            });
+        dbContext.Currencies.Add(new Currency
+        {
+            Id = Guid.NewGuid(),
+            TenantId = null,
+            Code = "USD",
+            Name = "US Dollar",
+            NumericCode = "840",
+            MinorUnit = 2,
+            WithdrawalDate = null,
+            SortOrder = 1,
+            IsActive = true
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new TenantService(
+            dbContext,
+            new TestTenantProvisioner(),
+            new TestAuditLogWriter(),
+            clock,
+            new TestCurrentUserProvider(userId),
+            new TestCorrelationContext(),
+            tenantContext,
+            new AllowAllPermissionService(),
+            new CurrencyMetadataProvider());
+
+        var tenant = await service.CreateTenantAsync(
+            new CreateTenantRequest(
+                Name: "Tenant Update Validation",
+                Environment: "Dev",
+                DefaultCurrency: "USD",
+                SupportedCountries: ["US"]),
+            CancellationToken.None);
+
+        // Act
+        var act = async () =>
+            await service.UpdateTenantAsync(
+                tenant.TenantId,
+                new UpdateTenantRequest(AllowedOriginCountries: ["NG"]),
+                CancellationToken.None);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<ArgumentException>();
+        ex.Which.Message.Should().Contain("subset of supported countries");
+    }
+
+    [Fact]
+    public async Task UpdateTenantAsync_ShouldTrimAllowedCountryLists_WhenSupportedCountriesShrink()
+    {
+        // Arrange
+        var tenantContext = new TestTenantContext();
+        var userId = Guid.NewGuid();
+        var clock = new FixedClock(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase(databaseName: $"TenantServiceTestDb_{Guid.NewGuid()}")
+            .Options;
+
+        using var dbContext = new PlatformDbContext(
+            options,
+            new HttpContextTenantProvider(tenantContext),
+            new TestCurrentUserProvider(userId),
+            clock);
+        dbContext.Countries.AddRange(
+            new Country
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                IsoAlpha2 = "US",
+                IsoAlpha3 = "USA",
+                IsoNumeric = 840,
+                Name = "United States",
+                SortOrder = 1,
+                IsActive = true
+            },
+            new Country
+            {
+                Id = Guid.NewGuid(),
+                TenantId = null,
+                IsoAlpha2 = "NG",
+                IsoAlpha3 = "NGA",
+                IsoNumeric = 566,
+                Name = "Nigeria",
+                SortOrder = 2,
+                IsActive = true
+            });
+        dbContext.Currencies.Add(new Currency
+        {
+            Id = Guid.NewGuid(),
+            TenantId = null,
+            Code = "USD",
+            Name = "US Dollar",
+            NumericCode = "840",
+            MinorUnit = 2,
+            WithdrawalDate = null,
+            SortOrder = 1,
+            IsActive = true
+        });
+        await dbContext.SaveChangesAsync();
+
+        var service = new TenantService(
+            dbContext,
+            new TestTenantProvisioner(),
+            new TestAuditLogWriter(),
+            clock,
+            new TestCurrentUserProvider(userId),
+            new TestCorrelationContext(),
+            tenantContext,
+            new AllowAllPermissionService(),
+            new CurrencyMetadataProvider());
+
+        var tenant = await service.CreateTenantAsync(
+            new CreateTenantRequest(
+                Name: "Tenant Coverage Trim",
+                Environment: "Dev",
+                DefaultCurrency: "USD",
+                SupportedCountries: ["US", "NG"],
+                AllowedOriginCountries: ["US", "NG"],
+                AllowedDestinationCountries: ["NG"]),
+            CancellationToken.None);
+
+        // Act
+        var updated = await service.UpdateTenantAsync(
+            tenant.TenantId,
+            new UpdateTenantRequest(SupportedCountries: ["US"]),
+            CancellationToken.None);
+
+        // Assert
+        updated.SupportedCountries.Should().BeEquivalentTo(new[] { "US" });
+        updated.AllowedOriginCountries.Should().BeEquivalentTo(new[] { "US" });
+        updated.AllowedDestinationCountries.Should().BeEmpty();
     }
 
     [Fact]

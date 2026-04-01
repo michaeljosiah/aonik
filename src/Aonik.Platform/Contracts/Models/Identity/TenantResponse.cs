@@ -7,6 +7,8 @@ public record TenantResponse(
     string Environment,
     string DefaultCurrency,
     string[] SupportedCountries,
+    string[] AllowedOriginCountries,
+    string[] AllowedDestinationCountries,
     string[] SupportedCurrencies,
     string Status,
     DateTime CreatedAt,

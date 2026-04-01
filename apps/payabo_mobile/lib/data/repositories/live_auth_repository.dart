@@ -21,6 +21,30 @@ class LiveAuthRepository implements AuthRepository {
   final String _authClientId;
 
   @override
+  Future<List<String>> getRegistrationCountries() async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        '/host/tenants/$_tenantId/registration-countries',
+      );
+
+      final payload = response.data ?? const <String, dynamic>{};
+      final rawCountries = payload['allowedOriginCountries'];
+      if (rawCountries is! List) {
+        return const <String>[];
+      }
+
+      return rawCountries
+          .whereType<String>()
+          .map((value) => value.trim().toUpperCase())
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    }
+  }
+
+  @override
   Future<AuthTokenResult> signInWithPassword({
     required String email,
     required String password,

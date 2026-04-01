@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Cog, RotateCcw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -7,9 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { getSelectedTenant } from '@/lib/tenantContext';
+import { tenantService } from '@/services/tenantService';
+import type { UpdateTenantRequest } from '@/types';
 
 const generalSettingsStorageKey = 'aonik:settings:general';
 
@@ -37,6 +40,12 @@ interface GeneralSettingsState {
   stepUpAuthForRisk: boolean;
   requireManualApproval: boolean;
   maintenanceNotifications: boolean;
+}
+
+interface TenantMarketSettingsState {
+  supportedCountries: string[];
+  allowedOriginCountries: string[];
+  allowedDestinationCountries: string[];
 }
 
 function getDefaultGeneralSettings(tenantName?: string): GeneralSettingsState {
@@ -94,9 +103,94 @@ function ToggleRow({
 export function SettingsGeneralPage() {
   const selectedTenant = getSelectedTenant();
   const [settings, setSettings] = useState<GeneralSettingsState>(() => getInitialGeneralSettings(selectedTenant?.name));
+  const [tenantMarketSettings, setTenantMarketSettings] = useState<TenantMarketSettingsState>({
+    supportedCountries: [],
+    allowedOriginCountries: [],
+    allowedDestinationCountries: [],
+  });
+  const [tenantSettingsLoading, setTenantSettingsLoading] = useState(true);
+  const [tenantSettingsSaving, setTenantSettingsSaving] = useState(false);
+  const [tenantSettingsError, setTenantSettingsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadTenantSettings = async () => {
+      setTenantSettingsLoading(true);
+      setTenantSettingsError(null);
+
+      try {
+        const tenant = await tenantService.getSettings();
+        if (!active) {
+          return;
+        }
+
+        setTenantMarketSettings({
+          supportedCountries: [...tenant.supportedCountries],
+          allowedOriginCountries: [...tenant.allowedOriginCountries],
+          allowedDestinationCountries: [...tenant.allowedDestinationCountries],
+        });
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        const message = error && typeof error === 'object' && 'userMessage' in error
+          ? String((error as { userMessage?: string }).userMessage ?? '')
+          : '';
+        setTenantSettingsError(message || 'Unable to load tenant country settings right now.');
+      } finally {
+        if (active) {
+          setTenantSettingsLoading(false);
+        }
+      }
+    };
+
+    loadTenantSettings();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const updateSetting = <K extends keyof GeneralSettingsState>(key: K, value: GeneralSettingsState[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleSupportedCountry = (countryCode: string) => {
+    setTenantMarketSettings((prev) => {
+      const isSelected = prev.supportedCountries.includes(countryCode);
+      return {
+        supportedCountries: isSelected
+          ? prev.supportedCountries.filter((code) => code !== countryCode)
+          : [...prev.supportedCountries, countryCode],
+        allowedOriginCountries: isSelected
+          ? prev.allowedOriginCountries.filter((code) => code !== countryCode)
+          : [...prev.allowedOriginCountries],
+        allowedDestinationCountries: isSelected
+          ? prev.allowedDestinationCountries.filter((code) => code !== countryCode)
+          : [...prev.allowedDestinationCountries],
+      };
+    });
+  };
+
+  const toggleScopedCountry = (
+    field: 'allowedOriginCountries' | 'allowedDestinationCountries',
+    countryCode: string,
+  ) => {
+    setTenantMarketSettings((prev) => {
+      if (!prev.supportedCountries.includes(countryCode)) {
+        return prev;
+      }
+
+      const current = prev[field];
+      return {
+        ...prev,
+        [field]: current.includes(countryCode)
+          ? current.filter((code) => code !== countryCode)
+          : [...current, countryCode],
+      };
+    });
   };
 
   const handleResetDefaults = () => {
@@ -107,6 +201,35 @@ export function SettingsGeneralPage() {
   const handleSave = () => {
     localStorage.setItem(generalSettingsStorageKey, JSON.stringify(settings));
     toast.success('General settings saved.');
+  };
+
+  const handleSaveTenantMarketSettings = async () => {
+    const request: UpdateTenantRequest = {
+      supportedCountries: tenantMarketSettings.supportedCountries,
+      allowedOriginCountries: tenantMarketSettings.allowedOriginCountries,
+      allowedDestinationCountries: tenantMarketSettings.allowedDestinationCountries,
+    };
+
+    setTenantSettingsSaving(true);
+    setTenantSettingsError(null);
+
+    try {
+      const tenant = await tenantService.updateSettings(request);
+      setTenantMarketSettings({
+        supportedCountries: [...tenant.supportedCountries],
+        allowedOriginCountries: [...tenant.allowedOriginCountries],
+        allowedDestinationCountries: [...tenant.allowedDestinationCountries],
+      });
+      toast.success('Tenant country settings saved.');
+    } catch (error) {
+      const message = error && typeof error === 'object' && 'userMessage' in error
+        ? String((error as { userMessage?: string }).userMessage ?? '')
+        : '';
+      setTenantSettingsError(message || 'Unable to save tenant country settings right now.');
+      toast.error(message || 'Unable to save tenant country settings right now.');
+    } finally {
+      setTenantSettingsSaving(false);
+    }
   };
 
   return (
@@ -150,6 +273,93 @@ export function SettingsGeneralPage() {
                 onChange={(event) => updateSetting('supportEmail', event.target.value)}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Country Access</CardTitle>
+            <CardDescription>Define the tenant market envelope, sender countries, and destination countries.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {tenantSettingsLoading ? (
+              <p className="text-sm text-[var(--color-text-secondary)]">Loading tenant country settings...</p>
+            ) : (
+              <>
+                {tenantSettingsError && (
+                  <div className="rounded-md border border-[var(--color-error)] bg-[var(--color-error-light)] px-4 py-3 text-sm text-[var(--color-error)]">
+                    {tenantSettingsError}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Supported countries</Label>
+                  <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                    {tenantCountryOptions.map((country) => (
+                      <button
+                        key={country.code}
+                        type="button"
+                        onClick={() => toggleSupportedCountry(country.code)}
+                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          tenantMarketSettings.supportedCountries.includes(country.code)
+                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                        }`}
+                      >
+                        {formatTenantCountryLabel(country.code)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Countries customers can send from</Label>
+                  <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                    {tenantMarketSettings.supportedCountries.map((countryCode) => (
+                      <button
+                        key={`origin-${countryCode}`}
+                        type="button"
+                        onClick={() => toggleScopedCountry('allowedOriginCountries', countryCode)}
+                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          tenantMarketSettings.allowedOriginCountries.includes(countryCode)
+                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                        }`}
+                      >
+                        {formatTenantCountryLabel(countryCode)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Countries customers can send to</Label>
+                  <div className="flex flex-wrap gap-2 rounded-md border border-[var(--color-border-light)] p-3">
+                    {tenantMarketSettings.supportedCountries.map((countryCode) => (
+                      <button
+                        key={`destination-${countryCode}`}
+                        type="button"
+                        onClick={() => toggleScopedCountry('allowedDestinationCountries', countryCode)}
+                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          tenantMarketSettings.allowedDestinationCountries.includes(countryCode)
+                            ? 'bg-[var(--color-brand-primary)] text-white'
+                            : 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                        }`}
+                      >
+                        {formatTenantCountryLabel(countryCode)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveTenantMarketSettings} disabled={tenantSettingsSaving || tenantMarketSettings.supportedCountries.length === 0}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {tenantSettingsSaving ? 'Saving...' : 'Save country settings'}
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

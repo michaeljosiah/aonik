@@ -4,6 +4,8 @@ public record UpdateTenantRequest(
     string? Name = null,
     string? DefaultCurrency = null,
     string[]? SupportedCountries = null,
+    string[]? AllowedOriginCountries = null,
+    string[]? AllowedDestinationCountries = null,
     string[]? SupportedCurrencies = null,
     string? Environment = null,
     // Company Setup fields

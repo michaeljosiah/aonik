@@ -29,6 +29,14 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
             .IsRequired()
             .HasMaxLength(2000);
 
+        builder.Property(x => x.AllowedOriginCountriesJson)
+            .IsRequired()
+            .HasMaxLength(2000);
+
+        builder.Property(x => x.AllowedDestinationCountriesJson)
+            .IsRequired()
+            .HasMaxLength(2000);
+
         builder.Property(x => x.Status)
             .IsRequired()
             .HasMaxLength(50);

@@ -550,7 +550,7 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
       const tenant = await tenantService.get(currentUser.tenantId);
       setCurrentTenant(tenant);
 
-      const primaryCountry = tenant.supportedCountries?.[0] ?? '';
+      const primaryCountry = tenant.allowedOriginCountries?.[0] ?? tenant.supportedCountries?.[0] ?? '';
       const currencies = await catalogService.getTenantCurrencies(false, primaryCountry || undefined);
       setTenantCurrencies(currencies.currencies ?? []);
 
@@ -648,6 +648,8 @@ export function SetupJourneyPage({ onSkip, onComplete }: SetupJourneyPageProps) 
         name: tenantProfile.name,
         defaultCurrency: tenantProfile.defaultCurrency,
         supportedCountries: tenantProfile.primaryCountry ? [tenantProfile.primaryCountry] : [],
+        allowedOriginCountries: tenantProfile.primaryCountry ? [tenantProfile.primaryCountry] : [],
+        allowedDestinationCountries: tenantProfile.primaryCountry ? [tenantProfile.primaryCountry] : [],
         supportedCurrencies: tenantProfile.defaultCurrency ? [tenantProfile.defaultCurrency] : [],
       });
       persistTenantProfileExtras(currentTenantId);

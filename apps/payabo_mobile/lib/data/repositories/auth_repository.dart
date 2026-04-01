@@ -97,6 +97,8 @@ class PhoneOtpResult {
 }
 
 abstract class AuthRepository {
+  Future<List<String>> getRegistrationCountries();
+
   Future<AuthTokenResult> signInWithPassword({
     required String email,
     required String password,

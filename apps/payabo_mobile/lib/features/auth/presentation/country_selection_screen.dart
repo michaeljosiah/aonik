@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
+import '../../../shared/widgets/payabo_country_flag.dart';
 import 'onboarding_flow_state.dart';
 
 enum CountrySelectionTarget {
@@ -40,11 +40,8 @@ class _CountrySelectionScreenState
   Widget build(BuildContext context) {
     final c = context.colors;
     final query = _searchController.text.trim().toLowerCase();
-    final items = onboardingCountries
-        .where((country) =>
-            country.name.toLowerCase().contains(query) ||
-            country.code.toLowerCase().contains(query))
-        .toList(growable: false);
+    final registrationCountriesValue =
+        ref.watch(registrationCountryOptionsProvider);
 
     return Scaffold(
       backgroundColor: c.surfaceWarm,
@@ -105,57 +102,123 @@ class _CountrySelectionScreenState
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
-                  itemCount: items.length,
-                  itemBuilder: (context, index) {
-                    final country = items[index];
+                child: widget.target == CountrySelectionTarget.registration
+                    ? registrationCountriesValue.when<Widget>(
+                        data: (countries) {
+                          final items = countries
+                              .where((country) =>
+                                  country.name.toLowerCase().contains(query) ||
+                                  country.code.toLowerCase().contains(query))
+                              .toList(growable: false);
 
-                    return InkWell(
-                      onTap: () => _selectCountry(country),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: PayaboSpacing.lg),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: c.border),
-                          ),
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            SvgPicture.asset(
-                              country.flagAsset!,
-                              width: 32,
-                              height: 24,
-                            ),
-                            const SizedBox(width: PayaboSpacing.lg),
-                            if (widget.target == CountrySelectionTarget.phone)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                    right: PayaboSpacing.md),
+                          if (items.isEmpty) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: PayaboSpacing.xl),
                                 child: Text(
-                                  country.dialCode,
-                                  style: Theme.of(context).textTheme.titleSmall,
+                                  countries.isEmpty
+                                      ? 'Registration is not available for this tenant right now.'
+                                      : 'No countries match your search.',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(color: c.muted),
                                 ),
                               ),
-                            Expanded(
-                              child: Text(
-                                country.name,
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                            ),
-                          ],
+                            );
+                          }
+
+                          return _buildCountryList(context, items);
+                        },
+                        loading: () => const Center(
+                          child: CircularProgressIndicator(),
                         ),
+                        error: (_, __) => Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: PayaboSpacing.xl),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  'Unable to load registration countries right now.',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(color: c.muted),
+                                ),
+                                const SizedBox(height: PayaboSpacing.md),
+                                TextButton(
+                                  onPressed: () => ref.invalidate(
+                                      registrationCountryOptionsProvider),
+                                  child: const Text('Try again'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : _buildCountryList(
+                        context,
+                        phoneSelectionCountries
+                            .where((country) =>
+                                country.name.toLowerCase().contains(query) ||
+                                country.code.toLowerCase().contains(query))
+                            .toList(growable: false),
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCountryList(
+      BuildContext context, List<OnboardingCountry> items) {
+    final c = context.colors;
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final country = items[index];
+
+        return InkWell(
+          onTap: () => _selectCountry(country),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.lg),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: c.border),
+              ),
+            ),
+            child: Row(
+              children: <Widget>[
+                PayaboCountryFlag(country: country),
+                const SizedBox(width: PayaboSpacing.lg),
+                if (widget.target == CountrySelectionTarget.phone)
+                  Padding(
+                    padding: const EdgeInsets.only(right: PayaboSpacing.md),
+                    child: Text(
+                      country.dialCode,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    country.name,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

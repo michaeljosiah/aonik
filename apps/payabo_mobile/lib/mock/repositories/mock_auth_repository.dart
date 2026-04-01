@@ -1,7 +1,15 @@
 import '../../data/repositories/auth_repository.dart';
+import '../../shared/reference/payabo_country_reference.dart';
 
 class MockAuthRepository implements AuthRepository {
   AuthUserInfo? _currentUser;
+
+  @override
+  Future<List<String>> getRegistrationCountries() async {
+    return payaboOnboardingCountries
+        .map((country) => country.code)
+        .toList(growable: false);
+  }
 
   @override
   Future<AuthTokenResult> signInWithPassword({

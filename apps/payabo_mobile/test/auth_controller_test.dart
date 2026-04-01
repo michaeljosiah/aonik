@@ -101,6 +101,11 @@ Future<void> _waitForInitialization(ProviderContainer container) async {
 
 class _FakeAuthRepository implements AuthRepository {
   @override
+  Future<List<String>> getRegistrationCountries() async {
+    return const <String>['GB', 'GH', 'NG'];
+  }
+
+  @override
   Future<AuthUserInfo> getUserInfo() async {
     return const AuthUserInfo(
       userId: 'test-user-id',

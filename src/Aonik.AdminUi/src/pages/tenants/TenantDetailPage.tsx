@@ -29,6 +29,7 @@ import {
   Calendar,
   User,
 } from 'lucide-react';
+import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
 import type { TenantHealthResult } from '@/services/tenantService';
@@ -56,27 +57,6 @@ const environments: { value: TenantEnvironment; label: string }[] = [
 ];
 
 const currencies = [] as { code: string; name: string }[];
-
-const countries = [
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'CN', name: 'China' },
-  { code: 'IN', name: 'India' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'SG', name: 'Singapore' },
-  { code: 'NZ', name: 'New Zealand' },
-];
 
 export function TenantDetailPage() {
   const navigate = useNavigate();
@@ -124,6 +104,8 @@ export function TenantDetailPage() {
         environment: data.environment,
         defaultCurrency: data.defaultCurrency,
         supportedCountries: [...data.supportedCountries],
+        allowedOriginCountries: [...data.allowedOriginCountries],
+        allowedDestinationCountries: [...data.allowedDestinationCountries],
         supportedCurrencies: [...(data.supportedCurrencies ?? [data.defaultCurrency])],
       });
     } catch (err: unknown) {
@@ -167,6 +149,15 @@ export function TenantDetailPage() {
       newErrors.supportedCountries = 'At least one country must be selected';
     }
 
+    const supportedCountries = new Set(formData.supportedCountries ?? []);
+    if ((formData.allowedOriginCountries ?? []).some((code) => !supportedCountries.has(code))) {
+      newErrors.allowedOriginCountries = 'Countries customers can send from must be a subset of supported countries';
+    }
+
+    if ((formData.allowedDestinationCountries ?? []).some((code) => !supportedCountries.has(code))) {
+      newErrors.allowedDestinationCountries = 'Countries customers can send to must be a subset of supported countries';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -194,12 +185,14 @@ export function TenantDetailPage() {
 
   const handleCancel = () => {
     if (tenant) {
-      setFormData({
-        name: tenant.name,
-        environment: tenant.environment,
-        defaultCurrency: tenant.defaultCurrency,
-        supportedCountries: [...tenant.supportedCountries],
-      });
+        setFormData({
+          name: tenant.name,
+          environment: tenant.environment,
+          defaultCurrency: tenant.defaultCurrency,
+          supportedCountries: [...tenant.supportedCountries],
+          allowedOriginCountries: [...tenant.allowedOriginCountries],
+          allowedDestinationCountries: [...tenant.allowedDestinationCountries],
+        });
     }
     setErrors({});
     setIsEditing(false);
@@ -257,13 +250,39 @@ export function TenantDetailPage() {
     }
   };
 
-  const toggleCountry = (code: string) => {
+  const toggleSupportedCountry = (code: string) => {
     setFormData(prev => ({
       ...prev,
       supportedCountries: prev.supportedCountries?.includes(code)
         ? prev.supportedCountries.filter(c => c !== code)
         : [...(prev.supportedCountries || []), code],
+      allowedOriginCountries: prev.supportedCountries?.includes(code)
+        ? prev.allowedOriginCountries?.filter(c => c !== code) ?? []
+        : [...(prev.allowedOriginCountries || [])],
+      allowedDestinationCountries: prev.supportedCountries?.includes(code)
+        ? prev.allowedDestinationCountries?.filter(c => c !== code) ?? []
+        : [...(prev.allowedDestinationCountries || [])],
     }));
+  };
+
+  const toggleScopedCountry = (
+    field: 'allowedOriginCountries' | 'allowedDestinationCountries',
+    code: string,
+  ) => {
+    setFormData((prev) => {
+      const supportedCountries = prev.supportedCountries ?? [];
+      if (!supportedCountries.includes(code)) {
+        return prev;
+      }
+
+      const current = prev[field] ?? [];
+      return {
+        ...prev,
+        [field]: current.includes(code)
+          ? current.filter((item) => item !== code)
+          : [...current, code],
+      };
+    });
   };
 
   const formatDate = (dateString?: string) => {
@@ -544,18 +563,18 @@ export function TenantDetailPage() {
                         errors.supportedCountries ? 'border-red-300' : 'border-[var(--color-border)]'
                       }`}>
                         <div className="flex flex-wrap gap-2">
-                          {countries.map(country => (
+                          {tenantCountryOptions.map(country => (
                             <button
                               key={country.code}
                               type="button"
-                              onClick={() => toggleCountry(country.code)}
+                              onClick={() => toggleSupportedCountry(country.code)}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 formData.supportedCountries?.includes(country.code)
                                   ? 'bg-[var(--color-brand-primary)] text-white'
                                   : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
                               }`}
                             >
-                              {country.code}
+                              {formatTenantCountryLabel(country.code)}
                             </button>
                           ))}
                         </div>
@@ -566,14 +585,99 @@ export function TenantDetailPage() {
                     </>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {tenant.supportedCountries.map((code, idx) => {
-                        const country = countries.find(c => c.code === code);
-                        return (
-                          <Badge key={`${code}-${idx}`} variant="secondary">
-                            {country ? `${code} - ${country.name}` : code}
-                          </Badge>
-                        );
-                      })}
+                      {tenant.supportedCountries.map((code, idx) => (
+                        <Badge key={`${code}-${idx}`} variant="secondary">
+                          {formatTenantCountryLabel(code)}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+                    Countries customers can send from
+                  </label>
+                  {isEditing ? (
+                    <>
+                      <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
+                        errors.allowedOriginCountries ? 'border-red-300' : 'border-[var(--color-border)]'
+                      }`}>
+                        <div className="flex flex-wrap gap-2">
+                          {(formData.supportedCountries ?? []).map((code) => (
+                            <button
+                              key={`origin-${code}`}
+                              type="button"
+                              onClick={() => toggleScopedCountry('allowedOriginCountries', code)}
+                              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                                formData.allowedOriginCountries?.includes(code)
+                                  ? 'bg-[var(--color-brand-primary)] text-white'
+                                  : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                              }`}
+                            >
+                              {formatTenantCountryLabel(code)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {errors.allowedOriginCountries && (
+                        <p className="mt-1 text-sm text-[var(--color-error)]">{errors.allowedOriginCountries}</p>
+                      )}
+                      <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                        Registration and sender-side eligibility are limited to this subset.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {tenant.allowedOriginCountries.map((code, idx) => (
+                        <Badge key={`origin-${code}-${idx}`} variant="secondary">
+                          {formatTenantCountryLabel(code)}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
+                    Countries customers can send to
+                  </label>
+                  {isEditing ? (
+                    <>
+                      <div className={`border rounded-md p-3 bg-[var(--color-surface-inset)] ${
+                        errors.allowedDestinationCountries ? 'border-red-300' : 'border-[var(--color-border)]'
+                      }`}>
+                        <div className="flex flex-wrap gap-2">
+                          {(formData.supportedCountries ?? []).map((code) => (
+                            <button
+                              key={`destination-${code}`}
+                              type="button"
+                              onClick={() => toggleScopedCountry('allowedDestinationCountries', code)}
+                              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                                formData.allowedDestinationCountries?.includes(code)
+                                  ? 'bg-[var(--color-brand-primary)] text-white'
+                                  : 'bg-[var(--color-background)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-light)]'
+                              }`}
+                            >
+                              {formatTenantCountryLabel(code)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {errors.allowedDestinationCountries && (
+                        <p className="mt-1 text-sm text-[var(--color-error)]">{errors.allowedDestinationCountries}</p>
+                      )}
+                      <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">
+                        Destination corridors and receiver-side availability must stay within this subset.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {tenant.allowedDestinationCountries.map((code, idx) => (
+                        <Badge key={`destination-${code}-${idx}`} variant="secondary">
+                          {formatTenantCountryLabel(code)}
+                        </Badge>
+                      ))}
                     </div>
                   )}
                 </div>

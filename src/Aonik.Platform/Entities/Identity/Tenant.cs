@@ -9,6 +9,8 @@ public class Tenant : AuditableEntity
     public string Environment { get; set; } = string.Empty;
     public string DefaultCurrency { get; set; } = string.Empty;
     public string SupportedCountriesJson { get; set; } = string.Empty;
+    public string AllowedOriginCountriesJson { get; set; } = string.Empty;
+    public string AllowedDestinationCountriesJson { get; set; } = string.Empty;
     public string Status { get; set; } = TenantStatus.Active;
     
     // Company Setup fields

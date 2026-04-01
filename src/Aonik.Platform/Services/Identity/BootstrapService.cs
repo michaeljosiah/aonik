@@ -125,7 +125,9 @@ internal class BootstrapService : IBootstrapService
             Name = tenantName,
             Environment = environmentName,
             DefaultCurrency = currency.ToUpperInvariant(),
-            SupportedCountriesJson = JsonSerializer.Serialize(supportedCountries.Select(c => c.ToUpperInvariant())),
+            SupportedCountriesJson = TenantCountryCodeSerializer.Serialize(supportedCountries),
+            AllowedOriginCountriesJson = TenantCountryCodeSerializer.Serialize(supportedCountries),
+            AllowedDestinationCountriesJson = TenantCountryCodeSerializer.Serialize(supportedCountries),
             Status = TenantStatus.Provisioning,
             CreatedAt = now,
             CreatedBy = currentUserId

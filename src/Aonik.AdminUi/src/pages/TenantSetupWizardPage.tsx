@@ -239,7 +239,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
         const tenant = await tenantService.get(currentUser.tenantId);
         setCurrentTenant(tenant);
 
-        const baseCountry = tenant.supportedCountries?.[0] ?? '';
+        const baseCountry = tenant.allowedOriginCountries?.[0] ?? tenant.supportedCountries?.[0] ?? '';
         const currenciesResponse = await catalogService.getTenantCurrencies(false, baseCountry || undefined);
         setCurrencies(currenciesResponse.currencies ?? []);
 
@@ -290,7 +290,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
           city: tenant.city ?? '',
           stateProvince: tenant.stateProvince ?? '',
           postalCode: tenant.postalCode ?? '',
-          country: tenant.country ?? tenant.supportedCountries?.[0] ?? '',
+          country: tenant.country ?? tenant.allowedOriginCountries?.[0] ?? tenant.supportedCountries?.[0] ?? '',
         });
       } catch (err) {
         setError('Unable to load tenant data. Please refresh and try again.');
@@ -362,6 +362,8 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
           break;
         case 2:
           updateRequest.supportedCountries = formData.baseCountry ? [formData.baseCountry] : [];
+          updateRequest.allowedOriginCountries = formData.baseCountry ? [formData.baseCountry] : [];
+          updateRequest.allowedDestinationCountries = formData.baseCountry ? [formData.baseCountry] : [];
           updateRequest.defaultCurrency = formData.baseCurrency;
           updateRequest.companySize = formData.companySize;
           updateRequest.website = formData.website;

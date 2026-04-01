@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, AlertCircle, X } from 'lucide-react';
 import { tenantService } from '@/services/tenantService';
 import { catalogService } from '@/services/catalogService';
+import { tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import type { CreateTenantRequest, TenantEnvironment } from '@/types';
 import {
   Select,
@@ -22,27 +23,6 @@ const environments: { value: TenantEnvironment; label: string }[] = [
 ];
 
 const currencies = [] as { code: string; name: string }[];
-
-const countries = [
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'CN', name: 'China' },
-  { code: 'IN', name: 'India' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'SG', name: 'Singapore' },
-  { code: 'NZ', name: 'New Zealand' },
-];
 
 export function CreateTenantPage() {
   const navigate = useNavigate();
@@ -269,7 +249,7 @@ export function CreateTenantPage() {
                   errors.supportedCountries ? 'border-red-300' : 'border-[var(--color-border)]'
                 }`}>
                   <div className="flex flex-wrap gap-2">
-                    {countries.map(country => (
+                    {tenantCountryOptions.map(country => (
                       <button
                         key={country.code}
                         type="button"

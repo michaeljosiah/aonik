@@ -8,6 +8,7 @@ using Aonik.Platform.Contracts.Services.Onboarding;
 using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Services.Settings;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 
@@ -59,6 +60,36 @@ internal class RegistrationService : IRegistrationService
             throw new InvalidOperationException("TenantId is required for registration.");
         }
 
+        var tenant = await _dbContext.Tenants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == request.TenantId.Value, cancellationToken);
+
+        if (tenant == null)
+        {
+            throw new InvalidOperationException($"Tenant {request.TenantId.Value} not found.");
+        }
+
+        var supportedCountries = TenantCountryCodeSerializer.Deserialize(tenant.SupportedCountriesJson);
+        var allowedOriginCountries = TenantCountryCodeSerializer.ResolveWithFallback(
+            tenant.AllowedOriginCountriesJson,
+            supportedCountries);
+
+        var registrationCountry = request.RegistrationCountry?.Trim().ToUpperInvariant();
+        if (allowedOriginCountries.Length > 0)
+        {
+            if (string.IsNullOrWhiteSpace(registrationCountry))
+            {
+                throw new ArgumentException("Registration country is required.", nameof(request.RegistrationCountry));
+            }
+
+            if (!allowedOriginCountries.Contains(registrationCountry, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    $"Registration country '{registrationCountry}' is not enabled for this tenant.",
+                    nameof(request.RegistrationCountry));
+            }
+        }
+
         var provider = await _settingProvider.GetAsync(AuthSettingNames.Provider, cancellationToken) ?? "AzureAd";
         var provisioner = _idpUserProvisionerFactory.GetProvisioner(provider);
 
@@ -95,7 +126,7 @@ internal class RegistrationService : IRegistrationService
                 request.LastName,
                 request.Title,
                 request.Phone,
-                request.RegistrationCountry),
+                registrationCountry),
             cancellationToken);
 
 

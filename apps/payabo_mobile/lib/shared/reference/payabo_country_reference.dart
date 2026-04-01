@@ -144,12 +144,8 @@ const List<PayaboCountryReference> payaboOnboardingCountries =
   payaboCountryZimbabwe,
 ];
 
-PayaboCountryReference resolvePayaboCountry(
-  String countryCode, {
-  String fallbackCode = 'GB',
-}) {
+PayaboCountryReference? tryResolvePayaboCountry(String countryCode) {
   final String normalized = countryCode.trim().toUpperCase();
-  final String normalizedFallback = fallbackCode.trim().toUpperCase();
 
   for (final PayaboCountryReference country in payaboCountries) {
     if (country.code == normalized) {
@@ -157,13 +153,33 @@ PayaboCountryReference resolvePayaboCountry(
     }
   }
 
-  for (final PayaboCountryReference country in payaboCountries) {
-    if (country.code == normalizedFallback) {
-      return country;
-    }
-  }
+  return null;
+}
 
-  return payaboCountryUnitedKingdom;
+PayaboCountryReference buildPayaboCountryFallback(String countryCode) {
+  final String normalized = countryCode.trim().toUpperCase();
+  return PayaboCountryReference(
+    code: normalized,
+    name: normalized,
+    dialCode: '',
+    currencyCode: '',
+    flagEmoji: _buildFlagEmoji(normalized),
+  );
+}
+
+PayaboCountryReference resolvePayaboCountryOrFallback(String countryCode) {
+  return tryResolvePayaboCountry(countryCode) ??
+      buildPayaboCountryFallback(countryCode);
+}
+
+PayaboCountryReference resolvePayaboCountry(
+  String countryCode, {
+  String fallbackCode = 'GB',
+}) {
+  final String normalizedFallback = fallbackCode.trim().toUpperCase();
+  return tryResolvePayaboCountry(countryCode) ??
+      tryResolvePayaboCountry(normalizedFallback) ??
+      payaboCountryUnitedKingdom;
 }
 
 String resolvePayaboCurrencyCode(
@@ -174,4 +190,22 @@ String resolvePayaboCurrencyCode(
     countryCode,
     fallbackCode: fallbackCode,
   ).currencyCode;
+}
+
+String _buildFlagEmoji(String countryCode) {
+  if (countryCode.length != 2) {
+    return '\u{1F310}';
+  }
+
+  final String normalized = countryCode.toUpperCase();
+  final int first = normalized.codeUnitAt(0);
+  final int second = normalized.codeUnitAt(1);
+  if (first < 65 || first > 90 || second < 65 || second > 90) {
+    return '\u{1F310}';
+  }
+
+  return String.fromCharCodes(<int>[
+    0x1F1E6 + (first - 65),
+    0x1F1E6 + (second - 65),
+  ]);
 }

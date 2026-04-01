@@ -5,5 +5,7 @@ public record CreateTenantRequest(
     string Environment,
     string DefaultCurrency,
     string[] SupportedCountries,
-    string[]? SupportedCurrencies = null
+    string[]? SupportedCurrencies = null,
+    string[]? AllowedOriginCountries = null,
+    string[]? AllowedDestinationCountries = null
 );

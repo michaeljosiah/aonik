@@ -1,20 +1,31 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show FutureProvider, Ref;
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../../data/repositories/auth_repository.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/reference/payabo_country_reference.dart';
 import '../../../shared/validation/payabo_input_validators.dart';
 
 typedef OnboardingCountry = PayaboCountryReference;
 
-const List<OnboardingCountry> onboardingCountries = payaboOnboardingCountries;
+const List<OnboardingCountry> phoneSelectionCountries =
+    payaboOnboardingCountries;
 
 OnboardingCountry resolveOnboardingCountry(String countryCode) {
-  final String normalized = countryCode.trim().toUpperCase();
-
-  return onboardingCountries.firstWhere(
-    (OnboardingCountry country) => country.code == normalized,
-    orElse: () => payaboCountryUnitedKingdom,
-  );
+  return resolvePayaboCountry(countryCode);
 }
+
+final FutureProvider<List<OnboardingCountry>>
+    registrationCountryOptionsProvider =
+    FutureProvider<List<OnboardingCountry>>((Ref ref) async {
+  final AuthRepository repository = ref.watch(authRepositoryProvider);
+  final List<String> countryCodes = await repository.getRegistrationCountries();
+
+  return countryCodes
+      .map(resolvePayaboCountryOrFallback)
+      .toList(growable: false);
+});
 
 bool isValidEmail(String value) {
   return isValidPayaboEmailAddress(value);

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
+import '../../../shared/widgets/payabo_country_flag.dart';
 import 'auth_flow_scaffold.dart';
 import 'onboarding_flow_state.dart';
 
@@ -16,7 +16,52 @@ class RegisterScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final onboardingState = ref.watch(onboardingControllerProvider);
-    final selectedCountry = onboardingState.registrationCountry;
+    final registrationCountriesValue =
+        ref.watch(registrationCountryOptionsProvider);
+
+    registrationCountriesValue.whenData((countries) {
+      final bool hasSelectedCountry = countries.any(
+        (country) => country.code == onboardingState.registrationCountryCode,
+      );
+
+      if (!hasSelectedCountry && countries.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref
+              .read(onboardingControllerProvider.notifier)
+              .setRegistrationCountry(countries.first.code);
+        });
+      }
+    });
+
+    final OnboardingCountry selectedCountry =
+        registrationCountriesValue.maybeWhen<OnboardingCountry>(
+      data: (countries) {
+        for (final country in countries) {
+          if (country.code == onboardingState.registrationCountryCode) {
+            return country;
+          }
+        }
+        return countries.isNotEmpty
+            ? countries.first
+            : onboardingState.registrationCountry;
+      },
+      orElse: () => onboardingState.registrationCountry,
+    );
+    final bool canContinue = registrationCountriesValue.maybeWhen<bool>(
+      data: (countries) => countries.isNotEmpty,
+      orElse: () => false,
+    );
+    final String? registrationMessage =
+        registrationCountriesValue.when<String?>(
+      data: (countries) {
+        if (countries.isEmpty) {
+          return 'Registration is not available for this tenant right now.';
+        }
+        return null;
+      },
+      loading: () => 'Loading available countries...',
+      error: (_, __) => 'Unable to load registration countries right now.',
+    );
 
     return AuthFlowScaffold(
       title: "Register now, it's free!",
@@ -25,10 +70,7 @@ class RegisterScreen extends ConsumerWidget {
       footer: Text(
         'By registering you agree with our\nTerms and Conditions and Privacy Policy.',
         textAlign: TextAlign.center,
-        style: Theme.of(context)
-            .textTheme
-            .bodySmall
-            ?.copyWith(color: c.ink),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: c.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -52,11 +94,7 @@ class RegisterScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: <Widget>[
-                  SvgPicture.asset(
-                    selectedCountry.flagAsset!,
-                    width: 32,
-                    height: 24,
-                  ),
+                  PayaboCountryFlag(country: selectedCountry),
                   const SizedBox(width: PayaboSpacing.lg),
                   Expanded(
                     child: Text(
@@ -69,10 +107,22 @@ class RegisterScreen extends ConsumerWidget {
               ),
             ),
           ),
+          if (registrationMessage != null) ...<Widget>[
+            const SizedBox(height: PayaboSpacing.sm),
+            Text(
+              registrationMessage,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: c.muted),
+            ),
+          ],
           const SizedBox(height: PayaboSpacing.x2),
           PayaboButton(
             label: 'Next',
-            onPressed: () => context.go('/auth/register/personal-details'),
+            onPressed: canContinue
+                ? () => context.go('/auth/register/personal-details')
+                : null,
           ),
         ],
       ),

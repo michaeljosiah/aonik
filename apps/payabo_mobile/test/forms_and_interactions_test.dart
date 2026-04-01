@@ -223,8 +223,7 @@ void main() {
 
   testWidgets('phone code auto-starts 60s countdown then unlocks',
       (WidgetTester tester) async {
-    await tester
-        .pumpWidget(buildTestApp(const PhoneCodeScreen()));
+    await tester.pumpWidget(buildTestApp(const PhoneCodeScreen()));
 
     expect(find.textContaining('Request new code in'), findsOneWidget);
     // Pump through the full 60-second countdown
@@ -255,6 +254,11 @@ class _FailingAuthRepository implements AuthRepository {
   const _FailingAuthRepository(this._error);
 
   final ApiException _error;
+
+  @override
+  Future<List<String>> getRegistrationCountries() async {
+    return const <String>['GB', 'GH', 'NG'];
+  }
 
   @override
   Future<AuthUserInfo> getUserInfo() async {

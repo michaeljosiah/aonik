@@ -11,6 +11,7 @@ using Aonik.Platform.Entities.Party;
 using PartyEntity = Aonik.Platform.Entities.Party.Party;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Services.Identity;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -642,7 +643,9 @@ internal class DemoSeedService : IDemoSeedService
         supportedCountries.Add("KE");
         supportedCountries.Add("ZA");
 
-        tenant.SupportedCountriesJson = JsonSerializer.Serialize(supportedCountries.OrderBy(code => code));
+        tenant.SupportedCountriesJson = TenantCountryCodeSerializer.Serialize(supportedCountries);
+        tenant.AllowedOriginCountriesJson = TenantCountryCodeSerializer.Serialize(supportedCountries);
+        tenant.AllowedDestinationCountriesJson = TenantCountryCodeSerializer.Serialize(supportedCountries);
         tenant.UpdatedAt = now;
         tenant.UpdatedBy = userId;
 
