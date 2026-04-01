@@ -27,6 +27,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Install dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.1
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
       - name: Restore dependencies
         run: dotnet restore Aonik.sln
 
