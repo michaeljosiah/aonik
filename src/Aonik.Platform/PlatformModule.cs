@@ -71,6 +71,7 @@ public sealed class PlatformModule : IModule
         services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
         services.Configure<OnboardingPolicyOptions>(configuration.GetSection("OnboardingPolicy"));
         services.Configure<VerificationOptions>(configuration.GetSection("Verification"));
+        services.Configure<AzureMonitorAlertOptions>(configuration.GetSection("Operations:Alerts:AzureMonitor"));
 
         // ── Platform Services ────────────────────────────────────────
         services.AddScoped<ITenantService, TenantService>();
@@ -101,6 +102,14 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
         services.AddScoped<IPartyAccountService, PartyAccountService>();
         services.AddScoped<IScheduledJobAdminService, ScheduledJobAdminService>();
+        services.AddScoped<IAlertAdminService, AlertAdminService>();
+        services.AddScoped<IAlertIngestionService, AlertIngestionService>();
+        services.AddScoped<IAlertAnalysisWorkflow, AzureMonitorAlertAnalysisWorkflow>();
+        services.AddScoped<IAlertAudienceResolver, PlatformAdminAlertAudienceResolver>();
+        services.AddScoped<IAlertProcessingService, AlertProcessingService>();
+        services.AddSingleton<AlertProcessingQueue>();
+        services.AddSingleton<IAlertProcessingQueue>(sp => sp.GetRequiredService<AlertProcessingQueue>());
+        services.AddHostedService<AlertProcessingBackgroundService>();
 
         // ── CMS Services ─────────────────────────────────────────────
         services.AddScoped<IContentBlockService, ContentBlockService>();

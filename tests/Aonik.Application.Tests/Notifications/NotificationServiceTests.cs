@@ -200,6 +200,56 @@ public class NotificationServiceTests
         otherNotification.Status.Should().Be(NotificationStatuses.Unread);
     }
 
+    [Fact]
+    public async Task ListForCurrentUserAsync_ShouldIncludeGlobalNotificationsForCurrentUser()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var clock = new TestClock(new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc));
+        using var context = CreateDbContext(tenantId, userId, clock);
+
+        context.Notifications.AddRange(
+            new Notification
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                Channel = NotificationChannels.InApp,
+                Type = "ScheduledJobCommandQueued",
+                Source = "Scheduler",
+                Title = "Tenant scoped",
+                Body = "Tenant scoped notification",
+                Severity = NotificationSeverities.Info,
+                Status = NotificationStatuses.Unread,
+                MetadataJson = "{}",
+                CreatedAt = clock.UtcNow,
+            },
+            new Notification
+            {
+                TenantId = Guid.Empty,
+                UserId = userId,
+                Channel = NotificationChannels.InApp,
+                Type = "PlatformPerformanceResolved",
+                Source = "AzureMonitor",
+                Title = "Global alert",
+                Body = "Global platform alert notification",
+                Severity = NotificationSeverities.Success,
+                Status = NotificationStatuses.Unread,
+                MetadataJson = "{}",
+                CreatedAt = clock.UtcNow.AddMinutes(-1),
+            });
+
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context, tenantId, userId, clock);
+
+        var results = await service.ListForCurrentUserAsync(new NotificationListRequest(Status: null));
+        var summary = await service.GetSummaryForCurrentUserAsync();
+
+        results.Should().HaveCount(2);
+        results.Select(x => x.Title).Should().Contain(new[] { "Tenant scoped", "Global alert" });
+        summary.UnreadCount.Should().Be(2);
+    }
+
     private static NotificationService CreateService(
         PlatformDbContext context,
         Guid tenantId,

@@ -40,7 +40,7 @@ internal sealed class NotificationService : INotificationService
 
         var query = _dbContext.Notifications
             .AsNoTracking()
-            .Where(x => x.TenantId == tenantId && x.UserId == userId);
+            .Where(x => x.UserId == userId && (x.TenantId == tenantId || x.TenantId == Guid.Empty));
 
         if (!request.IncludeDismissed && string.IsNullOrWhiteSpace(request.Status))
         {
@@ -73,8 +73,8 @@ internal sealed class NotificationService : INotificationService
         var unreadCount = await _dbContext.Notifications
             .AsNoTracking()
             .CountAsync(
-                x => x.TenantId == tenantId
-                    && x.UserId == userId
+                x => x.UserId == userId
+                    && (x.TenantId == tenantId || x.TenantId == Guid.Empty)
                     && x.Status == NotificationStatuses.Unread,
                 cancellationToken);
 
@@ -89,6 +89,11 @@ internal sealed class NotificationService : INotificationService
         var notification = await _dbContext.Notifications
             .FirstOrDefaultAsync(
                 x => x.Id == notificationId && x.TenantId == tenantId && x.UserId == userId,
+                cancellationToken);
+
+        notification ??= await _dbContext.Notifications
+            .FirstOrDefaultAsync(
+                x => x.Id == notificationId && x.TenantId == Guid.Empty && x.UserId == userId,
                 cancellationToken);
 
         if (notification is null)
@@ -121,6 +126,11 @@ internal sealed class NotificationService : INotificationService
                 x => x.Id == notificationId && x.TenantId == tenantId && x.UserId == userId,
                 cancellationToken);
 
+        notification ??= await _dbContext.Notifications
+            .FirstOrDefaultAsync(
+                x => x.Id == notificationId && x.TenantId == Guid.Empty && x.UserId == userId,
+                cancellationToken);
+
         if (notification is null)
         {
             return null;
@@ -150,8 +160,8 @@ internal sealed class NotificationService : INotificationService
 
         var notifications = await _dbContext.Notifications
             .Where(
-                x => x.TenantId == tenantId
-                    && x.UserId == userId
+                x => x.UserId == userId
+                    && (x.TenantId == tenantId || x.TenantId == Guid.Empty)
                     && x.Status == NotificationStatuses.Unread)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -220,11 +230,6 @@ internal sealed class NotificationService : INotificationService
             .Where(x => x != Guid.Empty)
             .Distinct()
             .ToList();
-
-        if (request.TenantId == Guid.Empty)
-        {
-            throw new ArgumentException("TenantId is required.", nameof(request));
-        }
 
         if (userIds.Count == 0)
         {
@@ -310,11 +315,6 @@ internal sealed class NotificationService : INotificationService
         string severity,
         string channel)
     {
-        if (tenantId == Guid.Empty)
-        {
-            throw new ArgumentException("TenantId is required.", nameof(tenantId));
-        }
-
         if (userId == Guid.Empty)
         {
             throw new ArgumentException("UserId is required.", nameof(userId));

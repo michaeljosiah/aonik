@@ -121,4 +121,5 @@ jobs:
             --parameters "sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}"
             --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
             --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
+            --parameters "alertsSharedSecret=${{ secrets.ALERTS_SHARED_SECRET }}"
             ${{ inputs.location != '' && format('--parameters "location={0}"', inputs.location) || '' }}

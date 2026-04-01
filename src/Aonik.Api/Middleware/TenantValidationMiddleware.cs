@@ -37,6 +37,7 @@ public class TenantValidationMiddleware
             // Skip admin endpoints (they use platform/global policies, not tenant-scoped validation)
             if (context.Request.Path.StartsWithSegments("/host") ||
                 context.Request.Path.StartsWithSegments("/admin") ||
+                context.Request.Path.StartsWithSegments("/integrations") ||
                 context.Request.Path.StartsWithSegments("/bootstrap"))
             {
                 await _next(context);

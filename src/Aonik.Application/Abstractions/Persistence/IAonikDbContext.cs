@@ -78,6 +78,7 @@ public interface IAonikDbContext
     // Operations
     DbSet<WorkItem> WorkItems { get; set; }
     DbSet<Job> Jobs { get; set; }
+    DbSet<AzureMonitorAlertEvent> AzureMonitorAlertEvents { get; set; }
 
     // Notifications
     DbSet<Notification> Notifications { get; set; }

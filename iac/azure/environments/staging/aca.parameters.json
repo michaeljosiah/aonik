@@ -20,6 +20,9 @@
     "adminUiTargetPort": {
       "value": 80
     },
+    "alertsEnabled": {
+      "value": true
+    },
     "sqlAdminPassword": {
       "value": "REPLACE_WITH_SECURE_VALUE"
     },

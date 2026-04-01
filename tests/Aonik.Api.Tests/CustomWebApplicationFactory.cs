@@ -42,6 +42,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["Bootstrap:SetupSecret"] = "test-install-code",
                 ["Bootstrap:TenantName"] = "Bootstrap Test Tenant",
                 ["PlatformAdmin:AdminEmails:0"] = "bootstrap-admin@example.com",
+                ["Operations:Alerts:AzureMonitor:SharedSecret"] = "test-alert-secret",
                 ["BlobStorage:Provider"] = "Local",
                 ["BlobStorage:LocalBasePath"] = $"App_Data/Test_{_databaseName}",
                 ["BlobStorage:ProfilePhotos:Path"] = $"profiles_{_databaseName}",

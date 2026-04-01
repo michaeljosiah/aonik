@@ -26,10 +26,10 @@ internal sealed class NotificationRealtimePublisher : INotificationRealtimePubli
 {
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, Channel<NotificationRealtimeEvent>>> _subscribers = new();
 
-    public async IAsyncEnumerable<NotificationRealtimeEvent> SubscribeAsync(
+    public IAsyncEnumerable<NotificationRealtimeEvent> SubscribeAsync(
         Guid tenantId,
         Guid userId,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
     {
         var key = BuildKey(tenantId, userId);
         var subscriberId = Guid.NewGuid();
@@ -42,6 +42,15 @@ internal sealed class NotificationRealtimePublisher : INotificationRealtimePubli
         var subscribers = _subscribers.GetOrAdd(key, _ => new ConcurrentDictionary<Guid, Channel<NotificationRealtimeEvent>>());
         subscribers[subscriberId] = channel;
 
+        return ReadFromChannelAsync(key, subscriberId, channel, cancellationToken);
+    }
+
+    private async IAsyncEnumerable<NotificationRealtimeEvent> ReadFromChannelAsync(
+        string key,
+        Guid subscriberId,
+        Channel<NotificationRealtimeEvent> channel,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         try
         {
             while (await channel.Reader.WaitToReadAsync(cancellationToken))
@@ -72,6 +81,12 @@ internal sealed class NotificationRealtimePublisher : INotificationRealtimePubli
         cancellationToken.ThrowIfCancellationRequested();
 
         var key = BuildKey(notificationEvent.Notification.TenantId, notificationEvent.Notification.UserId);
+        if (notificationEvent.Notification.TenantId == Guid.Empty)
+        {
+            PublishToAllSubscribersForUser(notificationEvent);
+            return ValueTask.CompletedTask;
+        }
+
         if (!_subscribers.TryGetValue(key, out var subscribers))
         {
             return ValueTask.CompletedTask;
@@ -83,6 +98,24 @@ internal sealed class NotificationRealtimePublisher : INotificationRealtimePubli
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    private void PublishToAllSubscribersForUser(NotificationRealtimeEvent notificationEvent)
+    {
+        var userSuffix = $":{notificationEvent.Notification.UserId:N}";
+
+        foreach (var subscriberGroup in _subscribers)
+        {
+            if (!subscriberGroup.Key.EndsWith(userSuffix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (var subscriber in subscriberGroup.Value.Values)
+            {
+                subscriber.Writer.TryWrite(notificationEvent);
+            }
+        }
     }
 
     private static string BuildKey(Guid tenantId, Guid userId)

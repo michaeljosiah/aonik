@@ -92,6 +92,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     // Operations
     public virtual DbSet<WorkItem> WorkItems { get; set; } = null!;
     public virtual DbSet<Job> Jobs { get; set; } = null!;
+    public virtual DbSet<AzureMonitorAlertEvent> AzureMonitorAlertEvents { get; set; } = null!;
 
     // Notifications
     public virtual DbSet<Notification> Notifications { get; set; } = null!;
@@ -190,7 +191,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
 
     protected override bool IsGlobalEntity(object entity)
     {
-        return entity is Role or Job;
+        return entity is Role or Job or AzureMonitorAlertEvent;
     }
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
@@ -243,6 +244,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
         MapPlatformTable<Job>(modelBuilder, "Jobs");
+        MapPlatformTable<AzureMonitorAlertEvent>(modelBuilder, "AzureMonitorAlertEvents");
         MapPlatformTable<Notification>(modelBuilder, "Notifications");
         MapPlatformTable<NotificationTemplate>(modelBuilder, "NotificationTemplates");
         MapPlatformTable<NotificationTemplateBinding>(modelBuilder, "NotificationTemplateBindings");

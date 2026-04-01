@@ -203,6 +203,7 @@ resource keyVaultDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-p
 output sqlServerName string = sqlServer.name
 output sqlServerId string = sqlServer.id
 output sqlDatabaseName string = sqlDatabase.name
+output sqlDatabaseId string = sqlDatabase.id
 output keyVaultName string = keyVault.name
 output keyVaultId string = keyVault.id
 output sqlConnectionSecretUri string = sqlConnectionSecret.properties.secretUri

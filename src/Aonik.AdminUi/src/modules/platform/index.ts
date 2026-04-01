@@ -23,6 +23,7 @@ import {
   BackgroundJobsPage,
   BackgroundJobDetailPage,
 } from '@/pages/settings';
+import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
 import { ContentWizardPage } from '@/pages/ContentWizardPage';
@@ -63,6 +64,7 @@ const navigation: NavigationSection[] = [
             label: 'Infrastructure',
             items: [
               { id: 'tenants', label: 'Tenants', icon: 'Building', href: '/tenants' },
+              { id: 'platform-alerts', label: 'Platform Alerts', icon: 'Bell', href: '/admin/alerts' },
               { id: 'background-jobs', label: 'Background Jobs', icon: 'Timer', href: '/settings/background-jobs' },
               { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
             ],
@@ -95,6 +97,8 @@ const routes = [
   { path: '/tenants', element: TenantsListPage },
   { path: '/tenants/new', element: CreateTenantPage },
   { path: '/tenants/:id', element: TenantDetailPage, isDynamic: true },
+  { path: '/admin/alerts', element: AlertsPage },
+  { path: '/admin/alerts/:id', element: AlertDetailPage, isDynamic: true },
   { path: '/settings', element: SettingsLandingPage },
   { path: '/settings/general', element: SettingsGeneralPage },
   { path: '/settings/webhooks', element: SettingsWebhooksPage },
@@ -119,6 +123,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'access-roles', title: 'Roles', type: 'internal', componentKey: 'access-roles', route: '/access/roles' },
   { id: 'access-permissions', title: 'Permissions', type: 'internal', componentKey: 'access-permissions', route: '/access/permissions' },
   { id: 'tenants', title: 'Tenants', type: 'internal', componentKey: 'tenants', route: '/tenants' },
+  { id: 'platform-alerts', title: 'Platform Alerts', type: 'internal', componentKey: 'platform-alerts', route: '/admin/alerts' },
   { id: 'settings', title: 'Settings', type: 'internal', componentKey: 'settings-home', route: '/settings' },
   { id: 'settings-general', title: 'General', type: 'internal', componentKey: 'settings-general', route: '/settings/general' },
   { id: 'settings-webhooks', title: 'Webhooks', type: 'internal', componentKey: 'settings-webhooks', route: '/settings/webhooks' },
@@ -137,6 +142,7 @@ const panelComponents = {
   'access-roles': wrapPage(AccessRolesPage),
   'access-permissions': wrapPage(AccessPermissionsPage),
   tenants: wrapPage(TenantsListPage),
+  'platform-alerts': wrapPage(AlertsPage),
   'settings-home': wrapPage(SettingsLandingPage),
   'settings-general': wrapPage(SettingsGeneralPage),
   'settings-webhooks': wrapPage(SettingsWebhooksPage),
@@ -154,6 +160,7 @@ const panelComponents = {
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/access', trail: ['Admin', 'Team'] },
+  { pathPrefix: '/admin', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/tenants', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/settings', trail: ['Admin', 'Settings'] },
   { pathPrefix: '/cms', trail: ['Admin', 'Content'] },

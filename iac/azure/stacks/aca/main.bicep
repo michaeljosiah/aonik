@@ -37,6 +37,13 @@ param verificationHashKey string = ''
 @description('One-time platform bootstrap install code injected into the API container.')
 param bootstrapSetupSecret string = ''
 
+@description('Enable Azure Monitor alerts and webhook-based platform alert ingestion.')
+param alertsEnabled bool = false
+
+@secure()
+@description('Shared secret used by Azure Monitor alert delivery to AONIK.')
+param alertsSharedSecret string = ''
+
 @description('Resource tags applied to all supported resources.')
 param tags object = {}
 
@@ -68,6 +75,7 @@ var apiAppName = '${namePrefix}-api'
 var adminUiAppName = '${namePrefix}-adminui'
 @description('Whether real ACS and verification secrets are provided (enables Key Vault references instead of empty inline values).')
 param enableOptionalSecrets bool = false
+var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress.fqdn}/integrations/azure/alerts?code=${uriComponent(alertsSharedSecret)}'
 var apiAdditionalEnvVars = [for setting in items(apiAppSettings): {
   name: setting.key
   value: string(setting.value)
@@ -122,7 +130,7 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
   tags: tags
   properties: {
     vnetConfiguration: enableNetworkIsolation ? {
-      infrastructureSubnetId: network.outputs.acaSubnetId
+      infrastructureSubnetId: network!.outputs.acaSubnetId
       internal: false
     } : null
     appLogsConfiguration: {
@@ -224,6 +232,11 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'bootstrap-setup-secret'
           value: bootstrapSetupSecret
         }
+      ], [
+        {
+          name: 'operations-alerts-azure-monitor-shared-secret'
+          value: empty(alertsSharedSecret) ? 'placeholder' : alertsSharedSecret
+        }
       ])
     }
     template: {
@@ -259,6 +272,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Verification__HashKey'
               secretRef: 'verification-hash-key'
+            }
+            {
+              name: 'Operations__Alerts__AzureMonitor__SharedSecret'
+              secretRef: 'operations-alerts-azure-monitor-shared-secret'
             }
           ], empty(bootstrapSetupSecret) ? [] : [
             {
@@ -480,6 +497,25 @@ resource kvSecretsUserRoleForWorker 'Microsoft.Authorization/roleAssignments@202
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
     principalId: workerApp.identity.principalId
     principalType: 'ServicePrincipal'
+  }
+}
+
+module monitoring '../../modules/monitoring.bicep' = if (alertsEnabled) {
+  name: 'monitoring-${environmentName}'
+  params: {
+    location: location
+    workloadName: workloadName
+    environmentName: environmentName
+    tags: tags
+    alertsEnabled: alertsEnabled
+    alertsWebhookServiceUri: alertsWebhookServiceUri
+    logAnalyticsWorkspaceId: common.outputs.logAnalyticsWorkspaceId
+    apiAppResourceId: apiApp.id
+    apiAppName: apiApp.name
+    workerAppResourceId: workerApp.id
+    workerAppName: workerApp.name
+    sqlDatabaseResourceId: data.outputs.sqlDatabaseId
+    keyVaultResourceId: data.outputs.keyVaultId
   }
 }
 

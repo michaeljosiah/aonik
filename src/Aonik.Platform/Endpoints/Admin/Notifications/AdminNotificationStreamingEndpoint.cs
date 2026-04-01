@@ -59,6 +59,9 @@ public static class AdminNotificationStreamingEndpoint
         context.Response.Headers["Pragma"] = "no-cache";
         context.Response.Headers["X-Accel-Buffering"] = "no";
 
+        await using var enumerator = realtimePublisher.SubscribeAsync(tenantId, userId, cancellationToken)
+            .GetAsyncEnumerator(cancellationToken);
+
         var summary = await notificationService.GetSummaryForCurrentUserAsync(cancellationToken);
         await WriteSseEventAsync(context.Response, new
         {
@@ -66,9 +69,6 @@ public static class AdminNotificationStreamingEndpoint
             unreadCount = summary.UnreadCount,
             serverTimeUtc = DateTime.UtcNow,
         }, cancellationToken);
-
-        await using var enumerator = realtimePublisher.SubscribeAsync(tenantId, userId, cancellationToken)
-            .GetAsyncEnumerator(cancellationToken);
 
         try
         {

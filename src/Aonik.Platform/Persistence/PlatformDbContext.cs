@@ -75,6 +75,7 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<ScheduledJobAdminCommand> ScheduledJobAdminCommands { get; set; } = null!;
     public DbSet<ScheduledJobRun> ScheduledJobRuns { get; set; } = null!;
     public DbSet<SchedulerHealthSnapshot> SchedulerHealthSnapshots { get; set; } = null!;
+    public DbSet<AzureMonitorAlertEvent> AzureMonitorAlertEvents { get; set; } = null!;
 
     // Settings
     public DbSet<Setting> Settings { get; set; } = null!;
@@ -137,7 +138,13 @@ internal class PlatformDbContext : AonikDbContextBase
 
     protected override bool IsGlobalEntity(object entity)
     {
-        return entity is Role or Job or ScheduledJobProjection or ScheduledJobAdminCommand or ScheduledJobRun or SchedulerHealthSnapshot;
+        return entity is Role
+            or Job
+            or ScheduledJobProjection
+            or ScheduledJobAdminCommand
+            or ScheduledJobRun
+            or SchedulerHealthSnapshot
+            or AzureMonitorAlertEvent;
     }
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
@@ -186,6 +193,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<ScheduledJobAdminCommand>(modelBuilder, "ScheduledJobAdminCommands");
         MapTable<ScheduledJobRun>(modelBuilder, "ScheduledJobRuns");
         MapTable<SchedulerHealthSnapshot>(modelBuilder, "SchedulerHealthSnapshots");
+        MapTable<AzureMonitorAlertEvent>(modelBuilder, "AzureMonitorAlertEvents");
 
         MapTable<Setting>(modelBuilder, "Settings");
         MapTable<TenantFeature>(modelBuilder, "TenantFeatures");
