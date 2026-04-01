@@ -133,6 +133,8 @@ public sealed class AiModule : IModule
         services.AddScoped<IInsightWriter, InsightWriter>();
         services.AddScoped<IInsightReader, InsightReader>();
         services.AddScoped<IAiRunWriter, AiRunWriter>();
+        services.AddScoped<ICustomerInsightAiSummaryService, CustomerInsightAiSummaryService>();
+        services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
 
         // User memory — manages AI-learned facts, preferences, and corrections about users
         services.AddScoped<Contracts.Services.IUserMemoryService, UserMemoryService>();

@@ -37,6 +37,7 @@ internal class AiDbContext : AonikDbContextBase
     public DbSet<EvalRun> EvalRuns { get; set; } = null!;
 
     // ── Insights & Signals ─────────────────────────────────────────
+    public DbSet<CustomerInsightAiSummary> CustomerInsightAiSummaries { get; set; } = null!;
     public DbSet<Insight> Insights { get; set; } = null!;
     public DbSet<Signal> Signals { get; set; } = null!;
 
@@ -89,6 +90,7 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<AiFeedback>(modelBuilder, "AiFeedbacks");
         MapTable<EvalSuite>(modelBuilder, "EvalSuites");
         MapTable<EvalRun>(modelBuilder, "EvalRuns");
+        MapTable<CustomerInsightAiSummary>(modelBuilder, "CustomerInsightAiSummaries");
         MapTable<Insight>(modelBuilder, "Insights");
         MapTable<Signal>(modelBuilder, "Signals");
         MapTable<UserMemoryEntry>(modelBuilder, "UserMemoryEntries");

@@ -324,6 +324,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapAiTable<AiFeedback>(modelBuilder, "AiFeedbacks");
         MapAiTable<EvalSuite>(modelBuilder, "EvalSuites");
         MapAiTable<EvalRun>(modelBuilder, "EvalRuns");
+        MapAiTable<CustomerInsightAiSummary>(modelBuilder, "CustomerInsightAiSummaries");
         MapAiTable<Insight>(modelBuilder, "Insights");
         MapAiTable<Signal>(modelBuilder, "Signals");
 

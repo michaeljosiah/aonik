@@ -108,6 +108,13 @@ internal static class ScheduledJobDefinitions
                 "Generates deterministic customer insight snapshots for eligible personal finance users.",
                 options.CustomerInsightSnapshot.CronExpression,
                 options.CustomerInsightSnapshot.Enabled),
+            new ScheduledJobDefinition<CustomerInsightAiSummaryJob>(
+                CustomerInsightAiSummaryJob.Key,
+                new TriggerKey("CustomerInsightAiSummaryJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Customer Insight AI Summary",
+                "Generates AI interpretations from deterministic customer insight snapshots.",
+                options.CustomerInsightAiSummary.CronExpression,
+                options.CustomerInsightAiSummary.Enabled),
         ];
     }
 }

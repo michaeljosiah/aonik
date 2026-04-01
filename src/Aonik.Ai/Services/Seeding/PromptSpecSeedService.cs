@@ -1,5 +1,6 @@
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -132,6 +133,10 @@ internal class PromptSpecSeedService
 
         new("personal_spending_insight", "v1",
             VariablesSchemaJson: """{"SPENDING_DATA": "Spending summary data as JSON"}"""),
+
+        new("customer_insight_summary", "v1",
+            VariablesSchemaJson: """{"SNAPSHOT_JSON": "Deterministic customer insight snapshot as JSON"}""",
+            OutputSchemaJson: CustomerInsightAiSummaryContract.SummaryJsonSchema),
 
         new("invoice_insight", "v1",
             VariablesSchemaJson: """{"INVOICE_DATA": "Invoice details as JSON"}"""),

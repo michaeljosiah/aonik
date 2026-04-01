@@ -10,6 +10,7 @@ public sealed class ScheduledJobOptions
     public StaleSessionDetectorJobOptions StaleSessionDetector { get; set; } = new();
     public BehaviouralInsightJobOptions BehaviouralInsight { get; set; } = new();
     public CustomerInsightSnapshotJobOptions CustomerInsightSnapshot { get; set; } = new();
+    public CustomerInsightAiSummaryJobOptions CustomerInsightAiSummary { get; set; } = new();
 }
 
 public sealed class FinancialConnectionSyncJobOptions
@@ -62,4 +63,20 @@ public sealed class CustomerInsightSnapshotJobOptions
     public int UserWarningThresholdSeconds { get; set; } = 10;
 
     public int UserTimeoutSeconds { get; set; } = 60;
+}
+
+public sealed class CustomerInsightAiSummaryJobOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Quartz cron expression (6-field with seconds). Default: every 30 minutes.
+    /// </summary>
+    public string CronExpression { get; set; } = "0 0/30 * * * ?";
+
+    public int BatchSize { get; set; } = 50;
+
+    public int SnapshotWarningThresholdSeconds { get; set; } = 20;
+
+    public int SnapshotTimeoutSeconds { get; set; } = 90;
 }
