@@ -45,6 +45,8 @@ foreach (var definition in scheduledJobDefinitions)
     builder.Services.AddSingleton<IScheduledJobDefinition>(definition);
 }
 
+builder.Services.AddScoped<ICustomerInsightSnapshotJobUserEnumerator, CustomerInsightSnapshotJobUserEnumerator>();
+
 // Register the Quartz runtime only in the Worker host.
 builder.Services.AddQuartzBackgroundJobRuntime();
 

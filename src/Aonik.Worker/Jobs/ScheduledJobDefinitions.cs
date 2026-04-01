@@ -101,6 +101,13 @@ internal static class ScheduledJobDefinitions
                 "Pre-computes behavioural spending insights for personal finance users.",
                 options.BehaviouralInsight.CronExpression,
                 options.BehaviouralInsight.Enabled),
+            new ScheduledJobDefinition<CustomerInsightSnapshotJob>(
+                CustomerInsightSnapshotJob.Key,
+                new TriggerKey("CustomerInsightSnapshotJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Customer Insight Snapshot",
+                "Generates deterministic customer insight snapshots for eligible personal finance users.",
+                options.CustomerInsightSnapshot.CronExpression,
+                options.CustomerInsightSnapshot.Enabled),
         ];
     }
 }

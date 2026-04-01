@@ -81,6 +81,43 @@ internal sealed class CustomerInsightSnapshotService : ICustomerInsightSnapshotS
             return await _reader.GetSnapshotAsync(snapshot.Id, cancellationToken)
                 ?? throw new InvalidOperationException($"Customer insight snapshot {snapshot.Id} was not found after persistence.");
         }
+        catch (OperationCanceledException)
+        {
+            var failedSnapshot = new CustomerInsightSnapshot
+            {
+                UserId = userId,
+                Status = CustomerInsightSnapshotContract.StatusFailed,
+                AsOfUtc = _clock.UtcNow,
+                WindowStartUtc = ResolveBehaviourWindowStart(_clock.UtcNow),
+                WindowEndUtc = ResolveWindowEnd(_clock.UtcNow),
+                Version = (current?.Version ?? 0) + 1,
+                SourceHash = string.Empty,
+                SnapshotJson = string.Empty,
+                GeneratedBy = CustomerInsightSnapshotContract.GeneratorVersion,
+                GenerationDurationMs = (int)stopwatch.ElapsedMilliseconds,
+                FailureReason = "Snapshot generation timed out or was cancelled."
+            };
+
+            _dbContext.CustomerInsightSnapshots.Add(failedSnapshot);
+            await _dbContext.SaveChangesAsync(CancellationToken.None);
+
+            return new CustomerInsightSnapshotResponse(
+                failedSnapshot.Id,
+                failedSnapshot.UserId,
+                failedSnapshot.Status,
+                failedSnapshot.AsOfUtc,
+                failedSnapshot.WindowStartUtc,
+                failedSnapshot.WindowEndUtc,
+                failedSnapshot.Version,
+                failedSnapshot.SourceHash,
+                failedSnapshot.GeneratedBy,
+                failedSnapshot.GenerationDurationMs,
+                failedSnapshot.FailureReason,
+                failedSnapshot.SupersededById,
+                failedSnapshot.CreatedAt,
+                failedSnapshot.UpdatedAt,
+                null);
+        }
         catch (Exception ex)
         {
             var failedSnapshot = new CustomerInsightSnapshot
@@ -99,7 +136,7 @@ internal sealed class CustomerInsightSnapshotService : ICustomerInsightSnapshotS
             };
 
             _dbContext.CustomerInsightSnapshots.Add(failedSnapshot);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await _dbContext.SaveChangesAsync(CancellationToken.None);
 
             return new CustomerInsightSnapshotResponse(
                 failedSnapshot.Id,
