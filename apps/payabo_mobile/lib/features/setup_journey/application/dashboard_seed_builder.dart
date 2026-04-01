@@ -22,8 +22,8 @@ abstract final class DashboardSeedBuilder {
     String greeting = 'default';
 
     if (profile.selectedUseCases.contains(SetupUseCase.sendMoneyHome) ||
-        profile.supportType == SupportType.parents ||
-        profile.supportType == SupportType.siblings) {
+        profile.supportTypes.contains(SupportType.parents) ||
+        profile.supportTypes.contains(SupportType.siblings)) {
       greeting = 'diaspora_family';
     } else if (profile.selectedUseCases.contains(SetupUseCase.saveForGoals)) {
       greeting = 'goal_focused';
@@ -32,8 +32,7 @@ abstract final class DashboardSeedBuilder {
     }
 
     // ── Suggested modules ─────────────────────────────────
-    if (profile.selectedUseCases.contains(SetupUseCase.manageBills) ||
-        profile.responsibilities.isNotEmpty) {
+    if (profile.selectedUseCases.contains(SetupUseCase.manageBills)) {
       modules.add('bills');
     }
 
@@ -80,9 +79,8 @@ abstract final class DashboardSeedBuilder {
       );
     }
 
-    if (profile.responsibilities.contains(ResponsibilityType.familySupport) ||
-        (profile.supportType != null &&
-            profile.supportType != SupportType.noOne)) {
+    if (profile.supportTypes.isNotEmpty &&
+        !profile.supportTypes.every((SupportType t) => t == SupportType.noOne)) {
       nudges.add(
         'I\'ll help you plan around your family commitments so nothing '
         'catches you off guard.',

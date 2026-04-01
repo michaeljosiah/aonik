@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
@@ -19,6 +21,7 @@ class ContactDetailsScreen extends ConsumerStatefulWidget {
 
 class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
   late final TextEditingController _phoneController;
+  bool _isSending = false;
 
   @override
   void initState() {
@@ -39,7 +42,7 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
     final c = context.colors;
     final onboarding = ref.watch(onboardingControllerProvider);
     final phoneCountry = onboarding.phoneCountry;
-    final canVerify =
+    final canVerify = !_isSending &&
         _phoneController.text.trim().replaceAll(RegExp(r'\D'), '').length >= 6;
 
     return AuthFlowScaffold(
@@ -126,13 +129,47 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
           ),
           const SizedBox(height: PayaboSpacing.xl),
           PayaboButton(
-            label: 'Verify Number',
-            onPressed: canVerify
-                ? () => context.go('/auth/register/phone-code')
-                : null,
+            label: _isSending ? 'Sending code...' : 'Verify Number',
+            onPressed: canVerify ? _sendPhoneOtp : null,
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _sendPhoneOtp() async {
+    final onboarding = ref.read(onboardingControllerProvider);
+    final dialCode = onboarding.phoneCountry.dialCode.trim();
+    final digits =
+        _phoneController.text.trim().replaceAll(RegExp(r'\D'), '');
+    final fullPhone = '$dialCode$digits';
+
+    setState(() => _isSending = true);
+
+    try {
+      final repository = ref.read(authRepositoryProvider);
+      final result = await repository.sendRegistrationPhoneOtp(fullPhone);
+
+      ref
+          .read(onboardingControllerProvider.notifier)
+          .setPhoneOtpChallengeId(result.challengeId);
+
+      if (!mounted) return;
+      context.go('/auth/register/phone-code');
+    } catch (error) {
+      if (!mounted) return;
+
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to send verification code right now.';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
   }
 }

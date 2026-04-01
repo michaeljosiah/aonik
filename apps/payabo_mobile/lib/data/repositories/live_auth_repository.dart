@@ -164,6 +164,59 @@ class LiveAuthRepository implements AuthRepository {
     }
   }
 
+  @override
+  Future<PhoneOtpResult> sendRegistrationPhoneOtp(String phone) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/v1/registrations/phone/send-otp',
+        data: <String, dynamic>{
+          'tenantId': _tenantId,
+          'phone': phone.trim(),
+        },
+      );
+
+      final payload = response.data ?? const <String, dynamic>{};
+      final challengeId = (payload['challengeId'] as String?)?.trim() ?? '';
+      final expiresAtRaw = payload['expiresAt'] as String?;
+
+      if (challengeId.isEmpty) {
+        throw const ApiException(
+          message: 'Failed to send verification code.',
+        );
+      }
+
+      return PhoneOtpResult(
+        challengeId: challengeId,
+        expiresAt: expiresAtRaw != null
+            ? DateTime.parse(expiresAtRaw)
+            : DateTime.now().add(const Duration(minutes: 10)),
+      );
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    }
+  }
+
+  @override
+  Future<bool> verifyRegistrationPhoneOtp(
+    String challengeId,
+    String code,
+  ) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/v1/registrations/phone/verify-otp',
+        data: <String, dynamic>{
+          'challengeId': challengeId.trim(),
+          'code': code.trim(),
+        },
+      );
+
+      final payload = response.data ?? const <String, dynamic>{};
+      return payload['isVerified'] == true;
+    } on DioException catch (exception) {
+      throw mapDioException(exception);
+    }
+  }
+
   AuthTokenResult _mapTokenResponse(
     Map<String, dynamic> payload, {
     required String errorMessage,

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/setup_enums.dart';
 import '../domain/setup_models.dart';
 
-/// All 8 steps of the Payabo post-registration setup journey.
+/// All 6 steps of the Payabo post-registration setup journey.
 ///
 /// Each step has exact copy from the product spec, a typed interaction
 /// pattern, and structured options that map to domain enums.
@@ -11,10 +11,11 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
   // ── Step 1: Welcome ──────────────────────────────────────
   const SetupStepConfig(
     id: 'welcome',
-    message: 'Hi, I\'m Simi \u{1F44B}\n\n'
-        'I\'ll help you organise your finances, track what matters, '
-        'and make smarter money decisions across all your accounts.\n\n'
-        'Let\'s get you set up.',
+    message: 'Hi, I\u2019m Simi \u{1F44B}\n\n'
+        'I\u2019m so excited to help you take control of your money! '
+        'Together we\u2019ll organise your finances, spot what matters most, '
+        'and build real momentum toward your goals.\n\n'
+        'Let\u2019s get started \u2014 this only takes a minute.',
     type: SetupStepType.singleAction,
     options: <SetupOption>[
       SetupOption(
@@ -25,11 +26,12 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
     ],
   ),
 
-  // ── Step 2: What do you want help with? ──────────────────
+  // ── Step 2: What matters most? ───────────────────────────
   SetupStepConfig(
     id: 'use_cases',
-    message: 'What would you like help with first?\n\n'
-        'I can tailor Payabo around how you manage your money.',
+    message: 'What matters most to you right now?\n\n'
+        'Pick as many as you like \u2014 this helps me focus on what will '
+        'make the biggest difference for you.',
     type: SetupStepType.multiSelect,
     options: <SetupOption>[
       SetupOption(
@@ -60,44 +62,13 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
     ],
   ),
 
-  // ── Step 3: Where do you keep your money? ────────────────
-  SetupStepConfig(
-    id: 'account_sources',
-    message: 'Where do you currently keep your money?\n\n'
-        'You can connect multiple account types so I can give you '
-        'a complete financial picture.',
-    type: SetupStepType.multiSelect,
-    options: <SetupOption>[
-      SetupOption(
-        id: AccountSourceType.ukBank.name,
-        label: 'UK bank accounts',
-        icon: Icons.account_balance_outlined,
-      ),
-      SetupOption(
-        id: AccountSourceType.nigerianBank.name,
-        label: 'Nigerian bank accounts',
-        icon: Icons.account_balance_outlined,
-      ),
-      SetupOption(
-        id: AccountSourceType.mobileWallet.name,
-        label: 'Mobile wallets',
-        icon: Icons.phone_android_outlined,
-      ),
-      SetupOption(
-        id: AccountSourceType.cashManual.name,
-        label: 'Cash / manual tracking',
-        icon: Icons.payments_outlined,
-      ),
-    ],
-  ),
-
-  // ── Step 4: Connect your first account ───────────────────
+  // ── Step 3: Connect your first account ───────────────────
   SetupStepConfig(
     id: 'connect_account',
-    message: 'Connecting at least one account helps me automatically track '
-        'your finances and give you useful recommendations straight away.\n\n'
-        'You can always add more later.',
-    helperText: 'You remain in control. Accounts can be connected later.',
+    message: 'Want to connect an account? It\u2019s the fastest way to unlock '
+        'personalised insights and start seeing your full financial picture.\n\n'
+        'You can always add more accounts later \u2014 no pressure!',
+    helperText: 'Your data stays private. You\u2019re always in control.',
     type: SetupStepType.singleSelect,
     canSkip: true,
     options: <SetupOption>[
@@ -113,55 +84,20 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
       ),
       SetupOption(
         id: SetupConnectChoice.skipForNow.name,
-        label: 'I\'ll do this later',
+        label: 'I\u2019ll do this later',
         icon: Icons.schedule_outlined,
       ),
     ],
   ),
 
-  // ── Step 5: Bills and responsibilities ───────────────────
-  SetupStepConfig(
-    id: 'responsibilities',
-    message: 'What regular things do you usually pay for?\n\n'
-        'I can help you keep track of these and remind you before '
-        'they become urgent.',
-    type: SetupStepType.multiSelect,
-    options: <SetupOption>[
-      SetupOption(
-        id: ResponsibilityType.rentOrMortgage.name,
-        label: 'Rent or mortgage',
-        icon: Icons.home_outlined,
-      ),
-      SetupOption(
-        id: ResponsibilityType.electricity.name,
-        label: 'Electricity',
-        icon: Icons.bolt_outlined,
-      ),
-      SetupOption(
-        id: ResponsibilityType.internet.name,
-        label: 'Internet',
-        icon: Icons.wifi_outlined,
-      ),
-      SetupOption(
-        id: ResponsibilityType.subscriptions.name,
-        label: 'Subscriptions',
-        icon: Icons.subscriptions_outlined,
-      ),
-      SetupOption(
-        id: ResponsibilityType.familySupport.name,
-        label: 'Family support',
-        icon: Icons.family_restroom_outlined,
-      ),
-    ],
-  ),
-
-  // ── Step 6: Family and community support ─────────────────
+  // ── Step 4: Family and community support (multi-select) ──
   SetupStepConfig(
     id: 'family_support',
-    message: 'Do you regularly support anyone financially?\n\n'
-        'This helps me plan around the commitments that matter in real '
-        'life, not just personal spending.',
-    type: SetupStepType.singleSelect,
+    message: 'Do you support anyone financially?\n\n'
+        'There\u2019s real strength in looking after the people who matter. '
+        'I\u2019ll help you plan around those commitments so they never '
+        'catch you off guard.',
+    type: SetupStepType.multiSelect,
     options: <SetupOption>[
       SetupOption(
         id: SupportType.parents.name,
@@ -191,11 +127,12 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
     ],
   ),
 
-  // ── Step 7: Financial goals ──────────────────────────────
+  // ── Step 5: Financial goals ──────────────────────────────
   SetupStepConfig(
     id: 'financial_goals',
-    message: 'What are you working toward right now?\n\n'
-        'Choose the goals that matter most to you.',
+    message: 'What are you working toward?\n\n'
+        'Every big win starts with a clear goal. Pick the ones that fire '
+        'you up \u2014 I\u2019ll help you stay on track.',
     type: SetupStepType.multiSelect,
     options: <SetupOption>[
       SetupOption(
@@ -226,14 +163,16 @@ final List<SetupStepConfig> setupSteps = <SetupStepConfig>[
     ],
   ),
 
-  // ── Step 8: Summary ──────────────────────────────────────
+  // ── Step 6: Summary ──────────────────────────────────────
   const SetupStepConfig(
     id: 'summary',
-    message: 'Great, I have enough to start helping you.\n\n'
-        'I\'ll use this setup to organise your dashboard, track what '
-        'matters, and suggest the right next actions for your finances.',
-    helperText: 'Payabo helps organise your finances. You stay in control, '
-        'and recommendations always come before any action.',
+    message: 'You\u2019re all set! \u{1F389}\n\n'
+        'I\u2019ve got everything I need to build your personal financial '
+        'command centre. From here, I\u2019ll keep an eye on your money, '
+        'highlight opportunities, and nudge you toward your goals.\n\n'
+        'Let\u2019s make great things happen.',
+    helperText: 'Payabo gives you clarity and control. Recommendations '
+        'always come before any action.',
     type: SetupStepType.summary,
     options: <SetupOption>[],
   ),

@@ -75,11 +75,9 @@ void main() {
       expect(s.isReviewing, isFalse);
       expect(s.profile.completed, isFalse);
       expect(s.profile.selectedUseCases, isEmpty);
-      expect(s.profile.accountSourceTypes, isEmpty);
-      expect(s.profile.responsibilities, isEmpty);
       expect(s.profile.financialGoals, isEmpty);
       expect(s.profile.connectChoice, isNull);
-      expect(s.profile.supportType, isNull);
+      expect(s.profile.supportTypes, isEmpty);
     });
 
     test('total steps matches setupSteps length', () {
@@ -158,23 +156,16 @@ void main() {
       expect(state().profile.selectedUseCases, [SetupUseCase.saveForGoals]);
     });
 
-    test('toggleAccountSource adds then removes', () {
-      controller().toggleAccountSource(AccountSourceType.ukBank);
-      expect(state().profile.accountSourceTypes, [AccountSourceType.ukBank]);
+    test('toggleSupportType adds then removes', () {
+      controller().toggleSupportType(SupportType.parents);
+      expect(state().profile.supportTypes, [SupportType.parents]);
 
-      controller().toggleAccountSource(AccountSourceType.ukBank);
-      expect(state().profile.accountSourceTypes, isEmpty);
-    });
+      controller().toggleSupportType(SupportType.siblings);
+      expect(state().profile.supportTypes,
+          [SupportType.parents, SupportType.siblings]);
 
-    test('toggleResponsibility adds then removes', () {
-      controller().toggleResponsibility(ResponsibilityType.rentOrMortgage);
-      controller().toggleResponsibility(ResponsibilityType.electricity);
-      expect(state().profile.responsibilities,
-          [ResponsibilityType.rentOrMortgage, ResponsibilityType.electricity]);
-
-      controller().toggleResponsibility(ResponsibilityType.rentOrMortgage);
-      expect(
-          state().profile.responsibilities, [ResponsibilityType.electricity]);
+      controller().toggleSupportType(SupportType.parents);
+      expect(state().profile.supportTypes, [SupportType.siblings]);
     });
 
     test('toggleFinancialGoal adds then removes', () {
@@ -196,14 +187,6 @@ void main() {
 
       controller().setConnectChoice(SetupConnectChoice.skipForNow);
       expect(state().profile.connectChoice, SetupConnectChoice.skipForNow);
-    });
-
-    test('setSupportType updates profile', () {
-      controller().setSupportType(SupportType.parents);
-      expect(state().profile.supportType, SupportType.parents);
-
-      controller().setSupportType(SupportType.noOne);
-      expect(state().profile.supportType, SupportType.noOne);
     });
   });
 
@@ -348,10 +331,8 @@ void main() {
     test('reset clears all profile data after completing setup', () async {
       // Simulate a full setup journey
       controller().toggleUseCase(SetupUseCase.trackMoney);
-      controller().toggleAccountSource(AccountSourceType.ukBank);
       controller().setConnectChoice(SetupConnectChoice.connectUkBank);
-      controller().toggleResponsibility(ResponsibilityType.rentOrMortgage);
-      controller().setSupportType(SupportType.parents);
+      controller().toggleSupportType(SupportType.parents);
       controller().toggleFinancialGoal(FinancialGoalType.saveMore);
       controller().nextStep();
       controller().nextStep();
@@ -369,10 +350,8 @@ void main() {
       expect(state().currentStepIndex, 0);
       expect(state().profile.completed, isFalse);
       expect(state().profile.selectedUseCases, isEmpty);
-      expect(state().profile.accountSourceTypes, isEmpty);
       expect(state().profile.connectChoice, isNull);
-      expect(state().profile.responsibilities, isEmpty);
-      expect(state().profile.supportType, isNull);
+      expect(state().profile.supportTypes, isEmpty);
       expect(state().profile.financialGoals, isEmpty);
       expect(state().isReviewing, isFalse);
     });

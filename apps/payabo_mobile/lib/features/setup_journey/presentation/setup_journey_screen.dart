@@ -16,7 +16,7 @@ import 'widgets/setup_progress_indicator.dart';
 
 /// Main screen for the Payabo post-registration AI-guided setup journey.
 ///
-/// This is a single-route screen (`/setup`) that manages all 8 steps
+/// This is a single-route screen (`/setup`) that manages all 6 steps
 /// internally through [SetupJourneyController]. It does NOT replace
 /// or modify the existing auth registration flow.
 ///
@@ -191,20 +191,13 @@ class SetupJourneyScreen extends ConsumerWidget {
         return state.profile.selectedUseCases
             .map((SetupUseCase e) => e.name)
             .toSet();
-      case 'account_sources':
-        return state.profile.accountSourceTypes
-            .map((AccountSourceType e) => e.name)
-            .toSet();
       case 'connect_account':
         final choice = state.profile.connectChoice;
         return choice != null ? <String>{choice.name} : <String>{};
-      case 'responsibilities':
-        return state.profile.responsibilities
-            .map((ResponsibilityType e) => e.name)
-            .toSet();
       case 'family_support':
-        final support = state.profile.supportType;
-        return support != null ? <String>{support.name} : <String>{};
+        return state.profile.supportTypes
+            .map((SupportType e) => e.name)
+            .toSet();
       case 'financial_goals':
         return state.profile.financialGoals
             .map((FinancialGoalType e) => e.name)
@@ -234,29 +227,17 @@ class SetupJourneyScreen extends ConsumerWidget {
         );
         controller.toggleUseCase(useCase);
 
-      case 'account_sources':
-        final source = AccountSourceType.values.firstWhere(
-          (AccountSourceType e) => e.name == optionId,
-        );
-        controller.toggleAccountSource(source);
-
       case 'connect_account':
         final choice = SetupConnectChoice.values.firstWhere(
           (SetupConnectChoice e) => e.name == optionId,
         );
         controller.setConnectChoice(choice);
 
-      case 'responsibilities':
-        final responsibility = ResponsibilityType.values.firstWhere(
-          (ResponsibilityType e) => e.name == optionId,
-        );
-        controller.toggleResponsibility(responsibility);
-
       case 'family_support':
         final support = SupportType.values.firstWhere(
           (SupportType e) => e.name == optionId,
         );
-        controller.setSupportType(support);
+        controller.toggleSupportType(support);
 
       case 'financial_goals':
         final goal = FinancialGoalType.values.firstWhere(

@@ -46,19 +46,15 @@ class SetupStepConfig {
 class PayaboSetupProfile {
   const PayaboSetupProfile({
     this.selectedUseCases = const <SetupUseCase>[],
-    this.accountSourceTypes = const <AccountSourceType>[],
     this.connectChoice,
-    this.responsibilities = const <ResponsibilityType>[],
-    this.supportType,
+    this.supportTypes = const <SupportType>[],
     this.financialGoals = const <FinancialGoalType>[],
     this.completed = false,
   });
 
   final List<SetupUseCase> selectedUseCases;
-  final List<AccountSourceType> accountSourceTypes;
   final SetupConnectChoice? connectChoice;
-  final List<ResponsibilityType> responsibilities;
-  final SupportType? supportType;
+  final List<SupportType> supportTypes;
   final List<FinancialGoalType> financialGoals;
   final bool completed;
 
@@ -71,23 +67,17 @@ class PayaboSetupProfile {
 
   PayaboSetupProfile copyWith({
     List<SetupUseCase>? selectedUseCases,
-    List<AccountSourceType>? accountSourceTypes,
     SetupConnectChoice? connectChoice,
     bool clearConnectChoice = false,
-    List<ResponsibilityType>? responsibilities,
-    SupportType? supportType,
-    bool clearSupportType = false,
+    List<SupportType>? supportTypes,
     List<FinancialGoalType>? financialGoals,
     bool? completed,
   }) {
     return PayaboSetupProfile(
       selectedUseCases: selectedUseCases ?? this.selectedUseCases,
-      accountSourceTypes: accountSourceTypes ?? this.accountSourceTypes,
       connectChoice:
           clearConnectChoice ? null : connectChoice ?? this.connectChoice,
-      responsibilities: responsibilities ?? this.responsibilities,
-      supportType:
-          clearSupportType ? null : supportType ?? this.supportType,
+      supportTypes: supportTypes ?? this.supportTypes,
       financialGoals: financialGoals ?? this.financialGoals,
       completed: completed ?? this.completed,
     );

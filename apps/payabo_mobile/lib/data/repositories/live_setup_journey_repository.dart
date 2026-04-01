@@ -19,14 +19,10 @@ class LiveSetupJourneyRepository implements SetupJourneyRepository {
           'selectedUseCases': profile.selectedUseCases
               .map((SetupUseCase value) => value.name)
               .toList(growable: false),
-          'accountSourceTypes': profile.accountSourceTypes
-              .map((AccountSourceType value) => value.name)
-              .toList(growable: false),
           'connectChoice': profile.connectChoice?.name,
-          'responsibilities': profile.responsibilities
-              .map((ResponsibilityType value) => value.name)
+          'supportTypes': profile.supportTypes
+              .map((SupportType value) => value.name)
               .toList(growable: false),
-          'supportType': profile.supportType?.name,
           'financialGoals': profile.financialGoals
               .map((FinancialGoalType value) => value.name)
               .toList(growable: false),
@@ -76,20 +72,12 @@ class LiveSetupJourneyRepository implements SetupJourneyRepository {
         payload['selectedUseCases'],
         SetupUseCase.values,
       ),
-      accountSourceTypes: _mapEnumList<AccountSourceType>(
-        payload['accountSourceTypes'],
-        AccountSourceType.values,
-      ),
       connectChoice: _mapOptionalEnum<SetupConnectChoice>(
         payload['connectChoice'],
         SetupConnectChoice.values,
       ),
-      responsibilities: _mapEnumList<ResponsibilityType>(
-        payload['responsibilities'],
-        ResponsibilityType.values,
-      ),
-      supportType: _mapOptionalEnum<SupportType>(
-        payload['supportType'],
+      supportTypes: _mapEnumList<SupportType>(
+        payload['supportTypes'],
         SupportType.values,
       ),
       financialGoals: _mapEnumList<FinancialGoalType>(

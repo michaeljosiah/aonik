@@ -33,6 +33,7 @@ class OnboardingState {
     required this.mobileNumber,
     required this.email,
     required this.password,
+    this.phoneOtpChallengeId,
   });
 
   final String registrationCountryCode;
@@ -42,6 +43,7 @@ class OnboardingState {
   final String mobileNumber;
   final String email;
   final String password;
+  final String? phoneOtpChallengeId;
 
   OnboardingCountry get registrationCountry =>
       resolveOnboardingCountry(registrationCountryCode);
@@ -57,6 +59,7 @@ class OnboardingState {
     String? mobileNumber,
     String? email,
     String? password,
+    String? phoneOtpChallengeId,
   }) {
     return OnboardingState(
       registrationCountryCode:
@@ -67,6 +70,7 @@ class OnboardingState {
       mobileNumber: mobileNumber ?? this.mobileNumber,
       email: email ?? this.email,
       password: password ?? this.password,
+      phoneOtpChallengeId: phoneOtpChallengeId ?? this.phoneOtpChallengeId,
     );
   }
 
@@ -112,6 +116,10 @@ class OnboardingController extends StateNotifier<OnboardingState> {
 
   void setPassword(String value) {
     state = state.copyWith(password: value);
+  }
+
+  void setPhoneOtpChallengeId(String value) {
+    state = state.copyWith(phoneOtpChallengeId: value);
   }
 
   void reset() {

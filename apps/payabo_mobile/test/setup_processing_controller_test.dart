@@ -18,30 +18,33 @@ void main() {
       const profile = PayaboSetupProfile();
       final steps = buildProcessingSteps(profile);
 
-      expect(steps.length, 6);
+      expect(steps.length, 4);
       expect(steps.any((s) => s.id == 'support'), isFalse,
-          reason: 'support step should be excluded when supportType is null');
+          reason: 'support step should be excluded when supportTypes is empty');
       expect(steps.first.id, 'intro');
       expect(steps.last.id, 'ready');
     });
 
     test('includes support step when user supports parents', () {
-      const profile = PayaboSetupProfile(supportType: SupportType.parents);
+      const profile = PayaboSetupProfile(
+          supportTypes: <SupportType>[SupportType.parents]);
       final steps = buildProcessingSteps(profile);
 
       expect(steps.any((s) => s.id == 'support'), isTrue);
-      expect(steps.length, 7);
+      expect(steps.length, 5);
     });
 
     test('includes support step when user supports siblings', () {
-      const profile = PayaboSetupProfile(supportType: SupportType.siblings);
+      const profile = PayaboSetupProfile(
+          supportTypes: <SupportType>[SupportType.siblings]);
       final steps = buildProcessingSteps(profile);
 
       expect(steps.any((s) => s.id == 'support'), isTrue);
     });
 
     test('excludes support step when user supports noOne', () {
-      const profile = PayaboSetupProfile(supportType: SupportType.noOne);
+      const profile = PayaboSetupProfile(
+          supportTypes: <SupportType>[SupportType.noOne]);
       final steps = buildProcessingSteps(profile);
 
       expect(steps.any((s) => s.id == 'support'), isFalse);
@@ -64,7 +67,7 @@ void main() {
       final steps = buildProcessingSteps(const PayaboSetupProfile());
       final state = SetupProcessingState.initial(steps);
 
-      // First step: (0+1)/6 ≈ 0.167
+      // First step: (0+1)/4 = 0.25
       expect(state.progress, closeTo(1 / steps.length, 0.001));
     });
 
@@ -145,7 +148,7 @@ void main() {
       // Set support type to parents
       container
           .read(setupJourneyControllerProvider.notifier)
-          .setSupportType(SupportType.parents);
+          .toggleSupportType(SupportType.parents);
 
       final updatedSteps = container.read(setupProcessingStepsProvider);
       expect(updatedSteps.any((s) => s.id == 'support'), isTrue);

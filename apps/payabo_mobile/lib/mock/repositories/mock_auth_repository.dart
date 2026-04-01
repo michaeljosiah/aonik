@@ -70,6 +70,22 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<PhoneOtpResult> sendRegistrationPhoneOtp(String phone) async {
+    return PhoneOtpResult(
+      challengeId: 'mock-challenge-id',
+      expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+    );
+  }
+
+  @override
+  Future<bool> verifyRegistrationPhoneOtp(
+    String challengeId,
+    String code,
+  ) async {
+    return code == '123456';
+  }
+
+  @override
   Future<AuthOnboardingSnapshot?> getOnboardingSnapshot() async {
     return _buildOnboardingSnapshot();
   }

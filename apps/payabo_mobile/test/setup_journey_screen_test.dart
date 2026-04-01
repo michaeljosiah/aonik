@@ -36,7 +36,7 @@ void main() {
 
       // The welcome step should show the Payabo brand mark
       expect(find.text('Payabo'), findsOneWidget);
-      expect(find.textContaining("Hi, I'm Simi"), findsOneWidget);
+      expect(find.textContaining('Hi, I\u2019m Simi'), findsOneWidget);
 
       // Should show the AI message for the welcome step
       expect(find.byType(SetupJourneyScreen), findsOneWidget);
@@ -144,7 +144,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      container.read(setupJourneyControllerProvider.notifier).goToStep(7);
+      container.read(setupJourneyControllerProvider.notifier).goToStep(5);
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('LET\'S GO'));

@@ -1,25 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_colors.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_otp_field.dart';
 import 'auth_flow_scaffold.dart';
+import 'onboarding_flow_state.dart';
 
-class PhoneCodeScreen extends StatefulWidget {
+class PhoneCodeScreen extends ConsumerStatefulWidget {
   const PhoneCodeScreen({super.key});
 
   @override
-  State<PhoneCodeScreen> createState() => _PhoneCodeScreenState();
+  ConsumerState<PhoneCodeScreen> createState() => _PhoneCodeScreenState();
 }
 
-class _PhoneCodeScreenState extends State<PhoneCodeScreen> {
+class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
   Timer? _timer;
   int _secondsRemaining = 0;
   String _otpCode = '';
+  bool _isVerifying = false;
+  String? _errorMessage;
 
   bool get isLocked => _secondsRemaining > 0;
 
@@ -39,7 +45,7 @@ class _PhoneCodeScreenState extends State<PhoneCodeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canContinue = _otpCode.length == 6 && !isLocked;
+    final canContinue = _otpCode.length == 6 && !_isVerifying;
 
     return AuthFlowScaffold(
       title: 'The code is',
@@ -53,26 +59,38 @@ class _PhoneCodeScreenState extends State<PhoneCodeScreen> {
             child: Center(
               child: PayaboOtpField(
                 length: 6,
-                enabled: !isLocked,
+                enabled: !_isVerifying,
                 onChanged: (value) {
                   setState(() {
                     _otpCode = value;
+                    _errorMessage = null;
                   });
                 },
                 onCompleted: (value) {
                   setState(() {
                     _otpCode = value;
+                    _errorMessage = null;
                   });
                 },
               ),
             ),
           ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: PayaboSpacing.sm),
+            Center(
+              child: Text(
+                _errorMessage!,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          ],
           const SizedBox(height: PayaboSpacing.xl),
           PayaboButton(
-            label: 'Next',
-            onPressed: canContinue
-                ? () => context.go('/auth/register/login-details')
-                : null,
+            label: _isVerifying ? 'Verifying...' : 'Next',
+            onPressed: canContinue ? _verifyOtp : null,
           ),
           const SizedBox(height: PayaboSpacing.md),
           Center(
@@ -85,14 +103,83 @@ class _PhoneCodeScreenState extends State<PhoneCodeScreen> {
                         ?.copyWith(color: PayaboColors.muted),
                   )
                 : TextButton(
-                    onPressed: () =>
-                        _startResendCountdown(_resendCooldownSeconds),
+                    onPressed: _resendOtp,
                     child: const Text('Request new code'),
                   ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _verifyOtp() async {
+    final challengeId =
+        ref.read(onboardingControllerProvider).phoneOtpChallengeId;
+
+    if (challengeId == null || challengeId.isEmpty) {
+      setState(() => _errorMessage = 'Verification session expired. Request a new code.');
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final repository = ref.read(authRepositoryProvider);
+      final isVerified =
+          await repository.verifyRegistrationPhoneOtp(challengeId, _otpCode);
+
+      if (!mounted) return;
+
+      if (isVerified) {
+        context.go('/auth/register/login-details');
+      } else {
+        setState(() => _errorMessage = 'Incorrect code. Please try again.');
+      }
+    } catch (error) {
+      if (!mounted) return;
+
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to verify code right now.';
+
+      setState(() => _errorMessage = message);
+    } finally {
+      if (mounted) {
+        setState(() => _isVerifying = false);
+      }
+    }
+  }
+
+  Future<void> _resendOtp() async {
+    final onboarding = ref.read(onboardingControllerProvider);
+    final dialCode = onboarding.phoneCountry.dialCode.trim();
+    final digits =
+        onboarding.mobileNumber.trim().replaceAll(RegExp(r'\D'), '');
+    final fullPhone = '$dialCode$digits';
+
+    try {
+      final repository = ref.read(authRepositoryProvider);
+      final result = await repository.sendRegistrationPhoneOtp(fullPhone);
+
+      ref
+          .read(onboardingControllerProvider.notifier)
+          .setPhoneOtpChallengeId(result.challengeId);
+
+      _startResendCountdown(_resendCooldownSeconds);
+    } catch (error) {
+      if (!mounted) return;
+
+      final message = error is ApiException
+          ? error.message
+          : 'Unable to send a new code right now.';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   String _formatCountdown(int totalSeconds) {

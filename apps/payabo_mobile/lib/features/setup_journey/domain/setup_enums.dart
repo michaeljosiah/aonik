@@ -2,9 +2,7 @@
 //
 // Each enum maps to an AONIK domain concept:
 // - SetupUseCase       -> PersonalProfile preferences / dashboard module priority
-// - AccountSourceType  -> ExternalAccount.type
 // - SetupConnectChoice -> FinancialConnectionSession trigger
-// - ResponsibilityType -> Bill / Subscription category
 // - SupportType        -> HouseholdMember / PartyRelationship
 // - FinancialGoalType  -> Goal entity
 // - SetupStepType      -> UI interaction pattern per step
@@ -18,31 +16,14 @@ enum SetupUseCase {
   saveForGoals,
 }
 
-/// Where the user keeps money (Step 3).
-enum AccountSourceType {
-  ukBank,
-  nigerianBank,
-  mobileWallet,
-  cashManual,
-}
-
-/// Account connection choice (Step 4).
+/// Account connection choice (Step 3).
 enum SetupConnectChoice {
   connectUkBank,
   connectNigerianBank,
   skipForNow,
 }
 
-/// Regular financial responsibilities (Step 5).
-enum ResponsibilityType {
-  rentOrMortgage,
-  electricity,
-  internet,
-  subscriptions,
-  familySupport,
-}
-
-/// Family and community support signal (Step 6).
+/// Family and community support signal (Step 4, multi-select).
 enum SupportType {
   parents,
   siblings,
@@ -51,7 +32,7 @@ enum SupportType {
   noOne,
 }
 
-/// Financial goals the user is working toward (Step 7).
+/// Financial goals the user is working toward (Step 5).
 enum FinancialGoalType {
   saveMore,
   buildEmergencyFund,

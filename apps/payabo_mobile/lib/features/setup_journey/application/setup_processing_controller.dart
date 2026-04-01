@@ -16,33 +16,26 @@ import 'setup_journey_controller.dart';
 final List<SetupProcessingStep> _allProcessingSteps = <SetupProcessingStep>[
   const SetupProcessingStep(
     id: 'intro',
-    message: 'Hi, I\u2019m Simi. Let me prepare your financial assistant.',
+    message: 'Let me set up your personal financial assistant\u2026',
   ),
   const SetupProcessingStep(
     id: 'priorities',
-    message: 'Understanding your financial priorities\u2026',
-  ),
-  const SetupProcessingStep(
-    id: 'accounts',
-    message: 'Mapping your accounts and money sources\u2026',
-  ),
-  const SetupProcessingStep(
-    id: 'bills',
-    message: 'Organising your bills and responsibilities\u2026',
+    message: 'Learning what matters most to you\u2026',
   ),
   SetupProcessingStep(
     id: 'support',
-    message: 'Learning who you support financially\u2026',
+    message: 'Factoring in the people you care about\u2026',
     showWhen: (PayaboSetupProfile p) =>
-        p.supportType != null && p.supportType != SupportType.noOne,
+        p.supportTypes.isNotEmpty &&
+        !p.supportTypes.every((SupportType t) => t == SupportType.noOne),
   ),
   const SetupProcessingStep(
     id: 'dashboard',
-    message: 'Preparing your financial dashboard\u2026',
+    message: 'Building your personalised dashboard\u2026',
   ),
   const SetupProcessingStep(
     id: 'ready',
-    message: 'Your financial assistant is ready.',
+    message: 'You\u2019re all set \u2014 let\u2019s do this! \u{1F680}',
   ),
 ];
 

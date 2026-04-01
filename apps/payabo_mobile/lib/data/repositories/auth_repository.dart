@@ -86,6 +86,16 @@ class RegisterIndividualRequest {
   final String? title;
 }
 
+class PhoneOtpResult {
+  const PhoneOtpResult({
+    required this.challengeId,
+    required this.expiresAt,
+  });
+
+  final String challengeId;
+  final DateTime expiresAt;
+}
+
 abstract class AuthRepository {
   Future<AuthTokenResult> signInWithPassword({
     required String email,
@@ -105,4 +115,8 @@ abstract class AuthRepository {
   Future<AuthUserInfo> getUserInfo();
 
   Future<AuthOnboardingSnapshot?> getOnboardingSnapshot();
+
+  Future<PhoneOtpResult> sendRegistrationPhoneOtp(String phone);
+
+  Future<bool> verifyRegistrationPhoneOtp(String challengeId, String code);
 }

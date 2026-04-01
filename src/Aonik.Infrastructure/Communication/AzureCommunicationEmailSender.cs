@@ -41,7 +41,14 @@ public class AzureCommunicationEmailSender : IEmailSender
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken = default)
     {
         if (_client == null)
-            throw new InvalidOperationException("Azure Communication email client is not configured.");
+        {
+            _logger.LogWarning(
+                "Email not sent (Azure Communication Services not configured). To: {To}, Subject: {Subject}, Body: {Body}",
+                message.To,
+                message.Subject,
+                message.Body);
+            return;
+        }
 
         var fromAddress = string.IsNullOrWhiteSpace(message.From)
             ? _options.Azure.Email.FromAddress

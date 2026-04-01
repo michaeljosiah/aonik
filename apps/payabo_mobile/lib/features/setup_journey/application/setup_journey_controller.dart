@@ -79,29 +79,15 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
     );
   }
 
-  void toggleAccountSource(AccountSourceType source) {
-    final current =
-        List<AccountSourceType>.from(state.profile.accountSourceTypes);
-    if (current.contains(source)) {
-      current.remove(source);
+  void toggleSupportType(SupportType type) {
+    final current = List<SupportType>.from(state.profile.supportTypes);
+    if (current.contains(type)) {
+      current.remove(type);
     } else {
-      current.add(source);
+      current.add(type);
     }
     state = state.copyWith(
-      profile: state.profile.copyWith(accountSourceTypes: current),
-    );
-  }
-
-  void toggleResponsibility(ResponsibilityType responsibility) {
-    final current =
-        List<ResponsibilityType>.from(state.profile.responsibilities);
-    if (current.contains(responsibility)) {
-      current.remove(responsibility);
-    } else {
-      current.add(responsibility);
-    }
-    state = state.copyWith(
-      profile: state.profile.copyWith(responsibilities: current),
+      profile: state.profile.copyWith(supportTypes: current),
     );
   }
 
@@ -125,11 +111,6 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
     );
   }
 
-  void setSupportType(SupportType type) {
-    state = state.copyWith(
-      profile: state.profile.copyWith(supportType: type),
-    );
-  }
 
   // ── Navigation ──────────────────────────────────────────
 

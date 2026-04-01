@@ -37,6 +37,7 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<RolePermission> RolePermissions { get; set; } = null!;
     public DbSet<UserParty> UserParties { get; set; } = null!;
     public DbSet<VerificationChallenge> VerificationChallenges { get; set; } = null!;
+    public DbSet<PreRegistrationChallenge> PreRegistrationChallenges { get; set; } = null!;
 
     // Party
     public DbSet<PartyEntity> Parties { get; set; } = null!;
@@ -151,6 +152,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<RolePermission>(modelBuilder, "RolePermissions");
         MapTable<UserParty>(modelBuilder, "UserParties");
         MapTable<VerificationChallenge>(modelBuilder, "VerificationChallenges");
+        MapTable<PreRegistrationChallenge>(modelBuilder, "PreRegistrationChallenges");
 
         MapTable<PartyEntity>(modelBuilder, "Parties");
         MapTable<PartyAddress>(modelBuilder, "PartyAddresses");

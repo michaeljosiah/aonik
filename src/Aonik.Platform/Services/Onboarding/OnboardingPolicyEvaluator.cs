@@ -120,32 +120,16 @@ internal class OnboardingPolicyEvaluator : IOnboardingPolicyEvaluator
         var party = await _dbContext.Parties
             .FirstOrDefaultAsync(p => p.Id == partyId.Value, cancellationToken);
 
-
         if (party == null || string.IsNullOrWhiteSpace(party.DisplayName))
         {
             return false;
         }
 
-        var hasAddress = await _dbContext.PartyAddresses
-            .AnyAsync(
-                address => address.PartyId == partyId.Value
-                           && !string.IsNullOrWhiteSpace(address.Line1)
-                           && !string.IsNullOrWhiteSpace(address.City)
-                           && !string.IsNullOrWhiteSpace(address.Country),
-                cancellationToken);
-
-        if (!hasAddress)
-        {
-            return false;
-        }
-
-        var hasContact = await _dbContext.PartyContacts
+        return await _dbContext.PartyContacts
             .AnyAsync(
                 contact => contact.PartyId == partyId.Value
                            && !string.IsNullOrWhiteSpace(contact.Value),
                 cancellationToken);
-
-        return hasContact;
     }
 
     private static IReadOnlyList<string> NormalizeActions(IEnumerable<string> actions)

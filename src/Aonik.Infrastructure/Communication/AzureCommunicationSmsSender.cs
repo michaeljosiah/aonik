@@ -38,7 +38,13 @@ public class AzureCommunicationSmsSender : ISmsSender
     public async Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default)
     {
         if (_client == null)
-            throw new InvalidOperationException("Azure Communication SMS client is not configured.");
+        {
+            _logger.LogWarning(
+                "SMS not sent (Azure Communication Services not configured). To: {To}, Body: {Body}",
+                message.To,
+                message.Body);
+            return;
+        }
 
         var fromNumber = string.IsNullOrWhiteSpace(message.From)
             ? _options.Azure.Sms.FromPhoneNumber
