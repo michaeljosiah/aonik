@@ -1,0 +1,103 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: A
+              - generic: Aonik
+            - generic:
+              - heading [level=1]: Welcome, Michael
+              - paragraph: Let's get your workspace set up in a few simple steps
+            - generic:
+              - generic:
+                - generic: Step 1 of 5
+                - generic: 20% complete
+            - generic:
+              - generic:
+                - generic: Company Name *
+                - textbox:
+                  - /placeholder: Acme Corporation
+                  - text: Aonik Dev Tenant
+              - generic:
+                - text: Organization Logo (Optional)
+                - generic:
+                  - img
+                  - paragraph: Click to upload or drag and drop
+                  - paragraph: PNG, JPG, SVG (max 5MB)
+              - generic:
+                - generic: Industry *
+                - combobox [expanded]:
+                  - generic: Select your industry
+                  - img
+            - generic:
+              - generic:
+                - button [disabled]:
+                  - img
+                  - text: Back
+                - button: Skip for now
+              - button:
+                - text: Continue
+                - img
+            - paragraph: You can always change these settings later
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: Setup Progress
+                - generic: 20%
+            - generic:
+              - img
+              - text: Step 1 of 5
+            - heading [level=2]: Company Setup
+            - paragraph: Tell us about your organization. We'll use this to customize templates and ensure compliance with your industry regulations.
+            - generic:
+              - generic:
+                - img
+                - generic:
+                  - heading [level=4]: Don't worry about perfection
+                  - paragraph: You can always update these settings later from your workspace settings
+            - generic:
+              - heading [level=3]: What you'll get
+              - generic:
+                - generic:
+                  - generic: "4"
+                  - generic: Countries supported
+                - generic:
+                  - generic: AI
+                  - generic: Powered drafting
+                - generic:
+                  - generic: 24/7
+                  - generic: Platform access
+      - region "Notifications alt+T"
+  - listbox [ref=e78]:
+    - option "Financial Services" [active] [ref=e79]:
+      - generic [ref=e81]: Financial Services
+    - option "Banking" [ref=e82]:
+      - generic [ref=e84]: Banking
+    - option "Fintech" [ref=e85]:
+      - generic [ref=e87]: Fintech
+    - option "Insurance" [ref=e88]:
+      - generic [ref=e90]: Insurance
+    - option "Money Transfer / Remittance" [ref=e91]:
+      - generic [ref=e93]: Money Transfer / Remittance
+    - option "Payments" [ref=e94]:
+      - generic [ref=e96]: Payments
+    - option "Technology" [ref=e97]:
+      - generic [ref=e99]: Technology
+    - option "Telecommunications" [ref=e100]:
+      - generic [ref=e102]: Telecommunications
+    - option "Retail / E-commerce" [ref=e103]:
+      - generic [ref=e105]: Retail / E-commerce
+    - option "Healthcare" [ref=e106]:
+      - generic [ref=e108]: Healthcare
+    - option "Education" [ref=e109]:
+      - generic [ref=e111]: Education
+    - option "Government" [ref=e112]:
+      - generic [ref=e114]: Government
+    - option "Non-profit" [ref=e115]:
+      - generic [ref=e117]: Non-profit
+    - option "Other" [ref=e118]:
+      - generic [ref=e120]: Other

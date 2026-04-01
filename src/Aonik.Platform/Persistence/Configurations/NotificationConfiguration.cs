@@ -50,7 +50,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasMaxLength(500);
 
         builder.Property(x => x.CorrelationId)
-            .HasMaxLength(200);
+            .HasMaxLength(500);
 
         builder.Property(x => x.MetadataJson)
             .IsRequired()

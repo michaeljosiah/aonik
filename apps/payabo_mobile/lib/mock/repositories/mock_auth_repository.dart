@@ -82,6 +82,7 @@ class MockAuthRepository implements AuthRepository {
     return PhoneOtpResult(
       challengeId: 'mock-challenge-id',
       expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+      devCode: '123456',
     );
   }
 

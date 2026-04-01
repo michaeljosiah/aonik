@@ -1,0 +1,118 @@
+- generic [ref=e3]:
+  - generic [ref=e8]:
+    - complementary [ref=e9]:
+      - generic [ref=e10]:
+        - link "A" [ref=e11] [cursor=pointer]:
+          - /url: /
+        - button [ref=e12]:
+          - img [ref=e13]
+      - navigation [ref=e15]:
+        - link [ref=e17] [cursor=pointer]:
+          - /url: /
+          - img [ref=e18]
+        - img [ref=e26] [cursor=pointer]
+        - generic [ref=e29]:
+          - link [ref=e30] [cursor=pointer]:
+            - /url: /workspace?panel=customers
+            - img [ref=e31]
+          - link [ref=e35] [cursor=pointer]:
+            - /url: /workspace?panel=accounts
+            - img [ref=e36]
+          - link [ref=e38] [cursor=pointer]:
+            - /url: /workspace?panel=orders-activity
+            - img [ref=e39]
+          - img [ref=e44] [cursor=pointer]
+          - img [ref=e48] [cursor=pointer]
+          - link [ref=e52] [cursor=pointer]:
+            - /url: /compliance/documents
+            - img [ref=e53]
+        - img [ref=e59] [cursor=pointer]
+      - img "Michael Josiah" [ref=e65] [cursor=pointer]
+    - generic [ref=e66]:
+      - banner [ref=e67]:
+        - navigation [ref=e68]:
+          - img [ref=e69]
+          - generic [ref=e73]: Customers
+        - generic [ref=e74]:
+          - button "Open notifications" [ref=e75]:
+            - img
+          - button "Open AI chat" [ref=e76]:
+            - img
+          - button "Enter fullscreen" [ref=e77]:
+            - img
+      - main [ref=e79]:
+        - generic [ref=e247]:
+          - generic [ref=e248]:
+            - generic [ref=e249]:
+              - heading "Customer Details" [level=1] [ref=e250]
+              - navigation "Breadcrumb" [ref=e251]:
+                - list [ref=e252]:
+                  - listitem [ref=e253]:
+                    - link "Customers" [ref=e254] [cursor=pointer]:
+                      - /url: /customers
+                      - generic [ref=e255]:
+                        - img [ref=e257]
+                        - generic [ref=e261]: Customers
+                  - listitem [ref=e262]:
+                    - img [ref=e263]
+                    - generic [ref=e266]:
+                      - img [ref=e268]
+                      - generic [ref=e271]: Customer
+            - button "Refresh" [ref=e273]
+          - generic [ref=e275]:
+            - generic [ref=e278]:
+              - generic [ref=e279]:
+                - generic [ref=e281]: JT
+                - heading "Jane Test" [level=2] [ref=e282]
+                - paragraph [ref=e283]: Individual customer
+                - generic [ref=e284]:
+                  - generic [ref=e285]: Active
+                  - generic [ref=e286]: Person
+              - generic [ref=e287]:
+                - generic [ref=e288]:
+                  - img [ref=e289]
+                  - generic [ref=e292]: jane.test@mailinator.com
+                - generic [ref=e293]:
+                  - img [ref=e294]
+                  - generic [ref=e296]: No primary phone
+              - generic [ref=e297]:
+                - generic [ref=e298]:
+                  - generic [ref=e299]: Live stats
+                  - generic [ref=e300]: Live
+                - generic [ref=e301]:
+                  - generic [ref=e302]:
+                    - paragraph [ref=e303]: Total orders
+                    - paragraph [ref=e304]: "0"
+                  - generic [ref=e305]:
+                    - paragraph [ref=e306]: Total paid
+                    - paragraph [ref=e307]: —
+                  - generic [ref=e308]:
+                    - paragraph [ref=e309]: Outstanding
+                    - paragraph [ref=e310]: —
+                  - generic [ref=e311]:
+                    - paragraph [ref=e312]: Accounts linked
+                    - paragraph [ref=e313]: "0"
+                  - generic [ref=e314]:
+                    - paragraph [ref=e315]: Last activity
+                    - paragraph [ref=e316]: Mar 31, 2026, 04:02 AM
+            - generic [ref=e320]:
+              - generic [ref=e322]:
+                - tab "Overview" [ref=e323]
+                - tab "Contacts" [ref=e324]
+                - tab "Addresses" [ref=e325]
+                - tab "Accounts" [ref=e326]
+                - tab "Relationships" [ref=e327]
+                - tab "Consents" [ref=e328]
+                - tab "Activity" [ref=e329]
+                - tab "Insights" [active] [selected] [ref=e330]
+                - tab "Documents" [ref=e331]
+              - tabpanel [ref=e397]:
+                - generic [ref=e398]:
+                  - generic [ref=e399]:
+                    - heading "Customer Insights" [level=3] [ref=e400]
+                    - paragraph [ref=e401]: Canonical customer insight snapshots and grounded AI interpretations for this customer.
+                  - generic [ref=e403]:
+                    - img [ref=e404]
+                    - paragraph [ref=e406]: No customer insights generated yet.
+                    - paragraph [ref=e407]: Insights appear after the customer insight snapshot and AI summary pipeline runs.
+  - region "Notifications alt+T"

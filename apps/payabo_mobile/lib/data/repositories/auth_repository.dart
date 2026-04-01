@@ -90,10 +90,15 @@ class PhoneOtpResult {
   const PhoneOtpResult({
     required this.challengeId,
     required this.expiresAt,
+    this.devCode,
   });
 
   final String challengeId;
   final DateTime expiresAt;
+
+  /// The plaintext OTP code, returned only by the API in development
+  /// environments. Null in production.
+  final String? devCode;
 }
 
 abstract class AuthRepository {

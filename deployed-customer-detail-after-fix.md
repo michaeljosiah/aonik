@@ -1,0 +1,163 @@
+- generic [ref=e3]:
+  - generic [ref=e8]:
+    - complementary [ref=e9]:
+      - generic [ref=e10]:
+        - link "A" [ref=e11] [cursor=pointer]:
+          - /url: /
+        - button [ref=e12]:
+          - img [ref=e13]
+      - navigation [ref=e15]:
+        - link [ref=e397] [cursor=pointer]:
+          - /url: /
+          - img [ref=e398]
+        - img [ref=e404] [cursor=pointer]
+        - generic [ref=e29]:
+          - link [ref=e407] [cursor=pointer]:
+            - /url: /workspace?panel=customers
+            - img [ref=e408]
+          - link [ref=e412] [cursor=pointer]:
+            - /url: /workspace?panel=accounts
+            - img [ref=e413]
+          - link [ref=e415] [cursor=pointer]:
+            - /url: /workspace?panel=orders-activity
+            - img [ref=e416]
+          - img [ref=e420] [cursor=pointer]
+          - img [ref=e423] [cursor=pointer]
+          - link [ref=e427] [cursor=pointer]:
+            - /url: /compliance/documents
+            - img [ref=e428]
+        - img [ref=e432] [cursor=pointer]
+      - img "Michael Josiah" [ref=e436] [cursor=pointer]
+    - generic [ref=e66]:
+      - banner [ref=e67]:
+        - navigation [ref=e68]:
+          - img [ref=e437]
+          - generic [ref=e441]: Customers
+        - generic [ref=e74]:
+          - button "Open notifications" [ref=e75]:
+            - img
+          - button "Open AI chat" [ref=e76]:
+            - img
+          - button "Enter fullscreen" [ref=e77]:
+            - img
+      - main [ref=e79]:
+        - generic [ref=e442]:
+          - generic [ref=e443]:
+            - generic [ref=e444]:
+              - heading "Customer Details" [level=1] [ref=e445]
+              - navigation "Breadcrumb" [ref=e446]:
+                - list [ref=e447]:
+                  - listitem [ref=e448]:
+                    - link "Customers" [ref=e449] [cursor=pointer]:
+                      - /url: /customers
+                      - generic [ref=e450]:
+                        - img [ref=e452]
+                        - generic [ref=e456]: Customers
+                  - listitem [ref=e457]:
+                    - img [ref=e458]
+                    - generic [ref=e461]:
+                      - img [ref=e463]
+                      - generic [ref=e466]: Customer
+            - button "Refresh" [ref=e468]
+          - generic [ref=e470]:
+            - generic [ref=e473]:
+              - generic [ref=e474]:
+                - generic [ref=e476]: JT
+                - heading "Jane Test" [level=2] [ref=e477]
+                - paragraph [ref=e478]: Individual customer
+                - generic [ref=e479]:
+                  - generic [ref=e480]: Active
+                  - generic [ref=e481]: Person
+              - generic [ref=e482]:
+                - generic [ref=e483]:
+                  - img [ref=e484]
+                  - generic [ref=e487]: jane.test@mailinator.com
+                - generic [ref=e488]:
+                  - img [ref=e489]
+                  - generic [ref=e491]: No primary phone
+              - generic [ref=e492]:
+                - generic [ref=e493]:
+                  - generic [ref=e494]: Live stats
+                  - generic [ref=e495]: Live
+                - generic [ref=e496]:
+                  - generic [ref=e497]:
+                    - paragraph [ref=e498]: Total orders
+                    - paragraph [ref=e499]: Loading...
+                  - generic [ref=e500]:
+                    - paragraph [ref=e501]: Total paid
+                    - paragraph [ref=e502]: Loading...
+                  - generic [ref=e503]:
+                    - paragraph [ref=e504]: Outstanding
+                    - paragraph [ref=e505]: Loading...
+                  - generic [ref=e506]:
+                    - paragraph [ref=e507]: Accounts linked
+                    - paragraph [ref=e508]: "0"
+                  - generic [ref=e509]:
+                    - paragraph [ref=e510]: Last activity
+                    - paragraph [ref=e511]: Mar 31, 2026, 04:02 AM
+            - generic [ref=e515]:
+              - generic [ref=e517]:
+                - tab "Overview" [selected] [ref=e518]
+                - tab "Contacts" [ref=e519]
+                - tab "Addresses" [ref=e520]
+                - tab "Accounts" [ref=e521]
+                - tab "Relationships" [ref=e522]
+                - tab "Consents" [ref=e523]
+                - tab "Activity" [ref=e524]
+                - tab "Insights" [ref=e525]
+                - tab "Documents" [ref=e526]
+              - tabpanel [ref=e528]:
+                - generic [ref=e529]:
+                  - generic [ref=e530]:
+                    - heading "Profile Summary" [level=3] [ref=e532]
+                    - generic [ref=e534]:
+                      - generic [ref=e535]:
+                        - generic [ref=e536]: Full name
+                        - generic [ref=e537]: Jane Test
+                      - generic [ref=e538]:
+                        - generic [ref=e539]: Date of birth
+                        - generic [ref=e540]: —
+                      - generic [ref=e541]:
+                        - generic [ref=e542]: Nationality
+                        - generic [ref=e543]: —
+                      - generic [ref=e544]:
+                        - generic [ref=e545]: Occupation
+                        - generic [ref=e546]: —
+                      - generic [ref=e547]:
+                        - generic [ref=e548]: Verification
+                        - generic [ref=e549]: Unverified
+                  - generic [ref=e550]:
+                    - heading "Account Information" [level=3] [ref=e552]
+                    - generic [ref=e554]:
+                      - generic [ref=e555]:
+                        - generic [ref=e556]: Status
+                        - generic [ref=e557]: Active
+                      - generic [ref=e558]:
+                        - generic [ref=e559]: Party type
+                        - generic [ref=e560]: Person
+                      - generic [ref=e561]:
+                        - generic [ref=e562]: Customer tier
+                        - generic [ref=e563]: —
+                      - generic [ref=e564]:
+                        - generic [ref=e565]: Roles
+                        - generic [ref=e566]: "1"
+                      - generic [ref=e567]:
+                        - generic [ref=e568]: Created
+                        - generic [ref=e569]: Mar 31, 2026
+                      - generic [ref=e570]:
+                        - generic [ref=e571]: Updated
+                        - generic [ref=e572]: —
+                - generic [ref=e573]:
+                  - generic [ref=e574]:
+                    - heading "Primary Contact" [level=3] [ref=e576]
+                    - generic [ref=e577]:
+                      - generic [ref=e578]:
+                        - img [ref=e579]
+                        - generic [ref=e582]: jane.test@mailinator.com
+                      - generic [ref=e583]:
+                        - img [ref=e584]
+                        - generic [ref=e586]: No primary phone
+                  - generic [ref=e587]:
+                    - heading "Primary Address" [level=3] [ref=e589]
+                    - paragraph [ref=e591]: No address on file
+  - region "Notifications alt+T"

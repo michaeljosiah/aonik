@@ -1,0 +1,46 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e6]:
+        - link "A" [ref=e7] [cursor=pointer]:
+          - /url: /
+        - button [ref=e8]:
+          - img [ref=e9]
+      - navigation [ref=e11]:
+        - link [ref=e13] [cursor=pointer]:
+          - /url: /
+          - img [ref=e14]
+        - img [ref=e22] [cursor=pointer]
+        - generic [ref=e25]:
+          - link [ref=e26] [cursor=pointer]:
+            - /url: /workspace?panel=customers
+            - img [ref=e27]
+          - link [ref=e31] [cursor=pointer]:
+            - /url: /workspace?panel=accounts
+            - img [ref=e32]
+          - link [ref=e34] [cursor=pointer]:
+            - /url: /workspace?panel=orders-activity
+            - img [ref=e35]
+          - img [ref=e40] [cursor=pointer]
+          - img [ref=e44] [cursor=pointer]
+          - link [ref=e48] [cursor=pointer]:
+            - /url: /compliance/documents
+            - img [ref=e49]
+      - generic [ref=e55] [cursor=pointer]: MJ
+    - generic [ref=e56]:
+      - banner [ref=e57]:
+        - navigation [ref=e58]:
+          - img [ref=e59]
+          - generic [ref=e63]: Dashboard
+        - generic [ref=e64]:
+          - button "Open notifications" [ref=e65]:
+            - img
+          - button "Open AI chat" [ref=e66]:
+            - img
+          - button "Enter fullscreen" [ref=e67]:
+            - img
+      - main [ref=e69]:
+        - generic [ref=e71]:
+          - img [ref=e72]
+          - paragraph [ref=e74]: Loading dashboard...
+  - region "Notifications alt+T"

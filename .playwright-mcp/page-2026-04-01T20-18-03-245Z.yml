@@ -1,0 +1,66 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e9]: A
+        - generic [ref=e10]: Aonik
+      - generic [ref=e11]:
+        - heading "Welcome, Michael" [level=1] [ref=e12]
+        - paragraph [ref=e13]: Let's get your workspace set up in a few simple steps
+      - generic [ref=e15]:
+        - generic [ref=e16]: Step 1 of 5
+        - generic [ref=e17]: 20% complete
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - generic [ref=e22]: Company Name *
+          - textbox "Company Name *" [ref=e23]:
+            - /placeholder: Acme Corporation
+            - text: Aonik Dev Tenant
+        - generic [ref=e24]:
+          - text: Organization Logo (Optional)
+          - generic [ref=e25] [cursor=pointer]:
+            - img [ref=e26]
+            - paragraph [ref=e29]: Click to upload or drag and drop
+            - paragraph [ref=e30]: PNG, JPG, SVG (max 5MB)
+        - generic [ref=e31]:
+          - generic [ref=e32]: Industry *
+          - combobox [ref=e33]:
+            - generic: Select your industry
+            - img [ref=e34]
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - button "Back" [disabled]:
+            - img
+            - text: Back
+          - button "Skip for now" [ref=e38]
+        - button "Continue" [ref=e39]:
+          - text: Continue
+          - img
+      - paragraph [ref=e40]: You can always change these settings later
+    - generic [ref=e42]:
+      - generic [ref=e44]:
+        - generic [ref=e45]: Setup Progress
+        - generic [ref=e46]: 20%
+      - generic [ref=e49]:
+        - img [ref=e50]
+        - text: Step 1 of 5
+      - heading "Company Setup" [level=2] [ref=e53]
+      - paragraph [ref=e54]: Tell us about your organization. We'll use this to customize templates and ensure compliance with your industry regulations.
+      - generic [ref=e56]:
+        - img [ref=e57]
+        - generic [ref=e59]:
+          - heading "Don't worry about perfection" [level=4] [ref=e60]
+          - paragraph [ref=e61]: You can always update these settings later from your workspace settings
+      - generic [ref=e62]:
+        - heading "What you'll get" [level=3] [ref=e63]
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - generic [ref=e66]: "4"
+            - generic [ref=e67]: Countries supported
+          - generic [ref=e68]:
+            - generic [ref=e69]: AI
+            - generic [ref=e70]: Powered drafting
+          - generic [ref=e71]:
+            - generic [ref=e72]: 24/7
+            - generic [ref=e73]: Platform access
+  - region "Notifications alt+T"

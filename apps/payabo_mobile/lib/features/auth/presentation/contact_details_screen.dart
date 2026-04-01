@@ -154,6 +154,10 @@ class _ContactDetailsScreenState extends ConsumerState<ContactDetailsScreen> {
           .read(onboardingControllerProvider.notifier)
           .setPhoneOtpChallengeId(result.challengeId);
 
+      ref
+          .read(onboardingControllerProvider.notifier)
+          .setPhoneOtpDevCode(result.devCode);
+
       if (!mounted) return;
       context.go('/auth/register/phone-code');
     } catch (error) {

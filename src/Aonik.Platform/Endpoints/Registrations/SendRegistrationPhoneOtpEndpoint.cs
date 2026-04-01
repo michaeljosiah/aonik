@@ -14,6 +14,7 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Identity;
+using Microsoft.Extensions.Hosting;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
@@ -29,6 +30,7 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
     private readonly IClock _clock;
     private readonly VerificationOptions _options;
     private readonly IConfiguration _configuration;
+    private readonly IHostEnvironment _hostEnvironment;
     private readonly ILogger<SendRegistrationPhoneOtpEndpoint> _logger;
 
     public SendRegistrationPhoneOtpEndpoint(
@@ -39,6 +41,7 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
         IClock clock,
         IOptions<VerificationOptions> options,
         IConfiguration configuration,
+        IHostEnvironment hostEnvironment,
         ILogger<SendRegistrationPhoneOtpEndpoint> logger)
     {
         _dbContext = dbContext;
@@ -48,6 +51,7 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
         _clock = clock;
         _options = options.Value;
         _configuration = configuration;
+        _hostEnvironment = hostEnvironment;
         _logger = logger;
     }
 
@@ -105,7 +109,9 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
             "Pre-registration phone OTP sent for challenge {ChallengeId}",
             challenge.Id);
 
-        await Send.OkAsync(new SendRegistrationPhoneOtpResponse(challenge.Id, challenge.ExpiresAt), ct);
+        var devCode = _hostEnvironment.IsDevelopment() ? code : null;
+
+        await Send.OkAsync(new SendRegistrationPhoneOtpResponse(challenge.Id, challenge.ExpiresAt, devCode), ct);
     }
 
     private async Task<bool> IsWithinRateLimitAsync(Guid tenantId, string phone, CancellationToken ct)

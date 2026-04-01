@@ -1,0 +1,89 @@
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - paragraph [ref=e7]: Initial Setup
+      - heading "Welcome to the Future of Finance" [level=1] [ref=e8]
+      - paragraph [ref=e9]: Step into AI-powered financial operations. This wizard will get your Aonik platform running with intelligent automation, smart insights, and seamless money movement at your fingertips.
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - heading "Setup Checklist" [level=3] [ref=e13]
+          - paragraph [ref=e14]: Use the one-time install code to create the first tenant and owner profile.
+        - generic [ref=e15]:
+          - generic [ref=e17]:
+            - img [ref=e19]
+            - generic [ref=e22]:
+              - paragraph [ref=e23]: Review bootstrap availability
+              - paragraph [ref=e24]: Enter the install code and owner email to create the first tenant.
+            - button "Re-check config" [ref=e26]:
+              - img
+              - text: Re-check config
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - img [ref=e30]
+              - generic [ref=e32]:
+                - paragraph [ref=e33]: Enter the install code
+                - paragraph [ref=e34]: Only system owners who know the install code can run first-time bootstrap.
+            - generic [ref=e36]:
+              - text: Install code
+              - textbox "Install code" [ref=e37]:
+                - /placeholder: Paste the one-time install code
+              - paragraph [ref=e38]: "This must match the current `BOOTSTRAP_SETUP_SECRET` configured for the API."
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - img [ref=e42]
+              - generic [ref=e44]:
+                - paragraph [ref=e45]: Define the initial owner
+                - paragraph [ref=e46]: Provide the email that will be linked to the first Auth0 sign-in after bootstrap.
+            - generic [ref=e48]:
+              - generic [ref=e49]:
+                - text: Owner email
+                - textbox "Owner email" [ref=e50]:
+                  - /placeholder: owner@example.com
+              - generic [ref=e51]:
+                - text: Owner display name
+                - textbox "Owner display name" [ref=e52]:
+                  - /placeholder: Optional display name for the owner
+          - generic [ref=e53]:
+            - generic [ref=e54]:
+              - img [ref=e56]
+              - generic [ref=e58]:
+                - paragraph [ref=e59]: Create the first tenant
+                - paragraph [ref=e60]: Bootstrap will create the initial tenant, seed roles, and prepare the owner profile for identity linking.
+            - generic [ref=e62]:
+              - generic [ref=e63]: When both fields are complete, run bootstrap to create the tenant and continue into guided setup.
+              - button "Run bootstrap" [disabled]
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - img [ref=e66]
+            - text: Bootstrap creates a pending owner profile first, then links it to Auth0 on the next sign-in.
+          - button "Refresh status" [ref=e69]:
+            - img
+            - text: Refresh status
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - heading "Setup Status" [level=3] [ref=e72]
+          - paragraph [ref=e73]: Live configuration and bootstrap results.
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - generic [ref=e76]: Bootstrap state
+            - generic [ref=e77]: Ready
+          - generic [ref=e78]:
+            - generic [ref=e79]: Bootstrap enabled
+            - generic [ref=e80]: "Yes"
+          - generic [ref=e81]:
+            - generic [ref=e82]: Install code configured
+            - generic [ref=e83]: "Yes"
+          - generic [ref=e84]:
+            - generic [ref=e85]: Tenants
+            - generic [ref=e86]: "0"
+          - generic [ref=e87]:
+            - generic [ref=e88]: Ready to bootstrap
+            - generic [ref=e89]: "Yes"
+        - generic [ref=e90]:
+          - button "Go to My Space" [disabled]
+          - link "View getting started guide" [ref=e91] [cursor=pointer]:
+            - /url: /setup-guides
+            - text: View getting started guide
+            - img [ref=e92]
+  - region "Notifications alt+T"

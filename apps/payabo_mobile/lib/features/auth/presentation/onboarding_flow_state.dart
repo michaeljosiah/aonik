@@ -45,6 +45,7 @@ class OnboardingState {
     required this.email,
     required this.password,
     this.phoneOtpChallengeId,
+    this.phoneOtpDevCode,
   });
 
   final String registrationCountryCode;
@@ -55,6 +56,10 @@ class OnboardingState {
   final String email;
   final String password;
   final String? phoneOtpChallengeId;
+
+  /// The plaintext OTP code returned by the API in development environments.
+  /// Null in production or when the SMS provider is properly configured.
+  final String? phoneOtpDevCode;
 
   OnboardingCountry get registrationCountry =>
       resolveOnboardingCountry(registrationCountryCode);
@@ -71,6 +76,7 @@ class OnboardingState {
     String? email,
     String? password,
     String? phoneOtpChallengeId,
+    String? phoneOtpDevCode,
   }) {
     return OnboardingState(
       registrationCountryCode:
@@ -82,6 +88,7 @@ class OnboardingState {
       email: email ?? this.email,
       password: password ?? this.password,
       phoneOtpChallengeId: phoneOtpChallengeId ?? this.phoneOtpChallengeId,
+      phoneOtpDevCode: phoneOtpDevCode ?? this.phoneOtpDevCode,
     );
   }
 
@@ -131,6 +138,10 @@ class OnboardingController extends StateNotifier<OnboardingState> {
 
   void setPhoneOtpChallengeId(String value) {
     state = state.copyWith(phoneOtpChallengeId: value);
+  }
+
+  void setPhoneOtpDevCode(String? value) {
+    state = state.copyWith(phoneOtpDevCode: value);
   }
 
   void reset() {

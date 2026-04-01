@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/environment/environment_provider.dart';
 import '../../../data/api/api_exception.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_colors.dart';
@@ -26,6 +27,7 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
   String _otpCode = '';
   bool _isVerifying = false;
   String? _errorMessage;
+  late final TextEditingController _otpController;
 
   bool get isLocked => _secondsRemaining > 0;
 
@@ -34,18 +36,24 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
   @override
   void initState() {
     super.initState();
+    _otpController = TextEditingController();
     _startResendCountdown(_resendCooldownSeconds);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _otpController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final canContinue = _otpCode.length == 6 && !_isVerifying;
+    final env = ref.watch(appEnvironmentProvider);
+    final devCode = ref.watch(onboardingControllerProvider).phoneOtpDevCode;
+    final showDevHelper =
+        !env.isProduction && devCode != null && devCode.isNotEmpty;
 
     return AuthFlowScaffold(
       title: 'The code is',
@@ -60,6 +68,7 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
               child: PayaboOtpField(
                 length: 6,
                 enabled: !_isVerifying,
+                controller: _otpController,
                 onChanged: (value) {
                   setState(() {
                     _otpCode = value;
@@ -75,6 +84,25 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
               ),
             ),
           ),
+          if (showDevHelper)
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  _otpController.text = devCode;
+                  setState(() {
+                    _otpCode = devCode;
+                    _errorMessage = null;
+                  });
+                },
+                child: Text(
+                  'Show code (dev)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: PayaboColors.muted,
+                        decoration: TextDecoration.underline,
+                      ),
+                ),
+              ),
+            ),
           if (_errorMessage != null) ...[
             const SizedBox(height: PayaboSpacing.sm),
             Center(
@@ -117,7 +145,8 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
         ref.read(onboardingControllerProvider).phoneOtpChallengeId;
 
     if (challengeId == null || challengeId.isEmpty) {
-      setState(() => _errorMessage = 'Verification session expired. Request a new code.');
+      setState(() =>
+          _errorMessage = 'Verification session expired. Request a new code.');
       return;
     }
 
@@ -156,8 +185,7 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
   Future<void> _resendOtp() async {
     final onboarding = ref.read(onboardingControllerProvider);
     final dialCode = onboarding.phoneCountry.dialCode.trim();
-    final digits =
-        onboarding.mobileNumber.trim().replaceAll(RegExp(r'\D'), '');
+    final digits = onboarding.mobileNumber.trim().replaceAll(RegExp(r'\D'), '');
     final fullPhone = '$dialCode$digits';
 
     try {
@@ -168,6 +196,11 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
           .read(onboardingControllerProvider.notifier)
           .setPhoneOtpChallengeId(result.challengeId);
 
+      ref
+          .read(onboardingControllerProvider.notifier)
+          .setPhoneOtpDevCode(result.devCode);
+
+      _otpController.clear();
       _startResendCountdown(_resendCooldownSeconds);
     } catch (error) {
       if (!mounted) return;

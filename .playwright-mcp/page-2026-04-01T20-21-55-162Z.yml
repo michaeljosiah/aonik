@@ -1,0 +1,130 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e6]:
+        - link "A" [ref=e7] [cursor=pointer]:
+          - /url: /
+        - button [ref=e8]:
+          - img [ref=e9]
+      - navigation [ref=e11]:
+        - link [ref=e13] [cursor=pointer]:
+          - /url: /
+          - img [ref=e14]
+        - img [ref=e22] [cursor=pointer]
+        - generic [ref=e25]:
+          - link [ref=e26] [cursor=pointer]:
+            - /url: /workspace?panel=customers
+            - img [ref=e27]
+          - link [ref=e31] [cursor=pointer]:
+            - /url: /workspace?panel=accounts
+            - img [ref=e32]
+          - link [ref=e34] [cursor=pointer]:
+            - /url: /workspace?panel=orders-activity
+            - img [ref=e35]
+          - img [ref=e40] [cursor=pointer]
+          - img [ref=e44] [cursor=pointer]
+          - link [ref=e48] [cursor=pointer]:
+            - /url: /compliance/documents
+            - img [ref=e49]
+        - img [ref=e55] [cursor=pointer]
+      - generic [ref=e61] [cursor=pointer]: MJ
+    - generic [ref=e62]:
+      - banner [ref=e63]:
+        - navigation [ref=e64]:
+          - img [ref=e65]
+          - generic [ref=e69]: Admin
+          - generic [ref=e70]:
+            - generic [ref=e71]: /
+            - generic [ref=e72]: Infrastructure
+        - generic [ref=e73]:
+          - button "Open notifications" [ref=e74]:
+            - img
+          - button "Open AI chat" [ref=e75]:
+            - img
+          - button "Enter fullscreen" [ref=e76]:
+            - img
+      - main [ref=e78]:
+        - generic [ref=e80]:
+          - button "Back to Tenants" [ref=e82]:
+            - img
+            - text: Back to Tenants
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - img [ref=e86]
+              - generic [ref=e90]:
+                - generic [ref=e91]:
+                  - heading "Aonik Dev Tenant" [level=1] [ref=e92]
+                  - generic [ref=e93]: Development
+                  - generic [ref=e94]:
+                    - img [ref=e95]
+                    - text: Active
+                - paragraph [ref=e98]: 570771f8-b9c2-4e1d-aa15-82f73acb45ab
+            - generic [ref=e99]:
+              - button "Deactivate" [ref=e100]:
+                - img
+                - text: Deactivate
+              - button "Edit" [ref=e101]:
+                - img
+                - text: Edit
+          - generic [ref=e102]:
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - heading "Basic Information" [level=3] [ref=e106]:
+                  - img [ref=e107]
+                  - text: Basic Information
+                - generic [ref=e111]:
+                  - generic [ref=e112]:
+                    - generic [ref=e113]: Tenant Name
+                    - paragraph [ref=e114]: Aonik Dev Tenant
+                  - generic [ref=e115]:
+                    - generic [ref=e116]: Environment
+                    - generic [ref=e117]: Development
+              - generic [ref=e118]:
+                - heading "Regional Settings" [level=3] [ref=e120]:
+                  - img [ref=e121]
+                  - text: Regional Settings
+                - generic [ref=e124]:
+                  - generic [ref=e125]:
+                    - generic [ref=e126]: Default Currency
+                    - generic [ref=e127]:
+                      - img [ref=e128]
+                      - generic [ref=e130]: USD
+                  - generic [ref=e131]:
+                    - generic [ref=e132]: Supported Countries
+                    - generic [ref=e134]: US - United States
+                  - generic [ref=e135]:
+                    - generic [ref=e136]: Countries customers can send from
+                    - generic [ref=e138]: US - United States
+                  - generic [ref=e139]:
+                    - generic [ref=e140]: Countries customers can send to
+                    - generic [ref=e142]: US - United States
+            - generic [ref=e143]:
+              - generic [ref=e144]:
+                - generic [ref=e146]:
+                  - heading "Health Status" [level=3] [ref=e147]:
+                    - img [ref=e148]
+                    - text: Health Status
+                  - button [ref=e150]:
+                    - img
+                - generic [ref=e152]:
+                  - generic [ref=e153]:
+                    - img [ref=e154]
+                    - generic [ref=e157]: All Systems Operational
+                  - paragraph [ref=e158]: No checks reported
+              - generic [ref=e159]:
+                - heading "Metadata" [level=3] [ref=e161]:
+                  - img [ref=e162]
+                  - text: Metadata
+                - generic [ref=e165]:
+                  - generic [ref=e166]:
+                    - term [ref=e167]: Created
+                    - definition [ref=e168]: Apr 1, 2026, 08:17 PM
+                  - generic [ref=e169]:
+                    - term [ref=e170]: Last Updated
+                    - definition [ref=e171]: Apr 1, 2026, 08:21 PM
+                  - generic [ref=e172]:
+                    - term [ref=e173]: Updated By
+                    - definition [ref=e174]:
+                      - img [ref=e175]
+                      - text: 3e49b3ac-089b-4a5d-b43f-efe275d3710b
+  - region "Notifications alt+T"

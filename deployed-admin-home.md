@@ -1,0 +1,48 @@
+- generic [ref=e3]:
+  - generic [ref=e8]:
+    - generic [ref=e15]:
+      - heading "Aonik." [level=1] [ref=e17]
+      - heading "AI-native financial infrastructure" [level=2] [ref=e18]:
+        - text: AI-native financial
+        - text: infrastructure
+      - paragraph [ref=e19]: Power modern payments, billing, and financial intelligence with AI agents that assist with reconciliation, forecasting, and insights.
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - img [ref=e23]
+          - generic [ref=e25]: Intelligent reconciliation & anomaly detection
+        - generic [ref=e26]:
+          - img [ref=e28]
+          - generic [ref=e30]: Cash flow forecasting & spend insights
+        - generic [ref=e31]:
+          - img [ref=e33]
+          - generic [ref=e35]: Explainable, auditable AI you can trust
+    - generic [ref=e37]:
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - heading "Welcome back" [level=2] [ref=e41]
+          - paragraph [ref=e42]: Sign in to continue to your workspace
+        - generic [ref=e43]:
+          - generic [ref=e44]:
+            - img [ref=e45]
+            - text: Select Organization
+          - combobox "Select organization" [ref=e49]:
+            - generic: Aonik Dev Tenant (Development)
+            - img [ref=e50]
+          - paragraph [ref=e52]: Choose the organization you want to sign in to.
+        - paragraph [ref=e54]: Signing in with Auth0
+        - button "Sign in with Auth0" [ref=e55]:
+          - img
+          - text: Sign in with Auth0
+          - img
+        - paragraph [ref=e56]:
+          - text: Using a different identity provider?
+          - link "Learn more" [ref=e57] [cursor=pointer]:
+            - /url: "#"
+      - paragraph [ref=e58]:
+        - text: By signing in, you agree to our
+        - link "Terms of Service" [ref=e59] [cursor=pointer]:
+          - /url: "#"
+        - text: and
+        - link "Privacy Policy" [ref=e60] [cursor=pointer]:
+          - /url: "#"
+  - region "Notifications alt+T"

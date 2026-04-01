@@ -214,6 +214,7 @@ class LiveAuthRepository implements AuthRepository {
         expiresAt: expiresAtRaw != null
             ? DateTime.parse(expiresAtRaw)
             : DateTime.now().add(const Duration(minutes: 10)),
+        devCode: (payload['devCode'] as String?)?.trim(),
       );
     } on DioException catch (exception) {
       throw mapDioException(exception);

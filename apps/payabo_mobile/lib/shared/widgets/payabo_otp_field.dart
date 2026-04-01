@@ -8,12 +8,14 @@ class PayaboOtpField extends StatelessWidget {
     super.key,
     this.length = 4,
     this.enabled = true,
+    this.controller,
     this.onChanged,
     this.onCompleted,
   });
 
   final int length;
   final bool enabled;
+  final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onCompleted;
 
@@ -38,6 +40,7 @@ class PayaboOtpField extends StatelessWidget {
     return Pinput(
       enabled: enabled,
       length: length,
+      controller: controller,
       defaultPinTheme: defaultPinTheme,
       focusedPinTheme: defaultPinTheme.copyWith(
         decoration: BoxDecoration(
