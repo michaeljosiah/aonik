@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions;
@@ -14,6 +17,11 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
 {
     private const decimal ConfidenceFloor = 0.3m;
     private const decimal DecayRatePerMonth = 0.1m;
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     private readonly AiDbContext _dbContext;
     private readonly IClock _clock;
@@ -78,6 +86,41 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
             i.Summary,
             1.0m, // Insights don't have a confidence field; default to 1.0
             i.MetadataJson)).ToList();
+    }
+
+    public async Task<UserBriefCustomerInsightAiSummaryData?> GetCurrentCustomerInsightAiSummaryAsync(
+        Guid tenantId,
+        Guid userId,
+        Guid customerInsightSnapshotId,
+        CancellationToken cancellationToken = default)
+    {
+        var summary = await _dbContext.CustomerInsightAiSummaries
+            .Where(x => x.TenantId == tenantId
+                && x.UserId == userId
+                && x.CustomerInsightSnapshotId == customerInsightSnapshotId
+                && x.Status == CustomerInsightAiSummaryContract.StatusCurrent)
+            .OrderByDescending(x => x.CreatedAt)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (summary is null || string.IsNullOrWhiteSpace(summary.SummaryJson))
+        {
+            return null;
+        }
+
+        var document = JsonSerializer.Deserialize<CustomerInsightAiSummaryDocument>(summary.SummaryJson, JsonOptions);
+        if (document is null)
+        {
+            return null;
+        }
+
+        return new UserBriefCustomerInsightAiSummaryData(
+            document.Headline,
+            document.Summary,
+            document.KeyObservations,
+            document.RecommendedFocusAreas,
+            document.ReferencedMetrics,
+            document.Caveats);
     }
 
     private static decimal ComputeEffectiveConfidence(UserMemoryEntry entry, DateTime now)

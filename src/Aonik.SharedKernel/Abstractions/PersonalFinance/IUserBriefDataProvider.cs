@@ -28,6 +28,9 @@ public record UserBriefFinancialData(
     decimal AvailableBalance,
     string PrimaryCurrency,
 
+    // Canonical customer insight snapshot projection
+    UserBriefCustomerInsightSnapshotData? CustomerInsightSnapshot,
+
     // Upcoming bills
     IReadOnlyList<UserBriefBillData> UpcomingBills,
 
@@ -51,6 +54,43 @@ public record UserBriefFinancialData(
 
     // Household context
     string? HouseholdContext);
+
+public record UserBriefCustomerInsightSnapshotData(
+    Guid SnapshotId,
+    DateTime AsOfUtc,
+    DateTime WindowStartUtc,
+    DateTime WindowEndUtc,
+    bool IsPartial,
+    IReadOnlyList<string> CoverageWarnings,
+    IReadOnlyList<UserBriefSnapshotMoneyData> TotalBalanceByCurrency,
+    IReadOnlyList<UserBriefSnapshotMoneyData> TotalInflowsByCurrency,
+    IReadOnlyList<UserBriefSnapshotMoneyData> TotalOutflowsByCurrency,
+    IReadOnlyList<UserBriefSnapshotSpendData> TopCategorySpend,
+    IReadOnlyList<UserBriefSnapshotSpendData> TopMerchantSpend,
+    IReadOnlyList<UserBriefSnapshotMoneyData> UpcomingObligationsByCurrency,
+    IReadOnlyList<string> ObligationCoverageSummaries,
+    IReadOnlyList<string> BudgetPressureCategories,
+    IReadOnlyList<string> GoalProgressHighlights,
+    IReadOnlyList<UserBriefSnapshotSignalData> KeyBehaviourSignals,
+    IReadOnlyList<string> RiskFlags);
+
+public record UserBriefSnapshotMoneyData(
+    string Currency,
+    decimal Amount);
+
+public record UserBriefSnapshotSpendData(
+    string Name,
+    string Currency,
+    decimal Amount,
+    decimal ShareOfSpend);
+
+public record UserBriefSnapshotSignalData(
+    string SignalKey,
+    string Category,
+    string Title,
+    string Description,
+    string Severity,
+    string Confidence);
 
 public record UserBriefBillData(
     Guid BillId,

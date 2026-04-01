@@ -36,6 +36,7 @@ public class UserBriefProjectorTests
     {
         public List<UserBriefMemoryEntryData> MemoryEntries { get; set; } = [];
         public List<UserBriefInsightData> Insights { get; set; } = [];
+        public UserBriefCustomerInsightAiSummaryData? CustomerInsightAiSummary { get; set; }
 
         public Task<IReadOnlyList<UserBriefMemoryEntryData>> GetCurrentMemoryEntriesAsync(
             Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
@@ -44,6 +45,13 @@ public class UserBriefProjectorTests
         public Task<IReadOnlyList<UserBriefInsightData>> GetBehaviouralInsightsAsync(
             Guid tenantId, Guid userId, int maxResults = 5, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<UserBriefInsightData>>(Insights.Take(maxResults).ToList());
+
+        public Task<UserBriefCustomerInsightAiSummaryData?> GetCurrentCustomerInsightAiSummaryAsync(
+            Guid tenantId,
+            Guid userId,
+            Guid customerInsightSnapshotId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(CustomerInsightAiSummary);
     }
 
     private static AgentsDbContext CreateDbContext()
@@ -58,6 +66,7 @@ public class UserBriefProjectorTests
         TotalBalance: 5000m,
         AvailableBalance: 4500m,
         PrimaryCurrency: "GBP",
+        CustomerInsightSnapshot: CreateSnapshotData(isPartial: false),
         UpcomingBills: [new UserBriefBillData(Guid.NewGuid(), "Rent", 1200m, "GBP", DateTime.UtcNow.AddDays(5), true)],
         ActiveSubscriptions: [new UserBriefSubscriptionData(Guid.NewGuid(), "Netflix", 15.99m, "GBP", DateTime.UtcNow.AddDays(10))],
         SpendSummary: new UserBriefSpendData(800m,
@@ -68,6 +77,56 @@ public class UserBriefProjectorTests
         SupportObligations: [new UserBriefObligationData("Mother - Lagos", 200m, "GBP", "monthly", DateTime.UtcNow.AddDays(3))],
         CorridorCountries: ["GB", "NG"],
         HouseholdContext: "Supporting mother + sister in Lagos");
+
+    private static UserBriefCustomerInsightSnapshotData CreateSnapshotData(bool isPartial) => new(
+        SnapshotId: Guid.NewGuid(),
+        AsOfUtc: new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc),
+        WindowStartUtc: new DateTime(2025, 10, 4, 0, 0, 0, DateTimeKind.Utc),
+        WindowEndUtc: new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc),
+        IsPartial: isPartial,
+        CoverageWarnings: isPartial ? ["Goals domain unavailable"] : [],
+        TotalBalanceByCurrency: [new UserBriefSnapshotMoneyData("GBP", 5000m)],
+        TotalInflowsByCurrency: [new UserBriefSnapshotMoneyData("GBP", 3200m)],
+        TotalOutflowsByCurrency: [new UserBriefSnapshotMoneyData("GBP", 2400m)],
+        TopCategorySpend: [new UserBriefSnapshotSpendData("Food", "GBP", 400m, 50m), new UserBriefSnapshotSpendData("Transport", "GBP", 200m, 25m)],
+        TopMerchantSpend: [new UserBriefSnapshotSpendData("Tesco", "GBP", 250m, 31.25m)],
+        UpcomingObligationsByCurrency: [new UserBriefSnapshotMoneyData("GBP", 1200m)],
+        ObligationCoverageSummaries: ["GBP: coverage ratio 3.75"],
+        BudgetPressureCategories: ["Food at 90% of budget"],
+        GoalProgressHighlights: ["Emergency Fund: 40% complete, about 12 months to target"],
+        KeyBehaviourSignals:
+        [
+            new UserBriefSnapshotSignalData(
+                "late_month_spike",
+                "spending",
+                "Late-month spend spike",
+                "Spending rises near month end.",
+                "Moderate",
+                "High")
+        ],
+        RiskFlags: ["Budget pressure level: Moderate", "Merchant concentration is high in GBP (45%)."]);
+
+    private static UserBriefCustomerInsightAiSummaryData CreateAiSummaryData() => new(
+        Headline: "Cash position is stable with rising discretionary pressure",
+        Summary: "Core cashflow remains healthy, but entertainment and food spending need tighter follow-up.",
+        KeyObservations:
+        [
+            "Income still covers current obligations comfortably.",
+            "Late-month spending spikes keep showing up.",
+            "Food and entertainment are the main pressure points."
+        ],
+        RecommendedFocusAreas:
+        [
+            "Review discretionary categories before month end.",
+            "Confirm whether the latest spending spike was exceptional."
+        ],
+        ReferencedMetricKeys:
+        [
+            "metrics.cashPosition.totalBalanceByCurrency",
+            "metrics.categories.topCategoriesByAmount",
+            "signals.late_month_spike"
+        ],
+        Caveats: ["Interpretation is grounded in the latest deterministic snapshot."]);
 
     [Fact]
     public async Task ProjectAsync_Should_AssembleCompleteBrief()
@@ -80,7 +139,8 @@ public class UserBriefProjectorTests
                 new("Preference", "communication.style", "\"concise\"", 1.0m, "UserStated"),
                 new("Identity", "identity.preferred_name", "\"Ade\"", 1.0m, "UserStated")
             ],
-            Insights = [new("UserBehaviour", "Late-month spending spike", "You tend to spend 30% more.", 0.82m, null)]
+            Insights = [new("UserBehaviour", "Late-month spending spike", "You tend to spend 30% more.", 0.82m, null)],
+            CustomerInsightAiSummary = CreateAiSummaryData()
         };
         using var db = CreateDbContext();
         var logger = NullLogger<UserBriefProjector>.Instance;
@@ -99,9 +159,90 @@ public class UserBriefProjectorTests
         brief.CurrentState.Subscriptions.Should().HaveCount(1);
         brief.FinancialFocus.CurrentGoals.Should().HaveCount(1);
         brief.FinancialFocus.SupportObligations.Should().HaveCount(1);
+        brief.CustomerInsightSnapshot.Should().NotBeNull();
+        brief.CustomerInsightSnapshot!.IsPartial.Should().BeFalse();
+        brief.CustomerInsightSnapshot.TopCategorySpend.Should().ContainSingle(x => x.Name == "Food");
+        brief.CustomerInsightAiInterpretation.Should().NotBeNull();
+        brief.CustomerInsightAiInterpretation!.Headline.Should().Contain("Cash position is stable");
         brief.BehaviouralInsights.Should().HaveCount(1);
         brief.CashflowRisk.Should().Be(CashflowRisk.Low); // 4500 > 2 * 1200
         brief.GeneratedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task ProjectAsync_Should_FallbackToPartialSnapshot_When_SnapshotIsPartial()
+    {
+        var financeData = new StubFinanceDataProvider
+        {
+            Data = CreateMinimalFinancialData() with
+            {
+                CustomerInsightSnapshot = CreateSnapshotData(isPartial: true)
+            }
+        };
+        var aiData = new StubAiDataProvider
+        {
+            CustomerInsightAiSummary = CreateAiSummaryData()
+        };
+        using var db = CreateDbContext();
+
+        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var brief = await projector.ProjectAsync(TenantId, UserId);
+
+        brief.CustomerInsightSnapshot.Should().NotBeNull();
+        brief.CustomerInsightSnapshot!.IsPartial.Should().BeTrue();
+        brief.CustomerInsightSnapshot.CoverageWarnings.Should().Contain("Deterministic customer insight snapshot is partial.");
+        brief.CustomerInsightAiInterpretation.Should().NotBeNull();
+        brief.CustomerInsightAiInterpretation!.Caveats.Should().Contain("Underlying deterministic snapshot is partial; treat AI interpretation as lower certainty.");
+    }
+
+    [Fact]
+    public async Task ProjectAsync_Should_OmitAiInterpretation_When_NoCurrentAiSummaryExists()
+    {
+        var financeData = new StubFinanceDataProvider();
+        var aiData = new StubAiDataProvider();
+        using var db = CreateDbContext();
+
+        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var brief = await projector.ProjectAsync(TenantId, UserId);
+
+        brief.CustomerInsightSnapshot.Should().NotBeNull();
+        brief.CustomerInsightAiInterpretation.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProjectAsync_Should_PrioritizeSnapshotAndAiInterpretation_When_TokenBudgetIsTight()
+    {
+        var financeData = new StubFinanceDataProvider();
+        var aiData = new StubAiDataProvider
+        {
+            CustomerInsightAiSummary = CreateAiSummaryData(),
+            Insights =
+            [
+                new("UserBehaviour", "Insight 1", "Summary 1", 0.9m, null),
+                new("UserBehaviour", "Insight 2", "Summary 2", 0.9m, null),
+                new("UserBehaviour", "Insight 3", "Summary 3", 0.9m, null),
+                new("UserBehaviour", "Insight 4", "Summary 4", 0.9m, null)
+            ]
+        };
+        using var db = CreateDbContext();
+
+        db.ChatThreads.Add(new ChatThread
+        {
+            TenantId = TenantId,
+            UserId = UserId,
+            Title = "History",
+            Status = ChatThreadStatus.Archived,
+            LastMessageAt = DateTime.UtcNow,
+            MessageCount = 2
+        });
+        await db.SaveChangesAsync();
+
+        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var brief = await projector.ProjectAsync(TenantId, UserId, new UserBriefOptions { TokenBudget = 200 });
+
+        brief.CustomerInsightSnapshot.Should().NotBeNull();
+        brief.CustomerInsightAiInterpretation.Should().NotBeNull();
+        brief.BehaviouralInsights.Count.Should().BeLessThanOrEqualTo(1);
     }
 
     [Fact]
@@ -193,7 +334,7 @@ public class UserBriefProjectorTests
         var financeData = new StubFinanceDataProvider
         {
             Data = new UserBriefFinancialData(
-                0m, 0m, "GBP", [], [], null, [], [], [], [], null)
+                0m, 0m, "GBP", null, [], [], null, [], [], [], [], null)
         };
         var aiData = new StubAiDataProvider();
         using var db = CreateDbContext();

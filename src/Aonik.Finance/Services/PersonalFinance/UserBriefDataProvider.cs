@@ -1,3 +1,7 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
@@ -13,6 +17,11 @@ namespace Aonik.Finance.Services.PersonalFinance;
 /// </summary>
 internal sealed class UserBriefDataProvider : IUserBriefDataProvider
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private readonly FinanceDbContext _dbContext;
     private readonly IPersonalFinanceInsightsService _insightsService;
     private readonly IBudgetService _budgetService;
@@ -65,8 +74,23 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var spendTask = _insightsService.GetSpendingSummaryAsync(spendStart, spendEnd, null, cancellationToken);
         var categoryTask = _insightsService.GetCategoryBreakdownAsync(spendStart, spendEnd, null, cancellationToken);
         var budgetTask = _budgetService.ListBudgetsAsync(cancellationToken);
+        var customerInsightSnapshotTask = _dbContext.CustomerInsightSnapshots
+            .Where(s => s.TenantId == tenantId
+                && s.UserId == userId
+                && s.Status == CustomerInsightSnapshotContract.StatusCurrent)
+            .OrderByDescending(s => s.Version)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
 
-        await Task.WhenAll(accountsTask, billsTask, subscriptionsTask, goalsTask, spendTask, categoryTask, budgetTask);
+        await Task.WhenAll(
+            accountsTask,
+            billsTask,
+            subscriptionsTask,
+            goalsTask,
+            spendTask,
+            categoryTask,
+            budgetTask,
+            customerInsightSnapshotTask);
 
         var accounts = await accountsTask;
         var bills = await billsTask;
@@ -75,6 +99,7 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var spend = await spendTask;
         var categories = await categoryTask;
         var budgets = await budgetTask;
+        var customerInsightSnapshot = await customerInsightSnapshotTask;
 
         // Derive cash summary
         var primaryCurrency = accounts.FirstOrDefault()?.Currency ?? "GBP";
@@ -98,6 +123,7 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
             TotalBalance: totalBalance,
             AvailableBalance: totalBalance, // Simplified — real impl would subtract pending obligations
             PrimaryCurrency: primaryCurrency,
+            CustomerInsightSnapshot: MapCustomerInsightSnapshot(customerInsightSnapshot),
             UpcomingBills: bills.Select(b => new UserBriefBillData(
                 b.Id, b.Payee, b.ExpectedAmount, b.Currency, b.NextDueDate, b.Autopay)).ToList(),
             ActiveSubscriptions: subscriptions.Select(s => new UserBriefSubscriptionData(
@@ -115,6 +141,101 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
             CorridorCountries: corridorCountries,
             HouseholdContext: null); // Hydrated from FLG if household exists
     }
+
+    private static UserBriefCustomerInsightSnapshotData? MapCustomerInsightSnapshot(CustomerInsightSnapshot? snapshot)
+    {
+        if (snapshot is null || string.IsNullOrWhiteSpace(snapshot.SnapshotJson))
+        {
+            return null;
+        }
+
+        var document = JsonSerializer.Deserialize<CustomerInsightSnapshotDocument>(snapshot.SnapshotJson, JsonOptions);
+        if (document is null)
+        {
+            return null;
+        }
+
+        var obligationCoverageSummaries = document.Metrics.Obligations.CoverageRatios
+            .Select(x => x.Ratio.HasValue
+                ? $"{x.Currency}: coverage ratio {x.Ratio.Value}"
+                : $"{x.Currency}: no obligation coverage ratio available")
+            .ToList();
+
+        var budgetPressureCategories = document.Metrics.Budgets.CategoriesAboveThreshold
+            .Select(x => $"{x.Category} at {x.PercentUsed}% of budget")
+            .Concat(document.Metrics.Budgets.ProjectedPressureCategories.Select(x => $"{x.Category} projected to reach {x.ProjectedMonthEndAmount} {x.Currency}"))
+            .Distinct(StringComparer.Ordinal)
+            .Take(5)
+            .ToList();
+
+        var goalHighlights = document.Metrics.Goals.ActiveGoals
+            .Select(x =>
+            {
+                var targetTiming = x.EstimatedMonthsToTarget.HasValue
+                    ? $"about {x.EstimatedMonthsToTarget.Value} months to target"
+                    : "target timing unavailable";
+
+                return $"{x.Name}: {x.ProgressPercent}% complete, {targetTiming}";
+            })
+            .Take(5)
+            .ToList();
+
+        var riskFlags = new List<string>();
+        if (!string.Equals(document.Risk.CashflowStressLevel, CustomerInsightSnapshotContract.SeverityLow, StringComparison.OrdinalIgnoreCase))
+        {
+            riskFlags.Add($"Cashflow stress level: {document.Risk.CashflowStressLevel}");
+        }
+
+        if (!string.Equals(document.Risk.BudgetPressureLevel, CustomerInsightSnapshotContract.SeverityLow, StringComparison.OrdinalIgnoreCase))
+        {
+            riskFlags.Add($"Budget pressure level: {document.Risk.BudgetPressureLevel}");
+        }
+
+        if (!string.Equals(document.Risk.MissedObligationRisk, CustomerInsightSnapshotContract.SeverityLow, StringComparison.OrdinalIgnoreCase))
+        {
+            riskFlags.Add($"Missed obligation risk: {document.Risk.MissedObligationRisk}");
+        }
+
+        riskFlags.AddRange(document.Risk.ConcentrationRisks);
+        riskFlags.AddRange(document.Risk.UnusualActivityIndicators);
+
+        return new UserBriefCustomerInsightSnapshotData(
+            snapshot.Id,
+            document.AsOfUtc,
+            document.AnalysisWindow.WindowStartUtc,
+            document.AnalysisWindow.WindowEndUtc,
+            document.Coverage.IsPartial,
+            document.Coverage.Warnings,
+            document.Metrics.CashPosition.TotalBalanceByCurrency.Select(MapMoney).ToList(),
+            document.Metrics.Income.TotalInflowsByCurrency.Select(MapMoney).ToList(),
+            document.Metrics.Expense.TotalOutflowsByCurrency.Select(MapMoney).ToList(),
+            document.Metrics.Categories.TopCategoriesByAmount
+                .Select(x => new UserBriefSnapshotSpendData(x.Category, x.Currency, x.Amount, x.ShareOfSpend))
+                .Take(5)
+                .ToList(),
+            document.Metrics.Merchants.TopMerchantsByAmount
+                .Select(x => new UserBriefSnapshotSpendData(x.Merchant, x.Currency, x.Amount, x.ShareOfSpend))
+                .Take(5)
+                .ToList(),
+            document.Metrics.Obligations.TotalUpcomingByCurrency.Select(MapMoney).ToList(),
+            obligationCoverageSummaries,
+            budgetPressureCategories,
+            goalHighlights,
+            document.Signals
+                .Select(x => new UserBriefSnapshotSignalData(
+                    x.SignalKey,
+                    x.Category,
+                    x.Title,
+                    x.Description,
+                    x.Severity,
+                    x.Confidence))
+                .Take(5)
+                .ToList(),
+            riskFlags.Distinct(StringComparer.Ordinal).Take(6).ToList());
+    }
+
+    private static UserBriefSnapshotMoneyData MapMoney(CustomerInsightMoneyAmount amount) =>
+        new(amount.Currency, amount.Amount);
 
     private static List<UserBriefBudgetPressureData> DeriveBudgetPressure(
         IReadOnlyList<Aonik.Finance.Contracts.Models.PersonalFinance.BudgetCategoryResponse> budgets,

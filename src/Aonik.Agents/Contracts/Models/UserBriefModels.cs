@@ -10,6 +10,8 @@ public record UserBrief(
     UserBriefProfile UserProfile,
     UserBriefFinancialFocus FinancialFocus,
     UserBriefCurrentState CurrentState,
+    UserBriefCustomerInsightSnapshotSummary? CustomerInsightSnapshot,
+    UserBriefCustomerInsightAiInterpretation? CustomerInsightAiInterpretation,
     CashflowRisk CashflowRisk,
     IReadOnlyList<UserBriefBehaviouralInsight> BehaviouralInsights,
     IReadOnlyList<UserBriefConversationMemory> RecentConversationMemory,
@@ -51,6 +53,50 @@ public record UserBriefCurrentState(
     IReadOnlyList<UserBriefSubscription> Subscriptions,
     UserBriefSpendSummary? SpendSummary,
     IReadOnlyList<UserBriefBudgetPressure> BudgetPressureCategories);
+
+public record UserBriefCustomerInsightSnapshotSummary(
+    DateTime AsOfUtc,
+    DateTime WindowStartUtc,
+    DateTime WindowEndUtc,
+    bool IsPartial,
+    IReadOnlyList<string> CoverageWarnings,
+    IReadOnlyList<UserBriefSnapshotMoney> TotalBalanceByCurrency,
+    IReadOnlyList<UserBriefSnapshotMoney> TotalInflowsByCurrency,
+    IReadOnlyList<UserBriefSnapshotMoney> TotalOutflowsByCurrency,
+    IReadOnlyList<UserBriefSnapshotSpend> TopCategorySpend,
+    IReadOnlyList<UserBriefSnapshotSpend> TopMerchantSpend,
+    IReadOnlyList<UserBriefSnapshotMoney> UpcomingObligationsByCurrency,
+    IReadOnlyList<string> ObligationCoverageSummaries,
+    IReadOnlyList<string> BudgetPressureCategories,
+    IReadOnlyList<string> GoalProgressHighlights,
+    IReadOnlyList<UserBriefSnapshotSignal> KeyBehaviourSignals,
+    IReadOnlyList<string> RiskFlags);
+
+public record UserBriefCustomerInsightAiInterpretation(
+    string Headline,
+    string Summary,
+    IReadOnlyList<string> KeyObservations,
+    IReadOnlyList<string> RecommendedFocusAreas,
+    IReadOnlyList<string> ReferencedMetricKeys,
+    IReadOnlyList<string> Caveats);
+
+public record UserBriefSnapshotMoney(
+    string Currency,
+    decimal Amount);
+
+public record UserBriefSnapshotSpend(
+    string Name,
+    string Currency,
+    decimal Amount,
+    decimal ShareOfSpend);
+
+public record UserBriefSnapshotSignal(
+    string SignalKey,
+    string Category,
+    string Title,
+    string Description,
+    string Severity,
+    string Confidence);
 
 public record UserBriefCashSummary(
     decimal TotalBalance,

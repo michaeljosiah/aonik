@@ -52,6 +52,13 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         var financeData = await financeTask;
         var insights = await insightsTask;
         var memoryEntries = await memoryTask;
+        var customerInsightSummary = financeData.CustomerInsightSnapshot is null
+            ? null
+            : await _aiData.GetCurrentCustomerInsightAiSummaryAsync(
+                tenantId,
+                userId,
+                financeData.CustomerInsightSnapshot.SnapshotId,
+                cancellationToken);
 
         // ── Step 4-5: Lightweight sequential lookups ───────────────────
         var conversationSummaries = await _agentsDbContext.ConversationSummaries
@@ -65,6 +72,10 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         var userProfile = AssembleUserProfile(memoryEntries, financeData);
         var financialFocus = AssembleFinancialFocus(financeData);
         var currentState = AssembleCurrentState(financeData);
+        var customerInsightSnapshot = AssembleCustomerInsightSnapshot(financeData.CustomerInsightSnapshot);
+        var customerInsightAiInterpretation = AssembleCustomerInsightAiInterpretation(
+            customerInsightSummary,
+            financeData.CustomerInsightSnapshot);
         var cashflowRisk = DeriveCashflowRisk(financeData);
         var behaviouralInsights = AssembleBehaviouralInsights(insights);
         var conversationMemory = AssembleConversationMemory(conversationSummaries);
@@ -74,6 +85,8 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             userProfile,
             financialFocus,
             currentState,
+            customerInsightSnapshot,
+            customerInsightAiInterpretation,
             cashflowRisk,
             behaviouralInsights,
             conversationMemory,
@@ -139,6 +152,71 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             b.Category, b.Budgeted, b.Actual, b.PercentUsed)).ToList();
 
         return new UserBriefCurrentState(cashSummary, bills, subscriptions, spendSummary, budgetPressure);
+    }
+
+    private static UserBriefCustomerInsightSnapshotSummary? AssembleCustomerInsightSnapshot(
+        UserBriefCustomerInsightSnapshotData? snapshot)
+    {
+        if (snapshot is null)
+        {
+            return null;
+        }
+
+        var coverageWarnings = snapshot.IsPartial
+            ? new[] { "Deterministic customer insight snapshot is partial." }
+                .Concat(snapshot.CoverageWarnings)
+                .Distinct(StringComparer.Ordinal)
+                .ToList()
+            : snapshot.CoverageWarnings;
+
+        return new UserBriefCustomerInsightSnapshotSummary(
+            snapshot.AsOfUtc,
+            snapshot.WindowStartUtc,
+            snapshot.WindowEndUtc,
+            snapshot.IsPartial,
+            coverageWarnings,
+            snapshot.TotalBalanceByCurrency.Select(x => new UserBriefSnapshotMoney(x.Currency, x.Amount)).ToList(),
+            snapshot.TotalInflowsByCurrency.Select(x => new UserBriefSnapshotMoney(x.Currency, x.Amount)).ToList(),
+            snapshot.TotalOutflowsByCurrency.Select(x => new UserBriefSnapshotMoney(x.Currency, x.Amount)).ToList(),
+            snapshot.TopCategorySpend.Select(x => new UserBriefSnapshotSpend(x.Name, x.Currency, x.Amount, x.ShareOfSpend)).ToList(),
+            snapshot.TopMerchantSpend.Select(x => new UserBriefSnapshotSpend(x.Name, x.Currency, x.Amount, x.ShareOfSpend)).ToList(),
+            snapshot.UpcomingObligationsByCurrency.Select(x => new UserBriefSnapshotMoney(x.Currency, x.Amount)).ToList(),
+            snapshot.ObligationCoverageSummaries,
+            snapshot.BudgetPressureCategories,
+            snapshot.GoalProgressHighlights,
+            snapshot.KeyBehaviourSignals.Select(x => new UserBriefSnapshotSignal(
+                x.SignalKey,
+                x.Category,
+                x.Title,
+                x.Description,
+                x.Severity,
+                x.Confidence)).ToList(),
+            snapshot.RiskFlags);
+    }
+
+    private static UserBriefCustomerInsightAiInterpretation? AssembleCustomerInsightAiInterpretation(
+        UserBriefCustomerInsightAiSummaryData? summary,
+        UserBriefCustomerInsightSnapshotData? snapshot)
+    {
+        if (summary is null)
+        {
+            return null;
+        }
+
+        var caveats = snapshot?.IsPartial == true
+            ? summary.Caveats
+                .Concat(["Underlying deterministic snapshot is partial; treat AI interpretation as lower certainty."])
+                .Distinct(StringComparer.Ordinal)
+                .ToList()
+            : summary.Caveats;
+
+        return new UserBriefCustomerInsightAiInterpretation(
+            summary.Headline,
+            summary.Summary,
+            summary.KeyObservations,
+            summary.RecommendedFocusAreas,
+            summary.ReferencedMetricKeys,
+            caveats);
     }
 
     /// <summary>
@@ -216,14 +294,20 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             if (EstimateTokens(brief) <= tokenBudget) return brief;
         }
 
-        // Truncation pass 2: reduce conversation history to 1
+        // Truncation pass 2: reduce conversation history to 1, then 0
         if (brief.RecentConversationMemory.Count > 1)
         {
             brief = brief with { RecentConversationMemory = brief.RecentConversationMemory.Take(1).ToList() };
             if (EstimateTokens(brief) <= tokenBudget) return brief;
         }
 
-        // Truncation pass 3: truncate subscriptions to top 5
+        if (brief.RecentConversationMemory.Count > 0)
+        {
+            brief = brief with { RecentConversationMemory = [] };
+            if (EstimateTokens(brief) <= tokenBudget) return brief;
+        }
+
+        // Truncation pass 3: truncate live operational detail before canonical insight sections.
         if (brief.CurrentState.Subscriptions.Count > 5)
         {
             brief = brief with
@@ -248,6 +332,42 @@ internal sealed class UserBriefProjector : IUserBriefProjector
                     {
                         TopCategories = brief.CurrentState.SpendSummary.TopCategories.Take(3).ToList()
                     }
+                }
+            };
+            if (EstimateTokens(brief) <= tokenBudget) return brief;
+        }
+
+        // Truncation pass 5: keep AI interpretation, but trim secondary arrays.
+        if (brief.CustomerInsightAiInterpretation is not null)
+        {
+            brief = brief with
+            {
+                CustomerInsightAiInterpretation = brief.CustomerInsightAiInterpretation with
+                {
+                    KeyObservations = brief.CustomerInsightAiInterpretation.KeyObservations.Take(3).ToList(),
+                    RecommendedFocusAreas = brief.CustomerInsightAiInterpretation.RecommendedFocusAreas.Take(3).ToList(),
+                    ReferencedMetricKeys = brief.CustomerInsightAiInterpretation.ReferencedMetricKeys.Take(5).ToList(),
+                    Caveats = brief.CustomerInsightAiInterpretation.Caveats.Take(3).ToList()
+                }
+            };
+            if (EstimateTokens(brief) <= tokenBudget) return brief;
+        }
+
+        // Truncation pass 6: trim lower-priority lists inside deterministic snapshot summary.
+        if (brief.CustomerInsightSnapshot is not null)
+        {
+            brief = brief with
+            {
+                CustomerInsightSnapshot = brief.CustomerInsightSnapshot with
+                {
+                    CoverageWarnings = brief.CustomerInsightSnapshot.CoverageWarnings.Take(3).ToList(),
+                    TopCategorySpend = brief.CustomerInsightSnapshot.TopCategorySpend.Take(3).ToList(),
+                    TopMerchantSpend = brief.CustomerInsightSnapshot.TopMerchantSpend.Take(3).ToList(),
+                    ObligationCoverageSummaries = brief.CustomerInsightSnapshot.ObligationCoverageSummaries.Take(3).ToList(),
+                    BudgetPressureCategories = brief.CustomerInsightSnapshot.BudgetPressureCategories.Take(3).ToList(),
+                    GoalProgressHighlights = brief.CustomerInsightSnapshot.GoalProgressHighlights.Take(3).ToList(),
+                    KeyBehaviourSignals = brief.CustomerInsightSnapshot.KeyBehaviourSignals.Take(3).ToList(),
+                    RiskFlags = brief.CustomerInsightSnapshot.RiskFlags.Take(3).ToList()
                 }
             };
         }

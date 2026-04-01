@@ -23,6 +23,16 @@ public interface IUserBriefAiDataProvider
         Guid userId,
         int maxResults = 5,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves the current AI interpretation for the user's current deterministic
+    /// customer insight snapshot, if one exists.
+    /// </summary>
+    Task<UserBriefCustomerInsightAiSummaryData?> GetCurrentCustomerInsightAiSummaryAsync(
+        Guid tenantId,
+        Guid userId,
+        Guid customerInsightSnapshotId,
+        CancellationToken cancellationToken = default);
 }
 
 public record UserBriefMemoryEntryData(
@@ -38,3 +48,11 @@ public record UserBriefInsightData(
     string Summary,
     decimal Confidence,
     string? MetadataJson);
+
+public record UserBriefCustomerInsightAiSummaryData(
+    string Headline,
+    string Summary,
+    IReadOnlyList<string> KeyObservations,
+    IReadOnlyList<string> RecommendedFocusAreas,
+    IReadOnlyList<string> ReferencedMetricKeys,
+    IReadOnlyList<string> Caveats);
