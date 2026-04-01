@@ -1,5 +1,6 @@
 using Aonik.Platform.Contracts.Api.Operations;
 using Aonik.Platform.Contracts.Models.Notifications;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Entities.Operations;
@@ -106,9 +107,11 @@ public class AzureMonitorAlertServicesTests
 
         var notificationService = new NotificationService(
             context,
+            new TestTenantContext(Guid.Empty),
             new TestTenantProvider(Guid.Empty),
             new TestCurrentUserProvider(currentUserId),
             new NotificationRealtimePublisher(),
+            new TestPushNotificationSender(),
             clock);
 
         var service = new AlertProcessingService(
@@ -217,6 +220,21 @@ public class AzureMonitorAlertServicesTests
         }
     }
 
+    private sealed class TestTenantContext : ITenantContext
+    {
+        public TestTenantContext(Guid tenantId)
+        {
+            TenantId = tenantId;
+            ResolutionSource = "Test";
+        }
+
+        public Guid? TenantId { get; set; }
+
+        public string? ResolutionSource { get; set; }
+
+        public bool IsResolved => TenantId.HasValue;
+    }
+
     private sealed class TestCurrentUserProvider : ICurrentUserProvider
     {
         private readonly Guid _userId;
@@ -232,6 +250,16 @@ public class AzureMonitorAlertServicesTests
         {
             userId = _userId;
             return true;
+        }
+    }
+
+    private sealed class TestPushNotificationSender : IPushNotificationSender
+    {
+        public Task<PushNotificationDispatchResult> SendAsync(
+            PushNotificationDispatchRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new PushNotificationDispatchResult(Array.Empty<Guid>()));
         }
     }
 

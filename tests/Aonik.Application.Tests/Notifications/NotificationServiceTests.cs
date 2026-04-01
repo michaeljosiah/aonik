@@ -1,4 +1,5 @@
 using Aonik.Platform.Contracts.Models.Notifications;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
@@ -258,9 +259,11 @@ public class NotificationServiceTests
     {
         return new NotificationService(
             context,
+            new TestTenantContext(tenantId),
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
             new NotificationRealtimePublisher(),
+            new TestPushNotificationSender(),
             clock);
     }
 
@@ -295,6 +298,21 @@ public class NotificationServiceTests
         }
     }
 
+    private sealed class TestTenantContext : ITenantContext
+    {
+        public TestTenantContext(Guid tenantId)
+        {
+            TenantId = tenantId;
+            ResolutionSource = "Test";
+        }
+
+        public Guid? TenantId { get; set; }
+
+        public string? ResolutionSource { get; set; }
+
+        public bool IsResolved => TenantId.HasValue;
+    }
+
     private sealed class TestCurrentUserProvider : ICurrentUserProvider
     {
         private readonly Guid _userId;
@@ -321,5 +339,15 @@ public class NotificationServiceTests
         }
 
         public DateTime UtcNow { get; set; }
+    }
+
+    private sealed class TestPushNotificationSender : IPushNotificationSender
+    {
+        public Task<PushNotificationDispatchResult> SendAsync(
+            PushNotificationDispatchRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new PushNotificationDispatchResult(Array.Empty<Guid>()));
+        }
     }
 }
