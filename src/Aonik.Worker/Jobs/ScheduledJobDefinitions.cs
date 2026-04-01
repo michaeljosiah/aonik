@@ -98,7 +98,7 @@ internal static class ScheduledJobDefinitions
                 BehaviouralInsightJob.Key,
                 new TriggerKey("BehaviouralInsightJob-trigger", ScheduledJobGroups.ScheduledJobs),
                 "Behavioural Insight",
-                "Pre-computes behavioural spending insights for personal finance users.",
+                "Materializes secondary behavioural insight records from canonical customer insight snapshots.",
                 options.BehaviouralInsight.CronExpression,
                 options.BehaviouralInsight.Enabled),
             new ScheduledJobDefinition<CustomerInsightSnapshotJob>(

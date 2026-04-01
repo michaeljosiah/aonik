@@ -1,5 +1,6 @@
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
+using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Platform.Entities.Operations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
@@ -10,8 +11,8 @@ using Quartz;
 namespace Aonik.Worker.Jobs;
 
 /// <summary>
-/// Quartz job that pre-computes behavioural insights (late-month spending spikes,
-/// income rhythm, recurring merchants) for all active personal finance users.
+/// Quartz job that materializes secondary generic behavioural insights from
+/// the current canonical customer insight snapshots.
 /// </summary>
 [DisallowConcurrentExecution]
 internal sealed class BehaviouralInsightJob : IJob
@@ -43,9 +44,12 @@ internal sealed class BehaviouralInsightJob : IJob
         var cancellationToken = context.CancellationToken;
         var maxUsers = _options.BehaviouralInsight.MaxUsers;
 
-        var users = await _financeDbContext.PersonalProfiles
-            .Select(p => new { p.TenantId, p.UserId })
-            .Distinct()
+        var users = await _financeDbContext.CustomerInsightSnapshots
+            .AsNoTracking()
+            .Where(s => s.Status == CustomerInsightSnapshotContract.StatusCurrent)
+            .OrderBy(s => s.TenantId)
+            .ThenBy(s => s.UserId)
+            .Select(s => new { s.TenantId, s.UserId })
             .Take(maxUsers)
             .ToListAsync(cancellationToken);
 

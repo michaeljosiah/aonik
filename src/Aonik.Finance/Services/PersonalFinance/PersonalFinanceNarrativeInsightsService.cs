@@ -2,136 +2,176 @@ using System.Text.Json;
 
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
-using Microsoft.Extensions.AI;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
 internal sealed class PersonalFinanceNarrativeInsightsService : IPersonalFinanceNarrativeInsightsService
 {
-    private readonly IPersonalFinanceInsightsService _insightsService;
-    private readonly IAiTaskProfileResolver _profileResolver;
-    private readonly IChatClient _chatClient;
+    private const string UseCase = "personal_finance_spending_narrative";
+
+    private readonly ICustomerInsightSnapshotReader _snapshotReader;
+    private readonly ICustomerInsightSnapshotService _snapshotService;
+    private readonly ICustomerInsightAiSummaryReader _summaryReader;
     private readonly IInsightWriter _insightWriter;
     private readonly IAiRunWriter _aiRunWriter;
-
-    private const string UseCase = "personal_finance_spending_narrative";
-    private const string PromptName = "personal_spending_insight";
+    private readonly ICurrentUserProvider _currentUserProvider;
 
     public PersonalFinanceNarrativeInsightsService(
-        IPersonalFinanceInsightsService insightsService,
-        IAiTaskProfileResolver profileResolver,
-        IChatClient chatClient,
+        ICustomerInsightSnapshotReader snapshotReader,
+        ICustomerInsightSnapshotService snapshotService,
+        ICustomerInsightAiSummaryReader summaryReader,
         IInsightWriter insightWriter,
-        IAiRunWriter aiRunWriter)
+        IAiRunWriter aiRunWriter,
+        ICurrentUserProvider currentUserProvider)
     {
-        _insightsService = insightsService;
-        _profileResolver = profileResolver;
-        _chatClient = chatClient;
+        _snapshotReader = snapshotReader;
+        _snapshotService = snapshotService;
+        _summaryReader = summaryReader;
         _insightWriter = insightWriter;
         _aiRunWriter = aiRunWriter;
+        _currentUserProvider = currentUserProvider;
     }
 
     public async Task<PersonalSpendingNarrativeInsightResponse> GenerateSpendingNarrativeAsync(
         GeneratePersonalSpendingNarrativeRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.PeriodStart == default || request.PeriodEnd == default)
-        {
-            throw new ArgumentException("PeriodStart and PeriodEnd are required.");
-        }
-
         if (request.PeriodEnd < request.PeriodStart)
         {
             throw new ArgumentException("PeriodEnd must be greater than or equal to PeriodStart.");
         }
 
-        var summary = await _insightsService.GetSpendingSummaryAsync(
-            request.PeriodStart,
-            request.PeriodEnd,
-            request.PersonalAccountId,
-            cancellationToken);
+        var userId = _currentUserProvider.GetCurrentUserId()
+            ?? throw new InvalidOperationException("Authenticated user is required.");
 
-        var topCategories = await _insightsService.GetCategoryBreakdownAsync(
-            request.PeriodStart,
-            request.PeriodEnd,
-            request.PersonalAccountId,
-            cancellationToken);
+        var snapshot = await _snapshotReader.GetCurrentSnapshotAsync(userId, cancellationToken)
+            ?? await _snapshotService.GenerateCurrentSnapshotAsync(userId, cancellationToken);
 
-        var topMerchants = await _insightsService.GetMerchantBreakdownAsync(
-            request.PeriodStart,
-            request.PeriodEnd,
-            request.PersonalAccountId,
-            5,
-            cancellationToken);
-
-        var profile = await _profileResolver.ResolveAsync(UseCase, PromptName, cancellationToken: cancellationToken);
-
-        var insightData = new
+        if (snapshot.Snapshot is null)
         {
-            summary,
-            topCategories,
-            topMerchants
-        };
+            throw new InvalidOperationException("Current customer insight snapshot is not available.");
+        }
 
-        var insightDataJson = JsonSerializer.Serialize(insightData, new JsonSerializerOptions
+        var currentSummary = await _summaryReader.GetCurrentSummaryForSnapshotAsync(snapshot.Id, cancellationToken);
+
+        string title;
+        string summaryText;
+        Guid aiRunId;
+        string narrativeSource;
+        Guid? customerInsightAiSummaryId = null;
+
+        if (currentSummary?.Summary is not null)
         {
-            WriteIndented = true
-        });
-
-        var userPrompt = (profile.UserPromptTemplate ?? "{{SPENDING_DATA}}")
-            .Replace("{{SPENDING_DATA}}", insightDataJson);
-
-        var messages = new List<ChatMessage>();
-        if (!string.IsNullOrEmpty(profile.SystemPrompt))
-            messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
-        messages.Add(new ChatMessage(ChatRole.User, userPrompt));
-
-        var inputRefsJson = JsonSerializer.Serialize(new
+            title = currentSummary.Summary.Headline;
+            summaryText = currentSummary.Summary.Summary;
+            aiRunId = currentSummary.AiRunId;
+            narrativeSource = "customer_insight_ai_summary";
+            customerInsightAiSummaryId = currentSummary.Id;
+        }
+        else
         {
+            aiRunId = await _aiRunWriter.StartRunAsync(
+                UseCase,
+                JsonSerializer.Serialize(new
+                {
+                    snapshot.Id,
+                    snapshot.UserId,
+                    snapshot.AsOfUtc,
+                    snapshot.WindowStartUtc,
+                    snapshot.WindowEndUtc
+                }),
+                cancellationToken);
+
+            try
+            {
+                title = "Customer insight narrative";
+                summaryText = BuildDeterministicNarrative(snapshot.Snapshot);
+                narrativeSource = "customer_insight_snapshot";
+
+                await _aiRunWriter.MarkRunCompletedAsync(
+                    aiRunId,
+                    $"customer-insight-snapshot:{snapshot.Id}",
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                await TryMarkRunFailedAsync(aiRunId, ex.Message);
+                throw;
+            }
+        }
+
+        var metadataJson = JsonSerializer.Serialize(new
+        {
+            source = narrativeSource,
+            customerInsightSnapshotId = snapshot.Id,
+            customerInsightAiSummaryId,
+            snapshot.AsOfUtc,
+            snapshot.WindowStartUtc,
+            snapshot.WindowEndUtc,
             request.PeriodStart,
             request.PeriodEnd,
             request.PersonalAccountId
         });
 
-        var aiRunId = await _aiRunWriter.StartRunAsync(
-            UseCase,
-            inputRefsJson,
+        var insight = await _insightWriter.SaveInsightAsync(
+            "CustomerInsightSnapshot",
+            snapshot.Id,
+            title,
+            summaryText,
+            metadataJson,
+            userId,
+            snapshot.AsOfUtc.AddDays(30),
             cancellationToken);
 
-        try
+        return new PersonalSpendingNarrativeInsightResponse(
+            insight.Id,
+            aiRunId,
+            insight.SubjectType,
+            insight.SubjectId,
+            insight.Title,
+            insight.Summary,
+            insight.CreatedUtc);
+    }
+
+    private static string BuildDeterministicNarrative(CustomerInsightSnapshotDocument snapshot)
+    {
+        var topCategory = snapshot.Metrics.Categories.TopCategoriesByAmount.FirstOrDefault();
+        var topMerchant = snapshot.Metrics.Merchants.TopMerchantsByAmount.FirstOrDefault();
+        var topSignal = snapshot.Signals.FirstOrDefault();
+        var obligations = snapshot.Metrics.Obligations.TotalUpcomingByCurrency
+            .Select(x => $"{x.Amount} {x.Currency}")
+            .ToList();
+
+        var summaryParts = new List<string>();
+
+        if (topCategory is not null)
         {
-            var chatOptions = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
-            var chatResponse = await _chatClient.GetResponseAsync(messages, options: chatOptions, cancellationToken: cancellationToken);
-            var narrative = chatResponse.Text ?? string.Empty;
-
-            var subjectId = Guid.NewGuid();
-            var insight = await _insightWriter.SaveInsightAsync(
-                "PersonalSpendPeriod",
-                subjectId,
-                "Spending Narrative Insight",
-                narrative,
-                cancellationToken);
-
-            await _aiRunWriter.MarkRunCompletedAsync(
-                aiRunId,
-                $"insight:{insight.Id}",
-                cancellationToken);
-
-            return new PersonalSpendingNarrativeInsightResponse(
-                insight.Id,
-                aiRunId,
-                insight.SubjectType,
-                insight.SubjectId,
-                insight.Title,
-                insight.Summary,
-                insight.CreatedUtc);
+            summaryParts.Add($"Top spend category is {topCategory.Category} at {topCategory.Amount} {topCategory.Currency} ({topCategory.ShareOfSpend}% of spend).");
         }
-        catch (Exception ex)
+
+        if (topMerchant is not null)
         {
-            await TryMarkRunFailedAsync(aiRunId, ex.Message);
-            throw;
+            summaryParts.Add($"Top merchant concentration is {topMerchant.Merchant} at {topMerchant.Amount} {topMerchant.Currency}.");
         }
+
+        if (obligations.Count > 0)
+        {
+            summaryParts.Add($"Upcoming obligations total {string.Join(", ", obligations)}.");
+        }
+
+        if (topSignal is not null)
+        {
+            summaryParts.Add($"Key behavioural signal: {topSignal.Title}. {topSignal.Description}");
+        }
+
+        if (snapshot.Coverage.IsPartial)
+        {
+            summaryParts.Add("This narrative is based on a partial deterministic snapshot.");
+        }
+
+        return string.Join(" ", summaryParts);
     }
 
     private async Task TryMarkRunFailedAsync(Guid aiRunId, string failureReason)

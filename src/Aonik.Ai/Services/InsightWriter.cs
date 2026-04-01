@@ -23,15 +23,21 @@ internal sealed class InsightWriter : IInsightWriter
         Guid subjectId,
         string title,
         string summary,
+        string? metadataJson = null,
+        Guid? userId = null,
+        DateTime? expiresAt = null,
         CancellationToken cancellationToken = default)
     {
         var insight = new Insight
         {
             Id = Guid.NewGuid(),
+            UserId = userId,
             SubjectType = subjectType,
             SubjectId = subjectId,
             Title = title,
             Summary = summary,
+            MetadataJson = metadataJson,
+            ExpiresAt = expiresAt,
             CreatedUtc = DateTime.UtcNow
         };
 

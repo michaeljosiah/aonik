@@ -72,6 +72,6 @@ Line Items Count: {invoice.LineItems.Count}
             invoiceId,
             "Insight for Invoice",
             completion,
-            cancellationToken);
+            cancellationToken: cancellationToken);
     }
 }

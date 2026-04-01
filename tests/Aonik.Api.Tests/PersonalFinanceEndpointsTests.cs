@@ -686,7 +686,7 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
         insight.Should().NotBeNull();
         insight!.AiRunId.Should().NotBeEmpty();
         insight.InsightId.Should().NotBeEmpty();
-        insight.SubjectType.Should().Be("PersonalSpendPeriod");
+        insight.SubjectType.Should().Be("CustomerInsightSnapshot");
     }
 
     private static async Task<PersonalAccountResponse> CreateAccountAsync(HttpClient client, string name)

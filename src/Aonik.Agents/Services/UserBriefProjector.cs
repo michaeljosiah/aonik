@@ -77,7 +77,7 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             customerInsightSummary,
             financeData.CustomerInsightSnapshot);
         var cashflowRisk = DeriveCashflowRisk(financeData);
-        var behaviouralInsights = AssembleBehaviouralInsights(insights);
+        var behaviouralInsights = AssembleBehaviouralInsights(financeData.CustomerInsightSnapshot, insights);
         var conversationMemory = AssembleConversationMemory(conversationSummaries);
         var policyContext = DerivePolicyContext(memoryEntries);
 
@@ -236,11 +236,30 @@ internal sealed class UserBriefProjector : IUserBriefProjector
     }
 
     private static IReadOnlyList<UserBriefBehaviouralInsight> AssembleBehaviouralInsights(
+        UserBriefCustomerInsightSnapshotData? snapshot,
         IReadOnlyList<UserBriefInsightData> insights)
     {
+        if (snapshot is not null && snapshot.KeyBehaviourSignals.Count > 0)
+        {
+            return snapshot.KeyBehaviourSignals
+                .Select(signal => new UserBriefBehaviouralInsight(
+                    signal.Category,
+                    signal.Title,
+                    signal.Description,
+                    MapSignalConfidence(signal.Confidence)))
+                .ToList();
+        }
+
         return insights.Select(i => new UserBriefBehaviouralInsight(
             i.InsightType, i.Title, i.Summary, i.Confidence)).ToList();
     }
+
+    private static decimal MapSignalConfidence(string confidence) => confidence switch
+    {
+        "High" => 0.9m,
+        "Medium" => 0.7m,
+        _ => 0.5m
+    };
 
     private static IReadOnlyList<UserBriefConversationMemory> AssembleConversationMemory(
         List<ConversationSummary> summaries)

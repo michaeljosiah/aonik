@@ -12,5 +12,8 @@ public interface IInsightWriter
         Guid subjectId,
         string title,
         string summary,
+        string? metadataJson = null,
+        Guid? userId = null,
+        DateTime? expiresAt = null,
         CancellationToken cancellationToken = default);
 }
