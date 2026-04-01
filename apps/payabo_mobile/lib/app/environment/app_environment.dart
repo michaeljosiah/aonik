@@ -97,7 +97,7 @@ class AppEnvironment {
     );
     const String tenantId = String.fromEnvironment(
       'PAYABO_TENANT_ID',
-      defaultValue: '3dc5a130-fd09-4918-9f61-b738ddc04baf',
+      defaultValue: '7fa21f8e-e433-4077-bd66-4c2af3c67da8',
     );
     const String authClientId = String.fromEnvironment(
       'AUTH0_CLIENT_ID',
