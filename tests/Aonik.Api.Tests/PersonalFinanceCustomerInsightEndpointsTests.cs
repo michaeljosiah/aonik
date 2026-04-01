@@ -1,9 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
 
+using Aonik.Ai.Entities;
+using Aonik.Ai.Persistence;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
+using Aonik.Finance.Services.PersonalFinance;
+using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Entities.Party;
+using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -77,6 +84,91 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task CustomerInsights_AiSummary_ShouldReturnCurrentSummary_ForSnapshotOwner()
+    {
+        // Arrange
+        var tenantId = Guid.Parse("45454545-4545-4545-4545-454545454545");
+        var options = TestAuthOptions.Create()
+            .WithTenant(tenantId)
+            .WithRoles("PersonalUser");
+
+        var snapshotId = await SeedSingleCurrentSnapshotAsync(tenantId, options.UserId, version: 1, supersededById: null);
+        await SeedCurrentAiSummaryAsync(tenantId, options.UserId, snapshotId);
+        var client = await _factory.CreateAuthenticatedClientAsync(options);
+
+        // Act
+        var response = await client.GetAsync($"/personal-finance/customer-insights/{snapshotId}/ai-summary");
+        var summary = await response.Content.ReadFromJsonAsync<CustomerInsightAiSummaryResponse>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        summary.Should().NotBeNull();
+        summary!.CustomerInsightSnapshotId.Should().Be(snapshotId);
+        summary.Status.Should().Be(CustomerInsightAiSummaryContract.StatusCurrent);
+        summary.Summary.Should().NotBeNull();
+        summary.Summary!.Headline.Should().Be("Stable cash position");
+    }
+
+    [Fact]
+    public async Task AdminCustomerInsights_RebuildSnapshot_ShouldGenerateCurrentSnapshot()
+    {
+        // Arrange
+        var tenantId = Guid.Parse("67676767-6767-6767-6767-676767676767");
+        var userId = Guid.Parse("78787878-7878-7878-7878-787878787878");
+        await SeedRebuildSnapshotScenarioAsync(tenantId, userId);
+
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create()
+                .WithTenant(tenantId)
+                .WithRoles("TenantAdmin"));
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            $"/admin/personal-finance/customer-insights/rebuild/{userId}",
+            new { UserId = userId });
+        var body = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+        var snapshot = System.Text.Json.JsonSerializer.Deserialize<CustomerInsightSnapshotResponse>(body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        snapshot.Should().NotBeNull();
+        snapshot!.UserId.Should().Be(userId);
+        snapshot.Status.Should().Be(CustomerInsightSnapshotContract.StatusCurrent);
+        snapshot.Snapshot.Should().NotBeNull();
+        snapshot.Snapshot!.Metrics.CashPosition.TotalBalanceByCurrency.Should().ContainSingle(x => x.Currency == "USD" && x.Amount == 2200m);
+    }
+
+    [Fact]
+    public async Task AdminCustomerInsights_ShouldPreferCanonicalAiSummary_OverLegacyBehaviourInsights()
+    {
+        // Arrange
+        var tenantId = Guid.Parse("90909090-9090-9090-9090-909090909090");
+        var userId = Guid.Parse("91919191-9191-9191-9191-919191919191");
+        var partyId = Guid.Parse("92929292-9292-9292-9292-929292929292");
+        var snapshotId = await SeedSingleCurrentSnapshotAsync(tenantId, userId, version: 1, supersededById: null);
+        await SeedCurrentAiSummaryAsync(tenantId, userId, snapshotId);
+        await SeedAdminCustomerLinkAsync(tenantId, userId, partyId);
+        await SeedLegacyBehaviourInsightAsync(tenantId, userId);
+
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create()
+                .WithTenant(tenantId)
+                .WithRoles("TenantAdmin"));
+
+        // Act
+        var response = await client.GetAsync($"/admin/customers/{partyId}/insights");
+        var payload = await response.Content.ReadFromJsonAsync<CustomerInsightsResponse>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        payload.Should().NotBeNull();
+        payload!.Items.Should().ContainSingle();
+        payload.Items[0].SubjectType.Should().Be("CustomerInsightAiSummary");
+        payload.Items[0].Title.Should().Be("Stable cash position");
+        payload.Items[0].Summary.Should().Contain("Cashflow remains stable");
+    }
+
     private async Task SeedSnapshotsAsync(Guid tenantId, Guid userId)
     {
         var currentId = Guid.Parse("56565656-5656-5656-5656-565656565656");
@@ -145,6 +237,172 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
 
         await financeDbContext.SaveChangesAsync();
         return snapshotId;
+    }
+
+    private async Task SeedCurrentAiSummaryAsync(Guid tenantId, Guid userId, Guid snapshotId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.TenantId = tenantId;
+        tenantContext.ResolutionSource = "test";
+
+        var aiDbContext = scope.ServiceProvider.GetRequiredService<AiDbContext>();
+        var aiRunId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        aiDbContext.AiProviders.Add(new AiProvider
+        {
+            Id = providerId,
+            Name = "StubProvider",
+            CapabilitiesJson = "[]",
+            IsActive = true
+        });
+
+        aiDbContext.AiModels.Add(new AiModel
+        {
+            Id = modelId,
+            AiProviderId = providerId,
+            ModelName = "stub-chat-model",
+            ContextWindow = 16000,
+            CostProfileJson = "{}",
+            LatencyProfileJson = "{}",
+            PolicyTagsJson = "[]",
+            IsActive = true
+        });
+
+        aiDbContext.AiRuns.Add(new AiRun
+        {
+            Id = aiRunId,
+            TenantId = tenantId,
+            UserId = userId,
+            UseCase = CustomerInsightAiSummaryContract.UseCase,
+            AiModelId = modelId,
+            InputRefsJson = "{}",
+            Outcome = "Completed"
+        });
+
+        aiDbContext.CustomerInsightAiSummaries.Add(new CustomerInsightAiSummary
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            CustomerInsightSnapshotId = snapshotId,
+            AiRunId = aiRunId,
+            Status = CustomerInsightAiSummaryContract.StatusCurrent,
+            AsOfUtc = new DateTime(2026, 3, 31, 10, 0, 0, DateTimeKind.Utc),
+            NarrativeVersion = CustomerInsightAiSummaryContract.BuildNarrativeVersion("stub-chat-model"),
+            SummaryJson = BuildAiSummaryJson()
+        });
+
+        await aiDbContext.SaveChangesAsync();
+    }
+
+    private async Task SeedRebuildSnapshotScenarioAsync(Guid tenantId, Guid userId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.TenantId = tenantId;
+        tenantContext.ResolutionSource = "test";
+
+        var financeDbContext = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+        var accountId = Guid.Parse("89898989-8989-8989-8989-898989898989");
+
+        financeDbContext.PersonalAccounts.Add(new PersonalAccount
+        {
+            Id = accountId,
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Main Wallet",
+            AccountType = "Bank",
+            Currency = "USD",
+            Status = "Active",
+            CurrentBalance = 2200m,
+            BalanceAsOf = new DateTime(2026, 4, 1, 9, 0, 0, DateTimeKind.Utc)
+        });
+
+        financeDbContext.PersonalTransactions.AddRange(
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                PersonalAccountId = accountId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = new DateTime(2026, 3, 5, 9, 0, 0, DateTimeKind.Utc),
+                Amount = 3200m,
+                Currency = "USD",
+                Merchant = "Employer Inc",
+                TransactionType = TransactionCategoryReference.TypeIncome,
+                Category = TransactionCategoryReference.Income,
+                TagsJson = "[]"
+            },
+            new PersonalTransaction
+            {
+                TenantId = tenantId,
+                UserId = userId,
+                PersonalAccountId = accountId,
+                SourceType = "manual",
+                SourceId = Guid.NewGuid(),
+                OccurredAt = new DateTime(2026, 3, 11, 12, 0, 0, DateTimeKind.Utc),
+                Amount = -600m,
+                Currency = "USD",
+                Merchant = "Tesco",
+                TransactionType = TransactionCategoryReference.TypeExpense,
+                Category = TransactionCategoryReference.Groceries,
+                TagsJson = "[]"
+            });
+
+        await financeDbContext.SaveChangesAsync();
+    }
+
+    private async Task SeedAdminCustomerLinkAsync(Guid tenantId, Guid userId, Guid partyId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.TenantId = tenantId;
+        tenantContext.ResolutionSource = "test";
+
+        var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        platformDbContext.Parties.Add(new Party
+        {
+            Id = partyId,
+            TenantId = tenantId,
+            PartyType = "Individual",
+            DisplayName = "Insight Customer",
+            Status = "Active"
+        });
+
+        platformDbContext.UserParties.Add(new UserParty
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PartyId = partyId,
+            LinkType = "Individual"
+        });
+
+        await platformDbContext.SaveChangesAsync();
+    }
+
+    private async Task SeedLegacyBehaviourInsightAsync(Guid tenantId, Guid userId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+        tenantContext.TenantId = tenantId;
+        tenantContext.ResolutionSource = "test";
+
+        var aiDbContext = scope.ServiceProvider.GetRequiredService<AiDbContext>();
+        aiDbContext.Insights.Add(new Insight
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            SubjectType = "UserBehaviour",
+            SubjectId = userId,
+            Title = "Legacy behavioural insight",
+            Summary = "This should not be shown when canonical insights exist.",
+            CreatedUtc = DateTime.UtcNow.AddDays(-1)
+        });
+
+        await aiDbContext.SaveChangesAsync();
     }
 
     private static string BuildSnapshotJson(Guid tenantId, Guid userId, decimal totalBalance)
@@ -229,5 +487,36 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
             new CustomerInsightEvidence(0, 0, [], new DateTime(2025, 10, 4, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 3, 31, 23, 59, 59, DateTimeKind.Utc), [], [], [], []));
 
         return System.Text.Json.JsonSerializer.Serialize(document);
+    }
+
+    private static string BuildAiSummaryJson()
+    {
+        var document = new CustomerInsightAiSummaryDocument(
+            CustomerInsightAiSummaryContract.SchemaVersion,
+            "Stable cash position",
+            "Cashflow remains stable with manageable discretionary pressure.",
+            ["Cash buffers remain healthy."],
+            ["Savings remain on track."],
+            ["Entertainment spend is rising."],
+            ["Review discretionary categories."],
+            ["Ask about month-end spend spikes."],
+            ["metrics.cashPosition.totalBalanceByCurrency"],
+            []);
+
+        return System.Text.Json.JsonSerializer.Serialize(document);
+    }
+
+    private sealed class CustomerInsightsResponse
+    {
+        public List<CustomerInsightItem> Items { get; set; } = [];
+    }
+
+    private sealed class CustomerInsightItem
+    {
+        public Guid Id { get; set; }
+        public string SubjectType { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Summary { get; set; } = string.Empty;
+        public DateTime CreatedUtc { get; set; }
     }
 }

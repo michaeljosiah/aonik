@@ -37,6 +37,12 @@ const statusStyles: Record<string, { text: string; bg: string }> = {
   Inactive: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
 };
 
+const insightTypeLabels: Record<string, string> = {
+  CustomerInsightAiSummary: 'AI Summary',
+  CustomerInsightSnapshot: 'Snapshot',
+  UserBehaviour: 'Legacy',
+};
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2">
@@ -768,9 +774,9 @@ export function CustomerDetailPage() {
                     <TabsContent value="insights" className="mt-0">
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-sm">Behavioural Insights</CardTitle>
+                          <CardTitle className="text-sm">Customer Insights</CardTitle>
                           <p className="text-xs text-[var(--color-text-tertiary)]">
-                            AI-generated behavioural patterns detected from transaction history.
+                            Canonical customer insight snapshots and grounded AI interpretations for this customer.
                           </p>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -786,9 +792,9 @@ export function CustomerDetailPage() {
                           ) : insights.length === 0 ? (
                             <div className="text-center py-6">
                               <Lightbulb className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-tertiary)]" />
-                              <p className="text-sm text-[var(--color-text-secondary)]">No insights generated yet.</p>
+                              <p className="text-sm text-[var(--color-text-secondary)]">No customer insights generated yet.</p>
                               <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                                Insights are generated automatically from transaction patterns.
+                                Insights appear after the customer insight snapshot and AI summary pipeline runs.
                               </p>
                             </div>
                           ) : (
@@ -800,14 +806,19 @@ export function CustomerDetailPage() {
                                 <div className="flex items-start gap-3">
                                   <Lightbulb className="w-4 h-4 mt-0.5 text-[var(--color-warning)] flex-shrink-0" />
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium text-[var(--color-text-primary)]">
-                                      {insight.title}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <div className="text-sm font-medium text-[var(--color-text-primary)]">
+                                        {insight.title}
+                                      </div>
+                                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                                        {insightTypeLabels[insight.subjectType] ?? insight.subjectType}
+                                      </Badge>
                                     </div>
                                     <div className="text-sm text-[var(--color-text-secondary)] mt-1">
                                       {insight.summary}
                                     </div>
                                     <div className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                                      Detected {new Date(insight.createdUtc).toLocaleDateString('en-US', {
+                                      Generated {new Date(insight.createdUtc).toLocaleDateString('en-US', {
                                         year: 'numeric',
                                         month: 'short',
                                         day: 'numeric',
