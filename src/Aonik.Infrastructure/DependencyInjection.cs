@@ -77,6 +77,7 @@ public static class DependencyInjection
         services.AddSingleton<IJsonSerializer, SystemTextJsonSerializer>();
         services.Configure<PlatformAdminOptions>(configuration.GetSection("PlatformAdmin"));
         services.Configure<CommunicationOptions>(configuration.GetSection("Communication"));
+        services.Configure<FcmOptions>(configuration.GetSection("Notifications:Fcm"));
         services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
         services.AddMemoryCache();
         services.AddFusionCache();
@@ -181,6 +182,7 @@ public static class DependencyInjection
         services.AddSingleton<IEmailSender, AzureCommunicationEmailSender>();
         services.AddSingleton<ISmsSender, AzureCommunicationSmsSender>();
         services.AddSingleton<INotificationTemplateRenderer, ScribanNotificationTemplateRenderer>();
+        services.AddHttpClient<IPushNotificationSender, FirebasePushNotificationSender>();
 
 
 

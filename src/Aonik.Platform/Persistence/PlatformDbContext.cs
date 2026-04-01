@@ -64,6 +64,7 @@ internal class PlatformDbContext : AonikDbContextBase
 
     // Notifications
     public DbSet<Notification> Notifications { get; set; } = null!;
+    public DbSet<NotificationDevice> NotificationDevices { get; set; } = null!;
     public DbSet<NotificationTemplate> NotificationTemplates { get; set; } = null!;
     public DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; } = null!;
     public DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
@@ -183,6 +184,7 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<DocumentVersion>(modelBuilder, "DocumentVersions");
 
         MapTable<Notification>(modelBuilder, "Notifications");
+        MapTable<NotificationDevice>(modelBuilder, "NotificationDevices");
         MapTable<NotificationTemplate>(modelBuilder, "NotificationTemplates");
         MapTable<NotificationTemplateBinding>(modelBuilder, "NotificationTemplateBindings");
         MapTable<WebhookSubscription>(modelBuilder, "WebhookSubscriptions");

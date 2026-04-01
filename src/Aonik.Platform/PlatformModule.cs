@@ -90,6 +90,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<INotificationDeviceService, NotificationDeviceService>();
         services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
         services.AddSingleton<INotificationRealtimePublisher, NotificationRealtimePublisher>();
         services.AddScoped<IOnboardingPolicyEvaluator, OnboardingPolicyEvaluator>();

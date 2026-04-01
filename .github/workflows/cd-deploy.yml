@@ -114,6 +114,8 @@ on:
         required: false
       ALERTS_SHARED_SECRET:
         required: false
+      NOTIFICATIONS__FCM__SERVICEACCOUNTJSON:
+        required: false
 
 permissions:
   id-token: write
@@ -160,6 +162,9 @@ jobs:
       FINANCE__PERSONALFINANCE__PLAID__CLIENTID: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__CLIENTID }}
       FINANCE__PERSONALFINANCE__PLAID__SECRET: ${{ secrets.FINANCE__PERSONALFINANCE__PLAID__SECRET }}
       FINANCE__PERSONALFINANCE__PLAID__WEBHOOKURL: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__WEBHOOKURL }}
+      # Firebase Cloud Messaging (mobile push)
+      NOTIFICATIONS__FCM__PROJECTID: ${{ vars.NOTIFICATIONS__FCM__PROJECTID }}
+      NOTIFICATIONS__FCM__SERVICEACCOUNTJSON: ${{ secrets.NOTIFICATIONS__FCM__SERVICEACCOUNTJSON }}
 
     steps:
       - name: Checkout repository
@@ -196,6 +201,7 @@ jobs:
               "AI__",
               "SETTINGS__",
               "FINANCE__",
+              "NOTIFICATIONS__",
           )
 
           api = {}

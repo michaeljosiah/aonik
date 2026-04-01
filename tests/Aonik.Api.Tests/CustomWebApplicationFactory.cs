@@ -17,6 +17,8 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
+using Aonik.Platform.Contracts.Models.Notifications;
+using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Infrastructure.Persistence;
 
 
@@ -58,8 +60,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             
             services.RemoveAll<IEmailSender>();
             services.RemoveAll<ISmsSender>();
+            services.RemoveAll<IPushNotificationSender>();
             services.AddSingleton<IEmailSender, TestEmailSender>();
             services.AddSingleton<ISmsSender, TestSmsSender>();
+            services.AddSingleton<TestPushNotificationSender>();
+            services.AddSingleton<IPushNotificationSender>(sp => sp.GetRequiredService<TestPushNotificationSender>());
 
             // Remove existing DbContext registration and replace with InMemory
             var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AonikDbContext>));
@@ -124,6 +129,63 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     private sealed class TestSmsSender : ISmsSender
     {
         public Task SendAsync(SmsMessage message, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    public sealed class TestPushNotificationSender : IPushNotificationSender
+    {
+        private readonly object _sync = new();
+        private readonly List<PushNotificationDispatchRequest> _requests = new();
+        private HashSet<Guid> _invalidDeviceIds = new();
+
+        public IReadOnlyList<PushNotificationDispatchRequest> Requests
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _requests.ToList();
+                }
+            }
+        }
+
+        public void Reset()
+        {
+            lock (_sync)
+            {
+                _requests.Clear();
+                _invalidDeviceIds.Clear();
+            }
+        }
+
+        public void SetInvalidDeviceIds(params Guid[] invalidDeviceIds)
+        {
+            lock (_sync)
+            {
+                _invalidDeviceIds = invalidDeviceIds.ToHashSet();
+            }
+        }
+
+        public Task<PushNotificationDispatchResult> SendAsync(
+            PushNotificationDispatchRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            lock (_sync)
+            {
+                _requests.Add(request);
+
+                var invalidIds = request.Targets
+                    .Where(x => _invalidDeviceIds.Contains(x.NotificationDeviceId))
+                    .Select(x => x.NotificationDeviceId)
+                    .ToList();
+
+                return Task.FromResult<PushNotificationDispatchResult>(new PushNotificationDispatchResult(invalidIds));
+            }
+        }
+    }
+
+    public TestPushNotificationSender GetPushNotificationSender()
+    {
+        return Services.GetRequiredService<TestPushNotificationSender>();
     }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync(TestAuthOptions options)

@@ -96,6 +96,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
 
     // Notifications
     public virtual DbSet<Notification> Notifications { get; set; } = null!;
+    public virtual DbSet<NotificationDevice> NotificationDevices { get; set; } = null!;
     public virtual DbSet<NotificationTemplate> NotificationTemplates { get; set; } = null!;
     public virtual DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; } = null!;
     public virtual DbSet<WebhookSubscription> WebhookSubscriptions { get; set; } = null!;
@@ -246,6 +247,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapPlatformTable<Job>(modelBuilder, "Jobs");
         MapPlatformTable<AzureMonitorAlertEvent>(modelBuilder, "AzureMonitorAlertEvents");
         MapPlatformTable<Notification>(modelBuilder, "Notifications");
+        MapPlatformTable<NotificationDevice>(modelBuilder, "NotificationDevices");
         MapPlatformTable<NotificationTemplate>(modelBuilder, "NotificationTemplates");
         MapPlatformTable<NotificationTemplateBinding>(modelBuilder, "NotificationTemplateBindings");
         MapPlatformTable<WebhookSubscription>(modelBuilder, "WebhookSubscriptions");

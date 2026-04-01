@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "946399382340",
+    "project_id": "payabo-b62c7",
+    "storage_bucket": "payabo-b62c7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:946399382340:android:bda0618167150316ff6511",
+        "android_client_info": {
+          "package_name": "com.payabo.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAlBEDQYRvHESxp-ML25KRBRT1JiFOxe9k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

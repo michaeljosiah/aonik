@@ -12,22 +12,28 @@ namespace Aonik.Platform.Services.Notifications;
 internal sealed class NotificationService : INotificationService
 {
     private readonly PlatformDbContext _dbContext;
+    private readonly ITenantContext _tenantContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly INotificationRealtimePublisher _realtimePublisher;
+    private readonly IPushNotificationSender _pushNotificationSender;
     private readonly IClock _clock;
 
     public NotificationService(
         PlatformDbContext dbContext,
+        ITenantContext tenantContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         INotificationRealtimePublisher realtimePublisher,
+        IPushNotificationSender pushNotificationSender,
         IClock clock)
     {
         _dbContext = dbContext;
+        _tenantContext = tenantContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _realtimePublisher = realtimePublisher;
+        _pushNotificationSender = pushNotificationSender;
         _clock = clock;
     }
 
@@ -213,10 +219,11 @@ internal sealed class NotificationService : INotificationService
         };
 
         _dbContext.Notifications.Add(notification);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveChangesForTenantAsync(request.TenantId, cancellationToken);
 
         var response = MapResponse(notification);
         await _realtimePublisher.PublishAsync(new NotificationRealtimeEvent("NOTIFICATION_CREATED", response, 1), cancellationToken);
+        await SendPushNotificationsAsync([notification], cancellationToken);
         return response;
     }
 
@@ -258,7 +265,7 @@ internal sealed class NotificationService : INotificationService
             .ToList();
 
         _dbContext.Notifications.AddRange(notifications);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveChangesForTenantAsync(request.TenantId, cancellationToken);
 
         foreach (var notification in notifications)
         {
@@ -267,7 +274,112 @@ internal sealed class NotificationService : INotificationService
                 cancellationToken);
         }
 
+        await SendPushNotificationsAsync(notifications, cancellationToken);
+
         return new NotificationBulkActionResponse(notifications.Count);
+    }
+
+    private async Task SendPushNotificationsAsync(
+        IReadOnlyCollection<Notification> notifications,
+        CancellationToken cancellationToken)
+    {
+        if (notifications.Count == 0)
+        {
+            return;
+        }
+
+        var userIds = notifications
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToList();
+
+        var devices = await _dbContext.NotificationDevices
+            .Where(x => userIds.Contains(x.UserId) && x.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (devices.Count == 0)
+        {
+            return;
+        }
+
+        var devicesByUserId = devices
+            .GroupBy(x => x.UserId)
+            .ToDictionary(x => x.Key, x => (IReadOnlyCollection<NotificationDevice>)x.ToList());
+
+        var invalidDeviceIds = new HashSet<Guid>();
+
+        foreach (var notification in notifications)
+        {
+            if (!devicesByUserId.TryGetValue(notification.UserId, out var userDevices) || userDevices.Count == 0)
+            {
+                continue;
+            }
+
+            var result = await _pushNotificationSender.SendAsync(
+                new PushNotificationDispatchRequest(
+                    notification.TenantId,
+                    notification.UserId,
+                    notification.Type,
+                    notification.Source,
+                    notification.Title,
+                    notification.Body,
+                    notification.Severity,
+                    notification.ActionUrl,
+                    userDevices.Select(device => new PushNotificationTarget(
+                        device.Id,
+                        device.Provider,
+                        device.Platform,
+                        device.DeviceToken)).ToList()),
+                cancellationToken);
+
+            foreach (var invalidDeviceId in result.InvalidDeviceIds)
+            {
+                invalidDeviceIds.Add(invalidDeviceId);
+            }
+        }
+
+        if (invalidDeviceIds.Count == 0)
+        {
+            return;
+        }
+
+        var invalidDevices = devices
+            .Where(x => invalidDeviceIds.Contains(x.Id))
+            .ToList();
+
+        foreach (var invalidDevice in invalidDevices)
+        {
+            invalidDevice.IsActive = false;
+            invalidDevice.InvalidatedAtUtc = _clock.UtcNow;
+            invalidDevice.LastError = "FCM token rejected by provider.";
+        }
+
+        await SaveChangesForTenantAsync(notifications.First().TenantId, cancellationToken);
+    }
+
+    private async Task SaveChangesForTenantAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        if (_tenantProvider.TryGetCurrentTenantId(out _))
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        var previousTenantId = _tenantContext.TenantId;
+        var previousResolutionSource = _tenantContext.ResolutionSource;
+
+        _tenantContext.TenantId = tenantId;
+        _tenantContext.ResolutionSource = nameof(NotificationService);
+
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            _tenantContext.TenantId = previousTenantId;
+            _tenantContext.ResolutionSource = previousResolutionSource;
+        }
     }
 
     private (Guid TenantId, Guid UserId) GetCurrentContext()

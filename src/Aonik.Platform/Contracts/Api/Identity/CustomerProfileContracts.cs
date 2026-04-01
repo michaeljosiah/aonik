@@ -65,6 +65,17 @@ public record UpdateNotificationPreferencesRequest(
     bool MbaMessagesEmail,
     bool OrgMessagesEmail);
 
+public record RegisterNotificationDeviceRequestDto(
+    string Provider,
+    string Platform,
+    string DeviceToken);
+
+public record RegisterNotificationDeviceResponseDto(
+    Guid NotificationDeviceId,
+    string Provider,
+    string Platform,
+    DateTime LastSeenAtUtc);
+
 public record MarketingPreferencesResponse(
     string Email,
     bool News,

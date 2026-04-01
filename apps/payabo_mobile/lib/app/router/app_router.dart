@@ -1,3 +1,5 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -119,6 +121,23 @@ bool resolveSetupCompletionState({
   return (setupAsync.asData?.value ?? false) || localProfileCompleted;
 }
 
+bool get _supportsAnalytics {
+  if (kIsWeb) {
+    return true;
+  }
+
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.macOS:
+      return true;
+    case TargetPlatform.fuchsia:
+    case TargetPlatform.linux:
+    case TargetPlatform.windows:
+      return false;
+  }
+}
+
 class RouterRefreshNotifier extends ChangeNotifier {
   RouterRefreshNotifier(this._ref) {
     _ref.listen<AuthState>(
@@ -159,6 +178,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
       navigatorKey: rootNavigatorKey,
       initialLocation: '/',
       refreshListenable: refreshNotifier,
+      observers: <NavigatorObserver>[
+        if (_supportsAnalytics)
+          FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
+      ],
       redirect: (context, state) {
         final authState = ref.read(authControllerProvider);
 
@@ -339,8 +362,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending/accounts/:accountId/transactions/create',
           name: 'spending-accounts-create-transaction',
           builder: (context, state) {
-            final extra =
-                state.extra as Map<String, dynamic>? ?? const <String, dynamic>{};
+            final extra = state.extra as Map<String, dynamic>? ??
+                const <String, dynamic>{};
             return ManualTransactionCreateScreen(
               accountId: state.pathParameters['accountId'] ?? '',
               currencySymbol: extra['currencySymbol'] as String? ?? '',
@@ -353,8 +376,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending/accounts/upload-statement',
           name: 'spending-accounts-upload-statement',
           builder: (context, state) => StatementUploadScreen(
-            preselectedAccountId:
-                state.uri.queryParameters['accountId'],
+            preselectedAccountId: state.uri.queryParameters['accountId'],
           ),
         ),
         GoRoute(
@@ -368,8 +390,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending/accounts/upload-statement/:importId/complete',
           name: 'spending-accounts-upload-statement-complete',
           builder: (context, state) {
-            final extra =
-                state.extra as Map<String, dynamic>? ?? const <String, dynamic>{};
+            final extra = state.extra as Map<String, dynamic>? ??
+                const <String, dynamic>{};
             return StatementImportCompleteScreen(
               importId: state.pathParameters['importId'] ?? '',
               rowsImported: extra['rowsImported'] as int? ?? 0,
@@ -418,7 +440,8 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending/transaction/:transactionId',
           name: 'spending-transaction-detail',
           builder: (context, state) {
-            final extra = state.extra as Map<String, dynamic>? ?? const <String, dynamic>{};
+            final extra = state.extra as Map<String, dynamic>? ??
+                const <String, dynamic>{};
             return TransactionDetailScreen(
               transactionId: state.pathParameters['transactionId'] ?? '',
               merchant: extra['merchant'] as String?,

@@ -82,6 +82,7 @@ public interface IAonikDbContext
 
     // Notifications
     DbSet<Notification> Notifications { get; set; }
+    DbSet<NotificationDevice> NotificationDevices { get; set; }
     DbSet<NotificationTemplate> NotificationTemplates { get; set; }
     DbSet<NotificationTemplateBinding> NotificationTemplateBindings { get; set; }
     DbSet<WebhookSubscription> WebhookSubscriptions { get; set; }
