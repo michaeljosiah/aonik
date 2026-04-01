@@ -110,6 +110,10 @@ on:
         required: false
       AZURE_CLIENT_SECRET:
         required: false
+      BOOTSTRAP_SETUP_SECRET:
+        required: false
+      ALERTS_SHARED_SECRET:
+        required: false
 
 permissions:
   id-token: write
@@ -247,4 +251,5 @@ jobs:
             --parameters "acsConnectionString=${{ secrets.ACS_CONNECTION_STRING }}"
             --parameters "verificationHashKey=${{ secrets.VERIFICATION_HASH_KEY }}"
             --parameters "bootstrapSetupSecret=${{ secrets.BOOTSTRAP_SETUP_SECRET }}"
+            --parameters "alertsSharedSecret=${{ secrets.ALERTS_SHARED_SECRET }}"
             ${{ inputs.location != '' && format('--parameters "location={0}"', inputs.location) || '' }}
