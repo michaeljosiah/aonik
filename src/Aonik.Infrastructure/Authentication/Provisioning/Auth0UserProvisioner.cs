@@ -1,7 +1,9 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
 using Aonik.Platform.Contracts.Services.Authentication;
+using Aonik.Platform.Contracts.Services.Registration;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Contracts.Models.Authentication;
 using Aonik.Platform.Services.Settings;
@@ -53,6 +55,13 @@ public class Auth0UserProvisioner : IIdpUserProvisioner
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.StatusCode == HttpStatusCode.Conflict)
+            {
+                throw new RegistrationConflictException(
+                    "An account with this email address already exists.");
+            }
+
             throw new InvalidOperationException($"Auth0 user creation failed: {response.StatusCode} {error}");
         }
 

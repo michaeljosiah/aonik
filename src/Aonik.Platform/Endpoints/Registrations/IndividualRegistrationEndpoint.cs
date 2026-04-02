@@ -51,17 +51,27 @@ internal class IndividualRegistrationEndpoint : Endpoint<IndividualRegistrationR
         _tenantContext.TenantId = tenantId.Value;
         _tenantContext.ResolutionSource = "Registration";
 
-        var result = await _registrationService.RegisterIndividualAsync(
-            new ApplicationRegistrationRequest(
-                tenantId,
-                req.RegistrationCountry,
-                req.Title,
-                req.FirstName,
-                req.LastName,
-                req.Email,
-                req.Phone,
-                req.Password),
-            ct);
+        Contracts.Models.Registration.IndividualRegistrationResult result;
+        try
+        {
+            result = await _registrationService.RegisterIndividualAsync(
+                new ApplicationRegistrationRequest(
+                    tenantId,
+                    req.RegistrationCountry,
+                    req.Title,
+                    req.FirstName,
+                    req.LastName,
+                    req.Email,
+                    req.Phone,
+                    req.Password),
+                ct);
+        }
+        catch (RegistrationConflictException ex)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
+            return;
+        }
 
         var response = new IndividualRegistrationResponse(
             result.UserId,
