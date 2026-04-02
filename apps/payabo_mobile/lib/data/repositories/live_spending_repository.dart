@@ -164,8 +164,8 @@ class LiveSpendingRepository implements SpendingRepository {
     final String rawStatus = _readString(json['status']) ?? 'Active';
     if (rawStatus.trim().toLowerCase() == 'archived') return null;
 
-    final String id = _readString(json['linkedAccountId']) ??
-        _readString(json['personalAccountId']) ??
+    final String id = _readString(json['personalAccountId']) ??
+        _readString(json['linkedAccountId']) ??
         '';
     final String name = _readString(json['name']) ?? 'Untitled account';
     final String? sourceType = _readString(json['sourceType']);
