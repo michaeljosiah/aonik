@@ -88,6 +88,9 @@ internal class FinanceDbContext : AonikDbContextBase
     /// <summary>Read-only projection of User (authoritative entity in Platform module)</summary>
     public DbSet<UserReadModel> Users { get; set; } = null!;
 
+    /// <summary>Read-only projection of UserParty bridge (authoritative entity in Platform module)</summary>
+    public DbSet<UserPartyReadModel> UserParties { get; set; } = null!;
+
     // ── Catalog ─────────────────────────────────────────────────────
     public DbSet<CatalogBillerCategory> CatalogBillerCategories { get; set; } = null!;
     public DbSet<CatalogBiller> CatalogBillers { get; set; } = null!;
@@ -234,6 +237,7 @@ internal class FinanceDbContext : AonikDbContextBase
         MapPlatformTable<PartyReadModel>(modelBuilder, "Parties");
         MapPlatformTable<PartyRelationshipReadModel>(modelBuilder, "PartyRelationships");
         MapPlatformTable<UserReadModel>(modelBuilder, "Users");
+        MapPlatformTable<UserPartyReadModel>(modelBuilder, "UserParties");
         MapPlatformTable<CountryReadModel>(modelBuilder, "Countries");
         MapPlatformTable<CurrencyReadModel>(modelBuilder, "Currencies");
         MapPlatformTable<CountryCurrencyReadModel>(modelBuilder, "CountryCurrencies");

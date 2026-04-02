@@ -52,6 +52,9 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
         services.AddSingleton<Contracts.Services.Payments.IPaymentProviderGateway, Services.Payments.StripeSimulatedPaymentProviderGateway>();
 
+        // Pay Activity (mobile BFF)
+        services.AddScoped<Contracts.Services.PayActivity.IPayActivityService, Services.PayActivity.PayActivityService>();
+
         // Billing
         services.AddScoped<Contracts.Services.Billing.IBillingService, Services.Billing.BillingService>();
 
