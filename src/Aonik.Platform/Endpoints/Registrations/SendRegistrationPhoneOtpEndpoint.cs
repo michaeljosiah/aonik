@@ -109,7 +109,10 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
             "Pre-registration phone OTP sent for challenge {ChallengeId}",
             challenge.Id);
 
-        var devCode = _hostEnvironment.IsDevelopment() ? code : null;
+        var devCode = _hostEnvironment.IsDevelopment()
+            || _hostEnvironment.EnvironmentName == "dev"
+            ? code
+            : null;
 
         await Send.OkAsync(new SendRegistrationPhoneOtpResponse(challenge.Id, challenge.ExpiresAt, devCode), ct);
     }
