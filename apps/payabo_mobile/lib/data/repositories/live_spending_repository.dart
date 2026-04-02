@@ -38,7 +38,11 @@ class LiveSpendingRepository implements SpendingRepository {
   Future<List<SpendingTransaction>> getTransactions(String accountId) async {
     try {
       final response = await _apiClient.get<List<dynamic>>(
-        '/personal-finance/spending/accounts/$accountId/transactions',
+        '/personal-finance/transactions',
+        queryParameters: <String, dynamic>{
+          'PersonalAccountId': accountId,
+          'PageSize': 200,
+        },
       );
 
       final List<dynamic> raw = response.data ?? const <dynamic>[];
@@ -93,15 +97,21 @@ class LiveSpendingRepository implements SpendingRepository {
     CreateTransactionRequest request,
   ) async {
     try {
+      // The backend expects the amount with its sign: negative for expenses,
+      // positive for income.
+      final double signedAmount =
+          request.isCredit ? request.amount.abs() : -(request.amount.abs());
+
       final response = await _apiClient.post<Map<String, dynamic>>(
-        '/personal-finance/spending/accounts/$accountId/transactions',
+        '/personal-finance/transactions',
         data: <String, dynamic>{
-          'merchant': request.merchant,
-          'amount': request.amount,
+          'personalAccountId': accountId,
+          'occurredAt': request.date.toIso8601String(),
+          'amount': signedAmount,
           'currency': request.currency,
+          'merchant': request.merchant,
+          'description': request.merchant,
           'category': request.category,
-          'isCredit': request.isCredit,
-          'date': request.date.toIso8601String(),
           if (request.notes != null) 'notes': request.notes,
         },
       );
@@ -196,24 +206,69 @@ class LiveSpendingRepository implements SpendingRepository {
     );
   }
 
+  /// Maps a [PersonalTransactionResponse] JSON object from the backend into
+  /// a display-ready [SpendingTransaction].
   SpendingTransaction _mapTransaction(Map<String, dynamic> json) {
+    final String id = _readString(json['personalTransactionId']) ??
+        _readString(json['id']) ??
+        '';
+    final String merchant =
+        _readString(json['merchant']) ?? _readString(json['description']) ?? '';
+    final String category = _readString(json['category']) ?? '';
+    final String? subCategory = _readString(json['subCategory']);
+    final String? notes = _readString(json['notes']);
+
+    // Parse amount — negative = expense, positive = income/credit.
+    final num rawAmount = (json['amount'] as num?) ?? 0;
+    final double amount = rawAmount.toDouble();
+    final bool isCredit = amount >= 0;
+    final double absAmount = amount.abs();
+
+    // Currency
+    final String currencyCode =
+        (_readString(json['currency']) ?? 'GBP').toUpperCase();
+    final String symbol = _currencySymbolFromCode(currencyCode);
+
+    // Format amount parts.
+    final String sign = isCredit ? '+' : '-';
+    final int wholePart = absAmount.truncate();
+    final String fractional =
+        '.${(absAmount * 100).round().remainder(100).toString().padLeft(2, '0')}';
+    final String majorFormatted = _formatWithCommas(wholePart);
+    final String amountLabel = '$sign$symbol$majorFormatted$fractional';
+
+    // Date
+    final DateTime date = _parseDate(json['occurredAt']) ?? DateTime.now();
+
+    // Icon: use first letter of merchant, or category icon.
+    final String? iconText =
+        merchant.isNotEmpty ? merchant[0].toUpperCase() : null;
+
     return SpendingTransaction(
-      id: _readString(json['id']) ?? '',
-      merchant: _readString(json['merchant']) ?? '',
-      category: _readString(json['category']) ?? '',
-      subCategory: _readString(json['subCategory']),
-      amountLabel: _readString(json['amountLabel']) ?? '',
-      amountMajor: _readString(json['amountMajor']) ?? '0',
-      amountMinor: _readString(json['amountMinor']) ?? '.00',
-      currencySymbol: _readString(json['currencySymbol']) ?? '',
-      isCredit: json['isCredit'] == true,
-      date: _parseDate(json['date']) ?? DateTime.now(),
-      iconText: _readString(json['iconText']),
-      iconCodePoint: (json['iconCodePoint'] as num?)?.toInt(),
-      iconFontFamily: _readString(json['iconFontFamily']),
-      connectionId: _readString(json['connectionId']),
-      notes: _readString(json['notes']),
+      id: id,
+      merchant: merchant,
+      category: category,
+      subCategory: subCategory,
+      amountLabel: amountLabel,
+      amountMajor: majorFormatted,
+      amountMinor: fractional,
+      currencySymbol: symbol,
+      isCredit: isCredit,
+      date: date,
+      iconText: iconText,
+      notes: notes,
     );
+  }
+
+  /// Formats an integer with comma thousand-separators (e.g. 1450 → "1,450").
+  static String _formatWithCommas(int value) {
+    final String digits = value.toString();
+    final StringBuffer buf = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buf.write(',');
+      buf.write(digits[i]);
+    }
+    return buf.toString();
   }
 
   // ═══════════════════════════════════════════════════════════════
