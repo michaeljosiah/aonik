@@ -5,6 +5,7 @@ using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
+using Aonik.SharedKernel.Abstractions.UserBrief;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -54,6 +55,31 @@ public class UserBriefProjectorTests
             => Task.FromResult(CustomerInsightAiSummary);
     }
 
+    private class StubUserContextDataProvider : IUserBriefContextDataProvider
+    {
+        public UserBriefContextData Data { get; set; } = new(
+            FullName: "Jaden Josiah",
+            FirstName: "Jaden",
+            LastName: "Josiah",
+            Email: "jaden@example.com",
+            PhoneNumber: "+447700900123",
+            UserCreatedAt: new DateTime(2026, 4, 1, 9, 0, 0, DateTimeKind.Utc),
+            SetupProfile: new UserBriefSetupProfileData(
+                SelectedUseCases: ["Track spending", "Build savings"],
+                AccountSourceTypes: ["Manual"],
+                ConnectChoice: "later",
+                Responsibilities: ["Myself"],
+                SupportType: null,
+                FinancialGoals: ["Emergency fund"],
+                Completed: true));
+
+        public Task<UserBriefContextData> GetUserContextDataAsync(
+            Guid tenantId,
+            Guid userId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Data);
+    }
+
     private static AgentsDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AgentsDbContext>()
@@ -63,6 +89,8 @@ public class UserBriefProjectorTests
     }
 
     private static UserBriefFinancialData CreateMinimalFinancialData() => new(
+        AccountCount: 2,
+        TransactionCount: 12,
         TotalBalance: 5000m,
         AvailableBalance: 4500m,
         PrimaryCurrency: "GBP",
@@ -142,17 +170,24 @@ public class UserBriefProjectorTests
             Insights = [new("UserBehaviour", "Late-month spending spike", "You tend to spend 30% more.", 0.82m, null)],
             CustomerInsightAiSummary = CreateAiSummaryData()
         };
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
         var logger = NullLogger<UserBriefProjector>.Instance;
 
-        var projector = new UserBriefProjector(financeData, aiData, db, logger);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, logger);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.Should().NotBeNull();
         brief.UserProfile.PreferredName.Should().Be("Ade");
+        brief.UserProfile.FullName.Should().Be("Jaden Josiah");
+        brief.UserProfile.GivenName.Should().Be("Jaden");
+        brief.UserProfile.Email.Should().Be("jaden@example.com");
         brief.UserProfile.CommunicationStyle.Should().Be("concise");
         brief.UserProfile.CorridorCountries.Should().Contain("GB").And.Contain("NG");
         brief.UserProfile.HouseholdContext.Should().Be("Supporting mother + sister in Lagos");
+        brief.SetupProfile.Should().NotBeNull();
+        brief.SetupProfile!.SelectedUseCases.Should().Contain("Track spending");
+        brief.DataAvailability.IsNewUser.Should().BeFalse();
         brief.CurrentState.CashSummary.TotalBalance.Should().Be(5000m);
         brief.CurrentState.NextBills.Should().HaveCount(1);
         brief.CurrentState.NextBills[0].Payee.Should().Be("Rent");
@@ -183,9 +218,10 @@ public class UserBriefProjectorTests
         {
             CustomerInsightAiSummary = CreateAiSummaryData()
         };
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.CustomerInsightSnapshot.Should().NotBeNull();
@@ -200,9 +236,10 @@ public class UserBriefProjectorTests
     {
         var financeData = new StubFinanceDataProvider();
         var aiData = new StubAiDataProvider();
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.CustomerInsightSnapshot.Should().NotBeNull();
@@ -224,6 +261,7 @@ public class UserBriefProjectorTests
                 new("UserBehaviour", "Insight 4", "Summary 4", 0.9m, null)
             ]
         };
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
         db.ChatThreads.Add(new ChatThread
@@ -237,7 +275,7 @@ public class UserBriefProjectorTests
         });
         await db.SaveChangesAsync();
 
-        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId, new UserBriefOptions { TokenBudget = 200 });
 
         brief.CustomerInsightSnapshot.Should().NotBeNull();
@@ -258,9 +296,10 @@ public class UserBriefProjectorTests
             }
         };
         var aiData = new StubAiDataProvider();
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.CashflowRisk.Should().Be(CashflowRisk.High);
@@ -279,9 +318,10 @@ public class UserBriefProjectorTests
             }
         };
         var aiData = new StubAiDataProvider();
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.CashflowRisk.Should().Be(CashflowRisk.Moderate);
@@ -292,6 +332,7 @@ public class UserBriefProjectorTests
     {
         var financeData = new StubFinanceDataProvider();
         var aiData = new StubAiDataProvider();
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
         // Seed a conversation summary
@@ -320,7 +361,7 @@ public class UserBriefProjectorTests
         });
         await db.SaveChangesAsync();
 
-        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.RecentConversationMemory.Should().HaveCount(1);
@@ -334,12 +375,26 @@ public class UserBriefProjectorTests
         var financeData = new StubFinanceDataProvider
         {
             Data = new UserBriefFinancialData(
-                0m, 0m, "GBP", null, [], [], null, [], [], [], [], null)
+                AccountCount: 0,
+                TransactionCount: 0,
+                TotalBalance: 0m,
+                AvailableBalance: 0m,
+                PrimaryCurrency: "GBP",
+                CustomerInsightSnapshot: null,
+                UpcomingBills: [],
+                ActiveSubscriptions: [],
+                SpendSummary: null,
+                BudgetPressure: [],
+                ActiveGoals: [],
+                SupportObligations: [],
+                CorridorCountries: [],
+                HouseholdContext: null)
         };
         var aiData = new StubAiDataProvider();
+        var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();
 
-        var projector = new UserBriefProjector(financeData, aiData, db, NullLogger<UserBriefProjector>.Instance);
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
         var brief = await projector.ProjectAsync(TenantId, UserId);
 
         brief.CurrentState.NextBills.Should().BeEmpty();
@@ -348,5 +403,59 @@ public class UserBriefProjectorTests
         brief.BehaviouralInsights.Should().BeEmpty();
         brief.RecentConversationMemory.Should().BeEmpty();
         brief.CashflowRisk.Should().Be(CashflowRisk.Low); // No obligations = Low risk
+    }
+
+    [Fact]
+    public async Task ProjectAsync_Should_FallbackToUserNameAndMarkNewUser_When_NoPreferredNameOrFinancialHistoryExists()
+    {
+        var financeData = new StubFinanceDataProvider
+        {
+            Data = new UserBriefFinancialData(
+                AccountCount: 0,
+                TransactionCount: 0,
+                TotalBalance: 0m,
+                AvailableBalance: 0m,
+                PrimaryCurrency: "GBP",
+                CustomerInsightSnapshot: null,
+                UpcomingBills: [],
+                ActiveSubscriptions: [],
+                SpendSummary: new UserBriefSpendData(0m, [], new DateTime(2026, 4, 1), new DateTime(2026, 4, 2)),
+                BudgetPressure: [],
+                ActiveGoals: [],
+                SupportObligations: [],
+                CorridorCountries: [],
+                HouseholdContext: null)
+        };
+        var aiData = new StubAiDataProvider();
+        var userContextData = new StubUserContextDataProvider
+        {
+            Data = new UserBriefContextData(
+                FullName: "Jaden Josiah",
+                FirstName: "Jaden",
+                LastName: "Josiah",
+                Email: "jaden@example.com",
+                PhoneNumber: null,
+                UserCreatedAt: new DateTime(2026, 4, 2, 10, 0, 0, DateTimeKind.Utc),
+                SetupProfile: new UserBriefSetupProfileData(
+                    SelectedUseCases: ["Track spending"],
+                    AccountSourceTypes: ["Manual"],
+                    ConnectChoice: "later",
+                    Responsibilities: ["Myself"],
+                    SupportType: null,
+                    FinancialGoals: ["Emergency fund"],
+                    Completed: false))
+        };
+        using var db = CreateDbContext();
+
+        var projector = new UserBriefProjector(financeData, aiData, userContextData, db, NullLogger<UserBriefProjector>.Instance);
+        var brief = await projector.ProjectAsync(TenantId, UserId);
+
+        brief.UserProfile.PreferredName.Should().Be("Jaden");
+        brief.UserProfile.FullName.Should().Be("Jaden Josiah");
+        brief.SetupProfile.Should().NotBeNull();
+        brief.DataAvailability.IsNewUser.Should().BeTrue();
+        brief.DataAvailability.HasLimitedFinancialData.Should().BeTrue();
+        brief.DataAvailability.MissingDataAreas.Should().Contain(["accounts", "transactions", "customer_insight_snapshot"]);
+        brief.DataAvailability.Summary.Should().Contain("new Payabo user");
     }
 }

@@ -71,6 +71,10 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
+        var transactionCountTask = _dbContext.PersonalTransactions
+            .Where(t => t.TenantId == tenantId && t.UserId == userId)
+            .CountAsync(cancellationToken);
+
         var spendTask = _insightsService.GetSpendingSummaryAsync(spendStart, spendEnd, null, cancellationToken);
         var categoryTask = _insightsService.GetCategoryBreakdownAsync(spendStart, spendEnd, null, cancellationToken);
         var budgetTask = _budgetService.ListBudgetsAsync(cancellationToken);
@@ -87,6 +91,7 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
             billsTask,
             subscriptionsTask,
             goalsTask,
+            transactionCountTask,
             spendTask,
             categoryTask,
             budgetTask,
@@ -96,6 +101,7 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var bills = await billsTask;
         var subscriptions = await subscriptionsTask;
         var goals = await goalsTask;
+        var transactionCount = await transactionCountTask;
         var spend = await spendTask;
         var categories = await categoryTask;
         var budgets = await budgetTask;
@@ -120,6 +126,8 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var corridorCountries = DeriveCorridorCountries(accounts);
 
         return new UserBriefFinancialData(
+            AccountCount: accounts.Count,
+            TransactionCount: transactionCount,
             TotalBalance: totalBalance,
             AvailableBalance: totalBalance, // Simplified — real impl would subtract pending obligations
             PrimaryCurrency: primaryCurrency,

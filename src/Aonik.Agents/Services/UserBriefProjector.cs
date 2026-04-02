@@ -5,6 +5,7 @@ using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
+using Aonik.SharedKernel.Abstractions.UserBrief;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,17 +15,20 @@ internal sealed class UserBriefProjector : IUserBriefProjector
 {
     private readonly IUserBriefDataProvider _financeData;
     private readonly IUserBriefAiDataProvider _aiData;
+    private readonly IUserBriefContextDataProvider _userContextData;
     private readonly AgentsDbContext _agentsDbContext;
     private readonly ILogger<UserBriefProjector> _logger;
 
     public UserBriefProjector(
         IUserBriefDataProvider financeData,
         IUserBriefAiDataProvider aiData,
+        IUserBriefContextDataProvider userContextData,
         AgentsDbContext agentsDbContext,
         ILogger<UserBriefProjector> logger)
     {
         _financeData = financeData;
         _aiData = aiData;
+        _userContextData = userContextData;
         _agentsDbContext = agentsDbContext;
         _logger = logger;
     }
@@ -46,12 +50,14 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         var financeTask = _financeData.GetFinancialDataAsync(tenantId, userId, financeRequest, cancellationToken);
         var insightsTask = _aiData.GetBehaviouralInsightsAsync(tenantId, userId, options.MaxBehaviouralInsights, cancellationToken);
         var memoryTask = _aiData.GetCurrentMemoryEntriesAsync(tenantId, userId, cancellationToken);
+        var userContextTask = _userContextData.GetUserContextDataAsync(tenantId, userId, cancellationToken);
 
-        await Task.WhenAll(financeTask, insightsTask, memoryTask);
+        await Task.WhenAll(financeTask, insightsTask, memoryTask, userContextTask);
 
         var financeData = await financeTask;
         var insights = await insightsTask;
         var memoryEntries = await memoryTask;
+        var userContextData = await userContextTask;
         var customerInsightSummary = financeData.CustomerInsightSnapshot is null
             ? null
             : await _aiData.GetCurrentCustomerInsightAiSummaryAsync(
@@ -69,13 +75,19 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             .ToListAsync(cancellationToken);
 
         // ── Assembly ───────────────────────────────────────────────────
-        var userProfile = AssembleUserProfile(memoryEntries, financeData);
+        var userProfile = AssembleUserProfile(userContextData, memoryEntries, financeData);
+        var setupProfile = AssembleSetupProfile(userContextData.SetupProfile);
         var financialFocus = AssembleFinancialFocus(financeData);
         var currentState = AssembleCurrentState(financeData);
         var customerInsightSnapshot = AssembleCustomerInsightSnapshot(financeData.CustomerInsightSnapshot);
         var customerInsightAiInterpretation = AssembleCustomerInsightAiInterpretation(
             customerInsightSummary,
             financeData.CustomerInsightSnapshot);
+        var dataAvailability = DeriveDataAvailability(
+            userContextData,
+            financeData,
+            memoryEntries,
+            conversationSummaries);
         var cashflowRisk = DeriveCashflowRisk(financeData);
         var behaviouralInsights = AssembleBehaviouralInsights(financeData.CustomerInsightSnapshot, insights);
         var conversationMemory = AssembleConversationMemory(conversationSummaries);
@@ -83,10 +95,12 @@ internal sealed class UserBriefProjector : IUserBriefProjector
 
         var brief = new UserBrief(
             userProfile,
+            setupProfile,
             financialFocus,
             currentState,
             customerInsightSnapshot,
             customerInsightAiInterpretation,
+            dataAvailability,
             cashflowRisk,
             behaviouralInsights,
             conversationMemory,
@@ -98,14 +112,32 @@ internal sealed class UserBriefProjector : IUserBriefProjector
     }
 
     private static UserBriefProfile AssembleUserProfile(
+        UserBriefContextData userContextData,
         IReadOnlyList<UserBriefMemoryEntryData> memoryEntries,
         UserBriefFinancialData financeData)
     {
         string? GetMemoryValue(string key) =>
             memoryEntries.FirstOrDefault(e => e.Key == key)?.ValueJson;
 
+        var fullName = FirstNonEmpty(
+            userContextData.FullName,
+            JoinName(userContextData.FirstName, userContextData.LastName));
+        var givenName = FirstNonEmpty(
+            userContextData.FirstName,
+            fullName?.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault(),
+            userContextData.Email?.Split('@', 2, StringSplitOptions.TrimEntries).FirstOrDefault());
+        var preferredName = FirstNonEmpty(
+            TryUnquote(GetMemoryValue("identity.preferred_name")),
+            givenName,
+            fullName);
+
         return new UserBriefProfile(
-            PreferredName: TryUnquote(GetMemoryValue("identity.preferred_name")),
+            PreferredName: preferredName,
+            FullName: fullName,
+            GivenName: givenName,
+            Email: userContextData.Email,
+            PhoneNumber: userContextData.PhoneNumber,
+            UserCreatedAt: userContextData.UserCreatedAt,
             CommunicationStyle: TryUnquote(GetMemoryValue("communication.style")),
             FinancialPosture: TryUnquote(GetMemoryValue("identity.financial_posture")),
             CorridorCountries: financeData.CorridorCountries,
@@ -114,6 +146,23 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             IncomeRhythm: TryUnquote(GetMemoryValue("fact.income_rhythm"))
                 ?? GetMemoryValue("income.payday"),
             PrimaryNeeds: ParseJsonArray(GetMemoryValue("identity.primary_needs")));
+    }
+
+    private static UserBriefSetupProfile? AssembleSetupProfile(UserBriefSetupProfileData? setupProfile)
+    {
+        if (setupProfile is null)
+        {
+            return null;
+        }
+
+        return new UserBriefSetupProfile(
+            setupProfile.SelectedUseCases,
+            setupProfile.AccountSourceTypes,
+            setupProfile.ConnectChoice,
+            setupProfile.Responsibilities,
+            setupProfile.SupportType,
+            setupProfile.FinancialGoals,
+            setupProfile.Completed);
     }
 
     private static UserBriefFinancialFocus AssembleFinancialFocus(UserBriefFinancialData data)
@@ -290,6 +339,71 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             AiCannotDoWithoutApproval: ["initiate_payment", "create_order", "modify_bill", "cancel_subscription"]);
     }
 
+    private static UserBriefDataAvailability DeriveDataAvailability(
+        UserBriefContextData userContextData,
+        UserBriefFinancialData financeData,
+        IReadOnlyList<UserBriefMemoryEntryData> memoryEntries,
+        List<ConversationSummary> conversationSummaries)
+    {
+        var missingDataAreas = new List<string>();
+
+        if (financeData.AccountCount == 0)
+        {
+            missingDataAreas.Add("accounts");
+        }
+
+        if (financeData.TransactionCount == 0)
+        {
+            missingDataAreas.Add("transactions");
+        }
+
+        if (financeData.ActiveGoals.Count == 0)
+        {
+            missingDataAreas.Add("goals");
+        }
+
+        if (financeData.UpcomingBills.Count == 0 && financeData.ActiveSubscriptions.Count == 0)
+        {
+            missingDataAreas.Add("bills_and_subscriptions");
+        }
+
+        if (financeData.CustomerInsightSnapshot is null)
+        {
+            missingDataAreas.Add("customer_insight_snapshot");
+        }
+
+        if (conversationSummaries.Count == 0)
+        {
+            missingDataAreas.Add("conversation_history");
+        }
+
+        var isNewUser = financeData.AccountCount == 0
+            && financeData.TransactionCount == 0
+            && financeData.ActiveGoals.Count == 0
+            && financeData.SupportObligations.Count == 0
+            && financeData.CustomerInsightSnapshot is null
+            && memoryEntries.Count == 0
+            && conversationSummaries.Count == 0;
+
+        var hasLimitedFinancialData = isNewUser
+            || financeData.TransactionCount < 5
+            || financeData.CustomerInsightSnapshot is null;
+
+        var summary = isNewUser
+            ? userContextData.SetupProfile is null
+                ? "This is a new Payabo user with little or no financial history yet. Be explicit that no meaningful behavioural or spending pattern can be inferred yet. Focus on onboarding and next-step guidance."
+                : "This is a new Payabo user with little or no financial history yet. Use the setup answers as the main context, avoid over-interpreting patterns, and focus on onboarding and next-step guidance."
+            : hasLimitedFinancialData
+                ? "Only limited financial data is available. Keep guidance cautious, state when conclusions are tentative, and avoid claiming strong patterns."
+                : "Sufficient recent data is available for normal personal-finance guidance.";
+
+        return new UserBriefDataAvailability(
+            IsNewUser: isNewUser,
+            HasLimitedFinancialData: hasLimitedFinancialData,
+            Summary: summary,
+            MissingDataAreas: missingDataAreas);
+    }
+
     /// <summary>
     /// Estimates token count (~4 chars per token) and truncates lower-priority sections
     /// in priority order until the budget is met.
@@ -396,6 +510,20 @@ internal sealed class UserBriefProjector : IUserBriefProjector
 
     private static int EstimateTokens(UserBrief brief) =>
         JsonSerializer.Serialize(brief).Length / 4;
+
+    private static string? JoinName(string? firstName, string? lastName)
+    {
+        var parts = new[] { firstName?.Trim(), lastName?.Trim() }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .ToArray();
+
+        return parts.Length == 0 ? null : string.Join(' ', parts);
+    }
+
+    private static string? FirstNonEmpty(params string?[] candidates)
+    {
+        return candidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate))?.Trim();
+    }
 
     private static string? TryUnquote(string? json)
     {

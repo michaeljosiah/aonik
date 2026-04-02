@@ -27,7 +27,9 @@ using Aonik.Platform.Services.Party;
 using Aonik.Platform.Services.Registration;
 using Aonik.Platform.Services.Seeding;
 using Aonik.Platform.Services.Settings;
+using Aonik.Platform.Services.UserBrief;
 using Aonik.SharedKernel.Modules;
+using Aonik.SharedKernel.Abstractions.UserBrief;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -81,6 +83,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
         services.AddScoped<IPayaboSetupProfileService, PayaboSetupProfileService>();
+        services.AddScoped<IUserBriefContextDataProvider, UserBriefContextDataProvider>();
         services.AddScoped<IRegistrationService, RegistrationService>();
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();

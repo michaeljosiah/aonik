@@ -8,10 +8,12 @@ namespace Aonik.Agents.Contracts.Models;
 /// </summary>
 public record UserBrief(
     UserBriefProfile UserProfile,
+    UserBriefSetupProfile? SetupProfile,
     UserBriefFinancialFocus FinancialFocus,
     UserBriefCurrentState CurrentState,
     UserBriefCustomerInsightSnapshotSummary? CustomerInsightSnapshot,
     UserBriefCustomerInsightAiInterpretation? CustomerInsightAiInterpretation,
+    UserBriefDataAvailability DataAvailability,
     CashflowRisk CashflowRisk,
     IReadOnlyList<UserBriefBehaviouralInsight> BehaviouralInsights,
     IReadOnlyList<UserBriefConversationMemory> RecentConversationMemory,
@@ -20,12 +22,26 @@ public record UserBrief(
 
 public record UserBriefProfile(
     string? PreferredName,
+    string? FullName,
+    string? GivenName,
+    string? Email,
+    string? PhoneNumber,
+    DateTime? UserCreatedAt,
     string? CommunicationStyle,
     string? FinancialPosture,
     IReadOnlyList<string> CorridorCountries,
     string? HouseholdContext,
     string? IncomeRhythm,
     IReadOnlyList<string> PrimaryNeeds);
+
+public record UserBriefSetupProfile(
+    IReadOnlyList<string> SelectedUseCases,
+    IReadOnlyList<string> AccountSourceTypes,
+    string? ConnectChoice,
+    IReadOnlyList<string> Responsibilities,
+    string? SupportType,
+    IReadOnlyList<string> FinancialGoals,
+    bool Completed);
 
 public record UserBriefFinancialFocus(
     IReadOnlyList<UserBriefGoal> CurrentGoals,
@@ -79,6 +95,12 @@ public record UserBriefCustomerInsightAiInterpretation(
     IReadOnlyList<string> RecommendedFocusAreas,
     IReadOnlyList<string> ReferencedMetricKeys,
     IReadOnlyList<string> Caveats);
+
+public record UserBriefDataAvailability(
+    bool IsNewUser,
+    bool HasLimitedFinancialData,
+    string Summary,
+    IReadOnlyList<string> MissingDataAreas);
 
 public record UserBriefSnapshotMoney(
     string Currency,

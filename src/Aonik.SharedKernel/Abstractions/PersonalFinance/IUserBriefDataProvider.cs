@@ -23,6 +23,10 @@ public record UserBriefFinancialDataRequest(
     DateTime? SpendPeriodEnd = null);
 
 public record UserBriefFinancialData(
+    // High-signal counts
+    int AccountCount,
+    int TransactionCount,
+
     // Cash summary
     decimal TotalBalance,
     decimal AvailableBalance,
