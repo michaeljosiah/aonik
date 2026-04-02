@@ -111,7 +111,6 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
     );
   }
 
-
   // ── Navigation ──────────────────────────────────────────
 
   void nextStep() {
@@ -178,7 +177,7 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
 
   Future<void> _persistSetupCompletedFlag() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_setupCompletedKey, true);
+    await prefs.setBool(setupCompletedKey, true);
   }
 
   Future<void> _persistSetupProfile(PayaboSetupProfile profile) async {
@@ -198,7 +197,11 @@ class SetupJourneyController extends StateNotifier<SetupJourneyState> {
     state = SetupJourneyState.initial();
   }
 
-  static const String _setupCompletedKey = 'payabo.setup.completed';
+  /// SharedPreferences key for the setup-completed flag.
+  ///
+  /// Exposed so that [AuthController] can clear it on sign-out and
+  /// registration to prevent stale values from a previous user.
+  static const String setupCompletedKey = 'payabo.setup.completed';
 }
 
 // ── Providers ───────────────────────────────────────────────
@@ -232,7 +235,7 @@ final FutureProvider<bool> setupCompletedProvider =
 
   final prefs = await SharedPreferences.getInstance();
   if (_useLocalSetupPersistence(ref)) {
-    return prefs.getBool(SetupJourneyController._setupCompletedKey) ?? false;
+    return prefs.getBool(SetupJourneyController.setupCompletedKey) ?? false;
   }
 
   try {
@@ -241,14 +244,14 @@ final FutureProvider<bool> setupCompletedProvider =
     final completed = profile?.completed ?? false;
 
     if (completed) {
-      await prefs.setBool(SetupJourneyController._setupCompletedKey, true);
+      await prefs.setBool(SetupJourneyController.setupCompletedKey, true);
     } else {
-      await prefs.remove(SetupJourneyController._setupCompletedKey);
+      await prefs.remove(SetupJourneyController.setupCompletedKey);
     }
 
     return completed;
   } catch (_) {
-    return prefs.getBool(SetupJourneyController._setupCompletedKey) ?? false;
+    return prefs.getBool(SetupJourneyController.setupCompletedKey) ?? false;
   }
 });
 
@@ -269,7 +272,7 @@ Future<void> clearSetupCompleted(WidgetRef ref) async {
     // restart setup immediately on this device.
   }
 
-  await prefs.remove(SetupJourneyController._setupCompletedKey);
+  await prefs.remove(SetupJourneyController.setupCompletedKey);
 
   ref.read(setupJourneyControllerProvider.notifier).reset();
   ref.invalidate(setupCompletedProvider);

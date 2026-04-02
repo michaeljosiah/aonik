@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/api/api_exception.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../../features/setup_journey/application/setup_journey_controller.dart';
 import 'auth_session_store.dart';
 
 class AuthUser {
@@ -159,6 +161,9 @@ class AuthController extends StateNotifier<AuthState> {
 
       await _persistSession(token);
 
+      // Clear any stale setup state from a previous user on this device.
+      await _clearSetupState();
+
       final user = await _resolveUserInfo(
         fallbackEmail: email.trim().toLowerCase(),
       );
@@ -190,6 +195,11 @@ class AuthController extends StateNotifier<AuthState> {
       );
 
       await _persistSession(token);
+
+      // Clear any stale setup state from a previous user on this device
+      // before resolving the new user's info. This prevents the router
+      // from reading a cached setup-completed flag and skipping onboarding.
+      await _clearSetupState();
 
       final user = await _resolveUserInfo(
         fallbackEmail: request.email.trim().toLowerCase(),
@@ -224,6 +234,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> signOut() async {
     await _clearSession();
+    await _clearSetupState();
     state = const AuthState(
       isInitialized: true,
       isAuthenticated: false,
@@ -287,6 +298,16 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> _clearSession() {
     return _ref.read(authSessionStoreProvider).clear();
+  }
+
+  /// Removes the cached setup-completed flag from SharedPreferences and
+  /// resets the in-memory setup journey state so that a subsequent login
+  /// or registration starts with a clean slate.
+  Future<void> _clearSetupState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(SetupJourneyController.setupCompletedKey);
+    _ref.read(setupJourneyControllerProvider.notifier).reset();
+    _ref.invalidate(setupCompletedProvider);
   }
 }
 

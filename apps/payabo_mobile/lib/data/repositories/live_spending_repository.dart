@@ -17,13 +17,16 @@ class LiveSpendingRepository implements SpendingRepository {
   Future<List<SpendingAccountCard>> getAccounts() async {
     try {
       final response = await _apiClient.get<List<dynamic>>(
-        '/personal-finance/spending/accounts',
+        '/personal-finance/account-links/summary',
       );
 
       final List<dynamic> raw = response.data ?? const <dynamic>[];
       return raw
           .whereType<Map<Object?, Object?>>()
-          .map((item) => _mapAccountCard(Map<String, dynamic>.from(item)))
+          .map((item) =>
+              _mapAccountCardFromSummary(Map<String, dynamic>.from(item)))
+          .where((card) => card != null)
+          .cast<SpendingAccountCard>()
           .toList(growable: false);
     } on DioException catch (exception) {
       _logDioFailure('getAccounts', exception);
@@ -115,20 +118,81 @@ class LiveSpendingRepository implements SpendingRepository {
   // Mapping helpers — accounts & transactions
   // ═══════════════════════════════════════════════════════════════
 
-  SpendingAccountCard _mapAccountCard(Map<String, dynamic> json) {
+  // Icons.account_balance_outlined
+  static const int _iconAccountBalanceOutlined = 0xee2f;
+  // Icons.edit_outlined
+  static const int _iconEditOutlined = 0xef4b;
+
+  static String _currencySymbolFromCode(String code) {
+    switch (code.toUpperCase()) {
+      case 'GBP':
+        return '\u00A3';
+      case 'USD':
+        return '\$';
+      case 'EUR':
+        return '\u20AC';
+      case 'NGN':
+        return '\u20A6';
+      case 'KES':
+        return 'KSh';
+      case 'GHS':
+        return 'GH\u20B5';
+      case 'ZAR':
+        return 'R';
+      case 'CAD':
+        return 'CA\$';
+      case 'INR':
+        return '\u20B9';
+      default:
+        return code;
+    }
+  }
+
+  /// Maps an account-links summary item to a [SpendingAccountCard].
+  /// Returns null for archived accounts so they can be filtered out.
+  SpendingAccountCard? _mapAccountCardFromSummary(Map<String, dynamic> json) {
+    final String rawStatus = _readString(json['status']) ?? 'Active';
+    if (rawStatus.trim().toLowerCase() == 'archived') return null;
+
+    final String id = _readString(json['linkedAccountId']) ??
+        _readString(json['personalAccountId']) ??
+        '';
+    final String name = _readString(json['name']) ?? 'Untitled account';
+    final String? sourceType = _readString(json['sourceType']);
+    final bool isLinked = sourceType?.toLowerCase() == 'linked';
+    final String? provider = _readString(json['provider']);
+    final String? institutionName = _readString(json['institutionName']);
+    final String currencyCode =
+        (_readString(json['currency']) ?? 'GBP').toUpperCase();
+    final String symbol = _currencySymbolFromCode(currencyCode);
+
+    // Provider name: use provider for linked accounts, 'Manual' for manual.
+    final String providerName =
+        isLinked ? (provider ?? institutionName ?? 'Connected bank') : 'Manual';
+
+    // Icon: bank icon for linked, edit icon for manual.
+    final int iconCodePoint =
+        isLinked ? _iconAccountBalanceOutlined : _iconEditOutlined;
+
+    // Balance is not available from the summary endpoint, so default to
+    // a placeholder showing the currency.
+    final String balanceLabel = '${symbol}0.00';
+    const String balanceMajor = '0';
+    const String balanceMinor = '.00';
+
     return SpendingAccountCard(
-      id: _readString(json['id']) ?? '',
-      accountName: _readString(json['accountName']) ?? '',
-      providerName: _readString(json['providerName']) ?? '',
-      providerIconCodePoint:
-          (json['providerIconCodePoint'] as num?)?.toInt() ?? 0xee33,
-      providerIconFontFamily:
-          _readString(json['providerIconFontFamily']) ?? 'MaterialIcons',
-      balanceLabel: _readString(json['balanceLabel']) ?? '',
-      balanceMajor: _readString(json['balanceMajor']) ?? '0',
-      balanceMinor: _readString(json['balanceMinor']) ?? '.00',
-      currencySymbol: _readString(json['currencySymbol']) ?? '',
+      id: id,
+      accountName: name,
+      providerName: providerName,
+      providerIconCodePoint: iconCodePoint,
+      providerIconFontFamily: 'MaterialIcons',
+      balanceLabel: balanceLabel,
+      balanceMajor: balanceMajor,
+      balanceMinor: balanceMinor,
+      currencySymbol: symbol,
+      currencyCode: currencyCode,
       connectionId: _readString(json['connectionId']),
+      isManual: !isLinked,
     );
   }
 
@@ -159,10 +223,8 @@ class LiveSpendingRepository implements SpendingRepository {
   SpendingOverviewData _mapOverview(Map<String, dynamic> json) {
     final snapshotsJson =
         json['accountSnapshots'] as List<dynamic>? ?? const [];
-    final breakdownJson =
-        json['breakdownSlices'] as List<dynamic>? ?? const [];
-    final trendSpotsJson =
-        json['trendSpots'] as List<dynamic>? ?? const [];
+    final breakdownJson = json['breakdownSlices'] as List<dynamic>? ?? const [];
+    final trendSpotsJson = json['trendSpots'] as List<dynamic>? ?? const [];
     final trendLabelsJson =
         json['trendBottomLabels'] as List<dynamic>? ?? const [];
     final allocationJson =
@@ -189,19 +251,15 @@ class LiveSpendingRepository implements SpendingRepository {
           .toList(growable: false),
       breakdownTotalLabel: _readString(json['breakdownTotalLabel']) ?? '',
       trendSummaryLabel: _readString(json['trendSummaryLabel']) ?? '',
-      trendSpots: trendSpotsJson
-          .whereType<Map<Object?, Object?>>()
-          .map((s) {
-            final spot = Map<String, dynamic>.from(s);
-            return SpendingTrendSpot(
-              x: (spot['x'] as num?)?.toDouble() ?? 0,
-              y: (spot['y'] as num?)?.toDouble() ?? 0,
-            );
-          })
-          .toList(growable: false),
-      trendBottomLabels: trendLabelsJson
-          .whereType<String>()
-          .toList(growable: false),
+      trendSpots: trendSpotsJson.whereType<Map<Object?, Object?>>().map((s) {
+        final spot = Map<String, dynamic>.from(s);
+        return SpendingTrendSpot(
+          x: (spot['x'] as num?)?.toDouble() ?? 0,
+          y: (spot['y'] as num?)?.toDouble() ?? 0,
+        );
+      }).toList(growable: false),
+      trendBottomLabels:
+          trendLabelsJson.whereType<String>().toList(growable: false),
       insightTitle: _readString(json['insightTitle']) ?? '',
       insightBody: _readString(json['insightBody']) ?? '',
       allocationSlices: allocationJson
@@ -226,8 +284,7 @@ class LiveSpendingRepository implements SpendingRepository {
       changeLabel: _readString(json['changeLabel']) ?? '',
       gradientKey: _readString(json['gradientKey']) ?? 'primary',
       iconCodePoint: (json['iconCodePoint'] as num?)?.toInt() ?? 0xee33,
-      iconFontFamily:
-          _readString(json['iconFontFamily']) ?? 'MaterialIcons',
+      iconFontFamily: _readString(json['iconFontFamily']) ?? 'MaterialIcons',
       connectionId: _readString(json['connectionId']),
     );
   }
@@ -257,8 +314,7 @@ class LiveSpendingRepository implements SpendingRepository {
       subCategory: _readString(json['subCategory']),
       amountLabel: _readString(json['amountLabel']) ?? '',
       iconText: _readString(json['iconText']) ?? '',
-      iconBackgroundKey:
-          _readString(json['iconBackgroundKey']) ?? 'dark',
+      iconBackgroundKey: _readString(json['iconBackgroundKey']) ?? 'dark',
       iconForegroundKey:
           _readString(json['iconForegroundKey']) ?? 'surfaceBase',
     );
@@ -270,8 +326,7 @@ class LiveSpendingRepository implements SpendingRepository {
       amountLabel: _readString(json['amountLabel']) ?? '',
       trendLabel: _readString(json['trendLabel']) ?? '',
       iconCodePoint: (json['iconCodePoint'] as num?)?.toInt() ?? 0xe5f7,
-      iconFontFamily:
-          _readString(json['iconFontFamily']) ?? 'MaterialIcons',
+      iconFontFamily: _readString(json['iconFontFamily']) ?? 'MaterialIcons',
     );
   }
 
@@ -281,8 +336,7 @@ class LiveSpendingRepository implements SpendingRepository {
 
   SpendingMerchantHistory _mapMerchantHistory(Map<String, dynamic> json) {
     return SpendingMerchantHistory(
-      transactionCountLabel:
-          _readString(json['transactionCountLabel']) ?? '0',
+      transactionCountLabel: _readString(json['transactionCountLabel']) ?? '0',
       averageSpendLabel: _readString(json['averageSpendLabel']) ?? '',
       totalSpentLabel: _readString(json['totalSpentLabel']) ?? '',
     );
