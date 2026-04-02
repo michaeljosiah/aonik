@@ -309,7 +309,20 @@ public class SettingService : ISettingProvider, ISettingManager
     private string? GetFromConfiguration(string key)
     {
         var configKey = key.Replace('.', ':');
-        return _configuration[$"Settings:{key}"] ?? _configuration[configKey];
+
+        var value = _configuration[$"Settings:{key}"];
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        value = _configuration[configKey];
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return null;
     }
 
     private static bool IsConfigurationManagedKey(string key)

@@ -35,6 +35,16 @@
     },
     "containerRegistrySku": {
       "value": "Basic"
+    },
+    "apiAppSettings": {
+      "value": {
+        "Auth__Auth0__ClientId": "ZoiNbhyAsfjKiNHYPudqsZ75zI1vFyYb",
+        "Auth__Auth0__ManagementClientId": "CBH8sctHMO3N3uX4Cc9c5B5O2cBB58U1",
+        "Auth__Auth0__ManagementClientSecret": "d_u4jeTyPlc_OAZuVvoBOxwhuZRWOEl3hALDTO2NS3k1lVaa7bzceXzhRfrIxGPi",
+        "Auth__Auth0__Connection": "Username-Password-Authentication",
+        "Auth__Auth0__ManagementAudience": "https://aonik.uk.auth0.com/api/v2/",
+        "Auth__Auth0__Domain": "aonik.uk.auth0.com"
+      }
     }
   }
 }
