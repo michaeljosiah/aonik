@@ -148,14 +148,16 @@ jobs:
       AI__OPENAI__MODEL: ${{ vars.AI__OPENAI__MODEL }}
       AI__OPENAI__APIKEY: ${{ secrets.AI__OPENAI__APIKEY }}
       # Auth (Settings module IdP management)
-      SETTINGS__AUTH_PROVIDER: ${{ vars.SETTINGS__AUTH_PROVIDER }}
-      SETTINGS__AUTH_AUTH0_DOMAIN: ${{ vars.SETTINGS__AUTH_AUTH0_DOMAIN }}
-      SETTINGS__AUTH_AUTH0_AUDIENCE: ${{ vars.SETTINGS__AUTH_AUTH0_AUDIENCE }}
-      SETTINGS__AUTH_AUTH0_CLIENTID: ${{ vars.SETTINGS__AUTH_AUTH0_CLIENTID }}
-      SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTID: ${{ vars.SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTID }}
-      SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET: ${{ secrets.SETTINGS__AUTH_AUTH0_MANAGEMENTCLIENTSECRET }}
-      SETTINGS__AUTH_AUTH0_CONNECTION: ${{ vars.SETTINGS__AUTH_AUTH0_CONNECTION }}
-      SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE: ${{ vars.SETTINGS__AUTH_AUTH0_MANAGEMENTAUDIENCE }}
+      # These env vars map to .NET config paths like Auth:Auth0:ManagementClientId,
+      # which SettingService.GetFromConfiguration() resolves via key.Replace('.', ':').
+      AUTH__PROVIDER: ${{ vars.AUTH__PROVIDER }}
+      AUTH__AUTH0__DOMAIN: ${{ vars.AUTH__AUTH0__DOMAIN }}
+      AUTH__AUTH0__AUDIENCE: ${{ vars.AUTH__AUTH0__AUDIENCE }}
+      AUTH__AUTH0__CLIENTID: ${{ vars.AUTH__AUTH0__CLIENTID }}
+      AUTH__AUTH0__MANAGEMENTCLIENTID: ${{ vars.AUTH__AUTH0__MANAGEMENTCLIENTID }}
+      AUTH__AUTH0__MANAGEMENTCLIENTSECRET: ${{ secrets.AUTH__AUTH0__MANAGEMENTCLIENTSECRET }}
+      AUTH__AUTH0__CONNECTION: ${{ vars.AUTH__AUTH0__CONNECTION }}
+      AUTH__AUTH0__MANAGEMENTAUDIENCE: ${{ vars.AUTH__AUTH0__MANAGEMENTAUDIENCE }}
       # Plaid (Personal Finance linked accounts)
       FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__USEREALPLAIDAPI }}
       FINANCE__PERSONALFINANCE__PLAID__BASEURL: ${{ vars.FINANCE__PERSONALFINANCE__PLAID__BASEURL }}
@@ -199,9 +201,10 @@ jobs:
           # Add new prefixes here when new config sections need runtime overrides.
           API_SETTING_PREFIXES = (
               "AI__",
-              "SETTINGS__",
+              "AUTH__",
               "FINANCE__",
               "NOTIFICATIONS__",
+              "SETTINGS__",
           )
 
           api = {}
