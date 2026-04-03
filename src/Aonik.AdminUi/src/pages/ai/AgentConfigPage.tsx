@@ -5,23 +5,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   AlertCircle,
   Bot,
@@ -31,8 +14,8 @@ import {
 
 import { AgentCard } from '@/components/dashboard/AgentCard';
 import type { AgentCard as AgentCardType } from '@/types';
-import type { AgentConfigurationResponse, AiModelResponse } from '@/types/ai';
-import { agentConfigService, aiModelService } from '@/services/aiService';
+import type { AgentConfigurationResponse } from '@/types/ai';
+import { agentConfigService } from '@/services/aiService';
 
 function mapAgentConfigToCard(cfg: AgentConfigurationResponse): AgentCardType {
   let toolsetIds: string[] = [];
@@ -58,23 +41,10 @@ export function AgentConfigPage() {
 
   // ── State ──────────────────────────────────────────────────────────
   const [configs, setConfigs] = useState<AgentConfigurationResponse[]>([]);
-  const [models, setModels] = useState<AiModelResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const requestIdRef = useRef(0);
-
-  // Edit dialog state
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editingAgent, setEditingAgent] = useState<AgentConfigurationResponse | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Edit form fields
-  const [editDescription, setEditDescription] = useState('');
-  const [editInstructions, setEditInstructions] = useState('');
-  const [editRiskTier, setEditRiskTier] = useState('low');
-  const [editIsActive, setEditIsActive] = useState(true);
-  const [editModelId, setEditModelId] = useState('');
 
   // ── Data loading ───────────────────────────────────────────────────
 
@@ -85,15 +55,11 @@ export function AgentConfigPage() {
     setError(null);
 
     try {
-      const [configList, modelList] = await Promise.all([
-        agentConfigService.list(),
-        aiModelService.list(),
-      ]);
+      const configList = await agentConfigService.list();
 
       if (requestIdRef.current !== requestId) return;
 
       setConfigs(configList);
-      setModels(modelList);
       setLoading(false);
     } catch (err: unknown) {
       if (requestIdRef.current !== requestId) return;
@@ -133,43 +99,6 @@ export function AgentConfigPage() {
     }
   }
   const displayConfigs = Array.from(uniqueAgents.values());
-
-  // ── Edit dialog ────────────────────────────────────────────────────
-
-  const openEdit = (config: AgentConfigurationResponse) => {
-    setEditingAgent(config);
-    setEditDescription(config.description);
-    setEditInstructions(config.instructionsText);
-    setEditRiskTier(config.riskTier);
-    setEditIsActive(config.isActive);
-    setEditModelId(config.modelId ?? '');
-    setShowEditDialog(true);
-  };
-
-  const saveConfig = async () => {
-    if (!editingAgent) return;
-    setSaving(true);
-    try {
-      await agentConfigService.upsert(editingAgent.name, {
-        description: editDescription,
-        instructionsText: editInstructions,
-        riskTier: editRiskTier,
-        isActive: editIsActive,
-        modelId: editModelId || null,
-      });
-      setShowEditDialog(false);
-      await loadData();
-    } catch (err: unknown) {
-      console.error('Failed to save agent config:', err);
-      const message =
-        err && typeof err === 'object' && 'userMessage' in err
-          ? String((err as { userMessage?: string }).userMessage ?? '')
-          : '';
-      setError(message || 'Failed to save agent configuration.');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const deleteOverride = async (config: AgentConfigurationResponse) => {
     if (!config.isOverride) return;
@@ -268,7 +197,7 @@ export function AgentConfigPage() {
                       variant="ghost"
                       size="icon-sm"
                       className="h-6 w-6 text-[var(--color-text-tertiary)]"
-                      onClick={(e) => { e.stopPropagation(); openEdit(config); }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/ai/agents/${config.name}`); }}
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
@@ -291,83 +220,6 @@ export function AgentConfigPage() {
         </div>
       )}
 
-      {/* ── Edit dialog ──────────────────────────────────────────── */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Edit Agent: {editingAgent?.name}</DialogTitle>
-            <DialogDescription>
-              Update the agent configuration. This creates a tenant-level override.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Input
-                id="edit-description"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder="Agent description"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-instructions">Instructions</Label>
-              <Textarea
-                id="edit-instructions"
-                value={editInstructions}
-                onChange={(e) => setEditInstructions(e.target.value)}
-                placeholder="System instructions for the agent"
-                rows={4}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-risk-tier">Risk Tier</Label>
-                <Select value={editRiskTier} onValueChange={setEditRiskTier}>
-                  <SelectTrigger id="edit-risk-tier">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-model">AI Model</Label>
-                <Select value={editModelId || '__none__'} onValueChange={(v) => setEditModelId(v === '__none__' ? '' : v)}>
-                  <SelectTrigger id="edit-model">
-                    <SelectValue placeholder="Platform default" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Platform default</SelectItem>
-                    {models.filter(m => m.isActive).map((m) => (
-                      <SelectItem key={m.id} value={m.id}>{m.modelName}{m.providerName ? ` (${m.providerName})` : ''}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="edit-active"
-                checked={editIsActive}
-                onChange={(e) => setEditIsActive(e.target.checked)}
-                className="rounded"
-              />
-              <Label htmlFor="edit-active">Active</Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
-            <Button onClick={saveConfig} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Configuration'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

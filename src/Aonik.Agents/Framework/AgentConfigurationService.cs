@@ -216,11 +216,19 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     {
         foreach (var descriptor in _descriptors)
         {
-            var exists = await _dbContext.Agents
-                .AnyAsync(a => a.Name == descriptor.Name && a.TenantId == null, cancellationToken);
+            var existing = await _dbContext.Agents
+                .FirstOrDefaultAsync(a => a.Name == descriptor.Name && a.TenantId == null, cancellationToken);
 
-            if (exists)
+            if (existing is not null)
+            {
+                // Update default icon if the resolved icon has changed
+                var resolvedIcon = ResolveDefaultIconUrl(descriptor.Name);
+                if (resolvedIcon is not null && existing.IconUrl != resolvedIcon)
+                {
+                    existing.IconUrl = resolvedIcon;
+                }
                 continue;
+            }
 
             // Resolve all tool names from the descriptor
             var toolNames = descriptor.GetToolNames(serviceProvider);
@@ -301,10 +309,10 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
     {
         return agentName switch
         {
-            "personal-finance-agent" => "/images/agents/icon-dollar.svg",
-            "finance-agent" => "/images/agents/icon-ledger.svg",
-            "financial-life-graph-agent" => "/images/agents/icon-chart.svg",
-            "platform-agent" => "/images/agents/icon-grid.svg",
+            "personal-finance-agent" => "/images/agents/agent-1.png",
+            "finance-agent" => "/images/agents/agent-2.png",
+            "financial-life-graph-agent" => "/images/agents/agent-3.png",
+            "platform-agent" => "/images/agents/agent-4.png",
             _ => null
         };
     }

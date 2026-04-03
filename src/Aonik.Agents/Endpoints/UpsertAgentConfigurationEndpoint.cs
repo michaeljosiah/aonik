@@ -34,7 +34,8 @@ internal sealed class UpsertAgentConfigurationEndpoint
             PermissionsProfileJson = req.PermissionsProfileJson,
             RiskTier = req.RiskTier,
             IsActive = req.IsActive,
-            ModelId = req.ModelId
+            ModelId = req.ModelId,
+            IconUrl = req.IconUrl
         };
 
         var result = await _configService.UpsertOverrideAsync(req.Name, serviceRequest, ct);
@@ -57,4 +58,5 @@ public sealed record UpsertAgentConfigurationEndpointRequest
     public string? RiskTier { get; init; }
     public bool? IsActive { get; init; }
     public Guid? ModelId { get; init; }
+    public string? IconUrl { get; init; }
 }
