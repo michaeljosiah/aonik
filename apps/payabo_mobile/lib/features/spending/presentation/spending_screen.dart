@@ -1379,7 +1379,7 @@ class _EmptyTransactionsState extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.md),
           Text(
-            isManual ? 'No transactions yet' : 'No transactions yet',
+            isManual ? 'No transactions yet' : 'No transactions found',
             style: textTheme.titleMedium?.copyWith(
               color: c.accentBrown,
               fontWeight: FontWeight.w600,

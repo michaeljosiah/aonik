@@ -106,7 +106,7 @@ class SharedPreferencesPaymentFlowPersistence
       useSamePaymentMethodForRecurring:
           decoded['useSamePaymentMethodForRecurring'] as bool? ?? true,
       paymentMethodIndex: decoded['paymentMethod'] as int? ?? 0,
-      selectedCardId: decoded['selectedCardId'] as String? ?? 'card_visa_4567',
+      selectedCardId: decoded['selectedCardId'] as String? ?? '',
       saveCard: decoded['saveCard'] as bool? ?? true,
       selectedFriendId: decoded['selectedFriendId'] as String? ?? '',
       friendMessage: decoded['friendMessage'] as String? ?? '',

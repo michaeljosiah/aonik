@@ -355,7 +355,7 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
     required bool saveAsFavorite,
   }) {
     final friend = PaymentFriend(
-      id: 'friend_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'friend_${DateTime.now().microsecondsSinceEpoch}_${Object().hashCode}',
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),

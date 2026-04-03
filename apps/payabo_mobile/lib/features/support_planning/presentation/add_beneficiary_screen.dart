@@ -11,11 +11,26 @@ import 'widgets/beneficiary_form_card.dart';
 ///
 /// Accessible from the Simi dashboard nudge or from a future
 /// support planning hub.
-class AddBeneficiaryScreen extends ConsumerWidget {
+class AddBeneficiaryScreen extends ConsumerStatefulWidget {
   const AddBeneficiaryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AddBeneficiaryScreen> createState() =>
+      _AddBeneficiaryScreenState();
+}
+
+class _AddBeneficiaryScreenState extends ConsumerState<AddBeneficiaryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load existing data so the controller state is populated.
+    Future.microtask(
+      () => ref.read(supportPlanningControllerProvider.notifier).loadAll(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(supportPlanningControllerProvider);
     final c = context.colors;
 

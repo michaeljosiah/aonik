@@ -33,7 +33,6 @@ import '../../features/payments/presentation/pay_activity_screen.dart';
 import '../../features/payments/presentation/pay_dashboard_screen.dart';
 import '../../features/payments/presentation/pay_transaction_details_screen.dart';
 import '../../features/payments/presentation/payment_country_screen.dart';
-import '../../features/payments/presentation/payment_return_placeholder_screen.dart';
 import '../../features/payments/presentation/payment_selection_screen.dart';
 import '../../features/payments/presentation/provider_list_screen.dart';
 import '../../features/payments/presentation/service_details_screen.dart';
@@ -536,11 +535,6 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/payments/thank-you',
           name: 'payment-thank-you',
           builder: (context, state) => const ThankYouScreen(),
-        ),
-        GoRoute(
-          path: '/payments/return',
-          name: 'payment-return-placeholder',
-          builder: (context, state) => const PaymentReturnPlaceholderScreen(),
         ),
         GoRoute(
           path: '/support/add-beneficiary',

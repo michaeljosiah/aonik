@@ -1042,7 +1042,9 @@ class _BudgetDashedLinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BudgetDashedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
+
 }
 
 class _BudgetPickerTile extends StatelessWidget {

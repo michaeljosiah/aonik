@@ -1510,7 +1510,9 @@ class _OverviewAllocationRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _OverviewAllocationRingPainter oldDelegate) {
-    return oldDelegate.slices != slices || oldDelegate.trackColor != trackColor;
+    return oldDelegate.slices != slices ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.colorResolver != colorResolver;
   }
 }
 

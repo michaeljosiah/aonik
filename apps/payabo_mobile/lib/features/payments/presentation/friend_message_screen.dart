@@ -90,13 +90,15 @@ class _FriendMessageScreenState extends ConsumerState<FriendMessageScreen> {
           ),
           const SizedBox(height: PayaboSpacing.lg),
           TextButton(
-            onPressed: () {
-              ref
-                  .read(paymentFlowControllerProvider.notifier)
-                  .setFriendMessage('', persist: true);
-              _messageController.clear();
-              context.go('/payments/checkout/help');
-            },
+            onPressed: friend == null
+                ? null
+                : () {
+                    ref
+                        .read(paymentFlowControllerProvider.notifier)
+                        .setFriendMessage('', persist: true);
+                    _messageController.clear();
+                    context.go('/payments/checkout/help');
+                  },
             child: const Text('Skip message'),
           ),
           if (friend == null) ...<Widget>[

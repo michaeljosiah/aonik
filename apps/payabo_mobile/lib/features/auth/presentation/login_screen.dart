@@ -26,6 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _emailValid = false;
 
   @override
   void dispose() {
@@ -34,12 +35,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  void _onFieldChanged() {
+    final valid = isValidEmail(_emailController.text);
+    if (valid != _emailValid) {
+      setState(() => _emailValid = valid);
+    } else {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final isDemo = ref.watch(isDemoProvider);
     final canSubmit = !isDemo &&
-        isValidEmail(_emailController.text) &&
+        _emailValid &&
         _passwordController.text.isNotEmpty &&
         !authState.isBusy;
 
@@ -64,7 +74,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             label: 'Email',
             enabled: !isDemo,
             keyboardType: TextInputType.emailAddress,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => _onFieldChanged(),
           ),
           const SizedBox(height: PayaboSpacing.md),
           PayaboTextField(
@@ -73,7 +83,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             label: 'Password',
             enabled: !isDemo,
             obscureText: !_isPasswordVisible,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => _onFieldChanged(),
             suffixIcon: IconButton(
               onPressed: isDemo
                   ? null
@@ -151,8 +161,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       await ref.read(authControllerProvider.notifier).signInWithPassword(
-            email: 'demo@payabo.app',
-            password: 'demo-access',
+            email: const String.fromEnvironment(
+              'DEMO_EMAIL',
+              defaultValue: 'demo@payabo.app',
+            ),
+            password: const String.fromEnvironment(
+              'DEMO_PASSWORD',
+              defaultValue: 'demo-access',
+            ),
           );
 
       if (!mounted) {

@@ -94,8 +94,8 @@ class OnboardingState {
 
   factory OnboardingState.initial() {
     return const OnboardingState(
-      registrationCountryCode: 'GB',
-      phoneCountryCode: 'GB',
+      registrationCountryCode: '',
+      phoneCountryCode: '',
       firstName: '',
       lastName: '',
       mobileNumber: '',

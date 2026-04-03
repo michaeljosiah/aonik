@@ -195,8 +195,7 @@ class LiveStatementImportRepository implements StatementImportRepository {
     developer.log(
       'StatementImportRepository.$operation failed: '
       '${exception.message} '
-      '(status=${exception.response?.statusCode}, '
-      'body=${exception.response?.data})',
+      '(status=${exception.response?.statusCode})',
     );
   }
 }

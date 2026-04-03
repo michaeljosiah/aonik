@@ -129,7 +129,7 @@ class _StatementUploadScreenState
                 horizontal: PayaboSpacing.xl,
               ),
               children: <Widget>[
-                _IntroCard(),
+                const _IntroCard(),
                 const SizedBox(height: PayaboSpacing.xl),
 
                 // ── Account selector ───────────────────────
@@ -335,6 +335,8 @@ class _StatementUploadScreenState
 // ─────────────────────────────────────────────────────────────
 
 class _IntroCard extends StatelessWidget {
+  const _IntroCard();
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;

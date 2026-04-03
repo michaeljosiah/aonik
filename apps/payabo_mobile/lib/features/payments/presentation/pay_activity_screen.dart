@@ -134,13 +134,7 @@ class _PayActivityScreenState extends ConsumerState<PayActivityScreen> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {
-                      // TODO: implement search
-                    },
-                    icon: const Icon(Icons.search, color: Colors.white),
-                    splashRadius: 22,
-                  ),
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
