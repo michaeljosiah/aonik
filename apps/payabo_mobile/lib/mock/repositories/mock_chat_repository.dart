@@ -143,6 +143,9 @@ class MockChatRepository implements ChatRepository {
     ),
   ];
 
+  static final List<ChatHistoryEntry> _mutableHistoryEntries =
+      List<ChatHistoryEntry>.of(_populatedHistoryEntries);
+
   @override
   Future<List<ChatHistoryEntry>> getHistoryEntries() async {
     await MockBehavior.delay();
@@ -152,7 +155,7 @@ class MockChatRepository implements ChatRepository {
       return const <ChatHistoryEntry>[];
     }
 
-    return _populatedHistoryEntries;
+    return List<ChatHistoryEntry>.of(_mutableHistoryEntries);
   }
 
   // ─────────────────────────────────────────────────────────
@@ -305,8 +308,7 @@ class MockChatRepository implements ChatRepository {
         text: 'I can set that up for you right now. '
             'I just need your go-ahead before I make the payment.',
         action: 'Create Payment',
-        description:
-            'Transfer £250.00 to John Doe (Barclays ****4821). '
+        description: 'Transfer £250.00 to John Doe (Barclays ****4821). '
             'This will be processed immediately and cannot be reversed.',
         severity: 'high',
       );
@@ -484,7 +486,10 @@ class MockChatRepository implements ChatRepository {
   Future<void> deleteConversation(String id) async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('chat.deleteConversation');
-    // No-op in mock mode — the mock data is static.
+    _populatedConversations
+        .removeWhere((ChatConversation item) => item.id == id);
+    _mutableHistoryEntries
+        .removeWhere((ChatHistoryEntry item) => item.id == id);
   }
 
   // ─────────────────────────────────────────────────────────

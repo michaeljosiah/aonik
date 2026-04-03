@@ -65,4 +65,36 @@ void main() {
       findsWidgets,
     );
   });
+
+  testWidgets('chat history can delete a conversation entry',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildTestApp(const ChatHistoryScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Current account balance inquiry'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('chat-history-item-bill-rescue'),
+        ),
+        matching: find.byIcon(Icons.delete_outline_rounded),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete conversation?'), findsOneWidget);
+    expect(
+      find.text(
+          'Remove "Current account balance inquiry" from your conversation history?'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Current account balance inquiry'), findsNothing);
+    expect(find.text('Deleted "Current account balance inquiry".'),
+        findsOneWidget);
+  });
 }

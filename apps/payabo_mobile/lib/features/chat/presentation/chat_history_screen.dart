@@ -80,6 +80,7 @@ class ChatHistoryScreen extends ConsumerStatefulWidget {
 
 class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
+  bool _isDeleting = false;
 
   @override
   void dispose() {
@@ -211,6 +212,9 @@ class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
                             .map(
                               (MapEntry<int, ChatHistoryEntry> entry) =>
                                   _HistoryListItem(
+                                key: ValueKey<String>(
+                                  'chat-history-item-${entry.value.id}',
+                                ),
                                 item: entry.value,
                                 isSelected: entry.value.id ==
                                     widget.selectedConversationId,
@@ -219,6 +223,12 @@ class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
                                   context,
                                   entry.value.id,
                                 ),
+                                onDelete: _isDeleting
+                                    ? null
+                                    : () => _handleDeleteConversation(
+                                          context,
+                                          entry.value,
+                                        ),
                               ),
                             )
                             .toList(growable: false),
@@ -252,6 +262,74 @@ class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
     }
 
     context.pop(conversationId);
+  }
+
+  Future<void> _handleDeleteConversation(
+    BuildContext context,
+    ChatHistoryEntry entry,
+  ) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final bool shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Delete conversation?'),
+              content: Text(
+                'Remove "${entry.title}" from your conversation history?',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!shouldDelete || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      await ref.read(chatRepositoryProvider).deleteConversation(entry.id);
+      ref.invalidate(_chatHistoryProvider);
+
+      if (!mounted) {
+        return;
+      }
+
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Deleted "${entry.title}".')),
+        );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Could not delete "${entry.title}".')),
+        );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
+        });
+      }
+    }
   }
 }
 
@@ -361,16 +439,19 @@ class _EmptyHistoryCard extends StatelessWidget {
 
 class _HistoryListItem extends StatelessWidget {
   const _HistoryListItem({
+    super.key,
     required this.item,
     required this.isSelected,
     required this.showDivider,
     required this.onTap,
+    required this.onDelete,
   });
 
   final ChatHistoryEntry item;
   final bool isSelected;
   final bool showDivider;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -431,11 +512,22 @@ class _HistoryListItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: PayaboSpacing.md),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: _historyMutedTextColor(context),
-              size: 20,
-            ),
+            if (onDelete != null)
+              IconButton(
+                onPressed: onDelete,
+                splashRadius: 20,
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: _historyMutedTextColor(context),
+                  size: 20,
+                ),
+              )
+            else
+              Icon(
+                Icons.chevron_right_rounded,
+                color: _historyMutedTextColor(context),
+                size: 20,
+              ),
           ],
         ),
       ),
