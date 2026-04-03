@@ -173,10 +173,14 @@ public static class PlaygroundStreamingEndpoint
                             break;
 
                         case FunctionCallContent functionCall:
+                            // Use a stable ID across START/ARGS/END — providers may
+                            // leave CallId null, so generate a fallback once and reuse it.
+                            var toolCallId = functionCall.CallId ?? Guid.NewGuid().ToString("N");
+
                             await WriteSseEventAsync(context.Response, new
                             {
                                 type = "TOOL_CALL_START",
-                                toolCallId = functionCall.CallId ?? Guid.NewGuid().ToString("N"),
+                                toolCallId,
                                 toolCallName = functionCall.Name,
                                 parentMessageId = messageId,
                             }, cancellationToken);
@@ -188,7 +192,7 @@ public static class PlaygroundStreamingEndpoint
                                 await WriteSseEventAsync(context.Response, new
                                 {
                                     type = "TOOL_CALL_ARGS",
-                                    toolCallId = functionCall.CallId,
+                                    toolCallId,
                                     delta = argsJson,
                                 }, cancellationToken);
                             }
@@ -196,7 +200,7 @@ public static class PlaygroundStreamingEndpoint
                             await WriteSseEventAsync(context.Response, new
                             {
                                 type = "TOOL_CALL_END",
-                                toolCallId = functionCall.CallId,
+                                toolCallId,
                             }, cancellationToken);
                             break;
 

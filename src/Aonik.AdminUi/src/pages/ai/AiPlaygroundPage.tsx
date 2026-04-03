@@ -131,10 +131,11 @@ export function AiPlaygroundPage() {
     }
   }, [output]);
 
-  // ── Ctrl+Enter to submit ────────────────────────────────────────────────
+  // ── Ctrl+Enter to submit (single mode only) ─────────────────────────────
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (mode !== 'single') return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         handleSubmit();
@@ -142,7 +143,7 @@ export function AiPlaygroundPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSubmit]);
+  }, [handleSubmit, mode]);
 
   // ── Message management ──────────────────────────────────────────────────
 
