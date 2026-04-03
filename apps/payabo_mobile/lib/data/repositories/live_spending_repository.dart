@@ -194,12 +194,13 @@ class LiveSpendingRepository implements SpendingRepository {
     if (rawBalance != null) {
       final double bal = rawBalance.toDouble();
       final bool isNegative = bal < 0;
-      final double absBal = bal.abs();
-      final int whole = absBal.truncate();
-      final String cents =
-          ((absBal - whole) * 100).round().toString().padLeft(2, '0');
+      // Round to whole cents first so values like 12.995 become 1300
+      // cents instead of producing a fractional part of 100.
+      final int totalCents = (bal.abs() * 100).round();
+      final int whole = totalCents ~/ 100;
+      final int cents = totalCents.remainder(100);
       balanceMajor = '${isNegative ? '-' : ''}$whole';
-      balanceMinor = '.$cents';
+      balanceMinor = '.${cents.toString().padLeft(2, '0')}';
       balanceLabel = '$symbol$balanceMajor$balanceMinor';
     } else {
       balanceMajor = '0';

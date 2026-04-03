@@ -188,6 +188,19 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           return null;
         }
 
+        // Enforce the unauthenticated guard immediately — even while setup
+        // state is loading — so protected routes never render before the
+        // user is signed in.
+        final String location = state.uri.path;
+        final bool isAuthArea = location == '/' ||
+            location == '/intro' ||
+            location.startsWith('/auth');
+        final bool isDesignSystemArea = location == '/design-system';
+
+        if (!authState.isAuthenticated && !isAuthArea && !isDesignSystemArea) {
+          return '/auth/login';
+        }
+
         final setupAsync = ref.read(setupCompletedProvider);
 
         // While setup state is loading, don't redirect — avoids bouncing
@@ -206,7 +219,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
 
         final redirect = resolveAppRedirect(
           authState: authState,
-          location: state.uri.path,
+          location: location,
           setupDone: setupDone,
           isDemo: isDemo,
         );
