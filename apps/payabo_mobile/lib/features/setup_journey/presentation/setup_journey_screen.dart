@@ -53,89 +53,88 @@ class SetupJourneyScreen extends ConsumerWidget {
       data: buildPayaboDarkTheme(),
       child: Builder(
         builder: (BuildContext context) {
-    final c = context.colors;
+          final c = context.colors;
 
-    return PopScope(
-      canPop: state.isFirstStep,
-      onPopInvokedWithResult: (bool didPop, _) {
-        if (!didPop) {
-          controller.previousStep();
-        }
-      },
-      child: Scaffold(
-        body: Stack(
-          children: <Widget>[
-            // Full-screen background
-            const Positioned.fill(
-              child: SetupHeroBackground(),
-            ),
+          return PopScope(
+            canPop: state.isFirstStep,
+            onPopInvokedWithResult: (bool didPop, _) {
+              if (!didPop) {
+                controller.previousStep();
+              }
+            },
+            child: Scaffold(
+              body: Stack(
+                children: <Widget>[
+                  // Full-screen background
+                  const Positioned.fill(
+                    child: SetupHeroBackground(),
+                  ),
 
-            // Top content — logo + AI message, sits above the card.
-            // Uses Positioned to fill the top area, leaving room for
-            // the bottom-pinned action card.
-            Positioned.fill(
-              child: SafeArea(
-                bottom: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    _buildTopBar(context, c),
-
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          top: PayaboSpacing.lg,
-                          bottom: PayaboSpacing.sm,
-                        ),
-                        child: Align(
-                          alignment: Alignment.topLeft,
-                          child: SingleChildScrollView(
-                            child: SetupAiMessagePanel(
-                              message: state.currentStep.message,
-                              helperText: state.currentStep.helperText,
-                              stepKey: state.currentStep.id,
+                  // Top content — logo + AI message, sits above the card.
+                  // Uses Positioned to fill the top area, leaving room for
+                  // the bottom-pinned action card.
+                  Positioned.fill(
+                    child: SafeArea(
+                      bottom: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _buildTopBar(context, c),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                top: PayaboSpacing.lg,
+                                bottom: PayaboSpacing.sm,
+                              ),
+                              child: Align(
+                                alignment: Alignment.topLeft,
+                                child: SingleChildScrollView(
+                                  child: SetupAiMessagePanel(
+                                    message: state.currentStep.message,
+                                    helperText: state.currentStep.helperText,
+                                    stepKey: state.currentStep.id,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Bottom-pinned: progress indicator + action card.
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  SetupProgressIndicator(
-                    currentStep: state.currentStepIndex,
-                    totalSteps: state.totalSteps,
                   ),
-                  SetupActionCard(
-                    stepConfig: state.currentStep,
-                    selectedIds: _getSelectedIds(state),
-                    onOptionTap: (String optionId) =>
-                        _handleOptionTap(controller, state, optionId),
-                    onNext: () =>
-                        _handleNext(context, ref, controller, state),
-                    onBack: state.isFirstStep
-                        ? null
-                        : controller.previousStep,
-                    isFirstStep: state.isFirstStep,
-                    nextLabel: _getNextLabel(state),
+
+                  // Bottom-pinned: progress indicator + action card.
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        SetupProgressIndicator(
+                          currentStep: state.currentStepIndex,
+                          totalSteps: state.totalSteps,
+                        ),
+                        SetupActionCard(
+                          stepConfig: state.currentStep,
+                          selectedIds: _getSelectedIds(state),
+                          onOptionTap: (String optionId) =>
+                              _handleOptionTap(controller, state, optionId),
+                          onNext: () =>
+                              _handleNext(context, ref, controller, state),
+                          onBack: state.isFirstStep
+                              ? null
+                              : controller.previousStep,
+                          isFirstStep: state.isFirstStep,
+                          nextLabel: _getNextLabel(state),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
+          );
         },
       ),
     );
@@ -258,17 +257,20 @@ class SetupJourneyScreen extends ConsumerWidget {
     final step = state.currentStep;
 
     // Handle account connection hooks (Step 4).
-    // When a bank connection option is selected, open the connect sheet
-    // and advance to the next step once the modal is dismissed (whether
-    // the user completed the flow or cancelled).
+    // Only advance when the secure connect flow actually returns a linked
+    // account result. Placeholder options keep the user on this step so the
+    // setup state remains honest.
     if (step.id == 'connect_account') {
       final choice = state.profile.connectChoice;
       if (choice == SetupConnectChoice.connectUkBank) {
-        _onConnectBank(context, ref).then((_) => controller.nextStep());
+        _onConnectBank(context, ref).then((bool connected) {
+          if (connected) {
+            controller.nextStep();
+          }
+        });
         return;
       } else if (choice == SetupConnectChoice.connectNigerianBank) {
         _onConnectNigerianBank(context);
-        controller.nextStep();
         return;
       }
     }
@@ -298,16 +300,18 @@ class SetupJourneyScreen extends ConsumerWidget {
   /// Opens the existing Plaid account-link connect sheet which shows
   /// country selection followed by the secure Plaid Link flow.
   /// Reuses the same [showAccountLinkConnectSheet] used in Spending.
-  Future<void> _onConnectBank(BuildContext context, WidgetRef ref) async {
+  Future<bool> _onConnectBank(BuildContext context, WidgetRef ref) async {
     final environment = ref.read(appEnvironmentProvider);
 
-    await showAccountLinkConnectSheet(
+    final result = await showAccountLinkConnectSheet(
       context,
       ref,
       provider: environment.resolvedAccountLinkProvider,
       mode: 'connect',
       title: 'Connect bank account',
     );
+
+    return result != null;
   }
 
   /// Placeholder — wire to future Nigeria bank aggregation provider.
@@ -318,7 +322,7 @@ class SetupJourneyScreen extends ConsumerWidget {
       const SnackBar(
         content: Text(
           'Nigerian bank connection will be available soon. '
-          'You can connect your account from Settings later.',
+          'Choose I\'ll do this later if you want to continue setup without linking an account right now.',
         ),
       ),
     );

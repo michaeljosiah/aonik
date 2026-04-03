@@ -2,16 +2,18 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/api/api_client.dart';
-import 'auth/auth_controller.dart';
 import '../shared/theme/payabo_theme.dart';
 import '../shared/theme/theme_mode_provider.dart';
+import 'auth/auth_controller.dart';
 import 'errors/api_error_listener.dart';
 import 'router/app_router.dart';
 
@@ -33,6 +35,8 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
   String? _lastRegisteredToken;
   bool _messagingConfigured = false;
 
+  bool get _hasFirebaseApp => Firebase.apps.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +51,7 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
   }
 
   Future<void> _configureFirebaseMessaging() async {
-    if (_messagingConfigured) {
+    if (_messagingConfigured || !_hasFirebaseApp) {
       return;
     }
 
@@ -70,6 +74,10 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
   }
 
   Future<void> _registerCurrentToken({String? tokenOverride}) async {
+    if (!_hasFirebaseApp) {
+      return;
+    }
+
     final authState = ref.read(authControllerProvider);
     if (!authState.isAuthenticated) {
       return;
@@ -86,9 +94,8 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
         _deviceRegistrationPath,
         data: <String, Object?>{
           'provider': 'fcm',
-          'platform': defaultTargetPlatform == TargetPlatform.iOS
-              ? 'ios'
-              : 'android',
+          'platform':
+              defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
           'deviceToken': token,
         },
       );

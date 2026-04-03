@@ -9,13 +9,15 @@ import 'package:payabo_mobile/app/environment/app_environment.dart';
 import 'package:payabo_mobile/app/environment/environment_provider.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_accounts_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_budget_screen.dart';
+import 'package:payabo_mobile/features/spending/presentation/spending_overview_screen.dart';
 import 'package:payabo_mobile/features/spending/presentation/spending_screen.dart';
 import 'package:payabo_mobile/shared/theme/payabo_theme.dart';
 
 import 'test_helpers.dart';
 
 void main() {
-  testWidgets('spending screen shows account cards and transactions in demo mode',
+  testWidgets(
+      'spending screen shows account cards and transactions in demo mode',
       (WidgetTester tester) async {
     await tester.pumpWidget(buildTestApp(const SpendingScreen()));
     await tester.pumpAndSettle();
@@ -173,6 +175,44 @@ void main() {
 
     expect(find.text('Category budgets'), findsOneWidget);
     expect(find.text('Housing'), findsOneWidget);
+  });
+
+  testWidgets('overview route renders the overview screen',
+      (WidgetTester tester) async {
+    final GoRouter router = GoRouter(
+      initialLocation: '/spending/overview',
+      routes: <GoRoute>[
+        GoRoute(
+          path: '/spending/overview',
+          builder: (BuildContext context, GoRouterState state) =>
+              const SpendingOverviewScreen(),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          isDemoProvider.overrideWith((_) => true),
+          appEnvironmentProvider.overrideWithValue(
+            const AppEnvironment(
+              flavor: AppFlavor.dev,
+              useMocks: true,
+              apiBaseUrl: 'https://api.dev.payabo.local',
+            ),
+          ),
+          initialDemoDataModeProvider.overrideWithValue(DemoDataMode.populated),
+        ],
+        child: MaterialApp.router(
+          theme: buildPayaboTheme(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SpendingOverviewScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('accounts pill opens the accounts screen',

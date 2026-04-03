@@ -156,4 +156,30 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('SetupJourneyScreen — account linking', () {
+    testWidgets('nigerian bank placeholder keeps the user on the connect step',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(buildSetupScreen());
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SetupJourneyScreen)),
+      );
+      container.read(setupJourneyControllerProvider.notifier).goToStep(2);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Connect Nigerian bank'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('CONTINUE'));
+      await tester.pump();
+
+      expect(find.text('Connect Nigerian bank'), findsOneWidget);
+      expect(
+        find.textContaining('Choose I\'ll do this later'),
+        findsOneWidget,
+      );
+    });
+  });
 }

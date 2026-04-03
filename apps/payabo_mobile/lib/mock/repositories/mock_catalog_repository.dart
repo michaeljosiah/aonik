@@ -30,9 +30,14 @@ class MockCatalogRepository implements CatalogRepository {
       {required String countryCode}) async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('catalog.getProviders');
+    final normalizedCountryCode = countryCode.trim().toUpperCase();
+    if (normalizedCountryCode.isEmpty) {
+      return _providers;
+    }
+
     return _providers
         .where((CatalogProvider provider) =>
-            provider.countryCode == countryCode.toUpperCase())
+            provider.countryCode == normalizedCountryCode)
         .toList(growable: false);
   }
 

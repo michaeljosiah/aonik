@@ -19,7 +19,6 @@ final FutureProvider<List<ChatConversation>> _chatConversationsProvider =
   return repository.getConversations();
 });
 
-
 Color _chatBaseColor(BuildContext context) {
   final c = context.colors;
 
@@ -196,48 +195,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_handleDraftChanged);
   }
 
   @override
   void dispose() {
-    _controller
-      ..removeListener(_handleDraftChanged)
-      ..dispose();
+    _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isFreshDemo =
-        ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
-    final ProfileHeaderState profileState = ref.watch(profileHeaderProvider);
-    final ChatState chatState = ref.watch(chatControllerProvider);
+    final String displayName = ref.watch(
+      profileHeaderProvider.select(
+        (ProfileHeaderState state) => state.displayName,
+      ),
+    );
 
     // Auto-scroll when streaming text updates arrive.
-    ref.listen<ChatState>(chatControllerProvider, (ChatState? prev, ChatState next) {
-      if (prev != null && next.streamingText.length > prev.streamingText.length) {
+    ref.listen<ChatState>(chatControllerProvider, (
+      ChatState? prev,
+      ChatState next,
+    ) {
+      if (prev == null) {
+        return;
+      }
+
+      final bool keepPinnedToBottom = _isNearBottom();
+
+      if (next.streamingText.length > prev.streamingText.length &&
+          keepPinnedToBottom) {
+        _scrollToBottom(animated: false);
+      }
+
+      if (next.messages.length > prev.messages.length && keepPinnedToBottom) {
         _scrollToBottom();
       }
-      // Also scroll when a new completed message appears.
-      if (prev != null && next.messages.length > prev.messages.length) {
+
+      if (next.pendingApprovals.length > prev.pendingApprovals.length &&
+          keepPinnedToBottom) {
         _scrollToBottom();
       }
-      // Scroll when a new approval card appears.
-      if (prev != null &&
-          next.pendingApprovals.length > prev.pendingApprovals.length) {
+
+      if (next.displayWidgets.length > prev.displayWidgets.length &&
+          keepPinnedToBottom) {
         _scrollToBottom();
       }
-      // Scroll when a new display widget appears.
-      if (prev != null &&
-          next.displayWidgets.length > prev.displayWidgets.length) {
-        _scrollToBottom();
-      }
+
       // Refresh thread list when a streaming run completes so new
       // conversations appear in history.
-      if (prev != null &&
-          prev.activity != ChatActivity.idle &&
+      if (prev.activity != ChatActivity.idle &&
           next.activity == ChatActivity.idle &&
           next.messages.isNotEmpty) {
         ref.invalidate(_chatConversationsProvider);
@@ -247,10 +254,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Sync seeded conversations from provider (for history navigation only).
     final AsyncValue<List<ChatConversation>> conversationsAsync =
         ref.watch(_chatConversationsProvider);
-
-    final bool showHero = !chatState.hasMessages &&
-        chatState.streamingText.isEmpty &&
-        chatState.activity == ChatActivity.idle;
 
     return Scaffold(
       backgroundColor: _chatBaseColor(context),
@@ -297,49 +300,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   child: Row(
                     children: <Widget>[
                       _ChatHeaderMenuButton(
-                        onTap: () => _openHistory(isFreshDemo, conversationsAsync),
+                        onTap: () => _openHistory(conversationsAsync),
                       ),
                     ],
                   ),
                 ),
                 Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 320),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    child: showHero
-                        ? _EmptyChatStage(
-                            key: const ValueKey<String>('chat-empty'),
-                            displayName: _firstName(profileState.displayName),
-                          )
-                        : _ConversationStage(
-                            key: const ValueKey<String>('chat-thread'),
-                            controller: _scrollController,
-                            displayName: _firstName(profileState.displayName),
-                            messages: chatState.messages,
-                            streamingText: chatState.streamingText,
-                            activity: chatState.activity,
-                            activeToolCalls: chatState.activeToolCalls,
-                            pendingApprovals: chatState.pendingApprovals,
-                            displayWidgets: chatState.displayWidgets,
-                            onApprove: (String toolCallId) {
-                              ref.read(chatControllerProvider.notifier).approveAction(toolCallId);
-                              _scrollToBottom();
-                            },
-                            onReject: (String toolCallId, [String? reason]) {
-                              ref.read(chatControllerProvider.notifier).rejectAction(toolCallId, reason);
-                              _scrollToBottom();
-                            },
-                          ),
+                  child: _ChatStage(
+                    controller: _scrollController,
+                    displayName: _firstName(displayName),
+                    onApprove: (String toolCallId) {
+                      ref
+                          .read(chatControllerProvider.notifier)
+                          .approveAction(toolCallId);
+                      _scrollToBottom(force: true);
+                    },
+                    onReject: (String toolCallId, [String? reason]) {
+                      ref
+                          .read(chatControllerProvider.notifier)
+                          .rejectAction(toolCallId, reason);
+                      _scrollToBottom(force: true);
+                    },
                   ),
                 ),
-                if (chatState.errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: PayaboSpacing.xl,
-                    ),
-                    child: _ChatErrorBanner(message: chatState.errorMessage!),
-                  ),
+                const _ChatErrorSlot(),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     PayaboSpacing.md,
@@ -349,9 +333,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                   child: _ChatComposer(
                     controller: _controller,
-                    canSend: _controller.text.trim().isNotEmpty &&
-                        !chatState.isProcessing,
-                    isFreshDemo: showHero,
                     onSubmitted: _submitPrompt,
                   ),
                 ),
@@ -376,14 +357,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _handleDraftChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   Future<void> _openHistory(
-    bool isFreshDemo,
     AsyncValue<List<ChatConversation>> conversationsAsync,
   ) async {
     final chatState = ref.read(chatControllerProvider);
@@ -435,17 +409,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller.clear();
 
     ref.read(chatControllerProvider.notifier).sendMessage(prompt);
-    _scrollToBottom();
+    _scrollToBottom(force: true);
   }
 
-  void _scrollToBottom() {
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) {
+      return true;
+    }
+
+    final ScrollPosition position = _scrollController.position;
+    return position.maxScrollExtent - position.pixels <= 120;
+  }
+
+  void _scrollToBottom({bool animated = true, bool force = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) {
         return;
       }
 
+      if (!force && !_isNearBottom()) {
+        return;
+      }
+
+      final double target = _scrollController.position.maxScrollExtent;
+
+      if (!animated) {
+        _scrollController.jumpTo(target);
+        return;
+      }
+
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        target,
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
       );
@@ -459,6 +453,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     return trimmed.split(' ').first;
+  }
+}
+
+class _ChatStage extends ConsumerWidget {
+  const _ChatStage({
+    required this.controller,
+    required this.displayName,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final ScrollController controller;
+  final String displayName;
+  final void Function(String toolCallId) onApprove;
+  final void Function(String toolCallId, [String? reason]) onReject;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ChatState chatState = ref.watch(chatControllerProvider);
+    final bool showHero = !chatState.hasMessages &&
+        chatState.streamingText.isEmpty &&
+        chatState.activity == ChatActivity.idle;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 320),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: showHero
+          ? _EmptyChatStage(
+              key: const ValueKey<String>('chat-empty'),
+              displayName: displayName,
+            )
+          : _ConversationStage(
+              key: const ValueKey<String>('chat-thread'),
+              controller: controller,
+              displayName: displayName,
+              messages: chatState.messages,
+              streamingText: chatState.streamingText,
+              activity: chatState.activity,
+              activeToolCalls: chatState.activeToolCalls,
+              pendingApprovals: chatState.pendingApprovals,
+              displayWidgets: chatState.displayWidgets,
+              onApprove: onApprove,
+              onReject: onReject,
+            ),
+    );
+  }
+}
+
+class _ChatErrorSlot extends ConsumerWidget {
+  const _ChatErrorSlot();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final String? errorMessage = ref.watch(
+      chatControllerProvider.select((ChatState state) => state.errorMessage),
+    );
+
+    if (errorMessage == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xl),
+      child: _ChatErrorBanner(message: errorMessage),
+    );
   }
 }
 
@@ -617,8 +677,14 @@ class _ConversationStage extends StatelessWidget {
     final bool isStreaming = streamingText.isNotEmpty;
     final bool isThinking = activity == ChatActivity.connecting ||
         (activity == ChatActivity.toolCall && streamingText.isEmpty);
+    final int itemCount = 2 +
+        messages.length +
+        (isStreaming ? 1 : 0) +
+        (isThinking ? 1 : 0) +
+        displayWidgets.length +
+        pendingApprovals.length;
 
-    return ListView(
+    return ListView.builder(
       controller: controller,
       padding: const EdgeInsets.fromLTRB(
         PayaboSpacing.xl,
@@ -626,50 +692,70 @@ class _ConversationStage extends StatelessWidget {
         PayaboSpacing.xl,
         PayaboSpacing.xl,
       ),
-      children: <Widget>[
-        _CompactChatIntroCard(displayName: displayName),
-        const SizedBox(height: PayaboSpacing.xl),
-        ...messages.map(
-          (ChatMessage message) => Padding(
+      itemCount: itemCount,
+      itemBuilder: (BuildContext context, int index) {
+        if (index == 0) {
+          return _CompactChatIntroCard(displayName: displayName);
+        }
+
+        if (index == 1) {
+          return const SizedBox(height: PayaboSpacing.xl);
+        }
+
+        int contentIndex = index - 2;
+
+        if (contentIndex < messages.length) {
+          final ChatMessage message = messages[contentIndex];
+          return Padding(
             padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
             child: _ChatMessageBlock(message: message),
-          ),
-        ),
-        // Show in-progress streaming bubble.
-        if (isStreaming)
-          Padding(
+          );
+        }
+        contentIndex -= messages.length;
+
+        if (isStreaming) {
+          if (contentIndex == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
+              child: _StreamingMessageBlock(
+                text: streamingText,
+                activeToolCalls: activeToolCalls,
+              ),
+            );
+          }
+          contentIndex -= 1;
+        }
+
+        if (isThinking) {
+          if (contentIndex == 0) {
+            return const Padding(
+              padding: EdgeInsets.only(bottom: PayaboSpacing.xl),
+              child: _ThinkingIndicator(),
+            );
+          }
+          contentIndex -= 1;
+        }
+
+        if (contentIndex < displayWidgets.length) {
+          return Padding(
             padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
-            child: _StreamingMessageBlock(
-              text: streamingText,
-              activeToolCalls: activeToolCalls,
+            child: _DisplayWidgetDispatcher(
+              widget: displayWidgets[contentIndex],
             ),
+          );
+        }
+        contentIndex -= displayWidgets.length;
+
+        final PendingApproval approval = pendingApprovals[contentIndex];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
+          child: _ApprovalCard(
+            approval: approval,
+            onApprove: () => onApprove?.call(approval.toolCallId),
+            onReject: () => onReject?.call(approval.toolCallId),
           ),
-        // Show thinking indicator when connecting or running tool calls
-        // with no text yet.
-        if (isThinking)
-          const Padding(
-            padding: EdgeInsets.only(bottom: PayaboSpacing.xl),
-            child: _ThinkingIndicator(),
-          ),
-        // Show display widget cards (FX chart, budget breakdown, etc.).
-        ...displayWidgets.map(
-          (DisplayWidget widget) => Padding(
-            padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
-            child: _DisplayWidgetDispatcher(widget: widget),
-          ),
-        ),
-        // Show approval cards for pending confirmAction requests.
-        ...pendingApprovals.map(
-          (PendingApproval approval) => Padding(
-            padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
-            child: _ApprovalCard(
-              approval: approval,
-              onApprove: () => onApprove?.call(approval.toolCallId),
-              onReject: () => onReject?.call(approval.toolCallId),
-            ),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -804,27 +890,24 @@ class _ChatMessageBlock extends StatelessWidget {
                   const SizedBox(width: PayaboSpacing.sm),
                   Text(
                     'Simi',
-                    style:
-                        Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: _chatBodyTextColor(context),
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                            ),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: _chatBodyTextColor(context),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
                   ),
                 ],
               ),
               const SizedBox(height: PayaboSpacing.md),
               ...message.lines.map(
                 (String line) => Padding(
-                  padding:
-                      const EdgeInsets.only(bottom: PayaboSpacing.sm),
+                  padding: const EdgeInsets.only(bottom: PayaboSpacing.sm),
                   child: Text(
                     line,
-                    style:
-                        Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: _chatBodyTextColor(context),
-                              height: 1.58,
-                            ),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: _chatBodyTextColor(context),
+                          height: 1.58,
+                        ),
                   ),
                 ),
               ),
@@ -1006,22 +1089,29 @@ class _ChatHeaderMenuButton extends StatelessWidget {
   }
 }
 
-class _ChatComposer extends StatelessWidget {
+class _ChatComposer extends ConsumerWidget {
   const _ChatComposer({
     required this.controller,
-    required this.canSend,
-    required this.isFreshDemo,
     required this.onSubmitted,
   });
 
   final TextEditingController controller;
-  final bool canSend;
-  final bool isFreshDemo;
   final ValueChanged<String> onSubmitted;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
+    final bool showHeroHint = ref.watch(
+      chatControllerProvider.select(
+        (ChatState state) =>
+            !state.hasMessages &&
+            state.streamingText.isEmpty &&
+            state.activity == ChatActivity.idle,
+      ),
+    );
+    final bool isProcessing = ref.watch(
+      chatControllerProvider.select((ChatState state) => state.isProcessing),
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(34),
@@ -1051,10 +1141,17 @@ class _ChatComposer extends StatelessWidget {
                 PayaboSpacing.lg,
                 PayaboSpacing.md,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (
+                  BuildContext context,
+                  TextEditingValue value,
+                  Widget? child,
+                ) {
+                  final bool canSend =
+                      value.text.trim().isNotEmpty && !isProcessing;
+
+                  return Row(
                     children: <Widget>[
                       Expanded(
                         child: DecoratedBox(
@@ -1093,7 +1190,7 @@ class _ChatComposer extends StatelessWidget {
                               textInputAction: TextInputAction.send,
                               onSubmitted: onSubmitted,
                               decoration: InputDecoration(
-                                hintText: isFreshDemo
+                                hintText: showHeroHint
                                     ? 'Try asking "How do I stop missing bills?"'
                                     : 'Write here...',
                                 hintStyle: Theme.of(context)
@@ -1118,11 +1215,11 @@ class _ChatComposer extends StatelessWidget {
                       const SizedBox(width: PayaboSpacing.md),
                       _ChatSendButton(
                         isEnabled: canSend,
-                        onTap: () => onSubmitted(controller.text),
+                        onTap: () => onSubmitted(value.text),
                       ),
                     ],
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ],
@@ -1674,11 +1771,9 @@ class _FxRateChartCard extends StatelessWidget {
     }
 
     // Parse rate values for the mini chart.
-    final rateValues = rates
-        .map((r) => (r['rate'] as num?)?.toDouble() ?? 0.0)
-        .toList();
-    final currentRate =
-        rateValues.isNotEmpty ? rateValues.last : 0.0;
+    final rateValues =
+        rates.map((r) => (r['rate'] as num?)?.toDouble() ?? 0.0).toList();
+    final currentRate = rateValues.isNotEmpty ? rateValues.last : 0.0;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
@@ -1722,10 +1817,7 @@ class _FxRateChartCard extends StatelessWidget {
                     const SizedBox(width: PayaboSpacing.sm),
                     Text(
                       '$baseCurrency / $targetCurrency',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: _chatBodyTextColor(context),
                             fontWeight: FontWeight.w700,
                           ),
@@ -1745,10 +1837,7 @@ class _FxRateChartCard extends StatelessWidget {
                       ),
                       child: Text(
                         signalLabel,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: signalColor.withValues(alpha: 0.9),
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -1790,19 +1879,13 @@ class _FxRateChartCard extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         rates.first['date'] as String? ?? '',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _chatMutedTextColor(context),
                             ),
                       ),
                       Text(
                         rates.last['date'] as String? ?? '',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _chatMutedTextColor(context),
                             ),
                       ),
@@ -1900,8 +1983,7 @@ class _MiniLineChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MiniLineChartPainter oldDelegate) {
-    return values != oldDelegate.values ||
-        lineColor != oldDelegate.lineColor;
+    return values != oldDelegate.values || lineColor != oldDelegate.lineColor;
   }
 }
 
@@ -1925,8 +2007,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
             .toList() ??
         const [];
 
-    final totalPct =
-        totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0.0;
+    final totalPct = totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0.0;
     final bool isOverall = totalSpent > totalBudget;
 
     return Container(
@@ -1971,10 +2052,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
                     const SizedBox(width: PayaboSpacing.sm),
                     Text(
                       'BUDGET',
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelLarge
-                          ?.copyWith(
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: _chatMutedTextColor(context),
                             fontWeight: FontWeight.w700,
                             letterSpacing: 2.8,
@@ -1984,10 +2062,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
                     if (period.isNotEmpty)
                       Text(
                         period,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: _chatMutedTextColor(context),
                             ),
                       ),
@@ -2000,25 +2075,20 @@ class _BudgetBreakdownCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       '$currency ${totalSpent.toStringAsFixed(0)}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                            color: isOverall
-                                ? Colors.red.withValues(alpha: 0.9)
-                                : _chatBodyTextColor(context),
-                            fontWeight: FontWeight.w800,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: isOverall
+                                    ? Colors.red.withValues(alpha: 0.9)
+                                    : _chatBodyTextColor(context),
+                                fontWeight: FontWeight.w800,
+                              ),
                     ),
                     const SizedBox(width: PayaboSpacing.xs),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 2),
                       child: Text(
                         'of $currency ${totalBudget.toStringAsFixed(0)}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: _chatMutedTextColor(context),
                             ),
                       ),
@@ -2026,10 +2096,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
                     const Spacer(),
                     Text(
                       '${totalPct.toStringAsFixed(0)}%',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: isOverall
                                 ? Colors.red.withValues(alpha: 0.9)
                                 : c.primary,
@@ -2042,8 +2109,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
                 // Category rows.
                 ...categories.map((cat) {
                   final name = cat['name'] as String? ?? '';
-                  final budgeted =
-                      (cat['budgeted'] as num?)?.toDouble() ?? 0.0;
+                  final budgeted = (cat['budgeted'] as num?)?.toDouble() ?? 0.0;
                   final spent = (cat['spent'] as num?)?.toDouble() ?? 0.0;
                   final status = cat['status'] as String? ?? 'on_track';
                   final pct =
@@ -2060,8 +2126,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
                   }
 
                   return Padding(
-                    padding:
-                        const EdgeInsets.only(bottom: PayaboSpacing.md),
+                    padding: const EdgeInsets.only(bottom: PayaboSpacing.md),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
@@ -2101,8 +2166,7 @@ class _BudgetBreakdownCard extends StatelessWidget {
                                 // Track.
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.06),
+                                    color: Colors.white.withValues(alpha: 0.06),
                                   ),
                                 ),
                                 // Fill.
@@ -2110,10 +2174,8 @@ class _BudgetBreakdownCard extends StatelessWidget {
                                   widthFactor: pct.clamp(0.0, 1.0),
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: statusColor
-                                          .withValues(alpha: 0.7),
-                                      borderRadius:
-                                          BorderRadius.circular(4),
+                                      color: statusColor.withValues(alpha: 0.7),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                   ),
                                 ),
@@ -2217,10 +2279,7 @@ class _AutopilotProposalCard extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         agent.toUpperCase(),
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: severityColor.withValues(alpha: 0.7),
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.4,
@@ -2229,13 +2288,11 @@ class _AutopilotProposalCard extends StatelessWidget {
                       if (action.isNotEmpty)
                         Text(
                           action,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(
-                                color: _chatBodyTextColor(context),
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: _chatBodyTextColor(context),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                     ],
                   ),
@@ -2248,8 +2305,7 @@ class _AutopilotProposalCard extends StatelessWidget {
               Text(
                 description,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color:
-                          _chatBodyTextColor(context).withValues(alpha: 0.8),
+                      color: _chatBodyTextColor(context).withValues(alpha: 0.8),
                       height: 1.5,
                     ),
               ),
@@ -2268,12 +2324,9 @@ class _AutopilotProposalCard extends StatelessWidget {
                 ),
                 child: Column(
                   children: details.asMap().entries.map((entry) {
-                    final label =
-                        entry.value['label'] as String? ?? '';
-                    final value =
-                        entry.value['value'] as String? ?? '';
-                    final isLast =
-                        entry.key == details.length - 1;
+                    final label = entry.value['label'] as String? ?? '';
+                    final value = entry.value['value'] as String? ?? '';
+                    final isLast = entry.key == details.length - 1;
 
                     return Column(
                       children: <Widget>[
@@ -2308,8 +2361,7 @@ class _AutopilotProposalCard extends StatelessWidget {
                             ),
                             child: Container(
                               height: 1,
-                              color:
-                                  Colors.white.withValues(alpha: 0.04),
+                              color: Colors.white.withValues(alpha: 0.04),
                             ),
                           ),
                       ],

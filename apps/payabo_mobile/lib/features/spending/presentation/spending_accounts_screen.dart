@@ -167,6 +167,8 @@ class SpendingAccountsScreen extends ConsumerWidget {
   void _handleSectionSelected(BuildContext context, SpendingSection section) {
     switch (section) {
       case SpendingSection.overview:
+        context.go('/spending/overview');
+        return;
       case SpendingSection.transactions:
         context.go('/spending');
         return;
@@ -198,8 +200,7 @@ class SpendingAccountsScreen extends ConsumerWidget {
     required String title,
     String? connectionId,
   }) async {
-    final AccountLinkExchangeResult? result =
-        await showAccountLinkConnectSheet(
+    final AccountLinkExchangeResult? result = await showAccountLinkConnectSheet(
       context,
       ref,
       provider: provider,

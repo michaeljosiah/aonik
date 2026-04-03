@@ -1,4 +1,5 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,16 +56,17 @@ import '../../features/setup_journey/presentation/setup_journey_screen.dart';
 import '../../features/setup_journey/presentation/setup_processing_screen.dart';
 import '../../features/spending/presentation/manual_account_create_screen.dart';
 import '../../features/spending/presentation/manual_transaction_create_screen.dart';
-import '../../features/spending/presentation/statement_import_complete_screen.dart';
-import '../../features/spending/presentation/statement_review_screen.dart';
-import '../../features/spending/presentation/statement_upload_screen.dart';
 import '../../features/spending/presentation/spending_account_link_return_screen.dart';
 import '../../features/spending/presentation/spending_accounts_screen.dart';
 import '../../features/spending/presentation/spending_budget_detail_screen.dart';
 import '../../features/spending/presentation/spending_budget_screen.dart';
 import '../../features/spending/presentation/spending_category_detail_screen.dart';
 import '../../features/spending/presentation/spending_merchant_detail_screen.dart';
+import '../../features/spending/presentation/spending_overview_screen.dart';
 import '../../features/spending/presentation/spending_screen.dart';
+import '../../features/spending/presentation/statement_import_complete_screen.dart';
+import '../../features/spending/presentation/statement_review_screen.dart';
+import '../../features/spending/presentation/statement_upload_screen.dart';
 import '../../features/spending/presentation/transaction_detail_screen.dart';
 import '../../features/support_planning/presentation/add_beneficiary_screen.dart';
 import '../auth/auth_controller.dart';
@@ -137,6 +139,8 @@ bool get _supportsAnalytics {
   }
 }
 
+bool get _hasFirebaseApp => Firebase.apps.isNotEmpty;
+
 class RouterRefreshNotifier extends ChangeNotifier {
   RouterRefreshNotifier(this._ref) {
     _ref.listen<AuthState>(
@@ -178,7 +182,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
       initialLocation: '/',
       refreshListenable: refreshNotifier,
       observers: <NavigatorObserver>[
-        if (_supportsAnalytics)
+        if (_supportsAnalytics && _hasFirebaseApp)
           FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
       ],
       redirect: (context, state) {
@@ -353,6 +357,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending',
           name: 'spending',
           builder: (context, state) => const SpendingScreen(),
+        ),
+        GoRoute(
+          path: '/spending/overview',
+          name: 'spending-overview',
+          builder: (context, state) => const SpendingOverviewScreen(),
         ),
         GoRoute(
           path: '/spending/budgets',

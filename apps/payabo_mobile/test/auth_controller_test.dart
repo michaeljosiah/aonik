@@ -1,12 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:payabo_mobile/app/auth/auth_controller.dart';
 import 'package:payabo_mobile/app/auth/auth_session_store.dart';
 import 'package:payabo_mobile/data/repositories/auth_repository.dart';
 import 'package:payabo_mobile/data/repositories/repository_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   test('auth controller initializes unauthenticated without stored session',
       () async {
     final store = KeyValueAuthSessionStore(InMemoryKeyValueStore());

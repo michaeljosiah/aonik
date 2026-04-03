@@ -20,8 +20,10 @@ class LiveCatalogRepository implements CatalogRepository {
         '/catalog/countries',
       );
 
-      final Map<String, dynamic> body = response.data ?? const <String, dynamic>{};
-      final List<dynamic> raw = (body['countries'] as List<dynamic>?) ?? const <dynamic>[];
+      final Map<String, dynamic> body =
+          response.data ?? const <String, dynamic>{};
+      final List<dynamic> raw =
+          (body['countries'] as List<dynamic>?) ?? const <dynamic>[];
       return raw
           .whereType<Map<Object?, Object?>>()
           .map((item) => _mapCountry(Map<String, dynamic>.from(item)))
@@ -37,11 +39,14 @@ class LiveCatalogRepository implements CatalogRepository {
     required String countryCode,
   }) async {
     try {
+      final normalizedCountryCode = countryCode.trim().toUpperCase();
       final response = await _apiClient.get<List<dynamic>>(
         '/catalog/providers',
-        queryParameters: <String, dynamic>{
-          'countryCode': countryCode,
-        },
+        queryParameters: normalizedCountryCode.isEmpty
+            ? null
+            : <String, dynamic>{
+                'countryCode': normalizedCountryCode,
+              },
       );
 
       final List<dynamic> raw = response.data ?? const <dynamic>[];
@@ -63,9 +68,7 @@ class LiveCatalogRepository implements CatalogRepository {
       );
 
       final List<dynamic> raw = response.data ?? const <dynamic>[];
-      return raw
-          .whereType<String>()
-          .toList(growable: false);
+      return raw.whereType<String>().toList(growable: false);
     } on DioException catch (exception) {
       _logDioFailure('getServiceTypes', exception);
       throw mapDioException(exception);
@@ -80,9 +83,7 @@ class LiveCatalogRepository implements CatalogRepository {
       );
 
       final List<dynamic> raw = response.data ?? const <dynamic>[];
-      return raw
-          .whereType<String>()
-          .toList(growable: false);
+      return raw.whereType<String>().toList(growable: false);
     } on DioException catch (exception) {
       _logDioFailure('getRecurringFrequencies', exception);
       throw mapDioException(exception);
@@ -97,9 +98,7 @@ class LiveCatalogRepository implements CatalogRepository {
       );
 
       final List<dynamic> raw = response.data ?? const <dynamic>[];
-      return raw
-          .whereType<String>()
-          .toList(growable: false);
+      return raw.whereType<String>().toList(growable: false);
     } on DioException catch (exception) {
       _logDioFailure('getProviderCategories', exception);
       throw mapDioException(exception);
@@ -112,9 +111,7 @@ class LiveCatalogRepository implements CatalogRepository {
 
   CatalogCountry _mapCountry(Map<String, dynamic> json) {
     return CatalogCountry(
-      code: _readString(json['countryCode']) ??
-          _readString(json['code']) ??
-          '',
+      code: _readString(json['countryCode']) ?? _readString(json['code']) ?? '',
       name: _readString(json['name']) ?? '',
       currency: _readString(json['currency']) ??
           _readString(json['currencyCode']) ??

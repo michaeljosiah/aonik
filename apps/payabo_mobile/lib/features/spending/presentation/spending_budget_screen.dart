@@ -193,6 +193,8 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
   void _handleSectionSelected(SpendingSection section) {
     switch (section) {
       case SpendingSection.overview:
+        context.go('/spending/overview');
+        return;
       case SpendingSection.transactions:
         context.go('/spending');
         return;
@@ -217,10 +219,10 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
 
     // Determine which predefined templates are already created.
     final List<SpendingBudgetCategory> currentBudgets =
-        ref.read(spendingBudgetsProvider).value ?? const <SpendingBudgetCategory>[];
-    final Set<String> existingIds = currentBudgets
-        .map((SpendingBudgetCategory b) => b.id)
-        .toSet();
+        ref.read(spendingBudgetsProvider).value ??
+            const <SpendingBudgetCategory>[];
+    final Set<String> existingIds =
+        currentBudgets.map((SpendingBudgetCategory b) => b.id).toSet();
 
     final BudgetCategoryPickerResult? result = await showBudgetCategoryPicker(
       context: context,
@@ -524,9 +526,8 @@ class _BudgetCategoryCard extends StatelessWidget {
         color: c.surfaceBase,
         borderRadius: BorderRadius.circular(PayaboRadii.xl),
         border: Border.all(
-          color: expanded
-              ? c.spendingInsightBorder
-              : c.spendingQuickActionBorder,
+          color:
+              expanded ? c.spendingInsightBorder : c.spendingQuickActionBorder,
         ),
         boxShadow: PayaboShadows.soft,
       ),
@@ -552,13 +553,11 @@ class _BudgetCategoryCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         category.name,
-                        style: Theme.of(context)
-                            .textTheme
-                             .titleMedium
-                             ?.copyWith(
-                              color: c.accentBrown,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: c.accentBrown,
+                                  fontWeight: FontWeight.w700,
+                                ),
                       ),
                     ),
                     const SizedBox(width: PayaboSpacing.sm),
@@ -623,37 +622,38 @@ class _BudgetCategoryCard extends StatelessWidget {
                 AnimatedSize(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
-                          child: expanded
-                              ? Padding(
-                                  padding: const EdgeInsets.only(top: PayaboSpacing.lg),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Container(
-                                        height: 1,
-                                        color: c.spendingQuickActionBorder,
-                                      ),
-                                      const SizedBox(height: PayaboSpacing.lg),
-                                      Wrap(
-                                        spacing: PayaboSpacing.sm,
-                                        runSpacing: PayaboSpacing.sm,
-                                        children: <Widget>[
-                                          _BudgetDetailChip(
-                                            label: 'Spent',
-                                            value: formatSpendingBudgetCurrency(
-                                                category.spent),
-                                          ),
-                                          _BudgetDetailChip(
-                                            label: 'Remaining',
-                                            value: state.remainingLabel,
-                                            valueColor: state.remainingColorRole.resolve(c),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                  child: expanded
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: PayaboSpacing.lg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Container(
+                                height: 1,
+                                color: c.spendingQuickActionBorder,
+                              ),
+                              const SizedBox(height: PayaboSpacing.lg),
+                              Wrap(
+                                spacing: PayaboSpacing.sm,
+                                runSpacing: PayaboSpacing.sm,
+                                children: <Widget>[
+                                  _BudgetDetailChip(
+                                    label: 'Spent',
+                                    value: formatSpendingBudgetCurrency(
+                                        category.spent),
                                   ),
-                                )
-                              : const SizedBox.shrink(),
+                                  _BudgetDetailChip(
+                                    label: 'Remaining',
+                                    value: state.remainingLabel,
+                                    valueColor:
+                                        state.remainingColorRole.resolve(c),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ],
             ),
@@ -715,20 +715,20 @@ class _BudgetDetailChip extends StatelessWidget {
       child: RichText(
         text: TextSpan(
           children: <InlineSpan>[
-              TextSpan(
-                text: '$label ',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: c.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              TextSpan(
-                text: value,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: valueColor ?? c.accentBrown,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
+            TextSpan(
+              text: '$label ',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: c.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            TextSpan(
+              text: value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: valueColor ?? c.accentBrown,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
           ],
         ),
       ),

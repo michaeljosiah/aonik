@@ -35,8 +35,7 @@ class _PayDashboardScreenState extends State<PayDashboardScreen> {
 
   static double _extentToStatusBarProgress(double extent) {
     const double fadeZone = 0.05;
-    const double fadeStart =
-        _PayHeroSheetSection._maxSheetSize - fadeZone;
+    const double fadeStart = _PayHeroSheetSection._maxSheetSize - fadeZone;
     return Curves.easeOut.transform(
       ((extent - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
     );
@@ -221,9 +220,7 @@ class _PayHeroSheetSectionState extends State<_PayHeroSheetSection> {
                     _PayHeroSheetSection._maxSheetSize - fadeZone,
                   );
                   final double bgProgress = Curves.easeOut.transform(
-                    ((eff - fadeStart) / fadeZone)
-                        .clamp(0.0, 1.0)
-                        .toDouble(),
+                    ((eff - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
                   );
                   return _PayPinnedHeader(backgroundProgress: bgProgress);
                 },
@@ -323,13 +320,15 @@ class _PayHeroBanner extends StatelessWidget {
                           height: 1.15,
                         ),
                         children: const <InlineSpan>[
-                          TextSpan(text: 'Support your family,\nwherever they are.'),
+                          TextSpan(
+                              text: 'Support your family,\nwherever they are.'),
                         ],
                       ),
                       maxLines: compact ? 2 : 3,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: compact ? PayaboSpacing.sm : PayaboSpacing.md),
+                    SizedBox(
+                        height: compact ? PayaboSpacing.sm : PayaboSpacing.md),
                     Text(
                       'Send money, pay bills, track everything.',
                       maxLines: 2,
@@ -559,8 +558,7 @@ class _PayStatsSheet extends StatelessWidget {
         boxShadow: topBorderRadius > 0
             ? <BoxShadow>[
                 BoxShadow(
-                  color: Colors.black
-                      .withValues(alpha: c.isDark ? 0.22 : 0.08),
+                  color: Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
                   blurRadius: 18,
                   offset: const Offset(0, -4),
                 ),
@@ -639,16 +637,8 @@ class _PaymentOptionsRow extends StatelessWidget {
               iconColor: const Color(0xFF2465E8),
               title: 'Send money',
               subtitle: 'Transfer funds to family and friends in a few taps.',
-              actionLabel: 'Coming soon',
-              onTap: () {
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    const SnackBar(
-                      content: Text('Send money is coming soon.'),
-                    ),
-                  );
-              },
+              actionLabel: 'Start',
+              onTap: () => context.go('/payments/friends'),
             ),
           ),
         ],
@@ -856,8 +846,8 @@ class _RecentActivityList extends ConsumerWidget {
               if (i < items.length - 1)
                 Divider(
                   height: 1,
-                  color: theme.colorScheme.outlineVariant
-                      .withValues(alpha: 0.3),
+                  color:
+                      theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
                 ),
             ],
           ],
@@ -956,7 +946,8 @@ class PayActivityRow extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: c.isDark ? 0.22 : 0.12),
+                    color:
+                        statusColor.withValues(alpha: c.isDark ? 0.22 : 0.12),
                     borderRadius: PayaboRadii.radiusPill,
                   ),
                   child: Text(

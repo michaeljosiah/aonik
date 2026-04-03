@@ -24,17 +24,34 @@ class SpendingMerchantDetailScreen extends ConsumerWidget {
 
   final String merchantId;
 
+  String get _merchantName {
+    final rawSegments = merchantId
+        .split(RegExp(r'[-_\s]+'))
+        .where((String segment) => segment.trim().isNotEmpty)
+        .toList(growable: false);
+
+    if (rawSegments.isEmpty) {
+      return merchantId;
+    }
+
+    return rawSegments.map((String segment) {
+      final lower = segment.toLowerCase();
+      return '${lower[0].toUpperCase()}${lower.substring(1)}';
+    }).join(' ');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
-    final asyncHistory = ref.watch(_merchantHistoryProvider(merchantId));
+    final merchantName = _merchantName;
+    final asyncHistory = ref.watch(_merchantHistoryProvider(merchantName));
 
     return PayaboWarmScaffold(
       body: Column(
         children: <Widget>[
           PayaboScreenTitleBar(
-            title: merchantId,
+            title: merchantName,
             onBack: () {
               if (context.canPop()) {
                 context.pop();
@@ -45,8 +62,7 @@ class SpendingMerchantDetailScreen extends ConsumerWidget {
           ),
           Expanded(
             child: asyncHistory.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (Object error, _) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(PayaboSpacing.xl),
