@@ -189,6 +189,13 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
         }
 
         final setupAsync = ref.read(setupCompletedProvider);
+
+        // While setup state is loading, don't redirect — avoids bouncing
+        // authenticated users to /setup before the real value arrives.
+        if (setupAsync.isLoading && !setupAsync.hasValue) {
+          return null;
+        }
+
         final bool localProfileCompleted =
             ref.read(setupJourneyControllerProvider).profile.completed;
         final bool setupDone = resolveSetupCompletionState(

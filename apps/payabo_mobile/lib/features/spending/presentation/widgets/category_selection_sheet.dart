@@ -500,6 +500,14 @@ class _CategorySelectionSheetState extends State<_CategorySelectionSheet> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: PayaboSpacing.sm),
+                    Text(
+                      'Custom categories are saved locally and may not persist across sessions.',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: c.muted,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                     const SizedBox(height: PayaboSpacing.lg),
 
                     Text(

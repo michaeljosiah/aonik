@@ -79,10 +79,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       title: "Register now, it's free!",
       onClose: () => context.go('/intro'),
       useWarmBackground: true,
-      footer: Text(
-        'By registering you agree with our\nTerms and Conditions and Privacy Policy.',
+      footer: Text.rich(
+        TextSpan(
+          text: 'By registering you agree with our\n',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: c.ink),
+          children: <TextSpan>[
+            TextSpan(
+              text: 'Terms and Conditions',
+              style: TextStyle(
+                decoration: TextDecoration.underline,
+                color: c.primary,
+              ),
+            ),
+            const TextSpan(text: ' and '),
+            TextSpan(
+              text: 'Privacy Policy',
+              style: TextStyle(
+                decoration: TextDecoration.underline,
+                color: c.primary,
+              ),
+            ),
+            const TextSpan(text: '.'),
+          ],
+        ),
         textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: c.ink),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

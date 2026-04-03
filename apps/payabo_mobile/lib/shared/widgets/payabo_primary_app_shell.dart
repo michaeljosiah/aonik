@@ -123,14 +123,26 @@ class PayaboPrimaryAppShell extends StatelessWidget {
             title: 'Account',
             subtitle: 'Manage your account details',
             leading: const Icon(Icons.account_balance_outlined),
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.go('/spending/accounts');
+            },
           ),
           const SizedBox(height: PayaboSpacing.sm),
           PayaboListRow(
             title: 'Income',
             subtitle: 'Track and categorize income',
             leading: const Icon(Icons.trending_up_outlined),
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(
+                    content: Text('Income tracking coming soon.'),
+                  ),
+                );
+            },
           ),
         ],
       ),

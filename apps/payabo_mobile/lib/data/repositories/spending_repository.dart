@@ -375,4 +375,10 @@ abstract class SpendingRepository {
     String accountId,
     CreateTransactionRequest request,
   );
+
+  /// Updates the category of a transaction.
+  Future<void> updateTransactionCategory(
+    String transactionId,
+    String category,
+  );
 }

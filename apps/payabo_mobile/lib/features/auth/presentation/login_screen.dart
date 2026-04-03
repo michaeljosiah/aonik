@@ -240,6 +240,15 @@ class _GoogleLoginButton extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                 ),
+                if (!enabled) ...<Widget>[
+                  const SizedBox(width: PayaboSpacing.sm),
+                  Text(
+                    '(coming soon)',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: c.textMuted,
+                        ),
+                  ),
+                ],
               ],
             ),
           ),

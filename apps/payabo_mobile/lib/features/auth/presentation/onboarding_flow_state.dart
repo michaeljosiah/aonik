@@ -9,6 +9,8 @@ import '../../../shared/validation/payabo_input_validators.dart';
 
 typedef OnboardingCountry = PayaboCountryReference;
 
+const Object _onboardingSentinel = Object();
+
 const List<OnboardingCountry> phoneSelectionCountries =
     payaboOnboardingCountries;
 
@@ -75,8 +77,8 @@ class OnboardingState {
     String? mobileNumber,
     String? email,
     String? password,
-    String? phoneOtpChallengeId,
-    String? phoneOtpDevCode,
+    Object? phoneOtpChallengeId = _onboardingSentinel,
+    Object? phoneOtpDevCode = _onboardingSentinel,
   }) {
     return OnboardingState(
       registrationCountryCode:
@@ -87,8 +89,12 @@ class OnboardingState {
       mobileNumber: mobileNumber ?? this.mobileNumber,
       email: email ?? this.email,
       password: password ?? this.password,
-      phoneOtpChallengeId: phoneOtpChallengeId ?? this.phoneOtpChallengeId,
-      phoneOtpDevCode: phoneOtpDevCode ?? this.phoneOtpDevCode,
+      phoneOtpChallengeId: phoneOtpChallengeId == _onboardingSentinel
+          ? this.phoneOtpChallengeId
+          : phoneOtpChallengeId as String?,
+      phoneOtpDevCode: phoneOtpDevCode == _onboardingSentinel
+          ? this.phoneOtpDevCode
+          : phoneOtpDevCode as String?,
     );
   }
 

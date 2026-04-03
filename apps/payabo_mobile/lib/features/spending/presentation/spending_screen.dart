@@ -134,10 +134,14 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
     final List<SpendingTransaction> transactions;
 
     final accountsSnapshot = ref.watch(_spendingAccountsFutureProvider);
+    String? accountsError;
     accounts = accountsSnapshot.when(
       data: (List<SpendingAccountCard> data) => data,
       loading: () => const <SpendingAccountCard>[],
-      error: (_, __) => const <SpendingAccountCard>[],
+      error: (Object error, _) {
+        accountsError = 'Could not load accounts.';
+        return const <SpendingAccountCard>[];
+      },
     );
 
     if (accounts.isNotEmpty && _selectedAccountIndex < accounts.length) {
@@ -148,10 +152,21 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
       transactions = txSnapshot.when(
         data: (List<SpendingTransaction> data) => data,
         loading: () => const <SpendingTransaction>[],
-        error: (_, __) => const <SpendingTransaction>[],
+        error: (Object error, _) => const <SpendingTransaction>[],
       );
     } else {
       transactions = const <SpendingTransaction>[];
+    }
+
+    // Show error banners if API calls failed.
+    if (accountsError != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(accountsError!)));
+        }
+      });
     }
 
     final bool isEmpty = accounts.isEmpty;

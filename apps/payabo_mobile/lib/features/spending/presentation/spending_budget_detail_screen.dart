@@ -275,23 +275,32 @@ class _SpendingBudgetDetailScreenState
   Future<void> _handleSave(SpendingBudgetCategory category) async {
     final messenger = ScaffoldMessenger.of(context);
 
-    await ref.read(budgetRepositoryProvider).saveBudgetAmount(
-          budgetId: category.id,
-          totalAllocated: _draftAmount,
-        );
-    ref.invalidate(spendingBudgetsProvider);
+    try {
+      await ref.read(budgetRepositoryProvider).saveBudgetAmount(
+            budgetId: category.id,
+            totalAllocated: _draftAmount,
+          );
+      ref.invalidate(spendingBudgetsProvider);
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          'Saved ${category.name.toLowerCase()} budget at ${formatSpendingBudgetCurrency(_draftAmount)} in this mock build.',
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Saved ${category.name.toLowerCase()} budget at ${formatSpendingBudgetCurrency(_draftAmount)} in this mock build.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not save budget: $error'),
+        ),
+      );
+    }
   }
 
   Future<void> _handleDelete(SpendingBudgetCategory category) async {
@@ -335,21 +344,30 @@ class _SpendingBudgetDetailScreenState
 
     final messenger = ScaffoldMessenger.of(context);
 
-    await ref.read(budgetRepositoryProvider).deleteBudget(category.id);
-    ref.invalidate(spendingBudgetsProvider);
+    try {
+      await ref.read(budgetRepositoryProvider).deleteBudget(category.id);
+      ref.invalidate(spendingBudgetsProvider);
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          '${category.name} budget deleted in this mock build.',
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '${category.name} budget deleted in this mock build.',
+          ),
         ),
-      ),
-    );
-    context.go('/spending/budgets');
+      );
+      context.go('/spending/budgets');
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not delete budget: $error'),
+        ),
+      );
+    }
   }
 
   Future<void> _handleCreateBudget() async {

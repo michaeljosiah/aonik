@@ -63,7 +63,7 @@ class LiveStatementImportRepository implements StatementImportRepository {
 
       final data = response.data ?? const <dynamic>[];
       return data
-          .cast<Map<String, dynamic>>()
+          .whereType<Map<String, dynamic>>()
           .map(_mapImportItem)
           .toList(growable: false);
     } on DioException catch (exception) {
@@ -84,7 +84,7 @@ class LiveStatementImportRepository implements StatementImportRepository {
 
       final data = response.data ?? const <dynamic>[];
       return data
-          .cast<Map<String, dynamic>>()
+          .whereType<Map<String, dynamic>>()
           .map(_mapRowItem)
           .toList(growable: false);
     } on DioException catch (exception) {

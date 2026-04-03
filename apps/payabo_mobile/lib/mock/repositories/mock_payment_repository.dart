@@ -7,7 +7,14 @@ class MockPaymentRepository implements PaymentRepository {
   final Map<String, int> _statusChecks = <String, int>{};
 
   @override
-  Future<PaymentIntent> createPaymentIntent({required String orderId}) async {
+  Future<PaymentIntent> createPaymentIntent({
+    required String orderId,
+    String selectedCardId = '',
+    String manualCardNumber = '',
+    String manualCardExpiry = '',
+    String manualCardCvc = '',
+    bool saveCard = true,
+  }) async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('payments.createIntent');
 

@@ -184,11 +184,28 @@ class LiveSpendingRepository implements SpendingRepository {
     final int iconCodePoint =
         isLinked ? _iconAccountBalanceOutlined : _iconEditOutlined;
 
-    // Balance is not available from the summary endpoint, so default to
-    // a placeholder showing the currency.
-    final String balanceLabel = '${symbol}0.00';
-    const String balanceMajor = '0';
-    const String balanceMinor = '.00';
+    // Read balance from the API response; fall back to a currency-prefixed
+    // zero when the endpoint does not yet include a balance field.
+    final num? rawBalance = json['balance'] as num?;
+    final String balanceMajor;
+    final String balanceMinor;
+    final String balanceLabel;
+
+    if (rawBalance != null) {
+      final double bal = rawBalance.toDouble();
+      final bool isNegative = bal < 0;
+      final double absBal = bal.abs();
+      final int whole = absBal.truncate();
+      final String cents =
+          ((absBal - whole) * 100).round().toString().padLeft(2, '0');
+      balanceMajor = '${isNegative ? '-' : ''}$whole';
+      balanceMinor = '.$cents';
+      balanceLabel = '$symbol$balanceMajor$balanceMinor';
+    } else {
+      balanceMajor = '0';
+      balanceMinor = '.00';
+      balanceLabel = '${symbol}0.00';
+    }
 
     return SpendingAccountCard(
       id: id,
@@ -395,6 +412,24 @@ class LiveSpendingRepository implements SpendingRepository {
       averageSpendLabel: _readString(json['averageSpendLabel']) ?? '',
       totalSpentLabel: _readString(json['totalSpentLabel']) ?? '',
     );
+  }
+
+  @override
+  Future<void> updateTransactionCategory(
+    String transactionId,
+    String category,
+  ) async {
+    try {
+      await _apiClient.patch<void>(
+        '/personal-finance/transactions/$transactionId',
+        data: <String, dynamic>{
+          'category': category,
+        },
+      );
+    } on DioException catch (exception) {
+      _logDioFailure('updateTransactionCategory', exception);
+      throw mapDioException(exception);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════

@@ -254,7 +254,7 @@ class _CommunityVideoSheetState extends State<_CommunityVideoSheet>
                                 label: 'Like',
                                 onTap: () => _showFeedback(
                                   context,
-                                  'Liked! Thanks for your feedback.',
+                                  'Like coming soon.',
                                 ),
                               ),
                               _SheetAction(
@@ -262,7 +262,7 @@ class _CommunityVideoSheetState extends State<_CommunityVideoSheet>
                                 label: 'Share',
                                 onTap: () => _showFeedback(
                                   context,
-                                  'Share link copied.',
+                                  'Share coming soon.',
                                 ),
                               ),
                               _SheetAction(
@@ -270,7 +270,7 @@ class _CommunityVideoSheetState extends State<_CommunityVideoSheet>
                                 label: 'Save',
                                 onTap: () => _showFeedback(
                                   context,
-                                  'Video saved to your collection.',
+                                  'Save coming soon.',
                                 ),
                               ),
                             ],

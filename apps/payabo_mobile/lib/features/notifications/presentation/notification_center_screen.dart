@@ -81,7 +81,18 @@ class NotificationCenterScreen extends ConsumerWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: sections.isEmpty ? null : () {},
+                  onPressed: sections.isEmpty
+                      ? null
+                      : () {
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('Mark all read coming soon.'),
+                              ),
+                            );
+                        },
                   child: const Text('Mark all read'),
                 ),
               ],

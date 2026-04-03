@@ -138,10 +138,14 @@ class AuthController extends StateNotifier<AuthState> {
         return;
       }
 
-      state = const AuthState(
+      // Non-auth API error (e.g. 500): the token may still be valid,
+      // but we cannot populate user info. Keep authenticated but surface
+      // a null user so callers know to retry later.
+      state = AuthState(
         isInitialized: true,
         isAuthenticated: true,
         isBusy: false,
+        user: state.user,
       );
     }
   }

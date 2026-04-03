@@ -89,7 +89,7 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           DropdownButtonFormField<String>(
-            initialValue: _serviceType,
+            value: _serviceType,
             decoration: const InputDecoration(
               labelText: 'Service type',
             ),
@@ -174,7 +174,7 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
           if (flowState.recurringBill) ...<Widget>[
             const SizedBox(height: PayaboSpacing.md),
             DropdownButtonFormField<String>(
-              initialValue: flowState.recurringFrequency,
+              value: flowState.recurringFrequency,
               decoration: const InputDecoration(labelText: 'Frequency'),
               items: recurringFrequencies
                   .map(

@@ -16,13 +16,31 @@ class LivePaymentRepository implements PaymentRepository {
   @override
   Future<PaymentIntent> createPaymentIntent({
     required String orderId,
+    String selectedCardId = '',
+    String manualCardNumber = '',
+    String manualCardExpiry = '',
+    String manualCardCvc = '',
+    bool saveCard = true,
   }) async {
     try {
+      final Map<String, dynamic> body = <String, dynamic>{
+        'orderId': orderId,
+      };
+
+      if (selectedCardId.isNotEmpty && selectedCardId != 'manual_card') {
+        body['savedCardId'] = selectedCardId;
+      }
+
+      if (manualCardNumber.isNotEmpty) {
+        body['cardNumber'] = manualCardNumber;
+        body['cardExpiry'] = manualCardExpiry;
+        body['cardCvc'] = manualCardCvc;
+        body['saveCard'] = saveCard;
+      }
+
       final response = await _apiClient.post<Map<String, dynamic>>(
         '/payments/intents',
-        data: <String, dynamic>{
-          'orderId': orderId,
-        },
+        data: body,
       );
 
       final Map<String, dynamic> data = response.data ?? const {};

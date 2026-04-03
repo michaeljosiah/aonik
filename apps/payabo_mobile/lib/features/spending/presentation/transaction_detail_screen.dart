@@ -248,7 +248,15 @@ class _TransactionDetailScreenState
                     Center(
                       child: TextButton(
                         onPressed: () {
-                          // TODO: implement mark as duplicate
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Mark as duplicate coming soon.',
+                                ),
+                              ),
+                            );
                         },
                         style: TextButton.styleFrom(
                           foregroundColor: c.accentBrown,
@@ -282,6 +290,20 @@ class _TransactionDetailScreenState
         // top-level category so we don't show a stale subcategory.
         _currentSubCategory = null;
       });
+      // Persist the category change to the backend.
+      try {
+        await ref
+            .read(spendingRepositoryProvider)
+            .updateTransactionCategory(widget.transactionId, result);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not save category. Change is local only.'),
+            ),
+          );
+        }
+      }
     }
   }
 }
