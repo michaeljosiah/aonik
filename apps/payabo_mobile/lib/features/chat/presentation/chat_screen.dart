@@ -404,6 +404,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                             _ChatHeaderMenuButton(
                               onTap: _toggleHistoryOverlay,
                             ),
+                            const Spacer(),
+                            _ChatHeaderNewChatButton(
+                              onTap: _startNewConversation,
+                            ),
                           ],
                         ),
                       ),
@@ -501,6 +505,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _closeHistoryOverlay() {
     _historyOverlayController.reverse();
+  }
+
+  void _startNewConversation() {
+    FocusScope.of(context).unfocus();
+    _closeHistoryOverlay();
+    _dismissVoiceStage();
+
+    ref.read(chatControllerProvider.notifier).newConversation();
+    ref.invalidate(_chatConversationsProvider);
+
+    _controller.clear();
   }
 
   Future<void> _handleHistorySelection(
@@ -1892,6 +1907,37 @@ class _ChatHeaderMenuButton extends StatelessWidget {
           ),
           child: Icon(
             Icons.menu_rounded,
+            size: 22,
+            color: _chatBodyTextColor(context),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatHeaderNewChatButton extends StatelessWidget {
+  const _ChatHeaderNewChatButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            shape: BoxShape.circle,
+            border: Border.all(color: _chatBorderColor(context)),
+          ),
+          child: Icon(
+            Icons.edit_outlined,
             size: 22,
             color: _chatBodyTextColor(context),
           ),
