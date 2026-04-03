@@ -215,6 +215,17 @@ public static class PlaygroundStreamingEndpoint
                             }, cancellationToken);
                             break;
 
+                        case TextReasoningContent reasoningContent
+                            when !string.IsNullOrEmpty(reasoningContent.Text):
+
+                            await WriteSseEventAsync(context.Response, new
+                            {
+                                type = "REASONING_MESSAGE_CONTENT",
+                                messageId,
+                                delta = reasoningContent.Text,
+                            }, cancellationToken);
+                            break;
+
                         case UsageContent usageContent:
                             inputTokens += usageContent.Details.InputTokenCount ?? 0;
                             outputTokens += usageContent.Details.OutputTokenCount ?? 0;

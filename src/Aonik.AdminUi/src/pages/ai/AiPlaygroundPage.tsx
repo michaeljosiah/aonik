@@ -113,6 +113,7 @@ export function AiPlaygroundPage() {
     config,
     updateConfig,
     output,
+    outputParts,
     isStreaming,
     streamError,
     metrics,
@@ -402,6 +403,7 @@ export function AiPlaygroundPage() {
       {/* Inline draggable output panel */}
       <PlaygroundOutputPanel
         output={output}
+        outputParts={outputParts}
         isStreaming={isStreaming}
         streamError={streamError}
         metrics={metrics}

@@ -19,6 +19,26 @@ export interface PlaygroundConfig {
   maxTokens: number;
 }
 
+// ─── Structured output parts ─────────────────────────────────────────────────
+
+export type PlaygroundToolCallStatus = 'streaming' | 'completed' | 'error';
+
+export interface PlaygroundToolCall {
+  toolCallId: string;
+  toolCallName: string;
+  args: string;
+  result?: string;
+  error?: string;
+  status: PlaygroundToolCallStatus;
+}
+
+export type PlaygroundOutputPart =
+  | { type: 'text'; content: string }
+  | { type: 'tool-call'; toolCall: PlaygroundToolCall }
+  | { type: 'reasoning'; content: string };
+
+// ─── Chat message (compare mode) ────────────────────────────────────────────
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -44,6 +64,7 @@ export function usePlaygroundChat(
 
   // Single-mode output state
   const [output, setOutput] = useState('');
+  const [outputParts, setOutputParts] = useState<PlaygroundOutputPart[]>([]);
 
   // Chat state (used by compare mode)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -54,12 +75,38 @@ export function usePlaygroundChat(
 
   const abortRef = useRef<AbortController | null>(null);
 
+  // Mutable refs for building structured parts during streaming
+  const partsRef = useRef<PlaygroundOutputPart[]>([]);
+  const currentTextRef = useRef('');
+  const currentReasoningRef = useRef('');
+  const toolCallMapRef = useRef(new Map<string, PlaygroundToolCall>());
+
   const updateConfig = useCallback(
     (updates: Partial<PlaygroundConfig>) => {
       setConfig((prev) => ({ ...prev, ...updates }));
     },
     [],
   );
+
+  /** Flush any accumulated text or reasoning into a part. */
+  const flushText = useCallback(() => {
+    if (currentTextRef.current) {
+      partsRef.current.push({ type: 'text', content: currentTextRef.current });
+      currentTextRef.current = '';
+    }
+  }, []);
+
+  const flushReasoning = useCallback(() => {
+    if (currentReasoningRef.current) {
+      partsRef.current.push({ type: 'reasoning', content: currentReasoningRef.current });
+      currentReasoningRef.current = '';
+    }
+  }, []);
+
+  /** Snapshot the current parts array into React state. */
+  const syncParts = useCallback(() => {
+    setOutputParts([...partsRef.current]);
+  }, []);
 
   // ── Submit messages (single-mode: message block editor) ────────────────────
 
@@ -71,6 +118,11 @@ export function usePlaygroundChat(
       setStreamError(null);
       setMetrics(null);
       setOutput('');
+      setOutputParts([]);
+      partsRef.current = [];
+      currentTextRef.current = '';
+      currentReasoningRef.current = '';
+      toolCallMapRef.current.clear();
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -93,8 +145,88 @@ export function usePlaygroundChat(
             onTextDelta: (delta) => {
               fullResponse += delta;
               setOutput(fullResponse);
+
+              // Accumulate into current text buffer
+              currentTextRef.current += delta;
+              // Update parts: replace or add trailing text part
+              const parts = partsRef.current;
+              const lastPart = parts[parts.length - 1];
+              if (lastPart && lastPart.type === 'text') {
+                lastPart.content = currentTextRef.current;
+              } else {
+                parts.push({ type: 'text', content: currentTextRef.current });
+              }
+              syncParts();
             },
+
+            onReasoningDelta: (delta) => {
+              // Flush any pending text so reasoning appears in order
+              flushText();
+
+              currentReasoningRef.current += delta;
+              // Update parts: replace or add trailing reasoning part
+              const parts = partsRef.current;
+              const lastPart = parts[parts.length - 1];
+              if (lastPart && lastPart.type === 'reasoning') {
+                lastPart.content = currentReasoningRef.current;
+              } else {
+                parts.push({ type: 'reasoning', content: currentReasoningRef.current });
+              }
+              syncParts();
+            },
+
+            onReasoningEnd: () => {
+              flushReasoning();
+              syncParts();
+            },
+
+            onToolCallStart: (toolCallId, toolName) => {
+              // Flush any pending text so tool call appears in order
+              flushText();
+              currentTextRef.current = '';
+
+              const tc: PlaygroundToolCall = {
+                toolCallId,
+                toolCallName: toolName,
+                args: '',
+                status: 'streaming',
+              };
+              toolCallMapRef.current.set(toolCallId, tc);
+              partsRef.current.push({ type: 'tool-call', toolCall: tc });
+              syncParts();
+            },
+
+            onToolCallArgs: (toolCallId, argsDelta) => {
+              const tc = toolCallMapRef.current.get(toolCallId);
+              if (tc) {
+                tc.args += argsDelta;
+                syncParts();
+              }
+            },
+
+            onToolCallEnd: (toolCallId) => {
+              const tc = toolCallMapRef.current.get(toolCallId);
+              if (tc && tc.status === 'streaming') {
+                tc.status = 'completed';
+                syncParts();
+              }
+            },
+
+            onToolResult: (toolCallId, content) => {
+              const tc = toolCallMapRef.current.get(toolCallId);
+              if (tc) {
+                tc.result = content;
+                tc.status = 'completed';
+                syncParts();
+              }
+            },
+
             onRunFinished: (runMetrics) => {
+              // Flush any trailing text/reasoning
+              flushText();
+              flushReasoning();
+              syncParts();
+
               setMetrics(runMetrics);
 
               const userMsg = msgs.filter((m) => m.role === 'user').pop();
@@ -128,7 +260,7 @@ export function usePlaygroundChat(
         abortRef.current = null;
       }
     },
-    [config, isStreaming, getAccessToken, frontendTools],
+    [config, isStreaming, getAccessToken, frontendTools, flushText, flushReasoning, syncParts],
   );
 
   // ── Send message (compare-mode: chat-style) ───────────────────────────────
@@ -235,8 +367,13 @@ export function usePlaygroundChat(
     abortRef.current?.abort();
     setMessages([]);
     setOutput('');
+    setOutputParts([]);
     setMetrics(null);
     setStreamError(null);
+    partsRef.current = [];
+    currentTextRef.current = '';
+    currentReasoningRef.current = '';
+    toolCallMapRef.current.clear();
   }, []);
 
   const addRunRecord = useCallback((record: PlaygroundRunRecord) => {
@@ -251,6 +388,7 @@ export function usePlaygroundChat(
     config,
     updateConfig,
     output,
+    outputParts,
     messages,
     isStreaming,
     streamError,

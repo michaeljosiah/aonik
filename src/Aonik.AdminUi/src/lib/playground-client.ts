@@ -66,8 +66,14 @@ export interface PlaygroundRunMetrics {
 export interface PlaygroundStreamCallbacks {
   onRunStarted?: (runId: string) => void;
   onTextDelta?: (delta: string) => void;
+  onToolCallStart?: (toolCallId: string, toolName: string) => void;
+  onToolCallArgs?: (toolCallId: string, argsDelta: string) => void;
+  onToolCallEnd?: (toolCallId: string) => void;
+  /** @deprecated Use onToolCallStart/Args/End for structured tracking */
   onToolCall?: (toolCallId: string, toolName: string, args?: string) => void;
   onToolResult?: (toolCallId: string, content: string) => void;
+  onReasoningDelta?: (delta: string) => void;
+  onReasoningEnd?: () => void;
   onRunFinished?: (metrics: PlaygroundRunMetrics) => void;
   onRunError?: (message: string, code?: string) => void;
 }
@@ -333,6 +339,7 @@ function dispatchEvent(
       const toolCallId = event.toolCallId as string;
       const toolName = event.toolCallName as string;
       toolCallArgs.set(toolCallId, []);
+      callbacks.onToolCallStart?.(toolCallId, toolName);
       callbacks.onToolCall?.(toolCallId, toolName);
       internalCallbacks?.onToolCallStartInternal?.(toolCallId, toolName);
       break;
@@ -343,6 +350,7 @@ function dispatchEvent(
       const delta = event.delta as string;
       const fragments = toolCallArgs.get(id);
       if (fragments) fragments.push(delta);
+      callbacks.onToolCallArgs?.(id, delta);
       internalCallbacks?.onToolCallArgsInternal?.(id, delta);
       break;
     }
@@ -352,6 +360,7 @@ function dispatchEvent(
       const fragments = toolCallArgs.get(id);
       if (fragments) {
         // Re-dispatch with complete args
+        callbacks.onToolCallEnd?.(id);
         callbacks.onToolCall?.(id, '', fragments.join(''));
         toolCallArgs.delete(id);
       }
@@ -364,6 +373,16 @@ function dispatchEvent(
         event.content as string,
       );
       internalCallbacks?.onToolCallResultInternal?.(event.toolCallId as string);
+      break;
+
+    // Reasoning events (emitted when the model uses extended thinking)
+    case 'REASONING_MESSAGE_CONTENT':
+      callbacks.onReasoningDelta?.(event.delta as string);
+      break;
+
+    case 'REASONING_MESSAGE_END':
+    case 'REASONING_END':
+      callbacks.onReasoningEnd?.();
       break;
 
     case 'RUN_FINISHED': {

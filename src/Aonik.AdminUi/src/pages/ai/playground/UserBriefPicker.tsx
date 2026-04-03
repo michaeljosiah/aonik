@@ -24,6 +24,8 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
+  // Track which source the current selection came from
+  const [selectionSource, setSelectionSource] = useState<'samples' | 'real' | 'manual' | null>(null);
 
   const pageSize = 10;
 
@@ -67,8 +69,12 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
 
   const handleSelectCustomer = async (customer: CustomerListItem) => {
     setSelectedPartyId(customer.partyId);
+    setSelectionSource('real');
     setLoading(true);
     setError(null);
+    // Immediately clear the previous brief so stale context (e.g. from a
+    // sample user) is never used while the real user's context loads.
+    onChange(null);
     try {
       const brief = await playgroundService.projectUserBrief({ partyId: customer.partyId });
       onChange(JSON.stringify(brief, null, 2));
@@ -79,13 +85,25 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
     }
   };
 
+  // When the active tab changes, clear cross-tab selection state so the
+  // new tab starts with a clean slate.
+  const handleTabChange = (tab: string) => {
+    if (tab === 'samples' && selectionSource !== 'samples') {
+      setSelectedPartyId(null);
+    } else if (tab === 'real' && selectionSource !== 'real') {
+      // Don't clear the brief here — let the user pick a customer first
+    } else if (tab === 'manual' && selectionSource !== 'manual') {
+      setSelectedPartyId(null);
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">User Brief</Label>
 
-      <Tabs defaultValue="samples">
+      <Tabs defaultValue="samples" onValueChange={handleTabChange}>
         <TabsList className="w-full">
           <TabsTrigger value="samples" className="flex-1 text-xs">Samples</TabsTrigger>
           <TabsTrigger value="real" className="flex-1 text-xs">Real User</TabsTrigger>
@@ -96,7 +114,7 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
         <TabsContent value="samples">
           <div className="space-y-1">
             <button
-              onClick={() => onChange(null)}
+              onClick={() => { onChange(null); setSelectionSource(null); setSelectedPartyId(null); }}
               className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
                 value === null
                   ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
@@ -108,7 +126,7 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
             {sampleBriefs.map((brief) => (
               <button
                 key={brief.id}
-                onClick={() => onChange(brief.json)}
+                onClick={() => { onChange(brief.json); setSelectionSource('samples'); setSelectedPartyId(null); }}
                 className={`w-full rounded-[2px] border px-3 py-2 text-left text-xs transition-colors ${
                   value === brief.json
                     ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
@@ -239,7 +257,7 @@ export function UserBriefPicker({ value, onChange }: UserBriefPickerProps) {
         <TabsContent value="manual">
           <Textarea
             value={value ?? ''}
-            onChange={(e) => onChange(e.target.value || null)}
+            onChange={(e) => { onChange(e.target.value || null); setSelectionSource('manual'); setSelectedPartyId(null); }}
             placeholder="Paste User Brief JSON..."
             rows={6}
             className="font-mono text-xs"

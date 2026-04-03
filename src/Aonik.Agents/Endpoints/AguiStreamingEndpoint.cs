@@ -311,6 +311,17 @@ public static class AguiStreamingEndpoint
                                 role = "tool",
                             }, cancellationToken);
                             break;
+
+                        case TextReasoningContent reasoningContent
+                            when !string.IsNullOrEmpty(reasoningContent.Text):
+
+                            await WriteSseEventAsync(context.Response, new
+                            {
+                                type = "REASONING_MESSAGE_CONTENT",
+                                messageId,
+                                delta = reasoningContent.Text,
+                            }, cancellationToken);
+                            break;
                     }
                 }
 
