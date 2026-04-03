@@ -93,6 +93,7 @@ export async function streamPlaygroundRun(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let currentData: string | null = null;
 
   try {
     while (true) {
@@ -101,35 +102,44 @@ export async function streamPlaygroundRun(
 
       buffer += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split('\n');
-      buffer = '';
+      // Split on newlines; the last element may be an incomplete line
+      const parts = buffer.split('\n');
+      // Keep the last (potentially incomplete) segment in the buffer
+      buffer = parts.pop() ?? '';
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
+      for (const line of parts) {
         if (line.startsWith('data: ')) {
-          const jsonStr = line.slice(6);
-
-          if (i + 1 < lines.length && lines[i + 1] === '') {
+          // Accumulate data field (SSE allows multi-line data)
+          const payload = line.slice(6);
+          currentData = currentData === null ? payload : currentData + '\n' + payload;
+        } else if (line.startsWith(':')) {
+          // SSE comment — ignore
+        } else if (line === '') {
+          // Empty line = event boundary — dispatch accumulated data
+          if (currentData !== null) {
             try {
-              const event = JSON.parse(jsonStr);
+              const event = JSON.parse(currentData);
               dispatchEvent(event, callbacks);
             } catch {
-              console.warn('Failed to parse playground event:', jsonStr);
+              console.warn('Failed to parse playground event:', currentData);
             }
-            i++; // Skip empty line
-          } else if (i === lines.length - 1) {
-            buffer = line + '\n';
+            currentData = null;
           }
-        } else if (line === '' || line.startsWith(':')) {
-          // Event separator or SSE comment — skip
-        } else if (line.length > 0) {
-          buffer = line;
-          for (let j = i + 1; j < lines.length; j++) {
-            buffer += '\n' + lines[j];
-          }
-          break;
         }
+        // Any other non-empty line is ignored (not part of SSE spec)
+      }
+    }
+
+    // Process any remaining data in the buffer after stream ends
+    if (buffer.startsWith('data: ')) {
+      currentData = currentData === null ? buffer.slice(6) : currentData + '\n' + buffer.slice(6);
+    }
+    if (currentData !== null) {
+      try {
+        const event = JSON.parse(currentData);
+        dispatchEvent(event, callbacks);
+      } catch {
+        console.warn('Failed to parse final playground event:', currentData);
       }
     }
   } finally {

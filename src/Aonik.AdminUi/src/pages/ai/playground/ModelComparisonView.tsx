@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ModelSelector } from './ModelSelector';
 import { PlaygroundChatPanel } from './PlaygroundChatPanel';
 import { usePlaygroundChat, type PlaygroundConfig } from '@/hooks/usePlaygroundChat';
@@ -17,15 +17,14 @@ export function ModelComparisonView({ sharedConfig }: ModelComparisonViewProps) 
   const chatA = usePlaygroundChat();
   const chatB = usePlaygroundChat();
 
-  const syncConfig = useCallback(
-    (modelId: string | null, chat: ReturnType<typeof usePlaygroundChat>) => {
-      chat.updateConfig({ ...sharedConfig, modelId });
-    },
-    [sharedConfig],
-  );
+  // Sync shared config into each chat instance via effect, not during render
+  useEffect(() => {
+    chatA.updateConfig({ ...sharedConfig, modelId: modelA });
+  }, [sharedConfig, modelA]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  syncConfig(modelA, chatA);
-  syncConfig(modelB, chatB);
+  useEffect(() => {
+    chatB.updateConfig({ ...sharedConfig, modelId: modelB });
+  }, [sharedConfig, modelB]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSendBoth = (text: string) => {
     chatA.sendMessage(text);
