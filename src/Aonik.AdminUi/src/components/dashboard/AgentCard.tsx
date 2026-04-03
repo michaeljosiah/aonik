@@ -1,14 +1,25 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, CheckSquare, MessageSquare } from 'lucide-react';
+import { MoreVertical, CheckSquare, MessageSquare, Shield, Check, X } from 'lucide-react';
 import type { AgentCard as AgentCardType, VisibilityLevel } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface AgentCardProps {
   agent: AgentCardType;
   onChat?: (agentId: string) => void;
+  onClick?: () => void;
+  /** Show additional config metadata (risk tier, model, active status). */
+  showConfigMeta?: boolean;
+  /** Render extra action buttons in the top-right corner. */
+  actions?: React.ReactNode;
 }
+
+const riskTierStyles: Record<string, { text: string; bg: string }> = {
+  low: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
+  medium: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
+  high: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
+};
 
 function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
   switch (visibility) {
@@ -52,11 +63,15 @@ function PluginIcon({ color }: { color: string }) {
   );
 }
 
-export function AgentCard({ agent, onChat }: AgentCardProps) {
+export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: AgentCardProps) {
   const pluginColors = ['#eb5c37', '#055a60', '#3B82F6'];
+  const riskStyle = agent.riskTier ? (riskTierStyles[agent.riskTier] ?? riskTierStyles.low) : null;
 
   return (
-    <div className="relative w-full pt-10 cursor-pointer group">
+    <div
+      className={cn('relative w-full pt-10', onClick && 'cursor-pointer')}
+      onClick={onClick}
+    >
       <div className="absolute left-4 top-4 z-[2]">
         <AgentAvatar />
       </div>
@@ -69,21 +84,59 @@ export function AgentCard({ agent, onChat }: AgentCardProps) {
         'bg-[var(--color-surface-elevated)]',
       )}>
         <div className="flex items-center justify-end gap-0.5 px-4 pt-3">
-          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
-            <CheckSquare className="w-3.5 h-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
-            <MoreVertical className="w-3.5 h-3.5" />
-          </Button>
+          {actions ?? (
+            <>
+              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+                <CheckSquare className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" className="h-6 w-6 text-[var(--color-text-tertiary)]">
+                <MoreVertical className="w-3.5 h-3.5" />
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col px-4 pb-4 mt-6 pt-2">
-          <h3 className="text-[18px] font-bold text-[var(--color-text-heading)] line-clamp-1 mb-1.5">
-            {agent.name}
-          </h3>
+          <div className="flex items-center gap-2 mb-1.5">
+            <h3 className="text-[18px] font-bold text-[var(--color-text-heading)] line-clamp-1">
+              {agent.name}
+            </h3>
+            {agent.isOverride && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
+                OVERRIDE
+              </span>
+            )}
+          </div>
           <p className="text-[13px] leading-6 text-[var(--color-text-secondary)] line-clamp-3 mb-4 min-h-[54px]">
             {agent.description}
           </p>
+
+          {/* Config metadata row (risk tier, model, active status) */}
+          {showConfigMeta && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              {riskStyle && agent.riskTier && (
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${riskStyle.bg} ${riskStyle.text}`}>
+                  <Shield className="w-3 h-3" /> {agent.riskTier}
+                </span>
+              )}
+              {agent.isActive !== undefined && (
+                agent.isActive ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
+                    <Check className="w-3 h-3" /> Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
+                    <X className="w-3 h-3" /> Inactive
+                  </span>
+                )
+              )}
+              {agent.modelName && (
+                <span className="text-xs text-[var(--color-text-tertiary)] bg-[var(--color-surface-inset)] px-2 py-0.5 rounded">
+                  {agent.modelName}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between text-xs mb-4">
             <div>
@@ -99,18 +152,24 @@ export function AgentCard({ agent, onChat }: AgentCardProps) {
           <div className="mb-4">
             <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Skills</p>
             <div className="flex flex-wrap gap-1.5">
-              {agent.skills.slice(0, 3).map((skill) => (
-                <span
-                  key={skill}
-                  className="bg-[#e2e1e8] text-[#3f3b47] px-3 py-1.5 rounded-full text-xs font-medium"
-                >
-                  {skill}
-                </span>
-              ))}
-              {agent.skills.length > 3 && (
-                <span className="bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] px-3 py-1.5 rounded-full text-xs font-medium">
-                  +{agent.skills.length - 3}
-                </span>
+              {agent.skills.length > 0 ? (
+                <>
+                  {agent.skills.slice(0, 3).map((skill) => (
+                    <span
+                      key={skill}
+                      className="bg-[#e2e1e8] text-[#3f3b47] px-3 py-1.5 rounded-full text-xs font-medium"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                  {agent.skills.length > 3 && (
+                    <span className="bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] px-3 py-1.5 rounded-full text-xs font-medium">
+                      +{agent.skills.length - 3}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs text-[var(--color-text-tertiary)]">None configured</span>
               )}
             </div>
           </div>
@@ -118,16 +177,28 @@ export function AgentCard({ agent, onChat }: AgentCardProps) {
           <div className="mb-4">
             <p className="font-bold text-[var(--color-text-heading)] text-[10px] uppercase tracking-wide mb-1.5">Plugins</p>
             <div className="flex gap-2">
-              {agent.plugins.slice(0, 3).map((_, index) => (
-                <PluginIcon key={index} color={pluginColors[index % pluginColors.length]} />
-              ))}
+              {agent.plugins.length > 0 ? (
+                agent.plugins.slice(0, 3).map((_, index) => (
+                  <PluginIcon key={index} color={pluginColors[index % pluginColors.length]} />
+                ))
+              ) : (
+                <span className="text-xs text-[var(--color-text-tertiary)]">None configured</span>
+              )}
+              {agent.plugins.length > 3 && (
+                <span className="flex items-center text-xs text-[var(--color-text-tertiary)]">
+                  +{agent.plugins.length - 3}
+                </span>
+              )}
             </div>
           </div>
 
           <Button
             variant="default"
             className="w-full mt-auto gap-2 rounded-[2px]"
-            onClick={() => onChat?.(agent.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChat?.(agent.id);
+            }}
             disabled={!onChat}
           >
             <MessageSquare className="w-4 h-4" />

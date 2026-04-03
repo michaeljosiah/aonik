@@ -86,6 +86,11 @@ export interface AgentCard {
   source: string;
   skills: string[];
   plugins: string[];
+  /** Optional config-level metadata for agent management pages */
+  riskTier?: 'low' | 'medium' | 'high';
+  isActive?: boolean;
+  isOverride?: boolean;
+  modelName?: string | null;
 }
 
 // Databox Types

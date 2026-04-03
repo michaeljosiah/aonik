@@ -25,30 +25,32 @@ import {
 import {
   AlertCircle,
   Bot,
-  Check,
   Pencil,
   RotateCcw,
-  Shield,
-  X,
 } from 'lucide-react';
 
+import { AgentCard } from '@/components/dashboard/AgentCard';
+import type { AgentCard as AgentCardType } from '@/types';
 import type { AgentConfigurationResponse, AiModelResponse } from '@/types/ai';
 import { agentConfigService, aiModelService } from '@/services/aiService';
 
-const riskTierStyles: Record<string, { text: string; bg: string }> = {
-  low: { text: 'text-[var(--color-success)]', bg: 'bg-[var(--color-success-light)]' },
-  medium: { text: 'text-[var(--color-warning)]', bg: 'bg-[var(--color-warning-light)]' },
-  high: { text: 'text-[var(--color-error)]', bg: 'bg-[var(--color-error-light)]' },
-};
-
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
+function mapAgentConfigToCard(cfg: AgentConfigurationResponse): AgentCardType {
+  let toolsetIds: string[] = [];
+  try { toolsetIds = JSON.parse(cfg.toolsetIdsJson || '[]'); } catch { /* ignore */ }
+  return {
+    id: cfg.id,
+    name: cfg.name,
+    description: cfg.description || 'No description.',
+    visibility: 'team',
+    source: cfg.domain || 'Agent',
+    skills: [],
+    plugins: toolsetIds,
+    riskTier: (cfg.riskTier as 'low' | 'medium' | 'high') ?? 'low',
+    isActive: cfg.isActive,
+    isOverride: cfg.isOverride,
+    modelName: cfg.modelName ?? (cfg.modelId ? `ID: ${cfg.modelId.slice(0, 8)}...` : null),
+  };
+}
 
 export function AgentConfigPage() {
   const navigate = useNavigate();
@@ -184,23 +186,17 @@ export function AgentConfigPage() {
     }
   };
 
-  // ── Helpers ────────────────────────────────────────────────────────
-
-  const parseToolList = (json: string): string[] => {
-    try {
-      const parsed = JSON.parse(json);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  };
-
   // ── Render ─────────────────────────────────────────────────────────
 
   const breadcrumbItems = [
     { label: 'AI & Agents', href: '/ai' },
     { label: 'Agents', icon: <Bot className="w-3.5 h-3.5" /> },
   ];
+
+  const handleChatAgent = (agentId: string) => {
+    void agentId;
+    navigate('/ai/chat');
+  };
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -254,93 +250,41 @@ export function AgentConfigPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {displayConfigs.map((config) => {
-            const tools = parseToolList(config.toolsetIdsJson);
-            const riskStyle = riskTierStyles[config.riskTier] ?? riskTierStyles.low;
+            const agentCard = mapAgentConfigToCard(config);
 
             return (
-              <Card key={config.id} className="cursor-pointer hover:border-[var(--color-brand-primary)] transition-colors" onClick={() => navigate(`/ai/agents/${config.name}`)}>
-                <CardContent className="p-5">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-5 h-5 text-[var(--color-brand-primary)]" />
-                      <h3 className="text-base font-semibold text-[var(--color-text-primary)]">{config.name}</h3>
-                      {config.isOverride && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]">
-                          OVERRIDE
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(config); }}>
-                        <Pencil className="w-3.5 h-3.5" />
+              <AgentCard
+                key={config.id}
+                agent={agentCard}
+                showConfigMeta
+                onClick={() => navigate(`/ai/agents/${config.name}`)}
+                onChat={handleChatAgent}
+                actions={
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-6 w-6 text-[var(--color-text-tertiary)]"
+                      onClick={(e) => { e.stopPropagation(); openEdit(config); }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    {config.isOverride && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="h-6 w-6 text-[var(--color-warning)]"
+                        onClick={(e) => { e.stopPropagation(); deleteOverride(config); }}
+                        title="Delete override (revert to global)"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
                       </Button>
-                      {config.isOverride && (
-                        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); deleteOverride(config); }} title="Delete override (revert to global)">
-                          <RotateCcw className="w-3.5 h-3.5 text-[var(--color-warning)]" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <p className="text-sm text-[var(--color-text-secondary)] mb-3 line-clamp-2">
-                    {config.description || 'No description.'}
-                  </p>
-
-                  {/* Meta row */}
-                  <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className="text-xs text-[var(--color-text-tertiary)] bg-[var(--color-surface-inset)] px-2 py-0.5 rounded">
-                      {config.domain}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${riskStyle.bg} ${riskStyle.text}`}>
-                      <Shield className="w-3 h-3" /> {config.riskTier}
-                    </span>
-                    {config.isActive ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-success-light)] text-[var(--color-success)]">
-                        <Check className="w-3 h-3" /> Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)]">
-                        <X className="w-3 h-3" /> Inactive
-                      </span>
                     )}
                   </div>
-
-                  {/* Model assignment */}
-                  <div className="text-xs text-[var(--color-text-tertiary)] mb-2">
-                    <span className="font-medium">Model:</span>{' '}
-                    {config.modelName ?? (config.modelId ? `ID: ${config.modelId.slice(0, 8)}...` : 'Platform default')}
-                  </div>
-
-                  {/* Tools */}
-                  {tools.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {tools.slice(0, 6).map((tool) => (
-                        <span
-                          key={tool}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-surface-inset)] text-[var(--color-text-tertiary)] font-mono"
-                        >
-                          {tool}
-                        </span>
-                      ))}
-                      {tools.length > 6 && (
-                        <span className="text-[10px] px-1.5 py-0.5 text-[var(--color-text-tertiary)]">
-                          +{tools.length - 6} more
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Footer */}
-                  <div className="mt-3 pt-3 border-t border-[var(--color-border-light)] text-xs text-[var(--color-text-tertiary)]">
-                    Created {formatDate(config.createdAt)}
-                    {config.updatedAt ? ` | Updated ${formatDate(config.updatedAt)}` : ''}
-                  </div>
-                </CardContent>
-              </Card>
+                }
+              />
             );
           })}
         </div>

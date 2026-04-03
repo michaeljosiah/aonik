@@ -20,6 +20,32 @@ export interface PlaygroundRunRequest {
   messages: PlaygroundMessage[];
   temperature?: number;
   maxTokens?: number;
+  /** Client-side tool definitions to send to the agent so it knows they're available. */
+  toolDefinitions?: PlaygroundToolDefinition[];
+}
+
+export interface PlaygroundToolDefinition {
+  name: string;
+  description: string;
+  parameters: unknown;
+}
+
+/** Context passed to frontend tool handlers. */
+export interface PlaygroundFrontendToolContext {
+  toolCallId: string;
+  toolCallName: string;
+}
+
+/** A frontend tool handler that executes client-side and returns a result string. */
+export type PlaygroundFrontendToolHandler = (
+  args: Record<string, unknown>,
+  context: PlaygroundFrontendToolContext,
+) => Promise<string> | string;
+
+/** Registration entry for a client-side tool in the playground. */
+export interface PlaygroundFrontendToolRegistration {
+  tool: PlaygroundToolDefinition;
+  handler: PlaygroundFrontendToolHandler;
 }
 
 export interface PlaygroundMessage {
@@ -33,6 +59,8 @@ export interface PlaygroundRunMetrics {
   totalTokens: number;
   latencyMs: number;
   estimatedCostUsd?: number;
+  modelName?: string;
+  modelId?: string;
 }
 
 export interface PlaygroundStreamCallbacks {
@@ -49,6 +77,15 @@ export interface StreamPlaygroundOptions {
   callbacks: PlaygroundStreamCallbacks;
   getAccessToken: () => Promise<string | null>;
   signal?: AbortSignal;
+  /**
+   * Frontend tool registrations. When the agent calls a tool in this map,
+   * the client executes the handler locally and re-runs the agent with
+   * the tool result appended. Tool definitions are automatically included
+   * in the request payload.
+   */
+  frontendTools?: Map<string, PlaygroundFrontendToolRegistration>;
+  /** Maximum number of re-runs for frontend tool execution. Defaults to 10. */
+  maxToolReruns?: number;
 }
 
 // ─── Core Streaming Function ─────────────────────────────────────────────────
@@ -56,8 +93,130 @@ export interface StreamPlaygroundOptions {
 export async function streamPlaygroundRun(
   options: StreamPlaygroundOptions,
 ): Promise<void> {
-  const { request, callbacks, getAccessToken, signal } = options;
+  const {
+    request,
+    callbacks,
+    getAccessToken,
+    signal,
+    frontendTools,
+    maxToolReruns = 10,
+  } = options;
 
+  // Merge frontend tool definitions into the request
+  const effectiveRequest = { ...request };
+  if (frontendTools && frontendTools.size > 0) {
+    const clientToolDefs = Array.from(frontendTools.values()).map((r) => r.tool);
+    effectiveRequest.toolDefinitions = [
+      ...(request.toolDefinitions ?? []),
+      ...clientToolDefs,
+    ];
+  }
+
+  let currentRequest = effectiveRequest;
+  let rerunCount = 0;
+
+  // Re-run loop: after executing frontend tools, re-invoke the agent
+  while (true) {
+    if (signal?.aborted) break;
+
+    // Track tool calls during this run for client-side execution
+    const pendingToolCalls = new Map<
+      string,
+      { name: string; argFragments: string[] }
+    >();
+    const serverResolvedToolCalls = new Set<string>();
+
+    await executePlaygroundStream(
+      currentRequest,
+      callbacks,
+      getAccessToken,
+      signal,
+      {
+        onToolCallStartInternal: (toolCallId, toolName) => {
+          pendingToolCalls.set(toolCallId, { name: toolName, argFragments: [] });
+        },
+        onToolCallArgsInternal: (toolCallId, delta) => {
+          const tc = pendingToolCalls.get(toolCallId);
+          if (tc) tc.argFragments.push(delta);
+        },
+        onToolCallResultInternal: (toolCallId) => {
+          serverResolvedToolCalls.add(toolCallId);
+        },
+      },
+    );
+
+    // Determine which tool calls need client-side execution
+    const frontendPendingCalls: Array<{
+      toolCallId: string;
+      name: string;
+      args: string;
+    }> = [];
+
+    if (frontendTools && frontendTools.size > 0) {
+      for (const [toolCallId, tc] of pendingToolCalls) {
+        if (serverResolvedToolCalls.has(toolCallId)) continue;
+        if (frontendTools.has(tc.name)) {
+          frontendPendingCalls.push({
+            toolCallId,
+            name: tc.name,
+            args: tc.argFragments.join(''),
+          });
+        }
+      }
+    }
+
+    // If no frontend tool calls need execution, we're done
+    if (frontendPendingCalls.length === 0) break;
+
+    rerunCount++;
+    if (rerunCount > maxToolReruns) {
+      console.warn(`Playground client: reached max tool re-runs (${maxToolReruns}), stopping.`);
+      break;
+    }
+
+    // Execute frontend tools and append results as messages for the re-run
+    const toolResultMessages: PlaygroundMessage[] = [];
+    for (const call of frontendPendingCalls) {
+      const registration = frontendTools!.get(call.name)!;
+      let result: string;
+
+      try {
+        const parsedArgs = call.args ? JSON.parse(call.args) : {};
+        result = await registration.handler(parsedArgs, {
+          toolCallId: call.toolCallId,
+          toolCallName: call.name,
+        });
+      } catch (err) {
+        result = err instanceof Error ? err.message : String(err);
+      }
+
+      callbacks.onToolResult?.(call.toolCallId, result);
+      toolResultMessages.push({
+        role: 'assistant',
+        content: `[Tool ${call.name} result: ${result}]`,
+      });
+    }
+
+    // Re-run with tool results appended
+    currentRequest = {
+      ...currentRequest,
+      messages: [...currentRequest.messages, ...toolResultMessages],
+    };
+  }
+}
+
+/** Execute a single playground stream request. */
+async function executePlaygroundStream(
+  request: PlaygroundRunRequest,
+  callbacks: PlaygroundStreamCallbacks,
+  getAccessToken: () => Promise<string | null>,
+  signal?: AbortSignal,
+  internalCallbacks?: {
+    onToolCallStartInternal?: (toolCallId: string, toolName: string) => void;
+    onToolCallArgsInternal?: (toolCallId: string, delta: string) => void;
+    onToolCallResultInternal?: (toolCallId: string) => void;
+  },
+): Promise<void> {
   const token = await getAccessToken();
   const selectedTenant = getSelectedTenant();
 
@@ -119,7 +278,7 @@ export async function streamPlaygroundRun(
           if (currentData !== null) {
             try {
               const event = JSON.parse(currentData);
-              dispatchEvent(event, callbacks);
+              dispatchEvent(event, callbacks, internalCallbacks);
             } catch {
               console.warn('Failed to parse playground event:', currentData);
             }
@@ -137,7 +296,7 @@ export async function streamPlaygroundRun(
     if (currentData !== null) {
       try {
         const event = JSON.parse(currentData);
-        dispatchEvent(event, callbacks);
+        dispatchEvent(event, callbacks, internalCallbacks);
       } catch {
         console.warn('Failed to parse final playground event:', currentData);
       }
@@ -155,6 +314,11 @@ const toolCallArgs = new Map<string, string[]>();
 function dispatchEvent(
   event: Record<string, unknown>,
   callbacks: PlaygroundStreamCallbacks,
+  internalCallbacks?: {
+    onToolCallStartInternal?: (toolCallId: string, toolName: string) => void;
+    onToolCallArgsInternal?: (toolCallId: string, delta: string) => void;
+    onToolCallResultInternal?: (toolCallId: string) => void;
+  },
 ): void {
   switch (event.type) {
     case 'RUN_STARTED':
@@ -167,15 +331,19 @@ function dispatchEvent(
 
     case 'TOOL_CALL_START': {
       const toolCallId = event.toolCallId as string;
+      const toolName = event.toolCallName as string;
       toolCallArgs.set(toolCallId, []);
-      callbacks.onToolCall?.(toolCallId, event.toolCallName as string);
+      callbacks.onToolCall?.(toolCallId, toolName);
+      internalCallbacks?.onToolCallStartInternal?.(toolCallId, toolName);
       break;
     }
 
     case 'TOOL_CALL_ARGS': {
       const id = event.toolCallId as string;
+      const delta = event.delta as string;
       const fragments = toolCallArgs.get(id);
-      if (fragments) fragments.push(event.delta as string);
+      if (fragments) fragments.push(delta);
+      internalCallbacks?.onToolCallArgsInternal?.(id, delta);
       break;
     }
 
@@ -195,16 +363,28 @@ function dispatchEvent(
         event.toolCallId as string,
         event.content as string,
       );
+      internalCallbacks?.onToolCallResultInternal?.(event.toolCallId as string);
       break;
 
     case 'RUN_FINISHED': {
-      const metrics: PlaygroundRunMetrics = event.metrics
-        ? (event.metrics as PlaygroundRunMetrics)
+      const rawMetrics = event.metrics as Record<string, unknown> | undefined;
+      const metrics: PlaygroundRunMetrics = rawMetrics
+        ? {
+            inputTokens: (rawMetrics.inputTokens as number) ?? 0,
+            outputTokens: (rawMetrics.outputTokens as number) ?? 0,
+            totalTokens: (rawMetrics.totalTokens as number) ?? 0,
+            latencyMs: (rawMetrics.latencyMs as number) ?? 0,
+            estimatedCostUsd: rawMetrics.estimatedCostUsd as number | undefined,
+            modelName: (rawMetrics.modelName ?? event.modelName) as string | undefined,
+            modelId: (rawMetrics.modelId ?? event.modelId) as string | undefined,
+          }
         : {
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,
             latencyMs: 0,
+            modelName: event.modelName as string | undefined,
+            modelId: event.modelId as string | undefined,
           };
       callbacks.onRunFinished?.(metrics);
       break;

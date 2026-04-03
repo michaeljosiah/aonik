@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import {
   FlaskConical,
   Plus,
@@ -21,6 +21,10 @@ import { PlaygroundMessageBlock } from './playground/PlaygroundMessageBlock';
 import { PlaygroundOutputPanel } from './playground/PlaygroundOutputPanel';
 import { ModelComparisonView, type ModelComparisonViewHandle } from './playground/ModelComparisonView';
 import { RunHistoryPanel } from './playground/RunHistoryPanel';
+import type {
+  PlaygroundFrontendToolRegistration,
+  PlaygroundFrontendToolHandler,
+} from '@/lib/playground-client';
 import {
   Popover,
   PopoverTrigger,
@@ -60,6 +64,51 @@ export function AiPlaygroundPage() {
     { id: `msg-${Date.now()}`, role: 'user', content: '' },
   ]);
 
+  // ── Frontend tools (same as main chat AG-UI process) ────────────────────
+  const frontendTools = useMemo(() => {
+    const map = new Map<string, PlaygroundFrontendToolRegistration>();
+
+    // confirmAction — request user approval before mutating actions
+    const confirmHandler: PlaygroundFrontendToolHandler = async (args) => {
+      const action = (args.action as string) ?? 'Unknown action';
+      const description = (args.description as string) ?? '';
+      const severity = (args.severity as string) ?? 'medium';
+      const approved = window.confirm(
+        `[${severity.toUpperCase()}] ${action}\n\n${description}\n\nApprove this action?`,
+      );
+      return approved ? 'approved' : 'rejected';
+    };
+    map.set('confirmAction', {
+      tool: {
+        name: 'confirmAction',
+        description:
+          'Request user approval before executing a mutating action. The user will see an approval dialog with Approve/Reject options. Use this for any action that creates, modifies, or deletes data.',
+        parameters: {
+          type: 'object',
+          properties: {
+            action: {
+              type: 'string',
+              description: 'Short name of the action (e.g., "Create Invoice", "Cancel Payment")',
+            },
+            description: {
+              type: 'string',
+              description: 'Detailed description of what will happen if approved',
+            },
+            severity: {
+              type: 'string',
+              enum: ['low', 'medium', 'high'],
+              description: 'Risk level of the action. Defaults to medium.',
+            },
+          },
+          required: ['action', 'description'],
+        },
+      },
+      handler: confirmHandler,
+    });
+
+    return map;
+  }, []);
+
   const {
     config,
     updateConfig,
@@ -73,7 +122,7 @@ export function AiPlaygroundPage() {
     resetChat,
     addRunRecord,
     clearHistory,
-  } = usePlaygroundChat();
+  } = usePlaygroundChat(frontendTools);
 
   // ── Agent change handler ────────────────────────────────────────────────
 
@@ -96,6 +145,7 @@ export function AiPlaygroundPage() {
           systemPrompt: agentConfig.instructionsText ?? '',
           enabledToolNames: tools,
           modelId: agentConfig.modelId ?? null,
+          modelName: agentConfig.modelName ?? null,
         });
       } else {
         setAllTools([]);
@@ -107,6 +157,7 @@ export function AiPlaygroundPage() {
           systemPrompt: '',
           enabledToolNames: [],
           modelId: null,
+          modelName: null,
         });
       }
       resetChat();
@@ -213,7 +264,7 @@ export function AiPlaygroundPage() {
         <ModelSelector
           compact
           value={config.modelId}
-          onChange={(id) => updateConfig({ modelId: id })}
+          onChange={(id, name) => updateConfig({ modelId: id, modelName: name ?? null })}
         />
 
         <div className="mx-1 h-5 w-px bg-[var(--color-border-light)]" />
@@ -354,6 +405,7 @@ export function AiPlaygroundPage() {
         isStreaming={isStreaming}
         streamError={streamError}
         metrics={metrics}
+        modelName={config.modelName}
         onAddToMessages={handleAddOutputToMessages}
       />
 

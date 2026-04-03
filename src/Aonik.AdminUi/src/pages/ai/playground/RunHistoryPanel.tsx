@@ -52,6 +52,7 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
               <tr className="border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
                 <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Time</th>
                 <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Agent</th>
+                <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Model</th>
                 <th className="px-5 py-1.5 text-left font-medium text-[var(--color-text-secondary)]">Message</th>
                 <th className="px-5 py-1.5 text-right font-medium text-[var(--color-text-secondary)]">In</th>
                 <th className="px-5 py-1.5 text-right font-medium text-[var(--color-text-secondary)]">Out</th>
@@ -74,6 +75,9 @@ export function RunHistoryPanel({ runs, onClear, onSelect }: RunHistoryPanelProp
                   </td>
                   <td className="px-5 py-1.5 text-[var(--color-text-primary)]">
                     {run.agentName ?? 'Raw'}
+                  </td>
+                  <td className="max-w-[150px] truncate px-5 py-1.5 text-[var(--color-text-tertiary)]">
+                    {run.modelName ?? run.modelId ?? 'Default'}
                   </td>
                   <td className="max-w-[200px] truncate px-5 py-1.5 text-[var(--color-text-primary)]">
                     {run.userMessage}

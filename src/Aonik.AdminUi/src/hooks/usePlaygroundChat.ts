@@ -3,6 +3,7 @@ import {
   streamPlaygroundRun,
   type PlaygroundRunMetrics,
   type PlaygroundMessage,
+  type PlaygroundFrontendToolRegistration,
 } from '@/lib/playground-client';
 import type { PlaygroundRunRecord } from '@/types/ai';
 import { useAuth } from '@/auth';
@@ -11,6 +12,7 @@ export interface PlaygroundConfig {
   agentName: string | null;
   systemPrompt: string;
   modelId: string | null;
+  modelName: string | null;
   userBriefJson: string | null;
   enabledToolNames: string[];
   temperature: number;
@@ -23,7 +25,9 @@ interface ChatMessage {
   content: string;
 }
 
-export function usePlaygroundChat() {
+export function usePlaygroundChat(
+  frontendTools?: Map<string, PlaygroundFrontendToolRegistration>,
+) {
   const { getAccessToken } = useAuth();
 
   // Config state
@@ -31,9 +35,10 @@ export function usePlaygroundChat() {
     agentName: null,
     systemPrompt: '',
     modelId: null,
+    modelName: null,
     userBriefJson: null,
     enabledToolNames: [],
-    temperature: 0.7,
+    temperature: 1,
     maxTokens: 2048,
   });
 
@@ -97,6 +102,7 @@ export function usePlaygroundChat() {
                 id: `run-${Date.now()}`,
                 timestamp: new Date(),
                 modelId: config.modelId ?? undefined,
+                modelName: runMetrics.modelName ?? config.modelName ?? undefined,
                 agentName: config.agentName ?? undefined,
                 systemPrompt: config.systemPrompt,
                 userMessage: userMsg?.content ?? '',
@@ -111,6 +117,7 @@ export function usePlaygroundChat() {
           },
           getAccessToken,
           signal: controller.signal,
+          frontendTools,
         });
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
@@ -121,7 +128,7 @@ export function usePlaygroundChat() {
         abortRef.current = null;
       }
     },
-    [config, isStreaming, getAccessToken],
+    [config, isStreaming, getAccessToken, frontendTools],
   );
 
   // ── Send message (compare-mode: chat-style) ───────────────────────────────
@@ -191,6 +198,7 @@ export function usePlaygroundChat() {
                 id: `run-${Date.now()}`,
                 timestamp: new Date(),
                 modelId: config.modelId ?? undefined,
+                modelName: runMetrics.modelName ?? config.modelName ?? undefined,
                 agentName: config.agentName ?? undefined,
                 systemPrompt: config.systemPrompt,
                 userMessage: text.trim(),
@@ -205,6 +213,7 @@ export function usePlaygroundChat() {
           },
           getAccessToken,
           signal: controller.signal,
+          frontendTools,
         });
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
@@ -215,7 +224,7 @@ export function usePlaygroundChat() {
         abortRef.current = null;
       }
     },
-    [config, messages, isStreaming, getAccessToken],
+    [config, messages, isStreaming, getAccessToken, frontendTools],
   );
 
   const stopStreaming = useCallback(() => {
