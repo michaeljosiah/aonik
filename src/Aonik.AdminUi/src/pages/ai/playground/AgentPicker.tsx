@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { agentConfigService } from '@/services/aiService';
 import type { AgentConfigurationResponse } from '@/types/ai';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -32,7 +33,14 @@ export function AgentPicker({ value, onChange, compact = false }: AgentPickerPro
       const config = await agentConfigService.get(name);
       onChange(name, config);
     } catch {
-      onChange(name);
+      // Config fetch failed — fall back to list data so the agent stays selected
+      const fromList = agents.find((a) => a.name === name);
+      if (fromList) {
+        onChange(name, fromList);
+        toast.warning('Could not load full agent config — using cached data');
+      } else {
+        toast.error('Failed to load agent configuration');
+      }
     }
   };
 
