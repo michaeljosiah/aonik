@@ -360,6 +360,11 @@ app.MapAguiStreaming("/ai/agui")
     .RequireAuthorization("AdminUserPolicy")
     .RequireCors("AonikCors");
 
+// 7. AI Playground streaming endpoint (admin-only, ephemeral — no thread persistence)
+app.MapPlaygroundStreaming("/ai/playground/run")
+    .RequireAuthorization("AdminUserPolicy")
+    .RequireCors("AonikCors");
+
 app.MapAdminNotificationStreaming("/admin/notifications/stream")
     .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");

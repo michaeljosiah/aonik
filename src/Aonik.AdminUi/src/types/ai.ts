@@ -231,6 +231,26 @@ export interface UpdateRoutePolicyRequest {
   isActive?: boolean | null;
 }
 
+// ── Playground types ───────────────────────────────────────────────
+
+export interface PlaygroundRunRecord {
+  id: string;
+  timestamp: Date;
+  modelId?: string;
+  modelName?: string;
+  agentName?: string;
+  systemPrompt: string;
+  userMessage: string;
+  assistantResponse: string;
+  metrics: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    latencyMs: number;
+    estimatedCostUsd?: number;
+  };
+}
+
 // ── API response wrappers ───────────────────────────────────────────
 
 export interface ListAiProvidersResponse {
