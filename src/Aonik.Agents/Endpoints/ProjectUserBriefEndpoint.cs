@@ -27,7 +27,7 @@ internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefReques
     public override void Configure()
     {
         Post("/ai/playground/user-brief");
-        Policies("AdminUserPolicy");
+        Policies("AdminPolicy");
     }
 
     public override async Task HandleAsync(ProjectUserBriefRequest req, CancellationToken ct)
