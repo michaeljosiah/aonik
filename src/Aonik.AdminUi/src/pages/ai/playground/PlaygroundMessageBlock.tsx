@@ -27,6 +27,8 @@ interface PlaygroundMessageBlockProps {
   agentName?: string | null;
   /** Default prompt from agent config — enables Reset */
   defaultPrompt?: string | null;
+  /** Called after a successful save so the parent can update the baseline */
+  onDefaultPromptSaved?: (newDefault: string) => void;
 }
 
 export function PlaygroundMessageBlock({
@@ -40,6 +42,7 @@ export function PlaygroundMessageBlock({
   roleFixed = false,
   agentName,
   defaultPrompt,
+  onDefaultPromptSaved,
 }: PlaygroundMessageBlockProps) {
   const [saving, setSaving] = useState(false);
   const tokenEstimate = Math.round(content.length / 4);
@@ -52,6 +55,7 @@ export function PlaygroundMessageBlock({
     setSaving(true);
     try {
       await agentConfigService.upsert(agentName, { instructionsText: content });
+      onDefaultPromptSaved?.(content);
       toast.success('Saved prompt to agent config');
     } catch (err) {
       toast.error(`Save failed: ${(err as Error).message}`);

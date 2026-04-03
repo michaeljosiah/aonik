@@ -310,6 +310,7 @@ export function AiPlaygroundPage() {
           roleFixed
           agentName={config.agentName}
           defaultPrompt={defaultPromptRef.current}
+          onDefaultPromptSaved={(saved) => { defaultPromptRef.current = saved; }}
         />
 
         {/* User / assistant message blocks */}
