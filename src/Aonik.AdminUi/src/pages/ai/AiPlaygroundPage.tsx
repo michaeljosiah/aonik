@@ -18,7 +18,7 @@ import { UserBriefPicker } from './playground/UserBriefPicker';
 import { ToolToggleList } from './playground/ToolToggleList';
 import { PlaygroundMessageBlock } from './playground/PlaygroundMessageBlock';
 import { PlaygroundOutputPanel } from './playground/PlaygroundOutputPanel';
-import { ModelComparisonView } from './playground/ModelComparisonView';
+import { ModelComparisonView, type ModelComparisonViewHandle } from './playground/ModelComparisonView';
 import { RunHistoryPanel } from './playground/RunHistoryPanel';
 import {
   Popover,
@@ -51,6 +51,7 @@ export function AiPlaygroundPage() {
   const [mode, setMode] = useState<'single' | 'compare'>('single');
   const [allTools, setAllTools] = useState<string[]>([]);
   const defaultPromptRef = useRef<string | null>(null);
+  const compareRef = useRef<ModelComparisonViewHandle>(null);
 
   // Editable user/assistant messages (system prompt is in config)
   const [editableMessages, setEditableMessages] = useState<EditableMessage[]>([
@@ -167,6 +168,8 @@ export function AiPlaygroundPage() {
   const handleResetPlayground = () => {
     setEditableMessages([{ id: `msg-${Date.now()}`, role: 'user', content: '' }]);
     resetChat();
+    // Also reset compare view's internal chat hooks
+    compareRef.current?.resetBoth();
   };
 
   // ── Compare mode ────────────────────────────────────────────────────────
@@ -179,7 +182,7 @@ export function AiPlaygroundPage() {
           onModeChange={setMode}
           onReset={handleResetPlayground}
         />
-        <ModelComparisonView sharedConfig={config} />
+        <ModelComparisonView ref={compareRef} sharedConfig={config} />
         <RunHistoryPanel runs={runHistory} onClear={clearHistory} />
       </div>
     );

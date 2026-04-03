@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { ModelSelector } from './ModelSelector';
 import { PlaygroundChatPanel } from './PlaygroundChatPanel';
 import { usePlaygroundChat, type PlaygroundConfig } from '@/hooks/usePlaygroundChat';
@@ -9,7 +9,14 @@ interface ModelComparisonViewProps {
   sharedConfig: PlaygroundConfig;
 }
 
-export function ModelComparisonView({ sharedConfig }: ModelComparisonViewProps) {
+export interface ModelComparisonViewHandle {
+  resetBoth: () => void;
+}
+
+export const ModelComparisonView = forwardRef<
+  ModelComparisonViewHandle,
+  ModelComparisonViewProps
+>(function ModelComparisonView({ sharedConfig }, ref) {
   const [modelA, setModelA] = useState<string | null>(null);
   const [modelB, setModelB] = useState<string | null>(null);
   const [sharedDraft, setSharedDraft] = useState('');
@@ -34,7 +41,11 @@ export function ModelComparisonView({ sharedConfig }: ModelComparisonViewProps) 
   const handleResetBoth = () => {
     chatA.resetChat();
     chatB.resetChat();
+    setSharedDraft('');
   };
+
+  // Expose reset to the parent so the header's "Reset playground" works
+  useImperativeHandle(ref, () => ({ resetBoth: handleResetBoth }), [handleResetBoth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex h-full flex-col">
@@ -96,4 +107,4 @@ export function ModelComparisonView({ sharedConfig }: ModelComparisonViewProps) 
       </form>
     </div>
   );
-}
+});

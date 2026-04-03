@@ -79,10 +79,7 @@ export function usePlaygroundChat() {
             systemPrompt: config.systemPrompt || undefined,
             modelId: config.modelId ?? undefined,
             userBriefJson: config.userBriefJson ?? undefined,
-            enabledToolNames:
-              config.enabledToolNames.length > 0
-                ? config.enabledToolNames
-                : undefined,
+            enabledToolNames: config.enabledToolNames,
             messages: msgs,
             temperature: config.temperature,
             maxTokens: config.maxTokens,
@@ -167,10 +164,7 @@ export function usePlaygroundChat() {
             systemPrompt: config.systemPrompt || undefined,
             modelId: config.modelId ?? undefined,
             userBriefJson: config.userBriefJson ?? undefined,
-            enabledToolNames:
-              config.enabledToolNames.length > 0
-                ? config.enabledToolNames
-                : undefined,
+            enabledToolNames: config.enabledToolNames,
             messages: playgroundMessages,
             temperature: config.temperature,
             maxTokens: config.maxTokens,
