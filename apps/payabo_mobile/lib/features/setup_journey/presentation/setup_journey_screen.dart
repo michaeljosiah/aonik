@@ -268,6 +268,8 @@ class SetupJourneyScreen extends ConsumerWidget {
         return;
       } else if (choice == SetupConnectChoice.connectNigerianBank) {
         _onConnectNigerianBank(context);
+        controller.nextStep();
+        return;
       }
     }
 

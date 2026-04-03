@@ -125,6 +125,8 @@ class DisplayWidget {
   final Map<String, dynamic> data;
 }
 
+const Object _chatCopySentinel = Object();
+
 /// Immutable state for the chat feature.
 class ChatState {
   const ChatState({
@@ -187,7 +189,7 @@ class ChatState {
     List<ActiveToolCall>? activeToolCalls,
     List<PendingApproval>? pendingApprovals,
     List<DisplayWidget>? displayWidgets,
-    String? errorMessage,
+    Object? errorMessage = _chatCopySentinel,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -198,7 +200,9 @@ class ChatState {
       activeToolCalls: activeToolCalls ?? this.activeToolCalls,
       pendingApprovals: pendingApprovals ?? this.pendingApprovals,
       displayWidgets: displayWidgets ?? this.displayWidgets,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: errorMessage == _chatCopySentinel
+          ? this.errorMessage
+          : errorMessage as String?,
     );
   }
 

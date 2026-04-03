@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 
 import '../../../shared/theme/payabo_color_resolver.dart';
 
-const String spendingBudgetMonthLabel = 'March 2026';
+String get spendingBudgetMonthLabel =>
+    DateFormat('MMMM yyyy').format(DateTime.now());
 
 enum SpendingBudgetColorRole {
   primary,
@@ -412,19 +413,6 @@ const List<SpendingBudgetHistoryPoint> _emptyHistory =
   SpendingBudgetHistoryPoint(label: 'Dec', amount: 0),
 ];
 
-final NumberFormat _spendingBudgetWholeCurrencyFormatter =
-    NumberFormat.currency(
-  locale: 'en_GB',
-  symbol: '£',
-  decimalDigits: 0,
-);
-
-final NumberFormat _spendingBudgetDecimalCurrencyFormatter =
-    NumberFormat.currency(
-  locale: 'en_GB',
-  symbol: '£',
-  decimalDigits: 2,
-);
 
 class SpendingBudgetSummary {
   const SpendingBudgetSummary({
@@ -697,9 +685,13 @@ String formatSpendingBudgetCurrency(double amount) {
   final double roundedAmount = amount.roundToDouble();
   final bool isWholeAmount = (amount - roundedAmount).abs() < 0.005;
 
-  return isWholeAmount
-      ? _spendingBudgetWholeCurrencyFormatter.format(amount)
-      : _spendingBudgetDecimalCurrencyFormatter.format(amount);
+  final formatter = NumberFormat.currency(
+    locale: 'en_GB',
+    symbol: '\u00a3',
+    decimalDigits: isWholeAmount ? 0 : 2,
+  );
+
+  return formatter.format(amount);
 }
 
 List<SpendingBudgetCategory> cloneSpendingBudgetCategories(

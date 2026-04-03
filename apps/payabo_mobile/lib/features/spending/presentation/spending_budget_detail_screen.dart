@@ -31,7 +31,18 @@ class SpendingBudgetDetailScreen extends ConsumerStatefulWidget {
 
 class _SpendingBudgetDetailScreenState
     extends ConsumerState<SpendingBudgetDetailScreen> {
-  static const double _amountStep = 25;
+  static const Map<String, double> _currencySteps = <String, double>{
+    'GBP': 25,
+    'USD': 25,
+    'EUR': 25,
+    'GHS': 50,
+    'NGN': 1000,
+  };
+  static const double _defaultAmountStep = 25;
+
+  // TODO: derive from user's profile currency when available
+  double get _resolvedAmountStep =>
+      _currencySteps['GBP'] ?? _defaultAmountStep;
 
   late String _selectedBudgetId;
   late double _draftAmount;
@@ -113,8 +124,8 @@ class _SpendingBudgetDetailScreenState
                       categories: loadedCategories,
                       selectedCategory: currentCategory,
                       draftAmount: _draftAmount,
-                      onDecrease: () => _adjustBudget(-_amountStep),
-                      onIncrease: () => _adjustBudget(_amountStep),
+                      onDecrease: () => _adjustBudget(-_resolvedAmountStep),
+                      onIncrease: () => _adjustBudget(_resolvedAmountStep),
                       onSelectCategory: _showCategoryPicker,
                       onViewTransactions: () =>
                           _handleViewTransactions(currentCategory),
@@ -862,7 +873,7 @@ class _BudgetHistoryCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Year 2026',
+                  'Year ${DateTime.now().year}',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: c.accentBrown,
                         fontWeight: FontWeight.w700,

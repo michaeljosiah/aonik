@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -119,13 +120,15 @@ class _CheckoutCardScreenState extends ConsumerState<CheckoutCardScreen> {
       if (mounted) {
         context.go('/payments/thank-you');
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _error = 'Unable to confirm payment right now. Please try again.';
+        _error = e is ApiException
+            ? e.message
+            : 'Unable to confirm payment right now. Please try again.';
       });
     } finally {
       if (mounted) {

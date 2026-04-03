@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/dashboard_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
@@ -26,24 +27,54 @@ class OrderDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
 
+    final c = context.colors;
+
     return PayaboWarmScaffold(
-      body: summaryAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Text('Failed to load order details: $error'),
-        ),
-        data: (summary) {
-          final order = summary.recentOrders.cast<DashboardRecentOrder?>().firstWhere(
-            (o) => o!.id == orderId,
-            orElse: () => null,
-          );
+      body: Column(
+        children: <Widget>[
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: PayaboSpacing.sm,
+                top: PayaboSpacing.sm,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back_rounded, color: c.headerTitle),
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/');
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: summaryAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Text('Failed to load order details: $error'),
+              ),
+              data: (summary) {
+                final order = summary.recentOrders.cast<DashboardRecentOrder?>().firstWhere(
+                  (o) => o!.id == orderId,
+                  orElse: () => null,
+                );
 
-          if (order == null) {
-            return const Center(child: Text('Order not found'));
-          }
+                if (order == null) {
+                  return const Center(child: Text('Order not found'));
+                }
 
-          return _OrderDetailBody(order: order);
-        },
+                return _OrderDetailBody(order: order);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

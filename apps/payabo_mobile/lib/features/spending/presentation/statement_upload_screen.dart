@@ -160,7 +160,11 @@ class _StatementUploadScreenState
                         !accounts.any(
                           (AccountLinkItem a) => a.id == _selectedAccountId,
                         )) {
-                      _selectedAccountId = null;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() => _selectedAccountId = null);
+                        }
+                      });
                     }
 
                     return Container(

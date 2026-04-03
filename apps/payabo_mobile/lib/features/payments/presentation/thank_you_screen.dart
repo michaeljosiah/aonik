@@ -146,6 +146,12 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
       await ref
           .read(paymentFlowControllerProvider.notifier)
           .refreshPaymentStatus(ref.read(paymentRepositoryProvider));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not refresh payment status.')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {

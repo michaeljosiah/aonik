@@ -73,10 +73,25 @@ class _PayActivityScreenState extends ConsumerState<PayActivityScreen> {
     }
 
     // Filter by chip
-    if (_selectedFilterIndex == 3) {
-      filtered = filtered
-          .where((t) => t.status.toLowerCase() == 'failed')
-          .toList();
+    switch (_selectedFilterIndex) {
+      case 0: // Today
+        filtered = filtered
+            .where((t) => t.dateGroupLabel.toUpperCase() == 'TODAY')
+            .toList();
+        break;
+      case 1: // This week
+        const weekLabels = <String>{'TODAY', 'YESTERDAY', 'THIS WEEK'};
+        filtered = filtered
+            .where((t) => weekLabels.contains(t.dateGroupLabel.toUpperCase()))
+            .toList();
+        break;
+      case 2: // This month — show all
+        break;
+      case 3: // Failed
+        filtered = filtered
+            .where((t) => t.status.toLowerCase() == 'failed')
+            .toList();
+        break;
     }
 
     return _groupTransactions(filtered);

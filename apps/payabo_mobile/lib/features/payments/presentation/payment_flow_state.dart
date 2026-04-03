@@ -192,11 +192,11 @@ class PaymentFlowState {
     List<PaymentFriend> friends = const <PaymentFriend>[],
   }) {
     return PaymentFlowState(
-      countryCode: 'GH',
+      countryCode: '',
       providerId: '',
       providerName: '',
       category: 'All',
-      serviceType: 'Montage Cable TV',
+      serviceType: '',
       smartCardId: '',
       contactReference: '',
       amount: '',
@@ -765,6 +765,9 @@ final FutureProvider<PricingBreakdown> paymentPricingBreakdownProvider =
     FutureProvider<PricingBreakdown>(
   (Ref ref) async {
     final orderId = ref.watch(paymentOrderIdProvider);
+    if (orderId.isEmpty) {
+      return const PricingBreakdown(lines: <PricingLine>[]);
+    }
     final repository = ref.watch(orderRepositoryProvider);
     return repository.getPricingBreakdown(orderId);
   },
@@ -774,6 +777,13 @@ final FutureProvider<OrderPointsSummary> paymentPointsSummaryProvider =
     FutureProvider<OrderPointsSummary>(
   (Ref ref) async {
     final orderId = ref.watch(paymentOrderIdProvider);
+    if (orderId.isEmpty) {
+      return const OrderPointsSummary(
+        pointsEarned: 0,
+        totalPoints: 0,
+        pointsLabel: '',
+      );
+    }
     final repository = ref.watch(orderRepositoryProvider);
     return repository.getPointsSummary(orderId);
   },

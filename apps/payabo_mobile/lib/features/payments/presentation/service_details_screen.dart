@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../data/api/api_exception.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_spacing.dart';
@@ -281,14 +282,17 @@ class _ServiceDetailsScreenState extends ConsumerState<ServiceDetailsScreen> {
       if (mounted) {
         context.go('/payments/payment-selection');
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) {
         return;
       }
 
+      final message = e is ApiException
+          ? e.message
+          : 'Unable to save service details right now. Please try again.';
+
       setState(() {
-        _validationMessage =
-            'Unable to save service details right now. Please try again.';
+        _validationMessage = message;
       });
     } finally {
       if (mounted) {

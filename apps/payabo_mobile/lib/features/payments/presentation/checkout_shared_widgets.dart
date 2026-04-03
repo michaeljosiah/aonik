@@ -93,23 +93,50 @@ class CheckoutPricingBreakdown extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final breakdownAsync = ref.watch(paymentPricingBreakdownProvider);
-    final lines = breakdownAsync.value?.lines ?? const <PricingLine>[];
 
-    return PayaboCard(
-      child: Column(
-        children: <Widget>[
-          for (final line in lines) ...<Widget>[
-            if (line.isDivider) Divider(color: c.border, height: 28),
-            CheckoutPriceLine(
-              label: line.label,
-              value: line.value,
-              bold: line.bold,
-              subtle: line.subtle,
-              accent: line.accent,
+    return breakdownAsync.when(
+      loading: () => PayaboCard(
+        child: Padding(
+          padding: const EdgeInsets.all(PayaboSpacing.lg),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: c.muted),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
+      error: (_, __) => PayaboCard(
+        child: Padding(
+          padding: const EdgeInsets.all(PayaboSpacing.md),
+          child: Text(
+            'Unable to load pricing details.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: c.danger,
+                ),
+          ),
+        ),
+      ),
+      data: (breakdown) {
+        final lines = breakdown.lines;
+        return PayaboCard(
+          child: Column(
+            children: <Widget>[
+              for (final line in lines) ...<Widget>[
+                if (line.isDivider) Divider(color: c.border, height: 28),
+                CheckoutPriceLine(
+                  label: line.label,
+                  value: line.value,
+                  bold: line.bold,
+                  subtle: line.subtle,
+                  accent: line.accent,
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

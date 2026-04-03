@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
+import '../../../data/repositories/personal_transactions_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
 import '../../../data/repositories/spending_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
@@ -89,23 +90,61 @@ class _TransactionDetailScreenState
   late String _currentCategory;
   String? _currentSubCategory;
 
+  // Deep-link fallback loading state
+  bool _isLoadingFromApi = false;
+  PersonalTransactionItem? _loadedTransaction;
+
+  bool get _needsRemoteLoad => widget.merchant == null;
+
   @override
   void initState() {
     super.initState();
     _currentCategory = widget.category ?? 'other';
     _currentSubCategory = widget.subCategory;
+
+    if (_needsRemoteLoad && widget.transactionId.isNotEmpty) {
+      _loadTransactionFromApi();
+    }
+  }
+
+  Future<void> _loadTransactionFromApi() async {
+    setState(() => _isLoadingFromApi = true);
+    try {
+      final repo = ref.read(personalTransactionsRepositoryProvider);
+      final txn = await repo.getTransaction(widget.transactionId);
+      if (!mounted) return;
+      if (txn != null) {
+        setState(() {
+          _loadedTransaction = txn;
+          _currentCategory = txn.category.isNotEmpty ? txn.category : 'other';
+          _currentSubCategory = txn.subCategory;
+        });
+      }
+    } catch (_) {
+      // Fallback to placeholder values
+    } finally {
+      if (mounted) setState(() => _isLoadingFromApi = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    final String merchant = widget.merchant ?? 'Unknown';
-    final String amountMajor = widget.amountMajor ?? '0';
-    final String amountMinor = widget.amountMinor ?? '.00';
+    if (_isLoadingFromApi) {
+      return Scaffold(
+        backgroundColor: c.surfaceWarm,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final txn = _loadedTransaction;
+    final String merchant = widget.merchant ?? txn?.merchant ?? 'Unknown';
+    final String amountMajor = widget.amountMajor ?? txn?.amountMajor ?? '0';
+    final String amountMinor = widget.amountMinor ?? txn?.amountMinor ?? '.00';
     final String currencySymbol = widget.currencySymbol ?? '\u00A3';
-    final bool isCredit = widget.isCredit ?? false;
-    final DateTime date = widget.date ?? DateTime.now();
+    final bool isCredit = widget.isCredit ?? txn?.isCredit ?? false;
+    final DateTime date = widget.date ?? txn?.occurredAt ?? DateTime.now();
 
     return Scaffold(
       backgroundColor: c.surfaceWarm,

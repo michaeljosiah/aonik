@@ -1054,7 +1054,11 @@ class _OverviewTrendChart extends StatelessWidget {
         minX: 0,
         maxX: spots.isEmpty ? 4 : spots.last.x,
         minY: 0,
-        maxY: 500,
+        maxY: spots.isEmpty
+            ? 500
+            : (spots.map((s) => s.y).reduce(math.max) * 1.2)
+                .ceilToDouble()
+                .clamp(100, double.infinity),
         lineTouchData: const LineTouchData(enabled: false),
         gridData: FlGridData(
           show: true,
@@ -1392,12 +1396,6 @@ class _OverviewMonthChip extends StatelessWidget {
                   color: c.accentBrown,
                   fontWeight: FontWeight.w700,
                 ),
-          ),
-          const SizedBox(width: PayaboSpacing.xs),
-          Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 18,
-            color: c.accentBrown,
           ),
         ],
       ),

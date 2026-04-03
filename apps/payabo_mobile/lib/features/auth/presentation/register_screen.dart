@@ -9,29 +9,41 @@ import '../../../shared/widgets/payabo_country_flag.dart';
 import 'auth_flow_scaffold.dart';
 import 'onboarding_flow_state.dart';
 
-class RegisterScreen extends ConsumerWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  bool _hasDefaultedCountry = false;
+
+  @override
+  Widget build(BuildContext context) {
     final c = context.colors;
     final onboardingState = ref.watch(onboardingControllerProvider);
     final registrationCountriesValue =
         ref.watch(registrationCountryOptionsProvider);
 
-    registrationCountriesValue.whenData((countries) {
-      final bool hasSelectedCountry = countries.any(
-        (country) => country.code == onboardingState.registrationCountryCode,
-      );
+    if (!_hasDefaultedCountry) {
+      registrationCountriesValue.whenData((countries) {
+        final bool hasSelectedCountry = countries.any(
+          (country) => country.code == onboardingState.registrationCountryCode,
+        );
 
-      if (!hasSelectedCountry && countries.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref
-              .read(onboardingControllerProvider.notifier)
-              .setRegistrationCountry(countries.first.code);
-        });
-      }
-    });
+        if (!hasSelectedCountry && countries.isNotEmpty) {
+          _hasDefaultedCountry = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref
+                .read(onboardingControllerProvider.notifier)
+                .setRegistrationCountry(countries.first.code);
+          });
+        } else if (hasSelectedCountry) {
+          _hasDefaultedCountry = true;
+        }
+      });
+    }
 
     final OnboardingCountry selectedCountry =
         registrationCountriesValue.maybeWhen<OnboardingCountry>(

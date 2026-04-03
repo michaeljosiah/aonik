@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -558,12 +561,19 @@ class _CategorySpendingChart extends StatelessWidget {
     final List<FlSpot> current = _toFlSpots(currentMonthSpots);
     final List<FlSpot> previous = _toFlSpots(previousMonthSpots);
 
+    final allYValues = <double>[
+      ...current.map((s) => s.y),
+      ...previous.map((s) => s.y),
+    ];
+    final dataMaxY = allYValues.isEmpty ? 60.0 : allYValues.reduce(math.max);
+    final chartMaxY = (dataMaxY * 1.2).ceilToDouble().clamp(10.0, double.infinity);
+
     return LineChart(
       LineChartData(
         minX: 1,
         maxX: 31,
         minY: 0,
-        maxY: 60,
+        maxY: chartMaxY,
         lineTouchData: const LineTouchData(enabled: false),
         gridData: const FlGridData(show: false),
         extraLinesData: ExtraLinesData(
@@ -643,13 +653,15 @@ class _CategorySpendingChart extends StatelessWidget {
   Widget _buildBottomTitle(double value, TitleMeta meta, Color textColor) {
     String? label;
     final int day = value.round();
+    final now = DateTime.now();
+    final monthAbbr = DateFormat('MMM').format(now);
 
     if (day == 1) {
-      label = '1 Mar';
+      label = '1 $monthAbbr';
     } else if (day == 16) {
-      label = '16 Mar';
+      label = '16 $monthAbbr';
     } else if (day == 31) {
-      label = '31 Mar';
+      label = '31 $monthAbbr';
     }
 
     if (label == null) {

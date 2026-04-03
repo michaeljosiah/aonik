@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/dashboard_repository.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
@@ -26,8 +27,35 @@ class BillDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(dashboardSummaryProvider);
 
+    final c = context.colors;
+
     return PayaboWarmScaffold(
-      body: summaryAsync.when(
+      body: Column(
+        children: <Widget>[
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: PayaboSpacing.sm,
+                top: PayaboSpacing.sm,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back_rounded, color: c.headerTitle),
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/');
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: summaryAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
           child: Text('Failed to load bill details: $error'),
@@ -44,6 +72,9 @@ class BillDetailScreen extends ConsumerWidget {
 
           return _BillDetailBody(bill: bill);
         },
+      ),
+          ),
+        ],
       ),
     );
   }

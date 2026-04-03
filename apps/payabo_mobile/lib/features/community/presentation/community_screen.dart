@@ -129,7 +129,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                   child: Row(
                     children: <Widget>[
                       InkWell(
-                        onTap: () => context.pop(),
+                        onTap: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
                         customBorder: const CircleBorder(),
                         child: Container(
                           width: 40,
