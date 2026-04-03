@@ -69,6 +69,7 @@ export function AiPlaygroundPage() {
     submitMessages,
     stopStreaming,
     resetChat,
+    addRunRecord,
     clearHistory,
   } = usePlaygroundChat();
 
@@ -182,7 +183,7 @@ export function AiPlaygroundPage() {
           onModeChange={setMode}
           onReset={handleResetPlayground}
         />
-        <ModelComparisonView ref={compareRef} sharedConfig={config} />
+        <ModelComparisonView ref={compareRef} sharedConfig={config} onRunRecorded={addRunRecord} />
         <RunHistoryPanel runs={runHistory} onClear={clearHistory} />
       </div>
     );

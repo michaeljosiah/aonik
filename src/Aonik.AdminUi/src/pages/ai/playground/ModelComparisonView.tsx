@@ -1,12 +1,14 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ModelSelector } from './ModelSelector';
 import { PlaygroundChatPanel } from './PlaygroundChatPanel';
 import { usePlaygroundChat, type PlaygroundConfig } from '@/hooks/usePlaygroundChat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { PlaygroundRunRecord } from '@/types/ai';
 
 interface ModelComparisonViewProps {
   sharedConfig: PlaygroundConfig;
+  onRunRecorded?: (record: PlaygroundRunRecord) => void;
 }
 
 export interface ModelComparisonViewHandle {
@@ -16,13 +18,34 @@ export interface ModelComparisonViewHandle {
 export const ModelComparisonView = forwardRef<
   ModelComparisonViewHandle,
   ModelComparisonViewProps
->(function ModelComparisonView({ sharedConfig }, ref) {
+>(function ModelComparisonView({ sharedConfig, onRunRecorded }, ref) {
   const [modelA, setModelA] = useState<string | null>(null);
   const [modelB, setModelB] = useState<string | null>(null);
   const [sharedDraft, setSharedDraft] = useState('');
 
   const chatA = usePlaygroundChat();
   const chatB = usePlaygroundChat();
+
+  // Track last-seen history length to detect new records
+  const prevLenA = useRef(0);
+  const prevLenB = useRef(0);
+
+  // Bubble new run records up to the parent's history
+  useEffect(() => {
+    if (chatA.runHistory.length > prevLenA.current) {
+      const newRecords = chatA.runHistory.slice(0, chatA.runHistory.length - prevLenA.current);
+      newRecords.forEach((r) => onRunRecorded?.(r));
+    }
+    prevLenA.current = chatA.runHistory.length;
+  }, [chatA.runHistory, onRunRecorded]);
+
+  useEffect(() => {
+    if (chatB.runHistory.length > prevLenB.current) {
+      const newRecords = chatB.runHistory.slice(0, chatB.runHistory.length - prevLenB.current);
+      newRecords.forEach((r) => onRunRecorded?.(r));
+    }
+    prevLenB.current = chatB.runHistory.length;
+  }, [chatB.runHistory, onRunRecorded]);
 
   // Sync shared config into each chat instance via effect, not during render
   useEffect(() => {

@@ -230,6 +230,10 @@ export function usePlaygroundChat() {
     setStreamError(null);
   }, []);
 
+  const addRunRecord = useCallback((record: PlaygroundRunRecord) => {
+    setRunHistory((prev) => [record, ...prev]);
+  }, []);
+
   const clearHistory = useCallback(() => {
     setRunHistory([]);
   }, []);
@@ -247,6 +251,7 @@ export function usePlaygroundChat() {
     sendMessage,
     stopStreaming,
     resetChat,
+    addRunRecord,
     clearHistory,
   };
 }

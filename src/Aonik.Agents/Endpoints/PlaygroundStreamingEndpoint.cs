@@ -343,8 +343,10 @@ public static class PlaygroundStreamingEndpoint
                 instructionsOverride = config.InstructionsText;
         }
 
-        // Apply tool filter from the playground request
-        HashSet<string>? allowedToolNames = request.EnabledToolNames is { Count: > 0 }
+        // Apply tool filter from the playground request.
+        // null  = no filter supplied → use all agent tools (default behavior)
+        // empty = operator explicitly disabled all tools → pass empty set to suppress tools
+        HashSet<string>? allowedToolNames = request.EnabledToolNames is not null
             ? new HashSet<string>(request.EnabledToolNames, StringComparer.Ordinal)
             : null;
 
