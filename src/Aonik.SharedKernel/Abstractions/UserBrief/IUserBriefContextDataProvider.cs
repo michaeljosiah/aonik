@@ -10,6 +10,15 @@ public interface IUserBriefContextDataProvider
         Guid tenantId,
         Guid userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves the primary user ID linked to a party within a tenant.
+    /// Returns null if no user is linked.
+    /// </summary>
+    Task<Guid?> GetUserIdForPartyAsync(
+        Guid tenantId,
+        Guid partyId,
+        CancellationToken cancellationToken = default);
 }
 
 public record UserBriefContextData(

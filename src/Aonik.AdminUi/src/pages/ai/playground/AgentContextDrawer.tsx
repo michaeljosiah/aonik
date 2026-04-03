@@ -41,7 +41,7 @@ export function AgentContextDrawer({
     setLoading(true);
     setError(null);
     try {
-      const brief = await playgroundService.projectUserBrief(userId.trim());
+      const brief = await playgroundService.projectUserBrief({ userId: userId.trim() });
       setLoadedBrief(JSON.stringify(brief, null, 2));
     } catch (err) {
       setError((err as Error).message);

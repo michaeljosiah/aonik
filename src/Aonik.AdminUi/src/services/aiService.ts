@@ -169,9 +169,9 @@ export const promptSpecService = {
 // ── Playground service ──────────────────────────────────────────────
 
 export const playgroundService = {
-  /** Project a real user brief by user ID (admin only). */
-  projectUserBrief: async (userId: string): Promise<unknown> => {
-    return api.post('/ai/playground/user-brief', { userId });
+  /** Project a real user brief by user ID or party ID (admin only). */
+  projectUserBrief: async (options: { userId?: string; partyId?: string }): Promise<unknown> => {
+    return api.post('/ai/playground/user-brief', options);
   },
 };
 

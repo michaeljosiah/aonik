@@ -14,6 +14,8 @@ public interface IAccessManagementService
     Task<CustomerPhotoDeleteResponse?> DeleteUserPhotoAsync(Guid userId, CancellationToken cancellationToken = default);
     Task ActivateUserAsync(Guid userId, CancellationToken cancellationToken = default);
     Task DeactivateUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<UserDiagnosticResult> DiagnoseUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<UserRepairResult> RepairUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task<PagedResult<AccessRoleSummary>> ListRolesAsync(ListRolesRequest request, CancellationToken cancellationToken = default);
     Task<AccessRoleDetail?> GetRoleAsync(Guid roleId, CancellationToken cancellationToken = default);

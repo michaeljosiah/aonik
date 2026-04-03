@@ -6,6 +6,8 @@ import type {
   PagedResult,
   UpdateUserRolesRequest,
   UpdateUserProfileRequest,
+  UserDiagnosticResult,
+  UserRepairResult,
 } from '@/types';
 
 export interface ListUsersParams {
@@ -57,5 +59,11 @@ export const userService = {
   },
   activate: async (userId: string): Promise<void> => {
     return api.post(`/admin/users/${userId}/activate`);
+  },
+  diagnose: async (userId: string): Promise<UserDiagnosticResult> => {
+    return api.get<UserDiagnosticResult>(`/admin/users/${userId}/diagnose`);
+  },
+  repair: async (userId: string): Promise<UserRepairResult> => {
+    return api.post<UserRepairResult>(`/admin/users/${userId}/repair`);
   },
 };

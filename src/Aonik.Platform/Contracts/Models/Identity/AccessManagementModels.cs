@@ -119,6 +119,23 @@ public record UpdateUserProfileRequest(
     string? Occupation
 );
 
+public record UserDiagnosticResult(
+    Guid UserId,
+    bool HasIssues,
+    List<UserDiagnosticIssue> Issues
+);
+
+public record UserDiagnosticIssue(
+    string Code,
+    string Description,
+    bool Repairable
+);
+
+public record UserRepairResult(
+    Guid UserId,
+    List<string> RepairsApplied
+);
+
 public record PermissionDefinition(
     string Key,
     string? Description,

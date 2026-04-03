@@ -22,10 +22,13 @@ import {
   MapPin,
   Camera,
   Trash2,
+  Wrench,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { userService } from '@/services/userService';
 import { EditUserProfileDialog } from '@/components/dialogs/EditUserProfileDialog';
-import type { AccessUserDetail, UpdateUserProfileRequest } from '@/types';
+import type { AccessUserDetail, UpdateUserProfileRequest, UserDiagnosticResult } from '@/types';
 
 // Detail Item Component
 function DetailItem({ label, value }: { label: string; value: string }) {
@@ -60,6 +63,34 @@ export function UserDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [diagnostic, setDiagnostic] = useState<UserDiagnosticResult | null>(null);
+  const [repairing, setRepairing] = useState(false);
+  const [repairSuccess, setRepairSuccess] = useState<string[] | null>(null);
+
+  const loadDiagnostic = useCallback(async (uid: string) => {
+    try {
+      const result = await userService.diagnose(uid);
+      setDiagnostic(result);
+    } catch {
+      // Diagnostic is best-effort; don't block the page
+    }
+  }, []);
+
+  const handleRepair = async () => {
+    if (!userId) return;
+    setRepairing(true);
+    setRepairSuccess(null);
+    try {
+      const result = await userService.repair(userId);
+      setRepairSuccess(result.repairsApplied);
+      await loadUser();
+      await loadDiagnostic(userId);
+    } catch (err) {
+      console.error('Repair failed:', err);
+    } finally {
+      setRepairing(false);
+    }
+  };
 
   const loadUser = useCallback(async () => {
     if (!userId) return;
@@ -82,7 +113,8 @@ export function UserDetailPage() {
 
   useEffect(() => {
     loadUser();
-  }, [loadUser]);
+    if (userId) loadDiagnostic(userId);
+  }, [loadUser, loadDiagnostic, userId]);
 
   const getInitials = (name?: string | null, email?: string) => {
     if (name) {
@@ -282,6 +314,66 @@ export function UserDetailPage() {
               <Button variant="ghost" size="sm" onClick={loadUser}>
                 Retry
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Diagnostic Banner */}
+      {diagnostic?.hasIssues && (
+        <div className="px-6 pt-4">
+          <Card className="border-[var(--color-warning)] bg-[var(--color-warning-light)]">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 text-[var(--color-warning)] mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                    {diagnostic.issues.length} issue{diagnostic.issues.length !== 1 ? 's' : ''} detected
+                  </p>
+                  <ul className="space-y-1">
+                    {diagnostic.issues.map((issue) => (
+                      <li key={issue.code} className="text-xs text-[var(--color-text-secondary)]">
+                        {issue.description}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {diagnostic.issues.some(i => i.repairable) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRepair}
+                    disabled={repairing}
+                    className="flex-shrink-0"
+                  >
+                    {repairing ? (
+                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <Wrench className="w-4 h-4 mr-1.5" />
+                    )}
+                    {repairing ? 'Repairing...' : 'Repair'}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Repair Success */}
+      {repairSuccess && repairSuccess.length > 0 && !diagnostic?.hasIssues && (
+        <div className="px-6 pt-4">
+          <Card className="border-[var(--color-success)] bg-[var(--color-success-light)]">
+            <CardContent className="p-4 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-[var(--color-success)]" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                  Repairs applied successfully
+                </p>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  {repairSuccess.join('. ')}.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>

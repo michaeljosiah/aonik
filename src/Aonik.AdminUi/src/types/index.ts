@@ -976,6 +976,23 @@ export interface UpdateUserProfileRequest {
   occupation?: string | null;
 }
 
+export interface UserDiagnosticResult {
+  userId: string;
+  hasIssues: boolean;
+  issues: UserDiagnosticIssue[];
+}
+
+export interface UserDiagnosticIssue {
+  code: string;
+  description: string;
+  repairable: boolean;
+}
+
+export interface UserRepairResult {
+  userId: string;
+  repairsApplied: string[];
+}
+
 export interface PermissionDefinition {
   key: string;
   description?: string | null;

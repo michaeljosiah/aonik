@@ -131,6 +131,19 @@ internal class UserProvisioningService : IUserProvisioningService
             }
 
             _dbContext.Parties.Add(party);
+
+            _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
+            {
+                Id = Guid.NewGuid(),
+                TenantId = identity.TenantId,
+                PartyId = party.Id,
+                Role = PartyRoles.Customer,
+                ContextType = "Tenant",
+                ContextId = identity.TenantId,
+                CreatedAt = now,
+                CreatedBy = currentUserId
+            });
+
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             partyCreated = true;
@@ -150,6 +163,33 @@ internal class UserProvisioningService : IUserProvisioningService
                 }),
 
                 cancellationToken);
+        }
+        else
+        {
+            // Backfill Customer role for parties created before role assignment was added
+            var hasCustomerRole = await _dbContext.PartyRoleAssignments
+                .AnyAsync(r =>
+                    r.TenantId == identity.TenantId &&
+                    r.PartyId == party.Id &&
+                    r.Role == PartyRoles.Customer,
+                    cancellationToken);
+
+            if (!hasCustomerRole)
+            {
+                _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = identity.TenantId,
+                    PartyId = party.Id,
+                    Role = PartyRoles.Customer,
+                    ContextType = "Tenant",
+                    ContextId = identity.TenantId,
+                    CreatedAt = now,
+                    CreatedBy = currentUserId
+                });
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
         }
 
         if (existingLink == null)

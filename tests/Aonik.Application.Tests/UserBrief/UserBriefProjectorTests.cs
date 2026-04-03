@@ -78,6 +78,12 @@ public class UserBriefProjectorTests
             Guid userId,
             CancellationToken cancellationToken = default)
             => Task.FromResult(Data);
+
+        public Task<Guid?> GetUserIdForPartyAsync(
+            Guid tenantId,
+            Guid partyId,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<Guid?>(Guid.NewGuid());
     }
 
     private static AgentsDbContext CreateDbContext()

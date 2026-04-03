@@ -92,6 +92,19 @@ internal sealed class UserBriefContextDataProvider : IUserBriefContextDataProvid
             SetupProfile: ParseSetupProfile(setupPayload));
     }
 
+    public async Task<Guid?> GetUserIdForPartyAsync(
+        Guid tenantId,
+        Guid partyId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.UserParties
+            .AsNoTracking()
+            .Where(link => link.TenantId == tenantId && link.PartyId == partyId)
+            .OrderByDescending(link => link.CreatedAt)
+            .Select(link => (Guid?)link.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     private static UserBriefSetupProfileData? ParseSetupProfile(string? payload)
     {
         if (string.IsNullOrWhiteSpace(payload))
