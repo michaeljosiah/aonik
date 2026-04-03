@@ -133,15 +133,25 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
     final List<SpendingAccountCard> accounts;
     final List<SpendingTransaction> transactions;
 
+    // Show a snackbar once per error transition (not on every rebuild).
+    ref.listen<AsyncValue<List<SpendingAccountCard>>>(
+      _spendingAccountsFutureProvider,
+      (previous, next) {
+        if (next.hasError && !(previous?.hasError ?? false)) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(content: Text('Could not load accounts.')),
+            );
+        }
+      },
+    );
+
     final accountsSnapshot = ref.watch(_spendingAccountsFutureProvider);
-    String? accountsError;
     accounts = accountsSnapshot.when(
       data: (List<SpendingAccountCard> data) => data,
       loading: () => const <SpendingAccountCard>[],
-      error: (Object error, _) {
-        accountsError = 'Could not load accounts.';
-        return const <SpendingAccountCard>[];
-      },
+      error: (Object error, _) => const <SpendingAccountCard>[],
     );
 
     if (accounts.isNotEmpty && _selectedAccountIndex < accounts.length) {
@@ -156,17 +166,6 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
       );
     } else {
       transactions = const <SpendingTransaction>[];
-    }
-
-    // Show error banners if API calls failed.
-    if (accountsError != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(accountsError!)));
-        }
-      });
     }
 
     final bool isEmpty = accounts.isEmpty;
