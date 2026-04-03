@@ -16,6 +16,7 @@ import { AgentPicker } from './playground/AgentPicker';
 import { ModelSelector } from './playground/ModelSelector';
 import { UserBriefPicker } from './playground/UserBriefPicker';
 import { ToolToggleList } from './playground/ToolToggleList';
+import { AgentContextDrawer } from './playground/AgentContextDrawer';
 import { PlaygroundMessageBlock } from './playground/PlaygroundMessageBlock';
 import { PlaygroundOutputPanel } from './playground/PlaygroundOutputPanel';
 import { ModelComparisonView, type ModelComparisonViewHandle } from './playground/ModelComparisonView';
@@ -50,6 +51,7 @@ const breadcrumbItems = [
 export function AiPlaygroundPage() {
   const [mode, setMode] = useState<'single' | 'compare'>('single');
   const [allTools, setAllTools] = useState<string[]>([]);
+  const [selectedAgentConfig, setSelectedAgentConfig] = useState<AgentConfigurationResponse | null>(null);
   const defaultPromptRef = useRef<string | null>(null);
   const compareRef = useRef<ModelComparisonViewHandle>(null);
 
@@ -86,6 +88,7 @@ export function AiPlaygroundPage() {
         }
 
         setAllTools(tools);
+        setSelectedAgentConfig(agentConfig);
         defaultPromptRef.current = agentConfig.instructionsText ?? '';
 
         updateConfig({
@@ -96,6 +99,7 @@ export function AiPlaygroundPage() {
         });
       } else {
         setAllTools([]);
+        setSelectedAgentConfig(null);
         defaultPromptRef.current = null;
 
         updateConfig({
@@ -254,6 +258,12 @@ export function AiPlaygroundPage() {
             />
           </PopoverContent>
         </Popover>
+
+        {/* Agent context viewer */}
+        <AgentContextDrawer
+          agentConfig={selectedAgentConfig}
+          currentUserBriefJson={config.userBriefJson}
+        />
 
         {/* Settings popover */}
         <Popover>

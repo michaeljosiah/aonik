@@ -38,6 +38,13 @@ public sealed record AgentConfigurationResponse
     public required bool IsOverride { get; init; }
 
     /// <summary>
+    /// When <c>true</c>, the AG-UI endpoint injects a projected User Brief as a
+    /// system message before the conversation history. Only user-facing product
+    /// agents (e.g. personal-finance-agent) require this.
+    /// </summary>
+    public bool RequiresUserBrief { get; init; }
+
+    /// <summary>
     /// Classifies this agent as an orchestrator or a sub-agent (domain specialist).
     /// </summary>
     public AgentType AgentType { get; init; }

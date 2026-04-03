@@ -118,6 +118,8 @@ export interface AgentConfigurationResponse {
   tenantId?: string | null;
   modelId?: string | null;
   modelName?: string | null;
+  /** When true, the agent receives a projected User Brief as a system message. */
+  requiresUserBrief: boolean;
   isOverride: boolean;
   /** 0 = SubAgent, 1 = Orchestrator */
   agentType: number;

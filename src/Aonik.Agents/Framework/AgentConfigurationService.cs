@@ -297,8 +297,12 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         };
     }
 
-    private static AgentConfigurationResponse MapToResponse(Agent agent, Guid tenantId, string? modelName = null)
+    private AgentConfigurationResponse MapToResponse(Agent agent, Guid tenantId, string? modelName = null)
     {
+        // Look up the code-based descriptor to surface RequiresUserBrief
+        var descriptor = _descriptors.FirstOrDefault(
+            d => string.Equals(d.Name, agent.Name, StringComparison.OrdinalIgnoreCase));
+
         return new AgentConfigurationResponse
         {
             Id = agent.Id,
@@ -313,6 +317,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             TenantId = agent.TenantId,
             ModelId = agent.ModelId,
             ModelName = modelName,
+            RequiresUserBrief = descriptor?.RequiresUserBrief ?? false,
             IsOverride = agent.TenantId is not null && agent.TenantId != Guid.Empty,
             AgentType = agent.AgentType,
             CreatedAt = agent.CreatedAt,
