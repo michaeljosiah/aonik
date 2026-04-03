@@ -20,6 +20,7 @@ internal class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(a => a.Description).HasMaxLength(2000);
         builder.Property(a => a.InstructionsText).HasColumnType("nvarchar(max)");
         builder.Property(a => a.RiskTier).HasMaxLength(50);
+        builder.Property(a => a.IconUrl).HasMaxLength(500);
 
         // Unique: one config per agent name per tenant (null = global)
         builder.HasIndex(a => new { a.TenantId, a.Name })

@@ -36,6 +36,12 @@ public class Agent : AuditableEntity
     public Guid? ModelId { get; set; }
 
     /// <summary>
+    /// Optional URL for the agent's display icon/avatar image.
+    /// Can be an absolute URL (CDN/external) or a relative path served by the API.
+    /// </summary>
+    public string? IconUrl { get; set; }
+
+    /// <summary>
     /// Classifies this agent as a top-level orchestrator or a sub-agent (domain specialist).
     /// Sub-agents are invoked as tools by orchestrators.
     /// Orchestrators route user messages and may inject contextual payloads (e.g. UserBrief).

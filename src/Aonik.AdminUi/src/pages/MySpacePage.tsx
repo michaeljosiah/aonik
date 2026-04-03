@@ -98,6 +98,7 @@ function mapAgentConfig(cfg: AgentConfigurationResponse): AgentCardType {
     id: cfg.id,
     name: cfg.name,
     description: cfg.description,
+    avatar: cfg.iconUrl ?? undefined,
     visibility: 'team',
     source: cfg.domain || 'Agent',
     skills: [],

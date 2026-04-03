@@ -120,6 +120,8 @@ export interface AgentConfigurationResponse {
   modelName?: string | null;
   /** When true, the agent receives a projected User Brief as a system message. */
   requiresUserBrief: boolean;
+  /** Optional URL for the agent's display icon/avatar image. */
+  iconUrl?: string | null;
   isOverride: boolean;
   /** 0 = SubAgent, 1 = Orchestrator */
   agentType: number;
@@ -135,6 +137,8 @@ export interface UpsertAgentConfigurationRequest {
   riskTier?: string | null;
   isActive?: boolean | null;
   modelId?: string | null;
+  /** Optional URL for the agent's display icon/avatar image. */
+  iconUrl?: string | null;
 }
 
 export interface AgentInfo {

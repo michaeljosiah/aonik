@@ -34,18 +34,22 @@ function VisibilityBadge({ visibility }: { visibility: VisibilityLevel }) {
   }
 }
 
-function AgentAvatar() {
+function AgentAvatar({ iconUrl }: { iconUrl?: string }) {
   return (
-    <div className="w-[60px] h-[60px] rounded-full bg-[var(--color-brand-secondary-light)] flex items-center justify-center border border-[#CFCDD9]">
-      <svg viewBox="0 0 48 48" className="w-9 h-9">
-        {/* Simple owl/agent avatar */}
-        <circle cx="24" cy="24" r="20" fill="#eb5c37" />
-        <circle cx="18" cy="20" r="6" fill="white" />
-        <circle cx="30" cy="20" r="6" fill="white" />
-        <circle cx="18" cy="20" r="3" fill="#2f2f2f" />
-        <circle cx="30" cy="20" r="3" fill="#2f2f2f" />
-        <ellipse cx="24" cy="30" rx="4" ry="3" fill="#d44a28" />
-      </svg>
+    <div className="w-[60px] h-[60px] rounded-full bg-[var(--color-brand-secondary-light)] flex items-center justify-center border border-[#CFCDD9] overflow-hidden">
+      {iconUrl ? (
+        <img src={iconUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <svg viewBox="0 0 48 48" className="w-9 h-9">
+          {/* Default owl/agent avatar */}
+          <circle cx="24" cy="24" r="20" fill="#eb5c37" />
+          <circle cx="18" cy="20" r="6" fill="white" />
+          <circle cx="30" cy="20" r="6" fill="white" />
+          <circle cx="18" cy="20" r="3" fill="#2f2f2f" />
+          <circle cx="30" cy="20" r="3" fill="#2f2f2f" />
+          <ellipse cx="24" cy="30" rx="4" ry="3" fill="#d44a28" />
+        </svg>
+      )}
     </div>
   );
 }
@@ -73,7 +77,7 @@ export function AgentCard({ agent, onChat, onClick, showConfigMeta, actions }: A
       onClick={onClick}
     >
       <div className="absolute left-4 top-4 z-[2]">
-        <AgentAvatar />
+        <AgentAvatar iconUrl={agent.avatar} />
       </div>
 
       <Card className={cn(

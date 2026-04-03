@@ -33,6 +33,11 @@ public sealed record AgentConfigurationResponse
     public string? ModelName { get; init; }
 
     /// <summary>
+    /// Optional URL for the agent's display icon/avatar image.
+    /// </summary>
+    public string? IconUrl { get; init; }
+
+    /// <summary>
     /// True if this row is a tenant-specific override rather than the global default.
     /// </summary>
     public required bool IsOverride { get; init; }
@@ -71,4 +76,10 @@ public sealed record UpsertAgentConfigurationRequest
     /// to clear the model assignment (revert to platform default).
     /// </summary>
     public Guid? ModelId { get; init; }
+
+    /// <summary>
+    /// Optional URL for the agent's display icon/avatar image.
+    /// Set to empty string to clear the icon (revert to default).
+    /// </summary>
+    public string? IconUrl { get; init; }
 }

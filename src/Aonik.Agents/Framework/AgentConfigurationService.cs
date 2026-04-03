@@ -127,6 +127,10 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             // ModelId: Guid.Empty clears the assignment; non-null sets it; null leaves unchanged
             if (request.ModelId.HasValue)
                 existing.ModelId = request.ModelId.Value == Guid.Empty ? null : request.ModelId.Value;
+
+            // IconUrl: empty string clears; non-null sets; null leaves unchanged
+            if (request.IconUrl is not null)
+                existing.IconUrl = string.IsNullOrWhiteSpace(request.IconUrl) ? null : request.IconUrl;
         }
         else
         {
@@ -159,7 +163,10 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
                 IsActive = request.IsActive
                     ?? globalDefault?.IsActive
                     ?? true,
-                ModelId = resolvedModelId
+                ModelId = resolvedModelId,
+                IconUrl = request.IconUrl is not null && !string.IsNullOrWhiteSpace(request.IconUrl)
+                    ? request.IconUrl
+                    : globalDefault?.IconUrl
             };
 
             _dbContext.Agents.Add(existing);
@@ -236,6 +243,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
                 RiskTier = hasMutatingTools ? "medium" : "low",
                 IsActive = true,
                 AgentType = AgentType.SubAgent,
+                IconUrl = ResolveDefaultIconUrl(descriptor.Name),
             };
 
             _dbContext.Agents.Add(agent);
@@ -285,6 +293,22 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         return mutationVerbs.Any(verb => toolName.Contains(verb, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Returns a placeholder icon path for system agents. These are served as static
+    /// files from the Admin UI public directory and should be replaced with final artwork.
+    /// </summary>
+    private static string? ResolveDefaultIconUrl(string agentName)
+    {
+        return agentName switch
+        {
+            "personal-finance-agent" => "/images/agents/icon-dollar.svg",
+            "finance-agent" => "/images/agents/icon-ledger.svg",
+            "financial-life-graph-agent" => "/images/agents/icon-chart.svg",
+            "platform-agent" => "/images/agents/icon-grid.svg",
+            _ => null
+        };
+    }
+
     private static string ResolveDomain(string agentName)
     {
         return agentName switch
@@ -317,6 +341,7 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             TenantId = agent.TenantId,
             ModelId = agent.ModelId,
             ModelName = modelName,
+            IconUrl = agent.IconUrl,
             RequiresUserBrief = descriptor?.RequiresUserBrief ?? false,
             IsOverride = agent.TenantId is not null && agent.TenantId != Guid.Empty,
             AgentType = agent.AgentType,

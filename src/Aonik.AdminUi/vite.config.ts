@@ -2,12 +2,13 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
+import { agentIconsManifest } from './plugins/agent-icons-manifest'
 
 const apiTarget = process.env.services__api__https__0 || process.env.services__api__http__0 || 'https://localhost:5001'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), agentIconsManifest()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

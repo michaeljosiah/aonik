@@ -44,6 +44,7 @@ import type { ColumnDef } from '@/components/ui/data-table';
 
 import type { AgentConfigurationResponse, AgentRunSummary, AiModelResponse } from '@/types/ai';
 import { agentConfigService, agentRunService, aiModelService } from '@/services/aiService';
+import { loadAgentIcons, type AgentIconOption } from '@/data/agentIcons';
 
 // ── Styles ──────────────────────────────────────────────────────────
 
@@ -133,6 +134,7 @@ interface EditState {
   isActive: boolean;
   modelId: string;
   tools: string[];
+  iconUrl: string;
 }
 
 function createEditState(agent: AgentConfigurationResponse): EditState {
@@ -143,6 +145,7 @@ function createEditState(agent: AgentConfigurationResponse): EditState {
     isActive: agent.isActive,
     modelId: agent.modelId ?? '',
     tools: parseJsonArray(agent.toolsetIdsJson),
+    iconUrl: agent.iconUrl ?? '',
   };
 }
 
@@ -164,6 +167,7 @@ export function AgentDetailPage() {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [saving, setSaving] = useState(false);
   const [newToolName, setNewToolName] = useState('');
+  const [availableIcons, setAvailableIcons] = useState<AgentIconOption[]>([]);
 
   // Runs tab
   const [runs, setRuns] = useState<AgentRunSummary[]>([]);
@@ -295,12 +299,14 @@ export function AgentDetailPage() {
 
   // ── Edit helpers ────────────────────────────────────────────────
 
-  const enterEditMode = () => {
+  const enterEditMode = async () => {
     if (!agent) return;
     setEditState(createEditState(agent));
     setNewToolName('');
     setIsEditing(true);
     setActiveTab('details');
+    const icons = await loadAgentIcons();
+    setAvailableIcons(icons);
   };
 
   const cancelEdit = () => {
@@ -341,6 +347,7 @@ export function AgentDetailPage() {
         isActive: editState.isActive,
         modelId: editState.modelId || null,
         toolsetIdsJson: JSON.stringify(editState.tools),
+        iconUrl: editState.iconUrl || null,
       });
       setIsEditing(false);
       setEditState(null);
@@ -489,8 +496,12 @@ export function AgentDetailPage() {
             <Card>
               <CardContent className="p-6">
                 <div className="text-center mb-6">
-                  <div className={`w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center ${domainStyle.bg}`}>
-                    <Bot className={`w-8 h-8 ${domainStyle.text}`} />
+                  <div className={`w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center overflow-hidden ${(isEditing ? editState?.iconUrl : agent.iconUrl) ? '' : domainStyle.bg}`}>
+                    {(isEditing ? editState?.iconUrl : agent.iconUrl) ? (
+                      <img src={isEditing ? editState?.iconUrl : agent.iconUrl!} alt="" className="w-full h-full object-cover rounded-2xl" />
+                    ) : (
+                      <Bot className={`w-8 h-8 ${domainStyle.text}`} />
+                    )}
                   </div>
                   <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
                     {agent.name}
@@ -618,6 +629,41 @@ export function AgentDetailPage() {
                                   placeholder="A short description of what this agent does"
                                 />
                               </div>
+                              {/* Icon picker */}
+                              <div className="space-y-2">
+                                <Label>Agent Icon</Label>
+                                <div className="flex flex-wrap gap-2">
+                                  {/* None option */}
+                                  <button
+                                    type="button"
+                                    onClick={() => updateField('iconUrl', '')}
+                                    className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                                      !editState.iconUrl
+                                        ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
+                                        : 'border-[var(--color-border-light)] hover:border-[var(--color-border)]'
+                                    }`}
+                                    title="Default"
+                                  >
+                                    <Bot className="w-5 h-5 text-[var(--color-text-tertiary)]" />
+                                  </button>
+                                  {availableIcons.map((icon) => (
+                                    <button
+                                      key={icon.url}
+                                      type="button"
+                                      onClick={() => updateField('iconUrl', icon.url)}
+                                      className={`w-12 h-12 rounded-lg border-2 overflow-hidden transition-colors ${
+                                        editState.iconUrl === icon.url
+                                          ? 'border-[var(--color-brand-primary)] ring-1 ring-[var(--color-brand-primary)]'
+                                          : 'border-[var(--color-border-light)] hover:border-[var(--color-border)]'
+                                      }`}
+                                      title={icon.label}
+                                    >
+                                      <img src={icon.url} alt={icon.label} className="w-full h-full object-cover" />
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <Label>Risk Tier</Label>
