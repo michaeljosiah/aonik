@@ -35,6 +35,23 @@ import { wrapPage } from '../utils';
 // ---------------------------------------------------------------------------
 const navigation: NavigationSection[] = [
   {
+    id: 'team',
+    audience: 'host',
+    items: [
+      {
+        id: 'team',
+        label: 'Team',
+        icon: 'Users',
+        audience: 'host',
+        children: [
+          { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users' },
+          { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles' },
+          { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'admin',
     audience: 'host',
     items: [
@@ -44,14 +61,6 @@ const navigation: NavigationSection[] = [
         icon: 'Settings',
         audience: 'host',
         childGroups: [
-          {
-            label: 'Team',
-            items: [
-              { id: 'users', label: 'Users', icon: 'UserCog', href: '/access/users' },
-              { id: 'roles', label: 'Roles', icon: 'Shield', href: '/access/roles' },
-              { id: 'permissions', label: 'Permissions', icon: 'Key', href: '/access/permissions' },
-            ],
-          },
           {
             label: 'Content',
             items: [
@@ -159,7 +168,7 @@ const panelComponents = {
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
-  { pathPrefix: '/access', trail: ['Admin', 'Team'] },
+  { pathPrefix: '/access', trail: ['Team'] },
   { pathPrefix: '/admin', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/tenants', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/settings', trail: ['Admin', 'Settings'] },
