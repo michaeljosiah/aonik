@@ -17,8 +17,6 @@ class PhotoSelectionScreen extends ConsumerStatefulWidget {
 }
 
 class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
-  int _selectedIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -52,36 +50,24 @@ class _PhotoSelectionScreenState extends ConsumerState<PhotoSelectionScreen> {
               ),
             ),
           ),
-          const SizedBox(height: PayaboSpacing.sm),
-          TextButton(
-            onPressed: () {},
-            child: const Text('Library'),
-          ),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 4,
-              mainAxisSpacing: 4,
-            ),
-            itemCount: 8,
-            itemBuilder: (context, index) {
-              final selected = _selectedIndex == index;
-              return InkWell(
-                onTap: () => setState(() => _selectedIndex = index),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: selected ? c.primary : c.border,
-                      width: selected ? 2 : 1,
-                    ),
-                    color: c.background,
-                  ),
-                  child: Icon(Icons.image_outlined, color: c.muted),
+          const SizedBox(height: PayaboSpacing.xl),
+          Center(
+            child: Column(
+              children: <Widget>[
+                Icon(
+                  Icons.photo_library_outlined,
+                  size: 48,
+                  color: c.muted.withValues(alpha: 0.4),
                 ),
-              );
-            },
+                const SizedBox(height: PayaboSpacing.md),
+                Text(
+                  'Photo library coming soon',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: c.muted,
+                      ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

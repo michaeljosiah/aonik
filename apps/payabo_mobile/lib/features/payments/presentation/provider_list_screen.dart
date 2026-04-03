@@ -181,7 +181,7 @@ class _ProviderListScreenState extends ConsumerState<ProviderListScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Lorem ipsum dolor sit amet, conse tetur adipiscing elit. Nullam tincidunt...',
+                                    '${provider.name} \u2014 ${provider.countryCode}',
                                     style:
                                         Theme.of(context).textTheme.bodySmall,
                                   ),
@@ -276,7 +276,7 @@ class _ProviderPlaceholderList extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Lorem ipsum dolor sit amet, conse tetur adipiscing elit. Nullam tincidunt...',
+                        'Service provider',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],

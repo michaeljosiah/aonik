@@ -49,6 +49,11 @@ class PayaboPasswordRequirements extends StatelessWidget {
           met: validation.hasDigit,
           disabled: disabled,
         ),
+        _PasswordRequirementLine(
+          label: '1 special character',
+          met: validation.hasSpecialCharacter,
+          disabled: disabled,
+        ),
       ],
     );
   }

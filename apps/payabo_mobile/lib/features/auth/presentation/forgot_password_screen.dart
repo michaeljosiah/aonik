@@ -38,7 +38,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     return AuthFlowScaffold(
       title: 'Forgot password',
       description:
-          "Please enter the email address used to register on MyBillAfrica, and we'll send you an email with instructions to recover your password.",
+          "Please enter the email address used to register on Payabo, and we'll send you an email with instructions to recover your password.",
       notice: isDemo
           ? const AuthModeNoticeCard(
               title: 'Password recovery is unavailable',

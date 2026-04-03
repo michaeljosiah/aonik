@@ -108,6 +108,7 @@ class AuthFlowScaffold extends StatelessWidget {
     );
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: useWarmBackground ? c.surfaceWarm : c.surfaceBase,
       body: useWarmBackground
           ? DecoratedBox(

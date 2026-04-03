@@ -68,7 +68,12 @@ class _CardDetailsScreenState extends ConsumerState<CardDetailsScreen> {
             ? () {
                 ref
                     .read(paymentFlowControllerProvider.notifier)
-                    .selectCard('manual_card');
+                    .selectCard(
+                      'manual_card',
+                      cardNumber: _cardNumberController.text.trim(),
+                      cardExpiry: _expiryController.text.trim(),
+                      cardCvc: _cvcController.text.trim(),
+                    );
                 context.go('/payments/checkout/card');
               }
             : null,

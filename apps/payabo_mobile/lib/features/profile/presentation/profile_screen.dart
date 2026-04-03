@@ -215,7 +215,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         const SizedBox(height: PayaboSpacing.xs),
         Center(
           child: Text(
-            'Version 22.0001.01',
+            'Version 1.0.0',
             style: TextStyle(color: c.muted, fontSize: 12),
           ),
         ),

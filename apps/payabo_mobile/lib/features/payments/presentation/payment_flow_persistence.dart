@@ -106,7 +106,7 @@ class SharedPreferencesPaymentFlowPersistence
       useSamePaymentMethodForRecurring:
           decoded['useSamePaymentMethodForRecurring'] as bool? ?? true,
       paymentMethodIndex: decoded['paymentMethod'] as int? ?? 0,
-      selectedCardId: decoded['selectedCardId'] as String? ?? 'card_visa_4567',
+      selectedCardId: decoded['selectedCardId'] as String? ?? '',
       saveCard: decoded['saveCard'] as bool? ?? true,
       selectedFriendId: decoded['selectedFriendId'] as String? ?? '',
       friendMessage: decoded['friendMessage'] as String? ?? '',
@@ -167,20 +167,54 @@ final Provider<PaymentFlowPersistence> paymentFlowPersistenceProvider =
   (Ref ref) {
     final prefs = ref.watch(_sharedPreferencesProvider).asData?.value;
     if (prefs == null) {
-      return _NoOpPaymentFlowPersistence();
+      return _BufferingPaymentFlowPersistence(SharedPreferences.getInstance());
     }
     return SharedPreferencesPaymentFlowPersistence(prefs);
   },
 );
 
-/// Fallback that silently no-ops while SharedPreferences is loading.
-class _NoOpPaymentFlowPersistence implements PaymentFlowPersistence {
-  @override
-  Future<PersistedPaymentFlowSnapshot?> read() async => null;
+/// Fallback that buffers writes while SharedPreferences is loading.
+/// Once the real persistence becomes available, buffered writes are replayed.
+class _BufferingPaymentFlowPersistence implements PaymentFlowPersistence {
+  _BufferingPaymentFlowPersistence(this._prefsFuture) {
+    _prefsFuture.then((prefs) {
+      _realPersistence = SharedPreferencesPaymentFlowPersistence(prefs);
+      final pending = _pendingSnapshot;
+      if (pending != null) {
+        _realPersistence!.write(pending);
+        _pendingSnapshot = null;
+      }
+    });
+  }
+
+  final Future<SharedPreferences> _prefsFuture;
+  SharedPreferencesPaymentFlowPersistence? _realPersistence;
+  PersistedPaymentFlowSnapshot? _pendingSnapshot;
 
   @override
-  Future<void> write(PersistedPaymentFlowSnapshot snapshot) async {}
+  Future<PersistedPaymentFlowSnapshot?> read() async {
+    final real = _realPersistence;
+    if (real != null) return real.read();
+    final prefs = await _prefsFuture;
+    _realPersistence = SharedPreferencesPaymentFlowPersistence(prefs);
+    return _realPersistence!.read();
+  }
 
   @override
-  Future<void> clear() async {}
+  Future<void> write(PersistedPaymentFlowSnapshot snapshot) async {
+    final real = _realPersistence;
+    if (real != null) {
+      return real.write(snapshot);
+    }
+    _pendingSnapshot = snapshot;
+  }
+
+  @override
+  Future<void> clear() async {
+    _pendingSnapshot = null;
+    final real = _realPersistence;
+    if (real != null) {
+      return real.clear();
+    }
+  }
 }

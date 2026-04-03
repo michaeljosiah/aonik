@@ -129,7 +129,7 @@ class _StatementUploadScreenState
                 horizontal: PayaboSpacing.xl,
               ),
               children: <Widget>[
-                _IntroCard(),
+                const _IntroCard(),
                 const SizedBox(height: PayaboSpacing.xl),
 
                 // ── Account selector ───────────────────────
@@ -160,7 +160,11 @@ class _StatementUploadScreenState
                         !accounts.any(
                           (AccountLinkItem a) => a.id == _selectedAccountId,
                         )) {
-                      _selectedAccountId = null;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() => _selectedAccountId = null);
+                        }
+                      });
                     }
 
                     return Container(
@@ -335,6 +339,8 @@ class _StatementUploadScreenState
 // ─────────────────────────────────────────────────────────────
 
 class _IntroCard extends StatelessWidget {
+  const _IntroCard();
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;

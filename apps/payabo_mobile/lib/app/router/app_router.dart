@@ -33,7 +33,6 @@ import '../../features/payments/presentation/pay_activity_screen.dart';
 import '../../features/payments/presentation/pay_dashboard_screen.dart';
 import '../../features/payments/presentation/pay_transaction_details_screen.dart';
 import '../../features/payments/presentation/payment_country_screen.dart';
-import '../../features/payments/presentation/payment_return_placeholder_screen.dart';
 import '../../features/payments/presentation/payment_selection_screen.dart';
 import '../../features/payments/presentation/provider_list_screen.dart';
 import '../../features/payments/presentation/service_details_screen.dart';
@@ -189,7 +188,27 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           return null;
         }
 
+        // Enforce the unauthenticated guard immediately — even while setup
+        // state is loading — so protected routes never render before the
+        // user is signed in.
+        final String location = state.uri.path;
+        final bool isAuthArea = location == '/' ||
+            location == '/intro' ||
+            location.startsWith('/auth');
+        final bool isDesignSystemArea = location == '/design-system';
+
+        if (!authState.isAuthenticated && !isAuthArea && !isDesignSystemArea) {
+          return '/auth/login';
+        }
+
         final setupAsync = ref.read(setupCompletedProvider);
+
+        // While setup state is loading, don't redirect — avoids bouncing
+        // authenticated users to /setup before the real value arrives.
+        if (setupAsync.isLoading && !setupAsync.hasValue) {
+          return null;
+        }
+
         final bool localProfileCompleted =
             ref.read(setupJourneyControllerProvider).profile.completed;
         final bool setupDone = resolveSetupCompletionState(
@@ -200,7 +219,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
 
         final redirect = resolveAppRedirect(
           authState: authState,
-          location: state.uri.path,
+          location: location,
           setupDone: setupDone,
           isDemo: isDemo,
         );
@@ -536,11 +555,6 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/payments/thank-you',
           name: 'payment-thank-you',
           builder: (context, state) => const ThankYouScreen(),
-        ),
-        GoRoute(
-          path: '/payments/return',
-          name: 'payment-return-placeholder',
-          builder: (context, state) => const PaymentReturnPlaceholderScreen(),
         ),
         GoRoute(
           path: '/support/add-beneficiary',

@@ -111,17 +111,48 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
             onPressed: () => context.go('/pay'),
           ),
           const SizedBox(height: PayaboSpacing.md),
-          const PayaboCard(
-            child: Text('Help'),
+          PayaboCard(
+            child: InkWell(
+              onTap: () {
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(content: Text('Help centre coming soon.')),
+                  );
+              },
+              child: const Text('Help'),
+            ),
           ),
           if (status == PaymentResult.success) ...<Widget>[
             const SizedBox(height: PayaboSpacing.sm),
-            const PayaboCard(
-              child: Text('Download receipt'),
+            PayaboCard(
+              child: InkWell(
+                onTap: () {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('Receipt download coming soon.'),
+                      ),
+                    );
+                },
+                child: const Text('Download receipt'),
+              ),
             ),
             const SizedBox(height: PayaboSpacing.sm),
-            const PayaboCard(
-              child: Text('Send receipt'),
+            PayaboCard(
+              child: InkWell(
+                onTap: () {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text('Send receipt coming soon.'),
+                      ),
+                    );
+                },
+                child: const Text('Send receipt'),
+              ),
             ),
           ],
           if (isFirstPending) ...<Widget>[
@@ -146,6 +177,12 @@ class _ThankYouScreenState extends ConsumerState<ThankYouScreen> {
       await ref
           .read(paymentFlowControllerProvider.notifier)
           .refreshPaymentStatus(ref.read(paymentRepositoryProvider));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not refresh payment status.')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {

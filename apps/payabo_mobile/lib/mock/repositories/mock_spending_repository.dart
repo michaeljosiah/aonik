@@ -1579,6 +1579,15 @@ class MockSpendingRepository implements SpendingRepository {
 
     return _merchantHistories[merchantName] ?? _defaultHistory;
   }
+
+  @override
+  Future<void> updateTransactionCategory(
+    String transactionId,
+    String category,
+  ) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('spending.updateTransactionCategory');
+  }
 }
 
 // ─────────────────────────────────────────────────────────

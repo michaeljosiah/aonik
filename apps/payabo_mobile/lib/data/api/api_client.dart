@@ -66,6 +66,46 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
 
           handler.next(options);
         },
+        onError: (error, handler) async {
+          final bool isTokenExchangeRequest =
+              error.requestOptions.path.toLowerCase().endsWith('/auth/token');
+
+          final bool alreadyRetried =
+              error.requestOptions.extra['_hasRetried401'] == true;
+
+          if (error.response?.statusCode == 401 &&
+              !isTokenExchangeRequest &&
+              !alreadyRetried) {
+            // Token may have been revoked server-side. Attempt a refresh
+            // and retry the original request once.
+            final AuthSession? session = await authSessionStore.read();
+            if (session != null) {
+              refreshInFlight ??=
+                  sessionManager.refreshExpiredSession(session);
+
+              try {
+                final AuthSession? refreshed = await refreshInFlight;
+                if (refreshed != null &&
+                    refreshed.hasAccessToken &&
+                    !refreshed.isExpired) {
+                  final retryOptions = error.requestOptions;
+                  retryOptions.headers['Authorization'] =
+                      '${refreshed.tokenType} ${refreshed.accessToken}';
+                  retryOptions.extra['_hasRetried401'] = true;
+
+                  final response = await dio.fetch(retryOptions);
+                  return handler.resolve(response);
+                }
+              } catch (_) {
+                // Refresh failed — fall through to original error.
+              } finally {
+                refreshInFlight = null;
+              }
+            }
+          }
+
+          handler.next(error);
+        },
       ),
     );
 

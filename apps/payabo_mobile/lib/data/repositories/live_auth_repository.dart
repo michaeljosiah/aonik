@@ -320,10 +320,13 @@ class LiveAuthRepository implements AuthRepository {
     return normalized;
   }
 
-  Future<Options?> _authorizedOptions() async {
+  Future<Options> _authorizedOptions() async {
     final session = await _authSessionStore.read();
-    if (session == null || !session.hasAccessToken || session.isExpired) {
-      return null;
+    if (session == null || !session.hasAccessToken) {
+      throw const ApiException(
+        message: 'Not authenticated. Please sign in again.',
+        statusCode: 401,
+      );
     }
 
     return Options(

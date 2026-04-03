@@ -184,11 +184,29 @@ class LiveSpendingRepository implements SpendingRepository {
     final int iconCodePoint =
         isLinked ? _iconAccountBalanceOutlined : _iconEditOutlined;
 
-    // Balance is not available from the summary endpoint, so default to
-    // a placeholder showing the currency.
-    final String balanceLabel = '${symbol}0.00';
-    const String balanceMajor = '0';
-    const String balanceMinor = '.00';
+    // Read balance from the API response; fall back to a currency-prefixed
+    // zero when the endpoint does not yet include a balance field.
+    final num? rawBalance = json['balance'] as num?;
+    final String balanceMajor;
+    final String balanceMinor;
+    final String balanceLabel;
+
+    if (rawBalance != null) {
+      final double bal = rawBalance.toDouble();
+      final bool isNegative = bal < 0;
+      // Round to whole cents first so values like 12.995 become 1300
+      // cents instead of producing a fractional part of 100.
+      final int totalCents = (bal.abs() * 100).round();
+      final int whole = totalCents ~/ 100;
+      final int cents = totalCents.remainder(100);
+      balanceMajor = '${isNegative ? '-' : ''}$whole';
+      balanceMinor = '.${cents.toString().padLeft(2, '0')}';
+      balanceLabel = '$symbol$balanceMajor$balanceMinor';
+    } else {
+      balanceMajor = '0';
+      balanceMinor = '.00';
+      balanceLabel = '${symbol}0.00';
+    }
 
     return SpendingAccountCard(
       id: id,
@@ -395,6 +413,24 @@ class LiveSpendingRepository implements SpendingRepository {
       averageSpendLabel: _readString(json['averageSpendLabel']) ?? '',
       totalSpentLabel: _readString(json['totalSpentLabel']) ?? '',
     );
+  }
+
+  @override
+  Future<void> updateTransactionCategory(
+    String transactionId,
+    String category,
+  ) async {
+    try {
+      await _apiClient.patch<void>(
+        '/personal-finance/transactions/$transactionId',
+        data: <String, dynamic>{
+          'category': category,
+        },
+      );
+    } on DioException catch (exception) {
+      _logDioFailure('updateTransactionCategory', exception);
+      throw mapDioException(exception);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════

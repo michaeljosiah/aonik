@@ -21,6 +21,11 @@ class PaymentIntent {
 abstract class PaymentRepository {
   Future<PaymentIntent> createPaymentIntent({
     required String orderId,
+    String selectedCardId = '',
+    String manualCardNumber = '',
+    String manualCardExpiry = '',
+    String manualCardCvc = '',
+    bool saveCard = true,
   });
 
   Future<PaymentResult> getPaymentStatus({

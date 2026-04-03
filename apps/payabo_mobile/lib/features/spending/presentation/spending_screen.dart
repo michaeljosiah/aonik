@@ -133,11 +133,25 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
     final List<SpendingAccountCard> accounts;
     final List<SpendingTransaction> transactions;
 
+    // Show a snackbar once per error transition (not on every rebuild).
+    ref.listen<AsyncValue<List<SpendingAccountCard>>>(
+      _spendingAccountsFutureProvider,
+      (previous, next) {
+        if (next.hasError && !(previous?.hasError ?? false)) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(content: Text('Could not load accounts.')),
+            );
+        }
+      },
+    );
+
     final accountsSnapshot = ref.watch(_spendingAccountsFutureProvider);
     accounts = accountsSnapshot.when(
       data: (List<SpendingAccountCard> data) => data,
       loading: () => const <SpendingAccountCard>[],
-      error: (_, __) => const <SpendingAccountCard>[],
+      error: (Object error, _) => const <SpendingAccountCard>[],
     );
 
     if (accounts.isNotEmpty && _selectedAccountIndex < accounts.length) {
@@ -148,7 +162,7 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
       transactions = txSnapshot.when(
         data: (List<SpendingTransaction> data) => data,
         loading: () => const <SpendingTransaction>[],
-        error: (_, __) => const <SpendingTransaction>[],
+        error: (Object error, _) => const <SpendingTransaction>[],
       );
     } else {
       transactions = const <SpendingTransaction>[];
@@ -1379,7 +1393,7 @@ class _EmptyTransactionsState extends StatelessWidget {
           ),
           const SizedBox(height: PayaboSpacing.md),
           Text(
-            isManual ? 'No transactions yet' : 'No transactions yet',
+            isManual ? 'No transactions yet' : 'No transactions found',
             style: textTheme.titleMedium?.copyWith(
               color: c.accentBrown,
               fontWeight: FontWeight.w600,

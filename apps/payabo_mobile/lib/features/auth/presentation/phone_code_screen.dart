@@ -26,6 +26,7 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
   int _secondsRemaining = 0;
   String _otpCode = '';
   bool _isVerifying = false;
+  bool _isResending = false;
   String? _errorMessage;
   late final TextEditingController _otpController;
 
@@ -131,8 +132,10 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
                         ?.copyWith(color: PayaboColors.muted),
                   )
                 : TextButton(
-                    onPressed: _resendOtp,
-                    child: const Text('Request new code'),
+                    onPressed: _isResending ? null : _resendOtp,
+                    child: Text(_isResending
+                        ? 'Sending...'
+                        : 'Request new code'),
                   ),
           ),
         ],
@@ -183,6 +186,8 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
   }
 
   Future<void> _resendOtp() async {
+    setState(() => _isResending = true);
+
     final onboarding = ref.read(onboardingControllerProvider);
     final dialCode = onboarding.phoneCountry.dialCode.trim();
     final digits = onboarding.mobileNumber.trim().replaceAll(RegExp(r'\D'), '');
@@ -212,6 +217,10 @@ class _PhoneCodeScreenState extends ConsumerState<PhoneCodeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isResending = false);
+      }
     }
   }
 

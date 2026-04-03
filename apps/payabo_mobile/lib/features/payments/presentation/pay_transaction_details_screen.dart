@@ -707,7 +707,13 @@ class _ActionButtons extends StatelessWidget {
           colors: colors,
           textTheme: textTheme,
           onTap: () {
-            // TODO: implement download receipt
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('Receipt download coming soon.'),
+                ),
+              );
           },
         ),
         const SizedBox(height: PayaboSpacing.md),
@@ -717,7 +723,13 @@ class _ActionButtons extends StatelessWidget {
           colors: colors,
           textTheme: textTheme,
           onTap: () {
-            // TODO: implement send receipt
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('Send receipt coming soon.'),
+                ),
+              );
           },
         ),
         const SizedBox(height: PayaboSpacing.md),
@@ -727,7 +739,13 @@ class _ActionButtons extends StatelessWidget {
           colors: colors,
           textTheme: textTheme,
           onTap: () {
-            // TODO: implement contact support
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('Contact support coming soon.'),
+                ),
+              );
           },
         ),
       ],

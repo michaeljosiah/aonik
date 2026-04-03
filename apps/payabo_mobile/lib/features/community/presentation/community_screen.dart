@@ -129,7 +129,13 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen>
                   child: Row(
                     children: <Widget>[
                       InkWell(
-                        onTap: () => context.pop(),
+                        onTap: () {
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go('/');
+                        }
+                      },
                         customBorder: const CircleBorder(),
                         child: Container(
                           width: 40,
@@ -462,7 +468,15 @@ class _NewsCard extends StatelessWidget {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('News details coming soon.')),
+          );
+      },
+      child: Container(
       width: 280,
       decoration: BoxDecoration(
         color: c.surfaceBase,
@@ -573,6 +587,7 @@ class _NewsCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

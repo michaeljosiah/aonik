@@ -31,7 +31,18 @@ class SpendingBudgetDetailScreen extends ConsumerStatefulWidget {
 
 class _SpendingBudgetDetailScreenState
     extends ConsumerState<SpendingBudgetDetailScreen> {
-  static const double _amountStep = 25;
+  static const Map<String, double> _currencySteps = <String, double>{
+    'GBP': 25,
+    'USD': 25,
+    'EUR': 25,
+    'GHS': 50,
+    'NGN': 1000,
+  };
+  static const double _defaultAmountStep = 25;
+
+  // TODO: derive from user's profile currency when available
+  double get _resolvedAmountStep =>
+      _currencySteps['GBP'] ?? _defaultAmountStep;
 
   late String _selectedBudgetId;
   late double _draftAmount;
@@ -113,8 +124,8 @@ class _SpendingBudgetDetailScreenState
                       categories: loadedCategories,
                       selectedCategory: currentCategory,
                       draftAmount: _draftAmount,
-                      onDecrease: () => _adjustBudget(-_amountStep),
-                      onIncrease: () => _adjustBudget(_amountStep),
+                      onDecrease: () => _adjustBudget(-_resolvedAmountStep),
+                      onIncrease: () => _adjustBudget(_resolvedAmountStep),
                       onSelectCategory: _showCategoryPicker,
                       onViewTransactions: () =>
                           _handleViewTransactions(currentCategory),
@@ -264,23 +275,32 @@ class _SpendingBudgetDetailScreenState
   Future<void> _handleSave(SpendingBudgetCategory category) async {
     final messenger = ScaffoldMessenger.of(context);
 
-    await ref.read(budgetRepositoryProvider).saveBudgetAmount(
-          budgetId: category.id,
-          totalAllocated: _draftAmount,
-        );
-    ref.invalidate(spendingBudgetsProvider);
+    try {
+      await ref.read(budgetRepositoryProvider).saveBudgetAmount(
+            budgetId: category.id,
+            totalAllocated: _draftAmount,
+          );
+      ref.invalidate(spendingBudgetsProvider);
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          'Saved ${category.name.toLowerCase()} budget at ${formatSpendingBudgetCurrency(_draftAmount)} in this mock build.',
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Saved ${category.name.toLowerCase()} budget at ${formatSpendingBudgetCurrency(_draftAmount)} in this mock build.',
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not save budget: $error'),
+        ),
+      );
+    }
   }
 
   Future<void> _handleDelete(SpendingBudgetCategory category) async {
@@ -324,21 +344,30 @@ class _SpendingBudgetDetailScreenState
 
     final messenger = ScaffoldMessenger.of(context);
 
-    await ref.read(budgetRepositoryProvider).deleteBudget(category.id);
-    ref.invalidate(spendingBudgetsProvider);
+    try {
+      await ref.read(budgetRepositoryProvider).deleteBudget(category.id);
+      ref.invalidate(spendingBudgetsProvider);
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          '${category.name} budget deleted in this mock build.',
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '${category.name} budget deleted in this mock build.',
+          ),
         ),
-      ),
-    );
-    context.go('/spending/budgets');
+      );
+      context.go('/spending/budgets');
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not delete budget: $error'),
+        ),
+      );
+    }
   }
 
   Future<void> _handleCreateBudget() async {
@@ -862,7 +891,7 @@ class _BudgetHistoryCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  'Year 2026',
+                  'Year ${DateTime.now().year}',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: c.accentBrown,
                         fontWeight: FontWeight.w700,
@@ -1042,7 +1071,9 @@ class _BudgetDashedLinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BudgetDashedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
+
 }
 
 class _BudgetPickerTile extends StatelessWidget {

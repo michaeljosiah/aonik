@@ -395,7 +395,7 @@ class SpendingAccountsScreen extends ConsumerWidget {
   void _showManageMessage(BuildContext context, AccountLinkItem item) {
     _showMessage(
       context,
-      '${item.name} details and account actions will be added in a follow-up step.',
+      'Account management for ${item.name} is coming soon.',
     );
   }
 

@@ -30,14 +30,16 @@ class CategoryItem {
   final IconData icon;
 }
 
+/// Pre-built lookup table for O(1) category display name resolution.
+final Map<String, String> _categoryDisplayNameMap = <String, String>{
+  for (final CategoryItem c in defaultCategories) c.code: c.name,
+};
+
 /// Maps a backend canonical category code to its display name.
 /// Falls back to title-casing the code if not found.
 String categoryDisplayName(String code) {
-  final CategoryItem? match = defaultCategories.cast<CategoryItem?>().firstWhere(
-    (CategoryItem? c) => c!.code == code,
-    orElse: () => null,
-  );
-  if (match != null) return match.name;
+  final String? name = _categoryDisplayNameMap[code];
+  if (name != null) return name;
   // Fallback: title-case the code (e.g. "eating_out" → "Eating Out")
   return code
       .split('_')
@@ -214,14 +216,15 @@ const Map<String, String> _subCategoryDisplayNames = <String, String>{
   'charity:crowdfunding': 'Crowdfunding',
 };
 
+/// Pre-built lookup table for O(1) category icon resolution.
+final Map<String, IconData> _categoryIconMap = <String, IconData>{
+  for (final CategoryItem c in defaultCategories) c.code: c.icon,
+};
+
 /// Maps a backend canonical category code to an icon.
 /// Falls back to a generic category icon if not found.
 IconData categoryIcon(String code) {
-  final CategoryItem? match = defaultCategories.cast<CategoryItem?>().firstWhere(
-    (CategoryItem? c) => c!.code == code,
-    orElse: () => null,
-  );
-  return match?.icon ?? Icons.category_outlined;
+  return _categoryIconMap[code] ?? Icons.category_outlined;
 }
 
 /// The 26 canonical categories aligned with the backend taxonomy.
@@ -495,6 +498,14 @@ class _CategorySelectionSheetState extends State<_CategorySelectionSheet> {
                           horizontal: PayaboSpacing.lg,
                           vertical: PayaboSpacing.md,
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.sm),
+                    Text(
+                      'Custom categories are saved locally and may not persist across sessions.',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: c.muted,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                     const SizedBox(height: PayaboSpacing.lg),

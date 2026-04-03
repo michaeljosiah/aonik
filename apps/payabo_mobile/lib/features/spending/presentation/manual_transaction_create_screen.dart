@@ -116,13 +116,15 @@ class _ManualTransactionCreateScreenState
       // Upload any pending attachments to the newly created transaction.
       if (_pendingAttachments.isNotEmpty) {
         final attachmentRepo = ref.read(attachmentRepositoryProvider);
-        for (final pending in _pendingAttachments) {
-          await attachmentRepo.addTransactionAttachment(
-            created.id,
-            pending.filePath,
-            pending.fileName,
-          );
-        }
+        await Future.wait(
+          _pendingAttachments.map(
+            (pending) => attachmentRepo.addTransactionAttachment(
+              created.id,
+              pending.filePath,
+              pending.fileName,
+            ),
+          ),
+        );
       }
 
       // Invalidate the transaction list so it re-fetches from the repository.

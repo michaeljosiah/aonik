@@ -66,6 +66,9 @@ class PaymentFlowState {
     required this.useSamePaymentMethodForRecurring,
     required this.paymentMethod,
     required this.selectedCardId,
+    required this.manualCardNumber,
+    required this.manualCardExpiry,
+    required this.manualCardCvc,
     required this.saveCard,
     required this.selectedFriendId,
     required this.friendMessage,
@@ -93,6 +96,9 @@ class PaymentFlowState {
   final bool useSamePaymentMethodForRecurring;
   final PaymentMethodType paymentMethod;
   final String selectedCardId;
+  final String manualCardNumber;
+  final String manualCardExpiry;
+  final String manualCardCvc;
   final bool saveCard;
   final String selectedFriendId;
   final String friendMessage;
@@ -140,6 +146,9 @@ class PaymentFlowState {
     bool? useSamePaymentMethodForRecurring,
     PaymentMethodType? paymentMethod,
     String? selectedCardId,
+    String? manualCardNumber,
+    String? manualCardExpiry,
+    String? manualCardCvc,
     bool? saveCard,
     String? selectedFriendId,
     String? friendMessage,
@@ -172,6 +181,9 @@ class PaymentFlowState {
           this.useSamePaymentMethodForRecurring,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       selectedCardId: selectedCardId ?? this.selectedCardId,
+      manualCardNumber: manualCardNumber ?? this.manualCardNumber,
+      manualCardExpiry: manualCardExpiry ?? this.manualCardExpiry,
+      manualCardCvc: manualCardCvc ?? this.manualCardCvc,
       saveCard: saveCard ?? this.saveCard,
       selectedFriendId: selectedFriendId ?? this.selectedFriendId,
       friendMessage: friendMessage ?? this.friendMessage,
@@ -192,11 +204,11 @@ class PaymentFlowState {
     List<PaymentFriend> friends = const <PaymentFriend>[],
   }) {
     return PaymentFlowState(
-      countryCode: 'GH',
+      countryCode: '',
       providerId: '',
       providerName: '',
       category: 'All',
-      serviceType: 'Montage Cable TV',
+      serviceType: '',
       smartCardId: '',
       contactReference: '',
       amount: '',
@@ -207,6 +219,9 @@ class PaymentFlowState {
       useSamePaymentMethodForRecurring: true,
       paymentMethod: PaymentMethodType.card,
       selectedCardId: savedCards.isEmpty ? '' : savedCards.first.id,
+      manualCardNumber: '',
+      manualCardExpiry: '',
+      manualCardCvc: '',
       saveCard: true,
       selectedFriendId: '',
       friendMessage: '',
@@ -236,6 +251,7 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
 
   final Ref _ref;
   final DemoDataMode _demoDataMode;
+  bool _isRestoring = true;
 
   PaymentFlowPersistence get _persistence =>
       _ref.read(paymentFlowPersistenceProvider);
@@ -325,8 +341,18 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
     _persistState();
   }
 
-  void selectCard(String cardId) {
-    state = state.copyWith(selectedCardId: cardId);
+  void selectCard(
+    String cardId, {
+    String cardNumber = '',
+    String cardExpiry = '',
+    String cardCvc = '',
+  }) {
+    state = state.copyWith(
+      selectedCardId: cardId,
+      manualCardNumber: cardNumber,
+      manualCardExpiry: cardExpiry,
+      manualCardCvc: cardCvc,
+    );
     _persistState();
   }
 
@@ -355,7 +381,7 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
     required bool saveAsFavorite,
   }) {
     final friend = PaymentFriend(
-      id: 'friend_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'friend_${DateTime.now().microsecondsSinceEpoch}_${Object().hashCode}',
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       email: email.trim(),
@@ -397,7 +423,14 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       return;
     }
 
-    final intent = await repository.createPaymentIntent(orderId: state.orderId);
+    final intent = await repository.createPaymentIntent(
+      orderId: state.orderId,
+      selectedCardId: state.selectedCardId,
+      manualCardNumber: state.manualCardNumber,
+      manualCardExpiry: state.manualCardExpiry,
+      manualCardCvc: state.manualCardCvc,
+      saveCard: state.saveCard,
+    );
     state = state.copyWith(
       paymentIntentId: intent.paymentIntentId,
       providerReference: intent.providerReference,
@@ -434,54 +467,70 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
       statusChecks: 0,
       selectedFriendId: '',
       friendMessage: '',
+      manualCardNumber: '',
+      manualCardExpiry: '',
+      manualCardCvc: '',
     );
     _persistState();
   }
 
   Future<void> _restoreState() async {
-    final PersistedPaymentFlowSnapshot? snapshot = await _persistence.read();
-    if (snapshot == null) {
-      return;
-    }
+    try {
+      final PersistedPaymentFlowSnapshot? snapshot = await _persistence.read();
+      if (snapshot == null) {
+        return;
+      }
 
-    if (snapshot.demoDataModeName != _demoDataMode.name) {
-      await _persistence.clear();
-      return;
-    }
+      if (snapshot.demoDataModeName != _demoDataMode.name) {
+        await _persistence.clear();
+        return;
+      }
 
-    state = state.copyWith(
-      countryCode: snapshot.countryCode,
-      providerId: snapshot.providerId,
-      providerName: snapshot.providerName,
-      category: snapshot.category,
-      serviceType: snapshot.serviceType,
-      smartCardId: snapshot.smartCardId,
-      contactReference: snapshot.contactReference,
-      amount: snapshot.amount,
-      recurringBill: snapshot.recurringBill,
-      recurringFrequency: snapshot.recurringFrequency,
-      recurringStartsOn: snapshot.recurringStartsOn,
-      recurringEndsOn: snapshot.recurringEndsOn,
-      useSamePaymentMethodForRecurring:
-          snapshot.useSamePaymentMethodForRecurring,
-      paymentMethod: PaymentMethodType.values[snapshot.paymentMethodIndex
-          .clamp(0, PaymentMethodType.values.length - 1)],
-      selectedCardId: snapshot.selectedCardId,
-      saveCard: snapshot.saveCard,
-      selectedFriendId: snapshot.selectedFriendId,
-      friendMessage: snapshot.friendMessage,
-      orderId: snapshot.orderId,
-      paymentIntentId: snapshot.paymentIntentId,
-      providerReference: snapshot.providerReference,
-      paymentResult: snapshot.paymentResultIndex == null
-          ? null
-          : PaymentResult.values[snapshot.paymentResultIndex!
-              .clamp(0, PaymentResult.values.length - 1)],
-      statusChecks: snapshot.statusChecks,
-    );
+      // Manual card details are not persisted. If the snapshot references
+      // 'manual_card' but no card payload will be available, clear the
+      // selection so createPaymentIntent doesn't send an empty manual card.
+      final String restoredCardId =
+          snapshot.selectedCardId == 'manual_card'
+              ? ''
+              : snapshot.selectedCardId;
+
+      state = state.copyWith(
+        countryCode: snapshot.countryCode,
+        providerId: snapshot.providerId,
+        providerName: snapshot.providerName,
+        category: snapshot.category,
+        serviceType: snapshot.serviceType,
+        smartCardId: snapshot.smartCardId,
+        contactReference: snapshot.contactReference,
+        amount: snapshot.amount,
+        recurringBill: snapshot.recurringBill,
+        recurringFrequency: snapshot.recurringFrequency,
+        recurringStartsOn: snapshot.recurringStartsOn,
+        recurringEndsOn: snapshot.recurringEndsOn,
+        useSamePaymentMethodForRecurring:
+            snapshot.useSamePaymentMethodForRecurring,
+        paymentMethod: PaymentMethodType.values[snapshot.paymentMethodIndex
+            .clamp(0, PaymentMethodType.values.length - 1)],
+        selectedCardId: restoredCardId,
+        saveCard: snapshot.saveCard,
+        selectedFriendId: snapshot.selectedFriendId,
+        friendMessage: snapshot.friendMessage,
+        orderId: snapshot.orderId,
+        paymentIntentId: snapshot.paymentIntentId,
+        providerReference: snapshot.providerReference,
+        paymentResult: snapshot.paymentResultIndex == null
+            ? null
+            : PaymentResult.values[snapshot.paymentResultIndex!
+                .clamp(0, PaymentResult.values.length - 1)],
+        statusChecks: snapshot.statusChecks,
+      );
+    } finally {
+      _isRestoring = false;
+    }
   }
 
   Future<void> _persistState() async {
+    if (_isRestoring) return;
     await _persistence.write(
       PersistedPaymentFlowSnapshot(
         demoDataModeName: _demoDataMode.name,
@@ -765,6 +814,9 @@ final FutureProvider<PricingBreakdown> paymentPricingBreakdownProvider =
     FutureProvider<PricingBreakdown>(
   (Ref ref) async {
     final orderId = ref.watch(paymentOrderIdProvider);
+    if (orderId.isEmpty) {
+      return const PricingBreakdown(lines: <PricingLine>[]);
+    }
     final repository = ref.watch(orderRepositoryProvider);
     return repository.getPricingBreakdown(orderId);
   },
@@ -774,6 +826,13 @@ final FutureProvider<OrderPointsSummary> paymentPointsSummaryProvider =
     FutureProvider<OrderPointsSummary>(
   (Ref ref) async {
     final orderId = ref.watch(paymentOrderIdProvider);
+    if (orderId.isEmpty) {
+      return const OrderPointsSummary(
+        pointsEarned: 0,
+        totalPoints: 0,
+        pointsLabel: '',
+      );
+    }
     final repository = ref.watch(orderRepositoryProvider);
     return repository.getPointsSummary(orderId);
   },

@@ -31,19 +31,16 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
   static const List<_IntroSlide> _slides = <_IntroSlide>[
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-01.png',
-      backgroundColor: Color(0xFFFFF5EB),
       subtitle: 'Pay your bills',
       headline: 'All your bills, paid\nin one place with ease.',
     ),
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-02.png',
-      backgroundColor: Color(0xFFFFF8F2),
       subtitle: 'Support loved ones',
       headline: 'Send money to friends\nand family, anywhere.',
     ),
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-03.png',
-      backgroundColor: Color(0xFFFFFBF6),
       subtitle: 'Track spending',
       headline: 'Keep track of your\nspending and reach\nyour goals.',
     ),
@@ -227,13 +224,11 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
 class _IntroSlide {
   const _IntroSlide({
     required this.imageAsset,
-    required this.backgroundColor,
     required this.subtitle,
     required this.headline,
   });
 
   final String imageAsset;
-  final Color backgroundColor;
   final String subtitle;
   final String headline;
 }

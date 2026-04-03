@@ -23,6 +23,9 @@ const String _firebaseLogName = 'Payabo.Firebase';
 bool get _isAndroid =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+bool get _isIOS =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
@@ -101,7 +104,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  if (_isAndroid) {
+  if (_isAndroid || _isIOS) {
     await _configureFirebaseMessaging();
   }
   if (_supportsAnalytics) {
