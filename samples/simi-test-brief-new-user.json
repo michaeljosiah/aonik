@@ -1,0 +1,57 @@
+{
+  "UserProfile": {
+    "PreferredName": "Chika",
+    "FullName": "Chika Nwosu",
+    "GivenName": "Chika",
+    "Email": "chika.nwosu@outlook.com",
+    "PhoneNumber": "+14155559876",
+    "UserCreatedAt": "2026-04-01T18:45:00Z",
+    "CommunicationStyle": null,
+    "FinancialPosture": null,
+    "CorridorCountries": ["NG", "US"],
+    "HouseholdContext": null,
+    "IncomeRhythm": null,
+    "PrimaryNeeds": []
+  },
+  "SetupProfile": {
+    "SelectedUseCases": ["send_money", "pay_bills_abroad"],
+    "AccountSourceTypes": ["bank_account"],
+    "ConnectChoice": "connect_later",
+    "Responsibilities": ["utilities", "school_fees"],
+    "SupportType": "recurring",
+    "FinancialGoals": ["save_more", "reduce_transfer_fees"],
+    "Completed": true
+  },
+  "FinancialFocus": {
+    "CurrentGoals": [],
+    "SupportObligations": []
+  },
+  "CurrentState": {
+    "CashSummary": {
+      "TotalBalance": 0.00,
+      "AvailableBalance": 0.00,
+      "Currency": "USD"
+    },
+    "NextBills": [],
+    "Subscriptions": [],
+    "SpendSummary": null,
+    "BudgetPressureCategories": []
+  },
+  "CustomerInsightSnapshot": null,
+  "CustomerInsightAiInterpretation": null,
+  "DataAvailability": {
+    "IsNewUser": true,
+    "HasLimitedFinancialData": true,
+    "Summary": "This is a new Payabo user with little or no financial history yet. Use the setup answers as the main context, avoid over-interpreting patterns, and focus on onboarding and next-step guidance.",
+    "MissingDataAreas": ["accounts", "transactions", "goals", "bills_and_subscriptions", "customer_insight_snapshot", "conversation_history"]
+  },
+  "CashflowRisk": 1,
+  "BehaviouralInsights": [],
+  "RecentConversationMemory": [],
+  "PolicyContext": {
+    "RiskTier": "standard",
+    "AiCanDo": ["view_balances", "categorise_transactions", "generate_insights", "send_reminders"],
+    "AiCannotDoWithoutApproval": ["initiate_payment", "create_order", "modify_bill", "cancel_subscription"]
+  },
+  "GeneratedAt": "2026-04-03T10:00:00Z"
+}

@@ -1,0 +1,232 @@
+{
+  "UserProfile": {
+    "PreferredName": "Ade",
+    "FullName": "Adeola Okonkwo",
+    "GivenName": "Adeola",
+    "Email": "adeola.okonkwo@gmail.com",
+    "PhoneNumber": "+447911234567",
+    "UserCreatedAt": "2025-11-15T09:30:00Z",
+    "CommunicationStyle": "casual",
+    "FinancialPosture": "cautious-optimist",
+    "CorridorCountries": ["NG", "GB"],
+    "HouseholdContext": "Supports mother and younger sister in Lagos",
+    "IncomeRhythm": "monthly, last working day",
+    "PrimaryNeeds": ["bill_payments", "family_support", "savings"]
+  },
+  "SetupProfile": {
+    "SelectedUseCases": ["pay_bills_abroad", "send_money", "track_spending"],
+    "AccountSourceTypes": ["bank_account"],
+    "ConnectChoice": "connect_later",
+    "Responsibilities": ["rent_for_family", "school_fees", "utilities"],
+    "SupportType": "recurring",
+    "FinancialGoals": ["build_emergency_fund", "reduce_transfer_fees"],
+    "Completed": true
+  },
+  "FinancialFocus": {
+    "CurrentGoals": [
+      {
+        "GoalId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "Name": "Emergency fund",
+        "TargetAmount": 2000.00,
+        "ProgressAmount": 850.00,
+        "Currency": "GBP",
+        "TargetDate": "2026-09-30",
+        "Status": "on_track"
+      }
+    ],
+    "SupportObligations": [
+      {
+        "DisplayName": "Mum — rent (Lagos)",
+        "Amount": 150000.00,
+        "Currency": "NGN",
+        "Frequency": "monthly",
+        "NextDueDate": "2026-04-25"
+      },
+      {
+        "DisplayName": "Bisi — school fees",
+        "Amount": 85000.00,
+        "Currency": "NGN",
+        "Frequency": "termly",
+        "NextDueDate": "2026-05-10"
+      }
+    ]
+  },
+  "CurrentState": {
+    "CashSummary": {
+      "TotalBalance": 3420.50,
+      "AvailableBalance": 2870.50,
+      "Currency": "GBP"
+    },
+    "NextBills": [
+      {
+        "BillId": "b1111111-1111-1111-1111-111111111111",
+        "Payee": "IKEDC — Mum's electricity",
+        "Amount": 12500.00,
+        "Currency": "NGN",
+        "DueDate": "2026-04-08",
+        "Autopay": false
+      },
+      {
+        "BillId": "b2222222-2222-2222-2222-222222222222",
+        "Payee": "DSTV Premium",
+        "Amount": 29500.00,
+        "Currency": "NGN",
+        "DueDate": "2026-04-15",
+        "Autopay": true
+      },
+      {
+        "BillId": "b3333333-3333-3333-3333-333333333333",
+        "Payee": "Spotify",
+        "Amount": 10.99,
+        "Currency": "GBP",
+        "DueDate": "2026-04-18",
+        "Autopay": true
+      }
+    ],
+    "Subscriptions": [
+      {
+        "SubscriptionId": "s1111111-1111-1111-1111-111111111111",
+        "Merchant": "DSTV Premium",
+        "ExpectedAmount": 29500.00,
+        "Currency": "NGN",
+        "RenewalDate": "2026-04-15"
+      },
+      {
+        "SubscriptionId": "s2222222-2222-2222-2222-222222222222",
+        "Merchant": "Spotify",
+        "ExpectedAmount": 10.99,
+        "Currency": "GBP",
+        "RenewalDate": "2026-04-18"
+      }
+    ],
+    "SpendSummary": {
+      "TotalSpend": 1245.30,
+      "TopCategories": [
+        { "Category": "Family Support", "Amount": 620.00, "Percentage": 49.8 },
+        { "Category": "Groceries", "Amount": 215.40, "Percentage": 17.3 },
+        { "Category": "Transport", "Amount": 148.00, "Percentage": 11.9 },
+        { "Category": "Dining Out", "Amount": 132.50, "Percentage": 10.6 },
+        { "Category": "Utilities", "Amount": 129.40, "Percentage": 10.4 }
+      ],
+      "PeriodStart": "2026-03-01",
+      "PeriodEnd": "2026-03-31"
+    },
+    "BudgetPressureCategories": [
+      { "Category": "Dining Out", "Budgeted": 100.00, "Actual": 132.50, "PercentUsed": 132.5 },
+      { "Category": "Groceries", "Budgeted": 250.00, "Actual": 215.40, "PercentUsed": 86.2 }
+    ]
+  },
+  "CustomerInsightSnapshot": {
+    "AsOfUtc": "2026-04-01T06:00:00Z",
+    "WindowStartUtc": "2026-03-01T00:00:00Z",
+    "WindowEndUtc": "2026-03-31T23:59:59Z",
+    "IsPartial": false,
+    "CoverageWarnings": [],
+    "TotalBalanceByCurrency": [
+      { "Currency": "GBP", "Amount": 3420.50 },
+      { "Currency": "NGN", "Amount": 45200.00 }
+    ],
+    "TotalInflowsByCurrency": [
+      { "Currency": "GBP", "Amount": 3200.00 }
+    ],
+    "TotalOutflowsByCurrency": [
+      { "Currency": "GBP", "Amount": 1245.30 },
+      { "Currency": "NGN", "Amount": 192000.00 }
+    ],
+    "TopCategorySpend": [
+      { "Name": "Family Support", "Currency": "GBP", "Amount": 620.00, "ShareOfSpend": 0.498 },
+      { "Name": "Groceries", "Currency": "GBP", "Amount": 215.40, "ShareOfSpend": 0.173 },
+      { "Name": "Transport", "Currency": "GBP", "Amount": 148.00, "ShareOfSpend": 0.119 }
+    ],
+    "TopMerchantSpend": [
+      { "Name": "Tesco", "Currency": "GBP", "Amount": 142.30, "ShareOfSpend": 0.114 },
+      { "Name": "TfL", "Currency": "GBP", "Amount": 108.00, "ShareOfSpend": 0.087 },
+      { "Name": "Nando's", "Currency": "GBP", "Amount": 54.00, "ShareOfSpend": 0.043 }
+    ],
+    "UpcomingObligationsByCurrency": [
+      { "Currency": "NGN", "Amount": 277000.00 }
+    ],
+    "ObligationCoverageSummaries": [
+      "GBP available balance covers estimated NGN obligations at current FX rate with ~£380 buffer."
+    ],
+    "BudgetPressureCategories": ["Dining Out"],
+    "GoalProgressHighlights": [
+      "Emergency fund is 42.5% funded — on track for September target."
+    ],
+    "KeyBehaviourSignals": [
+      {
+        "SignalKey": "dining_creep",
+        "Category": "Spending",
+        "Title": "Dining out creeping up",
+        "Description": "Dining spend exceeded budget by 32.5% in March, up from 15% over-budget in February.",
+        "Severity": "Low",
+        "Confidence": "High"
+      },
+      {
+        "SignalKey": "consistent_family_support",
+        "Category": "Commitment",
+        "Title": "Consistent family support sender",
+        "Description": "Ade has sent family support on time every month for the last 4 months.",
+        "Severity": "Info",
+        "Confidence": "High"
+      }
+    ],
+    "RiskFlags": []
+  },
+  "CustomerInsightAiInterpretation": {
+    "Headline": "Steady earner with strong family commitment — watch dining spend",
+    "Summary": "Ade is disciplined with family support obligations and making solid progress on the emergency fund. Main area to watch is dining out, which has been creeping over budget for two consecutive months. Overall cashflow is healthy with a comfortable buffer above obligations.",
+    "KeyObservations": [
+      "Family support is the single largest spending category at nearly 50% of outflows.",
+      "Dining out has exceeded budget two months running — the trend is accelerating.",
+      "Emergency fund savings are consistent and on track."
+    ],
+    "RecommendedFocusAreas": [
+      "Tighten dining budget or acknowledge the higher baseline.",
+      "Review FX timing on the next NGN transfer — rate has been volatile."
+    ],
+    "ReferencedMetricKeys": ["dining_creep", "consistent_family_support", "emergency_fund_progress"],
+    "Caveats": []
+  },
+  "DataAvailability": {
+    "IsNewUser": false,
+    "HasLimitedFinancialData": false,
+    "Summary": "Sufficient recent data is available for normal personal-finance guidance.",
+    "MissingDataAreas": []
+  },
+  "CashflowRisk": 1,
+  "BehaviouralInsights": [
+    {
+      "InsightType": "Spending",
+      "Title": "Dining out creeping up",
+      "Summary": "Dining spend exceeded budget by 32.5% in March, up from 15% in Feb.",
+      "Confidence": 0.9
+    },
+    {
+      "InsightType": "Commitment",
+      "Title": "Consistent family support sender",
+      "Summary": "On-time family support every month for 4 months straight.",
+      "Confidence": 0.9
+    }
+  ],
+  "RecentConversationMemory": [
+    {
+      "SessionDate": "2026-03-28T14:20:00Z",
+      "Summary": "Ade asked about the GBP/NGN exchange rate trend and whether to send mum's rent early. Simi showed the FX chart and advised holding 2-3 days as the rate was dipping. Ade agreed to wait.",
+      "OpenLoops": [
+        {
+          "Description": "Follow up on whether Ade sent mum's rent after the rate improved",
+          "Priority": "medium",
+          "DueDate": "2026-04-05"
+        }
+      ],
+      "RecommendationOutcomes": []
+    }
+  ],
+  "PolicyContext": {
+    "RiskTier": "standard",
+    "AiCanDo": ["view_balances", "categorise_transactions", "generate_insights", "send_reminders"],
+    "AiCannotDoWithoutApproval": ["initiate_payment", "create_order", "modify_bill", "cancel_subscription"]
+  },
+  "GeneratedAt": "2026-04-03T10:00:00Z"
+}

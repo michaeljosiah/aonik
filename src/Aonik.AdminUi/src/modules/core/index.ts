@@ -13,6 +13,8 @@ import { RoutePoliciesPage } from '@/pages/ai/RoutePoliciesPage';
 import { PlaceholderPanel } from '@/workspace/apps/PlaceholderPanel';
 import { PromptTemplatesPanel } from '@/workspace/apps/PromptTemplatesPanel';
 import { RoutePoliciesPanel } from '@/workspace/apps/RoutePoliciesPanel';
+import { AiPlaygroundPage } from '@/pages/ai/AiPlaygroundPage';
+import { AiPlaygroundPanel } from '@/workspace/apps/AiPlaygroundPanel';
 
 // ---------------------------------------------------------------------------
 // Navigation — "Home" section shared across all modules
@@ -66,6 +68,12 @@ const navigation: NavigationSection[] = [
                 icon: 'Route',
                 href: '/ai/routing',
               },
+              {
+                id: 'ai-playground-item',
+                label: 'Playground',
+                icon: 'FlaskConical',
+                href: '/ai/playground',
+              },
             ],
           },
         ],
@@ -86,6 +94,7 @@ const routes = [
   { path: '/ai/agents/:agentName', element: AgentDetailPage },
   { path: '/ai/prompts', element: PromptTemplatesPage },
   { path: '/ai/routing', element: RoutePoliciesPage },
+  { path: '/ai/playground', element: AiPlaygroundPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -100,6 +109,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'ai-orchestrator', title: 'Orchestrator', type: 'internal', componentKey: 'placeholder', route: '/ai/orchestrator' },
   { id: 'ai-prompts', title: 'Prompt Templates', description: 'Manage versioned prompt templates for AI tasks.', type: 'internal', componentKey: 'promptTemplates', route: '/ai/prompts' },
   { id: 'ai-routing', title: 'Route Policies', description: 'Configure AI model routing policies per use-case.', type: 'internal', componentKey: 'routePolicies', route: '/ai/routing' },
+  { id: 'ai-playground', title: 'AI Playground', description: 'Test agents, prompts, and models interactively.', type: 'internal', componentKey: 'aiPlayground', route: '/ai/playground' },
 ];
 
 const panelComponents = {
@@ -108,6 +118,7 @@ const panelComponents = {
   agentConfig: AgentConfigPanel,
   promptTemplates: PromptTemplatesPanel,
   routePolicies: RoutePoliciesPanel,
+  aiPlayground: AiPlaygroundPanel,
   placeholder: PlaceholderPanel,
 };
 
@@ -118,6 +129,7 @@ const breadcrumbs = [
   { pathPrefix: '/analytics', trail: ['Analytics'] },
   { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
   { pathPrefix: '/ai/prompts', trail: ['AI', 'Prompt Templates'] },
+  { pathPrefix: '/ai/playground', trail: ['AI', 'Playground'] },
   { pathPrefix: '/ai/routing', trail: ['AI', 'Route Policies'] },
   { pathPrefix: '/ai/agents/', trail: ['AI', 'Agents', 'Agent Details'] },
   { pathPrefix: '/ai/agents', trail: ['AI', 'Agents'] },
