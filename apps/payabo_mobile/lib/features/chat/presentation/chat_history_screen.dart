@@ -64,9 +64,15 @@ class ChatHistoryScreen extends ConsumerStatefulWidget {
   const ChatHistoryScreen({
     super.key,
     this.selectedConversationId,
+    this.onConversationSelected,
+    this.onClose,
+    this.embedded = false,
   });
 
   final String? selectedConversationId;
+  final ValueChanged<String>? onConversationSelected;
+  final VoidCallback? onClose;
+  final bool embedded;
 
   @override
   ConsumerState<ChatHistoryScreen> createState() => _ChatHistoryScreenState();
@@ -96,55 +102,61 @@ class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
           entry.dateLabel.toLowerCase().contains(query);
     }).toList(growable: false);
 
-    return Scaffold(
-      backgroundColor: _historyBaseColor(context),
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: ColoredBox(color: _historyBaseColor(context)),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(gradient: _historyScreenGradient()),
-              ),
+    final content = Stack(
+      children: <Widget>[
+        Positioned.fill(
+          child: ColoredBox(color: _historyBaseColor(context)),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: _historyScreenGradient()),
             ),
           ),
-          const Positioned(
-            top: -100,
-            left: -80,
-            child: _HistoryGlowOrb(
-              size: 280,
-              color: Color(0x2238251B),
-            ),
+        ),
+        const Positioned(
+          top: -100,
+          left: -80,
+          child: _HistoryGlowOrb(
+            size: 280,
+            color: Color(0x2238251B),
           ),
-          const Positioned(
-            top: -70,
-            right: -80,
-            child: _HistoryGlowOrb(
-              size: 260,
-              color: Color(0x1A462D1C),
-            ),
+        ),
+        const Positioned(
+          top: -70,
+          right: -80,
+          child: _HistoryGlowOrb(
+            size: 260,
+            color: Color(0x1A462D1C),
           ),
-          SafeArea(
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    PayaboSpacing.md,
-                    PayaboSpacing.xl,
-                    0,
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _SearchField(
-                          controller: _searchController,
-                          onChanged: (_) => setState(() {}),
-                        ),
+        ),
+        SafeArea(
+          child: Column(
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  PayaboSpacing.xl,
+                  PayaboSpacing.md,
+                  PayaboSpacing.xl,
+                  0,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: _SearchField(
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
                       ),
-                      const SizedBox(width: PayaboSpacing.sm),
+                    ),
+                    const SizedBox(width: PayaboSpacing.sm),
+                    if (widget.embedded)
+                      _TopIconButton(
+                        key:
+                            const ValueKey<String>('chat-history-close-button'),
+                        icon: Icons.close_rounded,
+                        onTap: widget.onClose ?? () {},
+                      )
+                    else ...<Widget>[
                       _TopIconButton(
                         icon: Icons.notifications_none_rounded,
                         onTap: () => context.push('/notifications'),
@@ -155,69 +167,91 @@ class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
                         onTap: () => context.push('/profile'),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      PayaboSpacing.xl,
-                      PayaboSpacing.xl,
-                      PayaboSpacing.xl,
-                      PayaboSpacing.xl,
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    PayaboSpacing.xl,
+                    PayaboSpacing.xl,
+                    PayaboSpacing.xl,
+                    PayaboSpacing.xl,
+                  ),
+                  children: <Widget>[
+                    Text(
+                      'Conversation history',
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: _historyTextColor(context),
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.5,
+                              ),
                     ),
-                    children: <Widget>[
-                      Text(
-                        'Conversation history',
-                        style:
-                            Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  color: _historyTextColor(context),
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.5,
+                    const SizedBox(height: PayaboSpacing.xs),
+                    Text(
+                      'Every thread with Simi, ready to pick back up.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: _historyMutedTextColor(context),
+                            height: 1.45,
+                          ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.xl),
+                    if (items.isEmpty)
+                      _EmptyHistoryCard(
+                        text: isFreshDemo && query.isEmpty
+                            ? 'No conversation history yet in this demo state.'
+                            : 'No conversations match your search.',
+                      )
+                    else
+                      Column(
+                        children: items
+                            .asMap()
+                            .entries
+                            .map(
+                              (MapEntry<int, ChatHistoryEntry> entry) =>
+                                  _HistoryListItem(
+                                item: entry.value,
+                                isSelected: entry.value.id ==
+                                    widget.selectedConversationId,
+                                showDivider: entry.key != items.length - 1,
+                                onTap: () => _handleConversationTap(
+                                  context,
+                                  entry.value.id,
                                 ),
+                              ),
+                            )
+                            .toList(growable: false),
                       ),
-                      const SizedBox(height: PayaboSpacing.xs),
-                      Text(
-                        'Every thread with Simi, ready to pick back up.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: _historyMutedTextColor(context),
-                              height: 1.45,
-                            ),
-                      ),
-                      const SizedBox(height: PayaboSpacing.xl),
-                      if (items.isEmpty)
-                        _EmptyHistoryCard(
-                          text: isFreshDemo && query.isEmpty
-                              ? 'No conversation history yet in this demo state.'
-                              : 'No conversations match your search.',
-                        )
-                      else
-                        Column(
-                          children: items
-                              .asMap()
-                              .entries
-                              .map(
-                                (MapEntry<int, ChatHistoryEntry> entry) =>
-                                    _HistoryListItem(
-                                  item: entry.value,
-                                  isSelected: entry.value.id ==
-                                      widget.selectedConversationId,
-                                  showDivider:
-                                      entry.key != items.length - 1,
-                                  onTap: () =>
-                                      context.pop(entry.value.id),
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
+
+    if (widget.embedded) {
+      return Material(
+        color: Colors.transparent,
+        child: content,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: _historyBaseColor(context),
+      body: content,
+    );
+  }
+
+  void _handleConversationTap(BuildContext context, String conversationId) {
+    if (widget.onConversationSelected case final onConversationSelected?) {
+      onConversationSelected(conversationId);
+      return;
+    }
+
+    context.pop(conversationId);
   }
 }
 
@@ -272,6 +306,7 @@ class _SearchField extends StatelessWidget {
 
 class _TopIconButton extends StatelessWidget {
   const _TopIconButton({
+    super.key,
     required this.icon,
     required this.onTap,
   });

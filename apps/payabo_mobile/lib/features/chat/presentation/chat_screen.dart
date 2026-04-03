@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../data/repositories/chat_repository.dart';
@@ -11,6 +10,7 @@ import '../../../shared/theme/payabo_theme.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../profile/presentation/profile_state.dart';
 import '../domain/chat_controller.dart';
+import 'chat_history_screen.dart';
 
 final FutureProvider<List<ChatConversation>> _chatConversationsProvider =
     FutureProvider<List<ChatConversation>>((Ref ref) async {
@@ -188,19 +188,29 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with SingleTickerProviderStateMixin {
+  static const double _historyOverlayWidthFactor = 0.9;
+
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final AnimationController _historyOverlayController;
 
   @override
   void initState() {
     super.initState();
+    _historyOverlayController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 220),
+    );
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _historyOverlayController.dispose();
     super.dispose();
   }
 
@@ -254,122 +264,150 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Sync seeded conversations from provider (for history navigation only).
     final AsyncValue<List<ChatConversation>> conversationsAsync =
         ref.watch(_chatConversationsProvider);
+    final String? currentConversationId = ref.watch(
+      chatControllerProvider.select((ChatState state) => state.threadId),
+    );
 
-    return Scaffold(
-      backgroundColor: _chatBaseColor(context),
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: ColoredBox(color: _chatBaseColor(context)),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: _chatHeroGradient(),
+    return Stack(
+      children: <Widget>[
+        Scaffold(
+          backgroundColor: _chatBaseColor(context),
+          body: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: ColoredBox(color: _chatBaseColor(context)),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: _chatHeroGradient(),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          const Positioned(
-            top: -110,
-            left: -90,
-            child: _ChatGlowOrb(
-              size: 320,
-              color: Color(0x2638251B),
-            ),
-          ),
-          const Positioned(
-            top: -90,
-            right: -70,
-            child: _ChatGlowOrb(
-              size: 300,
-              color: Color(0x21422C1E),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.xl,
-                    PayaboSpacing.sm,
-                    PayaboSpacing.xl,
-                    0,
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      _ChatHeaderMenuButton(
-                        onTap: () => _openHistory(conversationsAsync),
+              const Positioned(
+                top: -110,
+                left: -90,
+                child: _ChatGlowOrb(
+                  size: 320,
+                  color: Color(0x2638251B),
+                ),
+              ),
+              const Positioned(
+                top: -90,
+                right: -70,
+                child: _ChatGlowOrb(
+                  size: 300,
+                  color: Color(0x21422C1E),
+                ),
+              ),
+              SafeArea(
+                child: Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        PayaboSpacing.xl,
+                        PayaboSpacing.sm,
+                        PayaboSpacing.xl,
+                        0,
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        children: <Widget>[
+                          _ChatHeaderMenuButton(
+                            onTap: _toggleHistoryOverlay,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: _ChatStage(
+                        controller: _scrollController,
+                        displayName: _firstName(displayName),
+                        onApprove: (String toolCallId) {
+                          ref
+                              .read(chatControllerProvider.notifier)
+                              .approveAction(toolCallId);
+                          _scrollToBottom(force: true);
+                        },
+                        onReject: (String toolCallId, [String? reason]) {
+                          ref
+                              .read(chatControllerProvider.notifier)
+                              .rejectAction(toolCallId, reason);
+                          _scrollToBottom(force: true);
+                        },
+                      ),
+                    ),
+                    const _ChatErrorSlot(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        PayaboSpacing.md,
+                        0,
+                        PayaboSpacing.md,
+                        PayaboSpacing.md,
+                      ),
+                      child: _ChatComposer(
+                        controller: _controller,
+                        onSubmitted: _submitPrompt,
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: _ChatStage(
-                    controller: _scrollController,
-                    displayName: _firstName(displayName),
-                    onApprove: (String toolCallId) {
-                      ref
-                          .read(chatControllerProvider.notifier)
-                          .approveAction(toolCallId);
-                      _scrollToBottom(force: true);
-                    },
-                    onReject: (String toolCallId, [String? reason]) {
-                      ref
-                          .read(chatControllerProvider.notifier)
-                          .rejectAction(toolCallId, reason);
-                      _scrollToBottom(force: true);
-                    },
-                  ),
-                ),
-                const _ChatErrorSlot(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    PayaboSpacing.md,
-                    0,
-                    PayaboSpacing.md,
-                    PayaboSpacing.md,
-                  ),
-                  child: _ChatComposer(
-                    controller: _controller,
-                    onSubmitted: _submitPrompt,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          bottomNavigationBar: Theme(
+            data: buildPayaboDarkTheme(),
+            child: const PayaboPrimaryAppShell(
+              destination: PayaboPrimaryDestination.chat,
+              backgroundOverride: Color(0xFF0E0A08),
+              borderOverride: Color(0xFF1E1610),
+              shadowOverride: Color(0x40000000),
+              selectedOverride: Color(0xFFF4A027),
+              unselectedOverride: Color(0xFF6B5B4E),
+              fabBackgroundOverride: Color(0xFFF37920),
+              fabShadowOverride: Color(0x30F37920),
             ),
           ),
-        ],
-      ),
-      bottomNavigationBar: Theme(
-        data: buildPayaboDarkTheme(),
-        child: const PayaboPrimaryAppShell(
-          destination: PayaboPrimaryDestination.chat,
-          backgroundOverride: Color(0xFF0E0A08),
-          borderOverride: Color(0xFF1E1610),
-          shadowOverride: Color(0x40000000),
-          selectedOverride: Color(0xFFF4A027),
-          unselectedOverride: Color(0xFF6B5B4E),
-          fabBackgroundOverride: Color(0xFFF37920),
-          fabShadowOverride: Color(0x30F37920),
         ),
-      ),
+        _ChatHistoryOverlay(
+          controller: _historyOverlayController,
+          onClose: _closeHistoryOverlay,
+          onDragUpdate: (DragUpdateDetails details) =>
+              _handleHistoryDragUpdate(details, context),
+          onDragEnd: _handleHistoryDragEnd,
+          child: ChatHistoryScreen(
+            embedded: true,
+            selectedConversationId: currentConversationId,
+            onClose: _closeHistoryOverlay,
+            onConversationSelected: (String selectedId) =>
+                _handleHistorySelection(selectedId, conversationsAsync),
+          ),
+        ),
+      ],
     );
   }
 
-  Future<void> _openHistory(
-    AsyncValue<List<ChatConversation>> conversationsAsync,
-  ) async {
-    final chatState = ref.read(chatControllerProvider);
-    final String? currentId = chatState.threadId;
+  void _toggleHistoryOverlay() {
+    FocusScope.of(context).unfocus();
 
-    final String? selectedId = await context.push<String>(
-      currentId == null ? '/chat/history' : '/chat/history?selected=$currentId',
-    );
-
-    if (!mounted || selectedId == null) {
+    if (_historyOverlayController.value > 0) {
+      _closeHistoryOverlay();
       return;
     }
+
+    _historyOverlayController.forward();
+  }
+
+  void _closeHistoryOverlay() {
+    _historyOverlayController.reverse();
+  }
+
+  Future<void> _handleHistorySelection(
+    String selectedId,
+    AsyncValue<List<ChatConversation>> conversationsAsync,
+  ) async {
+    _closeHistoryOverlay();
 
     // In mock mode with populated conversations, load directly from the
     // in-memory data. Otherwise fetch the full thread from the backend.
@@ -383,6 +421,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ref.read(chatControllerProvider.notifier).loadConversation(match);
     } else {
       await ref.read(chatControllerProvider.notifier).loadThread(selectedId);
+    }
+
+    if (!mounted) {
+      return;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -410,6 +452,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     ref.read(chatControllerProvider.notifier).sendMessage(prompt);
     _scrollToBottom(force: true);
+  }
+
+  void _handleHistoryDragUpdate(
+    DragUpdateDetails details,
+    BuildContext context,
+  ) {
+    final double? delta = details.primaryDelta;
+    if (delta == null) {
+      return;
+    }
+
+    final double panelWidth =
+        MediaQuery.sizeOf(context).width * _historyOverlayWidthFactor;
+    _historyOverlayController.value =
+        (_historyOverlayController.value + (delta / panelWidth))
+            .clamp(0.0, 1.0);
+  }
+
+  void _handleHistoryDragEnd(DragEndDetails details) {
+    final double velocity = details.primaryVelocity ?? 0;
+    if (velocity < -320 || _historyOverlayController.value < 0.72) {
+      _closeHistoryOverlay();
+      return;
+    }
+
+    _historyOverlayController.forward();
   }
 
   bool _isNearBottom() {
@@ -453,6 +521,88 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     return trimmed.split(' ').first;
+  }
+}
+
+class _ChatHistoryOverlay extends StatelessWidget {
+  const _ChatHistoryOverlay({
+    required this.controller,
+    required this.onClose,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.child,
+  });
+
+  final AnimationController controller;
+  final VoidCallback onClose;
+  final ValueChanged<DragUpdateDetails> onDragUpdate;
+  final ValueChanged<DragEndDetails> onDragEnd;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (BuildContext context, Widget? _) {
+        if (controller.isDismissed && !controller.isAnimating) {
+          return const SizedBox.shrink();
+        }
+
+        final double progress = Curves.easeOutCubic.transform(controller.value);
+
+        return IgnorePointer(
+          ignoring: progress == 0,
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: onClose,
+                  behavior: HitTestBehavior.opaque,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.28 * progress),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: _ChatScreenState._historyOverlayWidthFactor,
+                  child: FractionalTranslation(
+                    translation: Offset(progress - 1, 0),
+                    child: GestureDetector(
+                      onHorizontalDragUpdate: onDragUpdate,
+                      onHorizontalDragEnd: onDragEnd,
+                      behavior: HitTestBehavior.translucent,
+                      child: DecoratedBox(
+                        key: const ValueKey<String>('chat-history-overlay'),
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(32),
+                          ),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.28),
+                              blurRadius: 28,
+                              offset: const Offset(8, 0),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(32),
+                          ),
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

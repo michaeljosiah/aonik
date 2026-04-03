@@ -69,6 +69,61 @@ void main() {
     expect(welcomeText.style?.fontSize, greaterThanOrEqualTo(42));
   });
 
+  testWidgets(
+      'chat history opens as a left overlay and closes with the close button',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildTestApp(const ChatScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('chat-history-overlay')),
+        findsNothing);
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('chat-history-overlay')),
+        findsOneWidget);
+    expect(find.text('Conversation history'), findsOneWidget);
+    expect(find.text('Current account balance inquiry'), findsOneWidget);
+
+    await tester
+        .tap(find.byKey(const ValueKey<String>('chat-history-close-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('chat-history-overlay')),
+        findsNothing);
+  });
+
+  testWidgets(
+      'chat history overlay can be dismissed by drag and load a conversation',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildTestApp(const ChatScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey<String>('chat-history-overlay')),
+      const Offset(-420, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('chat-history-overlay')),
+        findsNothing);
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Current account balance inquiry'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('chat-history-overlay')),
+        findsNothing);
+    expect(find.text('I keep missing my due dates.'), findsOneWidget);
+    expect(find.textContaining('recoverable'), findsOneWidget);
+  });
+
   testWidgets('chat screen applies dark theme chat surfaces',
       (WidgetTester tester) async {
     await tester.pumpWidget(
