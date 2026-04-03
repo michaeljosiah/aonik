@@ -41,8 +41,12 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Payabo needs camera access so you can take a profile photo.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Payabo needs microphone access so you can speak with Simi in real time.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Payabo needs photo library access so you can choose a profile photo.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Payabo needs speech recognition access so Simi can understand your voice prompts.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

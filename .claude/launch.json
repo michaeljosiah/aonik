@@ -11,8 +11,8 @@
     {
       "name": "admin-ui-preview",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5176"],
-      "port": 5176,
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5177"],
+      "port": 5177,
       "cwd": "src/Aonik.AdminUi"
     },
     {

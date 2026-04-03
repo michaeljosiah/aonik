@@ -410,10 +410,10 @@ class ChatController extends StateNotifier<ChatState> {
         }
 
         state = state._clearStreaming().copyWith(
-              messages: messages,
-              activity: ChatActivity.idle,
-              pendingApprovals: const [],
-            );
+          messages: messages,
+          activity: ChatActivity.idle,
+          pendingApprovals: const [],
+        );
 
       case ChatStreamDisplayWidget():
         final widget = DisplayWidget(
@@ -427,10 +427,10 @@ class ChatController extends StateNotifier<ChatState> {
 
       case ChatStreamError():
         state = state._clearStreaming().copyWith(
-              activity: ChatActivity.error,
-              errorMessage: event.message,
-              pendingApprovals: const [],
-            );
+          activity: ChatActivity.error,
+          errorMessage: event.message,
+          pendingApprovals: const [],
+        );
     }
   }
 
@@ -511,10 +511,10 @@ class ChatController extends StateNotifier<ChatState> {
 
   void _onStreamError(Object error, StackTrace stackTrace) {
     state = state._clearStreaming().copyWith(
-          activity: ChatActivity.error,
-          errorMessage: error.toString(),
-          pendingApprovals: const [],
-        );
+      activity: ChatActivity.error,
+      errorMessage: error.toString(),
+      pendingApprovals: const [],
+    );
   }
 
   void _onStreamDone() {
@@ -522,8 +522,7 @@ class ChatController extends StateNotifier<ChatState> {
     // ensure we return to idle.
     if (state.isProcessing) {
       // Finalize any in-progress streaming text.
-      if (state.streamingText.isNotEmpty &&
-          state.streamingMessageId != null) {
+      if (state.streamingText.isNotEmpty && state.streamingMessageId != null) {
         final assistantMessage = ChatMessage(
           id: state.streamingMessageId,
           sender: ChatSender.assistant,
@@ -540,9 +539,9 @@ class ChatController extends StateNotifier<ChatState> {
       }
 
       state = state._clearStreaming().copyWith(
-            activity: ChatActivity.idle,
-            pendingApprovals: const [],
-          );
+        activity: ChatActivity.idle,
+        pendingApprovals: const [],
+      );
     }
   }
 

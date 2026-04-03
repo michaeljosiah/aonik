@@ -31,6 +31,9 @@ dependencies:
   image_picker: ^1.1.2
   local_auth: 3.0.1
   plaid_flutter: ^5.1.1
+  speech_to_text: ^7.1.0
+  flutter_tts: ^4.2.2
+  audioplayers: ^6.1.0
   youtube_player_iframe: ^5.2.0
 
 dev_dependencies:
@@ -55,5 +58,6 @@ flutter:
     - assets/images/budget-hero.png
     - assets/images/illustrations/
     - assets/images/flags/
+    - assets/audio/
     - assets/images/demo_profile.jpg
     - assets/images/simi.png

@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:collection';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +14,7 @@ import '../../../shared/theme/payabo_theme.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
 import '../../profile/presentation/profile_state.dart';
 import '../domain/chat_controller.dart';
+import '../domain/chat_voice_service.dart';
 import 'chat_history_screen.dart';
 
 final FutureProvider<List<ChatConversation>> _chatConversationsProvider =
@@ -49,30 +54,6 @@ LinearGradient _chatTrayGradient(BuildContext context) {
     stops: const <double>[0, 0.46, 1],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-  );
-}
-
-Color _chatInputSurfaceColor(BuildContext context) {
-  final c = context.colors;
-
-  return c.isDark ? const Color(0xFF1E1712) : const Color(0xFF201814);
-}
-
-LinearGradient _chatInputGradient(BuildContext context) {
-  final c = context.colors;
-
-  return LinearGradient(
-    colors: c.isDark
-        ? const <Color>[
-            Color(0xFF2A1E17),
-            Color(0xFF1E1611),
-          ]
-        : const <Color>[
-            Color(0xFF2E2119),
-            Color(0xFF211812),
-          ],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
   );
 }
 
@@ -181,6 +162,14 @@ List<BoxShadow> _chatTrayShadow() {
   ];
 }
 
+enum _VoiceStagePhase {
+  idle,
+  listening,
+  thinking,
+  speaking,
+  ready,
+}
+
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -191,14 +180,41 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
   static const double _historyOverlayWidthFactor = 0.9;
+  static const String _voiceLogPrefix = '[ChatVoice]';
+  static const Duration _voiceEndOfTurnGrace = Duration(milliseconds: 1800);
+  static const Duration _voiceThinkingWatchdog = Duration(seconds: 20);
+  static const int _voiceMinimumChunkChars = 48;
+  static const int _voicePreferredChunkChars = 96;
+  static const int _voiceMaximumChunkChars = 140;
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final ChatVoiceService _chatVoiceService;
   late final AnimationController _historyOverlayController;
+  Timer? _voiceTimer;
+  Timer? _voiceSpeakPulseResetTimer;
+  Timer? _voiceFinalizeTimer;
+  Timer? _voiceThinkingWatchdogTimer;
+  bool _voiceRetryInFlight = false;
+  bool _voiceAwaitingBackendReply = false;
+  String? _voiceLastSpokenAssistantMessageId;
+  final ListQueue<String> _voiceSpeechQueue = ListQueue<String>();
+  bool _voiceChunkSpeaking = false;
+  int _voiceSpokenReplyLength = 0;
+  bool _voiceBackendReplyCompleted = false;
+  int _voiceTurnSequence = 0;
+  int? _activeVoiceTurnId;
+  int? _voiceBackendTurnId;
+  _VoiceStagePhase _voiceStagePhase = _VoiceStagePhase.idle;
+  int _voicePulseTick = 0;
+  int _voiceElapsedMs = 0;
+  double _voiceSpeakingPulse = 0.18;
+  String _voiceLiveTranscript = '';
 
   @override
   void initState() {
     super.initState();
+    _chatVoiceService = ref.read(chatVoiceServiceProvider);
     _historyOverlayController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 280),
@@ -211,11 +227,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _controller.dispose();
     _scrollController.dispose();
     _historyOverlayController.dispose();
+    unawaited(_chatVoiceService.dispose());
+    _voiceTimer?.cancel();
+    _voiceSpeakPulseResetTimer?.cancel();
+    _voiceFinalizeTimer?.cancel();
+    _voiceThinkingWatchdogTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isVoiceActive = _voiceStagePhase != _VoiceStagePhase.idle;
+    final String voiceLocaleTag = _voiceLocaleTag(context);
     final String displayName = ref.watch(
       profileHeaderProvider.select(
         (ProfileHeaderState state) => state.displayName,
@@ -250,6 +273,69 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (next.displayWidgets.length > prev.displayWidgets.length &&
           keepPinnedToBottom) {
         _scrollToBottom();
+      }
+
+      if (_voiceAwaitingBackendReply &&
+          _voiceBackendTurnId != null &&
+          _voiceBackendTurnId == _activeVoiceTurnId &&
+          next.activity == ChatActivity.error &&
+          next.errorMessage != null) {
+        _voiceAwaitingBackendReply = false;
+        _voiceBackendTurnId = null;
+        _voiceBackendReplyCompleted = true;
+        _voiceSpeechQueue.clear();
+        _voiceChunkSpeaking = false;
+        _cancelVoiceThinkingWatchdog();
+        unawaited(_chatVoiceService.stopThinkingLoop());
+        _showVoiceSnackBar(next.errorMessage!);
+        if (_voiceStagePhase != _VoiceStagePhase.idle) {
+          setState(() {
+            _voiceStagePhase = _VoiceStagePhase.ready;
+          });
+        }
+      }
+
+      if (_voiceAwaitingBackendReply &&
+          _voiceBackendTurnId != null &&
+          _voiceBackendTurnId == _activeVoiceTurnId &&
+          prev.activity != ChatActivity.idle &&
+          next.activity == ChatActivity.idle) {
+        final ChatMessage? assistantMessage = next.messages.reversed
+            .where(
+                (ChatMessage message) => message.sender == ChatSender.assistant)
+            .cast<ChatMessage?>()
+            .firstWhere(
+              (ChatMessage? message) =>
+                  message != null &&
+                  message.id != _voiceLastSpokenAssistantMessageId,
+              orElse: () => null,
+            );
+
+        if (assistantMessage != null) {
+          _voiceAwaitingBackendReply = false;
+          _voiceBackendTurnId = null;
+          _voiceBackendReplyCompleted = true;
+          _voiceLastSpokenAssistantMessageId = assistantMessage.id;
+          _cancelVoiceThinkingWatchdog();
+          unawaited(_chatVoiceService.stopThinkingLoop());
+          _enqueueRemainingVoiceSpeech(
+            assistantMessage.lines.join('\n'),
+            voiceLocaleTag,
+            _activeVoiceTurnId!,
+          );
+        }
+      }
+
+      if (_voiceAwaitingBackendReply &&
+          _voiceBackendTurnId != null &&
+          _voiceBackendTurnId == _activeVoiceTurnId &&
+          next.streamingText.length > prev.streamingText.length) {
+        _cancelVoiceThinkingWatchdog();
+        _enqueueStableVoiceChunk(
+          next.streamingText,
+          voiceLocaleTag,
+          _activeVoiceTurnId!,
+        );
       }
 
       // Refresh thread list when a streaming run completes so new
@@ -305,25 +391,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               SafeArea(
                 child: Column(
                   children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        PayaboSpacing.xl,
-                        PayaboSpacing.sm,
-                        PayaboSpacing.xl,
-                        0,
+                    if (!isVoiceActive)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          PayaboSpacing.xl,
+                          PayaboSpacing.sm,
+                          PayaboSpacing.xl,
+                          0,
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            _ChatHeaderMenuButton(
+                              onTap: _toggleHistoryOverlay,
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        children: <Widget>[
-                          _ChatHeaderMenuButton(
-                            onTap: _toggleHistoryOverlay,
-                          ),
-                        ],
-                      ),
-                    ),
                     Expanded(
                       child: _ChatStage(
                         controller: _scrollController,
                         displayName: _firstName(displayName),
+                        voiceStagePhase: _voiceStagePhase,
+                        voicePulseTick: _voicePulseTick,
+                        voiceSpeakingPulse: _voiceSpeakingPulse,
+                        voiceElapsedMs: _voiceElapsedMs,
+                        voiceTranscript: _voiceTranscript,
+                        onVoiceOrbTap: _handleVoiceTap,
                         onApprove: (String toolCallId) {
                           ref
                               .read(chatControllerProvider.notifier)
@@ -348,6 +441,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                       child: _ChatComposer(
                         controller: _controller,
+                        isVoiceActive: isVoiceActive,
+                        voiceStagePhase: _voiceStagePhase,
+                        voicePulseTick: _voicePulseTick,
+                        onEndVoiceTap: _dismissVoiceStage,
+                        onVoiceTap: _handleVoiceTap,
                         onSubmitted: _submitPrompt,
                       ),
                     ),
@@ -356,19 +454,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ),
             ],
           ),
-          bottomNavigationBar: Theme(
-            data: buildPayaboDarkTheme(),
-            child: const PayaboPrimaryAppShell(
-              destination: PayaboPrimaryDestination.chat,
-              backgroundOverride: Color(0xFF0E0A08),
-              borderOverride: Color(0xFF1E1610),
-              shadowOverride: Color(0x40000000),
-              selectedOverride: Color(0xFFF4A027),
-              unselectedOverride: Color(0xFF6B5B4E),
-              fabBackgroundOverride: Color(0xFFF37920),
-              fabShadowOverride: Color(0x30F37920),
-            ),
-          ),
+          bottomNavigationBar: isVoiceActive
+              ? null
+              : Theme(
+                  data: buildPayaboDarkTheme(),
+                  child: const PayaboPrimaryAppShell(
+                    destination: PayaboPrimaryDestination.chat,
+                    backgroundOverride: Color(0xFF0E0A08),
+                    borderOverride: Color(0xFF1E1610),
+                    shadowOverride: Color(0x40000000),
+                    selectedOverride: Color(0xFFF4A027),
+                    unselectedOverride: Color(0xFF6B5B4E),
+                    fabBackgroundOverride: Color(0xFFF37920),
+                    fabShadowOverride: Color(0x30F37920),
+                  ),
+                ),
         ),
         _ChatHistoryOverlay(
           controller: _historyOverlayController,
@@ -449,9 +549,548 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     FocusScope.of(context).unfocus();
     _controller.clear();
+    _dismissVoiceStage();
 
     ref.read(chatControllerProvider.notifier).sendMessage(prompt);
     _scrollToBottom(force: true);
+  }
+
+  String get _voiceTranscript {
+    return _voiceLiveTranscript.trim();
+  }
+
+  Future<void> _handleVoiceTap() async {
+    _voiceLog('voice tap while phase=$_voiceStagePhase');
+    switch (_voiceStagePhase) {
+      case _VoiceStagePhase.idle:
+      case _VoiceStagePhase.ready:
+        await _startVoiceStage();
+      case _VoiceStagePhase.listening:
+        await _stopVoiceStage();
+      case _VoiceStagePhase.speaking:
+        _finishVoiceReply(_activeVoiceTurnId);
+        await _startVoiceStage();
+      case _VoiceStagePhase.thinking:
+        return;
+    }
+  }
+
+  Future<void> _startVoiceStage() async {
+    final int turnId = ++_voiceTurnSequence;
+    _voiceLog('start voice stage turn=$turnId');
+    FocusScope.of(context).unfocus();
+    _cancelVoiceTimers();
+    await _chatVoiceService.stopSpeaking();
+
+    setState(() {
+      _activeVoiceTurnId = turnId;
+      _voiceBackendTurnId = null;
+      _voiceStagePhase = _VoiceStagePhase.listening;
+      _voicePulseTick = 0;
+      _voiceElapsedMs = 0;
+      _voiceSpeakingPulse = 0.18;
+      _voiceLiveTranscript = '';
+      _voiceRetryInFlight = false;
+      _voiceAwaitingBackendReply = false;
+      _voiceSpokenReplyLength = 0;
+      _voiceBackendReplyCompleted = false;
+      _voiceChunkSpeaking = false;
+      _voiceSpeechQueue.clear();
+    });
+
+    _voiceTimer = Timer.periodic(const Duration(milliseconds: 160), (
+      Timer timer,
+    ) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        _voicePulseTick += 1;
+        if (_voiceStagePhase == _VoiceStagePhase.listening) {
+          _voiceElapsedMs += 160;
+        }
+      });
+    });
+
+    final bool available = await _beginVoiceListeningSession(turnId);
+
+    if (!available && mounted) {
+      _dismissVoiceStage();
+      _showVoiceSnackBar('Voice recognition is not available on this device.');
+    }
+  }
+
+  Future<bool> _beginVoiceListeningSession(int turnId) {
+    final String localeTag = _voiceLocaleTag(context);
+    _voiceLog('begin listening session turn=$turnId locale=$localeTag');
+
+    return _chatVoiceService.startListening(
+      onResult: (String text, bool isFinal) {
+        if (!_isActiveVoiceTurn(turnId) ||
+            _voiceStagePhase != _VoiceStagePhase.listening) {
+          return;
+        }
+
+        _voiceLog('stt callback final=$isFinal text="$text"');
+
+        _voiceFinalizeTimer?.cancel();
+
+        setState(() {
+          _voiceLiveTranscript = text.trim();
+        });
+
+        if (isFinal && text.trim().isNotEmpty) {
+          _scheduleVoiceStop(turnId);
+        }
+      },
+      onStatus: (String status) {
+        if (!_isActiveVoiceTurn(turnId) ||
+            _voiceStagePhase != _VoiceStagePhase.listening) {
+          return;
+        }
+
+        _voiceLog('stt status callback: $status');
+
+        if (status == 'done' || status == 'notListening') {
+          if (_voiceLiveTranscript.trim().isNotEmpty) {
+            _scheduleVoiceStop(turnId);
+            return;
+          }
+
+          unawaited(_restartVoiceListening(turnId));
+        }
+      },
+      onError: (String message) {
+        if (!_isActiveVoiceTurn(turnId)) {
+          return;
+        }
+
+        _voiceLog('stt error callback: $message');
+
+        if (_isSoftVoiceInputError(message)) {
+          unawaited(_restartVoiceListening(turnId));
+          return;
+        }
+
+        _showVoiceSnackBar('Voice input unavailable: $message');
+        if (_voiceLiveTranscript.trim().isEmpty) {
+          _dismissVoiceStage();
+        }
+      },
+      localeTag: localeTag,
+    );
+  }
+
+  Future<void> _restartVoiceListening(int turnId) async {
+    _voiceLog('restart listening requested turn=$turnId');
+    if (!_isActiveVoiceTurn(turnId) ||
+        _voiceStagePhase != _VoiceStagePhase.listening ||
+        _voiceRetryInFlight) {
+      return;
+    }
+
+    _voiceRetryInFlight = true;
+    await _chatVoiceService.stopListening();
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+
+    if (!_isActiveVoiceTurn(turnId) ||
+        _voiceStagePhase != _VoiceStagePhase.listening) {
+      _voiceRetryInFlight = false;
+      return;
+    }
+
+    final bool restarted = await _beginVoiceListeningSession(turnId);
+    _voiceRetryInFlight = false;
+
+    if (!restarted &&
+        _isActiveVoiceTurn(turnId) &&
+        _voiceStagePhase == _VoiceStagePhase.listening) {
+      _showVoiceSnackBar('Microphone did not restart. Tap Talk to try again.');
+      setState(() {
+        _voiceStagePhase = _VoiceStagePhase.ready;
+      });
+    }
+  }
+
+  void _scheduleVoiceStop(int turnId) {
+    _voiceLog('schedule voice stop turn=$turnId');
+    _voiceFinalizeTimer?.cancel();
+    _voiceFinalizeTimer = Timer(_voiceEndOfTurnGrace, () {
+      if (!_isActiveVoiceTurn(turnId) ||
+          _voiceStagePhase != _VoiceStagePhase.listening) {
+        return;
+      }
+
+      unawaited(_stopVoiceStage(turnId));
+    });
+  }
+
+  bool _isSoftVoiceInputError(String message) {
+    final String normalized = message.toLowerCase();
+
+    return normalized.contains('error_no_match') ||
+        normalized.contains('no match') ||
+        normalized.contains('speech timeout') ||
+        normalized.contains('error_speech_timeout');
+  }
+
+  Future<void> _stopVoiceStage([int? turnId]) async {
+    final int? effectiveTurnId = turnId ?? _activeVoiceTurnId;
+    _voiceLog(
+      'stop voice stage turn=$effectiveTurnId transcript="${_voiceLiveTranscript.trim()}"',
+    );
+    if (effectiveTurnId == null ||
+        !_isActiveVoiceTurn(effectiveTurnId) ||
+        _voiceStagePhase != _VoiceStagePhase.listening) {
+      return;
+    }
+
+    await _chatVoiceService.stopListening();
+
+    final String transcript = _voiceLiveTranscript.trim();
+    if (transcript.isEmpty) {
+      _dismissVoiceStage();
+      return;
+    }
+
+    setState(() {
+      if (_voiceElapsedMs == 0) {
+        _voiceElapsedMs = 8200;
+      }
+      _voiceStagePhase = _VoiceStagePhase.thinking;
+      _voiceAwaitingBackendReply = true;
+      _voiceBackendTurnId = effectiveTurnId;
+      _voiceBackendReplyCompleted = false;
+    });
+
+    _startVoiceThinkingWatchdog(effectiveTurnId);
+    unawaited(_chatVoiceService.startThinkingLoop());
+    ref.read(chatControllerProvider.notifier).sendMessage(transcript);
+    _voiceLog('sent transcript to backend');
+    _scrollToBottom(force: true);
+  }
+
+  void _dismissVoiceStage() {
+    _voiceLog('dismiss voice stage');
+    _cancelVoiceTimers();
+    unawaited(_chatVoiceService.stopThinkingLoop());
+    unawaited(_chatVoiceService.stopListening());
+    unawaited(_chatVoiceService.stopSpeaking());
+
+    if (_voiceStagePhase == _VoiceStagePhase.idle &&
+        _voicePulseTick == 0 &&
+        _voiceElapsedMs == 0 &&
+        _voiceLiveTranscript.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _activeVoiceTurnId = null;
+      _voiceBackendTurnId = null;
+      _voiceStagePhase = _VoiceStagePhase.idle;
+      _voicePulseTick = 0;
+      _voiceElapsedMs = 0;
+      _voiceSpeakingPulse = 0.18;
+      _voiceLiveTranscript = '';
+      _voiceAwaitingBackendReply = false;
+      _voiceSpokenReplyLength = 0;
+      _voiceBackendReplyCompleted = false;
+      _voiceChunkSpeaking = false;
+      _voiceSpeechQueue.clear();
+    });
+  }
+
+  void _finishVoiceReply([int? turnId]) {
+    if (turnId != null && !_isActiveVoiceTurn(turnId)) {
+      return;
+    }
+
+    _voiceLog('finish voice reply turn=${turnId ?? _activeVoiceTurnId}');
+    unawaited(_chatVoiceService.stopThinkingLoop());
+    unawaited(_chatVoiceService.stopSpeaking());
+
+    setState(() {
+      _voiceSpeakingPulse = 0.18;
+      _voiceStagePhase = _VoiceStagePhase.ready;
+      _voiceChunkSpeaking = false;
+    });
+  }
+
+  void _cancelVoiceTimers() {
+    _voiceTimer?.cancel();
+    _voiceSpeakPulseResetTimer?.cancel();
+    _voiceFinalizeTimer?.cancel();
+    _cancelVoiceThinkingWatchdog();
+  }
+
+  void _triggerSpeakingPulse(String word) {
+    final double pulse =
+        (0.42 + (word.trim().length * 0.035)).clamp(0.42, 0.94);
+
+    _voiceSpeakPulseResetTimer?.cancel();
+    setState(() {
+      _voiceSpeakingPulse = pulse;
+    });
+
+    _voiceSpeakPulseResetTimer = Timer(const Duration(milliseconds: 140), () {
+      if (!mounted || _voiceStagePhase != _VoiceStagePhase.speaking) {
+        return;
+      }
+
+      setState(() {
+        _voiceSpeakingPulse = 0.18;
+      });
+    });
+  }
+
+  String _voiceLocaleTag(BuildContext context) {
+    return Localizations.maybeLocaleOf(context)?.toLanguageTag() ?? 'en-US';
+  }
+
+  void _enqueueStableVoiceChunk(String fullText, String localeTag, int turnId) {
+    if (!_isBackendTurn(turnId)) {
+      return;
+    }
+
+    final int boundary =
+        _lastStableSpeechBoundary(fullText, _voiceSpokenReplyLength);
+    if (boundary <= _voiceSpokenReplyLength) {
+      return;
+    }
+
+    final String chunk =
+        fullText.substring(_voiceSpokenReplyLength, boundary).trim();
+    _voiceSpokenReplyLength = boundary;
+
+    if (chunk.isEmpty) {
+      return;
+    }
+
+    _voiceLog('queue stable chunk: "$chunk"');
+    _voiceSpeechQueue.add(chunk);
+    _drainVoiceSpeechQueue(localeTag, turnId);
+  }
+
+  void _enqueueRemainingVoiceSpeech(
+    String fullText,
+    String localeTag,
+    int turnId,
+  ) {
+    if (!_isBackendTurn(turnId)) {
+      return;
+    }
+
+    final String remaining = fullText
+        .substring(
+          _voiceSpokenReplyLength.clamp(0, fullText.length),
+        )
+        .trim();
+
+    if (remaining.isNotEmpty) {
+      _voiceSpokenReplyLength = fullText.length;
+      _voiceLog('queue remaining chunk: "$remaining"');
+      _voiceSpeechQueue.add(remaining);
+    }
+
+    _drainVoiceSpeechQueue(localeTag, turnId);
+  }
+
+  int _lastStableSpeechBoundary(String text, int fromIndex) {
+    int terminalBoundary = fromIndex;
+    int clauseBoundary = fromIndex;
+    int latestWordBoundary = fromIndex;
+    int preferredWordBoundary = fromIndex;
+
+    for (int i = fromIndex; i < text.length; i += 1) {
+      final String char = text[i];
+      final bool isTerminal = char == '.' || char == '!' || char == '?';
+      final bool isClause = char == ',' || char == ';' || char == ':';
+      final bool isLineBreak = char == '\n';
+      final bool isWhitespace = char.trim().isEmpty;
+      final int currentLength = (i + 1) - fromIndex;
+
+      if (isWhitespace) {
+        latestWordBoundary = i + 1;
+        if (currentLength >= _voicePreferredChunkChars &&
+            preferredWordBoundary == fromIndex) {
+          preferredWordBoundary = i + 1;
+        }
+      }
+
+      if (isLineBreak) {
+        terminalBoundary = i + 1;
+        clauseBoundary = i + 1;
+        latestWordBoundary = i + 1;
+        if (currentLength >= _voicePreferredChunkChars &&
+            preferredWordBoundary == fromIndex) {
+          preferredWordBoundary = i + 1;
+        }
+      }
+
+      if (isTerminal) {
+        final bool atEnd = i == text.length - 1;
+        final bool followedBySpace = !atEnd && text[i + 1].trim().isEmpty;
+        if (atEnd || followedBySpace) {
+          terminalBoundary = i + 1;
+        }
+      }
+
+      if (isClause) {
+        final bool atEnd = i == text.length - 1;
+        final bool followedBySpace = !atEnd && text[i + 1].trim().isEmpty;
+        if ((atEnd || followedBySpace) &&
+            currentLength >= _voiceMinimumChunkChars) {
+          clauseBoundary = i + 1;
+        }
+      }
+    }
+
+    if (terminalBoundary > fromIndex) {
+      return terminalBoundary;
+    }
+
+    if (clauseBoundary > fromIndex) {
+      return clauseBoundary;
+    }
+
+    final int totalLength = text.length - fromIndex;
+    if (preferredWordBoundary > fromIndex &&
+        totalLength >= _voicePreferredChunkChars) {
+      return preferredWordBoundary;
+    }
+
+    if (latestWordBoundary > fromIndex &&
+        totalLength >= _voiceMaximumChunkChars) {
+      return latestWordBoundary;
+    }
+
+    return fromIndex;
+  }
+
+  void _drainVoiceSpeechQueue(String localeTag, int turnId) {
+    if (!_isActiveVoiceTurn(turnId) ||
+        _voiceStagePhase == _VoiceStagePhase.idle) {
+      return;
+    }
+
+    if (_voiceChunkSpeaking) {
+      return;
+    }
+
+    if (_voiceSpeechQueue.isEmpty) {
+      if (_voiceBackendReplyCompleted &&
+          _voiceStagePhase == _VoiceStagePhase.speaking) {
+        _finishVoiceReply(turnId);
+      }
+      return;
+    }
+
+    final String chunk = _voiceSpeechQueue.removeFirst();
+    _voiceChunkSpeaking = true;
+    _voiceLog('speak queued chunk: "$chunk"');
+
+    setState(() {
+      _voiceStagePhase = _VoiceStagePhase.speaking;
+      _voiceSpeakingPulse = 0.18;
+    });
+
+    unawaited(
+      _chatVoiceService.speak(
+        chunk,
+        onProgress: (String _, int __, int ___, String word) {
+          if (!_isActiveVoiceTurn(turnId) ||
+              _voiceStagePhase != _VoiceStagePhase.speaking) {
+            return;
+          }
+
+          _triggerSpeakingPulse(word);
+        },
+        onComplete: () {
+          if (!_isActiveVoiceTurn(turnId)) {
+            return;
+          }
+
+          _voiceChunkSpeaking = false;
+          _drainVoiceSpeechQueue(localeTag, turnId);
+        },
+        onCancel: () {
+          if (!_isActiveVoiceTurn(turnId)) {
+            return;
+          }
+
+          _voiceLog('tts chunk canceled turn=$turnId');
+          _voiceChunkSpeaking = false;
+        },
+        onError: (String message) {
+          if (!_isActiveVoiceTurn(turnId)) {
+            return;
+          }
+
+          _voiceChunkSpeaking = false;
+          _showVoiceSnackBar('Voice playback unavailable: $message');
+          _drainVoiceSpeechQueue(localeTag, turnId);
+        },
+        localeTag: localeTag,
+      ),
+    );
+  }
+
+  bool _isActiveVoiceTurn(int turnId) {
+    return mounted && _activeVoiceTurnId == turnId;
+  }
+
+  bool _isBackendTurn(int turnId) {
+    return _voiceAwaitingBackendReply &&
+        _voiceBackendTurnId == turnId &&
+        _activeVoiceTurnId == turnId;
+  }
+
+  void _startVoiceThinkingWatchdog(int turnId) {
+    _cancelVoiceThinkingWatchdog();
+    _voiceThinkingWatchdogTimer = Timer(_voiceThinkingWatchdog, () {
+      if (!_isBackendTurn(turnId) ||
+          _voiceStagePhase != _VoiceStagePhase.thinking) {
+        return;
+      }
+
+      _voiceLog('thinking watchdog fired turn=$turnId');
+      _voiceAwaitingBackendReply = false;
+      _voiceBackendTurnId = null;
+      _voiceBackendReplyCompleted = true;
+      _voiceSpeechQueue.clear();
+      _voiceChunkSpeaking = false;
+      unawaited(_chatVoiceService.stopThinkingLoop());
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _voiceStagePhase = _VoiceStagePhase.ready;
+      });
+      _showVoiceSnackBar(
+          'Simi took too long to respond. Tap Talk to try again.');
+    });
+  }
+
+  void _cancelVoiceThinkingWatchdog() {
+    _voiceThinkingWatchdogTimer?.cancel();
+  }
+
+  void _showVoiceSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _voiceLog(String message) {
+    if (!kDebugMode) {
+      return;
+    }
+
+    debugPrint('$_voiceLogPrefix $message');
   }
 
   void _handleHistoryDragUpdate(
@@ -610,18 +1249,31 @@ class _ChatStage extends ConsumerWidget {
   const _ChatStage({
     required this.controller,
     required this.displayName,
+    required this.voiceStagePhase,
+    required this.voicePulseTick,
+    required this.voiceSpeakingPulse,
+    required this.voiceElapsedMs,
+    required this.voiceTranscript,
+    required this.onVoiceOrbTap,
     required this.onApprove,
     required this.onReject,
   });
 
   final ScrollController controller;
   final String displayName;
+  final _VoiceStagePhase voiceStagePhase;
+  final int voicePulseTick;
+  final double voiceSpeakingPulse;
+  final int voiceElapsedMs;
+  final String voiceTranscript;
+  final Future<void> Function() onVoiceOrbTap;
   final void Function(String toolCallId) onApprove;
   final void Function(String toolCallId, [String? reason]) onReject;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ChatState chatState = ref.watch(chatControllerProvider);
+    final bool showVoiceStage = voiceStagePhase != _VoiceStagePhase.idle;
     final bool showHero = !chatState.hasMessages &&
         chatState.streamingText.isEmpty &&
         chatState.activity == ChatActivity.idle;
@@ -630,24 +1282,34 @@ class _ChatStage extends ConsumerWidget {
       duration: const Duration(milliseconds: 320),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
-      child: showHero
-          ? _EmptyChatStage(
-              key: const ValueKey<String>('chat-empty'),
-              displayName: displayName,
+      child: showVoiceStage
+          ? _RealtimeVoiceStage(
+              key: const ValueKey<String>('chat-voice-stage'),
+              phase: voiceStagePhase,
+              pulseTick: voicePulseTick,
+              speakingPulse: voiceSpeakingPulse,
+              elapsedMs: voiceElapsedMs,
+              transcript: voiceTranscript,
+              onOrbTap: onVoiceOrbTap,
             )
-          : _ConversationStage(
-              key: const ValueKey<String>('chat-thread'),
-              controller: controller,
-              displayName: displayName,
-              messages: chatState.messages,
-              streamingText: chatState.streamingText,
-              activity: chatState.activity,
-              activeToolCalls: chatState.activeToolCalls,
-              pendingApprovals: chatState.pendingApprovals,
-              displayWidgets: chatState.displayWidgets,
-              onApprove: onApprove,
-              onReject: onReject,
-            ),
+          : showHero
+              ? _EmptyChatStage(
+                  key: const ValueKey<String>('chat-empty'),
+                  displayName: displayName,
+                )
+              : _ConversationStage(
+                  key: const ValueKey<String>('chat-thread'),
+                  controller: controller,
+                  displayName: displayName,
+                  messages: chatState.messages,
+                  streamingText: chatState.streamingText,
+                  activity: chatState.activity,
+                  activeToolCalls: chatState.activeToolCalls,
+                  pendingApprovals: chatState.pendingApprovals,
+                  displayWidgets: chatState.displayWidgets,
+                  onApprove: onApprove,
+                  onReject: onReject,
+                ),
     );
   }
 }
@@ -1242,15 +1904,24 @@ class _ChatHeaderMenuButton extends StatelessWidget {
 class _ChatComposer extends ConsumerWidget {
   const _ChatComposer({
     required this.controller,
+    required this.isVoiceActive,
+    required this.voiceStagePhase,
+    required this.voicePulseTick,
+    required this.onEndVoiceTap,
+    required this.onVoiceTap,
     required this.onSubmitted,
   });
 
   final TextEditingController controller;
+  final bool isVoiceActive;
+  final _VoiceStagePhase voiceStagePhase;
+  final int voicePulseTick;
+  final VoidCallback onEndVoiceTap;
+  final VoidCallback onVoiceTap;
   final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
     final bool showHeroHint = ref.watch(
       chatControllerProvider.select(
         (ChatState state) =>
@@ -1263,168 +1934,746 @@ class _ChatComposer extends ConsumerWidget {
       chatControllerProvider.select((ChatState state) => state.isProcessing),
     );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(34),
-      child: DecoratedBox(
+    return AnimatedAlign(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.center,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        constraints: BoxConstraints(maxWidth: isVoiceActive ? 320 : 720),
         decoration: BoxDecoration(
           color: _chatTrayColor(context),
           gradient: _chatTrayGradient(context),
-          borderRadius: BorderRadius.circular(34),
-          border: Border.all(color: _chatPremiumBorderColor(context)),
+          borderRadius: BorderRadius.circular(26),
           boxShadow: _chatTrayShadow(),
         ),
-        child: Stack(
-          children: <Widget>[
-            Positioned(
-              top: 0,
-              left: 22,
-              right: 22,
-              child: Container(
-                height: 1,
-                color: _chatPremiumHighlightColor(context),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                PayaboSpacing.lg,
-                PayaboSpacing.lg,
-                PayaboSpacing.lg,
-                PayaboSpacing.md,
-              ),
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: controller,
-                builder: (
-                  BuildContext context,
-                  TextEditingValue value,
-                  Widget? child,
-                ) {
-                  final bool canSend =
-                      value.text.trim().isNotEmpty && !isProcessing;
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: PayaboSpacing.lg,
+            vertical: PayaboSpacing.sm,
+          ),
+          child: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (
+              BuildContext context,
+              TextEditingValue value,
+              Widget? child,
+            ) {
+              final bool canSend =
+                  value.text.trim().isNotEmpty && !isProcessing;
 
-                  return Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: _chatInputSurfaceColor(context),
-                            gradient: _chatInputGradient(context),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: _chatPremiumBorderColor(context),
-                            ),
-                            boxShadow: const <BoxShadow>[
-                              BoxShadow(
-                                color: Color(0x14000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
+              if (isVoiceActive) {
+                final _VoiceControlConfig talkControl = _voiceTalkControl(
+                  voiceStagePhase,
+                  isProcessing,
+                );
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Expanded(
+                      child: _VoiceControlButton(
+                        icon: Icons.call_end_rounded,
+                        label: 'End',
+                        semanticLabel: 'End voice chat',
+                        isEnabled: true,
+                        isDestructive: true,
+                        onTap: onEndVoiceTap,
+                      ),
+                    ),
+                    const SizedBox(width: PayaboSpacing.md),
+                    Expanded(
+                      child: _VoiceControlButton(
+                        icon: talkControl.icon,
+                        label: talkControl.label,
+                        semanticLabel: talkControl.semanticLabel,
+                        isEnabled: talkControl.isEnabled,
+                        isPrimary: true,
+                        isRecording: talkControl.isRecording,
+                        recordingPulseTick: voicePulseTick,
+                        onTap: onVoiceTap,
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      minLines: 1,
+                      maxLines: 4,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: _chatBodyTextColor(context),
+                            height: 1.35,
+                            fontWeight: FontWeight.w400,
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: PayaboSpacing.lg,
-                            ),
-                            child: TextField(
-                              controller: controller,
-                              minLines: 1,
-                              maxLines: 4,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    color: _chatBodyTextColor(context),
-                                    height: 1.35,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                              cursorColor: c.primary,
-                              textInputAction: TextInputAction.send,
-                              onSubmitted: onSubmitted,
-                              decoration: InputDecoration(
-                                hintText: showHeroHint
-                                    ? 'Try asking "How do I stop missing bills?"'
-                                    : 'Write here...',
-                                hintStyle: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                      color: _chatMutedTextColor(context),
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                filled: false,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 18,
+                      cursorColor: context.colors.primary,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: onSubmitted,
+                      decoration: InputDecoration(
+                        hintText: showHeroHint
+                            ? 'Try asking "How do I stop missing bills?"'
+                            : 'Write here...',
+                        hintStyle:
+                            Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: _chatMutedTextColor(context),
+                                  fontWeight: FontWeight.w400,
                                 ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        filled: false,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: PayaboSpacing.sm),
+                  _ChatComposerActionButton(
+                    icon: Icons.mic_none_rounded,
+                    semanticLabel: 'Voice chat',
+                    isEnabled: true,
+                    isPrimary: true,
+                    onTap: onVoiceTap,
+                  ),
+                  if (!isVoiceActive) ...<Widget>[
+                    const SizedBox(width: PayaboSpacing.sm),
+                    _ChatComposerActionButton(
+                      icon: Icons.send_rounded,
+                      semanticLabel: 'Send message',
+                      isEnabled: canSend,
+                      isPrimary: true,
+                      onTap: () => onSubmitted(value.text),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  _VoiceControlConfig _voiceTalkControl(
+    _VoiceStagePhase phase,
+    bool isProcessing,
+  ) {
+    return switch (phase) {
+      _VoiceStagePhase.listening => const _VoiceControlConfig(
+          icon: Icons.graphic_eq_rounded,
+          label: 'Listening',
+          semanticLabel: 'Listening now',
+          isEnabled: true,
+          isRecording: true,
+        ),
+      _VoiceStagePhase.thinking => const _VoiceControlConfig(
+          icon: Icons.auto_awesome_rounded,
+          label: 'Thinking',
+          semanticLabel: 'Simi is thinking',
+          isEnabled: false,
+        ),
+      _VoiceStagePhase.speaking => const _VoiceControlConfig(
+          icon: Icons.mic_rounded,
+          label: 'Interrupt',
+          semanticLabel: 'Interrupt and speak',
+          isEnabled: true,
+        ),
+      _VoiceStagePhase.ready || _VoiceStagePhase.idle => _VoiceControlConfig(
+          icon: Icons.mic_rounded,
+          label: 'Talk',
+          semanticLabel: 'Talk to Simi',
+          isEnabled: !isProcessing,
+        ),
+    };
+  }
+}
+
+class _VoiceControlConfig {
+  const _VoiceControlConfig({
+    required this.icon,
+    required this.label,
+    required this.semanticLabel,
+    required this.isEnabled,
+    this.isRecording = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String semanticLabel;
+  final bool isEnabled;
+  final bool isRecording;
+}
+
+class _VoiceControlButton extends StatelessWidget {
+  const _VoiceControlButton({
+    required this.icon,
+    required this.label,
+    required this.semanticLabel,
+    required this.isEnabled,
+    required this.onTap,
+    this.isPrimary = false,
+    this.isDestructive = false,
+    this.isRecording = false,
+    this.recordingPulseTick = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final String semanticLabel;
+  final bool isEnabled;
+  final VoidCallback onTap;
+  final bool isPrimary;
+  final bool isDestructive;
+  final bool isRecording;
+  final int recordingPulseTick;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Color> colors = isDestructive
+        ? (isEnabled
+            ? const <Color>[Color(0xFFE1574C), Color(0xFFB63C33)]
+            : const <Color>[Color(0xFF6E3A36), Color(0xFF4F2926)])
+        : isPrimary
+            ? (isEnabled
+                ? const <Color>[Color(0xFFF4A027), Color(0xFFD16E1D)]
+                : const <Color>[Color(0xFF85592E), Color(0xFF624221)])
+            : (isEnabled
+                ? const <Color>[Color(0x33FFFFFF), Color(0x18FFFFFF)]
+                : const <Color>[Color(0x1FFFFFFF), Color(0x14FFFFFF)]);
+    final Color iconColor = isPrimary || isDestructive
+        ? Colors.black.withValues(alpha: isEnabled ? 0.92 : 0.42)
+        : Colors.white.withValues(alpha: isEnabled ? 0.88 : 0.48);
+    final double pulseScale =
+        isRecording ? 1 + ((recordingPulseTick % 6) * 0.02) : 1;
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          onTap: isEnabled ? onTap : null,
+          borderRadius: BorderRadius.circular(22),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            scale: pulseScale,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(
+                horizontal: PayaboSpacing.md,
+                vertical: PayaboSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: colors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color:
+                      Colors.white.withValues(alpha: isEnabled ? 0.08 : 0.04),
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: isRecording && isEnabled
+                        ? const Color(0x40F4A027)
+                        : isDestructive && isEnabled
+                            ? const Color(0x30E1574C)
+                            : isPrimary && isEnabled
+                                ? const Color(0x2CF4A027)
+                                : const Color(0x14000000),
+                    blurRadius: isRecording ? 18 : 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      Icon(icon, color: iconColor, size: 20),
+                      if (isRecording)
+                        Positioned(
+                          top: -2,
+                          right: -2,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A120D),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.9),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: PayaboSpacing.md),
-                      _ChatSendButton(
-                        isEnabled: canSend,
-                        onTap: () => onSubmitted(value.text),
-                      ),
                     ],
-                  );
-                },
+                  ),
+                  const SizedBox(width: PayaboSpacing.sm),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: iconColor,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _ChatSendButton extends StatelessWidget {
-  const _ChatSendButton({
-    required this.isEnabled,
-    required this.onTap,
+class _RealtimeVoiceStage extends StatelessWidget {
+  const _RealtimeVoiceStage({
+    super.key,
+    required this.phase,
+    required this.pulseTick,
+    required this.speakingPulse,
+    required this.elapsedMs,
+    required this.transcript,
+    required this.onOrbTap,
   });
 
-  final bool isEnabled;
-  final VoidCallback onTap;
+  final _VoiceStagePhase phase;
+  final int pulseTick;
+  final double speakingPulse;
+  final int elapsedMs;
+  final String transcript;
+  final Future<void> Function() onOrbTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: isEnabled ? onTap : null,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: isEnabled
-                  ? const <Color>[Color(0xFFF4A027), Color(0xFFD16E1D)]
-                  : const <Color>[Color(0xFF85592E), Color(0xFF624221)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: isEnabled ? 0.12 : 0.06),
-            ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: isEnabled
-                    ? const Color(0x2CF4A027)
-                    : const Color(0x14000000),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
+    final c = context.colors;
+    final bool isListening = phase == _VoiceStagePhase.listening;
+    final String displayText = _displayText;
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            PayaboSpacing.xl,
+            PayaboSpacing.xl,
+            PayaboSpacing.xl,
+            PayaboSpacing.xl,
           ),
-          child: Icon(
-            Icons.send_rounded,
-            color: Colors.black.withValues(alpha: isEnabled ? 0.92 : 0.42),
-            size: 28,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      _eyebrowLabel,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: c.primary,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 3.2,
+                          ),
+                    ),
+                    const SizedBox(height: PayaboSpacing.xl),
+                    Semantics(
+                      button: phase != _VoiceStagePhase.thinking,
+                      label: 'Voice orb',
+                      child: GestureDetector(
+                        onTap: phase == _VoiceStagePhase.thinking
+                            ? null
+                            : onOrbTap,
+                        behavior: HitTestBehavior.opaque,
+                        child: _VoiceSimiOrb(
+                          phase: phase,
+                          pulseTick: pulseTick,
+                          speakingPulse: speakingPulse,
+                        ),
+                      ),
+                    ),
+                    if (displayText.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: PayaboSpacing.lg),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 360),
+                        child: Text(
+                          displayText,
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: _chatMutedTextColor(context),
+                                    height: 1.55,
+                                  ),
+                        ),
+                      ),
+                    ],
+                    if (isListening) ...<Widget>[
+                      const SizedBox(height: PayaboSpacing.md),
+                      Text(
+                        _formatVoiceDuration(elapsedMs),
+                        textAlign: TextAlign.center,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: c.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String get _eyebrowLabel {
+    return switch (phase) {
+      _VoiceStagePhase.listening => 'SIMI LIVE',
+      _VoiceStagePhase.thinking => 'SIMI PROCESSING',
+      _VoiceStagePhase.speaking => 'SIMI RESPONDING',
+      _VoiceStagePhase.ready => 'VOICE READY',
+      _VoiceStagePhase.idle => 'SIMI',
+    };
+  }
+
+  String get _body {
+    return switch (phase) {
+      _VoiceStagePhase.listening =>
+        'Speak naturally. I will wait for a longer pause before ending your turn.',
+      _VoiceStagePhase.thinking =>
+        'Transcribing what you said and turning it into a finance response.',
+      _VoiceStagePhase.speaking => '',
+      _VoiceStagePhase.ready => transcript.isEmpty
+          ? 'Tap the orb or mic again whenever you want to continue.'
+          : transcript,
+      _VoiceStagePhase.idle => 'Voice chat is ready when you are.',
+    };
+  }
+
+  String get _displayText {
+    return switch (phase) {
+      _VoiceStagePhase.listening => transcript.isEmpty ? _body : transcript,
+      _VoiceStagePhase.thinking => transcript.isEmpty ? _body : transcript,
+      _VoiceStagePhase.speaking => '',
+      _VoiceStagePhase.ready => _body,
+      _VoiceStagePhase.idle => _body,
+    };
+  }
+
+  String _formatVoiceDuration(int elapsedMs) {
+    final Duration duration = Duration(milliseconds: elapsedMs);
+    final int minutes = duration.inMinutes;
+    final int seconds = duration.inSeconds.remainder(60);
+
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+}
+
+class _VoiceSimiOrb extends StatelessWidget {
+  const _VoiceSimiOrb({
+    required this.phase,
+    required this.pulseTick,
+    required this.speakingPulse,
+  });
+
+  final _VoiceStagePhase phase;
+  final int pulseTick;
+  final double speakingPulse;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isListening = phase == _VoiceStagePhase.listening;
+    final bool isThinking = phase == _VoiceStagePhase.thinking;
+    final bool isSpeaking = phase == _VoiceStagePhase.speaking;
+    final bool isReady = phase == _VoiceStagePhase.ready;
+    final double thinkingDrift = ((pulseTick % 18) / 17);
+    final double pulse = isThinking
+        ? 0.18 + (thinkingDrift * 0.2)
+        : isSpeaking
+            ? speakingPulse
+            : ((pulseTick % 10) / 9) * (isListening ? 1 : 0.35);
+    final double outerSize = 202 + (pulse * (isSpeaking ? 28 : 20));
+    final double middleSize = 160 +
+        (pulse *
+            (isSpeaking
+                ? 18
+                : isThinking
+                    ? 18
+                    : 14));
+    final double coreSize = isReady
+        ? 120
+        : isSpeaking
+            ? 132
+            : 126;
+    final int thinkingFrame = pulseTick % 9;
+
+    return SizedBox(
+      width: 240,
+      height: 240,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: outerSize,
+            height: outerSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isSpeaking
+                  ? const Color(0x20FFF0D8)
+                  : isThinking
+                      ? const Color(0x22F4A027)
+                      : const Color(0x18F4A027),
+              border: Border.all(
+                color: Colors.white.withValues(
+                  alpha: isListening || isSpeaking || isThinking ? 0.1 : 0.05,
+                ),
+              ),
+            ),
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: middleSize,
+            height: middleSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: isSpeaking
+                    ? const <Color>[Color(0x30FFE4B3), Color(0x10F4A027)]
+                    : isThinking
+                        ? const <Color>[Color(0x34F7C46C), Color(0x14F4A027)]
+                        : isListening
+                            ? const <Color>[
+                                Color(0x29F4A027),
+                                Color(0x10F37920)
+                              ]
+                            : const <Color>[
+                                Color(0x22FFFFFF),
+                                Color(0x0DFFFFFF)
+                              ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          Container(
+            width: coreSize,
+            height: coreSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: <Color>[Color(0xFFF4A027), Color(0xFFD16E1D)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: const Color(0x30F4A027).withValues(
+                    alpha:
+                        isListening || isSpeaking || isThinking ? 0.34 : 0.22,
+                  ),
+                  blurRadius: isListening || isSpeaking || isThinking ? 26 : 18,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isThinking
+                            ? const <Color>[
+                                Color(0xFFFFD17A),
+                                Color(0xFFF4A027),
+                              ]
+                            : const <Color>[
+                                Color(0xFFF4A027),
+                                Color(0xFFD16E1D),
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: AnimatedScale(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      scale: isThinking ? 0.96 + (thinkingDrift * 0.04) : 1,
+                      child: Container(
+                        width: 78,
+                        height: 78,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.14),
+                          ),
+                          gradient: LinearGradient(
+                            colors: isThinking
+                                ? const <Color>[
+                                    Color(0x22FFFFFF),
+                                    Color(0x10FFFFFF),
+                                  ]
+                                : const <Color>[
+                                    Color(0x12FFFFFF),
+                                    Color(0x06FFFFFF),
+                                  ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: isThinking
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: List<Widget>.generate(3, (int index) {
+                                  final bool isActive =
+                                      thinkingFrame >= index * 3 &&
+                                          thinkingFrame < (index * 3) + 3;
+                                  final double opacity = isActive ? 1 : 0.36;
+                                  final double yOffset = isActive ? -0.18 : 0;
+
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                      right: index == 2 ? 0 : 6,
+                                    ),
+                                    child: AnimatedOpacity(
+                                      duration:
+                                          const Duration(milliseconds: 180),
+                                      opacity: opacity,
+                                      child: AnimatedSlide(
+                                        duration:
+                                            const Duration(milliseconds: 180),
+                                        curve: Curves.easeOutCubic,
+                                        offset: Offset(0, yOffset),
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.black.withValues(
+                                              alpha: 0.88,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              )
+                            : Icon(
+                                isReady
+                                    ? Icons.check_rounded
+                                    : isSpeaking
+                                        ? Icons.graphic_eq_rounded
+                                        : Icons.mic_none_rounded,
+                                size: 30,
+                                color: Colors.black.withValues(alpha: 0.9),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatComposerActionButton extends StatelessWidget {
+  const _ChatComposerActionButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.isEnabled,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  final IconData icon;
+  final String semanticLabel;
+  final bool isEnabled;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Color> colors = isPrimary
+        ? (isEnabled
+            ? const <Color>[Color(0xFFF4A027), Color(0xFFD16E1D)]
+            : const <Color>[Color(0xFF85592E), Color(0xFF624221)])
+        : (isEnabled
+            ? const <Color>[Color(0x33FFFFFF), Color(0x18FFFFFF)]
+            : const <Color>[Color(0x1FFFFFFF), Color(0x14FFFFFF)]);
+    final Color iconColor = isPrimary
+        ? Colors.black.withValues(alpha: isEnabled ? 0.92 : 0.42)
+        : Colors.white.withValues(alpha: isEnabled ? 0.88 : 0.48);
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: isEnabled ? onTap : null,
+          customBorder: const CircleBorder(),
+          child: Ink(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: colors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: isEnabled ? 0.08 : 0.04),
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: isPrimary && isEnabled
+                      ? const Color(0x2CF4A027)
+                      : const Color(0x14000000),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
         ),
       ),
