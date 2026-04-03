@@ -447,3 +447,16 @@ apps/docs-site/build/
 /src/Aonik.Platform/output.xml
 /src/Aonik.ServiceDefaults/output.xml
 /src/Aonik.SharedKernel/output.xml
+/.claude/worktrees/mystifying-moser
+/.playwright-mcp
+/.codex-appdata
+/apps/payabo_mobile/payabo_mobile.iml
+/apphost-opencode.err
+/response.json
+/deployed-*.md
+/countries-page*.md
+/auth0-token-cache.json
+/auth0-user.json
+/host-countries-with-token.json
+/localstorage-keys.json
+/me-fetch.json
