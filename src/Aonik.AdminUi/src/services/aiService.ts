@@ -128,6 +128,14 @@ export const agentConfigService = {
   delete: async (agentName: string): Promise<void> => {
     await api.delete(`/ai/agents/configurations/${agentName}`);
   },
+
+  improvePrompt: async (currentPrompt: string | null, userIntent: string): Promise<string> => {
+    const result = await api.post<{ improvedPrompt: string }>('/ai/agents/improve-prompt', {
+      currentPrompt,
+      userIntent,
+    });
+    return result.improvedPrompt;
+  },
 };
 
 // ── Agent run service ────────────────────────────────────────────────

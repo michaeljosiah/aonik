@@ -8,6 +8,7 @@ import {
   Brain,
   Check,
   Clock,
+  Loader2,
   MessageSquare,
   MonitorCog,
   Pencil,
@@ -18,6 +19,7 @@ import {
   Save,
   Server,
   Shield,
+  Sparkles,
   Wrench,
   X,
 } from 'lucide-react';
@@ -39,6 +41,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { DataTable, DataTablePagination } from '@/components/ui/data-table';
 import type { ColumnDef } from '@/components/ui/data-table';
 
@@ -168,6 +178,12 @@ export function AgentDetailPage() {
   const [saving, setSaving] = useState(false);
   const [newToolName, setNewToolName] = useState('');
   const [availableIcons, setAvailableIcons] = useState<AgentIconOption[]>([]);
+
+  // AI prompt wizard
+  const [showPromptWizard, setShowPromptWizard] = useState(false);
+  const [wizardIntent, setWizardIntent] = useState('');
+  const [wizardImproving, setWizardImproving] = useState(false);
+  const [wizardPreview, setWizardPreview] = useState<string | null>(null);
 
   // Runs tab
   const [runs, setRuns] = useState<AgentRunSummary[]>([]);
@@ -328,6 +344,39 @@ export function AgentDetailPage() {
     }
     updateField('tools', [...editState.tools, name]);
     setNewToolName('');
+  };
+
+  const openPromptWizard = () => {
+    setWizardIntent('');
+    setWizardPreview(null);
+    setShowPromptWizard(true);
+  };
+
+  const runPromptImprove = async () => {
+    if (!wizardIntent.trim()) return;
+    setWizardImproving(true);
+    try {
+      const improved = await agentConfigService.improvePrompt(
+        editState?.instructionsText || null,
+        wizardIntent.trim(),
+      );
+      setWizardPreview(improved);
+    } catch (err) {
+      console.error('Failed to improve prompt:', err);
+      toast.error('Failed to generate improved prompt. Please try again.');
+    } finally {
+      setWizardImproving(false);
+    }
+  };
+
+  const acceptWizardPrompt = () => {
+    if (wizardPreview) {
+      updateField('instructionsText', wizardPreview);
+      toast.success('Prompt updated.');
+    }
+    setShowPromptWizard(false);
+    setWizardPreview(null);
+    setWizardIntent('');
   };
 
   const removeTool = (toolName: string) => {
@@ -710,9 +759,15 @@ export function AgentDetailPage() {
 
                           {/* System Prompt */}
                           <Card>
-                            <CardHeader>
-                              <CardTitle className="text-sm">System Prompt</CardTitle>
-                              <CardDescription>The instructions that define this agent's behaviour and capabilities.</CardDescription>
+                            <CardHeader className="flex flex-row items-start justify-between">
+                              <div>
+                                <CardTitle className="text-sm">System Prompt</CardTitle>
+                                <CardDescription>The instructions that define this agent's behaviour and capabilities.</CardDescription>
+                              </div>
+                              <Button variant="outline" size="sm" onClick={openPromptWizard} className="gap-1.5 text-xs">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Improve with AI
+                              </Button>
                             </CardHeader>
                             <CardContent>
                               <Textarea
@@ -938,6 +993,83 @@ export function AgentDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── AI Prompt Wizard Dialog ── */}
+      <Dialog open={showPromptWizard} onOpenChange={setShowPromptWizard}>
+        <DialogContent className="max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-[var(--color-brand-primary)]" />
+              Improve Prompt with AI
+            </DialogTitle>
+            <DialogDescription>
+              Describe what you want to achieve and AI will refine the system prompt while preserving its core theme.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="wizard-intent">What would you like to change or improve?</Label>
+              <Textarea
+                id="wizard-intent"
+                value={wizardIntent}
+                onChange={(e) => setWizardIntent(e.target.value)}
+                placeholder="e.g. Make the agent more concise and add a focus on risk assessment..."
+                rows={3}
+                disabled={wizardImproving}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    runPromptImprove();
+                  }
+                }}
+              />
+            </div>
+
+            {!wizardPreview && (
+              <Button onClick={runPromptImprove} disabled={wizardImproving || !wizardIntent.trim()} className="gap-1.5">
+                {wizardImproving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Generate Improved Prompt
+                  </>
+                )}
+              </Button>
+            )}
+
+            {wizardPreview && (
+              <div className="space-y-2">
+                <Label>Suggested prompt</Label>
+                <pre className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-inset)] rounded-lg p-4 overflow-auto max-h-72 whitespace-pre-wrap font-mono border border-[var(--color-border-light)]">
+                  {wizardPreview}
+                </pre>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            {wizardPreview ? (
+              <>
+                <Button variant="outline" onClick={() => setWizardPreview(null)}>
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                  Try Again
+                </Button>
+                <Button onClick={acceptWizardPrompt}>
+                  <Check className="w-4 h-4 mr-1.5" />
+                  Accept &amp; Apply
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={() => setShowPromptWizard(false)}>
+                Cancel
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
