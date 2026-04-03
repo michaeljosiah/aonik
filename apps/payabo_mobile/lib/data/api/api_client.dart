@@ -70,7 +70,12 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
           final bool isTokenExchangeRequest =
               error.requestOptions.path.toLowerCase().endsWith('/auth/token');
 
-          if (error.response?.statusCode == 401 && !isTokenExchangeRequest) {
+          final bool alreadyRetried =
+              error.requestOptions.extra['_hasRetried401'] == true;
+
+          if (error.response?.statusCode == 401 &&
+              !isTokenExchangeRequest &&
+              !alreadyRetried) {
             // Token may have been revoked server-side. Attempt a refresh
             // and retry the original request once.
             final AuthSession? session = await authSessionStore.read();
@@ -86,6 +91,7 @@ final Provider<Dio> apiClientProvider = Provider<Dio>(
                   final retryOptions = error.requestOptions;
                   retryOptions.headers['Authorization'] =
                       '${refreshed.tokenType} ${refreshed.accessToken}';
+                  retryOptions.extra['_hasRetried401'] = true;
 
                   final response = await dio.fetch(retryOptions);
                   return handler.resolve(response);

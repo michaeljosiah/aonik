@@ -486,6 +486,14 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
         return;
       }
 
+      // Manual card details are not persisted. If the snapshot references
+      // 'manual_card' but no card payload will be available, clear the
+      // selection so createPaymentIntent doesn't send an empty manual card.
+      final String restoredCardId =
+          snapshot.selectedCardId == 'manual_card'
+              ? ''
+              : snapshot.selectedCardId;
+
       state = state.copyWith(
         countryCode: snapshot.countryCode,
         providerId: snapshot.providerId,
@@ -503,7 +511,7 @@ class PaymentFlowController extends StateNotifier<PaymentFlowState> {
             snapshot.useSamePaymentMethodForRecurring,
         paymentMethod: PaymentMethodType.values[snapshot.paymentMethodIndex
             .clamp(0, PaymentMethodType.values.length - 1)],
-        selectedCardId: snapshot.selectedCardId,
+        selectedCardId: restoredCardId,
         saveCard: snapshot.saveCard,
         selectedFriendId: snapshot.selectedFriendId,
         friendMessage: snapshot.friendMessage,
