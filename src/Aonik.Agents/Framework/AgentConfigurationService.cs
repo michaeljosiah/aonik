@@ -51,11 +51,21 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         // Fetch all global + tenant-specific rows visible to this tenant.
         // The nullable tenant query filter on AgentsDbContext already handles this
         // (shows rows where TenantId == null OR TenantId == currentTenant).
-        var agents = await _dbContext.Agents
+        var allRows = await _dbContext.Agents
             .AsNoTracking()
             .OrderBy(a => a.Name)
             .ThenBy(a => a.TenantId)
             .ToListAsync(cancellationToken);
+
+        // Deduplicate: for each agent name, prefer the tenant-specific override
+        // over the global default. This ensures the UI sees one entry per agent.
+        var agents = allRows
+            .GroupBy(a => a.Name)
+            .Select(g => tenantId != Guid.Empty
+                ? g.FirstOrDefault(a => a.TenantId == tenantId) ?? g.First()
+                : g.FirstOrDefault(a => a.TenantId == null) ?? g.First())
+            .OrderBy(a => a.Name)
+            .ToList();
 
         // Batch-resolve model names for agents that have ModelId set
         var modelNames = await ResolveModelNamesAsync(
