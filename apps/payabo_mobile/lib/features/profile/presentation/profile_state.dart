@@ -338,6 +338,10 @@ class ProfileCoreController extends StateNotifier<ProfileCoreState> {
       );
     }
 
+    if (resolvedUrl.isEmpty) {
+      resolvedUrl = filePath.trim();
+    }
+
     state = state.copyWith(
       photoUrl: resolvedUrl.isEmpty ? null : resolvedUrl,
       photoLabel: 'Change photo',
@@ -383,7 +387,9 @@ class ProfileCoreController extends StateNotifier<ProfileCoreState> {
   }
 
   String _photoLabelFor(String? photoUrl) {
-    return photoUrl != null ? 'Change photo' : 'Add photo';
+    return photoUrl != null && photoUrl.trim().isNotEmpty
+        ? 'Change photo'
+        : 'Add photo';
   }
 }
 

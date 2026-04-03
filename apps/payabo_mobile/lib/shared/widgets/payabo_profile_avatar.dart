@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/payabo_color_resolver.dart';
 import '../theme/payabo_shadows.dart';
+import 'payabo_profile_avatar_local_image_provider.dart';
 
 class PayaboProfileAvatar extends StatelessWidget {
   const PayaboProfileAvatar({
@@ -50,6 +52,17 @@ class PayaboProfileAvatar extends StatelessWidget {
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => _placeholder(context),
       );
+    }
+
+    if (!kIsWeb) {
+      final localImageProvider = createPayaboLocalImageProvider(url);
+      if (localImageProvider != null) {
+        return Image(
+          image: localImageProvider,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _placeholder(context),
+        );
+      }
     }
 
     return Image.network(

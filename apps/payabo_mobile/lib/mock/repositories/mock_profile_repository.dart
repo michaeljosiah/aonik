@@ -145,17 +145,16 @@ class MockProfileRepository implements ProfileRepository {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('profile.uploadPhoto');
 
-    const mockUrl = 'https://mock.payabo.app/photos/profile-kwame.jpg';
     _profile = UserProfile(
       firstName: _profile.firstName,
       lastName: _profile.lastName,
       email: _profile.email,
       phone: _profile.phone,
       countryCode: _profile.countryCode,
-      photoUrl: mockUrl,
+      photoUrl: filePath,
     );
 
-    return mockUrl;
+    return filePath;
   }
 
   @override
