@@ -16,11 +16,12 @@ class LiveCatalogRepository implements CatalogRepository {
   @override
   Future<List<CatalogCountry>> getCountries() async {
     try {
-      final response = await _apiClient.get<List<dynamic>>(
+      final response = await _apiClient.get<Map<String, dynamic>>(
         '/catalog/countries',
       );
 
-      final List<dynamic> raw = response.data ?? const <dynamic>[];
+      final Map<String, dynamic> body = response.data ?? const <String, dynamic>{};
+      final List<dynamic> raw = (body['countries'] as List<dynamic>?) ?? const <dynamic>[];
       return raw
           .whereType<Map<Object?, Object?>>()
           .map((item) => _mapCountry(Map<String, dynamic>.from(item)))
@@ -111,7 +112,9 @@ class LiveCatalogRepository implements CatalogRepository {
 
   CatalogCountry _mapCountry(Map<String, dynamic> json) {
     return CatalogCountry(
-      code: _readString(json['code']) ?? '',
+      code: _readString(json['countryCode']) ??
+          _readString(json['code']) ??
+          '',
       name: _readString(json['name']) ?? '',
       currency: _readString(json['currency']) ??
           _readString(json['currencyCode']) ??

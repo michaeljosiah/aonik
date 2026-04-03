@@ -16,7 +16,7 @@ internal class GetCatalogCountriesEndpoint : EndpointWithoutRequest<CatalogCount
     public override void Configure()
     {
         Get("/catalog/countries");
-        Policies("AdminUserPolicy");
+        Policies("UserPolicy");
     }
 
     public override async Task HandleAsync(CancellationToken ct)

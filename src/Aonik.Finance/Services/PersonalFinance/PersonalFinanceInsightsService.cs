@@ -160,6 +160,48 @@ internal sealed class PersonalFinanceInsightsService : IPersonalFinanceInsightsS
             .ToList();
     }
 
+    public async Task<MerchantHistoryResponse> GetMerchantHistoryAsync(
+        string merchantName,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+
+        var transactions = await _financeDbContext.PersonalTransactions
+            .AsNoTracking()
+            .Where(item =>
+                item.TenantId == tenantId
+                && item.UserId == userId
+                && item.Merchant == merchantName)
+            .ToListAsync(cancellationToken);
+
+        var expenses = transactions.Where(IsExpense).ToList();
+        var count = expenses.Count;
+        var totalSpent = Math.Abs(expenses.Sum(item => item.Amount));
+        var averageSpend = count > 0 ? totalSpent / count : 0m;
+        var currency = transactions
+            .Select(item => item.Currency)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim().ToUpperInvariant())
+            .FirstOrDefault() ?? "USD";
+
+        var symbol = GetCurrencySymbol(currency);
+
+        return new MerchantHistoryResponse(
+            TransactionCountLabel: count.ToString(),
+            AverageSpendLabel: $"{symbol}{averageSpend:N2}",
+            TotalSpentLabel: $"{symbol}{totalSpent:N2}");
+    }
+
+    private static string GetCurrencySymbol(string currencyCode) =>
+        currencyCode switch
+        {
+            "GBP" => "\u00A3",
+            "EUR" => "\u20AC",
+            "NGN" => "\u20A6",
+            _ => "$",
+        };
+
     private Guid GetCurrentUserId()
     {
         if (!_currentUserProvider.TryGetCurrentUserId(out var userId))

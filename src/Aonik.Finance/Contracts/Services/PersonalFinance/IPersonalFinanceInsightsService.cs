@@ -27,4 +27,8 @@ public interface IPersonalFinanceInsightsService
         DateTime periodStart,
         DateTime periodEnd,
         CancellationToken cancellationToken = default);
+
+    Task<MerchantHistoryResponse> GetMerchantHistoryAsync(
+        string merchantName,
+        CancellationToken cancellationToken = default);
 }

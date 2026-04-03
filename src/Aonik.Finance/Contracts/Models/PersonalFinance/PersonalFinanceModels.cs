@@ -410,6 +410,11 @@ public record AccountSpendingItemResponse(
     decimal TotalAmount,
     int TransactionCount);
 
+public record MerchantHistoryResponse(
+    string TransactionCountLabel,
+    string AverageSpendLabel,
+    string TotalSpentLabel);
+
 public record GeneratePersonalSpendingNarrativeRequest(
     DateTime PeriodStart,
     DateTime PeriodEnd,
