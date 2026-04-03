@@ -30,19 +30,34 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
   // BoxFit.contain → BoxFit.cover for full-bleed backgrounds.
   static const List<_IntroSlide> _slides = <_IntroSlide>[
     _IntroSlide(
+      imageAsset: 'assets/images/slider-img-04.png',
+      subtitle: 'Your money assistant',
+      headline: 'Ask Simi for help\nwith bills, spending\nand saving.',
+    ),
+    _IntroSlide(
       imageAsset: 'assets/images/slider-img-01.png',
       subtitle: 'Pay your bills',
-      headline: 'All your bills, paid\nin one place with ease.',
+      headline: 'Pay your bills in one\nplace, on time.',
     ),
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-02.png',
-      subtitle: 'Support loved ones',
-      headline: 'Send money to friends\nand family, anywhere.',
+      subtitle: 'Send money home',
+      headline: 'Support family and\nfriends with ease.',
     ),
     _IntroSlide(
       imageAsset: 'assets/images/slider-img-03.png',
       subtitle: 'Track spending',
-      headline: 'Keep track of your\nspending and reach\nyour goals.',
+      headline: 'See where your money\ngoes every day.',
+    ),
+    _IntroSlide(
+      imageAsset: 'assets/images/slider-img-05.png',
+      subtitle: 'Stay ahead',
+      headline: 'Get reminders before\nbills are due.',
+    ),
+    _IntroSlide(
+      imageAsset: 'assets/images/slider-img-06.png',
+      subtitle: 'Save with purpose',
+      headline: 'Put money aside for\ntravel, family and\nfuture plans.',
     ),
   ];
 
