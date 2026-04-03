@@ -414,8 +414,10 @@ public class AgentConfigurationServiceTests
         // Act
         var results = await service.ListAsync();
 
-        // Assert — should see all 3 (2 global + 1 tenant override)
-        results.Should().HaveCount(3);
+        // Assert — should see 2 (agent-a resolved to tenant override, agent-b from global)
+        results.Should().HaveCount(2);
+        results.Should().Contain(r => r.Name == "agent-a" && r.IsOverride);
+        results.Should().Contain(r => r.Name == "agent-b" && !r.IsOverride);
     }
 
     [Fact]
