@@ -1,5 +1,7 @@
 import 'dart:developer' as developer;
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +30,9 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
+
+  bool get _showCrashlyticsTestAction =>
+      kDebugMode && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
@@ -187,6 +192,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onTap: () => context.go('/profile/demo-data'),
           ),
         ],
+        if (_showCrashlyticsTestAction) ...<Widget>[
+          const SizedBox(height: PayaboSpacing.sm),
+          PayaboListRow(
+            title: 'Send Crashlytics test event',
+            subtitle: 'Record a dev-only non-fatal error in Firebase',
+            leading: const _MenuIcon(Icons.bug_report_outlined),
+            onTap: _sendCrashlyticsTestEvent,
+          ),
+        ],
         const SizedBox(height: PayaboSpacing.lg),
         InkWell(
           onTap: () async {
@@ -283,6 +297,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _sendCrashlyticsTestEvent() async {
+    try {
+      await FirebaseCrashlytics.instance.recordError(
+        StateError('Payabo Android debug Crashlytics test event'),
+        StackTrace.current,
+        reason: 'Manual profile menu test event',
+        fatal: false,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Crashlytics test event sent.'),
+          ),
+        );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Unable to send Crashlytics test event.'),
+          ),
+        );
+    }
   }
 
   Future<void> _takePhoto() async {

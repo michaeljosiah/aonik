@@ -23,8 +23,9 @@ const String _firebaseLogName = 'Payabo.Firebase';
 bool get _isAndroid =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-bool get _isIOS =>
-    !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+bool get _enableFirebaseCollectionInCurrentBuild => _isAndroid || !kDebugMode;
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -108,11 +109,14 @@ Future<void> main() async {
     await _configureFirebaseMessaging();
   }
   if (_supportsAnalytics) {
-    await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(!kDebugMode);
+    await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
+      _enableFirebaseCollectionInCurrentBuild,
+    );
   }
   if (_supportsCrashlytics) {
-    await FirebaseCrashlytics.instance
-        .setCrashlyticsCollectionEnabled(!kDebugMode);
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+      _enableFirebaseCollectionInCurrentBuild,
+    );
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);

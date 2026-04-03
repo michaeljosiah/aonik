@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -88,6 +90,8 @@ class AuthController extends StateNotifier<AuthState> {
 
   final Ref _ref;
 
+  bool get _hasFirebaseApp => Firebase.apps.isNotEmpty;
+
   Future<void> _hydrateSession() async {
     final session = await _ref.read(authSessionStoreProvider).read();
     if (session == null || !session.hasAccessToken) {
@@ -154,6 +158,12 @@ class AuthController extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
+    await _logAnalyticsEvent(
+      'login_attempt',
+      <String, Object>{
+        'method': 'password',
+      },
+    );
     state = state.copyWith(isBusy: true);
 
     try {
@@ -180,8 +190,22 @@ class AuthController extends StateNotifier<AuthState> {
         user: user,
         onboarding: onboarding,
       );
+      await _logAnalyticsEvent(
+        'login_success',
+        <String, Object>{
+          'method': 'password',
+        },
+      );
+      await _setAnalyticsUser(user);
     } catch (error) {
       state = state.copyWith(isBusy: false);
+      await _logAnalyticsEvent(
+        'login_failure',
+        <String, Object>{
+          'method': 'password',
+          'error_type': error.runtimeType.toString(),
+        },
+      );
       rethrow;
     }
   }
@@ -239,6 +263,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> signOut() async {
     await _clearSession();
     await _clearSetupState();
+    await _clearAnalyticsUser();
     state = const AuthState(
       isInitialized: true,
       isAuthenticated: false,
@@ -312,6 +337,36 @@ class AuthController extends StateNotifier<AuthState> {
     await prefs.remove(SetupJourneyController.setupCompletedKey);
     _ref.read(setupJourneyControllerProvider.notifier).reset();
     _ref.invalidate(setupCompletedProvider);
+  }
+
+  Future<void> _setAnalyticsUser(AuthUser user) async {
+    if (!_hasFirebaseApp) {
+      return;
+    }
+
+    await FirebaseAnalytics.instance.setUserId(id: user.userId);
+  }
+
+  Future<void> _clearAnalyticsUser() async {
+    if (!_hasFirebaseApp) {
+      return;
+    }
+
+    await FirebaseAnalytics.instance.setUserId();
+  }
+
+  Future<void> _logAnalyticsEvent(
+    String name,
+    Map<String, Object> parameters,
+  ) async {
+    if (!_hasFirebaseApp) {
+      return;
+    }
+
+    await FirebaseAnalytics.instance.logEvent(
+      name: name,
+      parameters: parameters,
+    );
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart'
@@ -100,15 +101,35 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
         },
       );
       _lastRegisteredToken = token;
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'push_token_registered',
+        parameters: <String, Object>{
+          'provider': 'fcm',
+          'platform':
+              defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+        },
+      );
       developer.log('Registered FCM token with API.', name: _firebaseLogName);
     } on DioException catch (error) {
       final statusCode = error.response?.statusCode;
       if (statusCode == 401 || statusCode == 403) {
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'push_token_registration_skipped',
+          parameters: const <String, Object>{
+            'reason': 'unauthorized',
+          },
+        );
         return;
       }
 
       if (statusCode == 404 || statusCode == 405 || statusCode == 501) {
         _lastRegisteredToken = token;
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'push_token_registration_skipped',
+          parameters: const <String, Object>{
+            'reason': 'endpoint_unavailable',
+          },
+        );
         developer.log(
           'Push token registration endpoint is not available yet at $_deviceRegistrationPath.',
           name: _firebaseLogName,
@@ -119,6 +140,13 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
       developer.log(
         'Failed to register FCM token: ${error.message}',
         name: _firebaseLogName,
+      );
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'push_token_registration_failed',
+        parameters: <String, Object>{
+          'reason': 'request_failed',
+          'status_code': statusCode ?? -1,
+        },
       );
     }
   }
