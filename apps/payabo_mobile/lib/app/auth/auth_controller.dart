@@ -9,7 +9,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/repository_providers.dart';
+import '../../features/payments/presentation/payment_flow_persistence.dart';
+import '../../features/payments/presentation/payment_flow_state.dart';
+import '../../features/profile/presentation/profile_state.dart';
 import '../../features/setup_journey/application/setup_journey_controller.dart';
+import '../../features/spending/presentation/spending_account_link_persistence.dart';
+import '../../features/spending/presentation/spending_accounts_state.dart';
 import 'auth_session_store.dart';
 
 class AuthUser {
@@ -134,6 +139,7 @@ class AuthController extends StateNotifier<AuthState> {
     } on ApiException catch (exception) {
       if (_isAuthenticationFailure(exception.statusCode)) {
         await _clearSession();
+        await _clearUserScopedState();
         state = const AuthState(
           isInitialized: true,
           isAuthenticated: false,
@@ -174,6 +180,10 @@ class AuthController extends StateNotifier<AuthState> {
       );
 
       await _persistSession(token);
+
+      // Reset any stale user-scoped state from the previous session before
+      // the new user's profile and feature data are hydrated.
+      await _clearUserScopedState();
 
       // Clear any stale setup state from a previous user on this device.
       await _clearSetupState();
@@ -224,6 +234,10 @@ class AuthController extends StateNotifier<AuthState> {
 
       await _persistSession(token);
 
+      // Reset any stale user-scoped state from the previous session before
+      // the new user's profile and feature data are hydrated.
+      await _clearUserScopedState();
+
       // Clear any stale setup state from a previous user on this device
       // before resolving the new user's info. This prevents the router
       // from reading a cached setup-completed flag and skipping onboarding.
@@ -262,6 +276,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> signOut() async {
     await _clearSession();
+    await _clearUserScopedState();
     await _clearSetupState();
     await _clearAnalyticsUser();
     state = const AuthState(
@@ -294,6 +309,7 @@ class AuthController extends StateNotifier<AuthState> {
     } on ApiException catch (exception) {
       if (_isAuthenticationFailure(exception.statusCode)) {
         await _clearSession();
+        await _clearUserScopedState();
         rethrow;
       }
 
@@ -327,6 +343,36 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> _clearSession() {
     return _ref.read(authSessionStoreProvider).clear();
+  }
+
+  Future<void> _clearUserScopedState() async {
+    await _ref.read(paymentFlowPersistenceProvider).clear();
+    await _ref.read(accountLinkSessionPersistenceProvider).clear();
+
+    _ref.invalidate(profileCoreProvider);
+    _ref.invalidate(profileNotificationsProvider);
+    _ref.invalidate(profileMarketingProvider);
+    _ref.invalidate(chatControllerProvider);
+    _ref.invalidate(paymentFlowControllerProvider);
+    _ref.invalidate(accountLinksSummaryProvider);
+    _ref.invalidate(accountLinkFlowControllerProvider);
+
+    _ref.invalidate(accountLinksRepositoryProvider);
+    _ref.invalidate(attachmentRepositoryProvider);
+    _ref.invalidate(budgetRepositoryProvider);
+    _ref.invalidate(catalogRepositoryProvider);
+    _ref.invalidate(chatRepositoryProvider);
+    _ref.invalidate(communityRepositoryProvider);
+    _ref.invalidate(dashboardRepositoryProvider);
+    _ref.invalidate(notificationRepositoryProvider);
+    _ref.invalidate(orderRepositoryProvider);
+    _ref.invalidate(payActivityRepositoryProvider);
+    _ref.invalidate(paymentRepositoryProvider);
+    _ref.invalidate(personalTransactionsRepositoryProvider);
+    _ref.invalidate(profileRepositoryProvider);
+    _ref.invalidate(spendingCategoryRepositoryProvider);
+    _ref.invalidate(spendingRepositoryProvider);
+    _ref.invalidate(statementImportRepositoryProvider);
   }
 
   /// Removes the cached setup-completed flag from SharedPreferences and
