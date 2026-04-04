@@ -54,8 +54,9 @@ internal sealed class BudgetService : IBudgetService
             Currency = "GBP",
         };
 
-        budget.Lines.Add(line);
+        _dbContext.Set<BudgetLine>().Add(line);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        budget.Lines.Add(line);
 
         var spentByCategory = await GetSpentByCategoryAsync(tenantId, userId, budget.PeriodStart, cancellationToken);
         return MapBudgetLine(line, spentByCategory);
@@ -160,7 +161,7 @@ internal sealed class BudgetService : IBudgetService
     {
         var periodEnd = periodStart.AddMonths(1);
 
-        return await _dbContext.Set<PersonalTransaction>()
+        var results = await _dbContext.Set<PersonalTransaction>()
             .Where(t =>
                 t.TenantId == tenantId &&
                 t.UserId == userId &&
@@ -169,10 +170,10 @@ internal sealed class BudgetService : IBudgetService
                 t.Category != null &&
                 t.Amount < 0)
             .GroupBy(t => t.Category!)
-            .ToDictionaryAsync(
-                g => g.Key,
-                g => Math.Abs(g.Sum(t => t.Amount)),
-                ct);
+            .Select(g => new { Category = g.Key, Total = g.Sum(t => t.Amount) })
+            .ToListAsync(ct);
+
+        return results.ToDictionary(r => r.Category, r => Math.Abs(r.Total));
     }
 
     private static IReadOnlyList<BudgetCategoryResponse> MapBudgetLines(
