@@ -566,6 +566,45 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
     }
 
     [Fact]
+    public async Task PersonalTransactions_PatchCategoryOnly_UpdatesCategory()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+        var account = await CreateAccountAsync(client, "Patch Category Account");
+
+        var transactionResponse = await client.PostAsJsonAsync("/personal-finance/transactions", new CreateManualPersonalTransactionRequest(
+            account.PersonalAccountId,
+            DateTime.UtcNow,
+            -30m,
+            "USD",
+            "Corner Shop",
+            "Snacks",
+            "Transport",
+            null,
+            null));
+        transactionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var transaction = await transactionResponse.Content.ReadFromJsonAsync<PersonalTransactionResponse>();
+        transaction.Should().NotBeNull();
+
+        // Act
+        var response = await client.PatchAsJsonAsync(
+            $"/personal-finance/transactions/{transaction!.PersonalTransactionId}",
+            new
+            {
+                category = "Groceries"
+            });
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await response.Content.ReadFromJsonAsync<PersonalTransactionResponse>();
+        updated.Should().NotBeNull();
+        updated!.Category.Should().Be("Groceries");
+        updated.Amount.Should().Be(-30m);
+        updated.Currency.Should().Be("USD");
+    }
+
+    [Fact]
     public async Task InsightsEndpoints_ReturnSummaryAndBreakdowns()
     {
         // Arrange

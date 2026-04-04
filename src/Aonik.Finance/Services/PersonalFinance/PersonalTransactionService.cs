@@ -167,13 +167,8 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         UpdateManualPersonalTransactionRequest request,
         CancellationToken cancellationToken = default)
     {
-        ValidateManualTransactionRequest(request.Amount, request.Currency, request.OccurredAt);
-
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var account = await GetOwnedAccountAsync(request.PersonalAccountId, userId, tenantId, cancellationToken);
-        EnsureTransactionCurrencyMatchesAccount(request.Currency, account);
 
         var transaction = await _financeDbContext.PersonalTransactions
             .FirstOrDefaultAsync(
@@ -181,10 +176,30 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
                 cancellationToken)
             ?? throw new InvalidOperationException("Personal transaction not found.");
 
+        if (IsCategoryOnlyPatch(request))
+        {
+            transaction.Category = TrimNullable(request.Category);
+            transaction.SubCategory = null;
+
+            ApplyCategorisation(transaction);
+
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+            await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+
+            return MapToResponse(transaction, DeserializeTags(transaction.TagsJson));
+        }
+
+        ValidateManualTransactionRequest(request.Amount, request.Currency, request.OccurredAt);
+
+        var account = await GetOwnedAccountAsync(request.PersonalAccountId, userId, tenantId, cancellationToken);
+        EnsureTransactionCurrencyMatchesAccount(request.Currency, account);
+
         var originalAccount = await GetOwnedAccountAsync(transaction.PersonalAccountId, userId, tenantId, cancellationToken);
         var originalAmount = transaction.Amount;
 
         var tags = NormalizeTags(request.Tags);
+        var category = TrimNullable(request.Category);
+        var categoryChanged = !string.Equals(transaction.Category, category, StringComparison.OrdinalIgnoreCase);
 
         transaction.PersonalAccountId = request.PersonalAccountId;
         transaction.OccurredAt = request.OccurredAt;
@@ -192,7 +207,12 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         transaction.Currency = request.Currency.Trim().ToUpperInvariant();
         transaction.Merchant = TrimNullable(request.Merchant);
         transaction.Description = TrimNullable(request.Description);
-        transaction.Category = TrimNullable(request.Category);
+        transaction.Category = category;
+        if (categoryChanged)
+        {
+            transaction.SubCategory = null;
+        }
+
         transaction.Notes = TrimNullable(request.Notes);
         transaction.TagsJson = JsonSerializer.Serialize(tags, JsonOptions);
 
@@ -397,6 +417,18 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
     private static string? TrimNullable(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static bool IsCategoryOnlyPatch(UpdateManualPersonalTransactionRequest request)
+    {
+        return request.PersonalAccountId == null
+            && request.OccurredAt == default
+            && request.Amount == 0
+            && string.IsNullOrWhiteSpace(request.Currency)
+            && request.Merchant == null
+            && request.Description == null
+            && request.Notes == null
+            && request.Tags == null;
     }
 
     private static void ValidateManualTransactionRequest(decimal amount, string? currency, DateTime occurredAt)

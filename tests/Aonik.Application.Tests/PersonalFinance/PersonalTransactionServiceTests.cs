@@ -163,6 +163,60 @@ public class PersonalTransactionServiceTests
     }
 
     [Fact]
+    public async Task UpdateManualTransactionAsync_Should_SupportCategoryOnlyPatch()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalTransactionService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        var created = await service.CreateManualTransactionAsync(new CreateManualPersonalTransactionRequest(
+            null,
+            DateTime.UtcNow,
+            -70m,
+            "USD",
+            "Fuel Station",
+            "Gas refill",
+            "Transport",
+            null,
+            null));
+
+        var trackedTransaction = await context.PersonalTransactions.FirstAsync(item => item.Id == created.PersonalTransactionId);
+        trackedTransaction.SubCategory = "ride_hailing";
+        await context.SaveChangesAsync();
+
+        // Act
+        var updated = await service.UpdateManualTransactionAsync(
+            created.PersonalTransactionId,
+            new UpdateManualPersonalTransactionRequest(
+                null,
+                default,
+                0,
+                string.Empty,
+                null,
+                null,
+                "Groceries",
+                null,
+                null));
+
+        // Assert
+        updated.Category.Should().Be("Groceries");
+        updated.SubCategory.Should().BeNull();
+        updated.Amount.Should().Be(created.Amount);
+        updated.Currency.Should().Be(created.Currency);
+        updated.Merchant.Should().Be(created.Merchant);
+        updated.Description.Should().Be(created.Description);
+        updated.Confidence.Should().Be(1.0m);
+        updated.CategorisedBy.Should().Be("manual");
+        updated.ClassificationMethod.Should().Be("manual");
+    }
+
+    [Fact]
     public async Task CreateManualTransactionAsync_Should_UpdateManualAccountBalance_WhenAccountProvided()
     {
         // Arrange
