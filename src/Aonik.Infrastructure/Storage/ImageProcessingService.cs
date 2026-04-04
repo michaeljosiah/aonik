@@ -20,7 +20,7 @@ public class ImageProcessingService : IImageProcessingService
         int quality = 85,
         CancellationToken cancellationToken = default)
     {
-        using var image = await Image.LoadAsync(sourceStream, cancellationToken);
+        using var image = await LoadImageAsync(sourceStream, cancellationToken);
 
         // Calculate new dimensions while maintaining aspect ratio
         var (newWidth, newHeight) = CalculateResizedDimensions(
@@ -49,7 +49,7 @@ public class ImageProcessingService : IImageProcessingService
         int quality = 80,
         CancellationToken cancellationToken = default)
     {
-        using var image = await Image.LoadAsync(sourceStream, cancellationToken);
+        using var image = await LoadImageAsync(sourceStream, cancellationToken);
 
         // Create square thumbnail with crop
         image.Mutate(x => x.Resize(new ResizeOptions
@@ -109,5 +109,27 @@ public class ImageProcessingService : IImageProcessingService
         var newHeight = (int)(originalHeight * ratio);
 
         return (newWidth, newHeight);
+    }
+
+    private static async Task<Image> LoadImageAsync(Stream sourceStream, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await Image.LoadAsync(sourceStream, cancellationToken);
+        }
+        catch (UnknownImageFormatException ex)
+        {
+            throw new ArgumentException(
+                "The selected photo format is not supported. Please choose a JPG or PNG image.",
+                nameof(sourceStream),
+                ex);
+        }
+        catch (InvalidImageContentException ex)
+        {
+            throw new ArgumentException(
+                "The selected photo could not be processed. Please choose a valid JPG or PNG image.",
+                nameof(sourceStream),
+                ex);
+        }
     }
 }

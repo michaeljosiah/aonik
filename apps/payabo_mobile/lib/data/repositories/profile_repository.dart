@@ -76,7 +76,11 @@ abstract class ProfileRepository {
     required String newPassword,
   });
 
-  Future<String> uploadPhoto(String filePath);
+  Future<String> uploadPhoto(
+    String filePath, {
+    String? fileName,
+    String? contentType,
+  });
 
   Future<void> deletePhoto();
 

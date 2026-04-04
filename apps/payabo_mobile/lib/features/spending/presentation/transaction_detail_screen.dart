@@ -87,6 +87,7 @@ class TransactionDetailScreen extends ConsumerStatefulWidget {
 class _TransactionDetailScreenState
     extends ConsumerState<TransactionDetailScreen> {
   bool _excludeFromBudget = false;
+  bool _didPersistCategoryChange = false;
   late String _currentCategory;
   String? _currentSubCategory;
 
@@ -165,7 +166,7 @@ class _TransactionDetailScreenState
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: InkWell(
-                    onTap: () => context.pop(),
+                    onTap: () => context.pop(_didPersistCategoryChange),
                     borderRadius: BorderRadius.circular(20),
                     child: Icon(
                       Icons.arrow_back,
@@ -295,6 +296,11 @@ class _TransactionDetailScreenState
         await ref
             .read(spendingRepositoryProvider)
             .updateTransactionCategory(widget.transactionId, result);
+
+        // Refresh spending/account-backed views so list rows pick up the
+        // persisted category when the user navigates back.
+        _didPersistCategoryChange = true;
+        ref.invalidate(accountLinksSummaryProvider);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -902,9 +908,8 @@ class _AttachmentChip extends StatelessWidget {
     final c = context.colors;
     final textTheme = Theme.of(context).textTheme;
 
-    final IconData icon = attachment.isImage
-        ? Icons.image_outlined
-        : Icons.description_outlined;
+    final IconData icon =
+        attachment.isImage ? Icons.image_outlined : Icons.description_outlined;
 
     return GestureDetector(
       onLongPress: onDelete,
@@ -1039,8 +1044,8 @@ class _HistoryRow extends StatelessWidget {
         ),
         Text(
           value,
-          style: (isBold ? textTheme.titleSmall : textTheme.bodyMedium)
-              ?.copyWith(
+          style:
+              (isBold ? textTheme.titleSmall : textTheme.bodyMedium)?.copyWith(
             color: c.accentBrown,
             fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
           ),

@@ -319,8 +319,16 @@ class ProfileCoreController extends StateNotifier<ProfileCoreState> {
     );
   }
 
-  Future<void> uploadPhoto(String filePath) async {
-    final String uploadedUrl = await _repository.uploadPhoto(filePath);
+  Future<void> uploadPhoto(
+    String filePath, {
+    String? fileName,
+    String? contentType,
+  }) async {
+    final String uploadedUrl = await _repository.uploadPhoto(
+      filePath,
+      fileName: fileName,
+      contentType: contentType,
+    );
     var resolvedUrl = uploadedUrl.trim();
 
     developer.log(

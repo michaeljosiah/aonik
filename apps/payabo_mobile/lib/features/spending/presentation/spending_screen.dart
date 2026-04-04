@@ -80,8 +80,7 @@ const LinearGradient _backgroundGradient = LinearGradient(
 );
 
 /// Simi AI hero message for the spending screen (populated state).
-const String _simiHeroMessage =
-    'Here\u2019s your spending overview. '
+const String _simiHeroMessage = 'Here\u2019s your spending overview. '
     'I\u2019ll keep an eye on your accounts and flag anything unusual.';
 
 class SpendingScreen extends ConsumerStatefulWidget {
@@ -99,8 +98,7 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
 
   static double _extentToStatusBarProgress(double extent) {
     const double fadeZone = 0.05;
-    const double fadeStart =
-        _SpendingHeroAndSheet._maxSheetSize - fadeZone;
+    const double fadeStart = _SpendingHeroAndSheet._maxSheetSize - fadeZone;
     return Curves.easeOut.transform(
       ((extent - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
     );
@@ -213,6 +211,9 @@ class _SpendingScreenState extends ConsumerState<SpendingScreen> {
         },
         onSectionSelected: _handleSectionSelected,
         onSheetExtentChanged: _handleSheetExtentChanged,
+        onTransactionCategoryChanged: () {
+          ref.invalidate(accountLinksSummaryProvider);
+        },
         onAddTransaction: isSelectedManual
             ? () => _navigateToAddTransaction(
                   accounts[_selectedAccountIndex],
@@ -277,10 +278,8 @@ class _EmptyStateFullScreen extends ConsumerWidget {
 
     // In light mode the hero photo has no scrim, so text must be white
     // with a soft shadow for legibility. Dark mode keeps semantic tokens.
-    final Color heroTextPrimary =
-        isDark ? c.headerTitle : Colors.white;
-    final Color heroTextSecondary =
-        isDark ? c.textSubtleWarm : Colors.white70;
+    final Color heroTextPrimary = isDark ? c.headerTitle : Colors.white;
+    final Color heroTextSecondary = isDark ? c.textSubtleWarm : Colors.white70;
     final List<Shadow> heroTextShadow = isDark
         ? const <Shadow>[]
         : const <Shadow>[
@@ -457,6 +456,7 @@ class _SpendingHeroAndSheet extends StatefulWidget {
     required this.pageController,
     required this.onAccountPageChanged,
     required this.onSectionSelected,
+    required this.onTransactionCategoryChanged,
     this.onSheetExtentChanged,
     this.onAddTransaction,
   });
@@ -483,6 +483,7 @@ class _SpendingHeroAndSheet extends StatefulWidget {
   final PageController pageController;
   final ValueChanged<int> onAccountPageChanged;
   final ValueChanged<SpendingSection> onSectionSelected;
+  final VoidCallback onTransactionCategoryChanged;
   final ValueChanged<double>? onSheetExtentChanged;
   final VoidCallback? onAddTransaction;
 
@@ -616,9 +617,7 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
                     _SpendingHeroAndSheet._maxSheetSize - fadeZone,
                   );
                   final double bgProgress = Curves.easeOut.transform(
-                    ((eff - fadeStart) / fadeZone)
-                        .clamp(0.0, 1.0)
-                        .toDouble(),
+                    ((eff - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
                   );
                   return _SpendingPinnedHeader(
                     backgroundProgress: bgProgress,
@@ -671,6 +670,8 @@ class _SpendingHeroAndSheetState extends State<_SpendingHeroAndSheet> {
                         pageController: widget.pageController,
                         onAccountPageChanged: widget.onAccountPageChanged,
                         onSectionSelected: widget.onSectionSelected,
+                        onTransactionCategoryChanged:
+                            widget.onTransactionCategoryChanged,
                         onAddTransaction: widget.onAddTransaction,
                       );
                     },
@@ -817,6 +818,7 @@ class _SpendingSheet extends StatelessWidget {
     required this.pageController,
     required this.onAccountPageChanged,
     required this.onSectionSelected,
+    required this.onTransactionCategoryChanged,
     this.onAddTransaction,
     this.topBorderRadius = 24.0,
   });
@@ -828,6 +830,7 @@ class _SpendingSheet extends StatelessWidget {
   final PageController pageController;
   final ValueChanged<int> onAccountPageChanged;
   final ValueChanged<SpendingSection> onSectionSelected;
+  final VoidCallback onTransactionCategoryChanged;
 
   /// Called when the user taps "Add transaction" in the empty state
   /// of a manual account.
@@ -952,7 +955,12 @@ class _SpendingSheet extends StatelessWidget {
               onAddTransaction: onAddTransaction,
             )
           else
-            ..._buildFlatTransactionRows(context, transactions, c),
+            ..._buildFlatTransactionRows(
+              context,
+              transactions,
+              c,
+              onTransactionCategoryChanged,
+            ),
         ],
       ),
     );
@@ -964,6 +972,7 @@ class _SpendingSheet extends StatelessWidget {
     BuildContext context,
     List<SpendingTransaction> transactions,
     PayaboColorResolver c,
+    VoidCallback onTransactionCategoryChanged,
   ) {
     const List<String> monthNames = <String>[
       'January',
@@ -1021,7 +1030,12 @@ class _SpendingSheet extends StatelessWidget {
 
       // ── Flat transaction rows with dividers (no card wrapper)
       for (int i = 0; i < entry.value.length; i++) {
-        widgets.add(_TransactionRow(transaction: entry.value[i]));
+        widgets.add(
+          _TransactionRow(
+            transaction: entry.value[i],
+            onCategoryChanged: onTransactionCategoryChanged,
+          ),
+        );
         if (i < entry.value.length - 1) {
           widgets.add(
             Divider(
@@ -1122,31 +1136,27 @@ class _AccountCard extends StatelessWidget {
                   children: <InlineSpan>[
                     TextSpan(
                       text: account.currencySymbol,
-                      style:
-                          Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: c.spendingAccountAccentPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                    ),
-                    TextSpan(
-                      text: account.balanceMajor,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium
-                          ?.copyWith(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: c.spendingAccountAccentPrimary,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
+                            fontWeight: FontWeight.w700,
                           ),
                     ),
                     TextSpan(
-                      text: account.balanceMinor,
+                      text: account.balanceMajor,
                       style:
-                          Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: c.spendingAccountAccentPrimary
-                                    .withValues(alpha: 0.7),
-                                fontWeight: FontWeight.w600,
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: c.spendingAccountAccentPrimary,
+                                fontWeight: FontWeight.w800,
+                                height: 1,
                               ),
+                    ),
+                    TextSpan(
+                      text: account.balanceMinor,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: c.spendingAccountAccentPrimary
+                                .withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                   ],
                 ),
@@ -1155,8 +1165,8 @@ class _AccountCard extends StatelessWidget {
               Text(
                 'Balance',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: c.spendingAccountAccentPrimary
-                          .withValues(alpha: 0.7),
+                      color:
+                          c.spendingAccountAccentPrimary.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -1206,9 +1216,13 @@ class _PagerDots extends StatelessWidget {
 // ─────────────────────────────────────────────────────────
 
 class _TransactionRow extends StatelessWidget {
-  const _TransactionRow({required this.transaction});
+  const _TransactionRow({
+    required this.transaction,
+    required this.onCategoryChanged,
+  });
 
   final SpendingTransaction transaction;
+  final VoidCallback onCategoryChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1236,9 +1250,9 @@ class _TransactionRow extends StatelessWidget {
       iconContent = Text(
         transaction.iconText ?? '?',
         style: theme.textTheme.titleSmall?.copyWith(
-              color: c.spendingMerchantIconDark,
-              fontWeight: FontWeight.w700,
-            ),
+          color: c.spendingMerchantIconDark,
+          fontWeight: FontWeight.w700,
+        ),
       );
     }
 
@@ -1249,8 +1263,8 @@ class _TransactionRow extends StatelessWidget {
             : c.spendingMerchantIconWarmSurface);
 
     return InkWell(
-      onTap: () {
-        context.push(
+      onTap: () async {
+        final bool? categoryChanged = await context.push<bool>(
           '/spending/transaction/${transaction.id}',
           extra: <String, dynamic>{
             'merchant': transaction.merchant,
@@ -1268,6 +1282,8 @@ class _TransactionRow extends StatelessWidget {
             'notes': transaction.notes,
           },
         );
+
+        if (categoryChanged == true) onCategoryChanged();
       },
       borderRadius: PayaboRadii.radiusSm,
       child: Padding(
@@ -1298,16 +1314,16 @@ class _TransactionRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _transactionCategoryLabel(transaction),
                     style: theme.textTheme.bodySmall?.copyWith(
-                          color: c.textMuted,
-                        ),
+                      color: c.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -1322,11 +1338,11 @@ class _TransactionRow extends StatelessWidget {
                 Text(
                   '${transaction.isCredit ? '+' : ''}${transaction.currencySymbol}${transaction.amountMajor}${transaction.amountMinor}',
                   style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: transaction.isCredit
-                            ? c.success
-                            : theme.colorScheme.onSurface,
-                      ),
+                    fontWeight: FontWeight.w700,
+                    color: transaction.isCredit
+                        ? c.success
+                        : theme.colorScheme.onSurface,
+                  ),
                 ),
                 if (transaction.isCredit) ...<Widget>[
                   const SizedBox(height: 4),
@@ -1336,15 +1352,16 @@ class _TransactionRow extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: c.success.withValues(alpha: c.isDark ? 0.22 : 0.12),
+                      color:
+                          c.success.withValues(alpha: c.isDark ? 0.22 : 0.12),
                       borderRadius: PayaboRadii.radiusPill,
                     ),
                     child: Text(
                       'Credit',
                       style: theme.textTheme.labelSmall?.copyWith(
-                            color: c.success,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        color: c.success,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],

@@ -23,8 +23,10 @@ dependencies:
   flutter_svg: ^2.0.10+1
   fl_chart: 1.1.1
   google_fonts: 8.0.2
+  http_parser: ^4.1.2
   intl: 0.20.2
   flutter_secure_storage: 10.0.0
+  path: ^1.9.1
   shared_preferences: ^2.3.2
   pinput: 6.0.2
   file_picker: ^8.1.6

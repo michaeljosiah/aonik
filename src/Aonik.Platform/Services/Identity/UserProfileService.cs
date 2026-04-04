@@ -266,7 +266,8 @@ internal class UserProfileService : IUserProfileService
             return null;
         }
 
-        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken);
+        var party = await GetPrimaryPartyAsync(userId, tenantId, cancellationToken)
+            ?? await EnsurePrimaryPartyAsync(user, tenantId, cancellationToken);
         if (party == null)
         {
             return null;
@@ -542,6 +543,55 @@ internal class UserProfileService : IUserProfileService
 
         return await query
             .FirstOrDefaultAsync(party => party.Id == partyId.Value && party.TenantId == tenantId, cancellationToken);
+    }
+
+    private async Task<PartyEntity> EnsurePrimaryPartyAsync(
+        User user,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var actorId = _currentUserProvider.GetCurrentUserId();
+        var now = _clock.UtcNow;
+        var displayName = !string.IsNullOrWhiteSpace(user.Email)
+            ? user.Email.Trim()
+            : $"User {user.Id:N}";
+
+        var party = new PartyEntity
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartyType = "Individual",
+            DisplayName = displayName,
+            Status = "Active",
+            CreatedAt = now,
+            CreatedBy = actorId
+        };
+
+        _dbContext.Parties.Add(party);
+        _dbContext.UserParties.Add(new UserParty
+        {
+            TenantId = tenantId,
+            UserId = user.Id,
+            PartyId = party.Id,
+            LinkType = "Individual",
+            CreatedAt = now,
+            CreatedBy = actorId
+        });
+
+        _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            PartyId = party.Id,
+            Role = PartyRoles.Customer,
+            ContextType = "Tenant",
+            ContextId = tenantId,
+            CreatedAt = now,
+            CreatedBy = actorId
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return party;
     }
 
     private async Task<CustomerProfileResponse?> UpdateCustomerProfileCoreAsync(

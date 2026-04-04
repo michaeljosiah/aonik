@@ -88,17 +88,20 @@ class LiveProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<String> uploadPhoto(String filePath) async {
+  Future<String> uploadPhoto(
+    String filePath, {
+    String? fileName,
+    String? contentType,
+  }) async {
     try {
-      final filename = p.basename(filePath);
-      final ext = p.extension(filePath).toLowerCase();
-      final mimeType = switch (ext) {
-        '.jpg' || '.jpeg' => 'image/jpeg',
-        '.png' => 'image/png',
-        '.gif' => 'image/gif',
-        '.webp' => 'image/webp',
-        _ => 'image/jpeg',
-      };
+      final filename = (fileName == null || fileName.trim().isEmpty)
+          ? p.basename(filePath)
+          : fileName.trim();
+      final mimeType = _resolveImageContentType(
+        filePath,
+        fileName: filename,
+        contentType: contentType,
+      );
 
       final formData = FormData.fromMap(<String, dynamic>{
         'photo': await MultipartFile.fromFile(
@@ -131,6 +134,41 @@ class LiveProfileRepository implements ProfileRepository {
       _logDioFailure('uploadPhoto', exception);
       throw mapDioException(exception);
     }
+  }
+
+  String _resolveImageContentType(
+    String filePath, {
+    required String fileName,
+    String? contentType,
+  }) {
+    final normalizedContentType = contentType?.trim().toLowerCase();
+    if (normalizedContentType != null && normalizedContentType.isNotEmpty) {
+      if (normalizedContentType == 'image/heic' ||
+          normalizedContentType == 'image/heif') {
+        throw const ApiException(
+          message:
+              'This photo format is not supported yet. Please choose a JPG or PNG image.',
+        );
+      }
+
+      if (normalizedContentType.startsWith('image/')) {
+        return normalizedContentType;
+      }
+    }
+
+    final ext =
+        p.extension(fileName.isNotEmpty ? fileName : filePath).toLowerCase();
+    return switch (ext) {
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.png' => 'image/png',
+      '.gif' => 'image/gif',
+      '.webp' => 'image/webp',
+      '.heic' || '.heif' => throw const ApiException(
+          message:
+              'This photo format is not supported yet. Please choose a JPG or PNG image.',
+        ),
+      _ => 'image/jpeg',
+    };
   }
 
   @override

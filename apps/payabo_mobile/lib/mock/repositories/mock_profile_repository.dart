@@ -141,7 +141,11 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<String> uploadPhoto(String filePath) async {
+  Future<String> uploadPhoto(
+    String filePath, {
+    String? fileName,
+    String? contentType,
+  }) async {
     await MockBehavior.delay();
     MockBehavior.throwIfEnabled('profile.uploadPhoto');
 

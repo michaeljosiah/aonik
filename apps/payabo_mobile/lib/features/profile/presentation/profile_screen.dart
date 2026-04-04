@@ -338,8 +338,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       final XFile? image =
           await _picker.pickImage(source: ImageSource.camera, maxWidth: 800);
-      if (image != null && mounted) {
-        await ref.read(profileCoreProvider.notifier).uploadPhoto(image.path);
+      if (image == null || !mounted) {
+        return;
+      }
+
+      try {
+        await ref.read(profileCoreProvider.notifier).uploadPhoto(
+              image.path,
+              fileName: image.name,
+              contentType: image.mimeType,
+            );
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        final message = error is ApiException
+            ? error.message
+            : 'Unable to upload photo right now.';
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (_) {
       if (mounted) {
@@ -356,8 +376,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       final XFile? image =
           await _picker.pickImage(source: ImageSource.gallery, maxWidth: 800);
-      if (image != null && mounted) {
-        await ref.read(profileCoreProvider.notifier).uploadPhoto(image.path);
+      if (image == null || !mounted) {
+        return;
+      }
+
+      try {
+        await ref.read(profileCoreProvider.notifier).uploadPhoto(
+              image.path,
+              fileName: image.name,
+              contentType: image.mimeType,
+            );
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        final message = error is ApiException
+            ? error.message
+            : 'Unable to upload photo right now.';
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (_) {
       if (mounted) {
