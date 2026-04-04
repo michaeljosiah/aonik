@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -81,7 +82,6 @@ public static class DependencyInjection
         services.Configure<BlobStorageOptions>(configuration.GetSection("BlobStorage"));
         services.AddMemoryCache();
         services.AddFusionCache();
-        services.AddDataProtection();
 
         services.AddSingleton<ICachePolicyProvider, CachePolicyProvider>();
         services.AddSingleton<ICacheSetRegistry, CacheSetRegistry>();
@@ -154,6 +154,10 @@ public static class DependencyInjection
                     sqlServerOptions.EnableRetryOnFailure());
             });
         }
+
+        services.AddDataProtection()
+            .SetApplicationName("Aonik")
+            .PersistKeysToDbContext<AonikDbContext>();
 
         services.AddScoped<IAonikDbContext>(sp => sp.GetRequiredService<AonikDbContext>());
 

@@ -22,6 +22,7 @@ using Aonik.Ai.Entities;
 using Aonik.Agents.Entities;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
@@ -29,7 +30,7 @@ using PartyEntity = Aonik.Platform.Entities.Party.Party;
 
 namespace Aonik.Infrastructure.Persistence;
 
-public class AonikDbContext : AonikDbContextBase, IAonikDbContext
+public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtectionKeyContext
 {
     // Identity
     public virtual DbSet<Tenant> Tenants { get; set; } = null!;
@@ -49,6 +50,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
     public virtual DbSet<AutonumberReservation> AutonumberReservations { get; set; } = null!;
 
     public virtual DbSet<Setting> Settings { get; set; } = null!;
+    public virtual DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
     public virtual DbSet<ReferenceDataItem> ReferenceDataItems { get; set; } = null!;
     public virtual DbSet<Country> Countries { get; set; } = null!;
     public virtual DbSet<Currency> Currencies { get; set; } = null!;
@@ -213,6 +215,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext
         MapPlatformTable<AutonumberReservation>(modelBuilder, "AutonumberReservations");
 
         MapPlatformTable<Setting>(modelBuilder, "Settings");
+        modelBuilder.Entity<DataProtectionKey>().ToTable("AnkDataProtectionKeys", SchemaNames.Default);
         MapPlatformTable<ReferenceDataItem>(modelBuilder, "ReferenceData");
         MapPlatformTable<Country>(modelBuilder, "Countries");
         MapPlatformTable<Currency>(modelBuilder, "Currencies");

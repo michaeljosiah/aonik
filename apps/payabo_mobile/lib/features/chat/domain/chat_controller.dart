@@ -138,6 +138,8 @@ class ChatState {
     this.activeToolCalls = const [],
     this.pendingApprovals = const [],
     this.displayWidgets = const [],
+    this.pendingSpeechText,
+    this.pendingSpeechMessageId,
     this.errorMessage,
   });
 
@@ -166,6 +168,10 @@ class ChatState {
   /// Display widgets rendered inline during the current response.
   final List<DisplayWidget> displayWidgets;
 
+  final String? pendingSpeechText;
+
+  final String? pendingSpeechMessageId;
+
   /// Error message from the last failed request.
   final String? errorMessage;
 
@@ -189,6 +195,8 @@ class ChatState {
     List<ActiveToolCall>? activeToolCalls,
     List<PendingApproval>? pendingApprovals,
     List<DisplayWidget>? displayWidgets,
+    String? pendingSpeechText,
+    String? pendingSpeechMessageId,
     Object? errorMessage = _chatCopySentinel,
   }) {
     return ChatState(
@@ -200,6 +208,9 @@ class ChatState {
       activeToolCalls: activeToolCalls ?? this.activeToolCalls,
       pendingApprovals: pendingApprovals ?? this.pendingApprovals,
       displayWidgets: displayWidgets ?? this.displayWidgets,
+      pendingSpeechText: pendingSpeechText ?? this.pendingSpeechText,
+      pendingSpeechMessageId:
+          pendingSpeechMessageId ?? this.pendingSpeechMessageId,
       errorMessage: errorMessage == _chatCopySentinel
           ? this.errorMessage
           : errorMessage as String?,
@@ -214,6 +225,8 @@ class ChatState {
       streamingMessageId: null,
       activeToolCalls: const [],
       displayWidgets: const [],
+      pendingSpeechText: null,
+      pendingSpeechMessageId: null,
       errorMessage: null,
     );
   }
@@ -423,6 +436,12 @@ class ChatController extends StateNotifier<ChatState> {
         );
         state = state.copyWith(
           displayWidgets: [...state.displayWidgets, widget],
+        );
+
+      case ChatStreamSpeechRender():
+        state = state.copyWith(
+          pendingSpeechText: event.speechText,
+          pendingSpeechMessageId: event.messageId,
         );
 
       case ChatStreamError():

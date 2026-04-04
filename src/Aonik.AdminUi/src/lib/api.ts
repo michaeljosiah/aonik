@@ -76,6 +76,38 @@ const tryGetString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const tryGetNestedErrorMessage = (data: unknown): string | null => {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const errors = (data as { errors?: unknown }).errors;
+  if (!errors || typeof errors !== 'object') {
+    return null;
+  }
+
+  const generalErrors = (errors as { generalErrors?: unknown }).generalErrors;
+  if (Array.isArray(generalErrors)) {
+    const firstGeneralError = generalErrors.map(tryGetString).find(Boolean);
+    if (firstGeneralError) {
+      return firstGeneralError;
+    }
+  }
+
+  for (const value of Object.values(errors as Record<string, unknown>)) {
+    if (!Array.isArray(value)) {
+      continue;
+    }
+
+    const firstMessage = value.map(tryGetString).find(Boolean);
+    if (firstMessage) {
+      return firstMessage;
+    }
+  }
+
+  return null;
+};
+
 const resolveErrorMessage = (error: AxiosError): string => {
   const status = error.response?.status;
   if (!status) {
@@ -86,6 +118,7 @@ const resolveErrorMessage = (error: AxiosError): string => {
 
   // Prefer server-provided message/error fields when available.
   const serverMessage =
+    tryGetNestedErrorMessage(data) ??
     tryGetString((data as { message?: unknown } | null)?.message) ??
     tryGetString((data as { error?: unknown } | null)?.error) ??
     tryGetString(data);

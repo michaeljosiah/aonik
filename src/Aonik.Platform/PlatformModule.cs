@@ -83,6 +83,9 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IAuthProviderSettingsService, AuthProviderSettingsService>();
         services.AddScoped<IPayaboSetupProfileService, PayaboSetupProfileService>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITenantTextToSpeechSettingsService, TenantTextToSpeechSettingsService>();
+        services.AddScoped<ITextToSpeechCredentialSettingsService, TextToSpeechCredentialSettingsService>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITextToSpeechCredentialResolver>(sp => sp.GetRequiredService<ITextToSpeechCredentialSettingsService>());
         services.AddScoped<IUserBriefContextDataProvider, UserBriefContextDataProvider>();
         services.AddScoped<IRegistrationService, RegistrationService>();
         services.AddScoped<IIdentityService, IdentityService>();

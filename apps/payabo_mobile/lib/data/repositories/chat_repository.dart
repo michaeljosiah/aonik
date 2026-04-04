@@ -251,6 +251,20 @@ class ChatStreamDisplayWidget extends ChatStreamEvent {
   final Map<String, dynamic> data;
 }
 
+class ChatStreamSpeechRender extends ChatStreamEvent {
+  const ChatStreamSpeechRender({
+    required this.messageId,
+    required this.speechText,
+    required this.requiresVisualAttention,
+    required this.requiresApproval,
+  });
+
+  final String messageId;
+  final String speechText;
+  final bool requiresVisualAttention;
+  final bool requiresApproval;
+}
+
 /// The types of display widgets the agent can request.
 enum DisplayWidgetType {
   fxRateChart,

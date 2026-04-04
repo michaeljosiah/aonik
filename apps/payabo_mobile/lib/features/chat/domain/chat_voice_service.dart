@@ -1,8 +1,19 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+import 'dart:io';
+
 import 'package:audioplayers/audioplayers.dart';
+import 'package:dio/dio.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+
+import '../../../data/api/api_client.dart';
 
 typedef ChatVoiceResultCallback = void Function(String text, bool isFinal);
 typedef ChatVoiceStatusCallback = void Function(String status);
@@ -12,7 +23,7 @@ typedef ChatVoiceProgressCallback = void Function(
 
 final Provider<ChatVoiceService> chatVoiceServiceProvider =
     Provider<ChatVoiceService>((Ref ref) {
-  return DeviceChatVoiceService();
+  return DeviceChatVoiceService(apiClient: ref.watch(apiClientProvider));
 });
 
 abstract class ChatVoiceService {
@@ -51,13 +62,16 @@ class DeviceChatVoiceService implements ChatVoiceService {
   static const Duration _recognizerResetDelay = Duration(milliseconds: 250);
   static const Duration _listenActivationWindow = Duration(milliseconds: 900);
   static const String _logPrefix = '[VoiceService]';
+  static const String _telemetryLogName = 'Payabo.ChatVoice';
   static const Duration _thinkingLoopFadeStep = Duration(milliseconds: 45);
   static const int _thinkingLoopFadeSteps = 6;
   static const double _thinkingLoopTargetVolume = 0.45;
 
+  final Dio _apiClient;
   final SpeechToText _speechToText = SpeechToText();
   final FlutterTts _flutterTts = FlutterTts();
   final AudioPlayer _thinkingLoopPlayer = AudioPlayer();
+  final AudioPlayer _speechPlayer = AudioPlayer();
 
   ChatVoiceStatusCallback? _activeSpeechStatusCallback;
   ChatVoiceErrorCallback? _activeSpeechErrorCallback;
@@ -65,7 +79,6 @@ class DeviceChatVoiceService implements ChatVoiceService {
   VoidCallback? _onSpeakStart;
   VoidCallback? _onSpeakComplete;
   VoidCallback? _onSpeakCancel;
-  ChatVoiceProgressCallback? _onSpeakProgress;
   bool _initialized = false;
   bool _thinkingLoopPrepared = false;
   bool _thinkingLoopActive = false;
@@ -77,6 +90,13 @@ class DeviceChatVoiceService implements ChatVoiceService {
   int? _activeSpeakSessionId;
   int? _handledSpeakTerminalSessionId;
   bool _ttsStopRequested = false;
+  String? _activeSpeechFilePath;
+  CancelToken? _activeTtsRequestCancelToken;
+  String? _lastBackendTtsAiRunId;
+  String? _lastBackendTtsProvider;
+  String? _lastBackendTtsVoiceId;
+
+  DeviceChatVoiceService({required Dio apiClient}) : _apiClient = apiClient;
 
   @override
   Future<bool> initialize() async {
@@ -109,6 +129,11 @@ class DeviceChatVoiceService implements ChatVoiceService {
     await _thinkingLoopPlayer.setVolume(0);
     _thinkingLoopVolume = 0;
 
+    await _speechPlayer.setReleaseMode(ReleaseMode.stop);
+    _speechPlayer.onPlayerComplete.listen((_) {
+      _handleTtsTerminalEvent(source: 'audio_complete', canceled: false);
+    });
+
     _flutterTts.setStartHandler(_handleTtsStart);
     _flutterTts.setCompletionHandler(
       () => _handleTtsTerminalEvent(source: 'completion', canceled: false),
@@ -116,11 +141,6 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _flutterTts.setCancelHandler(
       () => _handleTtsTerminalEvent(source: 'cancel', canceled: true),
     );
-    _flutterTts
-        .setProgressHandler((String text, int start, int end, String word) {
-      _log('tts progress: "$word" ($start-$end)');
-      _onSpeakProgress?.call(text, start, end, word);
-    });
     _flutterTts.setErrorHandler((message) {
       _log('tts error: $message');
       _onTtsError?.call('$message');
@@ -291,6 +311,9 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _activeSpeakSessionId = sessionId;
     _handledSpeakTerminalSessionId = null;
     _ttsStopRequested = false;
+    _lastBackendTtsAiRunId = null;
+    _lastBackendTtsProvider = null;
+    _lastBackendTtsVoiceId = null;
     _onSpeakStart = () {
       if (_activeSpeakSessionId != sessionId) {
         return;
@@ -309,12 +332,6 @@ class DeviceChatVoiceService implements ChatVoiceService {
       }
       onCancel?.call();
     };
-    _onSpeakProgress = (String spokenText, int start, int end, String word) {
-      if (_activeSpeakSessionId != sessionId) {
-        return;
-      }
-      onProgress?.call(spokenText, start, end, word);
-    };
     _onTtsError = (String message) {
       if (_activeSpeakSessionId != sessionId) {
         return;
@@ -323,16 +340,91 @@ class DeviceChatVoiceService implements ChatVoiceService {
     };
 
     await _setTtsLocale(localeTag);
-    _log('speak stopping any active TTS before speaking');
-    _log('speak start');
-    await _flutterTts.speak(text);
+    try {
+      await _speakViaBackend(
+        sessionId,
+        text,
+        localeTag: localeTag,
+        onStart: onStart,
+      );
+      return;
+    } catch (error) {
+      if (_activeSpeakSessionId != sessionId) {
+        _log('ignore stale backend tts failure for session=$sessionId: $error');
+        return;
+      }
+
+      if (_ttsStopRequested || _isCancellationError(error)) {
+        _log('backend tts canceled before playback: $error');
+        _handledSpeakTerminalSessionId = sessionId;
+        _activeSpeakSessionId = null;
+        _ttsStopRequested = false;
+        unawaited(_deleteActiveSpeechFile());
+        _onSpeakCancel?.call();
+        return;
+      }
+
+      final bool shouldFallback = _shouldUseNativeFallback(error);
+      if (!shouldFallback) {
+        _log('backend tts rejected without fallback: $error');
+        await _recordBackendTtsFailure(
+          error,
+          stage: 'backend_rejected',
+          localeTag: localeTag,
+          textLength: text.length,
+          includeCrashlytics: false,
+        );
+        _handledSpeakTerminalSessionId = sessionId;
+        _activeSpeakSessionId = null;
+        _ttsStopRequested = false;
+        unawaited(_deleteActiveSpeechFile());
+        onError?.call(_describeTtsError(error));
+        return;
+      }
+
+      _log('backend tts failed, falling back to native: $error');
+      await _recordBackendTtsFailure(
+        error,
+        stage: 'backend_delivery',
+        localeTag: localeTag,
+        textLength: text.length,
+      );
+    }
+
+    if (_activeSpeakSessionId != sessionId || _ttsStopRequested) {
+      return;
+    }
+
+    _log('fallback native tts start');
+    await _recordNativeFallbackActivation(
+      reason: 'backend_tts_failed',
+      localeTag: localeTag,
+      textLength: text.length,
+    );
+
+    if (_activeSpeakSessionId != sessionId || _ttsStopRequested) {
+      return;
+    }
+
+    try {
+      await _flutterTts.speak(text);
+    } catch (error) {
+      _handledSpeakTerminalSessionId = sessionId;
+      _activeSpeakSessionId = null;
+      _ttsStopRequested = false;
+      unawaited(_deleteActiveSpeechFile());
+      onError?.call(_describeTtsError(error));
+    }
   }
 
   @override
   Future<void> stopSpeaking() async {
     _log('stopSpeaking requested');
     _ttsStopRequested = true;
+    _cancelActiveTtsRequest();
+    await _speechPlayer.stop();
     await _flutterTts.stop();
+    await _deleteActiveSpeechFile();
     _log('stopSpeaking completed');
   }
 
@@ -348,8 +440,68 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _thinkingLoopStopping = false;
     _thinkingLoopVolume = 0;
     await _thinkingLoopPlayer.dispose();
+    _cancelActiveTtsRequest();
+    await _speechPlayer.dispose();
     await _flutterTts.stop();
+    await _deleteActiveSpeechFile();
     _log('dispose complete');
+  }
+
+  Future<void> _speakViaBackend(
+    int sessionId,
+    String text, {
+    required String? localeTag,
+    required VoidCallback? onStart,
+  }) async {
+    final CancelToken cancelToken = CancelToken();
+    _activeTtsRequestCancelToken = cancelToken;
+
+    late final Response<List<int>> response;
+    try {
+      response = await _apiClient.post<List<int>>(
+        '/mobile/text-to-speech/synthesize',
+        data: <String, dynamic>{
+          'speechText': text,
+          'locale': localeTag,
+        },
+        cancelToken: cancelToken,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: const <String, String>{
+            'Accept': 'audio/mpeg',
+          },
+        ),
+      );
+    } finally {
+      if (identical(_activeTtsRequestCancelToken, cancelToken)) {
+        _activeTtsRequestCancelToken = null;
+      }
+    }
+
+    _lastBackendTtsAiRunId = response.headers.value('x-ai-run-id');
+    _lastBackendTtsProvider = response.headers.value('x-tts-provider');
+    _lastBackendTtsVoiceId = response.headers.value('x-tts-voice-id');
+
+    final bytes = response.data;
+    if (bytes == null || bytes.isEmpty) {
+      throw Exception('Backend returned empty audio response');
+    }
+
+    final directory = await getTemporaryDirectory();
+    final file = File(
+      '${directory.path}${Platform.pathSeparator}simi_tts_$sessionId.mp3',
+    );
+    await file.writeAsBytes(bytes, flush: true);
+    _activeSpeechFilePath = file.path;
+
+    if (_activeSpeakSessionId != sessionId || _ttsStopRequested) {
+      await _deleteActiveSpeechFile();
+      throw const _TextToSpeechCancelledException();
+    }
+
+    onStart?.call();
+    await _speechPlayer
+        .play(DeviceFileSource(file.path, mimeType: 'audio/mpeg'));
   }
 
   Future<void> _fadeThinkingLoop({required double to}) async {
@@ -441,6 +593,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
 
     _ttsStopRequested = false;
     _activeSpeakSessionId = null;
+    unawaited(_deleteActiveSpeechFile());
 
     if (treatAsCancel) {
       _onSpeakCancel?.call();
@@ -450,6 +603,237 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _onSpeakComplete?.call();
   }
 
+  Future<void> _deleteActiveSpeechFile() async {
+    final path = _activeSpeechFilePath;
+    _activeSpeechFilePath = null;
+    if (path == null || path.isEmpty) {
+      return;
+    }
+
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Best effort cleanup only.
+    }
+  }
+
+  void _cancelActiveTtsRequest() {
+    final CancelToken? cancelToken = _activeTtsRequestCancelToken;
+    _activeTtsRequestCancelToken = null;
+    if (cancelToken != null && !cancelToken.isCancelled) {
+      cancelToken.cancel('Speech request canceled');
+    }
+  }
+
+  bool get _hasFirebaseApp => Firebase.apps.isNotEmpty;
+
+  bool _isCancellationError(Object error) {
+    if (error is _TextToSpeechCancelledException) {
+      return true;
+    }
+
+    if (error is DioException) {
+      return error.type == DioExceptionType.cancel ||
+          CancelToken.isCancel(error);
+    }
+
+    return false;
+  }
+
+  bool _shouldUseNativeFallback(Object error) {
+    if (_isCancellationError(error)) {
+      return false;
+    }
+
+    if (error is DioException) {
+      final int? statusCode = error.response?.statusCode;
+      if (statusCode != null && statusCode >= 400 && statusCode < 500) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  String _describeTtsError(Object error) {
+    if (error is DioException) {
+      final Object? data = error.response?.data;
+      if (data is Map) {
+        final Object? message = data['message'] ?? data['error'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+      }
+
+      if (data is String && data.trim().isNotEmpty) {
+        return data.trim();
+      }
+
+      final int? statusCode = error.response?.statusCode;
+      if (statusCode != null) {
+        return 'Speech request failed ($statusCode).';
+      }
+
+      final String? message = error.message?.trim();
+      if (message != null && message.isNotEmpty) {
+        return message;
+      }
+    }
+
+    final String message = error.toString().trim();
+    const String exceptionPrefix = 'Exception: ';
+    if (message.startsWith(exceptionPrefix)) {
+      return message.substring(exceptionPrefix.length);
+    }
+
+    return message;
+  }
+
+  Future<void> _recordBackendTtsFailure(
+    Object error, {
+    required String stage,
+    required String? localeTag,
+    required int textLength,
+    bool includeCrashlytics = true,
+  }) async {
+    final int statusCode =
+        error is DioException ? error.response?.statusCode ?? -1 : -1;
+    final String reason = _telemetryReason(error, statusCode: statusCode);
+    final String provider = _telemetryValue(_lastBackendTtsProvider);
+    final String voiceId = _telemetryValue(_lastBackendTtsVoiceId);
+    final String aiRunId = _telemetryValue(_lastBackendTtsAiRunId);
+    final String locale = _telemetryValue(localeTag, fallback: 'default');
+
+    developer.log(
+      'Backend TTS failure stage=$stage reason=$reason provider=$provider voiceId=$voiceId aiRunId=$aiRunId status=$statusCode length=$textLength locale=$locale',
+      name: _telemetryLogName,
+      error: error,
+      stackTrace: StackTrace.current,
+    );
+
+    if (!_hasFirebaseApp) {
+      return;
+    }
+
+    try {
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'chat_tts_backend_failure',
+        parameters: <String, Object>{
+          'stage': stage,
+          'reason': reason,
+          'provider': provider,
+          'locale': locale,
+          'status_code': statusCode,
+          'text_length': textLength,
+        },
+      );
+    } catch (_) {
+      // Best effort telemetry only.
+    }
+
+    if (includeCrashlytics) {
+      try {
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_stage', stage);
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_reason', reason);
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_provider', provider);
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_voice_id', voiceId);
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_ai_run_id', aiRunId);
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_locale', locale);
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_text_length', textLength);
+        await FirebaseCrashlytics.instance
+            .setCustomKey('chat_tts_status_code', statusCode);
+        await FirebaseCrashlytics.instance.recordError(
+          error,
+          StackTrace.current,
+          reason: 'Chat backend text-to-speech failure',
+          fatal: false,
+        );
+      } catch (_) {
+        // Best effort telemetry only.
+      }
+    }
+  }
+
+  Future<void> _recordNativeFallbackActivation({
+    required String reason,
+    required String? localeTag,
+    required int textLength,
+  }) async {
+    final String provider = _telemetryValue(_lastBackendTtsProvider);
+    final String locale = _telemetryValue(localeTag, fallback: 'default');
+
+    developer.log(
+      'Native TTS fallback activated reason=$reason provider=$provider locale=$locale length=$textLength',
+      name: _telemetryLogName,
+    );
+
+    if (!_hasFirebaseApp) {
+      return;
+    }
+
+    try {
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'chat_tts_native_fallback',
+        parameters: <String, Object>{
+          'reason': reason,
+          'provider': provider,
+          'locale': locale,
+          'text_length': textLength,
+        },
+      );
+    } catch (_) {
+      // Best effort telemetry only.
+    }
+  }
+
+  String _telemetryReason(Object error, {required int statusCode}) {
+    if (statusCode >= 400) {
+      return 'http_$statusCode';
+    }
+
+    if (error is DioException) {
+      switch (error.type) {
+        case DioExceptionType.connectionTimeout:
+          return 'connection_timeout';
+        case DioExceptionType.sendTimeout:
+          return 'send_timeout';
+        case DioExceptionType.receiveTimeout:
+          return 'receive_timeout';
+        case DioExceptionType.badCertificate:
+          return 'bad_certificate';
+        case DioExceptionType.badResponse:
+          return 'bad_response';
+        case DioExceptionType.cancel:
+          return 'canceled';
+        case DioExceptionType.connectionError:
+          return 'connection_error';
+        case DioExceptionType.unknown:
+          return 'unknown_transport';
+      }
+    }
+
+    return error.runtimeType.toString();
+  }
+
+  String _telemetryValue(String? value, {String fallback = 'unknown'}) {
+    final String trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      return fallback;
+    }
+
+    return trimmed.length <= 60 ? trimmed : trimmed.substring(0, 60);
+  }
+
   void _log(String message) {
     if (!kDebugMode) {
       return;
@@ -457,4 +841,11 @@ class DeviceChatVoiceService implements ChatVoiceService {
 
     debugPrint('$_logPrefix $message');
   }
+}
+
+final class _TextToSpeechCancelledException implements Exception {
+  const _TextToSpeechCancelledException();
+
+  @override
+  String toString() => 'Text-to-speech canceled.';
 }

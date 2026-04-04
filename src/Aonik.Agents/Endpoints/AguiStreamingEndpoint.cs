@@ -337,6 +337,23 @@ public static class AguiStreamingEndpoint
                     type = "TEXT_MESSAGE_END",
                     messageId,
                 }, cancellationToken);
+
+                var speechText = BuildSpeechRender(assistantTextBuilder.ToString());
+                if (!string.IsNullOrWhiteSpace(speechText))
+                {
+                    await WriteSseEventAsync(context.Response, new
+                    {
+                        type = "CUSTOM",
+                        name = "speech.render",
+                        value = new
+                        {
+                            messageId,
+                            speechText,
+                            requiresVisualAttention = ContainsVisualCue(assistantTextBuilder.ToString()),
+                            requiresApproval = ContainsApprovalCue(assistantTextBuilder.ToString())
+                        }
+                    }, cancellationToken);
+                }
             }
 
             // Emit RUN_FINISHED
@@ -677,6 +694,68 @@ public static class AguiStreamingEndpoint
         var json = JsonSerializer.Serialize(eventData, JsonOptions);
         await response.WriteAsync($"data: {json}\n\n", cancellationToken);
         await response.Body.FlushAsync(cancellationToken);
+    }
+
+    private static string BuildSpeechRender(string assistantText)
+    {
+        if (string.IsNullOrWhiteSpace(assistantText))
+        {
+            return string.Empty;
+        }
+
+        var normalized = assistantText.Replace("\r", " ").Replace("\n", " ").Trim();
+        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, "\\s+", " ");
+
+        if (normalized.Length <= 280)
+        {
+            return normalized;
+        }
+
+        var boundary = normalized.LastIndexOfAny(['.', '!', '?'], 280);
+        if (boundary < 80)
+        {
+            boundary = normalized.LastIndexOf(' ', 280);
+        }
+
+        if (boundary < 40)
+        {
+            boundary = 280;
+        }
+
+        var summary = normalized[..boundary].Trim();
+        if (!ContainsVisualCue(summary) && ContainsVisualCue(normalized))
+        {
+            summary = $"{summary} Review the conversation for the full details.";
+        }
+
+        return summary;
+    }
+
+    private static bool ContainsVisualCue(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Contains("on screen", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("highlighted", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("see the", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("details below", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("review", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ContainsApprovalCue(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Contains("approve", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("permission", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("confirm", StringComparison.OrdinalIgnoreCase)
+               || value.Contains("approval", StringComparison.OrdinalIgnoreCase);
     }
 }
 

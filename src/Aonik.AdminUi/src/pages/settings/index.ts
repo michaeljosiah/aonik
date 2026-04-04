@@ -5,6 +5,7 @@ export { SettingsGeneralPage } from './SettingsGeneralPage';
 export { SettingsWebhooksPage } from './SettingsWebhooksPage';
 export { SettingsApiKeysPage } from './SettingsApiKeysPage';
 export { SettingsAuditLogsPage } from './SettingsAuditLogsPage';
+export { SettingsTextToSpeechPage } from './SettingsTextToSpeechPage';
 export { NotificationTemplatesPage } from './NotificationTemplatesPage';
 export { BackgroundJobsPage } from './BackgroundJobsPage';
 export { BackgroundJobDetailPage } from './BackgroundJobDetailPage';

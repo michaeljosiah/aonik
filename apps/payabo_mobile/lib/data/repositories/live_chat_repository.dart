@@ -34,7 +34,8 @@ class LiveChatRepository implements ChatRepository {
 
   int _messageCounter = 0;
 
-  String _nextId() => 'msg_${DateTime.now().millisecondsSinceEpoch}_${_messageCounter++}';
+  String _nextId() =>
+      'msg_${DateTime.now().millisecondsSinceEpoch}_${_messageCounter++}';
 
   @override
   Stream<ChatStreamEvent> sendMessage({
@@ -104,9 +105,8 @@ class LiveChatRepository implements ChatRepository {
             },
             onReject: ([String? reason]) {
               if (!completer.isCompleted) {
-                final result = reason != null
-                    ? 'rejected: $reason'
-                    : 'rejected';
+                final result =
+                    reason != null ? 'rejected: $reason' : 'rejected';
                 completer.complete(result);
               }
             },
@@ -220,14 +220,21 @@ class LiveChatRepository implements ChatRepository {
                     'status': {
                       'type': 'string',
                       'enum': ['under', 'on_track', 'over'],
-                      'description': 'Whether spending is under, on track, or over budget',
+                      'description':
+                          'Whether spending is under, on track, or over budget',
                     },
                   },
                   'required': ['name', 'budgeted', 'spent', 'status'],
                 },
               },
             },
-            'required': ['period', 'totalBudget', 'totalSpent', 'currency', 'categories'],
+            'required': [
+              'period',
+              'totalBudget',
+              'totalSpent',
+              'currency',
+              'categories'
+            ],
           },
         ),
         handler: _makeDisplayToolHandler(
@@ -250,11 +257,13 @@ class LiveChatRepository implements ChatRepository {
             'properties': {
               'agent': {
                 'type': 'string',
-                'description': 'Name of the agent making the proposal (e.g., "Bill Agent", "Savings Agent")',
+                'description':
+                    'Name of the agent making the proposal (e.g., "Bill Agent", "Savings Agent")',
               },
               'action': {
                 'type': 'string',
-                'description': 'Short action title (e.g., "Schedule auto-pay for electricity")',
+                'description':
+                    'Short action title (e.g., "Schedule auto-pay for electricity")',
               },
               'description': {
                 'type': 'string',
@@ -413,6 +422,22 @@ class LiveChatRepository implements ChatRepository {
       case RunErrorEvent():
         return ChatStreamError(event.message, code: event.code);
 
+      case CustomEvent customEvent:
+        if (customEvent.name == 'speech.render' && customEvent.value is Map) {
+          final Map<String, dynamic> map =
+              Map<String, dynamic>.from(customEvent.value as Map);
+          final speechText = map['speechText']?.toString() ?? '';
+          if (speechText.isNotEmpty) {
+            return ChatStreamSpeechRender(
+              messageId: map['messageId']?.toString() ?? '',
+              speechText: speechText,
+              requiresVisualAttention: map['requiresVisualAttention'] == true,
+              requiresApproval: map['requiresApproval'] == true,
+            );
+          }
+        }
+        return null;
+
       // Events we don't surface at the chat level.
       case TextMessageStartEvent():
       case StepStartedEvent():
@@ -420,7 +445,6 @@ class LiveChatRepository implements ChatRepository {
       case StateSnapshotEvent():
       case StateDeltaEvent():
       case MessagesSnapshotEvent():
-      case CustomEvent():
       case UnknownEvent():
         return null;
     }
@@ -531,9 +555,8 @@ class LiveChatRepository implements ChatRepository {
 
             return ChatMessage(
               id: map['id']?.toString(),
-              sender: role == 'assistant'
-                  ? ChatSender.assistant
-                  : ChatSender.user,
+              sender:
+                  role == 'assistant' ? ChatSender.assistant : ChatSender.user,
               lines: content.isEmpty ? const [''] : [content],
               toolCalls: toolCalls,
             );
@@ -574,18 +597,15 @@ class LiveChatRepository implements ChatRepository {
       if (data == null) return const <ChatConversation>[];
 
       final threads = data['threads'] as List<dynamic>? ?? const [];
-      return threads
-          .whereType<Map<Object?, Object?>>()
-          .map((item) {
-            final map = Map<String, dynamic>.from(item);
-            return ChatConversation(
-              id: map['id']?.toString() ?? '',
-              title: map['title']?.toString() ?? 'Untitled',
-              dateLabel: _formatDateLabel(map['lastMessageAt'] ?? map['createdAt']),
-              messages: const <ChatMessage>[],
-            );
-          })
-          .toList(growable: false);
+      return threads.whereType<Map<Object?, Object?>>().map((item) {
+        final map = Map<String, dynamic>.from(item);
+        return ChatConversation(
+          id: map['id']?.toString() ?? '',
+          title: map['title']?.toString() ?? 'Untitled',
+          dateLabel: _formatDateLabel(map['lastMessageAt'] ?? map['createdAt']),
+          messages: const <ChatMessage>[],
+        );
+      }).toList(growable: false);
     } on DioException catch (e) {
       developer.log(
         'Failed to fetch conversations',
@@ -609,17 +629,14 @@ class LiveChatRepository implements ChatRepository {
       if (data == null) return const <ChatHistoryEntry>[];
 
       final threads = data['threads'] as List<dynamic>? ?? const [];
-      return threads
-          .whereType<Map<Object?, Object?>>()
-          .map((item) {
-            final map = Map<String, dynamic>.from(item);
-            return ChatHistoryEntry(
-              id: map['id']?.toString() ?? '',
-              title: map['title']?.toString() ?? 'Untitled',
-              dateLabel: _formatDateLabel(map['lastMessageAt'] ?? map['createdAt']),
-            );
-          })
-          .toList(growable: false);
+      return threads.whereType<Map<Object?, Object?>>().map((item) {
+        final map = Map<String, dynamic>.from(item);
+        return ChatHistoryEntry(
+          id: map['id']?.toString() ?? '',
+          title: map['title']?.toString() ?? 'Untitled',
+          dateLabel: _formatDateLabel(map['lastMessageAt'] ?? map['createdAt']),
+        );
+      }).toList(growable: false);
     } on DioException catch (e) {
       developer.log(
         'Failed to fetch history entries',
@@ -666,8 +683,18 @@ class LiveChatRepository implements ChatRepository {
 
   static String _monthAbbrev(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months[month.clamp(1, 12) - 1];
   }

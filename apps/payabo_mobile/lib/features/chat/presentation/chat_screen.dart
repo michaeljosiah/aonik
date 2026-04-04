@@ -183,9 +183,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   static const String _voiceLogPrefix = '[ChatVoice]';
   static const Duration _voiceEndOfTurnGrace = Duration(milliseconds: 1800);
   static const Duration _voiceThinkingWatchdog = Duration(seconds: 20);
-  static const int _voiceMinimumChunkChars = 48;
-  static const int _voicePreferredChunkChars = 96;
-  static const int _voiceMaximumChunkChars = 140;
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -200,8 +197,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   String? _voiceLastSpokenAssistantMessageId;
   final ListQueue<String> _voiceSpeechQueue = ListQueue<String>();
   bool _voiceChunkSpeaking = false;
-  int _voiceSpokenReplyLength = 0;
   bool _voiceBackendReplyCompleted = false;
+  String? _voicePendingSpeechText;
   int _voiceTurnSequence = 0;
   int? _activeVoiceTurnId;
   int? _voiceBackendTurnId;
@@ -298,6 +295,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (_voiceAwaitingBackendReply &&
           _voiceBackendTurnId != null &&
           _voiceBackendTurnId == _activeVoiceTurnId &&
+          next.pendingSpeechText != null &&
+          next.pendingSpeechText != prev.pendingSpeechText) {
+        _cancelVoiceThinkingWatchdog();
+        _voicePendingSpeechText = next.pendingSpeechText;
+        _voiceAwaitingBackendReply = false;
+        _voiceBackendTurnId = null;
+        _voiceBackendReplyCompleted = true;
+        _voiceSpeechQueue
+          ..clear()
+          ..add(next.pendingSpeechText!);
+        unawaited(_chatVoiceService.stopThinkingLoop());
+        _drainVoiceSpeechQueue(voiceLocaleTag, _activeVoiceTurnId!);
+      }
+
+      if (_voiceAwaitingBackendReply &&
+          _voiceBackendTurnId != null &&
+          _voiceBackendTurnId == _activeVoiceTurnId &&
           prev.activity != ChatActivity.idle &&
           next.activity == ChatActivity.idle) {
         final ChatMessage? assistantMessage = next.messages.reversed
@@ -318,24 +332,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _voiceLastSpokenAssistantMessageId = assistantMessage.id;
           _cancelVoiceThinkingWatchdog();
           unawaited(_chatVoiceService.stopThinkingLoop());
-          _enqueueRemainingVoiceSpeech(
-            assistantMessage.lines.join('\n'),
-            voiceLocaleTag,
-            _activeVoiceTurnId!,
-          );
+          _voiceSpeechQueue
+            ..clear()
+            ..add(_voicePendingSpeechText ?? assistantMessage.lines.join('\n'));
+          _drainVoiceSpeechQueue(voiceLocaleTag, _activeVoiceTurnId!);
         }
-      }
-
-      if (_voiceAwaitingBackendReply &&
-          _voiceBackendTurnId != null &&
-          _voiceBackendTurnId == _activeVoiceTurnId &&
-          next.streamingText.length > prev.streamingText.length) {
-        _cancelVoiceThinkingWatchdog();
-        _enqueueStableVoiceChunk(
-          next.streamingText,
-          voiceLocaleTag,
-          _activeVoiceTurnId!,
-        );
       }
 
       // Refresh thread list when a streaming run completes so new
@@ -607,9 +608,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _voiceLiveTranscript = '';
       _voiceRetryInFlight = false;
       _voiceAwaitingBackendReply = false;
-      _voiceSpokenReplyLength = 0;
       _voiceBackendReplyCompleted = false;
       _voiceChunkSpeaking = false;
+      _voicePendingSpeechText = null;
       _voiceSpeechQueue.clear();
     });
 
@@ -810,9 +811,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _voiceSpeakingPulse = 0.18;
       _voiceLiveTranscript = '';
       _voiceAwaitingBackendReply = false;
-      _voiceSpokenReplyLength = 0;
       _voiceBackendReplyCompleted = false;
       _voiceChunkSpeaking = false;
+      _voicePendingSpeechText = null;
       _voiceSpeechQueue.clear();
     });
   }
@@ -840,148 +841,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _cancelVoiceThinkingWatchdog();
   }
 
-  void _triggerSpeakingPulse(String word) {
-    final double pulse =
-        (0.42 + (word.trim().length * 0.035)).clamp(0.42, 0.94);
-
-    _voiceSpeakPulseResetTimer?.cancel();
-    setState(() {
-      _voiceSpeakingPulse = pulse;
-    });
-
-    _voiceSpeakPulseResetTimer = Timer(const Duration(milliseconds: 140), () {
-      if (!mounted || _voiceStagePhase != _VoiceStagePhase.speaking) {
-        return;
-      }
-
-      setState(() {
-        _voiceSpeakingPulse = 0.18;
-      });
-    });
-  }
-
   String _voiceLocaleTag(BuildContext context) {
     return Localizations.maybeLocaleOf(context)?.toLanguageTag() ?? 'en-US';
-  }
-
-  void _enqueueStableVoiceChunk(String fullText, String localeTag, int turnId) {
-    if (!_isBackendTurn(turnId)) {
-      return;
-    }
-
-    final int boundary =
-        _lastStableSpeechBoundary(fullText, _voiceSpokenReplyLength);
-    if (boundary <= _voiceSpokenReplyLength) {
-      return;
-    }
-
-    final String chunk =
-        fullText.substring(_voiceSpokenReplyLength, boundary).trim();
-    _voiceSpokenReplyLength = boundary;
-
-    if (chunk.isEmpty) {
-      return;
-    }
-
-    _voiceLog('queue stable chunk: "$chunk"');
-    _voiceSpeechQueue.add(chunk);
-    _drainVoiceSpeechQueue(localeTag, turnId);
-  }
-
-  void _enqueueRemainingVoiceSpeech(
-    String fullText,
-    String localeTag,
-    int turnId,
-  ) {
-    if (!_isBackendTurn(turnId)) {
-      return;
-    }
-
-    final String remaining = fullText
-        .substring(
-          _voiceSpokenReplyLength.clamp(0, fullText.length),
-        )
-        .trim();
-
-    if (remaining.isNotEmpty) {
-      _voiceSpokenReplyLength = fullText.length;
-      _voiceLog('queue remaining chunk: "$remaining"');
-      _voiceSpeechQueue.add(remaining);
-    }
-
-    _drainVoiceSpeechQueue(localeTag, turnId);
-  }
-
-  int _lastStableSpeechBoundary(String text, int fromIndex) {
-    int terminalBoundary = fromIndex;
-    int clauseBoundary = fromIndex;
-    int latestWordBoundary = fromIndex;
-    int preferredWordBoundary = fromIndex;
-
-    for (int i = fromIndex; i < text.length; i += 1) {
-      final String char = text[i];
-      final bool isTerminal = char == '.' || char == '!' || char == '?';
-      final bool isClause = char == ',' || char == ';' || char == ':';
-      final bool isLineBreak = char == '\n';
-      final bool isWhitespace = char.trim().isEmpty;
-      final int currentLength = (i + 1) - fromIndex;
-
-      if (isWhitespace) {
-        latestWordBoundary = i + 1;
-        if (currentLength >= _voicePreferredChunkChars &&
-            preferredWordBoundary == fromIndex) {
-          preferredWordBoundary = i + 1;
-        }
-      }
-
-      if (isLineBreak) {
-        terminalBoundary = i + 1;
-        clauseBoundary = i + 1;
-        latestWordBoundary = i + 1;
-        if (currentLength >= _voicePreferredChunkChars &&
-            preferredWordBoundary == fromIndex) {
-          preferredWordBoundary = i + 1;
-        }
-      }
-
-      if (isTerminal) {
-        final bool atEnd = i == text.length - 1;
-        final bool followedBySpace = !atEnd && text[i + 1].trim().isEmpty;
-        if (atEnd || followedBySpace) {
-          terminalBoundary = i + 1;
-        }
-      }
-
-      if (isClause) {
-        final bool atEnd = i == text.length - 1;
-        final bool followedBySpace = !atEnd && text[i + 1].trim().isEmpty;
-        if ((atEnd || followedBySpace) &&
-            currentLength >= _voiceMinimumChunkChars) {
-          clauseBoundary = i + 1;
-        }
-      }
-    }
-
-    if (terminalBoundary > fromIndex) {
-      return terminalBoundary;
-    }
-
-    if (clauseBoundary > fromIndex) {
-      return clauseBoundary;
-    }
-
-    final int totalLength = text.length - fromIndex;
-    if (preferredWordBoundary > fromIndex &&
-        totalLength >= _voicePreferredChunkChars) {
-      return preferredWordBoundary;
-    }
-
-    if (latestWordBoundary > fromIndex &&
-        totalLength >= _voiceMaximumChunkChars) {
-      return latestWordBoundary;
-    }
-
-    return fromIndex;
   }
 
   void _drainVoiceSpeechQueue(String localeTag, int turnId) {
@@ -1008,26 +869,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     setState(() {
       _voiceStagePhase = _VoiceStagePhase.speaking;
-      _voiceSpeakingPulse = 0.18;
+      _voiceSpeakingPulse = 0.5;
     });
 
     unawaited(
       _chatVoiceService.speak(
         chunk,
-        onProgress: (String _, int __, int ___, String word) {
-          if (!_isActiveVoiceTurn(turnId) ||
-              _voiceStagePhase != _VoiceStagePhase.speaking) {
-            return;
-          }
-
-          _triggerSpeakingPulse(word);
-        },
         onComplete: () {
           if (!_isActiveVoiceTurn(turnId)) {
             return;
           }
 
           _voiceChunkSpeaking = false;
+          if (mounted && _voiceStagePhase == _VoiceStagePhase.speaking) {
+            setState(() {
+              _voiceSpeakingPulse = 0.18;
+            });
+          }
           _drainVoiceSpeechQueue(localeTag, turnId);
         },
         onCancel: () {
@@ -1037,6 +895,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
           _voiceLog('tts chunk canceled turn=$turnId');
           _voiceChunkSpeaking = false;
+          if (mounted && _voiceStagePhase == _VoiceStagePhase.speaking) {
+            setState(() {
+              _voiceSpeakingPulse = 0.18;
+            });
+          }
         },
         onError: (String message) {
           if (!_isActiveVoiceTurn(turnId)) {
@@ -1044,6 +907,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           }
 
           _voiceChunkSpeaking = false;
+          if (mounted && _voiceStagePhase == _VoiceStagePhase.speaking) {
+            setState(() {
+              _voiceSpeakingPulse = 0.18;
+            });
+          }
           _showVoiceSnackBar('Voice playback unavailable: $message');
           _drainVoiceSpeechQueue(localeTag, turnId);
         },

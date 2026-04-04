@@ -10,6 +10,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Net.Http.Headers;
 
 namespace Aonik.Ai;
 
@@ -48,6 +49,8 @@ public sealed class AiModule : IModule
         });
 
         // ── AI Infrastructure ────────────────────────────────────────
+        services.Configure<Aonik.Ai.Services.TextToSpeechOptions>(configuration.GetSection("AI:TextToSpeech"));
+
         // File-based prompt store (loads .md templates from disk) — used as fallback
         services.AddSingleton<FileBasedPromptStore>(sp =>
         {
@@ -135,6 +138,17 @@ public sealed class AiModule : IModule
         services.AddScoped<IAiRunWriter, AiRunWriter>();
         services.AddScoped<ICustomerInsightAiSummaryService, CustomerInsightAiSummaryService>();
         services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
+        services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();
+        services.AddScoped<ITextToSpeechService, TextToSpeechService>();
+        services.AddHttpClient<ElevenLabsTextToSpeechProvider>((sp, client) =>
+        {
+            var options = configuration.GetSection("AI:TextToSpeech").Get<Aonik.Ai.Services.TextToSpeechOptions>()
+                ?? new Aonik.Ai.Services.TextToSpeechOptions();
+            client.BaseAddress = new Uri(options.ElevenLabsBaseUrl);
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        });
+        services.AddScoped<ITextToSpeechProvider>(sp => sp.GetRequiredService<ElevenLabsTextToSpeechProvider>());
 
         // User memory — manages AI-learned facts, preferences, and corrections about users
         services.AddScoped<Contracts.Services.IUserMemoryService, UserMemoryService>();

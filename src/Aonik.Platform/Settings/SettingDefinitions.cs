@@ -56,6 +56,9 @@ public static class SettingDefinitions
 
             // ── Payabo ───────────────────────────────────────────────────
             [PayaboSettingNames.SetupProfile] = new SettingDefinition(PayaboSettingNames.SetupProfile),
+
+            // ── Text To Speech ───────────────────────────────────────────
+            [TextToSpeechSettingNames.TenantProfile] = new SettingDefinition(TextToSpeechSettingNames.TenantProfile),
         });
 
     public static SettingDefinition? Get(string key)

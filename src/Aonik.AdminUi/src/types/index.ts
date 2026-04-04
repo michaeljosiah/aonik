@@ -213,6 +213,68 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
+export interface TextToSpeechVoiceProfileResponse {
+  provider: string;
+  voiceId: string;
+  modelId?: string | null;
+  locale?: string | null;
+  outputFormat?: string | null;
+  providerOptions: Record<string, string | null>;
+}
+
+export interface TextToSpeechPolicyResponse {
+  maxCharactersPerUtterance: number;
+  maxRequestsPerMinutePerUser: number;
+  monthlyCharacterBudget?: number | null;
+}
+
+export interface TextToSpeechSettingsResponse {
+  enabled: boolean;
+  fallbackToNativeOnFailure: boolean;
+  defaultProfile: TextToSpeechVoiceProfileResponse;
+  policy: TextToSpeechPolicyResponse;
+}
+
+export interface TextToSpeechVoiceProfileUpdateRequest {
+  provider: string;
+  voiceId: string;
+  modelId?: string | null;
+  locale?: string | null;
+  outputFormat?: string | null;
+  providerOptions?: Record<string, string | null>;
+}
+
+export interface TextToSpeechPolicyUpdateRequest {
+  maxCharactersPerUtterance: number;
+  maxRequestsPerMinutePerUser: number;
+  monthlyCharacterBudget?: number | null;
+}
+
+export interface TextToSpeechSettingsUpdateRequest {
+  enabled: boolean;
+  fallbackToNativeOnFailure: boolean;
+  defaultProfile: TextToSpeechVoiceProfileUpdateRequest;
+  policy: TextToSpeechPolicyUpdateRequest;
+}
+
+export interface TextToSpeechVoiceOptionResponse {
+  voiceId: string;
+  name: string;
+  previewUrl?: string | null;
+  category?: string | null;
+  labels: Record<string, string | null>;
+}
+
+export interface TextToSpeechPreviewRequest {
+  text: string;
+  locale?: string | null;
+  provider?: string | null;
+  voiceId?: string | null;
+  modelId?: string | null;
+  outputFormat?: string | null;
+  providerOptions?: Record<string, string | null>;
+}
+
 export interface OrderListItem {
   orderId: string;
   orderType: string;
@@ -1173,6 +1235,19 @@ export interface AuthProviderSettingsUpdateRequest {
   activeProvider: AuthProviderType;
   auth0?: Auth0SettingsUpdateRequest | null;
   azureAd?: AzureAdSettingsUpdateRequest | null;
+}
+
+export interface TextToSpeechCredentialResponse {
+  provider: string;
+  hasHostCredential: boolean;
+  hasTenantOverride: boolean;
+  effectiveSource: string;
+}
+
+export interface TextToSpeechCredentialUpdateRequest {
+  provider: string;
+  apiKey?: string | null;
+  clearStoredValue: boolean;
 }
 
 // Ledger Types
