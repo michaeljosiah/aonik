@@ -5,6 +5,7 @@ import {
   type PlaygroundMessage,
   type PlaygroundFrontendToolRegistration,
 } from '@/lib/playground-client';
+import { upsertTrailingTextPart } from '@/hooks/playgroundOutputParts';
 import type { PlaygroundRunRecord } from '@/types/ai';
 import { useAuth } from '@/auth';
 
@@ -99,7 +100,7 @@ export function usePlaygroundChat(
   /** Flush any accumulated text or reasoning into a part. */
   const flushText = useCallback(() => {
     if (currentTextRef.current) {
-      partsRef.current.push({ type: 'text', content: currentTextRef.current });
+      partsRef.current = upsertTrailingTextPart(partsRef.current, currentTextRef.current);
       currentTextRef.current = '';
     }
   }, []);
@@ -157,15 +158,18 @@ export function usePlaygroundChat(
 
               // Accumulate into current text buffer
               currentTextRef.current += delta;
-              // Update parts: replace or add trailing text part
-              const parts = partsRef.current;
-              const lastPart = parts[parts.length - 1];
-              if (lastPart && lastPart.type === 'text') {
-                lastPart.content = currentTextRef.current;
-              } else {
-                parts.push({ type: 'text', content: currentTextRef.current });
-              }
+              partsRef.current = upsertTrailingTextPart(partsRef.current, currentTextRef.current);
               syncParts();
+            },
+
+            onRerun: () => {
+              fullResponse = '';
+              setOutput('');
+              partsRef.current = [];
+              currentTextRef.current = '';
+              currentReasoningRef.current = '';
+              toolCallMapRef.current.clear();
+              setOutputParts([]);
             },
 
             onSpeechRender: (payload) => {

@@ -206,6 +206,32 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public void BuildSpeechRender_ShouldExpandSupportedCurrencySymbols()
+    {
+        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+            "You have £250, $5, €7, ₦5,000, GH₵20, R30, KSh9, ₹11, and ¥13. Another item is £1.");
+
+        speechText.Should().Contain("250 pounds");
+        speechText.Should().Contain("5 dollars");
+        speechText.Should().Contain("7 euros");
+        speechText.Should().Contain("5,000 naira");
+        speechText.Should().Contain("20 cedis");
+        speechText.Should().Contain("30 rand");
+        speechText.Should().Contain("9 Kenyan shillings");
+        speechText.Should().Contain("11 rupees");
+        speechText.Should().Contain("13 yuan");
+        speechText.Should().Contain("1 pound");
+        speechText.Should().NotContain("£");
+        speechText.Should().NotContain("$");
+        speechText.Should().NotContain("€");
+        speechText.Should().NotContain("₦");
+        speechText.Should().NotContain("GH₵");
+        speechText.Should().NotContain("KSh");
+        speechText.Should().NotContain("₹");
+        speechText.Should().NotContain("¥");
+    }
+
+    [Fact]
     public void BuildSpeechRender_ShouldKeepFullContentWithoutHardTrim()
     {
         var assistantText = string.Join(" ", Enumerable.Repeat("This sentence explains the situation clearly.", 12));

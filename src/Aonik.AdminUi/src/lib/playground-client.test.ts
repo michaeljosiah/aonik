@@ -76,6 +76,55 @@ function createFinalResponse(): Response {
   ]);
 }
 
+function createToolCallThenFinalTextResponses(toolName: string): Response[] {
+  return [
+    createSseResponse([
+      {
+        type: 'TOOL_CALL_START',
+        toolCallId: 'call-1',
+        toolCallName: toolName,
+      },
+      {
+        type: 'TOOL_CALL_ARGS',
+        toolCallId: 'call-1',
+        delta: JSON.stringify({ action: 'Confirm this action', description: 'Proceed', severity: 'medium' }),
+      },
+      {
+        type: 'TOOL_CALL_END',
+        toolCallId: 'call-1',
+      },
+      {
+        type: 'RUN_FINISHED',
+        metrics: {
+          inputTokens: 12,
+          outputTokens: 0,
+          totalTokens: 12,
+          latencyMs: 50,
+        },
+      },
+    ]),
+    createSseResponse([
+      {
+        type: 'TEXT_MESSAGE_CONTENT',
+        delta: 'Short answer: not safely, no. ',
+      },
+      {
+        type: 'TEXT_MESSAGE_CONTENT',
+        delta: 'You only have GBP £0.00 available.',
+      },
+      {
+        type: 'RUN_FINISHED',
+        metrics: {
+          inputTokens: 18,
+          outputTokens: 12,
+          totalTokens: 30,
+          latencyMs: 60,
+        },
+      },
+    ]),
+  ];
+}
+
 function createRequest(messages: PlaygroundMessage[]): PlaygroundRunRequest {
   return {
     agentName: 'personal-finance-agent',
@@ -148,15 +197,17 @@ describe('streamPlaygroundRun frontend tools', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const onToolResult = vi.fn();
+    const onRerun = vi.fn();
 
     await streamPlaygroundRun({
       request: createRequest([{ role: 'user', content: 'Test frontend tool rerun.' }]),
-      callbacks: { onToolResult },
+      callbacks: { onToolResult, onRerun },
       getAccessToken: async () => null,
       frontendTools,
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(onRerun).toHaveBeenCalledTimes(1);
 
     const firstRequest = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as PlaygroundRunRequest;
     expect(firstRequest.toolDefinitions?.map((tool) => tool.name)).toEqual([...playgroundFrontendToolNames]);
@@ -196,5 +247,33 @@ describe('streamPlaygroundRun frontend tools', () => {
     } else {
       expect(confirmAction).not.toHaveBeenCalled();
     }
+  });
+
+  it('does not duplicate final text when a frontend tool triggers a rerun', async () => {
+    const [initialResponse, finalResponse] = createToolCallThenFinalTextResponses('confirmAction');
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(initialResponse)
+      .mockResolvedValueOnce(finalResponse);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const frontendTools = createPlaygroundFrontendTools({ confirmAction: () => true });
+    let combinedOutput = '';
+
+    await streamPlaygroundRun({
+      request: createRequest([{ role: 'user', content: 'Can I spend £300?' }]),
+      callbacks: {
+        onRerun: () => {
+          combinedOutput = '';
+        },
+        onTextDelta: (delta) => {
+          combinedOutput += delta;
+        },
+      },
+      getAccessToken: async () => null,
+      frontendTools,
+    });
+
+    expect(combinedOutput).toBe('Short answer: not safely, no. You only have GBP £0.00 available.');
   });
 });

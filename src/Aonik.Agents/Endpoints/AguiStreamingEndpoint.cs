@@ -37,12 +37,16 @@ public static class AguiStreamingEndpoint
         @"^(?:(?:here(?:'s| is)(?:\s+a)?\s+quick\s+summary|here(?:'s| is)\s+the\s+summary|quick\s+summary|summary|in\s+summary|overall|to\s+summari[sz]e)\s*:?\s*)+",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private const string SupportedSpeechCurrencyCodes = "USD|EUR|GBP|NGN|GHS|ZAR|ZWL|ZIG|KES|INR|CNY";
+    private const string SupportedSpeechAmountPattern = @"[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?";
     private static readonly Regex CurrencyBeforeAmountRegex = new(
-        $@"\b(?<code>{SupportedSpeechCurrencyCodes})\s*(?<amount>[+-]?\d[\d,]*(?:\.\d+)?)\b",
+        $@"\b(?<code>{SupportedSpeechCurrencyCodes})\s*(?<amount>{SupportedSpeechAmountPattern})\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex AmountBeforeCurrencyRegex = new(
-        $@"\b(?<amount>[+-]?\d[\d,]*(?:\.\d+)?)\s*(?<code>{SupportedSpeechCurrencyCodes})\b",
+        $@"\b(?<amount>{SupportedSpeechAmountPattern})\s*(?<code>{SupportedSpeechCurrencyCodes})\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex CurrencySymbolAmountRegex = new(
+        $@"(?<!\w)(?<symbol>GH₵|KSh|₦|£|€|₹|¥|R|\$)\s*(?<amount>{SupportedSpeechAmountPattern})",
+        RegexOptions.Compiled);
     private static readonly IReadOnlyDictionary<string, SpokenCurrencyDescriptor> SpokenCurrencies =
         new Dictionary<string, SpokenCurrencyDescriptor>(StringComparer.OrdinalIgnoreCase)
         {
@@ -57,6 +61,19 @@ public static class AguiStreamingEndpoint
             ["KES"] = new("Kenyan shilling", "Kenyan shillings"),
             ["INR"] = new("rupee", "rupees"),
             ["CNY"] = new("yuan", "yuan")
+        };
+    private static readonly IReadOnlyDictionary<string, string> SpokenCurrencySymbols =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["$"] = "USD",
+            ["€"] = "EUR",
+            ["£"] = "GBP",
+            ["₦"] = "NGN",
+            ["GH₵"] = "GHS",
+            ["R"] = "ZAR",
+            ["KSh"] = "KES",
+            ["₹"] = "INR",
+            ["¥"] = "CNY"
         };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -847,6 +864,17 @@ public static class AguiStreamingEndpoint
 
         expanded = AmountBeforeCurrencyRegex.Replace(expanded, match =>
             BuildSpokenAmount(match.Groups["amount"].Value, match.Groups["code"].Value));
+
+        expanded = CurrencySymbolAmountRegex.Replace(expanded, match =>
+        {
+            var symbol = match.Groups["symbol"].Value;
+            if (!SpokenCurrencySymbols.TryGetValue(symbol, out var currencyCode))
+            {
+                return match.Value;
+            }
+
+            return BuildSpokenAmount(match.Groups["amount"].Value, currencyCode);
+        });
 
         return expanded;
     }

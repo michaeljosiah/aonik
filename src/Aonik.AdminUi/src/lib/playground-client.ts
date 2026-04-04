@@ -75,6 +75,7 @@ export interface PlaygroundRunMetrics {
 
 export interface PlaygroundStreamCallbacks {
   onRunStarted?: (runId: string) => void;
+  onRerun?: () => void;
   onTextDelta?: (delta: string) => void;
   onSpeechRender?: (payload: {
     messageId: string;
@@ -195,6 +196,8 @@ export async function streamPlaygroundRun(
       console.warn(`Playground client: reached max tool re-runs (${maxToolReruns}), stopping.`);
       break;
     }
+
+    callbacks.onRerun?.();
 
     // Execute frontend tools and append results as messages for the re-run
     const toolResultMessages: PlaygroundMessage[] = [];
