@@ -48,41 +48,41 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var spendStart = request.SpendPeriodStart ?? new DateTime(now.Year, now.Month, 1);
         var spendEnd = request.SpendPeriodEnd ?? now;
 
-        // Parallel data loading
-        var accountsTask = _dbContext.PersonalAccounts
+        // Sequential data loading — EF Core DbContext is not thread-safe
+        var accounts = await _dbContext.PersonalAccounts
             .Where(a => a.TenantId == tenantId && a.UserId == userId && a.Status != "archived")
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        var billsTask = _dbContext.Bills
+        var bills = await _dbContext.Bills
             .Where(b => b.TenantId == tenantId && b.UserId == userId
                 && b.Status == "active" && b.NextDueDate <= billCutoff)
             .OrderBy(b => b.NextDueDate)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        var subscriptionsTask = _dbContext.Subscriptions
+        var subscriptions = await _dbContext.Subscriptions
             .Where(s => s.TenantId == tenantId && s.UserId == userId && s.Status == "active")
             .OrderBy(s => s.RenewalDate)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        var goalsTask = _dbContext.Goals
+        var goals = await _dbContext.Goals
             .Where(g => g.TenantId == tenantId && g.UserId == userId && g.Status == "active")
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        var transactionCountTask = _dbContext.PersonalTransactions
+        var transactionCount = await _dbContext.PersonalTransactions
             .Where(t => t.TenantId == tenantId && t.UserId == userId)
             .CountAsync(cancellationToken);
 
-        var spendTransactionsTask = _dbContext.PersonalTransactions
+        var spendTransactions = await _dbContext.PersonalTransactions
             .Where(t => t.TenantId == tenantId && t.UserId == userId
                 && t.OccurredAt >= spendStart && t.OccurredAt <= spendEnd)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        var customerInsightSnapshotTask = _dbContext.CustomerInsightSnapshots
+        var customerInsightSnapshot = await _dbContext.CustomerInsightSnapshots
             .Where(s => s.TenantId == tenantId
                 && s.UserId == userId
                 && s.Status == CustomerInsightSnapshotContract.StatusCurrent)
@@ -90,26 +90,7 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
 
-        var budgetTask = SafeListBudgetsAsync(cancellationToken);
-
-        await Task.WhenAll(
-            accountsTask,
-            billsTask,
-            subscriptionsTask,
-            goalsTask,
-            transactionCountTask,
-            spendTransactionsTask,
-            budgetTask,
-            customerInsightSnapshotTask);
-
-        var accounts = await accountsTask;
-        var bills = await billsTask;
-        var subscriptions = await subscriptionsTask;
-        var goals = await goalsTask;
-        var transactionCount = await transactionCountTask;
-        var spendTransactions = await spendTransactionsTask;
-        var budgets = await budgetTask;
-        var customerInsightSnapshot = await customerInsightSnapshotTask;
+        var budgets = await SafeListBudgetsAsync(cancellationToken);
 
         // Derive cash summary
         var primaryCurrency = accounts.FirstOrDefault()?.Currency ?? "GBP";

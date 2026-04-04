@@ -26,17 +26,18 @@ internal sealed class UserBriefContextDataProvider : IUserBriefContextDataProvid
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var userTask = _dbContext.Users
+        // Sequential queries — EF Core DbContext is not thread-safe
+        var user = await _dbContext.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
 
-        var partyLinkTask = _dbContext.UserParties
+        var partyLink = await _dbContext.UserParties
             .AsNoTracking()
             .Where(link => link.UserId == userId && link.TenantId == tenantId)
             .OrderByDescending(link => link.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var setupTask = _dbContext.Settings
+        var setupPayload = await _dbContext.Settings
             .AsNoTracking()
             .Where(setting => setting.Key == PayaboSettingNames.SetupProfile
                 && setting.TenantId == tenantId
@@ -44,30 +45,19 @@ internal sealed class UserBriefContextDataProvider : IUserBriefContextDataProvid
             .Select(setting => setting.Value)
             .FirstOrDefaultAsync(cancellationToken);
 
-        await Task.WhenAll(userTask, partyLinkTask, setupTask);
-
-        var user = await userTask;
-        var partyLink = await partyLinkTask;
-        var setupPayload = await setupTask;
-
         string? firstName = null;
         string? lastName = null;
         string? fullName = null;
 
         if (partyLink is not null)
         {
-            var personProfileTask = _dbContext.PersonProfiles
+            var personProfile = await _dbContext.PersonProfiles
                 .AsNoTracking()
                 .FirstOrDefaultAsync(profile => profile.PartyId == partyLink.PartyId, cancellationToken);
 
-            var partyTask = _dbContext.Parties
+            var party = await _dbContext.Parties
                 .AsNoTracking()
                 .FirstOrDefaultAsync(party => party.Id == partyLink.PartyId, cancellationToken);
-
-            await Task.WhenAll(personProfileTask, partyTask);
-
-            var personProfile = await personProfileTask;
-            var party = await partyTask;
 
             firstName = personProfile?.FirstName?.Trim();
             lastName = personProfile?.LastName?.Trim();
