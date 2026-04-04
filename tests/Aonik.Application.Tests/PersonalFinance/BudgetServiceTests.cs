@@ -1,4 +1,5 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
@@ -95,5 +96,48 @@ public class BudgetServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Name.Should().Be("Food & Groceries");
+    }
+
+    [Fact]
+    public async Task ListBudgetsAsync_Should_ReflectTransactionSpending_When_CategoryLinked()
+    {
+        // Arrange — create a budget for "eating-out", add a transaction with category "eating_out"
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new BudgetService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId));
+
+        // Create budget line for eating-out
+        var budget = await service.CreateBudgetAsync(new CreateBudgetRequest("eating-out"));
+        budget.Name.Should().Be("Eating Out");
+
+        // Simulate a manual transaction with the transaction taxonomy category "eating_out"
+        var now = DateTime.UtcNow;
+        context.Set<PersonalTransaction>().Add(new PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            OccurredAt = now,
+            Amount = -17.50m,
+            Currency = "GBP",
+            Category = "eating_out",  // Transaction taxonomy uses snake_case
+            Merchant = "Nando's",
+            SourceType = "Manual",
+            SourceId = Guid.NewGuid(),
+            TransactionType = "Expense",
+        });
+        await context.SaveChangesAsync();
+
+        // Act — list budgets (recalculates spent from transactions)
+        var budgets = await service.ListBudgetsAsync();
+
+        // Assert — the eating-out budget should show £17.50 spent
+        var eatingOut = budgets.Should().ContainSingle().Subject;
+        eatingOut.Name.Should().Be("Eating Out");
+        eatingOut.LineItems.Should().ContainSingle()
+            .Which.Spent.Should().Be(17.50m);
     }
 }

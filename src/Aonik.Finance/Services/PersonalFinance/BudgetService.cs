@@ -56,7 +56,6 @@ internal sealed class BudgetService : IBudgetService
 
         _dbContext.Set<BudgetLine>().Add(line);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        budget.Lines.Add(line);
 
         var spentByCategory = await GetSpentByCategoryAsync(tenantId, userId, budget.PeriodStart, cancellationToken);
         return MapBudgetLine(line, spentByCategory);
