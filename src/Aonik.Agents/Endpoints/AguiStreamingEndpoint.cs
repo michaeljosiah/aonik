@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
@@ -27,6 +29,36 @@ namespace Aonik.Agents.Endpoints;
 /// </summary>
 public static class AguiStreamingEndpoint
 {
+    private static readonly Regex MultiWhitespaceRegex = new("\\s+", RegexOptions.Compiled);
+    private static readonly Regex MarkdownLinkRegex = new(@"\[(?<text>[^\]]+)\]\([^)]+\)", RegexOptions.Compiled);
+    private static readonly Regex LeadingListMarkerRegex = new(@"^\s*(?:[-*•]+|\d+[.)])\s+", RegexOptions.Compiled);
+    private static readonly Regex LeadingHeadingRegex = new(@"^\s*#+\s*", RegexOptions.Compiled);
+    private static readonly Regex SpeechPreambleRegex = new(
+        @"^(?:(?:here(?:'s| is)(?:\s+a)?\s+quick\s+summary|here(?:'s| is)\s+the\s+summary|quick\s+summary|summary|in\s+summary|overall|to\s+summari[sz]e)\s*:?\s*)+",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private const string SupportedSpeechCurrencyCodes = "USD|EUR|GBP|NGN|GHS|ZAR|ZWL|ZIG|KES|INR|CNY";
+    private static readonly Regex CurrencyBeforeAmountRegex = new(
+        $@"\b(?<code>{SupportedSpeechCurrencyCodes})\s*(?<amount>[+-]?\d[\d,]*(?:\.\d+)?)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex AmountBeforeCurrencyRegex = new(
+        $@"\b(?<amount>[+-]?\d[\d,]*(?:\.\d+)?)\s*(?<code>{SupportedSpeechCurrencyCodes})\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly IReadOnlyDictionary<string, SpokenCurrencyDescriptor> SpokenCurrencies =
+        new Dictionary<string, SpokenCurrencyDescriptor>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["USD"] = new("dollar", "dollars"),
+            ["EUR"] = new("euro", "euros"),
+            ["GBP"] = new("pound", "pounds"),
+            ["NGN"] = new("naira", "naira"),
+            ["GHS"] = new("cedi", "cedis"),
+            ["ZAR"] = new("rand", "rand"),
+            ["ZWL"] = new("Zimbabwe dollar", "Zimbabwe dollars"),
+            ["ZIG"] = new("Zimbabwe Gold", "Zimbabwe Gold"),
+            ["KES"] = new("Kenyan shilling", "Kenyan shillings"),
+            ["INR"] = new("rupee", "rupees"),
+            ["CNY"] = new("yuan", "yuan")
+        };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -236,6 +268,8 @@ public static class AguiStreamingEndpoint
             // Stream the agent response
             var messageId = Guid.NewGuid().ToString("N");
             var messageStarted = false;
+            var requiresVisualAttention = false;
+            var requiresApproval = false;
 
             await foreach (var update in agent.RunStreamingAsync(
                 chatMessages, session: null, options: runOptions, cancellationToken: cancellationToken))
@@ -274,6 +308,10 @@ public static class AguiStreamingEndpoint
                             break;
 
                         case FunctionCallContent functionCall:
+                            var toolName = functionCall.Name ?? string.Empty;
+                            requiresVisualAttention |= IsDisplayToolCall(toolName);
+                            requiresApproval |= IsApprovalToolCall(toolName);
+
                             await WriteSseEventAsync(context.Response, new
                             {
                                 type = "TOOL_CALL_START",
@@ -329,6 +367,8 @@ public static class AguiStreamingEndpoint
                 // so we don't emit it separately to avoid duplicate text deltas.
             }
 
+            var assistantText = assistantTextBuilder.ToString();
+
             // Close message if one was started
             if (messageStarted)
             {
@@ -338,22 +378,23 @@ public static class AguiStreamingEndpoint
                     messageId,
                 }, cancellationToken);
 
-                var speechText = BuildSpeechRender(assistantTextBuilder.ToString());
-                if (!string.IsNullOrWhiteSpace(speechText))
+            }
+
+            var speechText = BuildSpeechRender(assistantText, requiresVisualAttention, requiresApproval);
+            if (!string.IsNullOrWhiteSpace(speechText))
+            {
+                await WriteSseEventAsync(context.Response, new
                 {
-                    await WriteSseEventAsync(context.Response, new
+                    type = "CUSTOM",
+                    name = "speech.render",
+                    value = new
                     {
-                        type = "CUSTOM",
-                        name = "speech.render",
-                        value = new
-                        {
-                            messageId,
-                            speechText,
-                            requiresVisualAttention = ContainsVisualCue(assistantTextBuilder.ToString()),
-                            requiresApproval = ContainsApprovalCue(assistantTextBuilder.ToString())
-                        }
-                    }, cancellationToken);
-                }
+                        messageId,
+                        speechText,
+                        requiresVisualAttention,
+                        requiresApproval
+                    }
+                }, cancellationToken);
             }
 
             // Emit RUN_FINISHED
@@ -371,7 +412,6 @@ public static class AguiStreamingEndpoint
             {
                 try
                 {
-                    var assistantText = assistantTextBuilder.ToString();
                     if (!string.IsNullOrEmpty(assistantText))
                     {
                         await chatThreadService.AppendMessageAsync(
@@ -696,67 +736,152 @@ public static class AguiStreamingEndpoint
         await response.Body.FlushAsync(cancellationToken);
     }
 
-    private static string BuildSpeechRender(string assistantText)
+    internal static string BuildSpeechRender(
+        string assistantText,
+        bool requiresVisualAttention = false,
+        bool requiresApproval = false)
     {
-        if (string.IsNullOrWhiteSpace(assistantText))
+        var speechText = string.Empty;
+        if (!string.IsNullOrWhiteSpace(assistantText))
         {
-            return string.Empty;
+            var normalized = assistantText.Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n');
+            normalized = MarkdownLinkRegex.Replace(normalized, "${text}");
+
+            var lines = normalized
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(NormalizeSpeechLine)
+                .Where(line => !string.IsNullOrWhiteSpace(line));
+
+            speechText = string.Join(' ', lines);
         }
 
-        var normalized = assistantText.Replace("\r", " ").Replace("\n", " ").Trim();
-        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, "\\s+", " ");
+        speechText = SpeechPreambleRegex.Replace(speechText, string.Empty);
+        speechText = speechText.Replace(" & ", " and ", StringComparison.Ordinal);
+        speechText = ExpandCurrencyAmounts(speechText);
+        speechText = Regex.Replace(speechText, @"\s+([,.;!?])", "$1");
+        speechText = MultiWhitespaceRegex.Replace(speechText, " ").Trim();
+        speechText = AppendChatReviewGuidance(speechText, requiresVisualAttention, requiresApproval);
 
-        if (normalized.Length <= 280)
+        return speechText;
+    }
+
+    private static string AppendChatReviewGuidance(
+        string speechText,
+        bool requiresVisualAttention,
+        bool requiresApproval)
+    {
+        var guidance = BuildChatReviewGuidance(requiresVisualAttention, requiresApproval);
+        if (string.IsNullOrWhiteSpace(guidance))
+        {
+            return speechText;
+        }
+
+        if (string.IsNullOrWhiteSpace(speechText))
+        {
+            return guidance;
+        }
+
+        var normalized = speechText.TrimEnd();
+        if (normalized.EndsWith(guidance, StringComparison.OrdinalIgnoreCase))
         {
             return normalized;
         }
 
-        var boundary = normalized.LastIndexOfAny(['.', '!', '?'], 280);
-        if (boundary < 80)
-        {
-            boundary = normalized.LastIndexOf(' ', 280);
-        }
+        var separator = normalized.EndsWith('.') || normalized.EndsWith('!') || normalized.EndsWith('?')
+            ? " "
+            : ". ";
 
-        if (boundary < 40)
-        {
-            boundary = 280;
-        }
-
-        var summary = normalized[..boundary].Trim();
-        if (!ContainsVisualCue(summary) && ContainsVisualCue(normalized))
-        {
-            summary = $"{summary} Review the conversation for the full details.";
-        }
-
-        return summary;
+        return $"{normalized}{separator}{guidance}";
     }
 
-    private static bool ContainsVisualCue(string value)
+    private static string BuildChatReviewGuidance(bool requiresVisualAttention, bool requiresApproval)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (requiresVisualAttention && requiresApproval)
         {
-            return false;
+            return "I've opened the chat so you can review the details and approve this action.";
         }
 
-        return value.Contains("on screen", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("highlighted", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("see the", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("details below", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("review", StringComparison.OrdinalIgnoreCase);
+        if (requiresApproval)
+        {
+            return "I've opened the chat so you can review and approve this action.";
+        }
+
+        if (requiresVisualAttention)
+        {
+            return "I've opened the chat so you can review the details.";
+        }
+
+        return string.Empty;
     }
 
-    private static bool ContainsApprovalCue(string value)
+    private static string NormalizeSpeechLine(string line)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var trimmed = line.Trim();
+        if (trimmed.Length == 0)
         {
-            return false;
+            return string.Empty;
         }
 
-        return value.Contains("approve", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("permission", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("confirm", StringComparison.OrdinalIgnoreCase)
-               || value.Contains("approval", StringComparison.OrdinalIgnoreCase);
+        var wasListItem = LeadingListMarkerRegex.IsMatch(trimmed);
+        trimmed = LeadingHeadingRegex.Replace(trimmed, string.Empty);
+        trimmed = LeadingListMarkerRegex.Replace(trimmed, string.Empty);
+        trimmed = trimmed
+            .Replace("**", string.Empty, StringComparison.Ordinal)
+            .Replace("__", string.Empty, StringComparison.Ordinal)
+            .Replace('`', ' ');
+        trimmed = MultiWhitespaceRegex.Replace(trimmed, " ").Trim();
+
+        if (wasListItem && trimmed.Length > 0 && !trimmed.EndsWith('.') && !trimmed.EndsWith('!') && !trimmed.EndsWith('?'))
+        {
+            trimmed = $"{trimmed}.";
+        }
+
+        return trimmed;
     }
+
+    private static string ExpandCurrencyAmounts(string value)
+    {
+        var expanded = CurrencyBeforeAmountRegex.Replace(value, match =>
+            BuildSpokenAmount(match.Groups["amount"].Value, match.Groups["code"].Value));
+
+        expanded = AmountBeforeCurrencyRegex.Replace(expanded, match =>
+            BuildSpokenAmount(match.Groups["amount"].Value, match.Groups["code"].Value));
+
+        return expanded;
+    }
+
+    private static string BuildSpokenAmount(string amount, string currencyCode)
+    {
+        if (!SpokenCurrencies.TryGetValue(currencyCode, out var descriptor))
+        {
+            return $"{amount} {currencyCode}";
+        }
+
+        var normalizedAmount = amount.Replace(",", string.Empty, StringComparison.Ordinal);
+        if (!decimal.TryParse(normalizedAmount, NumberStyles.Number | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var parsedAmount))
+        {
+            return $"{amount} {descriptor.Plural}";
+        }
+
+        var currencyName = decimal.Abs(parsedAmount) == 1m
+            ? descriptor.Singular
+            : descriptor.Plural;
+
+        return $"{amount} {currencyName}";
+    }
+
+    private static bool IsDisplayToolCall(string toolName)
+    {
+        return toolName.StartsWith("display_", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsApprovalToolCall(string toolName)
+    {
+        return string.Equals(toolName, "confirmAction", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record SpokenCurrencyDescriptor(string Singular, string Plural);
 }
 
 /// <summary>

@@ -140,6 +140,8 @@ class ChatState {
     this.displayWidgets = const [],
     this.pendingSpeechText,
     this.pendingSpeechMessageId,
+    this.pendingSpeechRequiresVisualAttention = false,
+    this.pendingSpeechRequiresApproval = false,
     this.errorMessage,
   });
 
@@ -172,6 +174,10 @@ class ChatState {
 
   final String? pendingSpeechMessageId;
 
+  final bool pendingSpeechRequiresVisualAttention;
+
+  final bool pendingSpeechRequiresApproval;
+
   /// Error message from the last failed request.
   final String? errorMessage;
 
@@ -197,6 +203,8 @@ class ChatState {
     List<DisplayWidget>? displayWidgets,
     String? pendingSpeechText,
     String? pendingSpeechMessageId,
+    bool? pendingSpeechRequiresVisualAttention,
+    bool? pendingSpeechRequiresApproval,
     Object? errorMessage = _chatCopySentinel,
   }) {
     return ChatState(
@@ -211,6 +219,11 @@ class ChatState {
       pendingSpeechText: pendingSpeechText ?? this.pendingSpeechText,
       pendingSpeechMessageId:
           pendingSpeechMessageId ?? this.pendingSpeechMessageId,
+      pendingSpeechRequiresVisualAttention:
+          pendingSpeechRequiresVisualAttention ??
+              this.pendingSpeechRequiresVisualAttention,
+      pendingSpeechRequiresApproval:
+          pendingSpeechRequiresApproval ?? this.pendingSpeechRequiresApproval,
       errorMessage: errorMessage == _chatCopySentinel
           ? this.errorMessage
           : errorMessage as String?,
@@ -227,6 +240,8 @@ class ChatState {
       displayWidgets: const [],
       pendingSpeechText: null,
       pendingSpeechMessageId: null,
+      pendingSpeechRequiresVisualAttention: false,
+      pendingSpeechRequiresApproval: false,
       errorMessage: null,
     );
   }
@@ -442,6 +457,8 @@ class ChatController extends StateNotifier<ChatState> {
         state = state.copyWith(
           pendingSpeechText: event.speechText,
           pendingSpeechMessageId: event.messageId,
+          pendingSpeechRequiresVisualAttention: event.requiresVisualAttention,
+          pendingSpeechRequiresApproval: event.requiresApproval,
         );
 
       case ChatStreamError():

@@ -207,6 +207,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int _voiceElapsedMs = 0;
   double _voiceSpeakingPulse = 0.18;
   String _voiceLiveTranscript = '';
+  bool _showVoiceStage = false;
 
   @override
   void initState() {
@@ -234,7 +235,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bool isVoiceActive = _voiceStagePhase != _VoiceStagePhase.idle;
+    final bool isVoiceActive =
+        _showVoiceStage || _voiceStagePhase != _VoiceStagePhase.idle;
     final String voiceLocaleTag = _voiceLocaleTag(context);
     final String displayName = ref.watch(
       profileHeaderProvider.select(
@@ -297,11 +299,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _voiceBackendTurnId == _activeVoiceTurnId &&
           next.pendingSpeechText != null &&
           next.pendingSpeechText != prev.pendingSpeechText) {
+        final bool shouldRevealConversation =
+            next.pendingSpeechRequiresVisualAttention ||
+                next.pendingSpeechRequiresApproval;
         _cancelVoiceThinkingWatchdog();
         _voicePendingSpeechText = next.pendingSpeechText;
         _voiceAwaitingBackendReply = false;
         _voiceBackendTurnId = null;
         _voiceBackendReplyCompleted = true;
+        if (shouldRevealConversation && _showVoiceStage) {
+          setState(() {
+            _showVoiceStage = false;
+          });
+        }
         _voiceSpeechQueue
           ..clear()
           ..add(next.pendingSpeechText!);
@@ -416,6 +426,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       child: _ChatStage(
                         controller: _scrollController,
                         displayName: _firstName(displayName),
+                        showVoiceStage: _showVoiceStage,
                         voiceStagePhase: _voiceStagePhase,
                         voicePulseTick: _voicePulseTick,
                         voiceSpeakingPulse: _voiceSpeakingPulse,
@@ -599,6 +610,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     await _chatVoiceService.stopSpeaking();
 
     setState(() {
+      _showVoiceStage = true;
       _activeVoiceTurnId = turnId;
       _voiceBackendTurnId = null;
       _voiceStagePhase = _VoiceStagePhase.listening;
@@ -775,6 +787,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (_voiceElapsedMs == 0) {
         _voiceElapsedMs = 8200;
       }
+      _showVoiceStage = true;
       _voiceStagePhase = _VoiceStagePhase.thinking;
       _voiceAwaitingBackendReply = true;
       _voiceBackendTurnId = effectiveTurnId;
@@ -803,6 +816,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
 
     setState(() {
+      _showVoiceStage = false;
       _activeVoiceTurnId = null;
       _voiceBackendTurnId = null;
       _voiceStagePhase = _VoiceStagePhase.idle;
@@ -1132,6 +1146,7 @@ class _ChatStage extends ConsumerWidget {
   const _ChatStage({
     required this.controller,
     required this.displayName,
+    required this.showVoiceStage,
     required this.voiceStagePhase,
     required this.voicePulseTick,
     required this.voiceSpeakingPulse,
@@ -1144,6 +1159,7 @@ class _ChatStage extends ConsumerWidget {
 
   final ScrollController controller;
   final String displayName;
+  final bool showVoiceStage;
   final _VoiceStagePhase voiceStagePhase;
   final int voicePulseTick;
   final double voiceSpeakingPulse;
@@ -1156,7 +1172,6 @@ class _ChatStage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ChatState chatState = ref.watch(chatControllerProvider);
-    final bool showVoiceStage = voiceStagePhase != _VoiceStagePhase.idle;
     final bool showHero = !chatState.hasMessages &&
         chatState.streamingText.isEmpty &&
         chatState.activity == ChatActivity.idle;

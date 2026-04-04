@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
+using Aonik.Agents.Endpoints;
 using Aonik.Ai.Providers;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Entities.Settings;
@@ -116,6 +117,99 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
         body.Should().Contain("\"type\":\"CUSTOM\"");
         body.Should().Contain("\"name\":\"speech.render\"");
         body.Should().Contain("speechText");
+    }
+
+    [Fact]
+    public void BuildSpeechRender_ShouldExpandSupportedCurrencyCodes()
+    {
+        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+            "You have GBP 12.50, USD 5, EUR 7, 5,000 NGN, GHS 20, ZAR 30, ZWL 4, ZIG 2, KES 9, INR 11, and CNY 13. Another item is 1 GBP.");
+
+        speechText.Should().Contain("12.50 pounds");
+        speechText.Should().Contain("5 dollars");
+        speechText.Should().Contain("7 euros");
+        speechText.Should().Contain("5,000 naira");
+        speechText.Should().Contain("20 cedis");
+        speechText.Should().Contain("30 rand");
+        speechText.Should().Contain("4 Zimbabwe dollars");
+        speechText.Should().Contain("2 Zimbabwe Gold");
+        speechText.Should().Contain("9 Kenyan shillings");
+        speechText.Should().Contain("11 rupees");
+        speechText.Should().Contain("13 yuan");
+        speechText.Should().Contain("1 pound");
+        speechText.Should().NotContain("USD");
+        speechText.Should().NotContain("EUR");
+        speechText.Should().NotContain("GBP");
+        speechText.Should().NotContain("NGN");
+        speechText.Should().NotContain("GHS");
+        speechText.Should().NotContain("ZAR");
+        speechText.Should().NotContain("ZWL");
+        speechText.Should().NotContain("ZIG");
+        speechText.Should().NotContain("KES");
+        speechText.Should().NotContain("INR");
+        speechText.Should().NotContain("CNY");
+    }
+
+    [Fact]
+    public void BuildSpeechRender_ShouldKeepFullContentWithoutHardTrim()
+    {
+        var assistantText = string.Join(" ", Enumerable.Repeat("This sentence explains the situation clearly.", 12));
+
+        var speechText = AguiStreamingEndpoint.BuildSpeechRender(assistantText);
+
+        speechText.Should().Be(assistantText);
+        speechText.Length.Should().BeGreaterThan(280);
+    }
+
+    [Fact]
+    public void BuildSpeechRender_ShouldFlattenListsAndStripSpeechPreamble()
+    {
+        const string assistantText = """
+            Here's a quick summary:
+            - GBP 20 goes to transport
+            - NGN 3000 goes to airtime
+            Review the details below.
+            """;
+
+        var speechText = AguiStreamingEndpoint.BuildSpeechRender(assistantText);
+
+        speechText.Should().Be("20 pounds goes to transport. 3000 naira goes to airtime. Review the details below.");
+    }
+
+    [Fact]
+    public void BuildSpeechRender_ShouldAppendChatReviewGuidance_WhenVisualAttentionIsRequired()
+    {
+        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+            "I found a useful budget chart for you.",
+            requiresVisualAttention: true,
+            requiresApproval: false);
+
+        speechText.Should().Be(
+            "I found a useful budget chart for you. I've opened the chat so you can review the details.");
+    }
+
+    [Fact]
+    public void BuildSpeechRender_ShouldAppendApprovalGuidance_WhenApprovalIsRequired()
+    {
+        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+            "I can create this payment for you.",
+            requiresVisualAttention: false,
+            requiresApproval: true);
+
+        speechText.Should().Be(
+            "I can create this payment for you. I've opened the chat so you can review and approve this action.");
+    }
+
+    [Fact]
+    public void BuildSpeechRender_ShouldReturnGuidance_WhenOnlyUiReviewIsRequired()
+    {
+        var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+            string.Empty,
+            requiresVisualAttention: true,
+            requiresApproval: true);
+
+        speechText.Should().Be(
+            "I've opened the chat so you can review the details and approve this action.");
     }
 
     private sealed class TextToSpeechTestWebApplicationFactory : CustomWebApplicationFactory
