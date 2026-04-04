@@ -161,4 +161,119 @@ public class PersonalTransactionServiceTests
         updated.ClassificationMethod.Should().Be("manual");
         updated.Tags.Should().BeEquivalentTo(new[] { "Car" });
     }
+
+    [Fact]
+    public async Task CreateManualTransactionAsync_Should_UpdateManualAccountBalance_WhenAccountProvided()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var account = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Main Account",
+            AccountType = "Bank",
+            Currency = "GBP",
+            Status = "Active",
+            CurrentBalance = 50m,
+            BalanceAsOf = DateTime.UtcNow
+        };
+        context.PersonalAccounts.Add(account);
+        await context.SaveChangesAsync();
+
+        var service = new PersonalTransactionService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        // Act
+        await service.CreateManualTransactionAsync(new CreateManualPersonalTransactionRequest(
+            account.Id,
+            DateTime.UtcNow,
+            -10m,
+            "GBP",
+            "Mcdonalds",
+            "Mcdonalds",
+            "eating_out",
+            null,
+            null));
+
+        // Assert
+        account.CurrentBalance.Should().Be(40m);
+        account.BalanceAsOf.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UpdateManualTransactionAsync_Should_MoveBalanceBetweenManualAccounts_WhenAccountChanges()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var checking = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Checking",
+            AccountType = "Bank",
+            Currency = "GBP",
+            Status = "Active",
+            CurrentBalance = 100m,
+            BalanceAsOf = DateTime.UtcNow
+        };
+
+        var savings = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Savings",
+            AccountType = "Savings",
+            Currency = "GBP",
+            Status = "Active",
+            CurrentBalance = 10m,
+            BalanceAsOf = DateTime.UtcNow
+        };
+
+        context.PersonalAccounts.AddRange(checking, savings);
+        await context.SaveChangesAsync();
+
+        var service = new PersonalTransactionService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        var created = await service.CreateManualTransactionAsync(new CreateManualPersonalTransactionRequest(
+            checking.Id,
+            DateTime.UtcNow,
+            -70m,
+            "GBP",
+            "Transfer",
+            "Transfer",
+            "transfer_out",
+            null,
+            null));
+
+        // Act
+        await service.UpdateManualTransactionAsync(
+            created.PersonalTransactionId,
+            new UpdateManualPersonalTransactionRequest(
+                savings.Id,
+                created.OccurredAt,
+                -50m,
+                "GBP",
+                created.Merchant,
+                created.Description,
+                created.Category,
+                created.Notes,
+                created.Tags));
+
+        // Assert
+        checking.CurrentBalance.Should().Be(100m);
+        savings.CurrentBalance.Should().Be(-40m);
+    }
 }

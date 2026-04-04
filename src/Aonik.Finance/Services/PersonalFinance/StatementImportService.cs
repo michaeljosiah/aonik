@@ -301,6 +301,8 @@ internal sealed class StatementImportService : IStatementImportService
                 .ToListAsync(cancellationToken))
                 .ToHashSet(StringComparer.Ordinal);
 
+        var importedAmountDelta = 0m;
+
         foreach (var row in rows.Where(item => item.ParseStatus == RowStatusParsed))
         {
             if (importedSourceIdSet.Contains(row.Id))
@@ -345,10 +347,27 @@ internal sealed class StatementImportService : IStatementImportService
             };
 
             _financeDbContext.PersonalTransactions.Add(transaction);
+            importedAmountDelta += transaction.Amount;
 
             if (!string.IsNullOrWhiteSpace(row.Fingerprint))
             {
                 existingFingerprints.Add(row.Fingerprint);
+            }
+        }
+
+        if (importedAmountDelta != 0m)
+        {
+            var isLinkedAccount = await _financeDbContext.PersonalLinkedAccounts
+                .AnyAsync(
+                    item => item.PersonalAccountId == account.Id
+                        && item.TenantId == tenantId
+                        && item.UserId == userId,
+                    cancellationToken);
+
+            if (!isLinkedAccount)
+            {
+                account.CurrentBalance += importedAmountDelta;
+                account.BalanceAsOf = DateTime.UtcNow;
             }
         }
 

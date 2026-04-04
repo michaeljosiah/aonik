@@ -132,4 +132,76 @@ public class PersonalAccountServiceTests
         all[0].IsArchived.Should().BeTrue();
         all[0].Status.Should().Be("Archived");
     }
+
+    [Fact]
+    public async Task CreateAccountAsync_Should_InitializeCurrentBalance_WhenStartingBalanceProvided()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalAccountService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        var request = new CreatePersonalAccountRequest(
+            "Rooster",
+            "Current",
+            "gbp",
+            null,
+            null,
+            null,
+            "1234",
+            125.50m);
+
+        // Act
+        var result = await service.CreateAccountAsync(request);
+
+        // Assert
+        result.CurrentBalance.Should().Be(125.50m);
+        result.BalanceAsOf.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task UpdateAccountAsync_Should_SetCurrentBalance_WhenManualAccountProvided()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalAccountService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
+            "Rooster",
+            "Current",
+            "GBP",
+            null,
+            null,
+            null,
+            "1234"));
+
+        // Act
+        var updated = await service.UpdateAccountAsync(
+            created.PersonalAccountId,
+            new UpdatePersonalAccountRequest(
+                "Rooster",
+                "Current",
+                "GBP",
+                null,
+                null,
+                null,
+                "1234",
+                "Active",
+                80m));
+
+        // Assert
+        updated.CurrentBalance.Should().Be(80m);
+        updated.BalanceAsOf.Should().NotBeNull();
+    }
 }

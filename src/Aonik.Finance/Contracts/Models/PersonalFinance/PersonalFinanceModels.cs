@@ -32,7 +32,8 @@ public record CreatePersonalAccountRequest(
     string? InstitutionName,
     string? ExternalReference,
     string? AccountSubtype,
-    string? Last4);
+    string? Last4,
+    decimal? StartingBalance = null);
 
 public record UpdatePersonalAccountRequest(
     string Name,
@@ -42,7 +43,8 @@ public record UpdatePersonalAccountRequest(
     string? ExternalReference,
     string? AccountSubtype,
     string? Last4,
-    string Status);
+    string Status,
+    decimal? CurrentBalance = null);
 
 public record PersonalAccountResponse(
     Guid PersonalAccountId,
@@ -204,7 +206,8 @@ public record AccountLinkSummaryItemResponse(
     string? LastSyncStatus,
     string? LastError,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    decimal Balance = 0m);
 
 public record CreateManualPersonalTransactionRequest(
     Guid? PersonalAccountId,

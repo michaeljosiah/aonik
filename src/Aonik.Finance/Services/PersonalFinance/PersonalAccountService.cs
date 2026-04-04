@@ -50,6 +50,8 @@ internal sealed class PersonalAccountService : IPersonalAccountService
             Status = "Active",
             AccountSubtype = TrimNullable(request.AccountSubtype),
             Last4 = NormalizeLast4(request.Last4),
+            CurrentBalance = request.StartingBalance ?? 0m,
+            BalanceAsOf = request.StartingBalance.HasValue ? DateTime.UtcNow : null,
             IsArchived = false,
             OpenedAt = DateTime.UtcNow
         };
@@ -113,6 +115,20 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         account.AccountSubtype = TrimNullable(request.AccountSubtype);
         account.Last4 = NormalizeLast4(request.Last4);
         account.Status = request.Status.Trim();
+
+        if (request.CurrentBalance.HasValue)
+        {
+            var isLinkedAccount = await _financeDbContext.PersonalLinkedAccounts
+                .AnyAsync(item => item.PersonalAccountId == account.Id, cancellationToken);
+
+            if (isLinkedAccount)
+            {
+                throw new ArgumentException("CurrentBalance can only be set for manual accounts.", nameof(request.CurrentBalance));
+            }
+
+            account.CurrentBalance = request.CurrentBalance.Value;
+            account.BalanceAsOf = DateTime.UtcNow;
+        }
 
         if (account.IsArchived)
         {

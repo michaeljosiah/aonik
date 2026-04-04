@@ -1043,7 +1043,8 @@ internal sealed class PersonalAccountLinkService : IPersonalAccountLinkService
             linkedAccount?.LastSyncStatus ?? connection?.LastSyncStatus,
             linkedAccount?.LastError ?? connection?.LastError,
             account.CreatedAt,
-            account.UpdatedAt);
+            account.UpdatedAt,
+            account.CurrentBalance);
     }
 
     private static AccountLinkSessionResponse MapSessionToResponse(

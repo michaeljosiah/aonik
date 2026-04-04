@@ -181,6 +181,8 @@ public class StatementImportServiceTests
         transactions[0].PersonalAccountId.Should().Be(account.Id);
         transactions[0].Amount.Should().Be(-12.50m);
         transactions[0].Description.Should().Be("Coffee");
+        account.CurrentBalance.Should().Be(-12.50m);
+        account.BalanceAsOf.Should().NotBeNull();
     }
 
     [Fact]

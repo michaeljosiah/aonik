@@ -30,22 +30,32 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
             "Acme Bank",
             "ACME-REF",
             "Current",
-            "1234");
+            "1234",
+            125.50m);
 
         // Act
         var createResponse = await client.PostAsJsonAsync("/personal-finance/accounts", request);
         var listResponse = await client.GetAsync("/personal-finance/accounts");
+        var summaryResponse = await client.GetAsync("/personal-finance/account-links/summary");
 
         // Assert
         createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var created = await createResponse.Content.ReadFromJsonAsync<PersonalAccountResponse>();
         created.Should().NotBeNull();
         created!.Currency.Should().Be("USD");
+        created.CurrentBalance.Should().Be(125.50m);
 
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var listed = await listResponse.Content.ReadFromJsonAsync<List<PersonalAccountResponse>>();
         listed.Should().NotBeNull();
         listed!.Should().ContainSingle(item => item.PersonalAccountId == created.PersonalAccountId);
+
+        summaryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var summary = await summaryResponse.Content.ReadFromJsonAsync<List<AccountLinkSummaryItemResponse>>();
+        summary.Should().NotBeNull();
+        summary!.Should().ContainSingle(item =>
+            item.PersonalAccountId == created.PersonalAccountId
+            && item.Balance == 125.50m);
     }
 
     [Fact]
@@ -216,6 +226,52 @@ public class PersonalFinanceEndpointsTests : IClassFixture<CustomWebApplicationF
         summaryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         summary.Should().NotBeNull();
         summary!.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PersonalAccounts_Update_Should_SetCurrentBalance_ForManualAccount()
+    {
+        // Arrange
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser"));
+        var createResponse = await client.PostAsJsonAsync("/personal-finance/accounts", new CreatePersonalAccountRequest(
+            "Rooster account",
+            "Current",
+            "GBP",
+            null,
+            null,
+            null,
+            "4024"));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var created = await createResponse.Content.ReadFromJsonAsync<PersonalAccountResponse>();
+        created.Should().NotBeNull();
+
+        // Act
+        var updateResponse = await client.PatchAsJsonAsync(
+            $"/personal-finance/accounts/{created!.PersonalAccountId}",
+            new UpdatePersonalAccountRequest(
+                created.Name,
+                created.AccountType,
+                created.Currency,
+                created.InstitutionName,
+                created.ExternalReference,
+                created.AccountSubtype,
+                created.Last4,
+                created.Status,
+                40m));
+        var summaryResponse = await client.GetAsync("/personal-finance/account-links/summary");
+
+        // Assert
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<PersonalAccountResponse>();
+        updated.Should().NotBeNull();
+        updated!.CurrentBalance.Should().Be(40m);
+
+        summaryResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var summary = await summaryResponse.Content.ReadFromJsonAsync<List<AccountLinkSummaryItemResponse>>();
+        summary.Should().NotBeNull();
+        summary!.Should().ContainSingle(item =>
+            item.PersonalAccountId == created.PersonalAccountId
+            && item.Balance == 40m);
     }
 
     [Fact]

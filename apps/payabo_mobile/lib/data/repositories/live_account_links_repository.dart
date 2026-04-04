@@ -220,6 +220,10 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
     final String accountType = _readString(payload['accountType']) ?? 'Account';
     final String currencyCode =
         (_readString(payload['currency']) ?? 'GBP').toUpperCase();
+    final String? balanceLabel = _formatBalanceLabel(
+      payload['balance'] as num?,
+      currencyCode,
+    );
     final String? last4 = _readString(payload['last4']);
     final String rawStatus = _readString(payload['status']) ?? 'Active';
     final String? lastSyncStatus = _readString(payload['lastSyncStatus']);
@@ -252,6 +256,7 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
       sourceLabel: isLinked ? 'Linked account' : 'Manual account',
       connectionId: _readString(payload['connectionId']),
       providerCode: provider,
+      balanceLabel: balanceLabel,
       maskedIdentifier: last4 == null ? null : '.... $last4',
       providerLabel:
           isLinked ? (provider ?? 'Secure connection') : 'Manual entry',
@@ -276,6 +281,10 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
     final String accountType = _readString(payload['accountType']) ?? 'Account';
     final String currencyCode =
         (_readString(payload['currency']) ?? 'GBP').toUpperCase();
+    final String? balanceLabel = _formatBalanceLabel(
+      payload['currentBalance'] as num?,
+      currencyCode,
+    );
     final String? last4 = _readString(payload['last4']);
     final String rawStatus = _readString(payload['status']) ?? 'Active';
     final bool isArchived = payload['isArchived'] as bool? ?? false;
@@ -301,6 +310,7 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
       sourceLabel: isLinked ? 'Linked account' : 'Manual account',
       connectionId: null,
       providerCode: null,
+      balanceLabel: balanceLabel,
       maskedIdentifier: last4 == null ? null : '.... $last4',
       providerLabel: isLinked ? 'Secure connection' : null,
       lastSyncedLabel: _lastSyncedLabel(
@@ -390,6 +400,47 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
       case AccountLinkStatus.archived:
         return 'Archived';
     }
+  }
+
+  static String _currencySymbolFromCode(String code) {
+    switch (code.toUpperCase()) {
+      case 'GBP':
+        return '£';
+      case 'USD':
+        return r'$';
+      case 'EUR':
+        return '€';
+      case 'NGN':
+        return '₦';
+      case 'KES':
+        return 'KSh';
+      case 'GHS':
+        return 'GH₵';
+      case 'ZAR':
+        return 'R';
+      case 'CAD':
+        return 'CA\$';
+      case 'INR':
+        return '₹';
+      default:
+        return code;
+    }
+  }
+
+  static String? _formatBalanceLabel(num? rawBalance, String currencyCode) {
+    if (rawBalance == null) {
+      return null;
+    }
+
+    final double balance = rawBalance.toDouble();
+    final String symbol = _currencySymbolFromCode(currencyCode);
+    final String formattedAmount = NumberFormat.currency(
+      symbol: symbol,
+      decimalDigits: 2,
+      name: '',
+    ).format(balance.abs());
+
+    return balance < 0 ? '-$formattedAmount' : formattedAmount;
   }
 
   String _statusDetail(
@@ -550,6 +601,8 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
           'name': request.name,
           'accountType': request.accountType,
           'currency': request.currency,
+          if (request.startingBalance != null)
+            'startingBalance': request.startingBalance,
           if (request.last4 != null && request.last4!.isNotEmpty)
             'last4': request.last4,
         },

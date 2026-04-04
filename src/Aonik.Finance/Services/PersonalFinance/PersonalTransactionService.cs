@@ -43,7 +43,8 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        await EnsureOwnedAccountAsync(request.PersonalAccountId, userId, tenantId, cancellationToken);
+        var account = await GetOwnedAccountAsync(request.PersonalAccountId, userId, tenantId, cancellationToken);
+        EnsureTransactionCurrencyMatchesAccount(request.Currency, account);
 
         var tags = NormalizeTags(request.Tags);
 
@@ -71,6 +72,12 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         ApplyCategorisation(transaction);
 
         _financeDbContext.PersonalTransactions.Add(transaction);
+
+        if (account != null)
+        {
+            await ApplyManualAccountBalanceDeltaAsync(account, tenantId, userId, transaction.Amount, cancellationToken);
+        }
+
         await _financeDbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
@@ -165,13 +172,17 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         var userId = GetCurrentUserId();
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        await EnsureOwnedAccountAsync(request.PersonalAccountId, userId, tenantId, cancellationToken);
+        var account = await GetOwnedAccountAsync(request.PersonalAccountId, userId, tenantId, cancellationToken);
+        EnsureTransactionCurrencyMatchesAccount(request.Currency, account);
 
         var transaction = await _financeDbContext.PersonalTransactions
             .FirstOrDefaultAsync(
                 item => item.Id == transactionId && item.TenantId == tenantId && item.UserId == userId,
                 cancellationToken)
             ?? throw new InvalidOperationException("Personal transaction not found.");
+
+        var originalAccount = await GetOwnedAccountAsync(transaction.PersonalAccountId, userId, tenantId, cancellationToken);
+        var originalAmount = transaction.Amount;
 
         var tags = NormalizeTags(request.Tags);
 
@@ -186,6 +197,41 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         transaction.TagsJson = JsonSerializer.Serialize(tags, JsonOptions);
 
         ApplyCategorisation(transaction);
+
+        if (originalAccount?.Id == account?.Id)
+        {
+            if (account != null)
+            {
+                await ApplyManualAccountBalanceDeltaAsync(
+                    account,
+                    tenantId,
+                    userId,
+                    transaction.Amount - originalAmount,
+                    cancellationToken);
+            }
+        }
+        else
+        {
+            if (originalAccount != null)
+            {
+                await ApplyManualAccountBalanceDeltaAsync(
+                    originalAccount,
+                    tenantId,
+                    userId,
+                    -originalAmount,
+                    cancellationToken);
+            }
+
+            if (account != null)
+            {
+                await ApplyManualAccountBalanceDeltaAsync(
+                    account,
+                    tenantId,
+                    userId,
+                    transaction.Amount,
+                    cancellationToken);
+            }
+        }
 
         await _financeDbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
@@ -203,7 +249,7 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         return userId;
     }
 
-    private async Task EnsureOwnedAccountAsync(
+    private async Task<PersonalAccount?> GetOwnedAccountAsync(
         Guid? personalAccountId,
         Guid userId,
         Guid tenantId,
@@ -211,20 +257,64 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
     {
         if (!personalAccountId.HasValue)
         {
-            return;
+            return null;
         }
 
-        var accountExists = await _financeDbContext.PersonalAccounts
-            .AnyAsync(
+        var account = await _financeDbContext.PersonalAccounts
+            .FirstOrDefaultAsync(
                 account => account.Id == personalAccountId.Value
                     && account.TenantId == tenantId
                     && account.UserId == userId
                     && !account.IsArchived,
                 cancellationToken);
 
-        if (!accountExists)
+        if (account == null)
         {
             throw new InvalidOperationException("Personal account not found or unavailable.");
+        }
+
+        return account;
+    }
+
+    private async Task ApplyManualAccountBalanceDeltaAsync(
+        PersonalAccount account,
+        Guid tenantId,
+        Guid userId,
+        decimal amountDelta,
+        CancellationToken cancellationToken)
+    {
+        if (amountDelta == 0m)
+        {
+            return;
+        }
+
+        var isLinkedAccount = await _financeDbContext.PersonalLinkedAccounts
+            .AnyAsync(
+                item => item.PersonalAccountId == account.Id
+                    && item.TenantId == tenantId
+                    && item.UserId == userId,
+                cancellationToken);
+
+        if (isLinkedAccount)
+        {
+            return;
+        }
+
+        account.CurrentBalance += amountDelta;
+        account.BalanceAsOf = DateTime.UtcNow;
+    }
+
+    private static void EnsureTransactionCurrencyMatchesAccount(string? currency, PersonalAccount? account)
+    {
+        if (account == null || string.IsNullOrWhiteSpace(currency))
+        {
+            return;
+        }
+
+        var normalizedCurrency = currency.Trim().ToUpperInvariant();
+        if (!string.Equals(account.Currency, normalizedCurrency, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Transaction currency must match the selected account currency.", nameof(currency));
         }
     }
 
