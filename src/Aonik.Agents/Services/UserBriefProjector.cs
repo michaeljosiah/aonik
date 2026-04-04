@@ -42,21 +42,21 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         options ??= new UserBriefOptions();
 
         // ── Steps 1-3: Concurrent data retrieval ───────────────────────
+        // Note: _aiData methods share a DbContext so they must run sequentially.
+        // Run them together in one task, concurrent with the other providers.
         var financeRequest = new UserBriefFinancialDataRequest(
             options.BillLookaheadDays,
             options.SpendPeriodStart,
             options.SpendPeriodEnd);
 
         var financeTask = _financeData.GetFinancialDataAsync(tenantId, userId, financeRequest, cancellationToken);
-        var insightsTask = _aiData.GetBehaviouralInsightsAsync(tenantId, userId, options.MaxBehaviouralInsights, cancellationToken);
-        var memoryTask = _aiData.GetCurrentMemoryEntriesAsync(tenantId, userId, cancellationToken);
+        var aiTask = GetAiDataAsync(tenantId, userId, options, cancellationToken);
         var userContextTask = _userContextData.GetUserContextDataAsync(tenantId, userId, cancellationToken);
 
-        await Task.WhenAll(financeTask, insightsTask, memoryTask, userContextTask);
+        await Task.WhenAll(financeTask, aiTask, userContextTask);
 
         var financeData = await financeTask;
-        var insights = await insightsTask;
-        var memoryEntries = await memoryTask;
+        var (insights, memoryEntries) = await aiTask;
         var userContextData = await userContextTask;
         var customerInsightSummary = financeData.CustomerInsightSnapshot is null
             ? null
@@ -109,6 +109,17 @@ internal sealed class UserBriefProjector : IUserBriefProjector
 
         // ── Token budget enforcement ───────────────────────────────────
         return ApplyTokenBudget(brief, options.TokenBudget);
+    }
+
+    private async Task<(IReadOnlyList<UserBriefInsightData> Insights, IReadOnlyList<UserBriefMemoryEntryData> MemoryEntries)> GetAiDataAsync(
+        Guid tenantId,
+        Guid userId,
+        UserBriefOptions options,
+        CancellationToken cancellationToken)
+    {
+        var insights = await _aiData.GetBehaviouralInsightsAsync(tenantId, userId, options.MaxBehaviouralInsights, cancellationToken);
+        var memoryEntries = await _aiData.GetCurrentMemoryEntriesAsync(tenantId, userId, cancellationToken);
+        return (insights, memoryEntries);
     }
 
     private static UserBriefProfile AssembleUserProfile(
