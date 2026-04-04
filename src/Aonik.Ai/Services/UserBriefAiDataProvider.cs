@@ -39,12 +39,21 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
     {
         var now = _clock.UtcNow;
 
-        var entries = await _dbContext.UserMemoryEntries
-            .Where(e => e.TenantId == tenantId
-                && e.UserId == userId
-                && e.SupersededById == null)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        List<UserMemoryEntry> entries;
+        try
+        {
+            entries = await _dbContext.UserMemoryEntries
+                .Where(e => e.TenantId == tenantId
+                    && e.UserId == userId
+                    && e.SupersededById == null)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 208)
+        {
+            // Table does not exist yet (migration not applied). Return empty.
+            return [];
+        }
 
         return entries
             .Select(e =>
