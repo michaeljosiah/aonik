@@ -68,4 +68,8 @@ internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefReques
 /// Request DTO for projecting a user brief for the playground.
 /// Accepts either a UserId directly or a PartyId (resolved to a user).
 /// </summary>
-public sealed record ProjectUserBriefRequest(Guid UserId = default, Guid PartyId = default);
+public sealed class ProjectUserBriefRequest
+{
+    public Guid UserId { get; set; }
+    public Guid PartyId { get; set; }
+}
