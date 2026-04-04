@@ -1,6 +1,8 @@
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:path/path.dart' as p;
 
 import '../api/api_exception.dart';
 import 'profile_repository.dart';
@@ -88,8 +90,22 @@ class LiveProfileRepository implements ProfileRepository {
   @override
   Future<String> uploadPhoto(String filePath) async {
     try {
+      final filename = p.basename(filePath);
+      final ext = p.extension(filePath).toLowerCase();
+      final mimeType = switch (ext) {
+        '.jpg' || '.jpeg' => 'image/jpeg',
+        '.png' => 'image/png',
+        '.gif' => 'image/gif',
+        '.webp' => 'image/webp',
+        _ => 'image/jpeg',
+      };
+
       final formData = FormData.fromMap(<String, dynamic>{
-        'photo': await MultipartFile.fromFile(filePath),
+        'photo': await MultipartFile.fromFile(
+          filePath,
+          filename: filename,
+          contentType: MediaType.parse(mimeType),
+        ),
       });
 
       final response = await _apiClient.post<Map<String, dynamic>>(

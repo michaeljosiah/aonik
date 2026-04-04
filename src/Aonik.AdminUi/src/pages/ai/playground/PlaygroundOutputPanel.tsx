@@ -8,6 +8,8 @@ import {
   ChevronDown,
   GripHorizontal,
   Loader2,
+  Square,
+  Volume2,
   Wrench,
   XCircle,
 } from 'lucide-react';
@@ -27,6 +29,16 @@ interface PlaygroundOutputPanelProps {
   streamError: string | null;
   metrics: PlaygroundRunMetrics | null;
   modelName?: string | null;
+  voiceModeEnabled?: boolean;
+  voicePlaybackState?: 'idle' | 'loading' | 'playing' | 'error';
+  voiceError?: string | null;
+  voiceDetails?: {
+    speechText: string;
+    provider: string | null;
+    voiceId: string | null;
+    aiRunId: string | null;
+  } | null;
+  onStopVoice?: () => void;
   onAddToMessages?: () => void;
 }
 
@@ -41,6 +53,11 @@ export function PlaygroundOutputPanel({
   streamError,
   metrics,
   modelName,
+  voiceModeEnabled = false,
+  voicePlaybackState = 'idle',
+  voiceError,
+  voiceDetails,
+  onStopVoice,
   onAddToMessages,
 }: PlaygroundOutputPanelProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -129,6 +146,11 @@ export function PlaygroundOutputPanel({
               {metrics?.modelName || modelName}
             </span>
           )}
+          {voiceModeEnabled && (
+            <span className="rounded bg-[var(--color-surface-inset)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+              Voice {voicePlaybackState === 'error' ? 'unavailable' : voicePlaybackState}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Metrics inline */}
@@ -154,6 +176,17 @@ export function PlaygroundOutputPanel({
             >
               <ArrowDownToLine className="mr-1 h-3 w-3" />
               Add to messages
+            </Button>
+          )}
+          {voiceModeEnabled && voicePlaybackState === 'playing' && onStopVoice && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onStopVoice}
+              className="h-6 px-2 text-xs"
+            >
+              <Square className="mr-1 h-3 w-3" />
+              Stop voice
             </Button>
           )}
         </div>
@@ -202,6 +235,28 @@ export function PlaygroundOutputPanel({
             {streamError && (
               <div className="mt-3 rounded-[2px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
                 {streamError}
+              </div>
+            )}
+            {voiceModeEnabled && voiceDetails && (
+              <div className="mt-3 rounded-[2px] border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] px-3 py-3 text-xs text-[var(--color-text-secondary)]">
+                <div className="mb-2 flex items-center gap-2 text-[var(--color-text-primary)]">
+                  <Volume2 className="h-3.5 w-3.5" />
+                  <span className="font-medium">Speech render</span>
+                </div>
+                <div className="space-y-1">
+                  <div>Provider: <span className="font-medium text-[var(--color-text-primary)]">{voiceDetails.provider ?? 'Pending'}</span></div>
+                  <div>Voice: <span className="font-medium text-[var(--color-text-primary)]">{voiceDetails.voiceId ?? 'Pending'}</span></div>
+                  <div>AiRunId: <span className="font-mono text-[var(--color-text-primary)]">{voiceDetails.aiRunId ?? 'n/a'}</span></div>
+                </div>
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed text-[var(--color-text-primary)]">
+                  {voiceDetails.speechText}
+                </pre>
+              </div>
+            )}
+            {voiceModeEnabled && voiceError && (
+              <div className="mt-3 rounded-[2px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                <div className="font-medium">Voice playback unavailable</div>
+                {voiceError}
               </div>
             )}
           </>

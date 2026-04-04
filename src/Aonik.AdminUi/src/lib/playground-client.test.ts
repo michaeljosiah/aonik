@@ -1,0 +1,200 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/auth', () => ({
+  apiConfig: {
+    baseUrl: 'http://example.test',
+  },
+}));
+
+vi.mock('@/lib/tenantContext', () => ({
+  getSelectedTenant: () => null,
+}));
+
+import {
+  streamPlaygroundRun,
+  type PlaygroundMessage,
+  type PlaygroundRunRequest,
+} from '@/lib/playground-client';
+import {
+  createPlaygroundFrontendTools,
+  playgroundFrontendToolNames,
+} from '@/pages/ai/playground/frontendTools';
+
+function createSseResponse(events: Array<Record<string, unknown>>): Response {
+  const payload = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('');
+  return new Response(payload, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream',
+    },
+  });
+}
+
+function createInitialToolCallResponse(toolName: string, args: Record<string, unknown>): Response {
+  return createSseResponse([
+    {
+      type: 'TOOL_CALL_START',
+      toolCallId: 'call-1',
+      toolCallName: toolName,
+    },
+    {
+      type: 'TOOL_CALL_ARGS',
+      toolCallId: 'call-1',
+      delta: JSON.stringify(args),
+    },
+    {
+      type: 'TOOL_CALL_END',
+      toolCallId: 'call-1',
+    },
+    {
+      type: 'RUN_FINISHED',
+      metrics: {
+        inputTokens: 12,
+        outputTokens: 4,
+        totalTokens: 16,
+        latencyMs: 50,
+      },
+    },
+  ]);
+}
+
+function createFinalResponse(): Response {
+  return createSseResponse([
+    {
+      type: 'TEXT_MESSAGE_CONTENT',
+      delta: 'Done.',
+    },
+    {
+      type: 'RUN_FINISHED',
+      metrics: {
+        inputTokens: 18,
+        outputTokens: 6,
+        totalTokens: 24,
+        latencyMs: 60,
+      },
+    },
+  ]);
+}
+
+function createRequest(messages: PlaygroundMessage[]): PlaygroundRunRequest {
+  return {
+    agentName: 'personal-finance-agent',
+    messages,
+  };
+}
+
+describe('streamPlaygroundRun frontend tools', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('registers all supported AI Playground frontend tools', () => {
+    const tools = createPlaygroundFrontendTools({ confirmAction: () => true });
+
+    expect(Array.from(tools.keys())).toEqual([...playgroundFrontendToolNames]);
+  });
+
+  it.each([
+    {
+      toolName: 'confirmAction',
+      args: {
+        action: 'Create starter budget',
+        description: 'Create a simple April budget.',
+        severity: 'high',
+      },
+      expectedResult: 'approved',
+    },
+    {
+      toolName: 'display_fx_rate_chart',
+      args: {
+        baseCurrency: 'GBP',
+        targetCurrency: 'NGN',
+        rates: [{ date: 'Apr 1', rate: 2010.5 }],
+        signal: 'hold',
+      },
+      expectedResult: 'displayed',
+    },
+    {
+      toolName: 'display_budget_breakdown',
+      args: {
+        period: 'April 2026',
+        totalBudget: 1000,
+        totalSpent: 450,
+        currency: 'USD',
+        categories: [{ name: 'Transport', budgeted: 200, spent: 150, status: 'under' }],
+      },
+      expectedResult: 'displayed',
+    },
+    {
+      toolName: 'display_autopilot_proposal',
+      args: {
+        agent: 'personal-finance-agent',
+        action: 'Create starter budget',
+        description: 'Suggest a baseline budget for this month.',
+      },
+      expectedResult: 'displayed',
+    },
+  ])('executes $toolName client-side and reruns with the tool result', async ({
+    toolName,
+    args,
+    expectedResult,
+  }) => {
+    const confirmAction = vi.fn(() => true);
+    const frontendTools = createPlaygroundFrontendTools({ confirmAction });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(createInitialToolCallResponse(toolName, args))
+      .mockResolvedValueOnce(createFinalResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const onToolResult = vi.fn();
+
+    await streamPlaygroundRun({
+      request: createRequest([{ role: 'user', content: 'Test frontend tool rerun.' }]),
+      callbacks: { onToolResult },
+      getAccessToken: async () => null,
+      frontendTools,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const firstRequest = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as PlaygroundRunRequest;
+    expect(firstRequest.toolDefinitions?.map((tool) => tool.name)).toEqual([...playgroundFrontendToolNames]);
+
+    const rerunRequest = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as PlaygroundRunRequest;
+    const assistantToolCall = rerunRequest.messages.at(-2);
+    const toolResultMessage = rerunRequest.messages.at(-1);
+
+    expect(assistantToolCall).toMatchObject({
+      role: 'assistant',
+      content: '',
+      toolCalls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: toolName,
+            arguments: JSON.stringify(args),
+          },
+        },
+      ],
+    });
+    expect(toolResultMessage).toEqual({
+      id: 'tool-result-call-1',
+      role: 'tool',
+      toolCallId: 'call-1',
+      content: expectedResult,
+    });
+    expect(onToolResult).toHaveBeenCalledWith('call-1', expectedResult);
+
+    if (toolName === 'confirmAction') {
+      expect(confirmAction).toHaveBeenCalledWith({
+        action: 'Create starter budget',
+        description: 'Create a simple April budget.',
+        severity: 'high',
+      });
+    } else {
+      expect(confirmAction).not.toHaveBeenCalled();
+    }
+  });
+});

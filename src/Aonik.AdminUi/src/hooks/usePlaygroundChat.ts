@@ -32,6 +32,13 @@ export interface PlaygroundToolCall {
   status: PlaygroundToolCallStatus;
 }
 
+export interface PlaygroundSpeechRender {
+  messageId: string;
+  speechText: string;
+  requiresVisualAttention: boolean;
+  requiresApproval: boolean;
+}
+
 export type PlaygroundOutputPart =
   | { type: 'text'; content: string }
   | { type: 'tool-call'; toolCall: PlaygroundToolCall }
@@ -72,6 +79,7 @@ export function usePlaygroundChat(
   const [streamError, setStreamError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<PlaygroundRunMetrics | null>(null);
   const [runHistory, setRunHistory] = useState<PlaygroundRunRecord[]>([]);
+  const [speechRender, setSpeechRender] = useState<PlaygroundSpeechRender | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -119,6 +127,7 @@ export function usePlaygroundChat(
       setMetrics(null);
       setOutput('');
       setOutputParts([]);
+      setSpeechRender(null);
       partsRef.current = [];
       currentTextRef.current = '';
       currentReasoningRef.current = '';
@@ -157,6 +166,10 @@ export function usePlaygroundChat(
                 parts.push({ type: 'text', content: currentTextRef.current });
               }
               syncParts();
+            },
+
+            onSpeechRender: (payload) => {
+              setSpeechRender(payload);
             },
 
             onReasoningDelta: (delta) => {
@@ -285,6 +298,7 @@ export function usePlaygroundChat(
       setIsStreaming(true);
       setStreamError(null);
       setMetrics(null);
+      setSpeechRender(null);
 
       const controller = new AbortController();
       abortRef.current = controller;
@@ -322,6 +336,9 @@ export function usePlaygroundChat(
                 }
                 return updated;
               });
+            },
+            onSpeechRender: (payload) => {
+              setSpeechRender(payload);
             },
             onRunFinished: (runMetrics) => {
               setMetrics(runMetrics);
@@ -370,6 +387,7 @@ export function usePlaygroundChat(
     setOutputParts([]);
     setMetrics(null);
     setStreamError(null);
+    setSpeechRender(null);
     partsRef.current = [];
     currentTextRef.current = '';
     currentReasoningRef.current = '';
@@ -394,6 +412,7 @@ export function usePlaygroundChat(
     streamError,
     metrics,
     runHistory,
+    speechRender,
     submitMessages,
     sendMessage,
     stopStreaming,

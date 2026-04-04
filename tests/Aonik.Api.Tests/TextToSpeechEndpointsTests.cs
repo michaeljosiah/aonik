@@ -94,6 +94,35 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public async Task MobileTextToSpeechSynthesize_AllowsSpeechLongerThanTenantUtteranceLimit()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("PersonalUser");
+
+        await using var factory = new TextToSpeechTestWebApplicationFactory();
+        var client = await factory.CreateAuthenticatedClientAsync(auth);
+        await factory.EnableTenantTextToSpeechAsync(auth.TenantId!.Value, "voice_123");
+
+        var longSpeech = string.Join(" ", Enumerable.Repeat("This summary sentence stays clear and natural.", 10));
+        longSpeech.Length.Should().BeGreaterThan(280);
+
+        var response = await client.PostAsJsonAsync(
+            "/mobile/text-to-speech/synthesize",
+            new
+            {
+                speechText = longSpeech,
+                locale = "en-US",
+                threadId = "thread-2",
+                messageId = "message-2"
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("audio/mpeg");
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        bytes.Should().Equal(Encoding.UTF8.GetBytes("fake-mp3-audiofake-mp3-audio"));
+    }
+
+    [Fact]
     public async Task AgUiStreaming_EmitsSpeechRenderCustomEvent()
     {
         var auth = TestAuthOptions.Create().WithRoles("PersonalUser");
@@ -107,6 +136,32 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
             messages = new[]
             {
                 new { id = "user-1", role = "user", content = "Summarize my transport spending." }
+            }
+        });
+
+        var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("\"type\":\"CUSTOM\"");
+        body.Should().Contain("\"name\":\"speech.render\"");
+        body.Should().Contain("speechText");
+    }
+
+    [Fact]
+    public async Task PlaygroundStreaming_EmitsSpeechRenderCustomEvent()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("Admin", "PlatformAdmin");
+        var client = await _factory.CreateAuthenticatedClientAsync(auth);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/ai/playground/run");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+        request.Content = JsonContent.Create(new
+        {
+            agentName = "personal-finance-agent",
+            messages = new[]
+            {
+                new { role = "user", content = "Summarize my transport spending." }
             }
         });
 
@@ -210,6 +265,31 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
 
         speechText.Should().Be(
             "I've opened the chat so you can review the details and approve this action.");
+    }
+
+    [Fact]
+    public void SplitIntoUtterances_ShouldSplitLongSpeechOnSentenceBoundaries()
+    {
+        const string text = "First sentence stays together. Second sentence also stays together. Third sentence closes it out.";
+
+        var segments = Aonik.Ai.Services.TextToSpeechService.SplitIntoUtterances(text, 45);
+
+        segments.Should().Equal(
+            "First sentence stays together.",
+            "Second sentence also stays together.",
+            "Third sentence closes it out.");
+    }
+
+    [Fact]
+    public void SplitIntoUtterances_ShouldFallbackToWhitespaceWhenNoSentenceBoundaryExists()
+    {
+        const string text = "alpha beta gamma delta epsilon zeta eta theta";
+
+        var segments = Aonik.Ai.Services.TextToSpeechService.SplitIntoUtterances(text, 18);
+
+        segments.Should().OnlyContain(segment => segment.Length <= 18);
+        string.Join(" ", segments).Should().Be(text);
+        segments.Should().OnlyContain(segment => !segment.Contains("  "));
     }
 
     private sealed class TextToSpeechTestWebApplicationFactory : CustomWebApplicationFactory

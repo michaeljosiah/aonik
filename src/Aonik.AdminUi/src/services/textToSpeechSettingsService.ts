@@ -18,6 +18,13 @@ export interface TextToSpeechPreviewAudioResponse {
   aiRunId: string | null;
 }
 
+export interface TextToSpeechSynthesizeRequest {
+  speechText: string;
+  locale?: string | null;
+  threadId?: string | null;
+  messageId?: string | null;
+}
+
 function tryGetString(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -120,6 +127,33 @@ export const textToSpeechSettingsService = {
   preview: async (request: TextToSpeechPreviewRequest): Promise<TextToSpeechPreviewAudioResponse> => {
     try {
       const response = await apiClient.post('/tenant/settings/text-to-speech/preview', request, {
+        responseType: 'blob',
+      });
+
+      return {
+        audioBlob: response.data,
+        contentType: response.headers['content-type'] ?? 'audio/mpeg',
+        provider: response.headers['x-tts-provider'] ?? null,
+        voiceId: response.headers['x-tts-voice-id'] ?? null,
+        aiRunId: response.headers['x-ai-run-id'] ?? null,
+      };
+    } catch (error: unknown) {
+      const userMessage = await resolvePreviewErrorMessage(error);
+      if (userMessage) {
+        if (error && typeof error === 'object') {
+          throw { ...error, userMessage };
+        }
+
+        throw { userMessage };
+      }
+
+      throw error;
+    }
+  },
+
+  synthesize: async (request: TextToSpeechSynthesizeRequest): Promise<TextToSpeechPreviewAudioResponse> => {
+    try {
+      const response = await apiClient.post('/mobile/text-to-speech/synthesize', request, {
         responseType: 'blob',
       });
 

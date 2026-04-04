@@ -58,13 +58,6 @@ internal sealed class TextToSpeechService : ITextToSpeechService
             throw new TextToSpeechPolicyViolationException("Speech text is required.", "text_required");
         }
 
-        if (text.Length > effectiveSettings.Policy.MaxCharactersPerUtterance)
-        {
-            throw new TextToSpeechPolicyViolationException(
-                $"Utterance exceeds the maximum of {effectiveSettings.Policy.MaxCharactersPerUtterance} characters.",
-                "max_characters_exceeded");
-        }
-
         if (!_rateLimiter.TryConsume(tenantId, userId, effectiveSettings.Policy.MaxRequestsPerMinutePerUser, out var retryAfter))
         {
             throw new TextToSpeechPolicyViolationException(
@@ -86,38 +79,77 @@ internal sealed class TextToSpeechService : ITextToSpeechService
 
         try
         {
-            var result = await provider.SynthesizeAsync(new TextToSpeechProviderRequest(
-                aiRunId,
-                tenantId,
-                userId,
-                text,
-                credential.ApiKey,
-                effectiveSettings.DefaultProfile.Locale,
-                effectiveSettings.DefaultProfile.VoiceId,
-                effectiveSettings.DefaultProfile.ModelId,
-                effectiveSettings.DefaultProfile.OutputFormat,
-                new Dictionary<string, string?>(effectiveSettings.DefaultProfile.ProviderOptions, StringComparer.OrdinalIgnoreCase),
-                PreviousText: null,
-                NextText: null), cancellationToken);
+            var segments = SplitIntoUtterances(text, effectiveSettings.Policy.MaxCharactersPerUtterance);
+            if (segments.Count == 1)
+            {
+                var result = await provider.SynthesizeAsync(
+                    CreateProviderRequest(aiRunId, tenantId, userId, effectiveSettings, credential.ApiKey!, segments, 0),
+                    cancellationToken);
+
+                await _aiRunWriter.MarkRunCompletedAsync(
+                    aiRunId,
+                    outputRef: System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        provider = result.Provider,
+                        voiceId = result.VoiceId,
+                        modelId = result.ModelId,
+                        contentType = result.ContentType,
+                        segmentCount = 1
+                    }),
+                    cancellationToken: cancellationToken);
+
+                return new TextToSpeechSynthesisResult(
+                    result.AudioStream,
+                    result.ContentType,
+                    result.Provider,
+                    result.VoiceId,
+                    aiRunId,
+                    result.ResourceToDispose);
+            }
+
+            var combinedAudio = new MemoryStream();
+            string? contentType = null;
+            string? resultProvider = null;
+            string? voiceId = null;
+            string? modelId = null;
+
+            for (var index = 0; index < segments.Count; index++)
+            {
+                var result = await provider.SynthesizeAsync(
+                    CreateProviderRequest(aiRunId, tenantId, userId, effectiveSettings, credential.ApiKey!, segments, index),
+                    cancellationToken);
+
+                await using var audioStream = result.AudioStream;
+                using var resource = result.ResourceToDispose;
+
+                contentType ??= result.ContentType;
+                resultProvider ??= result.Provider;
+                voiceId ??= result.VoiceId;
+                modelId ??= result.ModelId;
+
+                await audioStream.CopyToAsync(combinedAudio, cancellationToken);
+            }
+
+            combinedAudio.Position = 0;
 
             await _aiRunWriter.MarkRunCompletedAsync(
                 aiRunId,
                 outputRef: System.Text.Json.JsonSerializer.Serialize(new
                 {
-                    provider = result.Provider,
-                    voiceId = result.VoiceId,
-                    modelId = result.ModelId,
-                    contentType = result.ContentType
+                    provider = resultProvider,
+                    voiceId,
+                    modelId,
+                    contentType,
+                    segmentCount = segments.Count
                 }),
                 cancellationToken: cancellationToken);
 
             return new TextToSpeechSynthesisResult(
-                result.AudioStream,
-                result.ContentType,
-                result.Provider,
-                result.VoiceId,
-                aiRunId,
-                result.ResourceToDispose);
+                combinedAudio,
+                contentType ?? "audio/mpeg",
+                resultProvider ?? provider.Name,
+                voiceId ?? effectiveSettings.DefaultProfile.VoiceId,
+                aiRunId);
         }
         catch (Exception ex)
         {
@@ -213,5 +245,83 @@ internal sealed class TextToSpeechService : ITextToSpeechService
             textHash = hash,
             textLength = normalizedText.Length
         });
+    }
+
+    private static TextToSpeechProviderRequest CreateProviderRequest(
+        Guid aiRunId,
+        Guid tenantId,
+        Guid userId,
+        TextToSpeechSettings settings,
+        string apiKey,
+        IReadOnlyList<string> segments,
+        int index)
+    {
+        return new TextToSpeechProviderRequest(
+            aiRunId,
+            tenantId,
+            userId,
+            segments[index],
+            apiKey,
+            settings.DefaultProfile.Locale,
+            settings.DefaultProfile.VoiceId,
+            settings.DefaultProfile.ModelId,
+            settings.DefaultProfile.OutputFormat,
+            new Dictionary<string, string?>(settings.DefaultProfile.ProviderOptions, StringComparer.OrdinalIgnoreCase),
+            PreviousText: index > 0 ? segments[index - 1] : null,
+            NextText: index < segments.Count - 1 ? segments[index + 1] : null);
+    }
+
+    internal static IReadOnlyList<string> SplitIntoUtterances(string text, int maxCharactersPerUtterance)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
+        if (maxCharactersPerUtterance <= 0 || text.Length <= maxCharactersPerUtterance)
+        {
+            return [text];
+        }
+
+        var remaining = text;
+        var segments = new List<string>();
+
+        while (!string.IsNullOrWhiteSpace(remaining))
+        {
+            if (remaining.Length <= maxCharactersPerUtterance)
+            {
+                segments.Add(remaining.Trim());
+                break;
+            }
+
+            var splitIndex = FindSplitIndex(remaining, maxCharactersPerUtterance);
+            segments.Add(remaining[..splitIndex].Trim());
+            remaining = remaining[splitIndex..].TrimStart();
+        }
+
+        return segments;
+    }
+
+    private static int FindSplitIndex(string text, int maxCharactersPerUtterance)
+    {
+        var sentenceBoundary = text.LastIndexOfAny(['.', '!', '?'], maxCharactersPerUtterance - 1, maxCharactersPerUtterance);
+        if (sentenceBoundary >= 0)
+        {
+            return sentenceBoundary + 1;
+        }
+
+        var phraseBoundary = text.LastIndexOfAny([',', ';', ':'], maxCharactersPerUtterance - 1, maxCharactersPerUtterance);
+        if (phraseBoundary >= 0)
+        {
+            return phraseBoundary + 1;
+        }
+
+        var whitespaceBoundary = text.LastIndexOf(' ', maxCharactersPerUtterance - 1, maxCharactersPerUtterance);
+        if (whitespaceBoundary >= 0)
+        {
+            return whitespaceBoundary;
+        }
+
+        return maxCharactersPerUtterance;
     }
 }

@@ -594,7 +594,7 @@ public static class AguiStreamingEndpoint
     /// These tools describe functions the LLM can call but that execute client-side.
     /// Pattern follows official MAF AG-UI source: AIToolExtensions.AsAITools().
     /// </summary>
-    private static List<AITool> ConvertClientTools(
+    internal static List<AITool> ConvertClientTools(
         List<JsonElement>? toolElements,
         ILogger logger)
     {
@@ -871,12 +871,12 @@ public static class AguiStreamingEndpoint
         return $"{amount} {currencyName}";
     }
 
-    private static bool IsDisplayToolCall(string toolName)
+    internal static bool IsDisplayToolCall(string toolName)
     {
         return toolName.StartsWith("display_", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsApprovalToolCall(string toolName)
+    internal static bool IsApprovalToolCall(string toolName)
     {
         return string.Equals(toolName, "confirmAction", StringComparison.OrdinalIgnoreCase);
     }

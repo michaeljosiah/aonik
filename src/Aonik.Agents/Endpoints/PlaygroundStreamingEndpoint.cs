@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
@@ -114,6 +115,11 @@ public static class PlaygroundStreamingEndpoint
         var chatOptions = await BuildChatOptionsAsync(
             request, context.RequestServices, logger, cancellationToken);
 
+        var clientTools = AguiStreamingEndpoint.ConvertClientTools(request.ToolDefinitions, logger);
+        var clientToolNames = new HashSet<string>(
+            clientTools.Select(tool => tool.Name),
+            StringComparer.OrdinalIgnoreCase);
+
         // ── Assemble messages ───────────────────────────────────────────
         var chatMessages = BuildChatMessages(request);
 
@@ -133,10 +139,22 @@ public static class PlaygroundStreamingEndpoint
 
             var messageId = Guid.NewGuid().ToString("N");
             var messageStarted = false;
+            var requiresVisualAttention = false;
+            var requiresApproval = false;
 
-            ChatClientAgentRunOptions? runOptions = chatOptions is not null
-                ? new ChatClientAgentRunOptions { ChatOptions = chatOptions }
-                : null;
+            ChatClientAgentRunOptions? runOptions = null;
+            if (chatOptions is not null || clientTools.Count > 0)
+            {
+                runOptions = new ChatClientAgentRunOptions
+                {
+                    ChatOptions = chatOptions ?? new ChatOptions(),
+                };
+
+                if (clientTools.Count > 0)
+                {
+                    runOptions.ChatOptions.Tools = clientTools;
+                }
+            }
 
             await foreach (var update in agent.RunStreamingAsync(
                 chatMessages, session: null, options: runOptions, cancellationToken: cancellationToken))
@@ -176,6 +194,10 @@ public static class PlaygroundStreamingEndpoint
                             // Use a stable ID across START/ARGS/END — providers may
                             // leave CallId null, so generate a fallback once and reuse it.
                             var toolCallId = functionCall.CallId ?? Guid.NewGuid().ToString("N");
+                            var toolName = functionCall.Name ?? string.Empty;
+                            requiresVisualAttention |= AguiStreamingEndpoint.IsDisplayToolCall(toolName)
+                                || clientToolNames.Contains(toolName);
+                            requiresApproval |= AguiStreamingEndpoint.IsApprovalToolCall(toolName);
 
                             await WriteSseEventAsync(context.Response, new
                             {
@@ -240,6 +262,26 @@ public static class PlaygroundStreamingEndpoint
                 {
                     type = "TEXT_MESSAGE_END",
                     messageId,
+                }, cancellationToken);
+            }
+
+            var speechText = AguiStreamingEndpoint.BuildSpeechRender(
+                assistantText.ToString(),
+                requiresVisualAttention,
+                requiresApproval);
+            if (!string.IsNullOrWhiteSpace(speechText))
+            {
+                await WriteSseEventAsync(context.Response, new
+                {
+                    type = "CUSTOM",
+                    name = "speech.render",
+                    value = new
+                    {
+                        messageId,
+                        speechText,
+                        requiresVisualAttention,
+                        requiresApproval
+                    }
                 }, cancellationToken);
             }
 
@@ -436,14 +478,73 @@ public static class PlaygroundStreamingEndpoint
         {
             foreach (var msg in request.Messages)
             {
-                var role = msg.Role?.ToLowerInvariant() switch
-                {
-                    "assistant" => ChatRole.Assistant,
-                    "system" => ChatRole.System,
-                    _ => ChatRole.User,
-                };
+                var roleName = msg.Role?.ToLowerInvariant();
 
-                messages.Add(new ChatMessage(role, msg.Content ?? string.Empty));
+                switch (roleName)
+                {
+                    case "assistant":
+                    {
+                        var contents = new List<AIContent>();
+
+                        if (!string.IsNullOrEmpty(msg.Content))
+                        {
+                            contents.Add(new TextContent(msg.Content));
+                        }
+
+                        if (msg.ToolCalls is { Count: > 0 })
+                        {
+                            foreach (var toolCall in msg.ToolCalls)
+                            {
+                                if (toolCall.Function is null || string.IsNullOrWhiteSpace(toolCall.Function.Name))
+                                {
+                                    continue;
+                                }
+
+                                IDictionary<string, object?>? arguments = null;
+                                if (!string.IsNullOrWhiteSpace(toolCall.Function.Arguments))
+                                {
+                                    try
+                                    {
+                                        arguments = JsonSerializer.Deserialize<Dictionary<string, object?>>(
+                                            toolCall.Function.Arguments,
+                                            JsonOptions);
+                                    }
+                                    catch
+                                    {
+                                        arguments = null;
+                                    }
+                                }
+
+                                contents.Add(new FunctionCallContent(
+                                    toolCall.Id,
+                                    toolCall.Function.Name,
+                                    arguments));
+                            }
+                        }
+
+                        messages.Add(contents.Count > 0
+                            ? new ChatMessage(ChatRole.Assistant, contents)
+                            : new ChatMessage(ChatRole.Assistant, msg.Content ?? string.Empty));
+                        break;
+                    }
+
+                    case "tool":
+                    {
+                        var toolContent = new FunctionResultContent(
+                            msg.ToolCallId ?? string.Empty,
+                            msg.Content ?? string.Empty);
+                        messages.Add(new ChatMessage(ChatRole.Tool, [toolContent]));
+                        break;
+                    }
+
+                    case "system":
+                        messages.Add(new ChatMessage(ChatRole.System, msg.Content ?? string.Empty));
+                        break;
+
+                    default:
+                        messages.Add(new ChatMessage(ChatRole.User, msg.Content ?? string.Empty));
+                        break;
+                }
             }
         }
 

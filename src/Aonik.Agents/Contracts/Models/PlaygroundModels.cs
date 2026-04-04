@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Aonik.Agents.Contracts.Models;
 
 /// <summary>
@@ -56,6 +58,13 @@ public sealed record PlaygroundRunRequest
 
     /// <summary>Maximum tokens to generate. When <c>null</c>, uses model default.</summary>
     public int? MaxTokens { get; init; }
+
+    /// <summary>
+    /// Optional client-side tool declarations that should be exposed to the LLM
+    /// during playground runs. These mirror the AG-UI frontend tool contract and
+    /// are emitted as function calls for the Admin UI to execute locally.
+    /// </summary>
+    public List<JsonElement>? ToolDefinitions { get; init; }
 }
 
 /// <summary>
@@ -63,8 +72,25 @@ public sealed record PlaygroundRunRequest
 /// </summary>
 public sealed record PlaygroundMessage
 {
+    public string? Id { get; init; }
     public string Role { get; init; } = "user";
     public string Content { get; init; } = string.Empty;
+    public string? ToolCallId { get; init; }
+    public string? Name { get; init; }
+    public List<PlaygroundToolCall>? ToolCalls { get; init; }
+}
+
+public sealed record PlaygroundToolCall
+{
+    public string Id { get; init; } = string.Empty;
+    public string Type { get; init; } = "function";
+    public PlaygroundFunctionCall? Function { get; init; }
+}
+
+public sealed record PlaygroundFunctionCall
+{
+    public string Name { get; init; } = string.Empty;
+    public string Arguments { get; init; } = string.Empty;
 }
 
 /// <summary>

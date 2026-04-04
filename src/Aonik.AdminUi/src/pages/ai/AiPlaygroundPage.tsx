@@ -1,12 +1,14 @@
 import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import {
   FlaskConical,
+  Loader2,
   Plus,
   Play,
   RotateCcw,
   Square,
   ChevronDown,
   Columns2,
+  Volume2,
   Wrench,
   Variable,
   SlidersHorizontal,
@@ -21,10 +23,7 @@ import { PlaygroundMessageBlock } from './playground/PlaygroundMessageBlock';
 import { PlaygroundOutputPanel } from './playground/PlaygroundOutputPanel';
 import { ModelComparisonView, type ModelComparisonViewHandle } from './playground/ModelComparisonView';
 import { RunHistoryPanel } from './playground/RunHistoryPanel';
-import type {
-  PlaygroundFrontendToolRegistration,
-  PlaygroundFrontendToolHandler,
-} from '@/lib/playground-client';
+import { createPlaygroundFrontendTools } from './playground/frontendTools';
 import {
   Popover,
   PopoverTrigger,
@@ -32,7 +31,9 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
+import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import type { AgentConfigurationResponse } from '@/types/ai';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -41,6 +42,21 @@ interface EditableMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+}
+
+function resolveVoiceErrorMessage(error: unknown): string {
+  const userMessage =
+    typeof error === 'object' && error && 'userMessage' in error && typeof (error as { userMessage?: unknown }).userMessage === 'string'
+      ? (error as { userMessage: string }).userMessage
+      : error instanceof Error
+        ? error.message
+        : null;
+
+  if (userMessage && userMessage !== 'The service is unavailable right now. Please try again shortly.') {
+    return userMessage;
+  }
+
+  return 'Voice synthesis is unavailable right now. Check the provider quota or credentials and try again.';
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -58,6 +74,18 @@ export function AiPlaygroundPage() {
   const [selectedAgentConfig, setSelectedAgentConfig] = useState<AgentConfigurationResponse | null>(null);
   const defaultPromptRef = useRef<string | null>(null);
   const compareRef = useRef<ModelComparisonViewHandle>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewAudioUrlRef = useRef<string | null>(null);
+  const activeSpeechMessageIdRef = useRef<string | null>(null);
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const [voicePlaybackState, setVoicePlaybackState] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceDetails, setVoiceDetails] = useState<{
+    speechText: string;
+    provider: string | null;
+    voiceId: string | null;
+    aiRunId: string | null;
+  } | null>(null);
 
   // Editable user/assistant messages (system prompt is in config)
   const [editableMessages, setEditableMessages] = useState<EditableMessage[]>([
@@ -66,47 +94,7 @@ export function AiPlaygroundPage() {
 
   // ── Frontend tools (same as main chat AG-UI process) ────────────────────
   const frontendTools = useMemo(() => {
-    const map = new Map<string, PlaygroundFrontendToolRegistration>();
-
-    // confirmAction — request user approval before mutating actions
-    const confirmHandler: PlaygroundFrontendToolHandler = async (args) => {
-      const action = (args.action as string) ?? 'Unknown action';
-      const description = (args.description as string) ?? '';
-      const severity = (args.severity as string) ?? 'medium';
-      const approved = window.confirm(
-        `[${severity.toUpperCase()}] ${action}\n\n${description}\n\nApprove this action?`,
-      );
-      return approved ? 'approved' : 'rejected';
-    };
-    map.set('confirmAction', {
-      tool: {
-        name: 'confirmAction',
-        description:
-          'Request user approval before executing a mutating action. The user will see an approval dialog with Approve/Reject options. Use this for any action that creates, modifies, or deletes data.',
-        parameters: {
-          type: 'object',
-          properties: {
-            action: {
-              type: 'string',
-              description: 'Short name of the action (e.g., "Create Invoice", "Cancel Payment")',
-            },
-            description: {
-              type: 'string',
-              description: 'Detailed description of what will happen if approved',
-            },
-            severity: {
-              type: 'string',
-              enum: ['low', 'medium', 'high'],
-              description: 'Risk level of the action. Defaults to medium.',
-            },
-          },
-          required: ['action', 'description'],
-        },
-      },
-      handler: confirmHandler,
-    });
-
-    return map;
+    return createPlaygroundFrontendTools();
   }, []);
 
   const {
@@ -118,6 +106,7 @@ export function AiPlaygroundPage() {
     streamError,
     metrics,
     runHistory,
+    speechRender,
     submitMessages,
     stopStreaming,
     resetChat,
@@ -177,6 +166,113 @@ export function AiPlaygroundPage() {
     }
   }, [editableMessages, submitMessages]);
 
+  const stopVoicePreview = useCallback(() => {
+    previewAudioRef.current?.pause();
+    previewAudioRef.current?.removeAttribute('src');
+    previewAudioRef.current = null;
+
+    if (previewAudioUrlRef.current) {
+      URL.revokeObjectURL(previewAudioUrlRef.current);
+      previewAudioUrlRef.current = null;
+    }
+
+    setVoicePlaybackState('idle');
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopVoicePreview();
+    };
+  }, [stopVoicePreview]);
+
+  useEffect(() => {
+    if (!voiceModeEnabled || !speechRender || isStreaming) {
+      return;
+    }
+
+    if (activeSpeechMessageIdRef.current === speechRender.messageId) {
+      return;
+    }
+
+    activeSpeechMessageIdRef.current = speechRender.messageId;
+    let cancelled = false;
+
+    const playVoice = async () => {
+      setVoicePlaybackState('loading');
+      setVoiceError(null);
+      setVoiceDetails({
+        speechText: speechRender.speechText,
+        provider: null,
+        voiceId: null,
+        aiRunId: null,
+      });
+
+      try {
+        const response = await textToSpeechSettingsService.synthesize({
+          speechText: speechRender.speechText,
+          locale: 'en-US',
+          threadId: `playground-${Date.now()}`,
+          messageId: speechRender.messageId,
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        stopVoicePreview();
+
+        const audioUrl = URL.createObjectURL(response.audioBlob);
+        const audio = new Audio(audioUrl);
+        previewAudioRef.current = audio;
+        previewAudioUrlRef.current = audioUrl;
+
+        audio.onended = () => {
+          if (previewAudioUrlRef.current === audioUrl) {
+            URL.revokeObjectURL(audioUrl);
+            previewAudioUrlRef.current = null;
+          }
+          previewAudioRef.current = null;
+          setVoicePlaybackState('idle');
+        };
+
+        audio.onerror = () => {
+          if (previewAudioUrlRef.current === audioUrl) {
+            URL.revokeObjectURL(audioUrl);
+            previewAudioUrlRef.current = null;
+          }
+          previewAudioRef.current = null;
+          setVoicePlaybackState('error');
+          setVoiceError('Voice playback failed.');
+        };
+
+        setVoiceDetails({
+          speechText: speechRender.speechText,
+          provider: response.provider,
+          voiceId: response.voiceId,
+          aiRunId: response.aiRunId,
+        });
+
+        await audio.play();
+        if (!cancelled) {
+          setVoicePlaybackState('playing');
+        }
+      } catch (error: unknown) {
+        if (cancelled) {
+          return;
+        }
+
+        setVoicePlaybackState('error');
+        setVoiceError(resolveVoiceErrorMessage(error));
+      }
+    };
+
+    void playVoice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [voiceModeEnabled, speechRender, isStreaming, stopVoicePreview]);
+
   // ── Add output as assistant message ─────────────────────────────────────
 
   const handleAddOutputToMessages = useCallback(() => {
@@ -224,6 +320,10 @@ export function AiPlaygroundPage() {
 
   const handleResetPlayground = () => {
     setEditableMessages([{ id: `msg-${Date.now()}`, role: 'user', content: '' }]);
+    stopVoicePreview();
+    setVoiceError(null);
+    setVoiceDetails(null);
+    activeSpeechMessageIdRef.current = null;
     resetChat();
     // Also reset compare view's internal chat hooks
     compareRef.current?.resetBoth();
@@ -269,6 +369,32 @@ export function AiPlaygroundPage() {
         />
 
         <div className="mx-1 h-5 w-px bg-[var(--color-border-light)]" />
+
+        <div className="flex items-center gap-2 rounded-md border border-[var(--color-border-light)] px-3 py-1.5">
+          <Volume2 className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+          <Label htmlFor="playground-voice-mode" className="text-xs text-[var(--color-text-secondary)]">
+            Voice mode
+          </Label>
+          <Switch
+            id="playground-voice-mode"
+            checked={voiceModeEnabled}
+            onCheckedChange={(checked) => {
+              setVoiceModeEnabled(checked);
+              if (!checked) {
+                stopVoicePreview();
+                setVoiceError(null);
+                setVoiceDetails(null);
+                activeSpeechMessageIdRef.current = null;
+              }
+            }}
+          />
+          {voicePlaybackState === 'loading' && (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--color-text-tertiary)]" />
+          )}
+          {voicePlaybackState === 'playing' && (
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">Playing</span>
+          )}
+        </div>
 
         {/* Tools popover */}
         <Popover>
@@ -408,6 +534,11 @@ export function AiPlaygroundPage() {
         streamError={streamError}
         metrics={metrics}
         modelName={config.modelName}
+        voiceModeEnabled={voiceModeEnabled}
+        voicePlaybackState={voicePlaybackState}
+        voiceError={voiceError}
+        voiceDetails={voiceDetails}
+        onStopVoice={stopVoicePreview}
         onAddToMessages={handleAddOutputToMessages}
       />
 

@@ -49,8 +49,18 @@ export interface PlaygroundFrontendToolRegistration {
 }
 
 export interface PlaygroundMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
+  id?: string;
+  toolCallId?: string;
+  toolCalls?: Array<{
+    id: string;
+    type?: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
 }
 
 export interface PlaygroundRunMetrics {
@@ -66,6 +76,12 @@ export interface PlaygroundRunMetrics {
 export interface PlaygroundStreamCallbacks {
   onRunStarted?: (runId: string) => void;
   onTextDelta?: (delta: string) => void;
+  onSpeechRender?: (payload: {
+    messageId: string;
+    speechText: string;
+    requiresVisualAttention: boolean;
+    requiresApproval: boolean;
+  }) => void;
   onToolCallStart?: (toolCallId: string, toolName: string) => void;
   onToolCallArgs?: (toolCallId: string, argsDelta: string) => void;
   onToolCallEnd?: (toolCallId: string) => void;
@@ -182,9 +198,19 @@ export async function streamPlaygroundRun(
 
     // Execute frontend tools and append results as messages for the re-run
     const toolResultMessages: PlaygroundMessage[] = [];
+    const assistantToolCalls: NonNullable<PlaygroundMessage['toolCalls']> = [];
     for (const call of frontendPendingCalls) {
       const registration = frontendTools!.get(call.name)!;
       let result: string;
+
+       assistantToolCalls.push({
+        id: call.toolCallId,
+        type: 'function',
+        function: {
+          name: call.name,
+          arguments: call.args,
+        },
+      });
 
       try {
         const parsedArgs = call.args ? JSON.parse(call.args) : {};
@@ -198,15 +224,26 @@ export async function streamPlaygroundRun(
 
       callbacks.onToolResult?.(call.toolCallId, result);
       toolResultMessages.push({
-        role: 'assistant',
-        content: `[Tool ${call.name} result: ${result}]`,
+        id: `tool-result-${call.toolCallId}`,
+        role: 'tool',
+        toolCallId: call.toolCallId,
+        content: result,
       });
     }
 
     // Re-run with tool results appended
     currentRequest = {
       ...currentRequest,
-      messages: [...currentRequest.messages, ...toolResultMessages],
+      messages: [
+        ...currentRequest.messages,
+        {
+          id: `assistant-tool-call-${Date.now()}`,
+          role: 'assistant',
+          content: '',
+          toolCalls: assistantToolCalls,
+        },
+        ...toolResultMessages,
+      ],
     };
   }
 }
@@ -415,5 +452,27 @@ function dispatchEvent(
         event.code as string | undefined,
       );
       break;
+
+    case 'CUSTOM': {
+      if (event.name !== 'speech.render') {
+        break;
+      }
+
+      const value = event.value as Record<string, unknown> | undefined;
+      const speechText = typeof value?.speechText === 'string' ? value.speechText : '';
+      const messageId = typeof value?.messageId === 'string' ? value.messageId : '';
+
+      if (!speechText || !messageId) {
+        break;
+      }
+
+      callbacks.onSpeechRender?.({
+        messageId,
+        speechText,
+        requiresVisualAttention: value?.requiresVisualAttention === true,
+        requiresApproval: value?.requiresApproval === true,
+      });
+      break;
+    }
   }
 }
