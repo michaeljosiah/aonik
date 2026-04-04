@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Aonik.Infrastructure.Migrations
 {
     [DbContext(typeof(AonikDbContext))]
-    [Migration("20260404091307_RenameUserMemoryEntryTable")]
+    [Migration("20260404092305_RenameUserMemoryEntryTable")]
     partial class RenameUserMemoryEntryTable
     {
         /// <inheritdoc />
