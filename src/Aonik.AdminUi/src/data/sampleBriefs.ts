@@ -103,17 +103,20 @@ export const sampleBriefs: SampleBrief[] = [
               renewalDate: '2026-04-15',
             },
           ],
-          spendSummary: {
-            totalSpend: 1245.3,
-            topCategories: [
-              { category: 'Family Support', amount: 620.0, percentage: 49.8 },
-              { category: 'Groceries', amount: 215.4, percentage: 17.3 },
-              { category: 'Transport', amount: 148.0, percentage: 11.9 },
-              { category: 'Dining Out', amount: 132.5, percentage: 10.6 },
-            ],
-            periodStart: '2026-03-01',
-            periodEnd: '2026-03-31',
-          },
+          spendSummaries: [
+            {
+              currency: 'GBP',
+              totalSpend: 1245.3,
+              topCategories: [
+                { category: 'Family Support', amount: 620.0, percentage: 49.8 },
+                { category: 'Groceries', amount: 215.4, percentage: 17.3 },
+                { category: 'Transport', amount: 148.0, percentage: 11.9 },
+                { category: 'Dining Out', amount: 132.5, percentage: 10.6 },
+              ],
+              periodStart: '2026-03-01',
+              periodEnd: '2026-03-31',
+            },
+          ],
           budgetPressureCategories: [
             { category: 'Dining Out', budgeted: 100.0, actual: 132.5, percentUsed: 132.5 },
           ],
@@ -206,7 +209,7 @@ export const sampleBriefs: SampleBrief[] = [
           cashSummary: { totalBalance: 0.0, availableBalance: 0.0, currency: 'USD' },
           nextBills: [],
           subscriptions: [],
-          spendSummary: null,
+          spendSummaries: [],
           budgetPressureCategories: [],
         },
         dataAvailability: {
@@ -317,16 +320,19 @@ export const sampleBriefs: SampleBrief[] = [
             },
           ],
           subscriptions: [],
-          spendSummary: {
-            totalSpend: 1890.0,
-            topCategories: [
-              { category: 'Family Support', amount: 1240.0, percentage: 65.6 },
-              { category: 'Rent', amount: 350.0, percentage: 18.5 },
-              { category: 'Groceries', amount: 180.0, percentage: 9.5 },
-            ],
-            periodStart: '2026-03-01',
-            periodEnd: '2026-03-31',
-          },
+          spendSummaries: [
+            {
+              currency: 'EUR',
+              totalSpend: 1890.0,
+              topCategories: [
+                { category: 'Family Support', amount: 1240.0, percentage: 65.6 },
+                { category: 'Rent', amount: 350.0, percentage: 18.5 },
+                { category: 'Groceries', amount: 180.0, percentage: 9.5 },
+              ],
+              periodStart: '2026-03-01',
+              periodEnd: '2026-03-31',
+            },
+          ],
           budgetPressureCategories: [
             { category: 'Family Support', budgeted: 900.0, actual: 1240.0, percentUsed: 137.8 },
             { category: 'Groceries', budgeted: 150.0, actual: 180.0, percentUsed: 120.0 },

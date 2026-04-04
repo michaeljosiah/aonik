@@ -188,19 +188,18 @@ internal sealed class UserBriefProjector : IUserBriefProjector
         var subscriptions = data.ActiveSubscriptions.Select(s => new UserBriefSubscription(
             s.SubscriptionId, s.Merchant, s.ExpectedAmount, s.Currency, s.RenewalDate)).ToList();
 
-        var spendSummary = data.SpendSummary is not null
-            ? new UserBriefSpendSummary(
-                data.SpendSummary.TotalSpend,
-                data.SpendSummary.TopCategories.Select(c => new UserBriefCategorySpend(
-                    c.Category, c.Amount, c.Percentage)).ToList(),
-                data.SpendSummary.PeriodStart,
-                data.SpendSummary.PeriodEnd)
-            : null;
+        var spendSummaries = data.SpendSummaries.Select(s => new UserBriefSpendSummary(
+            s.Currency,
+            s.TotalSpend,
+            s.TopCategories.Select(c => new UserBriefCategorySpend(
+                c.Category, c.Amount, c.Percentage)).ToList(),
+            s.PeriodStart,
+            s.PeriodEnd)).ToList();
 
         var budgetPressure = data.BudgetPressure.Select(b => new UserBriefBudgetPressure(
             b.Category, b.Budgeted, b.Actual, b.PercentUsed)).ToList();
 
-        return new UserBriefCurrentState(cashSummary, bills, subscriptions, spendSummary, budgetPressure);
+        return new UserBriefCurrentState(cashSummary, bills, subscriptions, spendSummaries, budgetPressure);
     }
 
     private static UserBriefCustomerInsightSnapshotSummary? AssembleCustomerInsightSnapshot(
@@ -453,18 +452,16 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             if (EstimateTokens(brief) <= tokenBudget) return brief;
         }
 
-        // Truncation pass 4: truncate spend categories to top 3
-        if (brief.CurrentState.SpendSummary is not null &&
-            brief.CurrentState.SpendSummary.TopCategories.Count > 3)
+        // Truncation pass 4: truncate spend categories to top 3 per currency
+        if (brief.CurrentState.SpendSummaries.Any(s => s.TopCategories.Count > 3))
         {
             brief = brief with
             {
                 CurrentState = brief.CurrentState with
                 {
-                    SpendSummary = brief.CurrentState.SpendSummary with
-                    {
-                        TopCategories = brief.CurrentState.SpendSummary.TopCategories.Take(3).ToList()
-                    }
+                    SpendSummaries = brief.CurrentState.SpendSummaries
+                        .Select(s => s with { TopCategories = s.TopCategories.Take(3).ToList() })
+                        .ToList()
                 }
             };
             if (EstimateTokens(brief) <= tokenBudget) return brief;

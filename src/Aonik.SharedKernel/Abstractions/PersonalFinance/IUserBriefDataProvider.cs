@@ -41,8 +41,8 @@ public record UserBriefFinancialData(
     // Subscriptions
     IReadOnlyList<UserBriefSubscriptionData> ActiveSubscriptions,
 
-    // Spend summary
-    UserBriefSpendData? SpendSummary,
+    // Spend summaries (one per currency)
+    IReadOnlyList<UserBriefSpendData> SpendSummaries,
 
     // Budget pressure
     IReadOnlyList<UserBriefBudgetPressureData> BudgetPressure,
@@ -112,6 +112,7 @@ public record UserBriefSubscriptionData(
     DateTime RenewalDate);
 
 public record UserBriefSpendData(
+    string Currency,
     decimal TotalSpend,
     IReadOnlyList<UserBriefCategorySpendData> TopCategories,
     DateTime PeriodStart,

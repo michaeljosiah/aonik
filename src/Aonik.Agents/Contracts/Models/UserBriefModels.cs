@@ -67,7 +67,7 @@ public record UserBriefCurrentState(
     UserBriefCashSummary CashSummary,
     IReadOnlyList<UserBriefBill> NextBills,
     IReadOnlyList<UserBriefSubscription> Subscriptions,
-    UserBriefSpendSummary? SpendSummary,
+    IReadOnlyList<UserBriefSpendSummary> SpendSummaries,
     IReadOnlyList<UserBriefBudgetPressure> BudgetPressureCategories);
 
 public record UserBriefCustomerInsightSnapshotSummary(
@@ -141,6 +141,7 @@ public record UserBriefSubscription(
     DateTime RenewalDate);
 
 public record UserBriefSpendSummary(
+    string Currency,
     decimal TotalSpend,
     IReadOnlyList<UserBriefCategorySpend> TopCategories,
     DateTime PeriodStart,

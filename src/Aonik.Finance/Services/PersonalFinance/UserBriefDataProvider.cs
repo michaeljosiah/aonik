@@ -7,6 +7,7 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
@@ -23,17 +24,17 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
     };
 
     private readonly FinanceDbContext _dbContext;
-    private readonly IPersonalFinanceInsightsService _insightsService;
     private readonly IBudgetService _budgetService;
+    private readonly ILogger<UserBriefDataProvider> _logger;
 
     public UserBriefDataProvider(
         FinanceDbContext dbContext,
-        IPersonalFinanceInsightsService insightsService,
-        IBudgetService budgetService)
+        IBudgetService budgetService,
+        ILogger<UserBriefDataProvider> logger)
     {
         _dbContext = dbContext;
-        _insightsService = insightsService;
         _budgetService = budgetService;
+        _logger = logger;
     }
 
     public async Task<UserBriefFinancialData> GetFinancialDataAsync(
@@ -75,9 +76,12 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
             .Where(t => t.TenantId == tenantId && t.UserId == userId)
             .CountAsync(cancellationToken);
 
-        var spendTask = _insightsService.GetSpendingSummaryAsync(spendStart, spendEnd, null, cancellationToken);
-        var categoryTask = _insightsService.GetCategoryBreakdownAsync(spendStart, spendEnd, null, cancellationToken);
-        var budgetTask = _budgetService.ListBudgetsAsync(cancellationToken);
+        var spendTransactionsTask = _dbContext.PersonalTransactions
+            .Where(t => t.TenantId == tenantId && t.UserId == userId
+                && t.OccurredAt >= spendStart && t.OccurredAt <= spendEnd)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
         var customerInsightSnapshotTask = _dbContext.CustomerInsightSnapshots
             .Where(s => s.TenantId == tenantId
                 && s.UserId == userId
@@ -86,14 +90,15 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
 
+        var budgetTask = SafeListBudgetsAsync(cancellationToken);
+
         await Task.WhenAll(
             accountsTask,
             billsTask,
             subscriptionsTask,
             goalsTask,
             transactionCountTask,
-            spendTask,
-            categoryTask,
+            spendTransactionsTask,
             budgetTask,
             customerInsightSnapshotTask);
 
@@ -102,8 +107,7 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var subscriptions = await subscriptionsTask;
         var goals = await goalsTask;
         var transactionCount = await transactionCountTask;
-        var spend = await spendTask;
-        var categories = await categoryTask;
+        var spendTransactions = await spendTransactionsTask;
         var budgets = await budgetTask;
         var customerInsightSnapshot = await customerInsightSnapshotTask;
 
@@ -111,8 +115,11 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         var primaryCurrency = accounts.FirstOrDefault()?.Currency ?? "GBP";
         var totalBalance = accounts.Sum(a => a.CurrentBalance);
 
+        // Derive spend summaries per currency so multi-currency users get full visibility
+        var spendSummaries = DeriveSpendSummaries(spendTransactions, spendStart, spendEnd);
+
         // Derive budget pressure
-        var budgetPressure = DeriveBudgetPressure(budgets, categories);
+        var budgetPressure = DeriveBudgetPressure(budgets);
 
         // Derive corridor countries and household context from profile
         var profile = await _dbContext.PersonalProfiles
@@ -136,18 +143,70 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
                 b.Id, b.Payee, b.ExpectedAmount, b.Currency, b.NextDueDate, b.Autopay)).ToList(),
             ActiveSubscriptions: subscriptions.Select(s => new UserBriefSubscriptionData(
                 s.Id, s.Merchant, s.ExpectedAmount, s.Currency, s.RenewalDate)).ToList(),
-            SpendSummary: new UserBriefSpendData(
-                spend.TotalExpense,
-                categories.Take(5).Select(c => new UserBriefCategorySpendData(
-                    c.Category, c.TotalAmount, c.Percentage)).ToList(),
-                spend.PeriodStart,
-                spend.PeriodEnd),
+            SpendSummaries: spendSummaries,
             BudgetPressure: budgetPressure,
             ActiveGoals: goals.Select(g => new UserBriefGoalData(
                 g.Id, g.Name, g.TargetAmount, g.ProgressAmount, g.Currency, g.TargetDate, g.Status)).ToList(),
             SupportObligations: obligations,
             CorridorCountries: corridorCountries,
             HouseholdContext: null); // Hydrated from FLG if household exists
+    }
+
+    private static List<UserBriefSpendData> DeriveSpendSummaries(
+        List<PersonalTransaction> transactions,
+        DateTime periodStart,
+        DateTime periodEnd)
+    {
+        return transactions
+            .Where(IsExpense)
+            .GroupBy(t => string.IsNullOrWhiteSpace(t.Currency) ? "USD" : t.Currency.Trim().ToUpperInvariant())
+            .Select(currencyGroup =>
+            {
+                var expenseTotal = Math.Abs(currencyGroup.Sum(t => t.Amount));
+                var topCategories = currencyGroup
+                    .GroupBy(t => string.IsNullOrWhiteSpace(t.Category)
+                        ? TransactionCategoryReference.Uncategorized
+                        : t.Category!)
+                    .Select(catGroup =>
+                    {
+                        var catTotal = Math.Abs(catGroup.Sum(t => t.Amount));
+                        var pct = expenseTotal > 0 ? catTotal / expenseTotal * 100m : 0m;
+                        return new UserBriefCategorySpendData(catGroup.Key, catTotal, pct);
+                    })
+                    .OrderByDescending(c => c.Amount)
+                    .Take(5)
+                    .ToList();
+
+                return new UserBriefSpendData(
+                    currencyGroup.Key,
+                    expenseTotal,
+                    topCategories,
+                    periodStart,
+                    periodEnd);
+            })
+            .OrderByDescending(s => s.TotalSpend)
+            .ToList();
+    }
+
+    private static bool IsExpense(PersonalTransaction item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.TransactionType))
+            return item.TransactionType == TransactionCategoryReference.TypeExpense;
+        return item.Amount < 0;
+    }
+
+    private async Task<IReadOnlyList<BudgetCategoryResponse>> SafeListBudgetsAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _budgetService.ListBudgetsAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Budget data unavailable for User Brief");
+            return [];
+        }
     }
 
     private static UserBriefCustomerInsightSnapshotData? MapCustomerInsightSnapshot(CustomerInsightSnapshot? snapshot)
@@ -246,8 +305,7 @@ internal sealed class UserBriefDataProvider : IUserBriefDataProvider
         new(amount.Currency, amount.Amount);
 
     private static List<UserBriefBudgetPressureData> DeriveBudgetPressure(
-        IReadOnlyList<Aonik.Finance.Contracts.Models.PersonalFinance.BudgetCategoryResponse> budgets,
-        IReadOnlyList<Aonik.Finance.Contracts.Models.PersonalFinance.CategorySpendingItemResponse> categories)
+        IReadOnlyList<BudgetCategoryResponse> budgets)
     {
         var result = new List<UserBriefBudgetPressureData>();
 
