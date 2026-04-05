@@ -59,11 +59,63 @@ function resolveVoiceErrorMessage(error: unknown): string {
   return 'Voice synthesis is unavailable right now. Check the provider quota or credentials and try again.';
 }
 
+function getBrowserSpeechSynthesis(): SpeechSynthesis | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const synthesis = window.speechSynthesis;
+  return synthesis ?? null;
+}
+
+function playWithBrowserSpeech(
+  speechText: string,
+  locale: string,
+  onStart: () => void,
+  onEnd: () => void,
+  onError: (message: string) => void,
+): () => void {
+  const synthesis = getBrowserSpeechSynthesis();
+  if (!synthesis) {
+    throw new Error('Browser speech synthesis is unavailable.');
+  }
+
+  synthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(speechText);
+  utterance.lang = locale;
+
+  utterance.onstart = () => {
+    onStart();
+  };
+
+  utterance.onend = () => {
+    onEnd();
+  };
+
+  utterance.onerror = (event) => {
+    onError(event.error || 'Browser speech synthesis failed.');
+  };
+
+  try {
+    synthesis.speak(utterance);
+  } catch (error) {
+    throw error instanceof Error ? error : new Error('Browser speech synthesis failed.');
+  }
+
+  return () => {
+    utterance.onstart = null;
+    utterance.onend = null;
+    utterance.onerror = null;
+    synthesis.cancel();
+  };
+}
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const breadcrumbItems = [
   { label: 'AI', href: '/ai/agents' },
-  { label: 'Playground', icon: <FlaskConical className="h-3.5 w-3.5" /> },
+  { label: 'Agent Playground', icon: <FlaskConical className="h-3.5 w-3.5" /> },
 ];
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -76,6 +128,7 @@ export function AiPlaygroundPage() {
   const compareRef = useRef<ModelComparisonViewHandle>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioUrlRef = useRef<string | null>(null);
+  const browserSpeechCancelRef = useRef<(() => void) | null>(null);
   const activeSpeechMessageIdRef = useRef<string | null>(null);
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
   const [voicePlaybackState, setVoicePlaybackState] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle');
@@ -167,6 +220,12 @@ export function AiPlaygroundPage() {
   }, [editableMessages, submitMessages]);
 
   const stopVoicePreview = useCallback(() => {
+    browserSpeechCancelRef.current?.();
+    browserSpeechCancelRef.current = null;
+
+    const synthesis = getBrowserSpeechSynthesis();
+    synthesis?.cancel();
+
     previewAudioRef.current?.pause();
     previewAudioRef.current?.removeAttribute('src');
     previewAudioRef.current = null;
@@ -208,12 +267,59 @@ export function AiPlaygroundPage() {
       });
 
       try {
-        const response = await textToSpeechSettingsService.synthesize({
-          speechText: speechRender.speechText,
-          locale: 'en-US',
-          threadId: `playground-${Date.now()}`,
-          messageId: speechRender.messageId,
-        });
+        const locale = 'en-US';
+        let response: Awaited<ReturnType<typeof textToSpeechSettingsService.synthesize>> | null = null;
+
+        try {
+          response = await textToSpeechSettingsService.synthesize({
+            speechText: speechRender.speechText,
+            locale,
+            threadId: `playground-${Date.now()}`,
+            messageId: speechRender.messageId,
+          });
+        } catch (primaryError) {
+          const fallbackSynthesis = getBrowserSpeechSynthesis();
+          if (!fallbackSynthesis) {
+            throw primaryError;
+          }
+
+          const cancelBrowserSpeech = playWithBrowserSpeech(
+            speechRender.speechText,
+            locale,
+            () => {
+              if (!cancelled) {
+                setVoicePlaybackState('playing');
+              }
+            },
+            () => {
+              browserSpeechCancelRef.current = null;
+              if (!cancelled) {
+                setVoicePlaybackState('idle');
+              }
+            },
+            (message) => {
+              browserSpeechCancelRef.current = null;
+              if (!cancelled) {
+                setVoicePlaybackState('error');
+                setVoiceError(message);
+              }
+            },
+          );
+
+          if (cancelled) {
+            cancelBrowserSpeech();
+            return;
+          }
+
+          browserSpeechCancelRef.current = cancelBrowserSpeech;
+          setVoiceDetails({
+            speechText: speechRender.speechText,
+            provider: 'Browser',
+            voiceId: locale,
+            aiRunId: null,
+          });
+          return;
+        }
 
         if (cancelled) {
           return;
@@ -589,7 +695,7 @@ function PlaygroundHeader({
       <div className="mt-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
-            AI Playground
+            Agent Playground
           </h1>
           <p className="text-sm text-[var(--color-text-secondary)]">
             Test agents, prompts, and models interactively.

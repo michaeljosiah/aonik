@@ -70,7 +70,7 @@ const navigation: NavigationSection[] = [
               },
               {
                 id: 'ai-playground-item',
-                label: 'Playground',
+                label: 'Agent Playground',
                 icon: 'FlaskConical',
                 href: '/ai/playground',
               },
@@ -109,7 +109,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'ai-orchestrator', title: 'Orchestrator', type: 'internal', componentKey: 'placeholder', route: '/ai/orchestrator' },
   { id: 'ai-prompts', title: 'Prompt Templates', description: 'Manage versioned prompt templates for AI tasks.', type: 'internal', componentKey: 'promptTemplates', route: '/ai/prompts' },
   { id: 'ai-routing', title: 'Route Policies', description: 'Configure AI model routing policies per use-case.', type: 'internal', componentKey: 'routePolicies', route: '/ai/routing' },
-  { id: 'ai-playground', title: 'AI Playground', description: 'Test agents, prompts, and models interactively.', type: 'internal', componentKey: 'aiPlayground', route: '/ai/playground' },
+  { id: 'ai-playground', title: 'Agent Playground', description: 'Test agents, prompts, and models interactively.', type: 'internal', componentKey: 'aiPlayground', route: '/ai/playground' },
 ];
 
 const panelComponents = {
@@ -129,7 +129,7 @@ const breadcrumbs = [
   { pathPrefix: '/analytics', trail: ['Analytics'] },
   { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
   { pathPrefix: '/ai/prompts', trail: ['AI', 'Prompt Templates'] },
-  { pathPrefix: '/ai/playground', trail: ['AI', 'Playground'] },
+  { pathPrefix: '/ai/playground', trail: ['AI', 'Agent Playground'] },
   { pathPrefix: '/ai/routing', trail: ['AI', 'Route Policies'] },
   { pathPrefix: '/ai/agents/', trail: ['AI', 'Agents', 'Agent Details'] },
   { pathPrefix: '/ai/agents', trail: ['AI', 'Agents'] },
