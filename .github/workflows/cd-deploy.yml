@@ -212,8 +212,8 @@ jobs:
               if any(key.startswith(p) for p in API_SETTING_PREFIXES) and val.strip():
                   api[key] = val.strip()
 
-          # Worker settings use WORKER__ prefix.
-          WORKER_SETTING_PREFIXES = ("WORKER__",)
+          # Worker shares AI settings with API and can have its own WORKER__ overrides.
+          WORKER_SETTING_PREFIXES = ("AI__", "WORKER__",)
           worker = {}
           for key, val in sorted(os.environ.items()):
               if any(key.startswith(p) for p in WORKER_SETTING_PREFIXES) and val.strip():
