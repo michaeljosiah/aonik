@@ -42,6 +42,7 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
         if (!_syncOptions.EnableRecurringSync)
         {
             _logger.LogDebug("Linked-account recurring sync is disabled via configuration.");
+            context.Result = "Recurring sync disabled.";
             return;
         }
 
@@ -67,12 +68,16 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
 
         if (dueConnections.Count == 0)
         {
+            context.Result = "No connections due for sync.";
             return;
         }
 
         _logger.LogInformation(
             "Processing {Count} due linked-account sync jobs.",
             dueConnections.Count);
+
+        var synced = 0;
+        var failed = 0;
 
         foreach (var connection in dueConnections)
         {
@@ -84,6 +89,7 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
                     connection.Id,
                     "recurring-worker",
                     cancellationToken);
+                synced++;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -91,11 +97,14 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
             }
             catch (Exception ex)
             {
+                failed++;
                 _logger.LogWarning(
                     ex,
                     "Recurring sync failed for linked account connection {ConnectionId}.",
                     connection.Id);
             }
         }
+
+        context.Result = $"Synced {synced}, failed {failed} of {dueConnections.Count} connections.";
     }
 }

@@ -12,6 +12,9 @@ export interface ScheduledJobSummary {
   nextFireTimeUtc: string | null;
   previousFireTimeUtc: string | null;
   displayName: string | null;
+  lastOutcome: string | null;
+  lastOutcomeSummary: string | null;
+  lastDurationMs: number | null;
 }
 
 export interface ScheduledJobListResponse {

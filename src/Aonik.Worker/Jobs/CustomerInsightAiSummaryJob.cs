@@ -38,12 +38,13 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
         _logger = logger;
     }
 
-    public Task Execute(IJobExecutionContext context)
+    public async Task Execute(IJobExecutionContext context)
     {
-        return ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
+        var resultSummary = await ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
+        context.Result = resultSummary;
     }
 
-    internal async Task ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
+    internal async Task<string> ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
     {
         _tenantContext.TenantId = null;
         _tenantContext.ResolutionSource = "system";
@@ -59,8 +60,11 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
         {
             ClearCheckpoint(jobDataMap);
             _logger.LogInformation("No customer insight snapshots were due for AI summary processing in this batch.");
-            return;
+            return "No snapshots to process.";
         }
+
+        var processed = 0;
+        var failed = 0;
 
         foreach (var snapshot in snapshots)
         {
@@ -77,6 +81,12 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
             {
                 var summary = await _summaryService.GenerateCurrentSummaryAsync(snapshot.CustomerInsightSnapshotId, timeoutCts.Token);
                 stopwatch.Stop();
+
+                if (summary.Status == CustomerInsightAiSummaryContract.StatusFailed)
+                    failed++;
+                else
+                    processed++;
+
                 LogSummaryResult(snapshot, summary, stopwatch.ElapsedMilliseconds, warningThresholdMs);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -86,6 +96,7 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
             catch (Exception ex)
             {
                 stopwatch.Stop();
+                failed++;
                 _logger.LogWarning(
                     ex,
                     "Customer insight AI summary generation crashed for snapshot {SnapshotId} after {DurationMs}ms.",
@@ -100,10 +111,13 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
         if (snapshots.Count < batchSize)
         {
             ClearCheckpoint(jobDataMap);
-            return;
+        }
+        else
+        {
+            WriteCheckpoint(jobDataMap, snapshots[^1]);
         }
 
-        WriteCheckpoint(jobDataMap, snapshots[^1]);
+        return $"Processed {processed}, failed {failed} of {snapshots.Count} snapshots.";
     }
 
     private void LogSummaryResult(

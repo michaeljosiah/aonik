@@ -10,7 +10,10 @@ public record ScheduledJobSummary(
     string Status,
     DateTime? NextFireTimeUtc,
     DateTime? PreviousFireTimeUtc,
-    string? DisplayName);
+    string? DisplayName,
+    string? LastOutcome,
+    string? LastOutcomeSummary,
+    int? LastDurationMs);
 
 public record ScheduledJobListResponse(
     IReadOnlyList<ScheduledJobSummary> Jobs);

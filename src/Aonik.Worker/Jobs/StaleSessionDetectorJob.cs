@@ -38,5 +38,7 @@ internal sealed class StaleSessionDetectorJob : IJob
         await _conversationSummaryService.ProcessStaleSessionsAsync(
             batchSize,
             context.CancellationToken);
+
+        context.Result = $"Scanned for stale sessions (batch size: {batchSize}).";
     }
 }

@@ -38,6 +38,7 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
     {
         var jobs = await _dbContext.ScheduledJobProjections
             .AsNoTracking()
+            .Where(x => x.State != ScheduledJobStates.Removed)
             .OrderBy(x => x.DisplayName)
             .ThenBy(x => x.JobName)
             .Select(x => new ScheduledJobSummary(
@@ -48,7 +49,10 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
                 x.State,
                 x.NextFireTimeUtc,
                 x.PreviousFireTimeUtc,
-                x.DisplayName))
+                x.DisplayName,
+                x.LastOutcome,
+                x.LastOutcomeSummary,
+                x.LastDurationMs))
             .ToListAsync(cancellationToken);
 
         return new ScheduledJobListResponse(jobs);

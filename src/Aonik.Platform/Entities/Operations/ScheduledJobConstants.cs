@@ -14,6 +14,7 @@ public static class ScheduledJobStates
     public const string Error = "Error";
     public const string Complete = "Complete";
     public const string Blocked = "Blocked";
+    public const string Removed = "Removed";
 }
 
 public static class ScheduledJobCommandTypes

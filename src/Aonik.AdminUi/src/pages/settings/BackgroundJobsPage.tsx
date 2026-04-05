@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Timer, Play, Pause, RefreshCw, ServerCog, Activity } from 'lucide-react';
+import { Timer, Play, Pause, RefreshCw, ServerCog, Activity, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,13 @@ function formatRelativeTime(dateStr: string | null): string {
   return diffMs < 0 ? `in ${diffDay}d` : `${diffDay}d ago`;
 }
 
+function formatDuration(ms: number | null): string {
+  if (ms === null) return '--';
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = (ms / 1000).toFixed(1);
+  return `${seconds}s`;
+}
+
 function statusBadge(status: string) {
   switch (status.toLowerCase()) {
     case 'active':
@@ -37,8 +44,26 @@ function statusBadge(status: string) {
   }
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+function outcomeBadge(outcome: string | null) {
+  if (!outcome) return null;
+  switch (outcome.toLowerCase()) {
+    case 'succeeded':
+      return (
+        <Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 gap-1">
+          <CheckCircle2 className="w-3 h-3" />
+          Succeeded
+        </Badge>
+      );
+    case 'failed':
+      return (
+        <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 gap-1">
+          <XCircle className="w-3 h-3" />
+          Failed
+        </Badge>
+      );
+    default:
+      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{outcome}</Badge>;
+  }
 }
 
 export function BackgroundJobsPage() {
@@ -46,6 +71,7 @@ export function BackgroundJobsPage() {
   const [jobs, setJobs] = useState<ScheduledJobSummary[]>([]);
   const [health, setHealth] = useState<SchedulerHealthResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
   const loadJobs = useCallback(async () => {
@@ -79,17 +105,61 @@ export function BackgroundJobsPage() {
     return () => clearInterval(interval);
   }, [loadJobs, loadHealth]);
 
-  const handleTrigger = async (jobName: string) => {
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadJobs(), loadHealth()]);
+      toast.success('Refreshed.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleTrigger = async (jobName: string, displayName: string) => {
     setActionInProgress(jobName);
     try {
       const result = await jobService.triggerJob(jobName);
-      toast.success(result.message ?? 'Trigger command queued.');
-      await wait(1500);
-      await loadJobs();
+      toast.success(result.message ?? `${displayName} trigger queued.`);
+
+      // Poll for execution result (the worker processes commands every ~2s)
+      let attempts = 0;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const updated = await jobService.listScheduledJobs();
+          const updatedJob = updated.jobs.find(j => j.jobName === jobName);
+          const currentJob = jobs.find(j => j.jobName === jobName);
+
+          // Detect that a new execution happened (previousFireTimeUtc changed or lastOutcome updated)
+          if (updatedJob && currentJob &&
+            updatedJob.previousFireTimeUtc !== currentJob.previousFireTimeUtc) {
+            clearInterval(pollInterval);
+            setJobs(updated.jobs);
+            setActionInProgress(null);
+
+            if (updatedJob.lastOutcome === 'Succeeded') {
+              toast.success(`${displayName} completed in ${formatDuration(updatedJob.lastDurationMs)}.${updatedJob.lastOutcomeSummary ? ` ${updatedJob.lastOutcomeSummary}` : ''}`);
+            } else if (updatedJob.lastOutcome === 'Failed') {
+              toast.error(`${displayName} failed.${updatedJob.lastOutcomeSummary ? ` ${updatedJob.lastOutcomeSummary}` : ''}`);
+            }
+            return;
+          }
+
+          // Also update the list in the meantime
+          setJobs(updated.jobs);
+        } catch {
+          // Ignore poll errors
+        }
+
+        if (attempts >= 15) {
+          clearInterval(pollInterval);
+          setActionInProgress(null);
+          await loadJobs();
+        }
+      }, 2000);
     } catch (err) {
       console.error('Trigger failed:', err);
       toast.error('Failed to trigger job.');
-    } finally {
       setActionInProgress(null);
     }
   };
@@ -99,12 +169,14 @@ export function BackgroundJobsPage() {
     try {
       const result = await jobService.pauseJob(jobName);
       toast.success(result.message ?? 'Pause command queued.');
-      await wait(1500);
-      await loadJobs();
+      // Brief delay for the worker to process
+      setTimeout(async () => {
+        await loadJobs();
+        setActionInProgress(null);
+      }, 3000);
     } catch (err) {
       console.error('Pause failed:', err);
       toast.error('Failed to pause job.');
-    } finally {
       setActionInProgress(null);
     }
   };
@@ -114,12 +186,13 @@ export function BackgroundJobsPage() {
     try {
       const result = await jobService.resumeJob(jobName);
       toast.success(result.message ?? 'Resume command queued.');
-      await wait(1500);
-      await loadJobs();
+      setTimeout(async () => {
+        await loadJobs();
+        setActionInProgress(null);
+      }, 3000);
     } catch (err) {
       console.error('Resume failed:', err);
       toast.error('Failed to resume job.');
-    } finally {
       setActionInProgress(null);
     }
   };
@@ -141,13 +214,13 @@ export function BackgroundJobsPage() {
           </p>
         </div>
         <Button
-          onClick={() => { void loadJobs(); void loadHealth(); }}
-          disabled={loading}
+          onClick={() => void handleRefresh()}
+          disabled={refreshing}
           variant="secondary"
           className="rounded-sm"
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
         </Button>
       </div>
 
@@ -212,6 +285,7 @@ export function BackgroundJobsPage() {
                           {job.displayName ?? job.jobName}
                         </button>
                         {statusBadge(job.status)}
+                        {outcomeBadge(job.lastOutcome)}
                       </div>
                       {job.description ? (
                         <p className="text-xs text-[var(--color-text-tertiary)] mb-2">
@@ -222,9 +296,20 @@ export function BackgroundJobsPage() {
                         <span title="Cron expression">
                           Cron: <code className="font-mono bg-[var(--color-surface-inset)] px-1 py-0.5 rounded">{job.cronExpression ?? '--'}</code>
                         </span>
-                        <span>Next run: {formatRelativeTime(job.nextFireTimeUtc)}</span>
-                        <span>Last run: {formatRelativeTime(job.previousFireTimeUtc)}</span>
+                        <span>Next: {formatRelativeTime(job.nextFireTimeUtc)}</span>
+                        <span>Last: {formatRelativeTime(job.previousFireTimeUtc)}</span>
+                        {job.lastDurationMs !== null && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatDuration(job.lastDurationMs)}
+                          </span>
+                        )}
                       </div>
+                      {job.lastOutcomeSummary && (
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1 italic">
+                          {job.lastOutcomeSummary}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {isPaused ? (
@@ -251,10 +336,14 @@ export function BackgroundJobsPage() {
                       <Button
                         size="sm"
                         disabled={isBusy || isDisabled}
-                        onClick={() => void handleTrigger(job.jobName)}
+                        onClick={() => void handleTrigger(job.jobName, job.displayName ?? job.jobName)}
                       >
-                        <Play className="w-3.5 h-3.5 mr-1" />
-                        Trigger
+                        {isBusy ? (
+                          <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5 mr-1" />
+                        )}
+                        {isBusy ? 'Running...' : 'Trigger'}
                       </Button>
                     </div>
                   </div>

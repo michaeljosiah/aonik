@@ -38,12 +38,13 @@ internal sealed class CustomerInsightSnapshotJob : IJob
         _logger = logger;
     }
 
-    public Task Execute(IJobExecutionContext context)
+    public async Task Execute(IJobExecutionContext context)
     {
-        return ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
+        var summary = await ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
+        context.Result = summary;
     }
 
-    internal async Task ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
+    internal async Task<string> ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
     {
         _tenantContext.TenantId = null;
         _tenantContext.ResolutionSource = "system";
@@ -59,13 +60,16 @@ internal sealed class CustomerInsightSnapshotJob : IJob
         {
             ClearCheckpoint(jobDataMap);
             _logger.LogInformation("No eligible customer insight snapshot users found for the current batch.");
-            return;
+            return "No users to process.";
         }
 
         _logger.LogInformation(
             "Processing {Count} customer insight snapshot users starting after checkpoint {Checkpoint}.",
             users.Count,
             checkpoint is null ? "<start>" : $"{checkpoint.Value.TenantId}/{checkpoint.Value.UserId}");
+
+        var processed = 0;
+        var failed = 0;
 
         foreach (var user in users)
         {
@@ -84,6 +88,11 @@ internal sealed class CustomerInsightSnapshotJob : IJob
                 var snapshot = await _snapshotService.GenerateCurrentSnapshotAsync(user.UserId, timeoutCts.Token);
                 stopwatch.Stop();
 
+                if (snapshot.Status == CustomerInsightSnapshotContract.StatusFailed)
+                    failed++;
+                else
+                    processed++;
+
                 LogSnapshotResult(user, snapshot, stopwatch.ElapsedMilliseconds, warningThresholdMs);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -93,6 +102,7 @@ internal sealed class CustomerInsightSnapshotJob : IJob
             catch (Exception ex)
             {
                 stopwatch.Stop();
+                failed++;
                 _logger.LogWarning(
                     ex,
                     "Customer insight snapshot generation crashed for user {UserId} in tenant {TenantId} after {DurationMs}ms.",
@@ -108,10 +118,13 @@ internal sealed class CustomerInsightSnapshotJob : IJob
         if (users.Count < batchSize)
         {
             ClearCheckpoint(jobDataMap);
-            return;
+        }
+        else
+        {
+            WriteCheckpoint(jobDataMap, users[^1]);
         }
 
-        WriteCheckpoint(jobDataMap, users[^1]);
+        return $"Processed {processed}, failed {failed} of {users.Count} users.";
     }
 
     private void LogSnapshotResult(

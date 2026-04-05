@@ -36,6 +36,8 @@ internal sealed class ScheduledJobProjectionSynchronizer
         {
             await SyncDefinitionAsync(definition, null, cancellationToken);
         }
+
+        await MarkOrphanedProjectionsAsync(cancellationToken);
     }
 
     public async Task SyncJobAsync(
@@ -142,6 +144,45 @@ internal sealed class ScheduledJobProjectionSynchronizer
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to sync scheduled job projection for {JobName}.", definition.JobKey.Name);
+        }
+    }
+
+    private async Task MarkOrphanedProjectionsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            SetSystemTenant(scope.ServiceProvider);
+
+            var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var registeredNames = _definitionsByName.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var orphans = await dbContext.ScheduledJobProjections
+                .Where(x => x.GroupName == ScheduledJobGroups.ScheduledJobs
+                    && x.State != ScheduledJobStates.Removed)
+                .ToListAsync(cancellationToken);
+
+            var markedCount = 0;
+            foreach (var projection in orphans)
+            {
+                if (!registeredNames.Contains(projection.JobName))
+                {
+                    projection.State = ScheduledJobStates.Removed;
+                    projection.NextFireTimeUtc = null;
+                    projection.LastSyncedAtUtc = DateTime.UtcNow;
+                    markedCount++;
+                }
+            }
+
+            if (markedCount > 0)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Marked {Count} orphaned job projection(s) as Removed.", markedCount);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clean up orphaned job projections.");
         }
     }
 

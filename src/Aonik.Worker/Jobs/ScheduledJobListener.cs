@@ -53,11 +53,12 @@ internal sealed class ScheduledJobListener : IJobListener
             ? ScheduledJobRunOutcomes.Succeeded
             : ScheduledJobRunOutcomes.Failed;
         var durationMs = (int)Math.Round(context.JobRunTime.TotalMilliseconds);
+        var resultSummary = context.Result as string;
         var errorMessage = jobException?.Message;
 
         try
         {
-            var snapshot = new ScheduledJobExecutionSnapshot(outcome, errorMessage, durationMs);
+            var snapshot = new ScheduledJobExecutionSnapshot(outcome, resultSummary ?? errorMessage, durationMs);
             await _projectionSynchronizer.SyncJobAsync(context.JobDetail.Key, snapshot, cancellationToken);
         }
         catch (Exception ex)
