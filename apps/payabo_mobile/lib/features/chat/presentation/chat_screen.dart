@@ -170,6 +170,20 @@ enum _VoiceStagePhase {
   ready,
 }
 
+class _VoiceStageVisualState {
+  const _VoiceStageVisualState({this.pulseTick = 0, this.elapsedMs = 0});
+
+  final int pulseTick;
+  final int elapsedMs;
+
+  _VoiceStageVisualState copyWith({int? pulseTick, int? elapsedMs}) {
+    return _VoiceStageVisualState(
+      pulseTick: pulseTick ?? this.pulseTick,
+      elapsedMs: elapsedMs ?? this.elapsedMs,
+    );
+  }
+}
+
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -181,13 +195,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     with SingleTickerProviderStateMixin {
   static const double _historyOverlayWidthFactor = 0.9;
   static const String _voiceLogPrefix = '[ChatVoice]';
-  static const Duration _voiceEndOfTurnGrace = Duration(milliseconds: 1800);
+  static const Duration _voiceRestartRetryBackoff = Duration(milliseconds: 100);
+  static const Duration _voiceShortEndOfTurnGrace = Duration(milliseconds: 800);
+  static const Duration _voiceLongEndOfTurnGrace = Duration(milliseconds: 1200);
+  static const int _voiceShortUtteranceWordThreshold = 10;
+  static const int _voiceSpeechChunkTargetLength = 180;
+  static const int _voiceSpeechChunkHardLimit = 260;
   static const Duration _voiceThinkingWatchdog = Duration(seconds: 20);
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final ChatVoiceService _chatVoiceService;
   late final AnimationController _historyOverlayController;
+  final ValueNotifier<_VoiceStageVisualState> _voiceVisualState =
+      ValueNotifier<_VoiceStageVisualState>(const _VoiceStageVisualState());
   Timer? _voiceTimer;
   Timer? _voiceSpeakPulseResetTimer;
   Timer? _voiceFinalizeTimer;
@@ -203,8 +224,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int? _activeVoiceTurnId;
   int? _voiceBackendTurnId;
   _VoiceStagePhase _voiceStagePhase = _VoiceStagePhase.idle;
-  int _voicePulseTick = 0;
-  int _voiceElapsedMs = 0;
   double _voiceSpeakingPulse = 0.18;
   String _voiceLiveTranscript = '';
   bool _showVoiceStage = false;
@@ -225,6 +244,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _controller.dispose();
     _scrollController.dispose();
     _historyOverlayController.dispose();
+    _voiceVisualState.dispose();
     unawaited(_chatVoiceService.dispose());
     _voiceTimer?.cancel();
     _voiceSpeakPulseResetTimer?.cancel();
@@ -312,9 +332,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             _showVoiceStage = false;
           });
         }
-        _voiceSpeechQueue
-          ..clear()
-          ..add(next.pendingSpeechText!);
+        _replaceVoiceSpeechQueue(next.pendingSpeechText!);
         unawaited(_chatVoiceService.stopThinkingLoop());
         _drainVoiceSpeechQueue(voiceLocaleTag, _activeVoiceTurnId!);
       }
@@ -342,9 +360,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _voiceLastSpokenAssistantMessageId = assistantMessage.id;
           _cancelVoiceThinkingWatchdog();
           unawaited(_chatVoiceService.stopThinkingLoop());
-          _voiceSpeechQueue
-            ..clear()
-            ..add(_voicePendingSpeechText ?? assistantMessage.lines.join('\n'));
+          _replaceVoiceSpeechQueue(
+            _voicePendingSpeechText ?? assistantMessage.lines.join('\n'),
+          );
           _drainVoiceSpeechQueue(voiceLocaleTag, _activeVoiceTurnId!);
         }
       }
@@ -428,9 +446,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         displayName: _firstName(displayName),
                         showVoiceStage: _showVoiceStage,
                         voiceStagePhase: _voiceStagePhase,
-                        voicePulseTick: _voicePulseTick,
+                        voiceVisualStateListenable: _voiceVisualState,
                         voiceSpeakingPulse: _voiceSpeakingPulse,
-                        voiceElapsedMs: _voiceElapsedMs,
                         voiceTranscript: _voiceTranscript,
                         onVoiceOrbTap: _handleVoiceTap,
                         onApprove: (String toolCallId) {
@@ -459,7 +476,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         controller: _controller,
                         isVoiceActive: isVoiceActive,
                         voiceStagePhase: _voiceStagePhase,
-                        voicePulseTick: _voicePulseTick,
+                        voiceVisualStateListenable: _voiceVisualState,
                         onEndVoiceTap: _dismissVoiceStage,
                         onVoiceTap: _handleVoiceTap,
                         onSubmitted: _submitPrompt,
@@ -586,6 +603,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return _voiceLiveTranscript.trim();
   }
 
+  int get _voicePulseTick => _voiceVisualState.value.pulseTick;
+
+  int get _voiceElapsedMs => _voiceVisualState.value.elapsedMs;
+
+  void _resetVoiceVisualState() {
+    if (_voicePulseTick == 0 && _voiceElapsedMs == 0) {
+      return;
+    }
+
+    _voiceVisualState.value = const _VoiceStageVisualState();
+  }
+
   Future<void> _handleVoiceTap() async {
     _voiceLog('voice tap while phase=$_voiceStagePhase');
     switch (_voiceStagePhase) {
@@ -614,8 +643,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _activeVoiceTurnId = turnId;
       _voiceBackendTurnId = null;
       _voiceStagePhase = _VoiceStagePhase.listening;
-      _voicePulseTick = 0;
-      _voiceElapsedMs = 0;
       _voiceSpeakingPulse = 0.18;
       _voiceLiveTranscript = '';
       _voiceRetryInFlight = false;
@@ -625,6 +652,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _voicePendingSpeechText = null;
       _voiceSpeechQueue.clear();
     });
+    _resetVoiceVisualState();
 
     _voiceTimer = Timer.periodic(const Duration(milliseconds: 160), (
       Timer timer,
@@ -634,12 +662,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         return;
       }
 
-      setState(() {
-        _voicePulseTick += 1;
-        if (_voiceStagePhase == _VoiceStagePhase.listening) {
-          _voiceElapsedMs += 160;
-        }
-      });
+      final _VoiceStageVisualState current = _voiceVisualState.value;
+      _voiceVisualState.value = current.copyWith(
+        pulseTick: current.pulseTick + 1,
+        elapsedMs: _voiceStagePhase == _VoiceStagePhase.listening
+            ? current.elapsedMs + 160
+            : current.elapsedMs,
+      );
     });
 
     final bool available = await _beginVoiceListeningSession(turnId);
@@ -720,17 +749,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
 
     _voiceRetryInFlight = true;
-    await _chatVoiceService.stopListening();
-    await Future<void>.delayed(const Duration(milliseconds: 220));
+    bool restarted = false;
 
-    if (!_isActiveVoiceTurn(turnId) ||
-        _voiceStagePhase != _VoiceStagePhase.listening) {
+    try {
+      restarted = await _beginVoiceListeningSession(turnId);
+
+      if (!restarted &&
+          _isActiveVoiceTurn(turnId) &&
+          _voiceStagePhase == _VoiceStagePhase.listening) {
+        _voiceLog(
+          'restart listening backoff turn=$turnId delay=${_voiceRestartRetryBackoff.inMilliseconds}ms',
+        );
+        await Future<void>.delayed(_voiceRestartRetryBackoff);
+
+        if (_isActiveVoiceTurn(turnId) &&
+            _voiceStagePhase == _VoiceStagePhase.listening) {
+          restarted = await _beginVoiceListeningSession(turnId);
+        }
+      }
+    } catch (error) {
+      _voiceLog('restart listening failed turn=$turnId error=$error');
+      restarted = false;
+    } finally {
       _voiceRetryInFlight = false;
-      return;
     }
-
-    final bool restarted = await _beginVoiceListeningSession(turnId);
-    _voiceRetryInFlight = false;
 
     if (!restarted &&
         _isActiveVoiceTurn(turnId) &&
@@ -743,9 +785,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _scheduleVoiceStop(int turnId) {
-    _voiceLog('schedule voice stop turn=$turnId');
+    final String transcript = _voiceLiveTranscript.trim();
+    final int wordCount = _voiceWordCount(transcript);
+    final Duration gracePeriod = _voiceEndOfTurnGraceForTranscript(transcript);
+    _voiceLog(
+      'schedule voice stop turn=$turnId grace=${gracePeriod.inMilliseconds}ms words=$wordCount',
+    );
     _voiceFinalizeTimer?.cancel();
-    _voiceFinalizeTimer = Timer(_voiceEndOfTurnGrace, () {
+    _voiceFinalizeTimer = Timer(gracePeriod, () {
       if (!_isActiveVoiceTurn(turnId) ||
           _voiceStagePhase != _VoiceStagePhase.listening) {
         return;
@@ -753,6 +800,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
       unawaited(_stopVoiceStage(turnId));
     });
+  }
+
+  Duration _voiceEndOfTurnGraceForTranscript(String transcript) {
+    final int wordCount = _voiceWordCount(transcript);
+
+    if (wordCount == 0) {
+      return _voiceLongEndOfTurnGrace;
+    }
+
+    return wordCount <= _voiceShortUtteranceWordThreshold
+        ? _voiceShortEndOfTurnGrace
+        : _voiceLongEndOfTurnGrace;
+  }
+
+  int _voiceWordCount(String text) {
+    final String trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      return 0;
+    }
+
+    return trimmed
+        .split(RegExp(r'\s+'))
+        .where((String word) => word.isNotEmpty)
+        .length;
   }
 
   bool _isSoftVoiceInputError(String message) {
@@ -785,7 +856,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     setState(() {
       if (_voiceElapsedMs == 0) {
-        _voiceElapsedMs = 8200;
+        _voiceVisualState.value =
+            _voiceVisualState.value.copyWith(elapsedMs: 8200);
       }
       _showVoiceStage = true;
       _voiceStagePhase = _VoiceStagePhase.thinking;
@@ -820,8 +892,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _activeVoiceTurnId = null;
       _voiceBackendTurnId = null;
       _voiceStagePhase = _VoiceStagePhase.idle;
-      _voicePulseTick = 0;
-      _voiceElapsedMs = 0;
       _voiceSpeakingPulse = 0.18;
       _voiceLiveTranscript = '';
       _voiceAwaitingBackendReply = false;
@@ -830,6 +900,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _voicePendingSpeechText = null;
       _voiceSpeechQueue.clear();
     });
+    _resetVoiceVisualState();
   }
 
   void _finishVoiceReply([int? turnId]) {
@@ -857,6 +928,155 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   String _voiceLocaleTag(BuildContext context) {
     return Localizations.maybeLocaleOf(context)?.toLanguageTag() ?? 'en-US';
+  }
+
+  void _replaceVoiceSpeechQueue(String text) {
+    final List<String> chunks = _chunkVoiceSpeechText(text);
+    _voiceSpeechQueue
+      ..clear()
+      ..addAll(chunks);
+    _voiceLog('queued voice speech chunks count=${chunks.length}');
+  }
+
+  List<String> _chunkVoiceSpeechText(String text) {
+    final String normalized = text.replaceAll('\r\n', '\n').trim();
+    if (normalized.isEmpty) {
+      return const <String>[];
+    }
+
+    final List<String> chunks = <String>[];
+    for (final String rawBlock in normalized.split(RegExp(r'\n+'))) {
+      final String block = rawBlock.trim();
+      if (block.isEmpty) {
+        continue;
+      }
+
+      final List<String> segments = _splitVoiceSpeechBlock(block)
+          .expand(_splitOversizedVoiceSpeechSegment)
+          .toList();
+      chunks.addAll(_mergeVoiceSpeechSegments(segments));
+    }
+
+    return chunks.isEmpty ? <String>[normalized] : chunks;
+  }
+
+  List<String> _splitVoiceSpeechBlock(String block) {
+    final List<String> segments = <String>[];
+    int start = 0;
+    int index = 0;
+
+    while (index < block.length) {
+      if (!_isVoiceSentenceTerminator(block[index])) {
+        index += 1;
+        continue;
+      }
+
+      int end = index + 1;
+      while (end < block.length &&
+          _isVoiceTrailingSentencePunctuation(block[end])) {
+        end += 1;
+      }
+
+      if (end == block.length || _isVoiceWhitespace(block[end])) {
+        final String segment = block.substring(start, end).trim();
+        if (segment.isNotEmpty) {
+          segments.add(segment);
+        }
+
+        while (end < block.length && _isVoiceWhitespace(block[end])) {
+          end += 1;
+        }
+
+        start = end;
+        index = end;
+        continue;
+      }
+
+      index += 1;
+    }
+
+    if (start < block.length) {
+      final String trailing = block.substring(start).trim();
+      if (trailing.isNotEmpty) {
+        segments.add(trailing);
+      }
+    }
+
+    return segments;
+  }
+
+  List<String> _splitOversizedVoiceSpeechSegment(String segment) {
+    if (segment.length <= _voiceSpeechChunkHardLimit) {
+      return <String>[segment];
+    }
+
+    final List<String> chunks = <String>[];
+    String current = '';
+    for (final String rawWord in segment.split(RegExp(r'\s+'))) {
+      final String word = rawWord.trim();
+      if (word.isEmpty) {
+        continue;
+      }
+
+      final String candidate = current.isEmpty ? word : '$current $word';
+      if (candidate.length > _voiceSpeechChunkHardLimit && current.isNotEmpty) {
+        chunks.add(current);
+        current = word;
+        continue;
+      }
+
+      current = candidate;
+    }
+
+    if (current.isNotEmpty) {
+      chunks.add(current);
+    }
+
+    return chunks;
+  }
+
+  List<String> _mergeVoiceSpeechSegments(List<String> segments) {
+    final List<String> chunks = <String>[];
+    String current = '';
+
+    for (final String rawSegment in segments) {
+      final String segment = rawSegment.trim();
+      if (segment.isEmpty) {
+        continue;
+      }
+
+      if (current.isEmpty) {
+        current = segment;
+        continue;
+      }
+
+      final String candidate = '$current $segment';
+      if (candidate.length <= _voiceSpeechChunkTargetLength) {
+        current = candidate;
+        continue;
+      }
+
+      chunks.add(current);
+      current = segment;
+    }
+
+    if (current.isNotEmpty) {
+      chunks.add(current);
+    }
+
+    return chunks;
+  }
+
+  bool _isVoiceSentenceTerminator(String char) {
+    return char == '.' || char == '!' || char == '?';
+  }
+
+  bool _isVoiceTrailingSentencePunctuation(String char) {
+    return char == '"' || char == '\'' || char == ')' || char == ']';
+  }
+
+  bool _isVoiceWhitespace(String char) {
+    return char == ' ' || char == '\n' || char == '\r' || char == '\t';
   }
 
   void _drainVoiceSpeechQueue(String localeTag, int turnId) {
@@ -1148,9 +1368,8 @@ class _ChatStage extends ConsumerWidget {
     required this.displayName,
     required this.showVoiceStage,
     required this.voiceStagePhase,
-    required this.voicePulseTick,
+    required this.voiceVisualStateListenable,
     required this.voiceSpeakingPulse,
-    required this.voiceElapsedMs,
     required this.voiceTranscript,
     required this.onVoiceOrbTap,
     required this.onApprove,
@@ -1161,9 +1380,8 @@ class _ChatStage extends ConsumerWidget {
   final String displayName;
   final bool showVoiceStage;
   final _VoiceStagePhase voiceStagePhase;
-  final int voicePulseTick;
+  final ValueListenable<_VoiceStageVisualState> voiceVisualStateListenable;
   final double voiceSpeakingPulse;
-  final int voiceElapsedMs;
   final String voiceTranscript;
   final Future<void> Function() onVoiceOrbTap;
   final void Function(String toolCallId) onApprove;
@@ -1171,43 +1389,60 @@ class _ChatStage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ChatState chatState = ref.watch(chatControllerProvider);
-    final bool showHero = !chatState.hasMessages &&
-        chatState.streamingText.isEmpty &&
-        chatState.activity == ChatActivity.idle;
+    late final Widget stageChild;
+
+    if (showVoiceStage) {
+      stageChild = KeyedSubtree(
+        key: const ValueKey<String>('chat-voice-stage'),
+        child: ValueListenableBuilder<_VoiceStageVisualState>(
+          valueListenable: voiceVisualStateListenable,
+          builder: (
+            BuildContext context,
+            _VoiceStageVisualState voiceVisualState,
+            Widget? child,
+          ) {
+            return _RealtimeVoiceStage(
+              phase: voiceStagePhase,
+              pulseTick: voiceVisualState.pulseTick,
+              speakingPulse: voiceSpeakingPulse,
+              elapsedMs: voiceVisualState.elapsedMs,
+              transcript: voiceTranscript,
+              onOrbTap: onVoiceOrbTap,
+            );
+          },
+        ),
+      );
+    } else {
+      final ChatState chatState = ref.watch(chatControllerProvider);
+      final bool showHero = !chatState.hasMessages &&
+          chatState.streamingText.isEmpty &&
+          chatState.activity == ChatActivity.idle;
+
+      stageChild = showHero
+          ? _EmptyChatStage(
+              key: const ValueKey<String>('chat-empty'),
+              displayName: displayName,
+            )
+          : _ConversationStage(
+              key: const ValueKey<String>('chat-thread'),
+              controller: controller,
+              displayName: displayName,
+              messages: chatState.messages,
+              streamingText: chatState.streamingText,
+              activity: chatState.activity,
+              activeToolCalls: chatState.activeToolCalls,
+              pendingApprovals: chatState.pendingApprovals,
+              displayWidgets: chatState.displayWidgets,
+              onApprove: onApprove,
+              onReject: onReject,
+            );
+    }
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 320),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
-      child: showVoiceStage
-          ? _RealtimeVoiceStage(
-              key: const ValueKey<String>('chat-voice-stage'),
-              phase: voiceStagePhase,
-              pulseTick: voicePulseTick,
-              speakingPulse: voiceSpeakingPulse,
-              elapsedMs: voiceElapsedMs,
-              transcript: voiceTranscript,
-              onOrbTap: onVoiceOrbTap,
-            )
-          : showHero
-              ? _EmptyChatStage(
-                  key: const ValueKey<String>('chat-empty'),
-                  displayName: displayName,
-                )
-              : _ConversationStage(
-                  key: const ValueKey<String>('chat-thread'),
-                  controller: controller,
-                  displayName: displayName,
-                  messages: chatState.messages,
-                  streamingText: chatState.streamingText,
-                  activity: chatState.activity,
-                  activeToolCalls: chatState.activeToolCalls,
-                  pendingApprovals: chatState.pendingApprovals,
-                  displayWidgets: chatState.displayWidgets,
-                  onApprove: onApprove,
-                  onReject: onReject,
-                ),
+      child: stageChild,
     );
   }
 }
@@ -1835,7 +2070,7 @@ class _ChatComposer extends ConsumerWidget {
     required this.controller,
     required this.isVoiceActive,
     required this.voiceStagePhase,
-    required this.voicePulseTick,
+    required this.voiceVisualStateListenable,
     required this.onEndVoiceTap,
     required this.onVoiceTap,
     required this.onSubmitted,
@@ -1844,7 +2079,7 @@ class _ChatComposer extends ConsumerWidget {
   final TextEditingController controller;
   final bool isVoiceActive;
   final _VoiceStagePhase voiceStagePhase;
-  final int voicePulseTick;
+  final ValueListenable<_VoiceStageVisualState> voiceVisualStateListenable;
   final VoidCallback onEndVoiceTap;
   final VoidCallback onVoiceTap;
   final ValueChanged<String> onSubmitted;
@@ -1914,15 +2149,24 @@ class _ChatComposer extends ConsumerWidget {
                     ),
                     const SizedBox(width: PayaboSpacing.md),
                     Expanded(
-                      child: _VoiceControlButton(
-                        icon: talkControl.icon,
-                        label: talkControl.label,
-                        semanticLabel: talkControl.semanticLabel,
-                        isEnabled: talkControl.isEnabled,
-                        isPrimary: true,
-                        isRecording: talkControl.isRecording,
-                        recordingPulseTick: voicePulseTick,
-                        onTap: onVoiceTap,
+                      child: ValueListenableBuilder<_VoiceStageVisualState>(
+                        valueListenable: voiceVisualStateListenable,
+                        builder: (
+                          BuildContext context,
+                          _VoiceStageVisualState voiceVisualState,
+                          Widget? child,
+                        ) {
+                          return _VoiceControlButton(
+                            icon: talkControl.icon,
+                            label: talkControl.label,
+                            semanticLabel: talkControl.semanticLabel,
+                            isEnabled: talkControl.isEnabled,
+                            isPrimary: true,
+                            isRecording: talkControl.isRecording,
+                            recordingPulseTick: voiceVisualState.pulseTick,
+                            onTap: onVoiceTap,
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -2180,7 +2424,6 @@ class _VoiceControlButton extends StatelessWidget {
 
 class _RealtimeVoiceStage extends StatelessWidget {
   const _RealtimeVoiceStage({
-    super.key,
     required this.phase,
     required this.pulseTick,
     required this.speakingPulse,

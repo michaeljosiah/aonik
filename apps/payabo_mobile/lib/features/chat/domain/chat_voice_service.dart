@@ -58,7 +58,7 @@ abstract class ChatVoiceService {
 }
 
 class DeviceChatVoiceService implements ChatVoiceService {
-  static const Duration _postTtsListenDelay = Duration(milliseconds: 450);
+  static const Duration _postTtsListenDelay = Duration(milliseconds: 200);
   static const Duration _recognizerResetDelay = Duration(milliseconds: 250);
   static const Duration _listenActivationWindow = Duration(milliseconds: 900);
   static const String _logPrefix = '[VoiceService]';
@@ -128,6 +128,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     await _thinkingLoopPlayer.setReleaseMode(ReleaseMode.loop);
     await _thinkingLoopPlayer.setVolume(0);
     _thinkingLoopVolume = 0;
+    await _prepareThinkingLoop();
 
     await _speechPlayer.setReleaseMode(ReleaseMode.stop);
     _speechPlayer.onPlayerComplete.listen((_) {
@@ -157,13 +158,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     await initialize();
     await stopSpeaking();
     _thinkingLoopStopping = false;
-
-    if (!_thinkingLoopPrepared) {
-      await _thinkingLoopPlayer.setSource(
-        AssetSource('audio/simi_thinking_loop.wav'),
-      );
-      _thinkingLoopPrepared = true;
-    }
+    await _prepareThinkingLoop();
 
     await _thinkingLoopPlayer.setVolume(0);
     _thinkingLoopVolume = 0;
@@ -198,6 +193,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
   }) async {
     final int sessionId = ++_listenSessionId;
     final String localeId = _speechLocaleId(localeTag);
+    final bool requiresPostTtsDelay = _hasActiveSpeechOutput;
     _log('startListening requested: session=$sessionId locale=$localeId');
 
     final bool ready = await initialize();
@@ -209,23 +205,20 @@ class DeviceChatVoiceService implements ChatVoiceService {
     await stopThinkingLoop();
     _log('startListening stopping TTS before STT handoff');
     await stopSpeaking();
-    _log(
-        'startListening post-TTS delay ${_postTtsListenDelay.inMilliseconds}ms');
-    await Future<void>.delayed(_postTtsListenDelay);
 
-    if (_speechToText.isListening) {
-      _log('startListening canceling active recognizer session');
-      await _speechToText.cancel();
+    final Future<void> recognizerReset = _resetRecognizerForListening();
+    if (requiresPostTtsDelay) {
+      _log(
+        'startListening overlapping post-TTS delay ${_postTtsListenDelay.inMilliseconds}ms with recognizer reset',
+      );
+      await Future.wait<void>(<Future<void>>[
+        recognizerReset,
+        Future<void>.delayed(_postTtsListenDelay),
+      ]);
+    } else {
+      _log('startListening skipping post-TTS delay: no active speech output');
+      await recognizerReset;
     }
-
-    _log('startListening forcing recognizer reset');
-    _activeListenSessionId = null;
-    _activeSpeechStatusCallback = null;
-    _activeSpeechErrorCallback = null;
-    await _speechToText.cancel();
-    _log(
-        'startListening recognizer reset delay ${_recognizerResetDelay.inMilliseconds}ms');
-    await Future<void>.delayed(_recognizerResetDelay);
 
     _log('startListening invoking speech recognizer');
     _activeListenSessionId = sessionId;
@@ -524,6 +517,34 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
   }
 
+  Future<void> _prepareThinkingLoop() async {
+    if (_thinkingLoopPrepared) {
+      return;
+    }
+
+    _log('prepareThinkingLoop loading asset');
+    await _thinkingLoopPlayer.setSource(
+      AssetSource('audio/simi_thinking_loop.wav'),
+    );
+    _thinkingLoopPrepared = true;
+  }
+
+  Future<void> _resetRecognizerForListening() async {
+    if (_speechToText.isListening) {
+      _log('startListening canceling active recognizer session');
+    }
+
+    _log('startListening forcing recognizer reset');
+    _activeListenSessionId = null;
+    _activeSpeechStatusCallback = null;
+    _activeSpeechErrorCallback = null;
+    await _speechToText.cancel();
+    _log(
+      'startListening recognizer reset delay ${_recognizerResetDelay.inMilliseconds}ms',
+    );
+    await Future<void>.delayed(_recognizerResetDelay);
+  }
+
   Future<bool> _waitForRecognizerActivation() async {
     final Stopwatch stopwatch = Stopwatch()..start();
     while (stopwatch.elapsed < _listenActivationWindow) {
@@ -534,6 +555,12 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
 
     return _speechToText.isListening;
+  }
+
+  bool get _hasActiveSpeechOutput {
+    return _activeSpeakSessionId != null ||
+        _activeTtsRequestCancelToken != null ||
+        _activeSpeechFilePath != null;
   }
 
   String _speechLocaleId(String? localeTag) {
