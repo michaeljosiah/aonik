@@ -107,10 +107,14 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
 
             messages.Add(new ChatMessage(ChatRole.User, userPrompt));
 
+            var schema = JsonDocument.Parse(CustomerInsightAiSummaryContract.SummaryJsonSchema).RootElement;
             var chatOptions = new ChatOptions
             {
                 ModelId = profile.ModelId,
-                ResponseFormat = ChatResponseFormat.Json
+                ResponseFormat = ChatResponseFormat.ForJsonSchema(
+                    schema,
+                    schemaName: "CustomerInsightAiSummary",
+                    schemaDescription: "A structured AI summary of a customer insight snapshot.")
             };
             var response = await _chatClient.GetResponseAsync(messages, chatOptions, cancellationToken);
             var generated = GenerateSummary(response.Text ?? string.Empty, narrativeVersion);
