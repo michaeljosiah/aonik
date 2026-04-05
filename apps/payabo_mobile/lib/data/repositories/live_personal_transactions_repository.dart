@@ -80,6 +80,18 @@ class LivePersonalTransactionsRepository
     }
   }
 
+  @override
+  Future<void> deleteTransaction(String transactionId) async {
+    try {
+      await _apiClient.delete<void>(
+        '/personal-finance/transactions/$transactionId',
+      );
+    } on DioException catch (exception) {
+      _logDioFailure('deleteTransaction', exception);
+      throw mapDioException(exception);
+    }
+  }
+
   PersonalTransactionItem _mapItem(Map<String, dynamic> payload) {
     final String id = _readString(payload['personalTransactionId']) ??
         _readString(payload['id']) ??
@@ -106,6 +118,8 @@ class LivePersonalTransactionsRepository
     final String? accountId =
         _readString(payload['personalAccountId']);
 
+    final String? sourceType = _readString(payload['sourceType']);
+
     return PersonalTransactionItem(
       id: id,
       merchant: displayMerchant,
@@ -116,6 +130,7 @@ class LivePersonalTransactionsRepository
       occurredAt: occurredAt,
       description: description,
       personalAccountId: accountId,
+      sourceType: sourceType,
     );
   }
 

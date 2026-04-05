@@ -330,4 +330,109 @@ public class PersonalTransactionServiceTests
         checking.CurrentBalance.Should().Be(100m);
         savings.CurrentBalance.Should().Be(-40m);
     }
+
+    [Fact]
+    public async Task DeleteManualTransactionAsync_Should_SoftDeleteAndReverseBalance()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var account = new PersonalAccount
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            Name = "Main Account",
+            AccountType = "Bank",
+            Currency = "GBP",
+            Status = "Active",
+            CurrentBalance = 100m,
+            BalanceAsOf = DateTime.UtcNow
+        };
+        context.PersonalAccounts.Add(account);
+        await context.SaveChangesAsync();
+
+        var service = new PersonalTransactionService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        var created = await service.CreateManualTransactionAsync(new CreateManualPersonalTransactionRequest(
+            account.Id,
+            DateTime.UtcNow,
+            -17.50m,
+            "GBP",
+            "Nando's",
+            "Dinner",
+            "eating_out",
+            null,
+            null));
+
+        account.CurrentBalance.Should().Be(82.50m);
+
+        // Act
+        await service.DeleteManualTransactionAsync(created.PersonalTransactionId);
+
+        // Assert — balance should be restored
+        account.CurrentBalance.Should().Be(100m);
+
+        // Assert — transaction should not be visible via query (soft-deleted)
+        var fetched = await service.GetTransactionAsync(created.PersonalTransactionId);
+        fetched.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteManualTransactionAsync_Should_RejectNonManualTransaction()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        // Seed an imported transaction directly
+        var transaction = new PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            SourceType = "plaid",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow,
+            Amount = -50m,
+            Currency = "GBP",
+            TransactionType = "Expense",
+        };
+        context.PersonalTransactions.Add(transaction);
+        await context.SaveChangesAsync();
+
+        var service = new PersonalTransactionService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        // Act & Assert
+        var act = () => service.DeleteManualTransactionAsync(transaction.Id);
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*manually created*");
+    }
+
+    [Fact]
+    public async Task DeleteManualTransactionAsync_Should_ThrowWhenTransactionNotFound()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+
+        var service = new PersonalTransactionService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        // Act & Assert
+        var act = () => service.DeleteManualTransactionAsync(Guid.NewGuid());
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
 }

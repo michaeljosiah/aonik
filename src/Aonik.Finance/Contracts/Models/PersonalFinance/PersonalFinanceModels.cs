@@ -246,6 +246,7 @@ public record PersonalTransactionResponse(
     Guid UserId,
     Guid? PersonalAccountId,
     Guid? FinancialContextId,
+    string SourceType,
     DateTime OccurredAt,
     decimal Amount,
     string Currency,

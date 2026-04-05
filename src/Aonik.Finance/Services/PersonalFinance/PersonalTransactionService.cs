@@ -259,6 +259,44 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
         return MapToResponse(transaction, tags);
     }
 
+    public async Task DeleteManualTransactionAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+
+        var transaction = await _financeDbContext.PersonalTransactions
+            .FirstOrDefaultAsync(
+                item => item.Id == transactionId && item.TenantId == tenantId && item.UserId == userId,
+                cancellationToken)
+            ?? throw new InvalidOperationException("Personal transaction not found.");
+
+        if (!string.Equals(transaction.SourceType, "manual", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Only manually created transactions can be deleted.");
+        }
+
+        var account = await GetOwnedAccountAsync(transaction.PersonalAccountId, userId, tenantId, cancellationToken);
+
+        // Reverse the balance delta on manual (non-linked) accounts
+        if (account != null)
+        {
+            await ApplyManualAccountBalanceDeltaAsync(
+                account,
+                tenantId,
+                userId,
+                -transaction.Amount,
+                cancellationToken);
+        }
+
+        // EF Core base SaveChangesAsync converts Remove() to soft-delete automatically
+        _financeDbContext.PersonalTransactions.Remove(transaction);
+
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+    }
+
     private Guid GetCurrentUserId()
     {
         if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
@@ -372,6 +410,7 @@ internal sealed class PersonalTransactionService : IPersonalTransactionService
             transaction.UserId,
             transaction.PersonalAccountId,
             transaction.FinancialContextId,
+            transaction.SourceType,
             transaction.OccurredAt,
             transaction.Amount,
             transaction.Currency,

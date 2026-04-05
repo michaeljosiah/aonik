@@ -20,4 +20,8 @@ public interface IPersonalTransactionService
         Guid transactionId,
         UpdateManualPersonalTransactionRequest request,
         CancellationToken cancellationToken = default);
+
+    Task DeleteManualTransactionAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken = default);
 }

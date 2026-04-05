@@ -90,12 +90,16 @@ class _TransactionDetailScreenState
   bool _didPersistCategoryChange = false;
   late String _currentCategory;
   String? _currentSubCategory;
+  bool _isDeleting = false;
 
   // Deep-link fallback loading state
   bool _isLoadingFromApi = false;
   PersonalTransactionItem? _loadedTransaction;
 
   bool get _needsRemoteLoad => widget.merchant == null;
+
+  /// Whether the current transaction was manually created and can be deleted.
+  bool get _isManualTransaction => _loadedTransaction?.isManual ?? false;
 
   @override
   void initState() {
@@ -245,6 +249,43 @@ class _TransactionDetailScreenState
 
                     const SizedBox(height: PayaboSpacing.x3),
 
+                    // ── Delete transaction (manual only) ────
+                    if (_isManualTransaction) ...<Widget>[
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _isDeleting
+                              ? null
+                              : () => _handleDeleteTransaction(context),
+                          icon: _isDeleting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  color: c.error,
+                                ),
+                          label: Text(
+                            _isDeleting
+                                ? 'Deleting...'
+                                : 'Delete transaction',
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: c.error,
+                            textStyle: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: PayaboSpacing.md),
+                    ],
+
                     // ── Mark as duplicate ───────────────────
                     Center(
                       child: TextButton(
@@ -277,6 +318,57 @@ class _TransactionDetailScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _handleDeleteTransaction(BuildContext context) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Delete transaction?'),
+        content: const Text(
+          'This will permanently remove this transaction and reverse its effect on your account balance.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      final repo = ref.read(personalTransactionsRepositoryProvider);
+      await repo.deleteTransaction(widget.transactionId);
+
+      if (!mounted) return;
+
+      // Refresh upstream providers so the list screen updates
+      ref.invalidate(accountLinksSummaryProvider);
+
+      // Navigate back, signalling that a change occurred
+      context.pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Unable to delete this transaction right now.'),
+          ),
+        );
+    }
   }
 
   void _showCategorySheet(BuildContext context) async {

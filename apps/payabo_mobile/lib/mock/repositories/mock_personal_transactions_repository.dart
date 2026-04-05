@@ -887,4 +887,20 @@ class MockPersonalTransactionsRepository
 
     return null;
   }
+
+  @override
+  Future<void> deleteTransaction(String transactionId) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('personalTransactions.deleteTransaction');
+
+    final int index = _transactions.indexWhere(
+      (PersonalTransactionItem t) => t.id == transactionId,
+    );
+
+    if (index == -1) {
+      throw Exception('Transaction not found.');
+    }
+
+    _transactions.removeAt(index);
+  }
 }

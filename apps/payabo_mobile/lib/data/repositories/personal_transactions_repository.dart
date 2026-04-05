@@ -22,6 +22,7 @@ class PersonalTransactionItem {
     required this.occurredAt,
     this.description,
     this.personalAccountId,
+    this.sourceType,
   });
 
   /// Backend UUID (`personalTransactionId`).
@@ -49,6 +50,13 @@ class PersonalTransactionItem {
   final DateTime occurredAt;
   final String? description;
   final String? personalAccountId;
+
+  /// Source type: `'manual'` for user-created, or other values for imported.
+  final String? sourceType;
+
+  /// Whether this transaction was manually created and can be deleted.
+  bool get isManual =>
+      sourceType != null && sourceType!.toLowerCase() == 'manual';
 
   // ── Pre-formatted display helpers ─────────────────────────────────────────
 
@@ -180,4 +188,8 @@ abstract class PersonalTransactionsRepository {
   );
 
   Future<PersonalTransactionItem?> getTransaction(String transactionId);
+
+  /// Deletes a manually created transaction. Throws if the transaction
+  /// is not manual or does not exist.
+  Future<void> deleteTransaction(String transactionId);
 }
