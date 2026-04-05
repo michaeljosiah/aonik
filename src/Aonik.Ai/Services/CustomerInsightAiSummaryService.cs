@@ -117,7 +117,15 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
                     schemaDescription: "A structured AI summary of a customer insight snapshot.")
             };
             var response = await _chatClient.GetResponseAsync(messages, chatOptions, cancellationToken);
-            var generated = GenerateSummary(response.Text ?? string.Empty, narrativeVersion);
+            var responseText = response.Text ?? string.Empty;
+
+            _logger.LogInformation(
+                "AI summary LLM response for snapshot {SnapshotId}: length={Length}, first100={First100}",
+                customerInsightSnapshotId,
+                responseText.Length,
+                responseText.Length > 100 ? responseText[..100] : responseText);
+
+            var generated = GenerateSummary(responseText, narrativeVersion);
 
             var entity = new CustomerInsightAiSummary
             {
