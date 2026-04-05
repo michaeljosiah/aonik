@@ -29,6 +29,7 @@ public class TenantContextMiddleware
             if (path.StartsWithSegments("/health") ||
                 path.StartsWithSegments("/alive") ||
                 path.StartsWithSegments("/swagger") ||
+                path.StartsWithSegments("/scalar") ||
                 path.StartsWithSegments("/host") ||
                 path.StartsWithSegments("/bootstrap") ||
                 HttpMethods.IsOptions(context.Request.Method))

@@ -163,11 +163,8 @@ if (autoMigrateEnabled || seedDataEnabled)
 
 
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "dev")
-{
-    app.UseAonikSwagger(builder.Configuration);
-}
+// Configure the HTTP request pipeline — Swagger/Scalar setup is deferred
+// until after routing so MapScalarApiReference can register its endpoint.
 
 // Map default Aspire endpoints (health, metrics)
 app.MapDefaultEndpoints();
@@ -368,6 +365,9 @@ app.MapPlaygroundStreaming("/ai/playground/run")
 app.MapAdminNotificationStreaming("/admin/notifications/stream")
     .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");
+
+// Scalar API Reference (OpenAPI UI) — must be after routing/FastEndpoints
+app.UseAonikSwagger(builder.Configuration);
 
 app.Run();
 

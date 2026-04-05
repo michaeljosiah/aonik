@@ -24,10 +24,11 @@ public class TenantValidationMiddleware
     {
         try
         {
-            // Skip health and swagger (public endpoints)
+            // Skip health, swagger, and scalar (public endpoints)
             if (context.Request.Path.StartsWithSegments("/health") ||
                 context.Request.Path.StartsWithSegments("/alive") ||
                 context.Request.Path.StartsWithSegments("/swagger") ||
+                context.Request.Path.StartsWithSegments("/scalar") ||
                 HttpMethods.IsOptions(context.Request.Method))
             {
                 await _next(context);
