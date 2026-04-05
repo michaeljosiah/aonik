@@ -94,13 +94,6 @@ internal static class ScheduledJobDefinitions
                 "Detects stale chat sessions and generates conversation summaries.",
                 options.StaleSessionDetector.CronExpression,
                 options.StaleSessionDetector.Enabled),
-            new ScheduledJobDefinition<BehaviouralInsightJob>(
-                BehaviouralInsightJob.Key,
-                new TriggerKey("BehaviouralInsightJob-trigger", ScheduledJobGroups.ScheduledJobs),
-                "Behavioural Insight",
-                "Materializes secondary behavioural insight records from canonical customer insight snapshots.",
-                options.BehaviouralInsight.CronExpression,
-                options.BehaviouralInsight.Enabled),
             new ScheduledJobDefinition<CustomerInsightSnapshotJob>(
                 CustomerInsightSnapshotJob.Key,
                 new TriggerKey("CustomerInsightSnapshotJob-trigger", ScheduledJobGroups.ScheduledJobs),

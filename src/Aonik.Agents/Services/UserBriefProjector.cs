@@ -50,13 +50,13 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             options.SpendPeriodEnd);
 
         var financeTask = _financeData.GetFinancialDataAsync(tenantId, userId, financeRequest, cancellationToken);
-        var aiTask = GetAiDataAsync(tenantId, userId, options, cancellationToken);
+        var memoryTask = _aiData.GetCurrentMemoryEntriesAsync(tenantId, userId, cancellationToken);
         var userContextTask = _userContextData.GetUserContextDataAsync(tenantId, userId, cancellationToken);
 
-        await Task.WhenAll(financeTask, aiTask, userContextTask);
+        await Task.WhenAll(financeTask, memoryTask, userContextTask);
 
         var financeData = await financeTask;
-        var (insights, memoryEntries) = await aiTask;
+        var memoryEntries = await memoryTask;
         var userContextData = await userContextTask;
         var customerInsightSummary = financeData.CustomerInsightSnapshot is null
             ? null
@@ -89,7 +89,7 @@ internal sealed class UserBriefProjector : IUserBriefProjector
             memoryEntries,
             conversationSummaries);
         var cashflowRisk = DeriveCashflowRisk(financeData);
-        var behaviouralInsights = AssembleBehaviouralInsights(financeData.CustomerInsightSnapshot, insights);
+        var behaviouralInsights = AssembleBehaviouralInsights(financeData.CustomerInsightSnapshot);
         var conversationMemory = AssembleConversationMemory(conversationSummaries);
         var policyContext = DerivePolicyContext(memoryEntries);
 
@@ -109,17 +109,6 @@ internal sealed class UserBriefProjector : IUserBriefProjector
 
         // ── Token budget enforcement ───────────────────────────────────
         return ApplyTokenBudget(brief, options.TokenBudget);
-    }
-
-    private async Task<(IReadOnlyList<UserBriefInsightData> Insights, IReadOnlyList<UserBriefMemoryEntryData> MemoryEntries)> GetAiDataAsync(
-        Guid tenantId,
-        Guid userId,
-        UserBriefOptions options,
-        CancellationToken cancellationToken)
-    {
-        var insights = await _aiData.GetBehaviouralInsightsAsync(tenantId, userId, options.MaxBehaviouralInsights, cancellationToken);
-        var memoryEntries = await _aiData.GetCurrentMemoryEntriesAsync(tenantId, userId, cancellationToken);
-        return (insights, memoryEntries);
     }
 
     private static UserBriefProfile AssembleUserProfile(
@@ -295,22 +284,20 @@ internal sealed class UserBriefProjector : IUserBriefProjector
     }
 
     private static IReadOnlyList<UserBriefBehaviouralInsight> AssembleBehaviouralInsights(
-        UserBriefCustomerInsightSnapshotData? snapshot,
-        IReadOnlyList<UserBriefInsightData> insights)
+        UserBriefCustomerInsightSnapshotData? snapshot)
     {
-        if (snapshot is not null && snapshot.KeyBehaviourSignals.Count > 0)
+        if (snapshot is null || snapshot.KeyBehaviourSignals.Count == 0)
         {
-            return snapshot.KeyBehaviourSignals
-                .Select(signal => new UserBriefBehaviouralInsight(
-                    signal.Category,
-                    signal.Title,
-                    signal.Description,
-                    MapSignalConfidence(signal.Confidence)))
-                .ToList();
+            return [];
         }
 
-        return insights.Select(i => new UserBriefBehaviouralInsight(
-            i.InsightType, i.Title, i.Summary, i.Confidence)).ToList();
+        return snapshot.KeyBehaviourSignals
+            .Select(signal => new UserBriefBehaviouralInsight(
+                signal.Category,
+                signal.Title,
+                signal.Description,
+                MapSignalConfidence(signal.Confidence)))
+            .ToList();
     }
 
     private static decimal MapSignalConfidence(string confidence) => confidence switch

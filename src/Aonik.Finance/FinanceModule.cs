@@ -139,8 +139,6 @@ public sealed class FinanceModule : IModule
         // Cross-module data provider for the UserBriefProjector (Agents module)
         services.AddScoped<SharedKernel.Abstractions.PersonalFinance.IUserBriefDataProvider, Services.PersonalFinance.UserBriefDataProvider>();
 
-        // Behavioural insight pre-computation (consumed by background worker)
-        services.AddScoped<Services.PersonalFinance.BehaviouralInsightGenerator>();
         services.AddTransient<Contracts.Services.PersonalFinance.IPersonalAccountLinkProviderGateway>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<Services.PersonalFinance.PlaidAccountLinkOptions>>().Value;

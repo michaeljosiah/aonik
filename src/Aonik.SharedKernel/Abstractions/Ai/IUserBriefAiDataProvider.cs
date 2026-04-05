@@ -16,15 +16,6 @@ public interface IUserBriefAiDataProvider
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves top behavioural insights for a user, filtered by confidence and expiry.
-    /// </summary>
-    Task<IReadOnlyList<UserBriefInsightData>> GetBehaviouralInsightsAsync(
-        Guid tenantId,
-        Guid userId,
-        int maxResults = 5,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Retrieves the current AI interpretation for the user's current deterministic
     /// customer insight snapshot, if one exists.
     /// </summary>
@@ -41,13 +32,6 @@ public record UserBriefMemoryEntryData(
     string ValueJson,
     decimal EffectiveConfidence,
     string Source);
-
-public record UserBriefInsightData(
-    string InsightType,
-    string Title,
-    string Summary,
-    decimal Confidence,
-    string? MetadataJson);
 
 public record UserBriefCustomerInsightAiSummaryData(
     string Headline,

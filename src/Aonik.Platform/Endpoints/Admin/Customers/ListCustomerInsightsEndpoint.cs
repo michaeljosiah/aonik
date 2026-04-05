@@ -6,18 +6,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Platform.Endpoints.Admin.Customers;
 
-internal sealed class CustomerInsightItem
+internal sealed class CustomerInsightAiSummaryDetail
 {
     public Guid Id { get; set; }
-    public string SubjectType { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
+    public string Headline { get; set; } = string.Empty;
     public string Summary { get; set; } = string.Empty;
+    public IReadOnlyList<string> KeyObservations { get; set; } = [];
+    public IReadOnlyList<string> PositivePatterns { get; set; } = [];
+    public IReadOnlyList<string> RiskPatterns { get; set; } = [];
+    public IReadOnlyList<string> RecommendedFocusAreas { get; set; } = [];
+    public IReadOnlyList<string> ConversationSuggestions { get; set; } = [];
+    public IReadOnlyList<string> Caveats { get; set; } = [];
+    public string NarrativeVersion { get; set; } = string.Empty;
+    public DateTime CreatedUtc { get; set; }
+}
+
+internal sealed class CustomerInsightSnapshotOverview
+{
+    public Guid Id { get; set; }
+    public DateTime AsOfUtc { get; set; }
+    public bool IsPartial { get; set; }
+    public string? TopSignalTitle { get; set; }
+    public string? TopSignalDescription { get; set; }
+    public string? CashflowStressLevel { get; set; }
     public DateTime CreatedUtc { get; set; }
 }
 
 internal sealed class ListCustomerInsightsResponse
 {
-    public IReadOnlyList<CustomerInsightItem> Items { get; set; } = [];
+    public CustomerInsightAiSummaryDetail? AiSummary { get; set; }
+    public CustomerInsightSnapshotOverview? Snapshot { get; set; }
 }
 
 internal sealed class ListCustomerInsightsEndpoint : EndpointWithoutRequest<ListCustomerInsightsResponse>
@@ -25,18 +43,15 @@ internal sealed class ListCustomerInsightsEndpoint : EndpointWithoutRequest<List
     private readonly PlatformDbContext _dbContext;
     private readonly ICustomerInsightSnapshotReader _snapshotReader;
     private readonly ICustomerInsightAiSummaryReader _summaryReader;
-    private readonly IInsightReader _insightReader;
 
     public ListCustomerInsightsEndpoint(
         PlatformDbContext dbContext,
         ICustomerInsightSnapshotReader snapshotReader,
-        ICustomerInsightAiSummaryReader summaryReader,
-        IInsightReader insightReader)
+        ICustomerInsightAiSummaryReader summaryReader)
     {
         _dbContext = dbContext;
         _snapshotReader = snapshotReader;
         _summaryReader = summaryReader;
-        _insightReader = insightReader;
     }
 
     public override void Configure()
@@ -62,104 +77,48 @@ internal sealed class ListCustomerInsightsEndpoint : EndpointWithoutRequest<List
         }
 
         var snapshot = await _snapshotReader.GetCurrentSnapshotAsync(userId, ct);
-        if (snapshot?.Snapshot is not null)
+        if (snapshot?.Snapshot is null)
         {
-            var aiSummary = await _summaryReader.GetCurrentSummaryForSnapshotAsync(snapshot.Id, ct);
-            var canonicalItems = BuildCanonicalItems(snapshot, aiSummary);
-            await Send.OkAsync(new ListCustomerInsightsResponse { Items = canonicalItems }, ct);
+            await Send.OkAsync(new ListCustomerInsightsResponse(), ct);
             return;
         }
 
-        var insights = await _insightReader.ListBySubjectAsync("UserBehaviour", userId, ct);
-
-        var items = insights.Select(i => new CustomerInsightItem
+        var snapshotOverview = new CustomerInsightSnapshotOverview
         {
-            Id = i.Id,
-            SubjectType = i.SubjectType,
-            Title = i.Title,
-            Summary = i.Summary,
-            CreatedUtc = i.CreatedUtc
-        }).ToList();
+            Id = snapshot.Id,
+            AsOfUtc = snapshot.AsOfUtc,
+            IsPartial = snapshot.Snapshot.Coverage.IsPartial,
+            TopSignalTitle = snapshot.Snapshot.Signals.FirstOrDefault()?.Title,
+            TopSignalDescription = snapshot.Snapshot.Signals.FirstOrDefault()?.Description,
+            CashflowStressLevel = snapshot.Snapshot.Risk.CashflowStressLevel,
+            CreatedUtc = snapshot.CreatedAt
+        };
 
-        await Send.OkAsync(new ListCustomerInsightsResponse { Items = items }, ct);
-    }
+        var aiSummary = await _summaryReader.GetCurrentSummaryForSnapshotAsync(snapshot.Id, ct);
 
-    private static IReadOnlyList<CustomerInsightItem> BuildCanonicalItems(
-        Aonik.Finance.Contracts.Models.PersonalFinance.CustomerInsightSnapshotResponse snapshot,
-        CustomerInsightAiSummaryResponse? aiSummary)
-    {
+        CustomerInsightAiSummaryDetail? aiSummaryDetail = null;
         if (aiSummary?.Summary is not null)
         {
-            return
-            [
-                new CustomerInsightItem
-                {
-                    Id = aiSummary.Id,
-                    SubjectType = "CustomerInsightAiSummary",
-                    Title = aiSummary.Summary.Headline,
-                    Summary = BuildAiSummary(aiSummary),
-                    CreatedUtc = aiSummary.CreatedAt
-                }
-            ];
-        }
-
-        return
-        [
-            new CustomerInsightItem
+            aiSummaryDetail = new CustomerInsightAiSummaryDetail
             {
-                Id = snapshot.Id,
-                SubjectType = "CustomerInsightSnapshot",
-                Title = snapshot.Snapshot!.Signals.FirstOrDefault()?.Title ?? "Customer insight snapshot available",
-                Summary = BuildSnapshotFallbackSummary(snapshot.Snapshot),
-                CreatedUtc = snapshot.CreatedAt
-            }
-        ];
-    }
-
-    private static string BuildAiSummary(CustomerInsightAiSummaryResponse summary)
-    {
-        var parts = new List<string> { summary.Summary!.Summary };
-
-        if (summary.Summary.RecommendedFocusAreas.Count > 0)
-        {
-            parts.Add($"Focus: {string.Join("; ", summary.Summary.RecommendedFocusAreas.Take(2))}.");
+                Id = aiSummary.Id,
+                Headline = aiSummary.Summary.Headline,
+                Summary = aiSummary.Summary.Summary,
+                KeyObservations = aiSummary.Summary.KeyObservations,
+                PositivePatterns = aiSummary.Summary.PositivePatterns,
+                RiskPatterns = aiSummary.Summary.RiskPatterns,
+                RecommendedFocusAreas = aiSummary.Summary.RecommendedFocusAreas,
+                ConversationSuggestions = aiSummary.Summary.ConversationSuggestions,
+                Caveats = aiSummary.Summary.Caveats,
+                NarrativeVersion = aiSummary.NarrativeVersion,
+                CreatedUtc = aiSummary.CreatedAt
+            };
         }
 
-        if (summary.Summary.Caveats.Count > 0)
+        await Send.OkAsync(new ListCustomerInsightsResponse
         {
-            parts.Add(string.Join(" ", summary.Summary.Caveats.Take(1)));
-        }
-
-        return string.Join(" ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
-    }
-
-    private static string BuildSnapshotFallbackSummary(
-        Aonik.Finance.Contracts.Models.PersonalFinance.CustomerInsightSnapshotDocument snapshot)
-    {
-        var parts = new List<string>();
-
-        var topCategory = snapshot.Metrics.Categories.TopCategoriesByAmount.FirstOrDefault();
-        if (topCategory is not null)
-        {
-            parts.Add($"Top spend category is {topCategory.Category} at {topCategory.Amount} {topCategory.Currency} ({topCategory.ShareOfSpend}% of spend).");
-        }
-
-        var topSignal = snapshot.Signals.FirstOrDefault();
-        if (topSignal is not null)
-        {
-            parts.Add(topSignal.Description);
-        }
-
-        if (!string.Equals(snapshot.Risk.CashflowStressLevel, "Low", StringComparison.OrdinalIgnoreCase))
-        {
-            parts.Add($"Cashflow stress level: {snapshot.Risk.CashflowStressLevel}.");
-        }
-
-        if (snapshot.Coverage.IsPartial)
-        {
-            parts.Add("This deterministic snapshot is partial.");
-        }
-
-        return string.Join(" ", parts);
+            AiSummary = aiSummaryDetail,
+            Snapshot = snapshotOverview
+        }, ct);
     }
 }

@@ -62,32 +62,6 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
             .ToList();
     }
 
-    public async Task<IReadOnlyList<UserBriefInsightData>> GetBehaviouralInsightsAsync(
-        Guid tenantId,
-        Guid userId,
-        int maxResults = 5,
-        CancellationToken cancellationToken = default)
-    {
-        var now = DateTime.UtcNow;
-
-        var insights = await _dbContext.Insights
-            .Where(i => i.TenantId == tenantId
-                && i.UserId == userId
-                && i.SubjectType == "UserBehaviour"
-                && (i.ExpiresAt == null || i.ExpiresAt > now))
-            .OrderByDescending(i => i.CreatedUtc)
-            .Take(maxResults)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
-
-        return insights.Select(i => new UserBriefInsightData(
-            i.SubjectType,
-            i.Title,
-            i.Summary,
-            1.0m, // Insights don't have a confidence field; default to 1.0
-            i.MetadataJson)).ToList();
-    }
-
     public async Task<UserBriefCustomerInsightAiSummaryData?> GetCurrentCustomerInsightAiSummaryAsync(
         Guid tenantId,
         Guid userId,

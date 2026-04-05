@@ -42,14 +42,31 @@ export const customerService = {
   },
 };
 
-export interface CustomerInsightItem {
+export interface CustomerInsightAiSummaryDetail {
   id: string;
-  subjectType: string;
-  title: string;
+  headline: string;
   summary: string;
+  keyObservations: string[];
+  positivePatterns: string[];
+  riskPatterns: string[];
+  recommendedFocusAreas: string[];
+  conversationSuggestions: string[];
+  caveats: string[];
+  narrativeVersion: string;
+  createdUtc: string;
+}
+
+export interface CustomerInsightSnapshotOverview {
+  id: string;
+  asOfUtc: string;
+  isPartial: boolean;
+  topSignalTitle: string | null;
+  topSignalDescription: string | null;
+  cashflowStressLevel: string | null;
   createdUtc: string;
 }
 
 export interface CustomerInsightsResponse {
-  items: CustomerInsightItem[];
+  aiSummary: CustomerInsightAiSummaryDetail | null;
+  snapshot: CustomerInsightSnapshotOverview | null;
 }

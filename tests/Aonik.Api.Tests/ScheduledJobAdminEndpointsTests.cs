@@ -66,11 +66,11 @@ public class ScheduledJobAdminEndpointsTests : IClassFixture<CustomWebApplicatio
         await SeedProjectionAsync(tenantId, new ScheduledJobProjection
         {
             TenantId = Guid.Empty,
-            JobName = "BehaviouralInsightJob",
+            JobName = "CustomerInsightSnapshotJob",
             GroupName = ScheduledJobGroups.ScheduledJobs,
-            DisplayName = "Behavioural Insight",
-            Description = "Pre-computes behavioural insights.",
-            CronExpression = "0 0 0/6 * * ?",
+            DisplayName = "Customer Insight Snapshot",
+            Description = "Generates deterministic customer insight snapshots.",
+            CronExpression = "0 0/15 * * * ?",
             TimeZoneId = "UTC",
             State = ScheduledJobStates.Active,
             LastSyncedAtUtc = DateTime.UtcNow,
@@ -82,7 +82,7 @@ public class ScheduledJobAdminEndpointsTests : IClassFixture<CustomWebApplicatio
                 .WithRoles("TenantAdmin"));
 
         // Act
-        var response = await client.PostAsync("/admin/jobs/scheduled/BehaviouralInsightJob/trigger", content: null);
+        var response = await client.PostAsync("/admin/jobs/scheduled/CustomerInsightSnapshotJob/trigger", content: null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -100,7 +100,7 @@ public class ScheduledJobAdminEndpointsTests : IClassFixture<CustomWebApplicatio
 
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var command = await dbContext.ScheduledJobAdminCommands.SingleAsync();
-        command.JobName.Should().Be("BehaviouralInsightJob");
+        command.JobName.Should().Be("CustomerInsightSnapshotJob");
         command.CommandType.Should().Be(ScheduledJobCommandTypes.Trigger);
         command.Status.Should().Be(ScheduledJobCommandStatuses.Pending);
     }

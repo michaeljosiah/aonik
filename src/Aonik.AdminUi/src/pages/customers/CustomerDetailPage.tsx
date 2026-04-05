@@ -26,7 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { customerService } from '@/services/customerService';
-import type { CustomerInsightItem } from '@/services/customerService';
+import type { CustomerInsightsResponse } from '@/services/customerService';
 import { documentService } from '@/services/documentService';
 import type { CurrencyAmount, CustomerDetail, CustomerStats, DocumentListItem } from '@/types';
 
@@ -37,11 +37,6 @@ const statusStyles: Record<string, { text: string; bg: string }> = {
   Inactive: { text: 'text-[var(--color-text-tertiary)]', bg: 'bg-[var(--color-surface-inset)]' },
 };
 
-const insightTypeLabels: Record<string, string> = {
-  CustomerInsightAiSummary: 'AI Summary',
-  CustomerInsightSnapshot: 'Snapshot',
-  UserBehaviour: 'Legacy',
-};
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -65,7 +60,7 @@ export function CustomerDetailPage() {
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
-  const [insights, setInsights] = useState<CustomerInsightItem[]>([]);
+  const [insights, setInsights] = useState<CustomerInsightsResponse | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
@@ -134,7 +129,7 @@ export function CustomerDetailPage() {
     setInsightsError(null);
     try {
       const result = await customerService.listInsights(partyId);
-      setInsights(result.items);
+      setInsights(result);
     } catch (err: unknown) {
       console.error('Failed to load customer insights:', err);
       const message = err && typeof err === 'object' && 'userMessage' in err
@@ -772,67 +767,149 @@ export function CustomerDetailPage() {
                     </TabsContent>
 
                     <TabsContent value="insights" className="mt-0">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-sm">Customer Insights</CardTitle>
-                          <p className="text-xs text-[var(--color-text-tertiary)]">
-                            Canonical customer insight snapshots and grounded AI interpretations for this customer.
-                          </p>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {insightsError && (
-                            <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
-                              {insightsError}
-                            </div>
-                          )}
-                          {insightsLoading ? (
-                            <div className="flex items-center justify-center py-6">
+                      <div className="space-y-4">
+                        {insightsError && (
+                          <div className="rounded-sm border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+                            {insightsError}
+                          </div>
+                        )}
+                        {insightsLoading ? (
+                          <Card>
+                            <CardContent className="flex items-center justify-center py-10">
                               <div className="w-6 h-6 border-2 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
-                            </div>
-                          ) : insights.length === 0 ? (
-                            <div className="text-center py-6">
+                            </CardContent>
+                          </Card>
+                        ) : !insights?.aiSummary && !insights?.snapshot ? (
+                          <Card>
+                            <CardContent className="text-center py-10">
                               <Lightbulb className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-tertiary)]" />
                               <p className="text-sm text-[var(--color-text-secondary)]">No customer insights generated yet.</p>
                               <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                                 Insights appear after the customer insight snapshot and AI summary pipeline runs.
                               </p>
-                            </div>
-                          ) : (
-                            insights.map((insight) => (
-                              <div
-                                key={insight.id}
-                                className="border border-[var(--color-border-light)] rounded-md p-4"
-                              >
-                                <div className="flex items-start gap-3">
-                                  <Lightbulb className="w-4 h-4 mt-0.5 text-[var(--color-warning)] flex-shrink-0" />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <div className="text-sm font-medium text-[var(--color-text-primary)]">
-                                        {insight.title}
-                                      </div>
-                                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                                        {insightTypeLabels[insight.subjectType] ?? insight.subjectType}
-                                      </Badge>
-                                    </div>
-                                    <div className="text-sm text-[var(--color-text-secondary)] mt-1">
-                                      {insight.summary}
-                                    </div>
-                                    <div className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                                      Generated {new Date(insight.createdUtc).toLocaleDateString('en-US', {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })}
-                                    </div>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          <>
+                            {insights.aiSummary && (
+                              <Card>
+                                <CardHeader>
+                                  <div className="flex items-center gap-2">
+                                    <Lightbulb className="w-4 h-4 text-[var(--color-warning)]" />
+                                    <CardTitle className="text-sm">AI Summary</CardTitle>
+                                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">AI</Badge>
                                   </div>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </CardContent>
-                      </Card>
+                                  <p className="text-base font-medium text-[var(--color-text-primary)] mt-1">
+                                    {insights.aiSummary.headline}
+                                  </p>
+                                  <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                                    {insights.aiSummary.summary}
+                                  </p>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                  {insights.aiSummary.keyObservations.length > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-2">Key Observations</h4>
+                                      <ul className="space-y-1">
+                                        {insights.aiSummary.keyObservations.map((obs, i) => (
+                                          <li key={i} className="text-sm text-[var(--color-text-secondary)] flex items-start gap-2">
+                                            <span className="text-[var(--color-text-tertiary)] mt-0.5 shrink-0">&#8226;</span>
+                                            <span>{obs}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {insights.aiSummary.positivePatterns.length > 0 && (
+                                      <div className="border border-[var(--color-border-light)] rounded-md p-3">
+                                        <h4 className="text-xs font-medium text-[var(--color-success)] uppercase tracking-wide mb-2">Positive Patterns</h4>
+                                        <ul className="space-y-1">
+                                          {insights.aiSummary.positivePatterns.map((p, i) => (
+                                            <li key={i} className="text-sm text-[var(--color-text-secondary)]">{p}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    {insights.aiSummary.riskPatterns.length > 0 && (
+                                      <div className="border border-[var(--color-border-light)] rounded-md p-3">
+                                        <h4 className="text-xs font-medium text-[var(--color-error)] uppercase tracking-wide mb-2">Risk Patterns</h4>
+                                        <ul className="space-y-1">
+                                          {insights.aiSummary.riskPatterns.map((p, i) => (
+                                            <li key={i} className="text-sm text-[var(--color-text-secondary)]">{p}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {insights.aiSummary.recommendedFocusAreas.length > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-2">Recommended Focus Areas</h4>
+                                      <ul className="space-y-1">
+                                        {insights.aiSummary.recommendedFocusAreas.map((area, i) => (
+                                          <li key={i} className="text-sm text-[var(--color-text-secondary)] flex items-start gap-2">
+                                            <span className="text-[var(--color-brand-primary)] mt-0.5 shrink-0">&#8594;</span>
+                                            <span>{area}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {insights.aiSummary.caveats.length > 0 && (
+                                    <div className="bg-[var(--color-surface-inset)] rounded-md p-3">
+                                      <h4 className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wide mb-2">Caveats</h4>
+                                      <ul className="space-y-1">
+                                        {insights.aiSummary.caveats.map((c, i) => (
+                                          <li key={i} className="text-xs text-[var(--color-text-tertiary)]">{c}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  <div className="text-xs text-[var(--color-text-tertiary)] pt-2 border-t border-[var(--color-border-light)]">
+                                    Generated {formatDateTime(insights.aiSummary.createdUtc)}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+
+                            {insights.snapshot && !insights.aiSummary && (
+                              <Card>
+                                <CardHeader>
+                                  <div className="flex items-center gap-2">
+                                    <Lightbulb className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+                                    <CardTitle className="text-sm">Snapshot</CardTitle>
+                                    {insights.snapshot.isPartial && (
+                                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">Partial</Badge>
+                                    )}
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="space-y-2">
+                                  {insights.snapshot.topSignalTitle && (
+                                    <div>
+                                      <div className="text-sm font-medium text-[var(--color-text-primary)]">{insights.snapshot.topSignalTitle}</div>
+                                      {insights.snapshot.topSignalDescription && (
+                                        <div className="text-sm text-[var(--color-text-secondary)] mt-1">{insights.snapshot.topSignalDescription}</div>
+                                      )}
+                                    </div>
+                                  )}
+                                  {insights.snapshot.cashflowStressLevel && insights.snapshot.cashflowStressLevel !== 'Low' && (
+                                    <div className="text-sm text-[var(--color-text-secondary)]">
+                                      Cashflow stress: <span className="font-medium">{insights.snapshot.cashflowStressLevel}</span>
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-[var(--color-text-tertiary)]">
+                                    Snapshot as of {formatDateTime(insights.snapshot.asOfUtc)}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </TabsContent>
 
                     <TabsContent value="documents" className="mt-0">

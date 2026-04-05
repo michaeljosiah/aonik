@@ -36,16 +36,11 @@ public class UserBriefProjectorTests
     private class StubAiDataProvider : IUserBriefAiDataProvider
     {
         public List<UserBriefMemoryEntryData> MemoryEntries { get; set; } = [];
-        public List<UserBriefInsightData> Insights { get; set; } = [];
         public UserBriefCustomerInsightAiSummaryData? CustomerInsightAiSummary { get; set; }
 
         public Task<IReadOnlyList<UserBriefMemoryEntryData>> GetCurrentMemoryEntriesAsync(
             Guid tenantId, Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<UserBriefMemoryEntryData>>(MemoryEntries);
-
-        public Task<IReadOnlyList<UserBriefInsightData>> GetBehaviouralInsightsAsync(
-            Guid tenantId, Guid userId, int maxResults = 5, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<UserBriefInsightData>>(Insights.Take(maxResults).ToList());
 
         public Task<UserBriefCustomerInsightAiSummaryData?> GetCurrentCustomerInsightAiSummaryAsync(
             Guid tenantId,
@@ -173,7 +168,6 @@ public class UserBriefProjectorTests
                 new("Preference", "communication.style", "\"concise\"", 1.0m, "UserStated"),
                 new("Identity", "identity.preferred_name", "\"Ade\"", 1.0m, "UserStated")
             ],
-            Insights = [new("UserBehaviour", "Late-month spending spike", "You tend to spend 30% more.", 0.82m, null)],
             CustomerInsightAiSummary = CreateAiSummaryData()
         };
         var userContextData = new StubUserContextDataProvider();
@@ -258,14 +252,7 @@ public class UserBriefProjectorTests
         var financeData = new StubFinanceDataProvider();
         var aiData = new StubAiDataProvider
         {
-            CustomerInsightAiSummary = CreateAiSummaryData(),
-            Insights =
-            [
-                new("UserBehaviour", "Insight 1", "Summary 1", 0.9m, null),
-                new("UserBehaviour", "Insight 2", "Summary 2", 0.9m, null),
-                new("UserBehaviour", "Insight 3", "Summary 3", 0.9m, null),
-                new("UserBehaviour", "Insight 4", "Summary 4", 0.9m, null)
-            ]
+            CustomerInsightAiSummary = CreateAiSummaryData()
         };
         var userContextData = new StubUserContextDataProvider();
         using var db = CreateDbContext();

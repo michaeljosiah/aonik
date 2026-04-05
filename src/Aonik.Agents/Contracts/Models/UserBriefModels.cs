@@ -202,9 +202,6 @@ public record UserBriefOptions
     /// <summary>How many recent conversation summaries to include.</summary>
     public int ConversationHistoryDepth { get; init; } = 3;
 
-    /// <summary>Maximum number of behavioural insights to include.</summary>
-    public int MaxBehaviouralInsights { get; init; } = 5;
-
     /// <summary>Whether to include full account balances or just totals.</summary>
     public bool IncludeAccountDetail { get; init; } = true;
 
