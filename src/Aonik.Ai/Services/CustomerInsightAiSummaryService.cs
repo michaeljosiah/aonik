@@ -107,7 +107,11 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
 
             messages.Add(new ChatMessage(ChatRole.User, userPrompt));
 
-            var chatOptions = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+            var chatOptions = new ChatOptions
+            {
+                ModelId = profile.ModelId,
+                ResponseFormat = ChatResponseFormat.Json
+            };
             var response = await _chatClient.GetResponseAsync(messages, chatOptions, cancellationToken);
             var generated = GenerateSummary(response.Text ?? string.Empty, narrativeVersion);
 
@@ -267,23 +271,40 @@ internal sealed class CustomerInsightAiSummaryService : ICustomerInsightAiSummar
     private static string StripJsonFences(string responseText)
     {
         var trimmed = responseText.Trim();
-        if (!trimmed.StartsWith("```", StringComparison.Ordinal))
+
+        // Strip markdown code fences if present.
+        if (trimmed.StartsWith("```", StringComparison.Ordinal))
+        {
+            var firstNewline = trimmed.IndexOf('\n');
+            if (firstNewline >= 0)
+            {
+                trimmed = trimmed[(firstNewline + 1)..];
+            }
+
+            if (trimmed.EndsWith("```", StringComparison.Ordinal))
+            {
+                trimmed = trimmed[..^3];
+            }
+
+            trimmed = trimmed.Trim();
+        }
+
+        // If the result already looks like a JSON object, return as-is.
+        if (trimmed.StartsWith('{'))
         {
             return trimmed;
         }
 
-        var firstNewline = trimmed.IndexOf('\n');
-        if (firstNewline >= 0)
+        // The LLM may have included prose before/after the JSON object.
+        // Extract the outermost { ... } block.
+        var firstBrace = trimmed.IndexOf('{');
+        var lastBrace = trimmed.LastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace)
         {
-            trimmed = trimmed[(firstNewline + 1)..];
+            return trimmed[firstBrace..(lastBrace + 1)];
         }
 
-        if (trimmed.EndsWith("```", StringComparison.Ordinal))
-        {
-            trimmed = trimmed[..^3];
-        }
-
-        return trimmed.Trim();
+        return trimmed;
     }
 
     private static string TruncateFailureReason(string failureReason)

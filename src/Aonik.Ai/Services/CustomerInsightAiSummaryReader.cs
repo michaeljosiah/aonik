@@ -52,7 +52,14 @@ internal sealed class CustomerInsightAiSummaryReader : ICustomerInsightAiSummary
         CustomerInsightAiSummaryDocument? document = null;
         if (!string.IsNullOrWhiteSpace(summary.SummaryJson))
         {
-            document = JsonSerializer.Deserialize<CustomerInsightAiSummaryDocument>(summary.SummaryJson, JsonOptions);
+            try
+            {
+                document = JsonSerializer.Deserialize<CustomerInsightAiSummaryDocument>(summary.SummaryJson, JsonOptions);
+            }
+            catch (JsonException)
+            {
+                // Corrupted or incompatible stored JSON — surface the summary without a document.
+            }
         }
 
         return new CustomerInsightAiSummaryResponse(
