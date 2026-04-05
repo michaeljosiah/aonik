@@ -140,7 +140,7 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
     }
 
     [Fact]
-    public async Task AdminCustomerInsights_ShouldPreferCanonicalAiSummary_OverLegacyBehaviourInsights()
+    public async Task AdminCustomerInsights_ShouldReturnStructuredAiSummary()
     {
         // Arrange
         var tenantId = Guid.Parse("90909090-9090-9090-9090-909090909090");
@@ -149,7 +149,6 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
         var snapshotId = await SeedSingleCurrentSnapshotAsync(tenantId, userId, version: 1, supersededById: null);
         await SeedCurrentAiSummaryAsync(tenantId, userId, snapshotId);
         await SeedAdminCustomerLinkAsync(tenantId, userId, partyId);
-        await SeedLegacyBehaviourInsightAsync(tenantId, userId);
 
         var client = await _factory.CreateAuthenticatedClientAsync(
             TestAuthOptions.Create()
@@ -163,10 +162,15 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         payload.Should().NotBeNull();
-        payload!.Items.Should().ContainSingle();
-        payload.Items[0].SubjectType.Should().Be("CustomerInsightAiSummary");
-        payload.Items[0].Title.Should().Be("Stable cash position");
-        payload.Items[0].Summary.Should().Contain("Cashflow remains stable");
+        payload!.AiSummary.Should().NotBeNull();
+        payload.AiSummary!.Headline.Should().Be("Stable cash position");
+        payload.AiSummary.Summary.Should().Contain("Cashflow remains stable");
+        payload.AiSummary.KeyObservations.Should().ContainSingle();
+        payload.AiSummary.PositivePatterns.Should().ContainSingle();
+        payload.AiSummary.RiskPatterns.Should().ContainSingle();
+        payload.AiSummary.RecommendedFocusAreas.Should().ContainSingle();
+        payload.Snapshot.Should().NotBeNull();
+        payload.Snapshot!.IsPartial.Should().BeFalse();
     }
 
     private async Task SeedSnapshotsAsync(Guid tenantId, Guid userId)
@@ -383,28 +387,6 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
         await platformDbContext.SaveChangesAsync();
     }
 
-    private async Task SeedLegacyBehaviourInsightAsync(Guid tenantId, Guid userId)
-    {
-        await using var scope = _factory.Services.CreateAsyncScope();
-        var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
-        tenantContext.TenantId = tenantId;
-        tenantContext.ResolutionSource = "test";
-
-        var aiDbContext = scope.ServiceProvider.GetRequiredService<AiDbContext>();
-        aiDbContext.Insights.Add(new Insight
-        {
-            TenantId = tenantId,
-            UserId = userId,
-            SubjectType = "UserBehaviour",
-            SubjectId = userId,
-            Title = "Legacy behavioural insight",
-            Summary = "This should not be shown when canonical insights exist.",
-            CreatedUtc = DateTime.UtcNow.AddDays(-1)
-        });
-
-        await aiDbContext.SaveChangesAsync();
-    }
-
     private static string BuildSnapshotJson(Guid tenantId, Guid userId, decimal totalBalance)
     {
         var document = new CustomerInsightSnapshotDocument(
@@ -508,15 +490,32 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
 
     private sealed class CustomerInsightsResponse
     {
-        public List<CustomerInsightItem> Items { get; set; } = [];
+        public CustomerInsightAiSummaryDetail? AiSummary { get; set; }
+        public CustomerInsightSnapshotOverview? Snapshot { get; set; }
     }
 
-    private sealed class CustomerInsightItem
+    private sealed class CustomerInsightAiSummaryDetail
     {
         public Guid Id { get; set; }
-        public string SubjectType { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
+        public string Headline { get; set; } = string.Empty;
         public string Summary { get; set; } = string.Empty;
+        public List<string> KeyObservations { get; set; } = [];
+        public List<string> PositivePatterns { get; set; } = [];
+        public List<string> RiskPatterns { get; set; } = [];
+        public List<string> RecommendedFocusAreas { get; set; } = [];
+        public List<string> ConversationSuggestions { get; set; } = [];
+        public List<string> Caveats { get; set; } = [];
+        public string NarrativeVersion { get; set; } = string.Empty;
+        public DateTime CreatedUtc { get; set; }
+    }
+
+    private sealed class CustomerInsightSnapshotOverview
+    {
+        public Guid Id { get; set; }
+        public DateTime AsOfUtc { get; set; }
+        public bool IsPartial { get; set; }
+        public string? TopSignalTitle { get; set; }
+        public string? CashflowStressLevel { get; set; }
         public DateTime CreatedUtc { get; set; }
     }
 }
