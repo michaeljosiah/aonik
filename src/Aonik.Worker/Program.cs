@@ -32,6 +32,21 @@ var quartzSchedulerName = builder.Configuration.GetValue<string>("Quartz:Persist
 var quartzMisfireThresholdSeconds = builder.Configuration.GetValue<int>("Quartz:Persistence:MisfireThresholdSeconds", 60);
 var quartzClustered = builder.Configuration.GetValue<bool>("Quartz:Persistence:Clustered");
 var quartzClusterCheckinIntervalSeconds = builder.Configuration.GetValue<int>("Quartz:Persistence:ClusterCheckinIntervalSeconds", 15);
+var quartzConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("AonikDb");
+
+if (quartzPersistenceEnabled && string.IsNullOrWhiteSpace(quartzConnectionString))
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        quartzConnectionString = "Server=(localdb)\\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection or ConnectionStrings:AonikDb is required when Quartz persistence is enabled.");
+    }
+}
 
 // Read job options for Quartz configuration
 var jobOptions = builder.Configuration
@@ -69,15 +84,12 @@ builder.Services.AddQuartz(q =>
 
     if (quartzPersistenceEnabled)
     {
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-            ?? builder.Configuration.GetConnectionString("AonikDb");
-
         q.UsePersistentStore(store =>
         {
             store.UseProperties = true;
             store.UseSqlServer(sql =>
             {
-                sql.ConnectionString = connectionString!;
+                sql.ConnectionString = quartzConnectionString!;
                 sql.TablePrefix = quartzTablePrefix;
             });
             store.UseSystemTextJsonSerializer();

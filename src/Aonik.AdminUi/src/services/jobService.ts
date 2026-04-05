@@ -67,6 +67,30 @@ export interface ScheduledJobCommandSummary {
   processedAtUtc: string | null;
 }
 
+export function buildJobRunAuditUrl(run: Pick<ScheduledJobRunSummary, 'id' | 'fireInstanceId'>): string {
+  const params = new URLSearchParams({
+    action: 'ScheduledJobRunFailed',
+    resourceType: 'ScheduledJobRun',
+    resourceId: run.id,
+  });
+
+  if (run.fireInstanceId) {
+    params.set('correlationId', run.fireInstanceId);
+  }
+
+  return `/settings/audit-logs?${params.toString()}`;
+}
+
+export function buildJobCommandAuditUrl(command: Pick<ScheduledJobCommandSummary, 'id'>): string {
+  const params = new URLSearchParams({
+    resourceType: 'ScheduledJobAdminCommand',
+    resourceId: command.id,
+    correlationId: command.id,
+  });
+
+  return `/settings/audit-logs?${params.toString()}`;
+}
+
 export interface SchedulerHealthResponse {
   schedulerName: string;
   schedulerInstanceId: string;

@@ -94,6 +94,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Operations
     public virtual DbSet<WorkItem> WorkItems { get; set; } = null!;
     public virtual DbSet<Job> Jobs { get; set; } = null!;
+    public virtual DbSet<ScheduledJobProjection> ScheduledJobProjections { get; set; } = null!;
+    public virtual DbSet<ScheduledJobAdminCommand> ScheduledJobAdminCommands { get; set; } = null!;
+    public virtual DbSet<ScheduledJobRun> ScheduledJobRuns { get; set; } = null!;
+    public virtual DbSet<SchedulerHealthSnapshot> SchedulerHealthSnapshots { get; set; } = null!;
     public virtual DbSet<AzureMonitorAlertEvent> AzureMonitorAlertEvents { get; set; } = null!;
 
     // Notifications
@@ -190,11 +194,21 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
             typeof(PromptSpec));
 
         ApplyDboPrefixedTableNames(modelBuilder);
+        ConfigureScheduledJobProjection(modelBuilder);
+        ConfigureScheduledJobAdminCommand(modelBuilder);
+        ConfigureScheduledJobRun(modelBuilder);
+        ConfigureSchedulerHealthSnapshot(modelBuilder);
     }
 
     protected override bool IsGlobalEntity(object entity)
     {
-        return entity is Role or Job or AzureMonitorAlertEvent;
+        return entity is Role
+            or Job
+            or ScheduledJobProjection
+            or ScheduledJobAdminCommand
+            or ScheduledJobRun
+            or SchedulerHealthSnapshot
+            or AzureMonitorAlertEvent;
     }
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
@@ -248,6 +262,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapPlatformTable<WorkItem>(modelBuilder, "WorkItems");
         MapPlatformTable<Job>(modelBuilder, "Jobs");
+        MapPlatformTable<ScheduledJobProjection>(modelBuilder, "ScheduledJobProjections");
+        MapPlatformTable<ScheduledJobAdminCommand>(modelBuilder, "ScheduledJobAdminCommands");
+        MapPlatformTable<ScheduledJobRun>(modelBuilder, "ScheduledJobRuns");
+        MapPlatformTable<SchedulerHealthSnapshot>(modelBuilder, "SchedulerHealthSnapshots");
         MapPlatformTable<AzureMonitorAlertEvent>(modelBuilder, "AzureMonitorAlertEvents");
         MapPlatformTable<Notification>(modelBuilder, "Notifications");
         MapPlatformTable<NotificationDevice>(modelBuilder, "NotificationDevices");
@@ -371,5 +389,151 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     {
         modelBuilder.Entity<TEntity>()
             .ToTable($"{ModuleTablePrefixes.Agents}{tableName}", SchemaNames.Default);
+    }
+
+    private static void ConfigureScheduledJobProjection(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<ScheduledJobProjection>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.JobName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.GroupName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.DisplayName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.Description)
+            .IsRequired()
+            .HasMaxLength(1000);
+
+        builder.Property(x => x.CronExpression)
+            .IsRequired()
+            .HasMaxLength(120);
+
+        builder.Property(x => x.TimeZoneId)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.State)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.LastOutcome)
+            .HasMaxLength(50);
+
+        builder.Property(x => x.LastOutcomeSummary)
+            .HasMaxLength(1000);
+
+        builder.HasIndex(x => new { x.GroupName, x.JobName })
+            .IsUnique()
+            .HasDatabaseName("IX_ScheduledJobProjection_GroupName_JobName");
+    }
+
+    private static void ConfigureScheduledJobAdminCommand(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<ScheduledJobAdminCommand>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.JobName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.GroupName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.CommandType)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.PayloadJson)
+            .IsRequired();
+
+        builder.Property(x => x.Status)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.ResultMessage)
+            .HasMaxLength(1000);
+
+        builder.HasIndex(x => new { x.Status, x.CreatedAt })
+            .HasDatabaseName("IX_ScheduledJobAdminCommand_Status_CreatedAt");
+
+        builder.HasIndex(x => new { x.GroupName, x.JobName, x.Status })
+            .HasDatabaseName("IX_ScheduledJobAdminCommand_GroupName_JobName_Status");
+    }
+
+    private static void ConfigureScheduledJobRun(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<ScheduledJobRun>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.JobName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.GroupName)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(x => x.Outcome)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.ErrorMessage)
+            .HasMaxLength(2000);
+
+        builder.Property(x => x.TriggeredBy)
+            .IsRequired()
+            .HasMaxLength(50);
+
+        builder.Property(x => x.FireInstanceId)
+            .HasMaxLength(200);
+
+        builder.HasIndex(x => new { x.GroupName, x.JobName, x.FiredAtUtc })
+            .HasDatabaseName("IX_ScheduledJobRun_GroupName_JobName_FiredAtUtc");
+
+        builder.HasIndex(x => x.FiredAtUtc)
+            .HasDatabaseName("IX_ScheduledJobRun_FiredAtUtc");
+    }
+
+    private static void ConfigureSchedulerHealthSnapshot(ModelBuilder modelBuilder)
+    {
+        var builder = modelBuilder.Entity<SchedulerHealthSnapshot>();
+
+        builder.HasKey(x => x.Id);
+
+        builder.Property(x => x.TenantId)
+            .IsRequired();
+
+        builder.Property(x => x.SchedulerName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.Property(x => x.SchedulerInstanceId)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder.HasIndex(x => new { x.SchedulerName, x.SchedulerInstanceId })
+            .IsUnique()
+            .HasDatabaseName("IX_SchedulerHealthSnapshot_Name_InstanceId");
     }
 }

@@ -9,6 +9,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace Aonik.Platform.Services.Operations;
 
@@ -18,6 +19,7 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly ITenantProvider _tenantProvider;
     private readonly INotificationService _notificationService;
+    private readonly IAuditLogWriter _auditLogWriter;
     private readonly ILogger<ScheduledJobAdminService> _logger;
 
     public ScheduledJobAdminService(
@@ -25,12 +27,14 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
         ICurrentUserProvider currentUserProvider,
         ITenantProvider tenantProvider,
         INotificationService notificationService,
+        IAuditLogWriter auditLogWriter,
         ILogger<ScheduledJobAdminService> logger)
     {
         _dbContext = dbContext;
         _currentUserProvider = currentUserProvider;
         _tenantProvider = tenantProvider;
         _notificationService = notificationService;
+        _auditLogWriter = auditLogWriter;
         _logger = logger;
     }
 
@@ -202,6 +206,7 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
         _dbContext.ScheduledJobAdminCommands.Add(command);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        await TryWriteCommandAuditLogAsync(projection, command, commandType, cancellationToken);
         await TryNotifyCommandQueuedAsync(projection, command, commandType, cancellationToken);
 
         return new ScheduledJobActionResponse(
@@ -246,6 +251,48 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to create notification for scheduled job command {CommandId}", command.Id);
+        }
+    }
+
+    private async Task TryWriteCommandAuditLogAsync(
+        ScheduledJobProjection projection,
+        ScheduledJobAdminCommand command,
+        string commandType,
+        CancellationToken cancellationToken)
+    {
+        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
+        {
+            return;
+        }
+
+        try
+        {
+            var detailsJson = JsonSerializer.Serialize(new
+            {
+                jobName = projection.JobName,
+                groupName = projection.GroupName,
+                displayName = projection.DisplayName,
+                commandId = command.Id,
+                commandType,
+                status = command.Status,
+                requestedByUserId = command.RequestedByUserId,
+                queuedAtUtc = command.CreatedAt,
+                source = "AdminUi"
+            });
+
+            await _auditLogWriter.LogAsync(
+                AuditEventNames.ScheduledJobCommandQueued,
+                nameof(ScheduledJobAdminCommand),
+                command.Id,
+                tenantId,
+                command.RequestedByUserId,
+                command.Id.ToString("D"),
+                detailsJson,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to write audit log for scheduled job command {CommandId}", command.Id);
         }
     }
 }

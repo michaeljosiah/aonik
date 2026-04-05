@@ -1,8 +1,11 @@
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.Platform.Entities.Compliance;
+using Aonik.SharedKernel.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
+using System.Text.Json;
 
 namespace Aonik.Worker.Jobs;
 
@@ -99,6 +102,7 @@ internal sealed class ScheduledJobCommandProcessor : BackgroundService
 
             command.Status = ScheduledJobCommandStatuses.Succeeded;
             command.ProcessedAtUtc = DateTime.UtcNow;
+            dbContext.AuditLogs.Add(CreateCommandAuditLog(command, AuditEventNames.ScheduledJobCommandSucceeded, null));
             await dbContext.SaveChangesAsync(cancellationToken);
 
             await _projectionSynchronizer.SyncJobAsync(jobKey, cancellationToken: cancellationToken);
@@ -110,6 +114,7 @@ internal sealed class ScheduledJobCommandProcessor : BackgroundService
             command.Status = ScheduledJobCommandStatuses.Failed;
             command.ResultMessage = ex.Message;
             command.ProcessedAtUtc = DateTime.UtcNow;
+            dbContext.AuditLogs.Add(CreateCommandAuditLog(command, AuditEventNames.ScheduledJobCommandFailed, ex.Message));
             await dbContext.SaveChangesAsync(cancellationToken);
 
             await _projectionSynchronizer.SyncJobAsync(jobKey, cancellationToken: cancellationToken);
@@ -122,5 +127,39 @@ internal sealed class ScheduledJobCommandProcessor : BackgroundService
         var tenantContext = serviceProvider.GetRequiredService<ITenantContext>();
         tenantContext.TenantId = Guid.Empty;
         tenantContext.ResolutionSource = "system";
+    }
+
+    private static AuditLog CreateCommandAuditLog(
+        ScheduledJobAdminCommand command,
+        string action,
+        string? errorMessage)
+    {
+        var timestamp = command.ProcessedAtUtc ?? DateTime.UtcNow;
+
+        return new AuditLog
+        {
+            TenantId = command.TenantId,
+            Timestamp = timestamp,
+            ActorType = command.RequestedByUserId.HasValue ? "User" : "System",
+            ActorId = command.RequestedByUserId ?? Guid.Empty,
+            Action = action,
+            ResourceType = nameof(ScheduledJobAdminCommand),
+            ResourceId = command.Id,
+            CorrelationId = command.Id.ToString("D"),
+            DetailsJson = JsonSerializer.Serialize(new
+            {
+                jobName = command.JobName,
+                groupName = command.GroupName,
+                commandType = command.CommandType,
+                status = command.Status,
+                resultMessage = command.ResultMessage,
+                errorMessage,
+                requestedByUserId = command.RequestedByUserId,
+                createdAtUtc = command.CreatedAt,
+                processedAtUtc = command.ProcessedAtUtc
+            }),
+            CreatedAt = timestamp,
+            CreatedBy = command.RequestedByUserId
+        };
     }
 }

@@ -40,11 +40,11 @@ internal sealed class CustomerInsightSnapshotJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
-        var summary = await ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
-        context.Result = summary;
+        var execution = await ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
+        context.Result = execution;
     }
 
-    internal async Task<string> ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
+    internal async Task<ScheduledJobExecutionResult> ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
     {
         _tenantContext.TenantId = null;
         _tenantContext.ResolutionSource = "system";
@@ -60,7 +60,7 @@ internal sealed class CustomerInsightSnapshotJob : IJob
         {
             ClearCheckpoint(jobDataMap);
             _logger.LogInformation("No eligible customer insight snapshot users found for the current batch.");
-            return "No users to process.";
+            return new ScheduledJobExecutionResult(ScheduledJobRunOutcomes.Succeeded, "No users to process.");
         }
 
         _logger.LogInformation(
@@ -70,6 +70,11 @@ internal sealed class CustomerInsightSnapshotJob : IJob
 
         var processed = 0;
         var failed = 0;
+        var partial = 0;
+        var elevatedCashflowStress = 0;
+        var transactionsUsed = 0;
+        var topSignals = new List<string>();
+        var failureDetails = new List<string>();
 
         foreach (var user in users)
         {
@@ -89,9 +94,40 @@ internal sealed class CustomerInsightSnapshotJob : IJob
                 stopwatch.Stop();
 
                 if (snapshot.Status == CustomerInsightSnapshotContract.StatusFailed)
+                {
                     failed++;
+                    failureDetails.Add($"{user.UserId:D}: {TrimDetail(snapshot.FailureReason)}");
+                }
                 else
+                {
                     processed++;
+
+                    if (snapshot.Snapshot?.Coverage.IsPartial == true)
+                    {
+                        partial++;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(snapshot.Snapshot?.Risk.CashflowStressLevel)
+                        && !string.Equals(
+                            snapshot.Snapshot.Risk.CashflowStressLevel,
+                            CustomerInsightSnapshotContract.ConfidenceLow,
+                            StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(
+                            snapshot.Snapshot.Risk.CashflowStressLevel,
+                            CustomerInsightSnapshotContract.SeverityLow,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        elevatedCashflowStress++;
+                    }
+
+                    transactionsUsed += snapshot.Snapshot?.Evidence.TransactionCountUsed ?? 0;
+
+                    var topSignalTitle = snapshot.Snapshot?.Signals.FirstOrDefault()?.Title;
+                    if (!string.IsNullOrWhiteSpace(topSignalTitle))
+                    {
+                        topSignals.Add(topSignalTitle.Trim());
+                    }
+                }
 
                 LogSnapshotResult(user, snapshot, stopwatch.ElapsedMilliseconds, warningThresholdMs);
             }
@@ -109,6 +145,8 @@ internal sealed class CustomerInsightSnapshotJob : IJob
                     user.UserId,
                     user.TenantId,
                     stopwatch.ElapsedMilliseconds);
+
+                failureDetails.Add($"{user.UserId:D}: {TrimDetail(ex.Message)}");
             }
         }
 
@@ -124,7 +162,19 @@ internal sealed class CustomerInsightSnapshotJob : IJob
             WriteCheckpoint(jobDataMap, users[^1]);
         }
 
-        return $"Processed {processed}, failed {failed} of {users.Count} users.";
+        var executionSummary = BuildExecutionSummary(
+            processed,
+            failed,
+            users.Count,
+            partial,
+            elevatedCashflowStress,
+            transactionsUsed,
+            topSignals,
+            failureDetails);
+
+        return new ScheduledJobExecutionResult(
+            failed > 0 ? ScheduledJobRunOutcomes.Failed : ScheduledJobRunOutcomes.Succeeded,
+            executionSummary);
     }
 
     private void LogSnapshotResult(
@@ -195,6 +245,60 @@ internal sealed class CustomerInsightSnapshotJob : IJob
     {
         jobDataMap.Remove(CheckpointTenantIdKey);
         jobDataMap.Remove(CheckpointUserIdKey);
+    }
+
+    private static string BuildExecutionSummary(
+        int processed,
+        int failed,
+        int totalUsers,
+        int partial,
+        int elevatedCashflowStress,
+        int transactionsUsed,
+        IReadOnlyList<string> topSignals,
+        IReadOnlyList<string> failureDetails)
+    {
+        var segments = new List<string>
+        {
+            $"Processed {processed} of {totalUsers} users",
+            $"failed {failed}",
+            $"partial {partial}",
+            $"elevated cashflow stress {elevatedCashflowStress}",
+            $"transactions used {transactionsUsed}"
+        };
+
+        var distinctSignals = topSignals
+            .Where(signal => !string.IsNullOrWhiteSpace(signal))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+
+        if (distinctSignals.Count > 0)
+        {
+            segments.Add($"top signals: {string.Join("; ", distinctSignals)}");
+        }
+
+        if (failureDetails.Count > 0)
+        {
+            segments.Add($"failures: {string.Join(" | ", failureDetails.Take(3))}");
+        }
+
+        return TrimSummary(string.Join(". ", segments) + ".");
+    }
+
+    private static string TrimDetail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Unknown snapshot generation error.";
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= 160 ? normalized : normalized[..160];
+    }
+
+    private static string TrimSummary(string value)
+    {
+        return value.Length <= 1000 ? value : value[..1000];
     }
 }
 

@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using Aonik.Platform.Contracts.Models.Compliance;
 using Aonik.Platform.Contracts.Api.Jobs;
+using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -103,6 +106,86 @@ public class ScheduledJobAdminEndpointsTests : IClassFixture<CustomWebApplicatio
         command.JobName.Should().Be("CustomerInsightSnapshotJob");
         command.CommandType.Should().Be(ScheduledJobCommandTypes.Trigger);
         command.Status.Should().Be(ScheduledJobCommandStatuses.Pending);
+
+        var auditLog = await dbContext.AuditLogs.SingleAsync(x => x.Action == AuditEventNames.ScheduledJobCommandQueued);
+        auditLog.ResourceType.Should().Be(nameof(ScheduledJobAdminCommand));
+        auditLog.ResourceId.Should().Be(command.Id);
+        auditLog.TenantId.Should().Be(tenantId);
+        auditLog.DetailsJson.Should().Contain("CustomerInsightSnapshotJob");
+    }
+
+    [Fact]
+    public async Task ListAuditLogs_ShouldReturnFilteredScheduledJobAuditEntries()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        await SeedProjectionAsync(tenantId, new ScheduledJobProjection
+        {
+            TenantId = Guid.Empty,
+            JobName = "CustomerInsightAiSummaryJob",
+            GroupName = ScheduledJobGroups.ScheduledJobs,
+            DisplayName = "Customer Insight AI Summary",
+            Description = "Generates AI interpretations from deterministic customer insight snapshots.",
+            CronExpression = "0 0/15 * * * ?",
+            TimeZoneId = "UTC",
+            State = ScheduledJobStates.Active,
+            LastSyncedAtUtc = DateTime.UtcNow,
+        });
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+            tenantContext.TenantId = tenantId;
+            tenantContext.ResolutionSource = "test";
+
+            var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            dbContext.AuditLogs.AddRange(
+                new AuditLog
+                {
+                    TenantId = tenantId,
+                    Timestamp = DateTime.UtcNow,
+                    ActorType = "User",
+                    ActorId = Guid.NewGuid(),
+                    Action = AuditEventNames.ScheduledJobRunFailed,
+                    ResourceType = nameof(ScheduledJobRun),
+                    ResourceId = Guid.NewGuid(),
+                    DetailsJson = "{\"jobName\":\"CustomerInsightAiSummaryJob\",\"errorMessage\":\"Model unavailable\"}",
+                    CorrelationId = "run-123"
+                },
+                new AuditLog
+                {
+                    TenantId = tenantId,
+                    Timestamp = DateTime.UtcNow.AddMinutes(-5),
+                    ActorType = "User",
+                    ActorId = Guid.NewGuid(),
+                    Action = AuditEventNames.UserRoleAssigned,
+                    ResourceType = "UserRole",
+                    ResourceId = Guid.NewGuid(),
+                    DetailsJson = "{}",
+                    CorrelationId = "role-123"
+                });
+
+            await dbContext.SaveChangesAsync();
+        }
+
+        var client = await _factory.CreateAuthenticatedClientAsync(
+            TestAuthOptions.Create()
+                .WithTenant(tenantId)
+                .WithRoles("TenantAdmin"));
+
+        // Act
+        var response = await client.GetAsync(
+            "/admin/audit-logs?action=ScheduledJobRunFailed&resourceType=ScheduledJobRun&search=CustomerInsightAiSummaryJob");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResult<AuditLogListItem>>();
+        payload.Should().NotBeNull();
+        payload!.Items.Should().ContainSingle();
+        payload.Items[0].Action.Should().Be(AuditEventNames.ScheduledJobRunFailed);
+        payload.Items[0].ResourceType.Should().Be(nameof(ScheduledJobRun));
+        payload.Items[0].DetailsJson.Should().Contain("Model unavailable");
     }
 
     private async Task SeedProjectionAsync(Guid tenantId, ScheduledJobProjection projection)
@@ -113,6 +196,7 @@ public class ScheduledJobAdminEndpointsTests : IClassFixture<CustomWebApplicatio
         tenantContext.ResolutionSource = "test";
 
         var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        dbContext.AuditLogs.RemoveRange(dbContext.AuditLogs);
         dbContext.ScheduledJobAdminCommands.RemoveRange(dbContext.ScheduledJobAdminCommands);
         dbContext.ScheduledJobProjections.RemoveRange(dbContext.ScheduledJobProjections);
         dbContext.ScheduledJobProjections.Add(projection);

@@ -61,6 +61,35 @@ src/Aonik.Finance/Persistence/Configurations/Billing/InvoiceConfiguration.cs
 
 **No direct cross-module references.** Modules communicate via SharedKernel contracts (interfaces like `IPartyService`) and integration events (`TenantProvisionedEvent`, `OrderCreatedEvent`).
 
+## Database & Migrations (Critical)
+
+**Single migration stream.** All EF Core migrations go through `AonikDbContext` in `src/Aonik.Infrastructure/Migrations/`. This is the ONLY context whose migrations are applied at startup. Never generate migrations against module-scoped DbContexts (`PlatformDbContext`, `FinanceDbContext`, `AiDbContext`, `AgentsDbContext`).
+
+### DbContext Hierarchy
+
+```
+AonikDbContextBase (abstract — tenancy, audit, soft-delete)
+├── AonikDbContext      — Canonical. Owns ALL entity DbSets. Only context with migrations.
+├── PlatformDbContext    — Module read/write path. No migrations (frozen).
+├── FinanceDbContext     — Module read/write path. No migrations.
+├── AiDbContext          — Module read/write path. No migrations.
+└── AgentsDbContext      — Module read/write path. No migrations.
+```
+
+All contexts share the same physical SQL Server database. Module contexts exist for DI scoping and module isolation at runtime, NOT for independent migration streams.
+
+### Migration Rules
+
+1. **Always generate migrations against AonikDbContext:**
+   ```bash
+   dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+   ```
+2. **Entity configurations** belong in their module's `Persistence/Configurations/` folder as `IEntityTypeConfiguration<T>` classes — not inlined in `AonikDbContext.cs`.
+3. **New DbSets** must be added to `AonikDbContext`. If the entity is accessed by a module context, add it there too.
+4. **Global entities** (Worker/system-scoped, no tenant): register in `IsGlobalEntity()` override in `AonikDbContext`.
+5. **Never generate migrations against `PlatformDbContext`** or other module contexts. The `PlatformDbContext` migration folder (`src/Aonik.Platform/Persistence/Migrations/`) is frozen legacy — do not add to it.
+6. **Table naming**: All tables use `Ank` prefix in `dbo` schema (e.g. `AnkInvoices`, `AnkUsers`).
+
 ## Non-Negotiable Architectural Rules
 
 1. **Ledger is the source of financial truth** (double-entry, immutable)

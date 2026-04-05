@@ -1,9 +1,12 @@
 using Aonik.Platform.Entities.Operations;
+using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
+using System.Text.Json;
 
 namespace Aonik.Worker.Jobs;
 
@@ -49,11 +52,14 @@ internal sealed class ScheduledJobListener : IJobListener
             return;
         }
 
+        var executionResult = context.Result is ScheduledJobExecutionResult result
+            ? result
+            : (ScheduledJobExecutionResult?)null;
         var outcome = jobException is null
-            ? ScheduledJobRunOutcomes.Succeeded
+            ? executionResult?.Outcome ?? ScheduledJobRunOutcomes.Succeeded
             : ScheduledJobRunOutcomes.Failed;
         var durationMs = (int)Math.Round(context.JobRunTime.TotalMilliseconds);
-        var resultSummary = context.Result as string;
+        var resultSummary = executionResult?.Summary ?? context.Result as string;
         var errorMessage = jobException?.Message;
 
         try
@@ -77,7 +83,7 @@ internal sealed class ScheduledJobListener : IJobListener
             tenantContext.ResolutionSource = "system";
 
             var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-            dbContext.ScheduledJobRuns.Add(new ScheduledJobRun
+            var run = new ScheduledJobRun
             {
                 TenantId = Guid.Empty,
                 JobName = context.JobDetail.Key.Name,
@@ -89,7 +95,11 @@ internal sealed class ScheduledJobListener : IJobListener
                 FiredAtUtc = context.FireTimeUtc.UtcDateTime,
                 CompletedAtUtc = DateTime.UtcNow,
                 FireInstanceId = context.FireInstanceId,
-            });
+            };
+
+            dbContext.ScheduledJobRuns.Add(run);
+
+            dbContext.AuditLogs.Add(CreateRunAuditLog(run, outcome, resultSummary, errorMessage));
 
             await dbContext.SaveChangesAsync(cancellationToken);
         }
@@ -97,5 +107,41 @@ internal sealed class ScheduledJobListener : IJobListener
         {
             _logger.LogWarning(ex, "Failed to record scheduled job run for {JobKey}.", context.JobDetail.Key);
         }
+    }
+
+    private static AuditLog CreateRunAuditLog(
+        ScheduledJobRun run,
+        string outcome,
+        string? resultSummary,
+        string? errorMessage)
+    {
+        return new AuditLog
+        {
+            TenantId = Guid.Empty,
+            Timestamp = run.FiredAtUtc,
+            ActorType = run.TriggeredBy == ScheduledJobTriggeredBy.AdminTrigger ? "User" : "System",
+            ActorId = Guid.Empty,
+            Action = outcome == ScheduledJobRunOutcomes.Succeeded
+                ? AuditEventNames.ScheduledJobRunSucceeded
+                : AuditEventNames.ScheduledJobRunFailed,
+            ResourceType = nameof(ScheduledJobRun),
+            ResourceId = run.Id,
+            CorrelationId = run.FireInstanceId ?? string.Empty,
+            DetailsJson = JsonSerializer.Serialize(new
+            {
+                jobName = run.JobName,
+                groupName = run.GroupName,
+                outcome,
+                durationMs = run.DurationMs,
+                triggeredBy = run.TriggeredBy,
+                firedAtUtc = run.FiredAtUtc,
+                completedAtUtc = run.CompletedAtUtc,
+                fireInstanceId = run.FireInstanceId,
+                resultSummary,
+                errorMessage
+            }),
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = null
+        };
     }
 }

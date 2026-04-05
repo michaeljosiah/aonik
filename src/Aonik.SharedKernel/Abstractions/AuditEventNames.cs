@@ -47,4 +47,10 @@ public static class AuditEventNames
     public const string OrderCancelled = "OrderCancelled";
     public const string PartyScreened = "PartyScreened";
     public const string ComplianceCaseCreated = "ComplianceCaseCreated";
+
+    public const string ScheduledJobCommandQueued = "ScheduledJobCommandQueued";
+    public const string ScheduledJobCommandSucceeded = "ScheduledJobCommandSucceeded";
+    public const string ScheduledJobCommandFailed = "ScheduledJobCommandFailed";
+    public const string ScheduledJobRunSucceeded = "ScheduledJobRunSucceeded";
+    public const string ScheduledJobRunFailed = "ScheduledJobRunFailed";
 }

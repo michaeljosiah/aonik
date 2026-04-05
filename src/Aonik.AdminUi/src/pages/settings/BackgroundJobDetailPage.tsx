@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Timer, Play, Pause, RefreshCw, ServerCog, ArrowLeft } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { Timer, Play, Pause, RefreshCw, ServerCog, ArrowLeft, AlertTriangle, Clock, ScrollText } from 'lucide-react';
 import { toast } from 'sonner';
+
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,8 @@ import {
   type ScheduledJobDetailResponse,
   type ScheduledJobRunSummary,
   type ScheduledJobCommandSummary,
+  buildJobCommandAuditUrl,
+  buildJobRunAuditUrl,
 } from '@/services/jobService';
 import type { PagedResult } from '@/types';
 
@@ -125,7 +128,9 @@ export function BackgroundJobDetailPage() {
       toast.success(result.message ?? `${action} command queued.`);
       await wait(1500);
       await loadDetail();
+      await loadRuns(1);
       await loadCommands(1);
+      setRunsPage(1);
       setCommandsPage(1);
     } catch {
       toast.error(`Failed to ${action} job.`);
@@ -158,6 +163,8 @@ export function BackgroundJobDetailPage() {
 
   const isPaused = detail.state.toLowerCase() === 'paused';
   const isDisabled = detail.state.toLowerCase() === 'disabled';
+  const latestRun = runs?.items[0] ?? null;
+  const latestCommand = commands?.items[0] ?? null;
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -188,6 +195,79 @@ export function BackgroundJobDetailPage() {
             <RefreshCw className="w-3.5 h-3.5" />
           </Button>
         </div>
+      </div>
+
+      <div className="grid gap-4 mb-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Latest Run</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {latestRun ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  {statusBadge(latestRun.outcome)}
+                  <span className="text-[var(--color-text-tertiary)]">{formatDateTime(latestRun.firedAtUtc)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                  <Clock className="w-4 h-4" />
+                  {formatDuration(latestRun.durationMs)}
+                </div>
+                <p className="text-[var(--color-text-secondary)] break-words">
+                  {latestRun.errorMessage ?? `Triggered by ${latestRun.triggeredBy}.`}
+                </p>
+                <Button asChild size="sm" variant="outline">
+                  <Link to={buildJobRunAuditUrl(latestRun)}>Open run audit</Link>
+                </Button>
+              </>
+            ) : (
+              <p className="text-[var(--color-text-tertiary)]">No runs recorded yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Latest Command</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {latestCommand ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{latestCommand.commandType}</Badge>
+                    {statusBadge(latestCommand.status)}
+                  </div>
+                  <span className="text-[var(--color-text-tertiary)]">{formatDateTime(latestCommand.createdAt)}</span>
+                </div>
+                <p className="text-[var(--color-text-secondary)] break-words">
+                  {latestCommand.resultMessage ?? 'Awaiting worker processing.'}
+                </p>
+                <Button asChild size="sm" variant="outline">
+                  <Link to={buildJobCommandAuditUrl(latestCommand)}>Open command audit</Link>
+                </Button>
+              </>
+            ) : (
+              <p className="text-[var(--color-text-tertiary)]">No commands recorded yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Current Projection</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-[var(--color-text-secondary)]">
+            <div><span className="text-[var(--color-text-tertiary)]">Next:</span> {formatRelativeTime(detail.nextFireTimeUtc)}</div>
+            <div><span className="text-[var(--color-text-tertiary)]">Last:</span> {formatRelativeTime(detail.previousFireTimeUtc)}</div>
+            <div><span className="text-[var(--color-text-tertiary)]">Duration:</span> {detail.lastDurationMs != null ? formatDuration(detail.lastDurationMs) : '--'}</div>
+            {detail.lastOutcomeSummary && (
+              <div className="rounded-sm bg-[var(--color-surface-inset)] p-3 text-xs whitespace-pre-wrap break-words text-[var(--color-text-secondary)]">
+                {detail.lastOutcomeSummary}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="overview">
@@ -238,10 +318,21 @@ export function BackgroundJobDetailPage() {
                 </div>
                 {detail.lastOutcomeSummary ? (
                   <div className="col-span-2">
-                    <dt className="text-[var(--color-text-tertiary)]">Last Error</dt>
-                    <dd className="text-red-600 dark:text-red-400 font-mono text-xs bg-[var(--color-surface-inset)] p-2 rounded mt-1">{detail.lastOutcomeSummary}</dd>
+                    <dt className="text-[var(--color-text-tertiary)]">Latest Output</dt>
+                    <dd className="text-xs bg-[var(--color-surface-inset)] p-3 rounded mt-1 whitespace-pre-wrap break-words text-[var(--color-text-secondary)]">{detail.lastOutcomeSummary}</dd>
                   </div>
                 ) : null}
+                {detail.lastOutcome?.toLowerCase() === 'failed' && (
+                  <div className="col-span-2 flex items-center gap-2 rounded-sm border border-red-200 bg-red-50/60 p-3 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-950/10 dark:text-red-300">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Failure details are persisted in the audit trail.</span>
+                    {latestRun && (
+                      <Button asChild size="sm" variant="outline" className="ml-auto">
+                        <Link to={buildJobRunAuditUrl(latestRun)}>Open latest failure audit</Link>
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <div>
                   <dt className="text-[var(--color-text-tertiary)]">Last Synced</dt>
                   <dd>{formatRelativeTime(detail.lastSyncedAtUtc)}</dd>
@@ -260,31 +351,36 @@ export function BackgroundJobDetailPage() {
               {!runs || runs.items.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)]">No runs recorded yet.</p>
               ) : (
-                <>
-                  <div className="rounded-md border border-[var(--color-border-light)] overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)]">
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Outcome</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Duration</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Triggered By</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Fired At</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Error</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--color-border-light)]">
-                        {runs.items.map((run) => (
-                          <tr key={run.id}>
-                            <td className="px-3 py-2">{statusBadge(run.outcome)}</td>
-                            <td className="px-3 py-2 font-mono">{formatDuration(run.durationMs)}</td>
-                            <td className="px-3 py-2">{run.triggeredBy}</td>
-                            <td className="px-3 py-2 text-[var(--color-text-tertiary)]">{formatDateTime(run.firedAtUtc)}</td>
-                            <td className="px-3 py-2 text-red-600 dark:text-red-400 text-xs max-w-xs truncate">{run.errorMessage ?? ''}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="space-y-3">
+                  {runs.items.map((run) => (
+                    <div key={run.id} className="rounded-md border border-[var(--color-border-light)] p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {statusBadge(run.outcome)}
+                            <Badge variant="outline">{run.triggeredBy}</Badge>
+                            <span className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(run.firedAtUtc)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                            <Clock className="w-4 h-4" />
+                            {formatDuration(run.durationMs)}
+                          </div>
+                          <p className="text-sm text-[var(--color-text-secondary)] break-words">
+                            {run.errorMessage ?? 'Run completed without a recorded error.'}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button asChild size="sm" variant="outline">
+                              <Link to={buildJobRunAuditUrl(run)}>
+                                <ScrollText className="h-3.5 w-3.5" />
+                                Open audit
+                              </Link>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
                   {runs.totalPages > 1 && (
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-xs text-[var(--color-text-tertiary)]">Page {runs.pageNumber} of {runs.totalPages} ({runs.totalCount} total)</span>
@@ -298,7 +394,7 @@ export function BackgroundJobDetailPage() {
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -313,31 +409,33 @@ export function BackgroundJobDetailPage() {
               {!commands || commands.items.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)]">No commands recorded yet.</p>
               ) : (
-                <>
-                  <div className="rounded-md border border-[var(--color-border-light)] overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-[var(--color-surface-inset)] border-b border-[var(--color-border-light)]">
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Command</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Status</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Result</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Requested</th>
-                          <th className="text-left px-3 py-2 font-medium text-[var(--color-text-secondary)]">Processed</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--color-border-light)]">
-                        {commands.items.map((cmd) => (
-                          <tr key={cmd.id}>
-                            <td className="px-3 py-2 font-medium">{cmd.commandType}</td>
-                            <td className="px-3 py-2">{statusBadge(cmd.status)}</td>
-                            <td className="px-3 py-2 text-xs max-w-xs truncate">{cmd.resultMessage ?? ''}</td>
-                            <td className="px-3 py-2 text-[var(--color-text-tertiary)]">{formatDateTime(cmd.createdAt)}</td>
-                            <td className="px-3 py-2 text-[var(--color-text-tertiary)]">{formatDateTime(cmd.processedAtUtc)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="space-y-3">
+                  {commands.items.map((cmd) => (
+                    <div key={cmd.id} className="rounded-md border border-[var(--color-border-light)] p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">{cmd.commandType}</Badge>
+                            {statusBadge(cmd.status)}
+                            <span className="text-xs text-[var(--color-text-tertiary)]">Requested {formatDateTime(cmd.createdAt)}</span>
+                          </div>
+                          <p className="text-sm text-[var(--color-text-secondary)] break-words">
+                            {cmd.resultMessage ?? 'Awaiting worker processing.'}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+                            <span>Processed: {formatDateTime(cmd.processedAtUtc)}</span>
+                          </div>
+                          <Button asChild size="sm" variant="outline">
+                            <Link to={buildJobCommandAuditUrl(cmd)}>
+                              <ScrollText className="h-3.5 w-3.5" />
+                              Open audit
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
                   {commands.totalPages > 1 && (
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-xs text-[var(--color-text-tertiary)]">Page {commands.pageNumber} of {commands.totalPages} ({commands.totalCount} total)</span>
@@ -351,7 +449,7 @@ export function BackgroundJobDetailPage() {
                       </div>
                     </div>
                   )}
-                </>
+                </div>
               )}
             </CardContent>
           </Card>

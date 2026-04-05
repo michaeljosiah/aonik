@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Cog, Download, ScrollText } from 'lucide-react';
-import { toast } from 'sonner';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Cog, RefreshCw, ScrollText } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
@@ -9,97 +9,143 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { auditLogService, type AuditLogListItem } from '@/services/auditLogService';
+import type { PagedResult } from '@/types';
 
-interface AuditEntry {
-  id: string;
-  timestampUtc: string;
-  actor: string;
-  category: 'Auth' | 'Policy' | 'Settings' | 'Operations';
-  action: string;
-  result: 'Success' | 'Warning' | 'Failed';
-  metadata: string;
-}
-
-const auditEntries: AuditEntry[] = [
-  {
-    id: 'AUD-23918',
-    timestampUtc: '2026-03-01T08:40:00Z',
-    actor: 'michael.josiah@mailinator.com',
-    category: 'Settings',
-    action: 'Updated webhook retry policy',
-    result: 'Success',
-    metadata: 'retryPolicy=5',
-  },
-  {
-    id: 'AUD-23911',
-    timestampUtc: '2026-03-01T08:12:00Z',
-    actor: 'ops.bot@aonik.ai',
-    category: 'Operations',
-    action: 'Invalidated cache set',
-    result: 'Success',
-    metadata: 'cacheSet=TenantFeatures',
-  },
-  {
-    id: 'AUD-23887',
-    timestampUtc: '2026-02-28T20:05:00Z',
-    actor: 'security.admin@aonik.ai',
-    category: 'Policy',
-    action: 'Updated approval threshold',
-    result: 'Warning',
-    metadata: 'threshold=10000',
-  },
-  {
-    id: 'AUD-23855',
-    timestampUtc: '2026-02-28T17:18:00Z',
-    actor: 'integration-worker',
-    category: 'Auth',
-    action: 'API key authentication attempt',
-    result: 'Failed',
-    metadata: 'reason=revoked_key',
-  },
-  {
-    id: 'AUD-23822',
-    timestampUtc: '2026-02-28T12:52:00Z',
-    actor: 'platform.admin@aonik.ai',
-    category: 'Settings',
-    action: 'Generated new API key',
-    result: 'Success',
-    metadata: 'keyLabel=Reporting Pipeline',
-  },
-];
+const scheduledJobActions = [
+  'ScheduledJobCommandQueued',
+  'ScheduledJobCommandSucceeded',
+  'ScheduledJobCommandFailed',
+  'ScheduledJobRunSucceeded',
+  'ScheduledJobRunFailed',
+] as const;
 
 function formatDateTime(isoDate: string) {
   return new Date(isoDate).toLocaleString();
 }
 
-function resultVariant(result: AuditEntry['result']): 'success' | 'warning' | 'error' {
-  if (result === 'Success') return 'success';
-  if (result === 'Warning') return 'warning';
-  return 'error';
+function resultVariant(action: string): 'success' | 'warning' | 'error' | 'outline' {
+  if (action.endsWith('Failed')) return 'error';
+  if (action.endsWith('Queued')) return 'warning';
+  if (action.endsWith('Succeeded')) return 'success';
+  return 'outline';
+}
+
+function parseDetails(detailsJson: string): Record<string, unknown> | null {
+  if (!detailsJson.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(detailsJson) as unknown;
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function getDetailString(details: Record<string, unknown> | null, key: string): string | null {
+  const value = details?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function summarize(entry: AuditLogListItem): string {
+  const details = parseDetails(entry.detailsJson);
+  const displayName = getDetailString(details, 'displayName');
+  const jobName = getDetailString(details, 'jobName');
+  const commandType = getDetailString(details, 'commandType');
+  const resultMessage = getDetailString(details, 'resultMessage');
+  const errorMessage = getDetailString(details, 'errorMessage');
+  const resultSummary = getDetailString(details, 'resultSummary');
+
+  if (entry.action === 'ScheduledJobCommandQueued') {
+    return `${commandType ?? 'Command'} queued for ${displayName ?? jobName ?? 'scheduled job'}.`;
+  }
+
+  if (entry.action === 'ScheduledJobCommandSucceeded' || entry.action === 'ScheduledJobCommandFailed') {
+    return resultMessage ?? errorMessage ?? `${commandType ?? 'Command'} ${entry.action.endsWith('Failed') ? 'failed' : 'completed'}.`;
+  }
+
+  return resultSummary ?? errorMessage ?? `${displayName ?? jobName ?? 'Scheduled job'} ${entry.action.endsWith('Failed') ? 'failed' : 'completed'}.`;
+}
+
+function metadataLine(entry: AuditLogListItem): string {
+  const details = parseDetails(entry.detailsJson);
+  const jobName = getDetailString(details, 'jobName');
+  const commandType = getDetailString(details, 'commandType');
+  const fireInstanceId = getDetailString(details, 'fireInstanceId');
+
+  return [entry.resourceType, jobName, commandType, fireInstanceId]
+    .filter((value): value is string => Boolean(value))
+    .join(' · ');
 }
 
 export function SettingsAuditLogsPage() {
-  const [query, setQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'all' | AuditEntry['category']>('all');
-  const [resultFilter, setResultFilter] = useState<'all' | AuditEntry['result']>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [entries, setEntries] = useState<PagedResult<AuditLogListItem> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') ?? '');
 
-  const filteredEntries = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+  const pageNumber = Number(searchParams.get('pageNumber') ?? '1');
+  const action = searchParams.get('action') ?? 'all';
+  const resourceType = searchParams.get('resourceType') ?? 'all';
+  const correlationId = searchParams.get('correlationId') ?? '';
 
-    return auditEntries.filter((entry) => {
-      if (categoryFilter !== 'all' && entry.category !== categoryFilter) return false;
-      if (resultFilter !== 'all' && entry.result !== resultFilter) return false;
+  const loadEntries = useCallback(async () => {
+    setLoading(true);
 
-      if (!normalized) return true;
+    try {
+      const result = await auditLogService.list({
+        pageNumber,
+        pageSize: 20,
+        search: searchParams.get('search') ?? undefined,
+        action: action !== 'all' ? action : undefined,
+        resourceType: resourceType !== 'all' ? resourceType : undefined,
+        correlationId: correlationId || undefined,
+      });
+      setEntries(result);
+    } catch (error) {
+      console.error('Failed to load audit logs:', error);
+      setEntries(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [action, correlationId, pageNumber, resourceType, searchParams]);
 
-      const searchable = `${entry.id} ${entry.actor} ${entry.action} ${entry.metadata}`.toLowerCase();
-      return searchable.includes(normalized);
+  useEffect(() => {
+    void loadEntries();
+  }, [loadEntries]);
+
+  const updateFilters = (updates: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams);
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (!value || value === 'all') {
+        next.delete(key);
+      } else {
+        next.set(key, value);
+      }
     });
-  }, [categoryFilter, query, resultFilter]);
 
-  const handleExport = () => {
-    toast.success('Export queued. Audit log file will be prepared shortly.');
+    if (!('pageNumber' in updates)) {
+      next.set('pageNumber', '1');
+    }
+
+    setSearchParams(next);
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadEntries();
+    setRefreshing(false);
+  };
+
+  const title = useMemo(() => {
+    if (action !== 'all' || resourceType !== 'all' || correlationId) {
+      return 'Filtered Audit Logs';
+    }
+
+    return 'Audit Logs';
+  }, [action, correlationId, resourceType]);
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -113,14 +159,14 @@ export function SettingsAuditLogsPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Audit Logs</h1>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{title}</h1>
           <p className="text-[var(--color-text-secondary)]">
-            Trace administrative actions and control-plane changes for governance review.
+            Review real control-plane audit records, including scheduled job queueing, execution, and failures.
           </p>
         </div>
-        <Button variant="outline" onClick={handleExport}>
-          <Download className="mr-2 h-4 w-4" />
-          Export CSV
+        <Button variant="outline" onClick={() => void handleRefresh()} disabled={refreshing || loading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
         </Button>
       </div>
 
@@ -128,48 +174,75 @@ export function SettingsAuditLogsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Filters</CardTitle>
-            <CardDescription>Narrow down events by category, outcome, or free text.</CardDescription>
+            <CardDescription>Narrow audit events by job outcome, resource type, correlation ID, or free text.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
+          <CardContent className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="audit-search">Search</Label>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  updateFilters({ search: searchInput || null });
+                }}
+              >
+                <Input
+                  id="audit-search"
+                  placeholder="Search by job, message, correlation ID..."
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                />
+              </form>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Action</Label>
+              <Select value={action} onValueChange={(value) => updateFilters({ action: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All actions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All actions</SelectItem>
+                  {scheduledJobActions.map((item) => (
+                    <SelectItem key={item} value={item}>{item}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Resource</Label>
+              <Select value={resourceType} onValueChange={(value) => updateFilters({ resourceType: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All resources" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All resources</SelectItem>
+                  <SelectItem value="ScheduledJobAdminCommand">ScheduledJobAdminCommand</SelectItem>
+                  <SelectItem value="ScheduledJobRun">ScheduledJobRun</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="audit-correlation">Correlation ID</Label>
               <Input
-                id="audit-search"
-                placeholder="Search by actor, action, ID..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                id="audit-correlation"
+                placeholder="Filter to one command or run correlation"
+                value={correlationId}
+                onChange={(event) => updateFilters({ correlationId: event.target.value || null })}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value as 'all' | AuditEntry['category'])}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All categories</SelectItem>
-                  <SelectItem value="Auth">Auth</SelectItem>
-                  <SelectItem value="Policy">Policy</SelectItem>
-                  <SelectItem value="Settings">Settings</SelectItem>
-                  <SelectItem value="Operations">Operations</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Result</Label>
-              <Select value={resultFilter} onValueChange={(value) => setResultFilter(value as 'all' | AuditEntry['result'])}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All results" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All results</SelectItem>
-                  <SelectItem value="Success">Success</SelectItem>
-                  <SelectItem value="Warning">Warning</SelectItem>
-                  <SelectItem value="Failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="md:col-span-2 flex items-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchParams(new URLSearchParams());
+                }}
+              >
+                Clear Filters
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -177,31 +250,90 @@ export function SettingsAuditLogsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Events</CardTitle>
-            <CardDescription>{filteredEntries.length} event(s) matched your filters.</CardDescription>
+            <CardDescription>{entries?.totalCount ?? 0} event(s) matched your filters.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {filteredEntries.length === 0 ? (
+            {loading ? (
+              <p className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">Loading audit events...</p>
+            ) : !entries || entries.items.length === 0 ? (
               <p className="py-8 text-center text-sm text-[var(--color-text-tertiary)]">No audit events matched your filters.</p>
             ) : (
-              filteredEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex flex-col gap-3 rounded-md border border-[var(--color-border-light)] px-4 py-3 lg:flex-row lg:items-start lg:justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-[var(--color-text-primary)]">{entry.action}</p>
-                      <Badge variant="outline">{entry.category}</Badge>
-                      <Badge variant={resultVariant(entry.result)}>{entry.result}</Badge>
+              entries.items.map((entry) => {
+                const details = parseDetails(entry.detailsJson);
+                const errorMessage = getDetailString(details, 'errorMessage');
+                const resultSummary = getDetailString(details, 'resultSummary');
+
+                return (
+                  <div
+                    key={entry.id}
+                    className="rounded-md border border-[var(--color-border-light)] px-4 py-3"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-[var(--color-text-primary)]">{summarize(entry)}</p>
+                          <Badge variant={resultVariant(entry.action)}>{entry.action}</Badge>
+                        </div>
+
+                        <p className="text-xs text-[var(--color-text-tertiary)] break-all">
+                          {metadataLine(entry)}
+                        </p>
+
+                        {entry.correlationId && (
+                          <p className="font-mono text-xs text-[var(--color-text-tertiary)] break-all">
+                            Correlation: {entry.correlationId}
+                          </p>
+                        )}
+
+                        {(errorMessage || resultSummary) && (
+                          <div className="rounded-sm bg-[var(--color-surface-inset)] p-3 text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap break-words">
+                            {errorMessage ?? resultSummary}
+                          </div>
+                        )}
+
+                        {entry.detailsJson.trim() && (
+                          <details className="text-xs text-[var(--color-text-tertiary)]">
+                            <summary className="cursor-pointer select-none">Raw details</summary>
+                            <pre className="mt-2 overflow-auto rounded-sm bg-[var(--color-surface-inset)] p-3 whitespace-pre-wrap break-words">
+                              {entry.detailsJson}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-[var(--color-text-tertiary)] whitespace-nowrap">
+                        {formatDateTime(entry.timestamp)}
+                      </div>
                     </div>
-                    <p className="text-xs text-[var(--color-text-tertiary)]">
-                      {entry.id} · {entry.actor}
-                    </p>
-                    <p className="font-mono text-xs text-[var(--color-text-tertiary)]">{entry.metadata}</p>
                   </div>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">{formatDateTime(entry.timestampUtc)}</p>
+                );
+              })
+            )}
+
+            {entries && entries.totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xs text-[var(--color-text-tertiary)]">
+                  Page {entries.pageNumber} of {entries.totalPages} ({entries.totalCount} total)
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={entries.pageNumber <= 1}
+                    onClick={() => updateFilters({ pageNumber: String(entries.pageNumber - 1) })}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={entries.pageNumber >= entries.totalPages}
+                    onClick={() => updateFilters({ pageNumber: String(entries.pageNumber + 1) })}
+                  >
+                    Next
+                  </Button>
                 </div>
-              ))
+              </div>
             )}
           </CardContent>
         </Card>

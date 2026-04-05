@@ -182,7 +182,7 @@ dotnet test --no-build
 ### Database Commands
 
 ```bash
-# Create migration
+# Create migration (ALWAYS against AonikDbContext — the only migration context)
 dotnet ef migrations add <MigrationName> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 
 # Update database
@@ -191,6 +191,8 @@ dotnet ef database update --project src/Aonik.Infrastructure --startup-project s
 # Remove last migration
 dotnet ef migrations remove --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
 ```
+
+> **⚠️ CRITICAL:** Never generate migrations against module-scoped DbContexts (PlatformDbContext, FinanceDbContext, AiDbContext, AgentsDbContext). Only `AonikDbContext` migrations are applied at startup. See the "Database & Migrations" section below for full rules.
 
 ### Run API
 
@@ -223,6 +225,49 @@ src/Aonik.Finance/Services/Billing/BillingService.cs
 src/Aonik.Finance/Endpoints/Billing/CreateInvoiceEndpoint.cs
 src/Aonik.Finance/Persistence/Configurations/Billing/InvoiceConfiguration.cs
 ```
+
+---
+
+## 🗄️ Database & Migrations (Critical — Read Before Touching EF)
+
+### Single Migration Stream
+
+All EF Core migrations go through **`AonikDbContext`** in `src/Aonik.Infrastructure/Migrations/`. This is the **only** context whose migrations are applied at startup (`Program.cs` → `GetRegisteredDbContextTypes` returns only `AonikDbContext`).
+
+**Never generate migrations against module-scoped DbContexts** (`PlatformDbContext`, `FinanceDbContext`, `AiDbContext`, `AgentsDbContext`). They share the same physical database but do not maintain independent migration histories.
+
+### DbContext Hierarchy
+
+```
+AonikDbContextBase (abstract — multi-tenancy filters, audit stamping, soft-delete)
+├── AonikDbContext        — Canonical context. ALL entity DbSets. Only context with migrations.
+├── PlatformDbContext      — Module-scoped (internal). Read/write for Platform services. No migrations.
+├── FinanceDbContext        — Module-scoped (internal). Read/write for Finance services. No migrations.
+├── AiDbContext            — Module-scoped (internal). Read/write for AI services. No migrations.
+└── AgentsDbContext         — Module-scoped (internal). Read/write for Agent services. No migrations.
+```
+
+### Migration Rules
+
+1. **Generate migrations only against AonikDbContext:**
+   ```bash
+   dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+   ```
+2. **Entity configurations** go in the owning module's `Persistence/Configurations/` folder as `IEntityTypeConfiguration<T>` classes — never inline them in `AonikDbContext.cs`.
+3. **New entities** require:
+   - A `DbSet<T>` in `AonikDbContext` (and in the relevant module DbContext if needed at runtime)
+   - An `IEntityTypeConfiguration<T>` in the module's Configurations folder
+   - If the entity is global (no tenant scope, e.g. system jobs): register it in `IsGlobalEntity()` in `AonikDbContext`
+4. **Table naming**: All tables use `Ank` prefix in `dbo` schema (e.g. `AnkInvoices`, `AnkUsers`). Use `MapPlatformTable`, `MapFinanceTable`, etc. helper methods.
+5. **The `PlatformDbContext` migration folder** (`src/Aonik.Platform/Persistence/Migrations/`) is frozen legacy. Do not add to it.
+6. **Design-time factory**: Only `AonikDbContext` has an `IDesignTimeDbContextFactory` (`AonikDbContextFactory`). This is why `dotnet ef` only works with `--project src/Aonik.Infrastructure`.
+
+### Common Mistakes to Avoid
+
+- ❌ Running `dotnet ef migrations add` against `PlatformDbContext` or other module contexts
+- ❌ Putting entity Fluent API configuration directly in `AonikDbContext.OnModelCreating()`
+- ❌ Adding a `DbSet<T>` to a module context but forgetting `AonikDbContext`
+- ❌ Creating an entity without checking if it needs to be in `IsGlobalEntity()`
 
 ---
 

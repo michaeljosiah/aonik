@@ -1,7 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Timer, Play, Pause, RefreshCw, ServerCog, Activity, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Timer,
+  Play,
+  Pause,
+  RefreshCw,
+  ServerCog,
+  Activity,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ArrowRight,
+  FileWarning,
+  Sparkles,
+  ScrollText,
+} from 'lucide-react';
 import { toast } from 'sonner';
+
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,31 +54,73 @@ function statusBadge(status: string) {
       return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Paused</Badge>;
     case 'disabled':
       return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">Disabled</Badge>;
+    case 'error':
+    case 'blocked':
+      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{status}</Badge>;
     default:
       return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{status}</Badge>;
   }
 }
 
 function outcomeBadge(outcome: string | null) {
-  if (!outcome) return null;
+  if (!outcome) return <Badge variant="outline">No runs yet</Badge>;
+
   switch (outcome.toLowerCase()) {
     case 'succeeded':
       return (
         <Badge className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 gap-1">
           <CheckCircle2 className="w-3 h-3" />
-          Succeeded
+          Healthy
         </Badge>
       );
     case 'failed':
       return (
         <Badge className="bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 gap-1">
           <XCircle className="w-3 h-3" />
-          Failed
+          Needs attention
         </Badge>
       );
     default:
-      return <Badge className="bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{outcome}</Badge>;
+      return <Badge variant="outline">{outcome}</Badge>;
   }
+}
+
+function getAuditLink(job: ScheduledJobSummary): string | null {
+  if (job.lastOutcome?.toLowerCase() !== 'failed') {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    action: 'ScheduledJobRunFailed',
+    resourceType: 'ScheduledJobRun',
+    search: job.jobName,
+  });
+
+  return `/settings/audit-logs?${params.toString()}`;
+}
+
+function getJobTone(job: ScheduledJobSummary) {
+  if (job.lastOutcome?.toLowerCase() === 'failed') {
+    return 'border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/10';
+  }
+
+  if (job.status.toLowerCase() === 'paused') {
+    return 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10';
+  }
+
+  return 'border-[var(--color-border-light)] bg-[var(--color-surface)]';
+}
+
+function summarizeOutcome(job: ScheduledJobSummary): string {
+  if (job.lastOutcomeSummary?.trim()) {
+    return job.lastOutcomeSummary.trim();
+  }
+
+  if (!job.previousFireTimeUtc) {
+    return 'This job has not recorded a run yet. Trigger it manually to verify the pipeline.';
+  }
+
+  return `Last run completed ${formatRelativeTime(job.previousFireTimeUtc)} in ${formatDuration(job.lastDurationMs)}.`;
 }
 
 export function BackgroundJobsPage() {
@@ -90,7 +147,7 @@ export function BackgroundJobsPage() {
       const result = await jobService.getSchedulerHealth();
       setHealth(result);
     } catch {
-      // Health endpoint may not be available yet
+      setHealth(null);
     }
   }, []);
 
@@ -109,7 +166,7 @@ export function BackgroundJobsPage() {
     setRefreshing(true);
     try {
       await Promise.all([loadJobs(), loadHealth()]);
-      toast.success('Refreshed.');
+      toast.success('Background jobs refreshed.');
     } finally {
       setRefreshing(false);
     }
@@ -121,7 +178,6 @@ export function BackgroundJobsPage() {
       const result = await jobService.triggerJob(jobName);
       toast.success(result.message ?? `${displayName} trigger queued.`);
 
-      // Poll for execution result (the worker processes commands every ~2s)
       let attempts = 0;
       const pollInterval = setInterval(async () => {
         attempts++;
@@ -130,25 +186,22 @@ export function BackgroundJobsPage() {
           const updatedJob = updated.jobs.find(j => j.jobName === jobName);
           const currentJob = jobs.find(j => j.jobName === jobName);
 
-          // Detect that a new execution happened (previousFireTimeUtc changed or lastOutcome updated)
-          if (updatedJob && currentJob &&
-            updatedJob.previousFireTimeUtc !== currentJob.previousFireTimeUtc) {
+          if (updatedJob && currentJob && updatedJob.previousFireTimeUtc !== currentJob.previousFireTimeUtc) {
             clearInterval(pollInterval);
             setJobs(updated.jobs);
             setActionInProgress(null);
 
+            const message = updatedJob.lastOutcomeSummary?.trim();
             if (updatedJob.lastOutcome === 'Succeeded') {
-              toast.success(`${displayName} completed in ${formatDuration(updatedJob.lastDurationMs)}.${updatedJob.lastOutcomeSummary ? ` ${updatedJob.lastOutcomeSummary}` : ''}`);
+              toast.success(`${displayName} completed. ${message ?? ''}`.trim());
             } else if (updatedJob.lastOutcome === 'Failed') {
-              toast.error(`${displayName} failed.${updatedJob.lastOutcomeSummary ? ` ${updatedJob.lastOutcomeSummary}` : ''}`);
+              toast.error(`${displayName} failed. ${message ?? ''}`.trim());
             }
             return;
           }
 
-          // Also update the list in the meantime
           setJobs(updated.jobs);
         } catch {
-          // Ignore poll errors
         }
 
         if (attempts >= 15) {
@@ -169,7 +222,6 @@ export function BackgroundJobsPage() {
     try {
       const result = await jobService.pauseJob(jobName);
       toast.success(result.message ?? 'Pause command queued.');
-      // Brief delay for the worker to process
       setTimeout(async () => {
         await loadJobs();
         setActionInProgress(null);
@@ -210,7 +262,7 @@ export function BackgroundJobsPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Background Jobs</h1>
           <p className="text-[var(--color-text-secondary)]">
-            View and manage scheduled background jobs running in the Worker service.
+            Operate Worker-scheduled pipelines with clearer run health, richer output summaries, and direct audit drill-downs.
           </p>
         </div>
         <Button
@@ -233,17 +285,25 @@ export function BackgroundJobsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${health.isStarted && !health.inStandbyMode ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <span>{health.isStarted ? (health.inStandbyMode ? 'Standby' : 'Running') : 'Stopped'}</span>
+            <div className="grid gap-3 text-sm md:grid-cols-4">
+              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
+                <div className="text-xs text-[var(--color-text-tertiary)]">Status</div>
+                <div className="mt-1 font-medium text-[var(--color-text-primary)]">
+                  {health.isStarted ? (health.inStandbyMode ? 'Standby' : 'Running') : 'Stopped'}
+                </div>
               </div>
-              <span className="text-[var(--color-text-tertiary)]">
-                {health.totalJobCount} jobs &middot; {health.totalTriggerCount} triggers &middot; {health.activeJobCount} active &middot; {health.threadPoolSize} threads
-              </span>
-              <span className="text-[var(--color-text-tertiary)]">
-                Updated {formatRelativeTime(health.recordedAtUtc)}
-              </span>
+              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
+                <div className="text-xs text-[var(--color-text-tertiary)]">Registered Jobs</div>
+                <div className="mt-1 font-medium text-[var(--color-text-primary)]">{health.totalJobCount}</div>
+              </div>
+              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
+                <div className="text-xs text-[var(--color-text-tertiary)]">Active Executions</div>
+                <div className="mt-1 font-medium text-[var(--color-text-primary)]">{health.activeJobCount}</div>
+              </div>
+              <div className="rounded-sm border border-[var(--color-border-light)] p-3">
+                <div className="text-xs text-[var(--color-text-tertiary)]">Last Snapshot</div>
+                <div className="mt-1 font-medium text-[var(--color-text-primary)]">{formatRelativeTime(health.recordedAtUtc)}</div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -256,7 +316,7 @@ export function BackgroundJobsPage() {
             Scheduled Jobs
           </CardTitle>
           <CardDescription>
-            Quartz-managed cron jobs. Status is synced from the Worker service after each execution.
+            Each card shows schedule health, the latest run output, and the fastest route into command/run audit evidence.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -267,84 +327,126 @@ export function BackgroundJobsPage() {
               No scheduled jobs found. Ensure the Worker service has run at least once to register jobs.
             </p>
           ) : (
-            <div className="rounded-md border border-[var(--color-border-light)] divide-y divide-[var(--color-border-light)]">
+            <div className="grid gap-4 xl:grid-cols-2">
               {jobs.map((job) => {
                 const isPaused = job.status.toLowerCase() === 'paused';
                 const isDisabled = job.status.toLowerCase() === 'disabled';
                 const isBusy = actionInProgress === job.jobName;
+                const auditLink = getAuditLink(job);
 
                 return (
-                  <div key={job.jobName} className="flex items-center justify-between px-4 py-4 gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <button
-                          type="button"
-                          className="text-sm font-medium text-[var(--color-brand-primary)] hover:underline cursor-pointer"
-                          onClick={() => navigate(`/settings/background-jobs/${encodeURIComponent(job.jobName)}`)}
-                        >
-                          {job.displayName ?? job.jobName}
-                        </button>
-                        {statusBadge(job.status)}
-                        {outcomeBadge(job.lastOutcome)}
+                  <div
+                    key={job.jobName}
+                    className={`rounded-md border p-5 shadow-sm transition-colors ${getJobTone(job)}`}
+                  >
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <button
+                              type="button"
+                              className="text-base font-semibold text-[var(--color-brand-primary)] hover:underline text-left"
+                              onClick={() => navigate(`/settings/background-jobs/${encodeURIComponent(job.jobName)}`)}
+                            >
+                              {job.displayName ?? job.jobName}
+                            </button>
+                            {statusBadge(job.status)}
+                            {outcomeBadge(job.lastOutcome)}
+                          </div>
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            {job.description || 'No description configured for this job.'}
+                          </p>
+                        </div>
+                        <Sparkles className="h-5 w-5 text-[var(--color-brand-primary)] opacity-80" />
                       </div>
-                      {job.description ? (
-                        <p className="text-xs text-[var(--color-text-tertiary)] mb-2">
-                          {job.description}
-                        </p>
-                      ) : null}
-                      <div className="flex items-center gap-4 text-xs text-[var(--color-text-tertiary)]">
-                        <span title="Cron expression">
-                          Cron: <code className="font-mono bg-[var(--color-surface-inset)] px-1 py-0.5 rounded">{job.cronExpression ?? '--'}</code>
-                        </span>
-                        <span>Next: {formatRelativeTime(job.nextFireTimeUtc)}</span>
-                        <span>Last: {formatRelativeTime(job.previousFireTimeUtc)}</span>
-                        {job.lastDurationMs !== null && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
+                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Cron</div>
+                          <div className="mt-1 font-mono text-xs text-[var(--color-text-primary)] break-all">{job.cronExpression ?? '--'}</div>
+                        </div>
+                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
+                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Next Run</div>
+                          <div className="mt-1 text-sm text-[var(--color-text-primary)]">{formatRelativeTime(job.nextFireTimeUtc)}</div>
+                        </div>
+                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
+                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Last Run</div>
+                          <div className="mt-1 text-sm text-[var(--color-text-primary)]">{formatRelativeTime(job.previousFireTimeUtc)}</div>
+                        </div>
+                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
+                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Duration</div>
+                          <div className="mt-1 flex items-center gap-1 text-sm text-[var(--color-text-primary)]">
+                            <Clock className="w-3.5 h-3.5" />
                             {formatDuration(job.lastDurationMs)}
-                          </span>
-                        )}
+                          </div>
+                        </div>
                       </div>
-                      {job.lastOutcomeSummary && (
-                        <p className="text-xs text-[var(--color-text-secondary)] mt-1 italic">
-                          {job.lastOutcomeSummary}
+
+                      <div className="rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)]">
+                            {job.lastOutcome?.toLowerCase() === 'failed' ? (
+                              <FileWarning className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <ScrollText className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                            )}
+                            Latest Output
+                          </div>
+                          {auditLink && (
+                            <Button asChild size="sm" variant="outline">
+                              <Link to={auditLink}>Open Failure Audit</Link>
+                            </Button>
+                          )}
+                        </div>
+                        <p className="mt-3 text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap break-words">
+                          {summarizeOutcome(job)}
                         </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isPaused ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={isBusy}
-                          onClick={() => void handleResume(job.jobName)}
-                        >
-                          <Play className="w-3.5 h-3.5 mr-1" />
-                          Resume
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={`/settings/background-jobs/${encodeURIComponent(job.jobName)}`}>
+                            View history
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
                         </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={isBusy || isDisabled}
-                          onClick={() => void handlePause(job.jobName)}
-                        >
-                          <Pause className="w-3.5 h-3.5 mr-1" />
-                          Pause
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        disabled={isBusy || isDisabled}
-                        onClick={() => void handleTrigger(job.jobName, job.displayName ?? job.jobName)}
-                      >
-                        {isBusy ? (
-                          <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />
-                        ) : (
-                          <Play className="w-3.5 h-3.5 mr-1" />
-                        )}
-                        {isBusy ? 'Running...' : 'Trigger'}
-                      </Button>
+
+                        <div className="flex items-center gap-2">
+                          {isPaused ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={isBusy}
+                              onClick={() => void handleResume(job.jobName)}
+                            >
+                              <Play className="w-3.5 h-3.5 mr-1" />
+                              Resume
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={isBusy || isDisabled}
+                              onClick={() => void handlePause(job.jobName)}
+                            >
+                              <Pause className="w-3.5 h-3.5 mr-1" />
+                              Pause
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            disabled={isBusy || isDisabled}
+                            onClick={() => void handleTrigger(job.jobName, job.displayName ?? job.jobName)}
+                          >
+                            {isBusy ? (
+                              <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 mr-1" />
+                            )}
+                            {isBusy ? 'Running...' : 'Trigger'}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );

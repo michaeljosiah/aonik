@@ -40,11 +40,11 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
-        var resultSummary = await ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
-        context.Result = resultSummary;
+        var execution = await ExecuteAsync(context.JobDetail.JobDataMap, context.CancellationToken);
+        context.Result = execution;
     }
 
-    internal async Task<string> ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
+    internal async Task<ScheduledJobExecutionResult> ExecuteAsync(JobDataMap jobDataMap, CancellationToken cancellationToken)
     {
         _tenantContext.TenantId = null;
         _tenantContext.ResolutionSource = "system";
@@ -60,11 +60,13 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
         {
             ClearCheckpoint(jobDataMap);
             _logger.LogInformation("No customer insight snapshots were due for AI summary processing in this batch.");
-            return "No snapshots to process.";
+            return new ScheduledJobExecutionResult(ScheduledJobRunOutcomes.Succeeded, "No snapshots to process.");
         }
 
         var processed = 0;
         var failed = 0;
+        var headlines = new List<string>();
+        var failureDetails = new List<string>();
 
         foreach (var snapshot in snapshots)
         {
@@ -83,9 +85,19 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
                 stopwatch.Stop();
 
                 if (summary.Status == CustomerInsightAiSummaryContract.StatusFailed)
+                {
                     failed++;
+                    failureDetails.Add($"{snapshot.CustomerInsightSnapshotId:D}: {TrimDetail(summary.FailureReason)}");
+                }
                 else
+                {
                     processed++;
+
+                    if (!string.IsNullOrWhiteSpace(summary.Summary?.Headline))
+                    {
+                        headlines.Add(summary.Summary.Headline.Trim());
+                    }
+                }
 
                 LogSummaryResult(snapshot, summary, stopwatch.ElapsedMilliseconds, warningThresholdMs);
             }
@@ -102,6 +114,8 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
                     "Customer insight AI summary generation crashed for snapshot {SnapshotId} after {DurationMs}ms.",
                     snapshot.CustomerInsightSnapshotId,
                     stopwatch.ElapsedMilliseconds);
+
+                failureDetails.Add($"{snapshot.CustomerInsightSnapshotId:D}: {TrimDetail(ex.Message)}");
             }
         }
 
@@ -117,7 +131,11 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
             WriteCheckpoint(jobDataMap, snapshots[^1]);
         }
 
-        return $"Processed {processed}, failed {failed} of {snapshots.Count} snapshots.";
+        var executionSummary = BuildExecutionSummary(processed, failed, snapshots.Count, headlines, failureDetails);
+
+        return new ScheduledJobExecutionResult(
+            failed > 0 ? ScheduledJobRunOutcomes.Failed : ScheduledJobRunOutcomes.Succeeded,
+            executionSummary);
     }
 
     private void LogSummaryResult(
@@ -180,6 +198,54 @@ internal sealed class CustomerInsightAiSummaryJob : IJob
         jobDataMap.Remove(CheckpointTenantIdKey);
         jobDataMap.Remove(CheckpointUserIdKey);
         jobDataMap.Remove(CheckpointSnapshotIdKey);
+    }
+
+    private static string BuildExecutionSummary(
+        int processed,
+        int failed,
+        int totalSnapshots,
+        IReadOnlyList<string> headlines,
+        IReadOnlyList<string> failureDetails)
+    {
+        var segments = new List<string>
+        {
+            $"Processed {processed} of {totalSnapshots} snapshots",
+            $"failed {failed}"
+        };
+
+        var distinctHeadlines = headlines
+            .Where(headline => !string.IsNullOrWhiteSpace(headline))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToList();
+
+        if (distinctHeadlines.Count > 0)
+        {
+            segments.Add($"headlines: {string.Join(" | ", distinctHeadlines)}");
+        }
+
+        if (failureDetails.Count > 0)
+        {
+            segments.Add($"failures: {string.Join(" | ", failureDetails.Take(3))}");
+        }
+
+        return TrimSummary(string.Join(". ", segments) + ".");
+    }
+
+    private static string TrimDetail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Unknown AI summary generation error.";
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= 180 ? normalized : normalized[..180];
+    }
+
+    private static string TrimSummary(string value)
+    {
+        return value.Length <= 1000 ? value : value[..1000];
     }
 }
 
