@@ -381,7 +381,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   // Wire the SDK action handler to the workspace dispatchAction
   useEffect(() => {
-    sdkActions.setHandler(dispatchAction);
+    sdkActions.setHandler(dispatchAction as (action: { type: string; payload?: Record<string, unknown> }) => void);
   }, [sdkActions, dispatchAction]);
 
   // Clean up the iframe bridge on unmount

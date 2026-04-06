@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Timer,
   Play,
   Pause,
   RefreshCw,
@@ -14,7 +13,7 @@ import {
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { jobService, type ScheduledJobSummary, type SchedulerHealthResponse } from '@/services/jobService';
 import { describeCron } from '@/lib/cronDescriber';
