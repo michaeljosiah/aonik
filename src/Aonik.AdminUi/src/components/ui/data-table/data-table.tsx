@@ -20,6 +20,7 @@ export interface DataTableProps<T> {
   data: T[];
   columns: ColumnDef<T>[];
   getRowId: (row: T) => string;
+  onRowClick?: (row: T) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (selectedIds: Set<string>) => void;
   showCheckboxes?: boolean;
@@ -41,6 +42,7 @@ export function DataTable<T>({
   data,
   columns,
   getRowId,
+  onRowClick,
   selectedIds = new Set(),
   onSelectionChange,
   showCheckboxes = true,
@@ -277,8 +279,10 @@ export function DataTable<T>({
               return (
                 <tr
                   key={rowId}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
                     "border-b border-[var(--color-border-light)] transition-colors hover:bg-[var(--color-surface-inset)]",
+                    onRowClick && "cursor-pointer",
                     isSelected && "bg-[var(--color-brand-primary-light)]"
                   )}
                 >
@@ -287,6 +291,7 @@ export function DataTable<T>({
                     <td className="w-12 px-4 py-3">
                       <Checkbox.Root
                         checked={isSelected}
+                        onClick={(event) => event.stopPropagation()}
                         onCheckedChange={(checked) => handleSelectRow(rowId, checked === true)}
                         className="w-4 h-4 rounded border border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-center data-[state=checked]:bg-[var(--color-brand-primary)] data-[state=checked]:border-[var(--color-brand-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:ring-offset-1"
                       >
@@ -306,7 +311,7 @@ export function DataTable<T>({
                   {columns.length > 0 && renderColumnCell(columns[0], row, true)}
                   {/* Row actions after first column (if position is 'start') */}
                   {rowActions && rowActionsPosition === 'start' && (
-                    <td className="w-10 py-3">
+                    <td className="w-10 py-3" onClick={(event) => event.stopPropagation()}>
                       {rowActions(row)}
                     </td>
                   )}
@@ -314,7 +319,7 @@ export function DataTable<T>({
                   {columns.slice(1).map((column) => renderColumnCell(column, row, false))}
                   {/* Row actions at end (if position is 'end') */}
                   {rowActions && rowActionsPosition === 'end' && (
-                    <td className="w-12 px-4 py-3">
+                    <td className="w-12 px-4 py-3" onClick={(event) => event.stopPropagation()}>
                       {rowActions(row)}
                     </td>
                   )}
