@@ -1,6 +1,10 @@
 using System.ComponentModel;
+using System.Text.Json;
+using Aonik.Agents.Contracts.Services;
+using Aonik.Finance.Agents.StructuredOutputs;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,19 +23,34 @@ internal sealed class PersonalFinanceTools
     private readonly IBillService _billService;
     private readonly IPersonalFinanceInsightsService _insightsService;
     private readonly IDashboardService _dashboardService;
+    private readonly IChatClient _chatClient;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IAgentConfigurationService _agentConfigurationService;
+    private readonly IDomainAgentDescriptor? _spendingIntelligenceDescriptor;
+    private readonly IDomainAgentDescriptor? _obligationPlanningDescriptor;
 
     private PersonalFinanceTools(
         IPersonalAccountService accountService,
         IPersonalTransactionService transactionService,
         IBillService billService,
         IPersonalFinanceInsightsService insightsService,
-        IDashboardService dashboardService)
+        IDashboardService dashboardService,
+        IChatClient chatClient,
+        IServiceProvider serviceProvider,
+        IAgentConfigurationService agentConfigurationService,
+        IDomainAgentDescriptor? spendingIntelligenceDescriptor,
+        IDomainAgentDescriptor? obligationPlanningDescriptor)
     {
         _accountService = accountService;
         _transactionService = transactionService;
         _billService = billService;
         _insightsService = insightsService;
         _dashboardService = dashboardService;
+        _chatClient = chatClient;
+        _serviceProvider = serviceProvider;
+        _agentConfigurationService = agentConfigurationService;
+        _spendingIntelligenceDescriptor = spendingIntelligenceDescriptor;
+        _obligationPlanningDescriptor = obligationPlanningDescriptor;
     }
 
     // ── Account Read Tools ────────────────────────────────────────
@@ -146,6 +165,86 @@ internal sealed class PersonalFinanceTools
         return await _dashboardService.GetDashboardAsync(cancellationToken);
     }
 
+    [Description("Runs the internal spending-intelligence specialist and returns schema-bound analysis JSON plus the parsed structured result. Use this for reasoning-heavy questions about spending patterns, budget pressure, and where the user should focus first.")]
+    public async Task<SpendingIntelligenceAgentToolResponse> RunSpendingIntelligence(
+        [Description("The user question or planning goal that needs analysis")] string userQuestion,
+        [Description("Start of the analysis period (UTC)")] DateTime periodStart,
+        [Description("End of the analysis period (UTC)")] DateTime periodEnd,
+        [Description("Optional account ID to scope the analysis to")] Guid? personalAccountId = null,
+        [Description("Whether to include the narrative insight")] bool includeNarrative = true,
+        [Description("Whether to include snapshot-backed signals")] bool includeSnapshotSignals = true,
+        [Description("Whether to include budget pressure signals")] bool includeBudgetSignals = true,
+        CancellationToken cancellationToken = default)
+    {
+        if (_spendingIntelligenceDescriptor is null)
+            throw new InvalidOperationException("The spending intelligence agent is not registered.");
+
+        var agent = await BuildStructuredSubAgentAsync(
+            _spendingIntelligenceDescriptor,
+            cancellationToken);
+
+        var request = new SpendingIntelligenceRequest(
+            userQuestion,
+            periodStart,
+            periodEnd,
+            personalAccountId,
+            includeNarrative,
+            includeSnapshotSignals,
+            includeBudgetSignals);
+
+        var message = JsonSerializer.Serialize(request, SpendingIntelligenceStructuredOutputContract.SerializerOptions);
+        var response = await agent.RunAsync<SpendingIntelligenceResult>(
+            message,
+            session: null,
+            serializerOptions: SpendingIntelligenceStructuredOutputContract.SerializerOptions,
+            options: null,
+            cancellationToken: cancellationToken);
+
+        var analysis = response.Result;
+        var analysisJson = JsonSerializer.Serialize(
+            analysis,
+            SpendingIntelligenceStructuredOutputContract.SerializerOptions);
+
+        return new SpendingIntelligenceAgentToolResponse(analysis, analysisJson);
+    }
+
+    [Description("Runs the internal obligation-planning specialist and returns schema-bound analysis for due-soon bills, recurring obligations, coverage pressure, and prioritised next steps.")]
+    public async Task<ObligationPlanningAgentToolResponse> RunObligationPlanning(
+        [Description("The user question or planning goal that needs analysis")] string userQuestion,
+        [Description("Number of days ahead to inspect for obligations (default: 30)")] int withinDays = 30,
+        [Description("Whether to include snapshot-backed coverage signals")] bool includeSnapshotSignals = true,
+        [Description("Whether to include household context if available")] bool includeHouseholdContext = true,
+        CancellationToken cancellationToken = default)
+    {
+        if (_obligationPlanningDescriptor is null)
+            throw new InvalidOperationException("The obligation planning agent is not registered.");
+
+        var agent = await BuildStructuredSubAgentAsync(
+            _obligationPlanningDescriptor,
+            cancellationToken);
+
+        var request = new ObligationPlanningRequest(
+            userQuestion,
+            withinDays,
+            includeSnapshotSignals,
+            includeHouseholdContext);
+
+        var message = JsonSerializer.Serialize(request, ObligationPlanningStructuredOutputContract.SerializerOptions);
+        var response = await agent.RunAsync<ObligationPlanningResult>(
+            message,
+            session: null,
+            serializerOptions: ObligationPlanningStructuredOutputContract.SerializerOptions,
+            options: null,
+            cancellationToken: cancellationToken);
+
+        var analysis = response.Result;
+        var analysisJson = JsonSerializer.Serialize(
+            analysis,
+            ObligationPlanningStructuredOutputContract.SerializerOptions);
+
+        return new ObligationPlanningAgentToolResponse(analysis, analysisJson);
+    }
+
     // ── Account Mutating Tools ────────────────────────────────────
 
     [Description("Creates a new personal financial account. Requires a name, account type (e.g. 'Checking', 'Savings', 'CreditCard'), and currency. Optionally specify institution, last 4 digits, and subtype.")]
@@ -227,12 +326,18 @@ internal sealed class PersonalFinanceTools
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
+        var descriptors = serviceProvider.GetServices<IDomainAgentDescriptor>();
         var tools = new PersonalFinanceTools(
             serviceProvider.GetRequiredService<IPersonalAccountService>(),
             serviceProvider.GetRequiredService<IPersonalTransactionService>(),
             serviceProvider.GetRequiredService<IBillService>(),
             serviceProvider.GetRequiredService<IPersonalFinanceInsightsService>(),
-            serviceProvider.GetRequiredService<IDashboardService>());
+            serviceProvider.GetRequiredService<IDashboardService>(),
+            serviceProvider.GetRequiredService<IChatClient>(),
+            serviceProvider,
+            serviceProvider.GetRequiredService<IAgentConfigurationService>(),
+            descriptors.FirstOrDefault(x => x.Name == "pf-spending-intelligence-agent"),
+            descriptors.FirstOrDefault(x => x.Name == "pf-obligation-planning-agent"));
 
         // Read-only — safe for autonomous use
         yield return AIFunctionFactory.Create(tools.ListAccounts, name: "pf_list_accounts");
@@ -246,6 +351,8 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.GetCategoryBreakdown, name: "pf_get_category_breakdown");
         yield return AIFunctionFactory.Create(tools.GetMerchantBreakdown, name: "pf_get_merchant_breakdown");
         yield return AIFunctionFactory.Create(tools.GetDashboard, name: "pf_get_dashboard");
+        yield return AIFunctionFactory.Create(tools.RunSpendingIntelligence, name: "pf_run_spending_intelligence");
+        yield return AIFunctionFactory.Create(tools.RunObligationPlanning, name: "pf_run_obligation_planning");
 
         // Mutating — require approval before execution
         yield return new ApprovalRequiredAIFunction(
@@ -258,5 +365,45 @@ internal sealed class PersonalFinanceTools
             AIFunctionFactory.Create(tools.CreateBill, name: "pf_create_bill"));
         yield return new ApprovalRequiredAIFunction(
             AIFunctionFactory.Create(tools.ArchiveBill, name: "pf_archive_bill"));
+    }
+
+    private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(
+        IDomainAgentDescriptor descriptor,
+        CancellationToken cancellationToken)
+    {
+        var config = await _agentConfigurationService.GetResolvedAsync(descriptor.Name, cancellationToken);
+
+        string? instructionsOverride = null;
+        HashSet<string>? allowedToolNames = null;
+
+        if (config is not null)
+        {
+            instructionsOverride = !string.IsNullOrWhiteSpace(config.InstructionsText)
+                ? config.InstructionsText
+                : null;
+
+            if (!string.IsNullOrWhiteSpace(config.ToolsetIdsJson) && config.ToolsetIdsJson != "[]")
+            {
+                try
+                {
+                    var toolNames = JsonSerializer.Deserialize<List<string>>(config.ToolsetIdsJson);
+                    if (toolNames is { Count: > 0 })
+                    {
+                        allowedToolNames = new HashSet<string>(toolNames, StringComparer.Ordinal);
+                    }
+                }
+                catch (JsonException)
+                {
+                    allowedToolNames = null;
+                }
+            }
+        }
+
+        var builtAgent = config is null
+            ? descriptor.Build(_chatClient, _serviceProvider)
+            : descriptor.Build(_chatClient, _serviceProvider, instructionsOverride, allowedToolNames);
+
+        return builtAgent as ChatClientAgent
+            ?? throw new InvalidOperationException($"The agent '{descriptor.Name}' must be a ChatClientAgent.");
     }
 }

@@ -237,6 +237,17 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
                 {
                     existing.IconUrl = resolvedIcon;
                 }
+
+                if (existing.AgentType != descriptor.AgentType)
+                {
+                    existing.AgentType = descriptor.AgentType;
+                }
+
+                var resolvedSchema = descriptor.OutputSchemaJson ?? string.Empty;
+                if (!string.Equals(existing.OutputSchemaJson, resolvedSchema, StringComparison.Ordinal))
+                {
+                    existing.OutputSchemaJson = resolvedSchema;
+                }
                 continue;
             }
 
@@ -257,10 +268,11 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
                 Domain = ResolveDomain(descriptor.Name),
                 Description = descriptor.Description,
                 InstructionsText = descriptor.Instructions ?? string.Empty,
+                OutputSchemaJson = descriptor.OutputSchemaJson ?? string.Empty,
                 ToolsetIdsJson = toolsetJson,
                 RiskTier = hasMutatingTools ? "medium" : "low",
                 IsActive = true,
-                AgentType = AgentType.SubAgent,
+                AgentType = descriptor.AgentType,
                 IconUrl = ResolveDefaultIconUrl(descriptor.Name),
             };
 
@@ -320,8 +332,10 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
         return agentName switch
         {
             "personal-finance-agent" => "/images/agents/agent-1.png",
+            "pf-obligation-planning-agent" => "/images/agents/agent-1.png",
             "finance-agent" => "/images/agents/agent-2.png",
             "financial-life-graph-agent" => "/images/agents/agent-3.png",
+            "pf-spending-intelligence-agent" => "/images/agents/agent-1.png",
             "platform-agent" => "/images/agents/agent-4.png",
             _ => null
         };
@@ -334,6 +348,8 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
             "finance-agent" => "finance",
             "financial-life-graph-agent" => "finance",
             "personal-finance-agent" => "personal-finance",
+            "pf-obligation-planning-agent" => "personal-finance",
+            "pf-spending-intelligence-agent" => "personal-finance",
             "platform-agent" => "platform",
             _ => "custom"
         };

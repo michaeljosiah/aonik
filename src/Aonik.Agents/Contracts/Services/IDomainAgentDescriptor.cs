@@ -1,3 +1,4 @@
+using Aonik.Agents.Entities;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
@@ -38,6 +39,18 @@ public interface IDomainAgentDescriptor
     /// <param name="chatClient">The scoped <see cref="IChatClient"/>.</param>
     /// <param name="serviceProvider">Service provider for resolving domain services.</param>
     AIAgent Build(IChatClient chatClient, IServiceProvider serviceProvider);
+
+    /// <summary>
+    /// Classifies the agent as a user-facing orchestrator or an internal
+    /// specialist sub-agent.
+    /// </summary>
+    AgentType AgentType => AgentType.SubAgent;
+
+    /// <summary>
+    /// Optional JSON schema describing the structured output this agent returns.
+    /// Primarily used for specialist agents that produce schema-bound results.
+    /// </summary>
+    string? OutputSchemaJson => null;
 
     /// <summary>
     /// Builds a <see cref="ChatClientAgent"/> with overridden instructions and/or

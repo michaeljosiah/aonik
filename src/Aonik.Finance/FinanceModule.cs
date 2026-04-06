@@ -167,6 +167,8 @@ public sealed class FinanceModule : IModule
         services.AddSingleton<IDomainAgentDescriptor, FinanceAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, FinancialLifeGraphAgentDescriptor>();
         services.AddSingleton<IDomainAgentDescriptor, PersonalFinanceAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, SpendingIntelligenceAgentDescriptor>();
+        services.AddSingleton<IDomainAgentDescriptor, ObligationPlanningAgentDescriptor>();
 
         // ── Global Seed Contributors ────────────────────────────────────
         services.AddScoped<IGlobalSeedContributor, Services.Seeding.PersonalFinanceSeedContributor>();

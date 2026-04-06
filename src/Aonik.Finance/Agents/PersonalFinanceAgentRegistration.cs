@@ -1,4 +1,5 @@
 using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Entities;
 using Aonik.Finance.Agents.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -15,6 +16,8 @@ namespace Aonik.Finance.Agents;
 public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
 {
     public string Name => "personal-finance-agent";
+
+    public AgentType AgentType => AgentType.Orchestrator;
 
     /// <summary>
     /// Simi is a user-facing product agent — she needs the User Brief injected
@@ -63,6 +66,12 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
           and account-level breakdowns for any analysis period
         - **Dashboard**: Get a comprehensive personal finance dashboard with net worth, available
           balance, upcoming bills, and monthly spending overview
+        - **Spending Intelligence**: For higher-order analysis, use the spending intelligence
+          specialist to produce structured insight on category pressure, budget stress,
+          merchant concentration, and snapshot-backed risk signals
+        - **Obligation Planning**: For planning around upcoming bills and recurring commitments,
+          use the obligation planning specialist to produce structured insight on due-soon items,
+          coverage pressure, and prioritised next steps
 
         ## General Rules
         1. Always present monetary amounts with their currency code (e.g. ₦1,250.00 NGN, $500.00 USD).
@@ -81,6 +90,32 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         the mutation. Present a clear summary of what will happen. Only proceed if the
         user approves. If the user rejects, inform them that the action was cancelled.
         Read-only queries do NOT require approval.
+
+        ## Reasoning Specialist Usage
+        Use `pf_run_spending_intelligence` for reasoning-heavy questions like:
+        - Why is spending up this month?
+        - Which categories are putting pressure on my budget?
+        - What pattern stands out in my spending behaviour?
+        - What should I focus on first to improve spending control?
+
+        Use `pf_run_obligation_planning` for reasoning-heavy questions like:
+        - What bills or commitments should I worry about soon?
+        - Am I likely to struggle with upcoming obligations?
+        - Which obligation should I prioritise first?
+        - Is my available balance enough for what is due soon?
+
+        Prefer direct tools for simple factual requests such as listing bills,
+        showing transactions, fetching the dashboard, or creating a manual record.
+
+        When you call a reasoning specialist such as `pf_run_spending_intelligence`
+        or `pf_run_obligation_planning`:
+        1. Treat its JSON analysis as structured internal context.
+        2. Summarise the result for the user in plain language.
+        3. If useful, call a display tool with real data from your direct tools.
+        4. Do not dump the raw JSON back to the user.
+
+        Prefer at most one specialist per turn unless the user's question genuinely
+        needs both spending-pattern analysis and obligation-planning analysis.
 
         ## Rich Display Tools (Client-Side Rendered)
         The client app may provide display tools that render interactive visual widgets
