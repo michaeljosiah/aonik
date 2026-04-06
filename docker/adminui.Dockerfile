@@ -27,9 +27,10 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 COPY packages/workspace-sdk/ /packages/workspace-sdk/
 RUN cd /packages/workspace-sdk && npm install && npm run build
 
-COPY src/Aonik.AdminUi/package*.json ./
-# Use npm install (not ci) because the file: dependency path in
-# package-lock.json may differ between local dev and Docker layout.
+COPY src/Aonik.AdminUi/package.json ./
+# Fresh install without lockfile — the file: dependency path in
+# package-lock.json references the local dev layout which differs
+# from the Docker filesystem, causing npm to fail with 'extraneous'.
 RUN npm install
 
 COPY src/Aonik.AdminUi/ ./
