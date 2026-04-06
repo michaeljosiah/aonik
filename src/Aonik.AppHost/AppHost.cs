@@ -14,6 +14,20 @@ var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOpt
 
 const string LocalDbConnectionString = @"Server=(localdb)\MSSQLLocalDB;Database=AonikDb;Trusted_Connection=True;TrustServerCertificate=True;";
 
+// Add Qdrant vector store
+var qdrant = builder
+    .AddContainer("qdrant", "qdrant/qdrant:latest")
+    .WithHttpEndpoint(6333, 6333, name: "rest")
+    .WithEndpoint("grpc", endpoint =>
+    {
+        endpoint.Port = 6334;
+        endpoint.TargetPort = 6334;
+    })
+    .WithVolume("qdrant-data", "/qdrant/storage")
+    .WithVolume("qdrant-snapshots", "/qdrant/snapshots")
+    .WithEnvironment("QDRANT_API_KEY", "qdrant-dev-key")
+    .WithEnvironment("QDRANT_SNAPSHOT_DIR", "/qdrant/snapshots");
+
 // Add API project with LocalDB connection
 var api = builder.AddProject<Projects.Aonik_Api>("api")
     .WithEndpoint("https", endpoint =>
@@ -27,12 +41,20 @@ var api = builder.AddProject<Projects.Aonik_Api>("api")
     .WithEnvironment("ConnectionStrings__AonikDb", LocalDbConnectionString)
     .WithEnvironment("Database__AutoMigrate", "true")
     .WithEnvironment("Database__SeedData", "true")
+    .WaitFor(qdrant)
+    .WithEnvironment("Qdrant__Endpoint", "http://qdrant:6333")
+    .WithEnvironment("Qdrant__ApiKey", "qdrant-dev-key")
+    .WithEnvironment("Qdrant__CollectionPrefix", "aonik-dev")
     .WithExternalHttpEndpoints();
 
 // Add Worker project with LocalDB connection
 var worker = builder.AddProject<Projects.Aonik_Worker>("worker")
     .WithEnvironment("ConnectionStrings__DefaultConnection", LocalDbConnectionString)
-    .WithEnvironment("ConnectionStrings__AonikDb", LocalDbConnectionString);
+    .WithEnvironment("ConnectionStrings__AonikDb", LocalDbConnectionString)
+    .WaitFor(qdrant)
+    .WithEnvironment("Qdrant__Endpoint", "http://qdrant:6333")
+    .WithEnvironment("Qdrant__ApiKey", "qdrant-dev-key")
+    .WithEnvironment("Qdrant__CollectionPrefix", "aonik-dev");
 
 // Add Admin UI (React/Vite frontend)
 var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
@@ -41,7 +63,6 @@ var adminUi = builder.AddViteApp("adminui", "../Aonik.AdminUi")
         endpoint.Port = 5173;
     })
     .WithEnvironment("VITE_API_BASE_URL", "/api")
-    .WithReference(api)
     .WaitFor(api)
     .WithExternalHttpEndpoints();
 
@@ -51,7 +72,6 @@ var payabo = builder.AddViteApp("payabo", "../../apps/Payabo")
     {
         endpoint.Port = 5174;
     })
-    .WithReference(api)
     .WaitFor(api)
     .WithExternalHttpEndpoints();
 

@@ -53,6 +53,13 @@ param apiAppSettings object = {}
 @description('Optional worker container environment variable overrides (name/value pairs).')
 param workerAppSettings object = {}
 
+@description('Qdrant vector store image reference including tag.')
+param qdrantImage string = 'qdrant/qdrant:latest'
+
+@secure()
+@description('Qdrant API key for authentication. Defaults to dev key.')
+param qdrantApiKey string = 'dev-qdrant-key-changeme'
+
 @description('Azure Container Registry SKU tier.')
 @allowed([
   'Basic'
@@ -143,6 +150,34 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
   }
 }
 
+// ── Qdrant Storage Mounts for Managed Environment ──────────────────
+
+resource qdrantStorageMount 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
+  name: 'qdrant-storage'
+  parent: containerAppsEnvironment
+  properties: {
+    azureFile: {
+      accountName: data.outputs.qdrantStorageAccountName
+      accountKey: data.outputs.qdrantStorageAccountKey
+      shareName: 'qdrant-storage'
+      accessMode: 'ReadWrite'
+    }
+  }
+}
+
+resource qdrantSnapshotsMount 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
+  name: 'qdrant-snapshots'
+  parent: containerAppsEnvironment
+  properties: {
+    azureFile: {
+      accountName: data.outputs.qdrantStorageAccountName
+      accountKey: data.outputs.qdrantStorageAccountKey
+      shareName: 'qdrant-snapshots'
+      accessMode: 'ReadWrite'
+    }
+  }
+}
+
 resource apiPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${workloadName}-${environmentName}-api-pull-id'
   location: location
@@ -157,6 +192,12 @@ resource workerPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@20
 
 resource adminUiPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${workloadName}-${environmentName}-adminui-pull-id'
+  location: location
+  tags: tags
+}
+
+resource qdrantPullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${workloadName}-${environmentName}-qdrant-pull-id'
   location: location
   tags: tags
 }
@@ -237,6 +278,11 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'operations-alerts-azure-monitor-shared-secret'
           value: empty(alertsSharedSecret) ? 'placeholder' : alertsSharedSecret
         }
+      ], [
+        {
+          name: 'qdrant-api-key'
+          value: qdrantApiKey
+        }
       ])
     }
     template: {
@@ -291,6 +337,18 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Cors__AllowedOrigins__0'
               value: 'https://${adminUiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
             }
+            {
+              name: 'Qdrant__Endpoint'
+              value: 'http://${qdrantApp.name}:6333'
+            }
+            {
+              name: 'Qdrant__ApiKey'
+              secretRef: 'qdrant-api-key'
+            }
+            {
+              name: 'Qdrant__CollectionPrefix'
+              value: 'aonik-${environmentName}'
+            }
           ], apiAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
@@ -339,6 +397,10 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'app-insights-connection-string'
           value: common.outputs.appInsightsConnectionString
         }
+        {
+          name: 'qdrant-api-key'
+          value: qdrantApiKey
+        }
       ]
     }
     template: {
@@ -358,6 +420,18 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
               secretRef: 'app-insights-connection-string'
+            }
+            {
+              name: 'Qdrant__Endpoint'
+              value: 'http://${qdrantApp.name}:6333'
+            }
+            {
+              name: 'Qdrant__ApiKey'
+              secretRef: 'qdrant-api-key'
+            }
+            {
+              name: 'Qdrant__CollectionPrefix'
+              value: 'aonik-${environmentName}'
             }
           ], workerAdditionalEnvVars)
           resources: {
@@ -428,6 +502,125 @@ resource adminUiApp 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
+// ── Qdrant Vector Store Container App ──────────────────────────────
+
+resource qdrantApp 'Microsoft.App/containerApps@2024-03-01' = {
+  name: '${namePrefix}-qdrant'
+  location: location
+  tags: tags
+  identity: {
+    type: 'SystemAssigned,UserAssigned'
+    userAssignedIdentities: {
+      '${qdrantPullIdentity.id}': {}
+    }
+  }
+  dependsOn: [
+    acrPullRoleForQdrantPullIdentity
+  ]
+  properties: {
+    managedEnvironmentId: containerAppsEnvironment.id
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        internal: true
+        targetPort: 6333
+        transport: 'http'
+      }
+      secrets: [
+        {
+          name: 'qdrant-api-key'
+          value: qdrantApiKey
+        }
+        {
+          name: 'storage-account-name'
+          keyVaultUrl: data.outputs.qdrantStorageAccountNameSecretUri
+          identity: 'system'
+        }
+        {
+          name: 'storage-account-key'
+          keyVaultUrl: data.outputs.qdrantStorageAccountKeySecretUri
+          identity: 'system'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'qdrant'
+          image: qdrantImage
+          env: [
+            {
+              name: 'QDRANT_API_KEY'
+              secretRef: 'qdrant-api-key'
+            }
+            {
+              name: 'QDRANT_SNAPSHOT_DIR'
+              value: '/qdrant/snapshots'
+            }
+            {
+              name: 'QDRANT_READ_ONLY_API'
+              value: 'false'
+            }
+          ]
+          resources: {
+            cpu: json('1.0')
+            memory: '2Gi'
+          }
+          volumeMounts: [
+            {
+              volumeName: 'qdrant-storage'
+              mountPath: '/qdrant/storage'
+            }
+            {
+              volumeName: 'qdrant-snapshots'
+              mountPath: '/qdrant/snapshots'
+            }
+          ]
+          probes: [
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/health'
+                port: 6333
+              }
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+            }
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/health'
+                port: 6333
+              }
+              initialDelaySeconds: 10
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 2
+            }
+          ]
+        }
+      ]
+      volumes: [
+        {
+          name: 'qdrant-storage'
+          storageType: 'AzureFile'
+          storageName: 'qdrant-storage'
+        }
+        {
+          name: 'qdrant-snapshots'
+          storageType: 'AzureFile'
+          storageName: 'qdrant-snapshots'
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 2
+      }
+    }
+  }
+}
 
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: containerRegistryName
@@ -476,6 +669,29 @@ resource acrPullRoleForAdminUiPullIdentity 'Microsoft.Authorization/roleAssignme
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
     principalId: adminUiPullIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource acrPullRoleForQdrantPullIdentity 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerRegistryName, qdrantPullIdentity.name, 'AcrPull')
+  scope: containerRegistry
+  dependsOn: [
+    common
+  ]
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: qdrantPullIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource kvSecretsUserRoleForQdrant 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVaultName, qdrantApp.name, 'KeyVaultSecretsUser')
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+    principalId: qdrantApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
 }

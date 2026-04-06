@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Boundary enforcement: allow test projects to access internals -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="Aonik.Api.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Aonik.Application\Aonik.Application.csproj" />
     <ProjectReference Include="..\Aonik.Platform\Aonik.Platform.csproj" />
@@ -29,6 +35,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.4" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.4" />
+    <PackageReference Include="Polly" Version="8.4.0" />
+    <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
     <PackageReference Include="Quartz" Version="3.14.0" />
     <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0" />
     <PackageReference Include="Scriban" Version="7.0.6" />

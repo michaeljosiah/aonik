@@ -1,9 +1,11 @@
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.BackgroundJobs;
+using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.Platform;
 using Aonik.Finance;
 using Aonik.Ai;
 using Aonik.Agents;
+using Aonik.Agents.Framework;
 using Aonik.Worker.Jobs;
 using Quartz;
 
@@ -20,6 +22,22 @@ builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
+
+// Register RAG context provider adapters and RagContextProvider
+// This is deferred until after Infrastructure is registered to avoid circular dependencies
+builder.Services.AddScoped<Aonik.Agents.Framework.IVectorStore>(sp =>
+{
+    var infrastructureVectorStore = sp.GetRequiredService<Aonik.Infrastructure.VectorStore.Contracts.IVectorStore>();
+    return new Aonik.Worker.VectorStoreAdapterImpl(infrastructureVectorStore);
+});
+
+builder.Services.AddScoped<Aonik.Agents.Framework.IEmbeddingService>(sp =>
+{
+    var infrastructureEmbeddingService = sp.GetRequiredService<Aonik.Infrastructure.VectorStore.Contracts.IEmbeddingService>();
+    return new Aonik.Worker.EmbeddingServiceAdapterImpl(infrastructureEmbeddingService);
+});
+
+builder.Services.AddScoped<Aonik.Agents.Framework.RagContextProvider>();
 
 // Bind scheduled job options
 builder.Services.Configure<ScheduledJobOptions>(
@@ -122,3 +140,60 @@ builder.Services.AddQuartzHostedService(options =>
 
 var host = builder.Build();
 host.Run();
+
+// Adapter implementations for converting Infrastructure VectorStore interfaces to Agents Framework interfaces
+namespace Aonik.Worker
+{
+    internal sealed class VectorStoreAdapterImpl : Aonik.Agents.Framework.IVectorStore
+    {
+        private readonly Aonik.Infrastructure.VectorStore.Contracts.IVectorStore innerVectorStore;
+
+        public VectorStoreAdapterImpl(Aonik.Infrastructure.VectorStore.Contracts.IVectorStore innerVectorStore)
+        {
+            this.innerVectorStore = innerVectorStore;
+        }
+
+        public async Task<IEnumerable<Aonik.Agents.Framework.VectorSearchResult>> SearchAsync(
+            string collectionName,
+            float[] queryEmbedding,
+            int limit = 10,
+            float scoreThreshold = 0.5f,
+            CancellationToken cancellationToken = default)
+        {
+            var results = await innerVectorStore.SearchAsync(
+                collectionName,
+                queryEmbedding,
+                limit,
+                scoreThreshold,
+                cancellationToken);
+
+            return results.Select(r => new Aonik.Agents.Framework.VectorSearchResult(r.Id, r.Score, r.Payload));
+        }
+    }
+
+    internal sealed class EmbeddingServiceAdapterImpl : Aonik.Agents.Framework.IEmbeddingService
+    {
+        private readonly Aonik.Infrastructure.VectorStore.Contracts.IEmbeddingService innerEmbeddingService;
+
+        public EmbeddingServiceAdapterImpl(Aonik.Infrastructure.VectorStore.Contracts.IEmbeddingService innerEmbeddingService)
+        {
+            this.innerEmbeddingService = innerEmbeddingService;
+        }
+
+        public string ModelName => innerEmbeddingService.ModelName;
+
+        public int Dimensions => innerEmbeddingService.Dimensions;
+
+        public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+        {
+            return await innerEmbeddingService.GetEmbeddingAsync(text, cancellationToken);
+        }
+
+        public async Task<IEnumerable<float[]>> GetEmbeddingsBatchAsync(
+            IEnumerable<string> texts,
+            CancellationToken cancellationToken = default)
+        {
+            return await innerEmbeddingService.GetEmbeddingsBatchAsync(texts, cancellationToken);
+        }
+    }
+}

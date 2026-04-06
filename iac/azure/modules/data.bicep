@@ -200,6 +200,78 @@ resource keyVaultDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-p
   }
 }
 
+// ── Qdrant Vector Store Storage ─────────────────────────────────────
+
+@description('Qdrant API key for authentication.')
+param qdrantApiKey string = 'dev-qdrant-key-changeme'
+
+resource qdrantStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: replace('${namePrefix}qdrant', '-', '')
+  location: location
+  tags: tags
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    accessTier: 'Hot'
+    allowSharedKeyAccess: true
+    minimumTlsVersion: 'TLS1_2'
+  }
+}
+
+resource qdrantFileService 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = {
+  name: 'default'
+  parent: qdrantStorageAccount
+}
+
+resource qdrantStorageShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
+  name: 'qdrant-storage'
+  parent: qdrantFileService
+  properties: {
+    shareQuota: 100
+    accessTier: 'Hot'
+  }
+}
+
+resource qdrantSnapshotsShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-01-01' = {
+  name: 'qdrant-snapshots'
+  parent: qdrantFileService
+  properties: {
+    shareQuota: 50
+    accessTier: 'Hot'
+  }
+}
+
+resource qdrantApiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'Qdrant--ApiKey'
+  parent: keyVault
+  properties: {
+    value: qdrantApiKey
+  }
+}
+
+resource qdrantStorageAccountKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'Qdrant--StorageAccountName'
+  parent: keyVault
+  properties: {
+    value: qdrantStorageAccount.name
+  }
+}
+
+resource qdrantStorageAccountKeyValueSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'Qdrant--StorageAccountKey'
+  parent: keyVault
+  properties: {
+    value: qdrantStorageAccount.listKeys().keys[0].value
+  }
+}
+
+output qdrantStorageAccountName string = qdrantStorageAccount.name
+output qdrantStorageAccountKey string = qdrantStorageAccount.listKeys().keys[0].value
+output qdrantApiKeySecretUri string = qdrantApiKeySecret.properties.secretUri
+output qdrantStorageAccountNameSecretUri string = qdrantStorageAccountKeySecret.properties.secretUri
+output qdrantStorageAccountKeySecretUri string = qdrantStorageAccountKeyValueSecret.properties.secretUri
 output sqlServerName string = sqlServer.name
 output sqlServerId string = sqlServer.id
 output sqlDatabaseName string = sqlDatabase.name

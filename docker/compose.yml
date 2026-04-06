@@ -23,10 +23,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Server=sql,1433;Database=AonikDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Your_strong_Password123!};TrustServerCertificate=True;
+      Qdrant__Endpoint: http://qdrant:6333
+      Qdrant__ApiKey: ${QDRANT_API_KEY:-qdrant-dev-key}
+      Qdrant__CollectionPrefix: aonik-dev
     ports:
       - "8080:8080"
     depends_on:
       sql:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
     security_opt:
       - no-new-privileges:true
@@ -38,11 +43,37 @@ services:
     environment:
       DOTNET_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Server=sql,1433;Database=AonikDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Your_strong_Password123!};TrustServerCertificate=True;
+      Qdrant__Endpoint: http://qdrant:6333
+      Qdrant__ApiKey: ${QDRANT_API_KEY:-qdrant-dev-key}
+      Qdrant__CollectionPrefix: aonik-dev
     depends_on:
       sql:
         condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    environment:
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-qdrant-dev-key}
+      QDRANT_SNAPSHOT_DIR: /qdrant/snapshots
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+      - qdrant-snapshots:/qdrant/snapshots
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
     security_opt:
       - no-new-privileges:true
 
 volumes:
   sql-data:
+  qdrant-data:
+  qdrant-snapshots:

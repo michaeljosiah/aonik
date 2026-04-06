@@ -88,6 +88,10 @@ public sealed class AgentsModule : IModule
         services.AddKeyedSingleton<IWorkflowFactory, ReconciliationWorkflowFactory>(
             ReconciliationWorkflowFactory.Name);
 
+        // NOTE: RagContextProvider registration is deferred to the composition root (Program.cs)
+        // where both Infrastructure and Agents modules are registered, avoiding circular dependencies.
+        // See Program.cs for its registration alongside the adapter factories.
+
         return services;
     }
 }

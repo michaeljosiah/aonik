@@ -6,6 +6,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Extensions.Http;
+using Polly.Retry;
 using Aonik.Application.Abstractions;
 using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Messaging;
@@ -192,7 +196,32 @@ public static class DependencyInjection
 
         // Background jobs core services. Quartz runtime registration is owned by execution hosts.
         services.AddAonikBackgroundJobCoreServices();
-        
+
+        // Vector Store (Qdrant) for RAG capabilities
+        services.Configure<Aonik.Infrastructure.VectorStore.Qdrant.QdrantConfiguration>(
+            configuration.GetSection("Qdrant"));
+
+        // HTTP client for Qdrant
+        services.AddHttpClient<Aonik.Infrastructure.VectorStore.Qdrant.QdrantHttpClient>((sp, client) =>
+        {
+            var config = sp.GetRequiredService<IOptions<Aonik.Infrastructure.VectorStore.Qdrant.QdrantConfiguration>>().Value;
+            client.BaseAddress = new Uri(config.Endpoint);
+            client.DefaultRequestHeaders.Add("api-key", config.ApiKey);
+            client.Timeout = TimeSpan.FromSeconds(config.Timeout);
+        });
+
+        // Vector store and embedding services
+        services.AddScoped<Aonik.Infrastructure.VectorStore.Contracts.IVectorStore,
+            Aonik.Infrastructure.VectorStore.Qdrant.QdrantVectorStore>();
+        services.AddScoped<Aonik.Infrastructure.VectorStore.Contracts.IEmbeddingService,
+            Aonik.Infrastructure.VectorStore.Providers.OpenAiEmbeddingService>();
+
+        // Collection initializer
+        services.AddHostedService<Aonik.Infrastructure.VectorStore.Qdrant.QdrantCollectionInitializer>();
+
+        // OpenTelemetry metrics for vector store
+        services.AddSingleton<Aonik.Infrastructure.VectorStore.QdrantMetrics>();
+
         return services;
     }
 
