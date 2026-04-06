@@ -204,4 +204,78 @@ public class PersonalAccountServiceTests
         updated.CurrentBalance.Should().Be(80m);
         updated.BalanceAsOf.Should().NotBeNull();
     }
+
+    [Fact]
+    public async Task DeleteManualAccountAsync_Should_SoftDeleteAccountAndTransactions()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalAccountService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
+            "Cash Wallet",
+            "Current",
+            "GBP",
+            null,
+            null,
+            null,
+            null,
+            50m));
+
+        // Add a transaction to the account.
+        context.PersonalTransactions.Add(new Aonik.Finance.Entities.PersonalFinance.PersonalTransaction
+        {
+            TenantId = tenantId,
+            UserId = userId,
+            PersonalAccountId = created.PersonalAccountId,
+            SourceType = "manual",
+            SourceId = Guid.NewGuid(),
+            OccurredAt = DateTime.UtcNow,
+            Amount = -10m,
+            Currency = "GBP",
+            TransactionType = "debit",
+            Category = "eating_out",
+        });
+        await context.SaveChangesAsync();
+
+        // Act
+        await service.DeleteManualAccountAsync(created.PersonalAccountId);
+
+        // Assert — both account and transaction should be soft-deleted.
+        var accounts = await service.ListAccountsAsync(includeArchived: true);
+        accounts.Should().BeEmpty();
+
+        var transactions = await context.PersonalTransactions
+            .IgnoreQueryFilters()
+            .Where(t => t.PersonalAccountId == created.PersonalAccountId)
+            .ToListAsync();
+        transactions.Should().AllSatisfy(t => t.IsDeleted.Should().BeTrue());
+    }
+
+    [Fact]
+    public async Task DeleteManualAccountAsync_Should_ThrowWhenAccountNotFound()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalAccountService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator());
+
+        // Act
+        var act = () => service.DeleteManualAccountAsync(Guid.NewGuid());
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
+    }
 }

@@ -12,8 +12,6 @@ import {
   Clock,
   ArrowRight,
   FileWarning,
-  Sparkles,
-  ScrollText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -22,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { jobService, type ScheduledJobSummary, type SchedulerHealthResponse } from '@/services/jobService';
+import { describeCron } from '@/lib/cronDescriber';
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return '--';
@@ -327,7 +326,7 @@ export function BackgroundJobsPage() {
               No scheduled jobs found. Ensure the Worker service has run at least once to register jobs.
             </p>
           ) : (
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {jobs.map((job) => {
                 const isPaused = job.status.toLowerCase() === 'paused';
                 const isDisabled = job.status.toLowerCase() === 'disabled';
@@ -337,112 +336,68 @@ export function BackgroundJobsPage() {
                 return (
                   <div
                     key={job.jobName}
-                    className={`rounded-md border p-5 shadow-sm transition-colors ${getJobTone(job)}`}
+                    className={`rounded-md border px-4 py-3 shadow-sm transition-colors ${getJobTone(job)}`}
                   >
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <button
-                              type="button"
-                              className="text-base font-semibold text-[var(--color-brand-primary)] hover:underline text-left"
-                              onClick={() => navigate(`/settings/background-jobs/${encodeURIComponent(job.jobName)}`)}
-                            >
-                              {job.displayName ?? job.jobName}
-                            </button>
-                            {statusBadge(job.status)}
-                            {outcomeBadge(job.lastOutcome)}
-                          </div>
-                          <p className="text-sm text-[var(--color-text-secondary)]">
-                            {job.description || 'No description configured for this job.'}
-                          </p>
-                        </div>
-                        <Sparkles className="h-5 w-5 text-[var(--color-brand-primary)] opacity-80" />
+                    <div className="flex flex-col gap-2.5">
+                      {/* Header */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          className="text-sm font-semibold text-[var(--color-brand-primary)] hover:underline text-left truncate max-w-full"
+                          onClick={() => navigate(`/settings/background-jobs/${encodeURIComponent(job.jobName)}`)}
+                        >
+                          {job.displayName ?? job.jobName}
+                        </button>
+                        {statusBadge(job.status)}
+                        {outcomeBadge(job.lastOutcome)}
                       </div>
 
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
-                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Cron</div>
-                          <div className="mt-1 font-mono text-xs text-[var(--color-text-primary)] break-all">{job.cronExpression ?? '--'}</div>
-                        </div>
-                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
-                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Next Run</div>
-                          <div className="mt-1 text-sm text-[var(--color-text-primary)]">{formatRelativeTime(job.nextFireTimeUtc)}</div>
-                        </div>
-                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
-                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Last Run</div>
-                          <div className="mt-1 text-sm text-[var(--color-text-primary)]">{formatRelativeTime(job.previousFireTimeUtc)}</div>
-                        </div>
-                        <div className="rounded-sm bg-[var(--color-surface-inset)] p-3">
-                          <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Duration</div>
-                          <div className="mt-1 flex items-center gap-1 text-sm text-[var(--color-text-primary)]">
-                            <Clock className="w-3.5 h-3.5" />
-                            {formatDuration(job.lastDurationMs)}
-                          </div>
-                        </div>
+                      {/* Stats */}
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-[var(--color-text-secondary)]">
+                        <span title={job.cronExpression ?? undefined}>{describeCron(job.cronExpression)}</span>
+                        <span>Next: {formatRelativeTime(job.nextFireTimeUtc)}</span>
+                        <span>Last: {formatRelativeTime(job.previousFireTimeUtc)}</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDuration(job.lastDurationMs)}
+                        </span>
                       </div>
 
-                      <div className="rounded-sm border border-[var(--color-border-light)] bg-[var(--color-surface)] p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)]">
-                            {job.lastOutcome?.toLowerCase() === 'failed' ? (
-                              <FileWarning className="h-4 w-4 text-red-500" />
-                            ) : (
-                              <ScrollText className="h-4 w-4 text-[var(--color-brand-primary)]" />
-                            )}
-                            Latest Output
-                          </div>
+                      {/* Output summary */}
+                      <p className="text-xs text-[var(--color-text-secondary)] line-clamp-2">
+                        {job.lastOutcome?.toLowerCase() === 'failed' && (
+                          <FileWarning className="inline h-3 w-3 text-red-500 mr-1 -mt-0.5" />
+                        )}
+                        {summarizeOutcome(job)}
+                      </p>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-between gap-2 pt-0.5 border-t border-[var(--color-border-light)]">
+                        <div className="flex items-center gap-1">
                           {auditLink && (
-                            <Button asChild size="sm" variant="outline">
-                              <Link to={auditLink}>Open Failure Audit</Link>
+                            <Button asChild size="sm" variant="outline" className="h-6 px-2 text-[11px]">
+                              <Link to={auditLink}>Audit</Link>
                             </Button>
                           )}
+                          <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px]">
+                            <Link to={`/settings/background-jobs/${encodeURIComponent(job.jobName)}`}>
+                              History
+                              <ArrowRight className="h-3 w-3 ml-0.5" />
+                            </Link>
+                          </Button>
                         </div>
-                        <p className="mt-3 text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap break-words">
-                          {summarizeOutcome(job)}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <Button asChild size="sm" variant="outline">
-                          <Link to={`/settings/background-jobs/${encodeURIComponent(job.jobName)}`}>
-                            View history
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
-
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           {isPaused ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={isBusy}
-                              onClick={() => void handleResume(job.jobName)}
-                            >
-                              <Play className="w-3.5 h-3.5 mr-1" />
-                              Resume
+                            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" disabled={isBusy} onClick={() => void handleResume(job.jobName)}>
+                              <Play className="w-3 h-3 mr-0.5" /> Resume
                             </Button>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              disabled={isBusy || isDisabled}
-                              onClick={() => void handlePause(job.jobName)}
-                            >
-                              <Pause className="w-3.5 h-3.5 mr-1" />
-                              Pause
+                            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" disabled={isBusy || isDisabled} onClick={() => void handlePause(job.jobName)}>
+                              <Pause className="w-3 h-3 mr-0.5" /> Pause
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            disabled={isBusy || isDisabled}
-                            onClick={() => void handleTrigger(job.jobName, job.displayName ?? job.jobName)}
-                          >
-                            {isBusy ? (
-                              <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" />
-                            ) : (
-                              <Play className="w-3.5 h-3.5 mr-1" />
-                            )}
+                          <Button size="sm" className="h-6 px-2 text-[11px]" disabled={isBusy || isDisabled} onClick={() => void handleTrigger(job.jobName, job.displayName ?? job.jobName)}>
+                            {isBusy ? <RefreshCw className="w-3 h-3 mr-0.5 animate-spin" /> : <Play className="w-3 h-3 mr-0.5" />}
                             {isBusy ? 'Running...' : 'Trigger'}
                           </Button>
                         </div>

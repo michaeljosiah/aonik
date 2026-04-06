@@ -623,6 +623,18 @@ class LiveAccountLinksRepository implements AccountLinksRepository {
     }
   }
 
+  @override
+  Future<void> deleteManualAccount(String accountId) async {
+    try {
+      await _apiClient.delete<void>(
+        '/personal-finance/accounts/$accountId',
+      );
+    } on DioException catch (exception) {
+      _logDioFailure('deleteManualAccount', exception);
+      throw mapDioException(exception);
+    }
+  }
+
   void _logDioFailure(String operation, DioException exception) {
     final RequestOptions request = exception.requestOptions;
     final int? statusCode = exception.response?.statusCode;

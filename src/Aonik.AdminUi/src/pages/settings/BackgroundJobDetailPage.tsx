@@ -17,6 +17,7 @@ import {
   buildJobRunAuditUrl,
 } from '@/services/jobService';
 import type { PagedResult } from '@/types';
+import { CronScheduleDisplay } from '@/components/cron-schedule-editor';
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return '--';
@@ -293,8 +294,8 @@ export function BackgroundJobDetailPage() {
                   <dd className="font-mono">{detail.groupName}</dd>
                 </div>
                 <div>
-                  <dt className="text-[var(--color-text-tertiary)]">Cron Expression</dt>
-                  <dd className="font-mono bg-[var(--color-surface-inset)] px-2 py-0.5 rounded inline-block">{detail.cronExpression}</dd>
+                  <dt className="text-[var(--color-text-tertiary)] mb-1">Schedule</dt>
+                  <dd><CronScheduleDisplay cron={detail.cronExpression} /></dd>
                 </div>
                 <div>
                   <dt className="text-[var(--color-text-tertiary)]">Time Zone</dt>

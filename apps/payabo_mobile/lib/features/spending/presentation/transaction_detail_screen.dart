@@ -96,6 +96,8 @@ class _TransactionDetailScreenState
   bool _isLoadingFromApi = false;
   PersonalTransactionItem? _loadedTransaction;
 
+  /// True when we have no display fields and must show a loading indicator
+  /// until the API call completes.
   bool get _needsRemoteLoad => widget.merchant == null;
 
   /// Whether the current transaction was manually created and can be deleted.
@@ -107,7 +109,11 @@ class _TransactionDetailScreenState
     _currentCategory = widget.category ?? 'other';
     _currentSubCategory = widget.subCategory;
 
-    if (_needsRemoteLoad && widget.transactionId.isNotEmpty) {
+    // Always fetch the full transaction model so that fields not passed via
+    // navigation extras (e.g. sourceType) are available.  When display fields
+    // were already provided via extras, _needsRemoteLoad is false so the UI
+    // renders instantly while this runs in the background.
+    if (widget.transactionId.isNotEmpty) {
       _loadTransactionFromApi();
     }
   }
@@ -121,8 +127,13 @@ class _TransactionDetailScreenState
       if (txn != null) {
         setState(() {
           _loadedTransaction = txn;
-          _currentCategory = txn.category.isNotEmpty ? txn.category : 'other';
-          _currentSubCategory = txn.subCategory;
+          // Only overwrite category from API when we had no display data
+          // (deep-link case).  Normal navigation already passed the category.
+          if (_needsRemoteLoad) {
+            _currentCategory =
+                txn.category.isNotEmpty ? txn.category : 'other';
+            _currentSubCategory = txn.subCategory;
+          }
         });
       }
     } catch (_) {
@@ -136,7 +147,10 @@ class _TransactionDetailScreenState
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    if (_isLoadingFromApi) {
+    // Only show a full-screen loading indicator when we have no display fields
+    // at all (deep-link scenario).  When navigating from the list, display
+    // fields are available immediately and the API call runs in the background.
+    if (_isLoadingFromApi && _needsRemoteLoad) {
       return Scaffold(
         backgroundColor: c.surfaceWarm,
         body: const Center(child: CircularProgressIndicator()),
@@ -267,7 +281,7 @@ class _TransactionDetailScreenState
                               : Icon(
                                   Icons.delete_outline,
                                   size: 20,
-                                  color: c.error,
+                                  color: c.danger,
                                 ),
                           label: Text(
                             _isDeleting
@@ -275,7 +289,7 @@ class _TransactionDetailScreenState
                                 : 'Delete transaction',
                           ),
                           style: TextButton.styleFrom(
-                            foregroundColor: c.error,
+                            foregroundColor: c.danger,
                             textStyle: Theme.of(context)
                                 .textTheme
                                 .titleMedium
@@ -321,6 +335,7 @@ class _TransactionDetailScreenState
   }
 
   Future<void> _handleDeleteTransaction(BuildContext context) async {
+    final colors = context.colors;
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
@@ -336,7 +351,7 @@ class _TransactionDetailScreenState
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: colors.danger,
             ),
             child: const Text('Delete'),
           ),

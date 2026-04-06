@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/demo/demo_data_mode.dart';
 import '../../../app/environment/environment_provider.dart';
 import '../../../data/repositories/account_links_repository.dart';
+import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/reference/payabo_country_reference.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
@@ -119,6 +120,12 @@ class SpendingAccountsScreen extends ConsumerWidget {
                                       onRefreshTap: () =>
                                           _handleRefresh(context, ref, item),
                                       onDisconnectTap: () => _handleDisconnect(
+                                        context,
+                                        ref,
+                                        item,
+                                      ),
+                                      onDeleteTap: () =>
+                                          _handleDeleteManualAccount(
                                         context,
                                         ref,
                                         item,
@@ -390,6 +397,80 @@ class SpendingAccountsScreen extends ConsumerWidget {
       if (message != null) {
         _showMessage(context, message);
       }
+    }
+  }
+
+  Future<void> _handleDeleteManualAccount(
+    BuildContext context,
+    WidgetRef ref,
+    AccountLinkItem item,
+  ) async {
+    final c = context.colors;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: c.surfaceBase,
+          title: Text(
+            'Delete ${item.name.toLowerCase()}?',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: c.accentBrown,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          content: Text(
+            'This will permanently delete this manual account and all its transactions. This action cannot be undone.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: c.accentBrownMuted,
+                ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: c.danger),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    try {
+      final AccountLinksRepository repository =
+          ref.read(accountLinksRepositoryProvider);
+      await repository.deleteManualAccount(item.id);
+
+      ref.invalidate(accountLinksSummaryProvider);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Deleted ${item.name} and all its transactions.'),
+          ),
+        );
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showMessage(
+        context,
+        'Unable to delete this account right now. Please try again.',
+      );
     }
   }
 
@@ -920,6 +1001,7 @@ class _AccountLinkCard extends StatelessWidget {
     required this.onReconnectTap,
     required this.onRefreshTap,
     required this.onDisconnectTap,
+    required this.onDeleteTap,
     required this.onManageTap,
   });
 
@@ -928,6 +1010,7 @@ class _AccountLinkCard extends StatelessWidget {
   final VoidCallback onReconnectTap;
   final VoidCallback onRefreshTap;
   final VoidCallback onDisconnectTap;
+  final VoidCallback onDeleteTap;
   final VoidCallback onManageTap;
 
   @override
@@ -1061,6 +1144,14 @@ class _AccountLinkCard extends StatelessWidget {
                     size: PayaboButtonSize.sm,
                     expand: false,
                     onPressed: isBusy ? null : onDisconnectTap,
+                  ),
+                if (item.source == AccountLinkSource.manual)
+                  PayaboButton(
+                    label: 'Delete',
+                    variant: PayaboButtonVariant.link,
+                    size: PayaboButtonSize.sm,
+                    expand: false,
+                    onPressed: isBusy ? null : onDeleteTap,
                   ),
                 PayaboButton(
                   label: item.source == AccountLinkSource.linked

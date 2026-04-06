@@ -24,4 +24,8 @@ public interface IPersonalAccountService
     Task ArchiveAccountAsync(
         Guid accountId,
         CancellationToken cancellationToken = default);
+
+    Task DeleteManualAccountAsync(
+        Guid accountId,
+        CancellationToken cancellationToken = default);
 }

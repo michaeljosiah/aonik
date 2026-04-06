@@ -334,6 +334,25 @@ class MockAccountLinksRepository implements AccountLinksRepository {
     );
   }
 
+  @override
+  Future<void> deleteManualAccount(String accountId) async {
+    await MockBehavior.delay();
+    MockBehavior.throwIfEnabled('accountLinks.deleteManualAccount');
+
+    final int index =
+        _accounts.indexWhere((AccountLinkItem item) => item.id == accountId);
+    if (index < 0) {
+      throw Exception('Account not found.');
+    }
+
+    final AccountLinkItem item = _accounts[index];
+    if (item.source != AccountLinkSource.manual) {
+      throw Exception('Only manual accounts can be deleted.');
+    }
+
+    _accounts.removeAt(index);
+  }
+
   static String _currencySymbol(String code) {
     switch (code.toUpperCase()) {
       case 'GBP':

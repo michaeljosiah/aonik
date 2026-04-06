@@ -242,6 +242,10 @@ abstract class AccountLinksRepository {
   Future<CreateManualAccountResult> createManualAccount(
     CreateManualAccountRequest request,
   );
+
+  /// Deletes a manually created account and all its transactions.
+  /// Throws if the account is linked or does not exist.
+  Future<void> deleteManualAccount(String accountId);
 }
 
 const Object _copySentinel = Object();

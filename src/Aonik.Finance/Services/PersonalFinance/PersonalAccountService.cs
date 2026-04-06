@@ -155,6 +155,57 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
     }
 
+    public async Task DeleteManualAccountAsync(
+        Guid accountId,
+        CancellationToken cancellationToken = default)
+    {
+        var account = await GetOwnedAccountAsync(accountId, cancellationToken)
+            ?? throw new InvalidOperationException("Personal account not found.");
+
+        var isLinkedAccount = await _financeDbContext.PersonalLinkedAccounts
+            .AnyAsync(item => item.PersonalAccountId == account.Id, cancellationToken);
+
+        if (isLinkedAccount)
+        {
+            throw new ArgumentException(
+                "Linked accounts cannot be deleted. Disconnect the account instead.");
+        }
+
+        // Soft-delete all transactions belonging to this manual account.
+        var transactions = await _financeDbContext.PersonalTransactions
+            .Where(t => t.PersonalAccountId == account.Id && t.TenantId == account.TenantId && t.UserId == account.UserId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var transaction in transactions)
+        {
+            _financeDbContext.PersonalTransactions.Remove(transaction);
+        }
+
+        // Remove statement imports associated with this account.
+        var statementImports = await _financeDbContext.StatementImports
+            .Where(si => si.PersonalAccountId == account.Id && si.TenantId == account.TenantId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var import in statementImports)
+        {
+            _financeDbContext.StatementImports.Remove(import);
+        }
+
+        // Remove financial context funding sources referencing this account.
+        var fundingSources = await _financeDbContext.FinancialContextFundingSources
+            .Where(fs => fs.PersonalAccountId == account.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var fundingSource in fundingSources)
+        {
+            _financeDbContext.FinancialContextFundingSources.Remove(fundingSource);
+        }
+
+        _financeDbContext.PersonalAccounts.Remove(account);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+    }
+
     private Guid GetCurrentUserId()
     {
         if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
