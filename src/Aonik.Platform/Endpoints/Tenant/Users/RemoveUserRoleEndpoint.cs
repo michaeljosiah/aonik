@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Identity;
 using Aonik.Platform.Contracts.Services.Identity;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Tenant.Users;
 
@@ -17,6 +18,15 @@ public class RemoveUserRoleEndpoint : EndpointWithoutRequest<UserRoleResponse>
     {
         Delete("/tenant/users/{userId}/roles/{roleId}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Remove a role from a user";
+            s.Description = "Removes a specific role from a user within the current tenant and returns the user's updated role list.";
+            s.Response(200, "Role removed");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "User or role not found");
+        });
+        Options(x => x.WithTags("User Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

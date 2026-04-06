@@ -1,6 +1,7 @@
 using Aonik.Ai.Contracts.Models;
 using Aonik.Ai.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Ai.Endpoints;
 
@@ -16,6 +17,14 @@ internal sealed class ListPromptSpecsEndpoint : EndpointWithoutRequest<ListPromp
     {
         Get("/ai/prompts");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List prompt specifications";
+            s.Description = "Returns all prompt specifications, optionally filtered by name.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -43,6 +52,15 @@ internal sealed class GetPromptSpecEndpoint : Endpoint<GetPromptSpecRequest, Pro
     {
         Get("/ai/prompts/{PromptId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get prompt specification by ID";
+            s.Description = "Returns a specific prompt specification including its system, user, and developer templates.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Prompt not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(GetPromptSpecRequest req, CancellationToken ct)
@@ -75,6 +93,15 @@ internal sealed class CreatePromptSpecEndpoint : Endpoint<CreatePromptSpecReques
     {
         Post("/ai/prompts");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a prompt specification";
+            s.Description = "Creates a new prompt specification with system, user, and developer templates, variable schemas, and safety policy.";
+            s.Response(201, "Prompt created");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CreatePromptSpecRequest req, CancellationToken ct)
@@ -99,6 +126,16 @@ internal sealed class UpdatePromptSpecEndpoint : Endpoint<UpdatePromptSpecEndpoi
     {
         Put("/ai/prompts/{PromptId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a prompt specification";
+            s.Description = "Updates an existing prompt specification's templates, variable schemas, output schema, safety policy, or published status.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Prompt not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(UpdatePromptSpecEndpointRequest req, CancellationToken ct)
@@ -143,6 +180,15 @@ internal sealed class DeletePromptSpecEndpoint : Endpoint<DeletePromptSpecReques
     {
         Delete("/ai/prompts/{PromptId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete a prompt specification";
+            s.Description = "Removes a prompt specification from the system.";
+            s.Response(204, "Prompt deleted");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Prompt not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(DeletePromptSpecRequest req, CancellationToken ct)

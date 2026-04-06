@@ -5,6 +5,7 @@ using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
 using Aonik.Platform.Entities.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Tenant.Settings;
 
@@ -23,6 +24,15 @@ public class GetTenantSettingValueEndpoint : Endpoint<SettingKeyRequest, Setting
     {
         Get("/tenant/settings/values/{key}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get tenant-scoped setting value";
+            s.Description = "Retrieves the tenant-level override value for a specific setting key.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Setting key not found");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(SettingKeyRequest req, CancellationToken ct)

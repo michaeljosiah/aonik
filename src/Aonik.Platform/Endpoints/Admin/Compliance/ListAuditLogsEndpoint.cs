@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Models.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Compliance;
 
@@ -42,6 +43,14 @@ internal sealed class ListAuditLogsEndpoint : Endpoint<ListAuditLogsEndpointRequ
     {
         Get("/admin/audit-logs");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List audit logs";
+            s.Description = "Returns a paginated list of audit log entries with optional filtering by action, resource type, or correlation ID.";
+            s.Response(200, "Paged audit log list");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(ListAuditLogsEndpointRequest req, CancellationToken ct)

@@ -21,6 +21,16 @@ internal sealed class UploadTransactionAttachmentEndpoint
         Post("/personal-finance/spending/transactions/{transactionId}/attachments");
         Policies("UserPolicy");
         AllowFileUploads();
+        Summary(s =>
+        {
+            s.Summary = "Upload a transaction attachment";
+            s.Description = "Uploads a file attachment (receipt, invoice, photo) and associates it with a personal transaction.";
+            s.Response(201, "Attachment uploaded successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Transaction not found");
+            s.Response(422, "Validation error or missing file");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

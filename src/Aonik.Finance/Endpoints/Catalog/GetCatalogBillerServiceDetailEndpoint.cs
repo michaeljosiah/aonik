@@ -18,6 +18,15 @@ internal class GetCatalogBillerServiceDetailEndpoint : EndpointWithoutRequest<Ca
     {
         Get("/catalog/billers/{billerId}/services/{serviceId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get biller service detail";
+            s.Description = "Returns full detail for a specific service offered by a biller, including field definitions.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Biller service not found");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

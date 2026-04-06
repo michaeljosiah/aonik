@@ -36,6 +36,14 @@ internal class BootstrapTenantEndpoint : Endpoint<BootstrapInitializeRequest, Bo
     {
         Post("/bootstrap");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Bootstrap first tenant";
+            s.Description = "Performs initial platform setup by creating the first tenant and owner account. Requires a valid setup secret.";
+            s.Response(200, "Tenant bootstrapped successfully");
+            s.Response(400, "Invalid request");
+        });
+        Options(x => x.WithTags("Bootstrap"));
     }
 
     public override async Task HandleAsync(BootstrapInitializeRequest req, CancellationToken ct)

@@ -30,6 +30,14 @@ public class UpdateCustomerPasswordEndpoint : Endpoint<ApiUpdateCustomerPassword
     {
         Put("/profiles/customers/me/password");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update customer password";
+            s.Description = "Changes the current customer's password after verifying the current password.";
+            s.Response(200, "Password updated successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(ApiUpdateCustomerPasswordRequest req, CancellationToken ct)

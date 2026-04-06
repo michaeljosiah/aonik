@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Orders;
 using Aonik.Finance.Contracts.Services.Orders;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Orders;
 
@@ -17,6 +18,16 @@ public class UpdateBillPaymentItemEndpoint : Endpoint<UpdateBillPaymentItemReque
     {
         Put("/orders/{orderId:guid}/items/{orderItemId:guid}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a bill payment item";
+            s.Description = "Updates the details of an existing bill payment line item on a draft order.";
+            s.Response(200, "Item updated successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Order or item not found");
+        });
+        Options(x => x.WithTags("Orders"));
     }
 
     public override async Task HandleAsync(UpdateBillPaymentItemRequest req, CancellationToken ct)

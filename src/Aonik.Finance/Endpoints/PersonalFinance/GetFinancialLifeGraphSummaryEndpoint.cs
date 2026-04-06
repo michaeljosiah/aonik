@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,14 @@ internal sealed class GetFinancialLifeGraphSummaryEndpoint : EndpointWithoutRequ
     {
         Get("/personal-finance/graph/summary");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get financial life graph summary";
+            s.Description = "Returns a high-level summary of the financial life graph, including node and edge counts and key statistics.";
+            s.Response(200, "Graph summary returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

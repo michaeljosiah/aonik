@@ -3,6 +3,7 @@ using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Settings;
 
@@ -19,6 +20,13 @@ public class GetPublicSettingsEndpoint : EndpointWithoutRequest<List<PublicSetti
     {
         Get("/v1/settings/public");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get public settings";
+            s.Description = "Returns all client-visible setting values resolved for the optionally specified tenant. No authentication required.";
+            s.Response(200, "Success");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

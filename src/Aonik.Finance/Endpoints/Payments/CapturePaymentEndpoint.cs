@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Payments;
 
@@ -17,6 +18,15 @@ public class CapturePaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespon
     {
         Post("/payments/intents/{id}/capture");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Capture a payment intent";
+            s.Description = "Captures an authorized payment intent, completing the payment transaction.";
+            s.Response(200, "Payment captured successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Payment intent not found");
+        });
+        Options(x => x.WithTags("Payments"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

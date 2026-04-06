@@ -18,6 +18,15 @@ internal class ValidatePublicCatalogServiceFieldsEndpoint : Endpoint<CatalogServ
     {
         Post("/public/catalog/billers/{billerId}/services/{serviceId}/validate");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Validate service fields (public)";
+            s.Description = "Validates customer-supplied field values for a biller service before order submission. No authentication required.";
+            s.Response(200, "Success");
+            s.Response(400, "Validation failed");
+            s.Response(404, "Biller service not found");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CatalogServiceFieldValidationRequest req, CancellationToken ct)

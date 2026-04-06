@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Pricing;
 using Aonik.Finance.Contracts.Services.Pricing;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Pricing.FxQuotes;
 
@@ -17,6 +18,15 @@ public class GetFxQuoteByIdEndpoint : EndpointWithoutRequest<FxQuoteDetailRespon
     {
         Get("/fx-quotes/{id}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get an FX quote by ID";
+            s.Description = "Retrieves the full details of a foreign exchange rate quote by its unique identifier.";
+            s.Response(200, "FX quote retrieved successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "FX quote not found");
+        });
+        Options(x => x.WithTags("Pricing"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

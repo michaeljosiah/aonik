@@ -29,6 +29,15 @@ public class GetMarketingPreferencesEndpoint : EndpointWithoutRequest<ApiMarketi
     {
         Get("/profiles/customers/me/marketing");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get marketing preferences";
+            s.Description = "Returns the current customer's marketing communication preferences for news, offers, and surveys.";
+            s.Response(200, "Preferences returned");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

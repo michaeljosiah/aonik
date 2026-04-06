@@ -1,6 +1,7 @@
 using Aonik.Ai.Contracts.Models;
 using Aonik.Ai.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Ai.Endpoints;
 
@@ -16,6 +17,14 @@ internal sealed class ListAiModelsEndpoint : Endpoint<ListAiModelsRequest, ListA
     {
         Get("/ai/models");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List AI models";
+            s.Description = "Returns all registered AI models, optionally filtered by provider ID.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(ListAiModelsRequest req, CancellationToken ct)
@@ -48,6 +57,15 @@ internal sealed class GetAiModelEndpoint : Endpoint<GetAiModelRequest, AiModelRe
     {
         Get("/ai/models/{ModelId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get AI model by ID";
+            s.Description = "Returns details of a specific AI model including its context window, cost profile, and policy tags.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Model not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(GetAiModelRequest req, CancellationToken ct)
@@ -80,6 +98,15 @@ internal sealed class CreateAiModelEndpoint : Endpoint<CreateAiModelRequest, AiM
     {
         Post("/ai/models");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create an AI model";
+            s.Description = "Registers a new AI model under a provider with its context window, cost profile, and policy tags.";
+            s.Response(201, "Model created");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CreateAiModelRequest req, CancellationToken ct)
@@ -104,6 +131,16 @@ internal sealed class UpdateAiModelEndpoint : Endpoint<UpdateAiModelEndpointRequ
     {
         Put("/ai/models/{ModelId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update an AI model";
+            s.Description = "Updates an existing AI model's name, context window, cost profile, latency profile, policy tags, or active status.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Model not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(UpdateAiModelEndpointRequest req, CancellationToken ct)
@@ -146,6 +183,15 @@ internal sealed class DeleteAiModelEndpoint : Endpoint<DeleteAiModelRequest>
     {
         Delete("/ai/models/{ModelId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete an AI model";
+            s.Description = "Removes an AI model registration from the system.";
+            s.Response(204, "Model deleted");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Model not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(DeleteAiModelRequest req, CancellationToken ct)

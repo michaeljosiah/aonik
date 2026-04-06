@@ -2,6 +2,7 @@ using Aonik.Finance.Contracts.Api.PayActivity;
 using Aonik.Finance.Contracts.Services.PayActivity;
 
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Payments;
 
@@ -23,6 +24,14 @@ internal sealed class ListPayActivityEndpoint : EndpointWithoutRequest<PayActivi
     {
         Get("/payments/activity");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List recent pay activity";
+            s.Description = "Returns the recent payment activity summary for the current authenticated user.";
+            s.Response(200, "Activity retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Payments"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

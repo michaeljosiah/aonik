@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Operations;
 using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Alerts;
 
@@ -19,6 +20,14 @@ internal sealed class ListAlertsEndpoint : Endpoint<ListAlertsRequest, AlertList
     {
         Get("/admin/alerts");
         Policies("PlatformAdmin");
+        Summary(s =>
+        {
+            s.Summary = "List system alerts";
+            s.Description = "Returns the most recent system alerts, limited to the requested count.";
+            s.Response(200, "Alert list");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(ListAlertsRequest req, CancellationToken ct)

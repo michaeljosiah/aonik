@@ -2,6 +2,7 @@ using ApiContracts = Aonik.Platform.Contracts.Api.Party;
 using AppModels = Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Party;
 
@@ -18,6 +19,14 @@ public class CreateRelatedPartyEndpoint : Endpoint<ApiContracts.CreateRelatedPar
     {
         Post("/parties/{partyId:guid}/relationships");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a related party";
+            s.Description = "Creates a new party and establishes a relationship to the specified parent party.";
+            s.Response(200, "Related party created");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Parties"));
     }
 
     public override async Task HandleAsync(ApiContracts.CreateRelatedPartyRequest req, CancellationToken ct)

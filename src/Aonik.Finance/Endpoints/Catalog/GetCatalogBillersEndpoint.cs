@@ -18,6 +18,14 @@ internal class GetCatalogBillersEndpoint : Endpoint<CatalogBillerListRequest, Ca
     {
         Get("/catalog/billers");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List billers";
+            s.Description = "Returns a paginated list of billers for the current tenant, with optional filtering by country, category, and search term.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CatalogBillerListRequest req, CancellationToken ct)

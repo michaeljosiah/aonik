@@ -28,6 +28,14 @@ public class ConfirmEmailVerificationEndpoint : Endpoint<ConfirmEmailVerificatio
     {
         Post("/v1/verifications/email/confirm");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Confirm email verification code";
+            s.Description = "Validates the OTP code sent to the user's email address and marks the email as verified.";
+            s.Response(200, "Verification result returned");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(ConfirmEmailVerificationRequest req, CancellationToken ct)

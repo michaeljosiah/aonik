@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,15 @@ internal sealed class AcceptTransactionClassificationEndpoint : EndpointWithoutR
     {
         Post("/personal-finance/classification/review/{transactionId}/accept");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Accept a transaction classification";
+            s.Description = "Accepts the AI-suggested category classification for a transaction in the review queue, confirming it as correct.";
+            s.Response(200, "Classification accepted successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Transaction not found in review queue");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

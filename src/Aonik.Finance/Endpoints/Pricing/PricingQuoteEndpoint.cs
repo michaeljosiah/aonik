@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Pricing;
 using Aonik.Finance.Contracts.Services.Pricing;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Pricing;
 
@@ -17,6 +18,15 @@ public class PricingQuoteEndpoint : Endpoint<PricingQuoteRequest, PricingQuoteRe
     {
         Post("/pricing/quote");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get a bill payment pricing quote";
+            s.Description = "Calculates a pricing quote for a bill payment, including exchange rate, fees, and total amount.";
+            s.Response(200, "Pricing quote generated successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Pricing"));
     }
 
     public override async Task HandleAsync(PricingQuoteRequest req, CancellationToken ct)

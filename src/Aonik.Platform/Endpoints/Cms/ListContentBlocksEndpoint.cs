@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Models.Cms;
 using Aonik.Platform.Contracts.Services.Cms;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Cms;
 
@@ -17,6 +18,14 @@ internal class ListContentBlocksEndpoint : EndpointWithoutRequest<List<ContentBl
     {
         Get("/cms/content-blocks");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List content blocks";
+            s.Description = "Returns all CMS content blocks, optionally filtered by area, content key, locale, and enabled status.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Content Management"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

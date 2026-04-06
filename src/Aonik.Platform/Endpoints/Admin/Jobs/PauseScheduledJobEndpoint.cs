@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Jobs;
 using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -21,6 +22,15 @@ internal class PauseScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJobAc
     {
         Post("/admin/jobs/scheduled/{jobName}/pause");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Pause a scheduled job";
+            s.Description = "Queues a pause command for the specified job. The Worker service will skip execution while paused.";
+            s.Response(200, "Pause queued");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Job not found");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

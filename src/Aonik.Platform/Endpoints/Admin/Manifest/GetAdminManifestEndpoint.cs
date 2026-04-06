@@ -1,4 +1,5 @@
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Manifest;
 
@@ -22,6 +23,13 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
     {
         Get("/admin/manifest");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get admin UI manifest";
+            s.Description = "Returns the runtime module manifest that controls which UI modules, features, routes, and navigation items are available.";
+            s.Response(200, "Admin manifest");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

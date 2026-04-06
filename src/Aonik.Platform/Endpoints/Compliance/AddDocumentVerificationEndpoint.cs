@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Compliance;
 
@@ -17,6 +18,14 @@ public class AddDocumentVerificationEndpoint : Endpoint<AddDocumentVerificationR
     {
         Post("/compliance/document-usages/{id}/verifications");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Add verification to a document usage";
+            s.Description = "Records a verification decision (approve, reject, etc.) against a document usage record.";
+            s.Response(200, "Verification recorded");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(AddDocumentVerificationRequest req, CancellationToken ct)

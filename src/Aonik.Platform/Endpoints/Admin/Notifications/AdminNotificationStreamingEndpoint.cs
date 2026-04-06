@@ -26,7 +26,9 @@ public static class AdminNotificationStreamingEndpoint
     {
         return endpoints.MapGet(pattern, HandleStreamAsync)
             .WithName("AdminNotificationStreaming")
-            .WithTags("Platform");
+            .WithTags("Notifications")
+            .WithSummary("Stream real-time notifications")
+            .WithDescription("Opens a Server-Sent Events (SSE) stream that pushes real-time notification events to the connected admin user.");
     }
 
     private static async Task HandleStreamAsync(HttpContext context)

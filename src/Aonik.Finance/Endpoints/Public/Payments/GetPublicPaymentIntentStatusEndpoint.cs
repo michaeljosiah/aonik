@@ -20,6 +20,14 @@ public class GetPublicPaymentIntentStatusEndpoint : EndpointWithoutRequest<Publi
     {
         Get("/public/payments/intents/status");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get payment intent status (public)";
+            s.Description = "Retrieves the current status of a guest payment intent by order ID and optional payment intent ID or provider reference. No authentication required.";
+            s.Response(200, "Success");
+            s.Response(404, "Payment intent not found");
+        });
+        Options(x => x.WithTags("Payments"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

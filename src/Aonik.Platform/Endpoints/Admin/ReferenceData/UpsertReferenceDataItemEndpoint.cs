@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Api.ReferenceData;
 using Aonik.Platform.Contracts.Services.ReferenceData;
 using Aonik.Platform.Contracts.Models.ReferenceData;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.ReferenceData;
 
@@ -18,6 +19,15 @@ internal class UpsertReferenceDataItemEndpoint : Endpoint<ReferenceDataItemUpser
     {
         Put("/admin/reference-data/{type}/{code}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Upsert reference data item";
+            s.Description = "Creates or updates a reference data item for the given type and code, setting its display name, sort order, and active status.";
+            s.Response(200, "Item saved");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Reference Data"));
     }
 
     public override async Task HandleAsync(ReferenceDataItemUpsertRequest req, CancellationToken ct)

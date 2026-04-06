@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Pricing;
 using Aonik.Finance.Contracts.Services.Pricing;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Pricing.FxQuotes;
 
@@ -17,6 +18,15 @@ public class CreateFxQuoteEndpoint : Endpoint<CreateFxQuoteRequest, FxQuoteDetai
     {
         Post("/fx-quotes");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create an FX quote";
+            s.Description = "Creates a new foreign exchange rate quote for a currency pair with an expiry time.";
+            s.Response(201, "FX quote created successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Pricing"));
     }
 
     public override async Task HandleAsync(CreateFxQuoteRequest req, CancellationToken ct)

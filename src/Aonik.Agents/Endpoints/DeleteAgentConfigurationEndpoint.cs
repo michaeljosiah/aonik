@@ -1,5 +1,6 @@
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -21,6 +22,15 @@ internal sealed class DeleteAgentConfigurationEndpoint
     {
         Delete("/ai/agents/configurations/{Name}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete agent configuration override";
+            s.Description = "Deletes the tenant-specific agent configuration override, reverting the tenant to the global default.";
+            s.Response(204, "Configuration deleted");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Agent configuration not found");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(DeleteAgentConfigurationRequest req, CancellationToken ct)

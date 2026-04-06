@@ -33,6 +33,17 @@ internal class InviteHouseholdMemberEndpoint : Endpoint<InviteHouseholdMemberEnd
     {
         Post("/personal-finance/households/{householdId:guid}/members/invite");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Invite a member to a household";
+            s.Description = "Sends an invitation for a user to join the specified household with a given role and optional permissions.";
+            s.Response(200, "Member invited successfully");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(409, "Member already exists in household");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(InviteHouseholdMemberEndpointRequest req, CancellationToken ct)

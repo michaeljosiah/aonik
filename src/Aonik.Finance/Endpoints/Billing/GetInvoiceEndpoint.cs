@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Billing;
 using Aonik.Finance.Contracts.Services.Billing;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Billing;
 
@@ -17,6 +18,15 @@ public class GetInvoiceEndpoint : EndpointWithoutRequest<InvoiceResponse>
     {
         Get("/billing/invoices/{id}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get an invoice by ID";
+            s.Description = "Retrieves a single invoice by its unique identifier, including line items.";
+            s.Response(200, "Invoice retrieved successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Invoice not found");
+        });
+        Options(x => x.WithTags("Billing"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

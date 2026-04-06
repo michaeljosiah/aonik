@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -18,6 +19,14 @@ internal sealed class ListTransactionAttachmentsEndpoint
     {
         Get("/personal-finance/spending/transactions/{transactionId}/attachments");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List transaction attachments";
+            s.Description = "Returns all file attachments (receipts, invoices, etc.) associated with a specific personal transaction.";
+            s.Response(200, "Attachments returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

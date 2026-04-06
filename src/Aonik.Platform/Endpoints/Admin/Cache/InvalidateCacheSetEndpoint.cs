@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Cache;
 
@@ -17,6 +18,16 @@ internal class InvalidateCacheSetEndpoint : Endpoint<InvalidateCacheSetRequest, 
     {
         Post("/admin/cache/invalidate");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Invalidate a cache set";
+            s.Description = "Clears all entries from the specified cache set, forcing fresh data to be loaded on next access.";
+            s.Response(200, "Cache invalidated");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(InvalidateCacheSetRequest req, CancellationToken ct)

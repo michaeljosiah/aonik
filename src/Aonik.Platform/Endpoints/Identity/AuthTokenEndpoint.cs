@@ -20,6 +20,14 @@ public class AuthTokenEndpoint : Endpoint<TokenRequestDto, TokenResponseDto>
     {
         Post("/auth/token");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Exchange credentials for auth token";
+            s.Description = "Authenticates a user via grant type (password, authorization code, or refresh token) and returns an access token.";
+            s.Response(200, "Token issued successfully");
+            s.Response(400, "Invalid credentials or grant");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(TokenRequestDto req, CancellationToken ct)

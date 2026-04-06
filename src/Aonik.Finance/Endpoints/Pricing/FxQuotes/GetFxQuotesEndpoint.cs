@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Pricing;
 using Aonik.Finance.Contracts.Services.Pricing;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Pricing.FxQuotes;
 
@@ -17,6 +18,14 @@ public class GetFxQuotesEndpoint : EndpointWithoutRequest<IReadOnlyCollection<Fx
     {
         Get("/fx-quotes");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List FX quotes";
+            s.Description = "Returns FX quotes, optionally filtered by base currency, target currency, and expiry status.";
+            s.Response(200, "FX quotes retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Pricing"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

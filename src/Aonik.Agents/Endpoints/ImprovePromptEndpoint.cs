@@ -1,4 +1,5 @@
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.AI;
 
 namespace Aonik.Agents.Endpoints;
@@ -22,6 +23,15 @@ internal sealed class ImprovePromptEndpoint
     {
         Post("/ai/agents/improve-prompt");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Improve an agent system prompt";
+            s.Description = "Uses AI to refine an agent's system prompt based on user instructions, preserving the core theme and intent.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(ImprovePromptRequest req, CancellationToken ct)

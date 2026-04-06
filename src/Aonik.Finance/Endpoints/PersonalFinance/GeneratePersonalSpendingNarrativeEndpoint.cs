@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,15 @@ internal sealed class GeneratePersonalSpendingNarrativeEndpoint : Endpoint<Gener
     {
         Post("/personal-finance/insights/narrative");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Generate a spending narrative";
+            s.Description = "Uses AI to generate a natural-language narrative summarising the user's spending patterns for a specified period.";
+            s.Response(200, "Spending narrative generated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(GeneratePersonalSpendingNarrativeRequest req, CancellationToken ct)

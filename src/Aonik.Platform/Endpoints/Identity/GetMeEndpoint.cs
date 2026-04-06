@@ -38,6 +38,15 @@ public class GetMeEndpoint : EndpointWithoutRequest<CurrentUserResponse>
     {
         Get("/v1/me");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get current user snapshot";
+            s.Description = "Returns a summary of the authenticated user including user ID, tenant, email, status, and display name.";
+            s.Response(200, "Current user returned");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "User not found");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

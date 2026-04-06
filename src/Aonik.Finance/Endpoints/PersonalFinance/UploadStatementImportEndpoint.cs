@@ -20,6 +20,16 @@ internal sealed class UploadStatementImportEndpoint : EndpointWithoutRequest<Sta
         Post("/personal-finance/imports/statements");
         Policies("UserPolicy");
         AllowFileUploads();
+        Summary(s =>
+        {
+            s.Summary = "Upload a bank statement";
+            s.Description = "Uploads a bank statement file (CSV, OFX, etc.) for parsing and importing transactions into a personal account.";
+            s.Response(200, "Statement uploaded and parsed successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(409, "Duplicate import detected");
+            s.Response(422, "Validation error or unsupported file format");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

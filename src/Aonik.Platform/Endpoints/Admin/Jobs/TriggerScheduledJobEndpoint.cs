@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Jobs;
 using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -21,6 +22,15 @@ internal class TriggerScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJob
     {
         Post("/admin/jobs/scheduled/{jobName}/trigger");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Trigger a scheduled job immediately";
+            s.Description = "Queues an immediate execution request for the specified job, bypassing its regular cron schedule.";
+            s.Response(200, "Trigger queued");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Job not found");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

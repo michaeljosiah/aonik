@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Jobs;
 using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -21,6 +22,14 @@ internal class ListScheduledJobsEndpoint : EndpointWithoutRequest<ScheduledJobLi
     {
         Get("/admin/jobs/scheduled");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List all scheduled jobs";
+            s.Description = "Returns all registered scheduled background jobs and their current execution state.";
+            s.Response(200, "Scheduled job list");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

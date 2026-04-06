@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Jobs;
 using Aonik.Platform.Contracts.Services.Operations;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -20,6 +21,15 @@ internal class ResumeScheduledJobEndpoint : EndpointWithoutRequest<ScheduledJobA
     {
         Post("/admin/jobs/scheduled/{jobName}/resume");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Resume a scheduled job";
+            s.Description = "Queues a resume command for a previously paused job, restoring its normal execution schedule.";
+            s.Response(200, "Resume queued");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Job not found");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -31,6 +31,15 @@ public class UpdateMarketingPreferencesEndpoint : Endpoint<ApiUpdateMarketingPre
     {
         Put("/profiles/customers/me/marketing");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update marketing preferences";
+            s.Description = "Updates the current customer's marketing communication preferences for news, offers, and surveys.";
+            s.Response(200, "Preferences updated");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(ApiUpdateMarketingPreferencesRequest req, CancellationToken ct)

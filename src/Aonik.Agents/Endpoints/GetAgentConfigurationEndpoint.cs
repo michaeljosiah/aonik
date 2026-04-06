@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -22,6 +23,15 @@ internal sealed class GetAgentConfigurationEndpoint
     {
         Get("/ai/agents/configurations/{Name}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get agent configuration by name";
+            s.Description = "Returns the resolved agent configuration for a given agent name, preferring tenant-specific overrides over global defaults.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Agent configuration not found");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(GetAgentConfigurationRequest req, CancellationToken ct)

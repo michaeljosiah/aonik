@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,15 @@ internal sealed class GetPersonalTransactionEndpoint : EndpointWithoutRequest<Pe
     {
         Get("/personal-finance/transactions/{id}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get a personal transaction by ID";
+            s.Description = "Returns the full details of a single personal transaction including amount, category, merchant, and classification status.";
+            s.Response(200, "Transaction returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Transaction not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

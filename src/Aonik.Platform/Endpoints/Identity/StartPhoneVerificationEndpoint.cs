@@ -28,6 +28,14 @@ public class StartPhoneVerificationEndpoint : Endpoint<StartPhoneVerificationReq
     {
         Post("/v1/verifications/phone/start");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Start phone verification";
+            s.Description = "Initiates phone verification by sending an OTP code to the specified phone number.";
+            s.Response(200, "Verification challenge created");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(StartPhoneVerificationRequest req, CancellationToken ct)

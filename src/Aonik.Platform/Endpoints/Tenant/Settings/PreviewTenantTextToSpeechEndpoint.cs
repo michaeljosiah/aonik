@@ -18,6 +18,15 @@ public class PreviewTenantTextToSpeechEndpoint : Endpoint<TextToSpeechPreviewReq
     {
         Post("/tenant/settings/text-to-speech/preview");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Preview text-to-speech audio";
+            s.Description = "Synthesizes audio from the provided text using the specified voice and provider settings, returning an audio stream.";
+            s.Response(200, "Audio stream returned");
+            s.Response(400, "Invalid request or provider error");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(TextToSpeechPreviewRequest req, CancellationToken ct)

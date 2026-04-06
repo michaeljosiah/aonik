@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Compliance;
 
@@ -17,6 +18,15 @@ public class GetDocumentEndpoint : EndpointWithoutRequest<DocumentDetailsRespons
     {
         Get("/compliance/documents/{id}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get document details by ID";
+            s.Description = "Returns full document details including files, usages, verifications, and version history.";
+            s.Response(200, "Document details returned");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Document not found");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

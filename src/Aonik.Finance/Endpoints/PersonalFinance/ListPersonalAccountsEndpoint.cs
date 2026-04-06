@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -22,6 +23,14 @@ internal sealed class ListPersonalAccountsEndpoint : Endpoint<ListPersonalAccoun
     {
         Get("/personal-finance/accounts");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List personal accounts";
+            s.Description = "Returns all personal finance accounts for the authenticated user, with an option to include archived accounts.";
+            s.Response(200, "Account list returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ListPersonalAccountsRequest req, CancellationToken ct)

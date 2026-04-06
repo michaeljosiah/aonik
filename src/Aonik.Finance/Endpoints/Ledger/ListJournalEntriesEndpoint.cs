@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Ledger;
 using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Ledger;
 
@@ -17,6 +18,14 @@ public class ListJournalEntriesEndpoint : Endpoint<ListJournalEntriesRequest, Li
     {
         Get("/ledger/journal-entries");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List journal entries";
+            s.Description = "Returns all journal entries for a given ledger, including their debit and credit lines.";
+            s.Response(200, "Journal entries retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Ledger"));
     }
 
     public override async Task HandleAsync(ListJournalEntriesRequest req, CancellationToken ct)

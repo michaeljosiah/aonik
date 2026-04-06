@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Payments;
 
@@ -17,6 +18,15 @@ public class CreatePaymentIntentEndpoint : Endpoint<CreatePaymentIntentRequest, 
     {
         Post("/payments/intents");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a payment intent";
+            s.Description = "Creates a new payment intent for a specified amount and currency, optionally linked to an order or invoice.";
+            s.Response(201, "Payment intent created successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Payments"));
     }
 
     public override async Task HandleAsync(CreatePaymentIntentRequest req, CancellationToken ct)

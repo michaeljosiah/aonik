@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Api.Seeding;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Seeding;
 
@@ -22,6 +23,15 @@ internal class RunDataSeedEndpoint : Endpoint<DataSeedRequest, DataSeedResponse>
     {
         Post("/admin/data-seeds/run");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Run data seeds";
+            s.Description = "Executes the specified data seed contributors, or all contributors if no keys are provided. Returns the operations performed by each seed.";
+            s.Response(200, "Seed results");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(DataSeedRequest req, CancellationToken ct)

@@ -19,6 +19,14 @@ public class CreatePublicPaymentIntentEndpoint : Endpoint<CreatePublicPaymentInt
     {
         Post("/public/payments/intents");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Create payment intent (public)";
+            s.Description = "Creates a guest payment intent for an existing draft order. No authentication required.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+        });
+        Options(x => x.WithTags("Payments"));
     }
 
     public override async Task HandleAsync(CreatePublicPaymentIntentRequest req, CancellationToken ct)

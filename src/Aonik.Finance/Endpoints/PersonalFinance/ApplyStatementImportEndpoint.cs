@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,15 @@ internal sealed class ApplyStatementImportEndpoint : EndpointWithoutRequest<Stat
     {
         Post("/personal-finance/imports/statements/{id}/apply");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Apply a statement import";
+            s.Description = "Finalises a previously uploaded statement import by creating personal transactions from the imported rows.";
+            s.Response(200, "Statement import applied successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Import cannot be applied in its current state");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

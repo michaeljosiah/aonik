@@ -30,6 +30,15 @@ internal sealed class ReceiveAzureMonitorAlertEndpoint : Endpoint<AzureMonitorAl
     {
         Post("/integrations/azure/alerts");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Receive Azure Monitor alert webhook";
+            s.Description = "Ingests an Azure Monitor alert webhook payload for processing. Authenticated via shared secret header.";
+            s.Response(202, "Alert accepted for processing");
+            s.Response(400, "Invalid alert payload");
+            s.Response(401, "Invalid integration secret");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(AzureMonitorAlertWebhookRequest req, CancellationToken ct)

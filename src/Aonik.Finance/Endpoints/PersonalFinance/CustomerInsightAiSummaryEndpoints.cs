@@ -1,6 +1,7 @@
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -26,6 +27,15 @@ internal sealed class GetCustomerInsightAiSummaryEndpoint : Endpoint<GetCustomer
     {
         Get("/personal-finance/customer-insights/{SnapshotId}/ai-summary");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get AI summary for a customer insight";
+            s.Description = "Returns the AI-generated natural-language summary for a specific customer insight snapshot, including key observations and recommendations.";
+            s.Response(200, "AI summary returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Snapshot or AI summary not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(GetCustomerInsightAiSummaryRequest req, CancellationToken ct)

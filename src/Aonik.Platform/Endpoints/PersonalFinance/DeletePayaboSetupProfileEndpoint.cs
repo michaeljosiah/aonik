@@ -28,6 +28,14 @@ public class DeletePayaboSetupProfileEndpoint : EndpointWithoutRequest<ClearPaya
     {
         Delete("/personal-finance/setup-profile");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Clear Payabo setup profile";
+            s.Description = "Deletes the current user's Payabo onboarding setup profile, allowing them to restart the setup flow.";
+            s.Response(200, "Setup profile cleared");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

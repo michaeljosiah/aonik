@@ -33,6 +33,16 @@ internal sealed class EnsurePersonalProfileEndpoint
     {
         Put("/admin/personal-finance/profiles/ensure");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Ensure a personal finance profile exists";
+            s.Description = "Creates a personal finance profile for a user if one does not already exist, or updates the party link if needed.";
+            s.Response(200, "Profile already exists");
+            s.Response(201, "Profile created successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(EnsurePersonalProfileRequest req, CancellationToken ct)

@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -22,6 +23,15 @@ internal sealed class GetFinancialLifeUpcomingObligationsEndpoint : Endpoint<Upc
     {
         Get("/personal-finance/graph/upcoming-obligations");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get upcoming financial obligations";
+            s.Description = "Returns upcoming bills, subscriptions, and other recurring financial obligations within the specified number of days.";
+            s.Response(200, "Upcoming obligations returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(UpcomingObligationsRequest req, CancellationToken ct)

@@ -31,6 +31,15 @@ public class UpdateNotificationPreferencesEndpoint : Endpoint<ApiUpdateNotificat
     {
         Put("/profiles/customers/me/notifications");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update notification preferences";
+            s.Description = "Updates the current customer's push and email notification preferences.";
+            s.Response(200, "Preferences updated");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(ApiUpdateNotificationPreferencesRequest req, CancellationToken ct)

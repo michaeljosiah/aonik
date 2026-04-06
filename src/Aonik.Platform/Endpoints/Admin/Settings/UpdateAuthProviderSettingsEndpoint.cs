@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Contracts.Models.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Settings;
 
@@ -18,6 +19,15 @@ internal class UpdateAuthProviderSettingsEndpoint : Endpoint<AuthProviderSetting
     {
         Put("/admin/settings/auth-provider");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update auth provider settings";
+            s.Description = "Updates the authentication provider configuration for Auth0 and/or Azure AD.";
+            s.Response(200, "Settings updated");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(AuthProviderSettingsUpdateRequest req, CancellationToken ct)

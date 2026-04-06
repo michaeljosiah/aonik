@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Settings;
 
@@ -17,6 +18,14 @@ internal class GetAuthProviderSettingsEndpoint : EndpointWithoutRequest<AuthProv
     {
         Get("/admin/settings/auth-provider");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get auth provider settings";
+            s.Description = "Retrieves the current authentication provider configuration including Auth0 and Azure AD settings.";
+            s.Response(200, "Auth provider settings");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

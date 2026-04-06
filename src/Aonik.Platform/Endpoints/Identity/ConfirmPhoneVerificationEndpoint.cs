@@ -28,6 +28,14 @@ public class ConfirmPhoneVerificationEndpoint : Endpoint<ConfirmPhoneVerificatio
     {
         Post("/v1/verifications/phone/confirm");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Confirm phone verification code";
+            s.Description = "Validates the OTP code sent to the user's phone number and marks the phone as verified.";
+            s.Response(200, "Verification result returned");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(ConfirmPhoneVerificationRequest req, CancellationToken ct)

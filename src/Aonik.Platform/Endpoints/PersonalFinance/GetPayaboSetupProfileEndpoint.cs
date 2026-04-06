@@ -29,6 +29,15 @@ public class GetPayaboSetupProfileEndpoint : EndpointWithoutRequest<PayaboSetupP
     {
         Get("/personal-finance/setup-profile");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get Payabo setup profile";
+            s.Description = "Returns the current user's Payabo onboarding setup profile including use cases, goals, and completion status.";
+            s.Response(200, "Setup profile returned");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Setup profile not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -92,7 +92,9 @@ public static class AguiStreamingEndpoint
     {
         return endpoints.MapPost(pattern, HandleAguiRequest)
             .WithName("AgUiStreaming")
-            .WithTags("AI");
+            .WithTags("AI Agents")
+            .WithSummary("Stream AG-UI chat events")
+            .WithDescription("Implements the AG-UI SSE protocol for real-time agent chat. Routes messages through the master orchestrator and streams responses as AG-UI events.");
     }
 
     private static async Task HandleAguiRequest(HttpContext context)

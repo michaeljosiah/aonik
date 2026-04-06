@@ -1,5 +1,6 @@
 using Aonik.Finance.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -16,6 +17,15 @@ internal sealed class DeleteFinancialLifeGraphEdgeEndpoint : EndpointWithoutRequ
     {
         Delete("/personal-finance/graph/edges/{id:guid}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete a graph edge";
+            s.Description = "Removes a relationship edge from the user's financial life graph.";
+            s.Response(204, "Graph edge deleted successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Edge not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

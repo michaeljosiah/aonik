@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Compliance;
 
@@ -17,6 +18,14 @@ public class AddDocumentUsageEndpoint : Endpoint<AddDocumentUsageRequest, Docume
     {
         Post("/compliance/documents/{id}/usages");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Add usage record to a document";
+            s.Description = "Records a new usage of a compliance document, linking it to a party, purpose, and related entity.";
+            s.Response(200, "Usage record added");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(AddDocumentUsageRequest req, CancellationToken ct)

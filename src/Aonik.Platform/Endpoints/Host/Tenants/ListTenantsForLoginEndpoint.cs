@@ -5,6 +5,7 @@ using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Host.Tenants;
 
@@ -29,6 +30,13 @@ internal class ListTenantsForLoginEndpoint : EndpointWithoutRequest<TenantListFo
     {
         Get("/host/tenants/list-for-login");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "List tenants for login";
+            s.Description = "Returns a list of active tenants for display in the login tenant selector dropdown.";
+            s.Response(200, "Tenant list returned");
+        });
+        Options(x => x.WithTags("Tenant Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

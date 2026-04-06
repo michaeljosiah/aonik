@@ -28,6 +28,17 @@ internal class CreateHouseholdEndpoint : Endpoint<CreateHouseholdRequest, Househ
     {
         Post("/personal-finance/households");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a household";
+            s.Description = "Creates a new household group for the authenticated user, enabling shared personal finance tracking among household members.";
+            s.Response(200, "Household created successfully");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(409, "Household already exists");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateHouseholdRequest req, CancellationToken ct)

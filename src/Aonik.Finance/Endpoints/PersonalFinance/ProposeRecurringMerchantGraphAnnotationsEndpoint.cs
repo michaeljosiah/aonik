@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,15 @@ internal sealed class ProposeRecurringMerchantGraphAnnotationsEndpoint : Endpoin
     {
         Post("/personal-finance/graph/proposals/recurring-merchants");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Propose recurring merchant annotations";
+            s.Description = "Uses AI inference to propose graph annotations for recurring merchant relationships based on transaction patterns.";
+            s.Response(200, "Proposals generated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ProposeRecurringMerchantGraphAnnotationsRequest req, CancellationToken ct)

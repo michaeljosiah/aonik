@@ -30,6 +30,16 @@ public class UpdateCustomerEmailEndpoint : Endpoint<ApiUpdateCustomerEmailReques
     {
         Put("/profiles/customers/me/email");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update customer email address";
+            s.Description = "Changes the current customer's email address after verifying the provided password.";
+            s.Response(200, "Email updated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(ApiUpdateCustomerEmailRequest req, CancellationToken ct)

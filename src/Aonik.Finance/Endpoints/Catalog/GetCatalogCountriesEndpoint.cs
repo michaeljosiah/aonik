@@ -1,6 +1,7 @@
 using FastEndpoints;
 using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Contracts.Services.Catalog;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Catalog;
 
@@ -17,6 +18,14 @@ internal class GetCatalogCountriesEndpoint : EndpointWithoutRequest<CatalogCount
     {
         Get("/catalog/countries");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List countries";
+            s.Description = "Returns supported countries for the current tenant, optionally filtered by service availability and capability type.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

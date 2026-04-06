@@ -1,5 +1,6 @@
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -20,6 +21,14 @@ internal sealed class ListAgentsEndpoint : EndpointWithoutRequest<ListAgentsResp
     {
         Get("/ai/agents");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List registered domain agents";
+            s.Description = "Returns all domain agents registered with the orchestrator, including their names and descriptions.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

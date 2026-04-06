@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,16 @@ internal sealed class CreateFinancialLifeGraphNodeEndpoint : Endpoint<CreateFina
     {
         Post("/personal-finance/graph/nodes");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a graph node";
+            s.Description = "Adds a new node (account, merchant, person, or entity) to the user's financial life graph.";
+            s.Response(200, "Graph node created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(409, "Duplicate node already exists");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateFinancialLifeGraphNodeRequest req, CancellationToken ct)

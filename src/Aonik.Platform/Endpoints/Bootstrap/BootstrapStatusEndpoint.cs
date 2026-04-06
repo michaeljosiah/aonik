@@ -30,6 +30,13 @@ internal class BootstrapStatusEndpoint : EndpointWithoutRequest<BootstrapStatusR
     {
         Get("/bootstrap/status");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get bootstrap status";
+            s.Description = "Returns the current bootstrap state (ready, completed, disabled, or misconfigured) for the platform.";
+            s.Response(200, "Bootstrap status returned");
+        });
+        Options(x => x.WithTags("Bootstrap"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

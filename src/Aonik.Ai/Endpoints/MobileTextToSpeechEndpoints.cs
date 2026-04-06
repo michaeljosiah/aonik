@@ -23,6 +23,15 @@ internal sealed class MobileTextToSpeechSynthesizeEndpoint : Endpoint<MobileText
     public override void Configure()
     {
         Post("/mobile/text-to-speech/synthesize");
+        Summary(s =>
+        {
+            s.Summary = "Synthesize text to speech audio";
+            s.Description = "Converts text to speech audio using the configured TTS provider. Returns an audio stream with provider metadata headers.";
+            s.Response(200, "Audio stream returned");
+            s.Response(400, "Invalid request or policy violation");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(MobileTextToSpeechSynthesisRequest req, CancellationToken ct)

@@ -2,6 +2,7 @@ using FastEndpoints;
 
 using Aonik.Platform.Contracts.Api.Identity;
 using Aonik.Platform.Contracts.Services.Identity;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Identity;
 
@@ -18,6 +19,14 @@ public class UserInfoEndpoint : EndpointWithoutRequest<UserInfoResponseDto>
     {
         Get("/identity/userinfo");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get authenticated user info";
+            s.Description = "Returns identity details for the authenticated user including roles, tenant, party, and photo URLs.";
+            s.Response(200, "User info returned");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Models.Notifications;
 using Aonik.Platform.Contracts.Services.Notifications;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Notifications;
 
@@ -17,6 +18,16 @@ internal class UpdateNotificationTemplateBindingEndpoint : Endpoint<UpdateNotifi
     {
         Put("/admin/notification-template-bindings/{id}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a template binding";
+            s.Description = "Updates an existing notification template binding's event or template association.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Binding not found");
+        });
+        Options(x => x.WithTags("Notifications"));
     }
 
     public override async Task HandleAsync(UpdateNotificationTemplateBindingRequest req, CancellationToken ct)

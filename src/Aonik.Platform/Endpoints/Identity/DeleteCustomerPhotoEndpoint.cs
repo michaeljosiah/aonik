@@ -29,6 +29,15 @@ public class DeleteCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPho
     {
         Delete("/profiles/customers/me/photo");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete customer profile photo";
+            s.Description = "Removes the current customer's profile photo.";
+            s.Response(200, "Photo deleted successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

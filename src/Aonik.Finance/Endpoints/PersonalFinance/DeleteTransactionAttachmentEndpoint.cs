@@ -1,5 +1,6 @@
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -16,6 +17,15 @@ internal sealed class DeleteTransactionAttachmentEndpoint : EndpointWithoutReque
     {
         Delete("/personal-finance/spending/attachments/{attachmentId}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete a transaction attachment";
+            s.Description = "Permanently removes a file attachment from a personal transaction.";
+            s.Response(204, "Attachment deleted successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Attachment not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

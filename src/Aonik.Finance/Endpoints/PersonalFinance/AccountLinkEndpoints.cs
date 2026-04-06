@@ -28,6 +28,15 @@ internal sealed class CreateAccountLinkSessionEndpoint : Endpoint<CreateAccountL
     {
         Post("/personal-finance/account-links/sessions");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create an account link session";
+            s.Description = "Initiates a new account linking session with a financial data provider (e.g. Plaid) to connect external bank accounts.";
+            s.Response(200, "Link session created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateAccountLinkSessionRequest req, CancellationToken ct)
@@ -57,6 +66,15 @@ internal sealed class ExchangeAccountLinkSessionEndpoint : Endpoint<ExchangeAcco
     {
         Post("/personal-finance/account-links/exchanges");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Exchange an account link session";
+            s.Description = "Exchanges a completed link session token for permanent account connection credentials and creates linked personal accounts.";
+            s.Response(200, "Session exchanged successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error or invalid session");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ExchangeAccountLinkSessionRequest req, CancellationToken ct)
@@ -90,6 +108,14 @@ internal sealed class ListAccountLinksEndpoint : Endpoint<ListAccountLinksReques
     {
         Get("/personal-finance/account-links");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List account link connections";
+            s.Description = "Returns all linked external account connections, with an option to include previously disconnected links.";
+            s.Response(200, "Account links returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ListAccountLinksRequest req, CancellationToken ct)
@@ -112,6 +138,14 @@ internal sealed class GetAccountLinksSummaryEndpoint : Endpoint<AccountLinkSumma
     {
         Get("/personal-finance/account-links/summary");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get account links summary";
+            s.Description = "Returns a summary of all linked accounts grouped by connection, including balances and sync status.";
+            s.Response(200, "Account links summary returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(AccountLinkSummaryRequest req, CancellationToken ct)
@@ -134,6 +168,16 @@ internal sealed class RefreshAccountLinkEndpoint : EndpointWithoutRequest<Accoun
     {
         Post("/personal-finance/account-links/{id}/refresh");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Refresh an account link";
+            s.Description = "Triggers a refresh of account data from the external provider, updating balances and fetching new transactions.";
+            s.Response(200, "Account link refreshed successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Account link not found");
+            s.Response(422, "Refresh failed or action required from provider");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -183,6 +227,15 @@ internal sealed class DisconnectAccountLinkEndpoint : EndpointWithoutRequest<Acc
     {
         Post("/personal-finance/account-links/{id}/disconnect");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Disconnect an account link";
+            s.Description = "Disconnects an external account link, stopping automatic data syncing while preserving previously imported data.";
+            s.Response(200, "Account link disconnected successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Account link not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -212,6 +265,16 @@ internal sealed class SyncAccountLinkTransactionsEndpoint : EndpointWithoutReque
     {
         Post("/personal-finance/account-links/{id}/transactions/sync");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Sync account link transactions";
+            s.Description = "Manually triggers a transaction sync for a linked account, importing new transactions from the external provider.";
+            s.Response(200, "Transactions synced successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Account link not found");
+            s.Response(422, "Sync failed or connection in error state");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -248,6 +311,13 @@ internal sealed class PlaidAccountLinkWebhookEndpoint : Endpoint<PlaidAccountLin
     {
         Post("/personal-finance/account-links/webhooks/plaid");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Receive Plaid webhook";
+            s.Description = "Processes incoming webhook notifications from Plaid for account link events such as transaction updates and connection status changes.";
+            s.Response(200, "Webhook processed successfully");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(PlaidAccountLinkWebhookRequest req, CancellationToken ct)

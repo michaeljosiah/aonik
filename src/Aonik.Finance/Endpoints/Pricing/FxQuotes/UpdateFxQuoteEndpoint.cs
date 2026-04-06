@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Pricing;
 using Aonik.Finance.Contracts.Services.Pricing;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Pricing.FxQuotes;
 
@@ -17,6 +18,16 @@ public class UpdateFxQuoteEndpoint : Endpoint<UpdateFxQuoteRequest, FxQuoteDetai
     {
         Put("/fx-quotes/{id}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update an FX quote";
+            s.Description = "Updates the rate, expiry, provider, or metadata of an existing FX quote.";
+            s.Response(200, "FX quote updated successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "FX quote not found");
+        });
+        Options(x => x.WithTags("Pricing"));
     }
 
     public override async Task HandleAsync(UpdateFxQuoteRequest req, CancellationToken ct)

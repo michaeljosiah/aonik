@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -22,6 +23,15 @@ internal sealed class UpsertAgentConfigurationEndpoint
     {
         Put("/ai/agents/configurations/{Name}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create or update agent configuration";
+            s.Description = "Creates or updates a tenant-level agent configuration override. Fields not provided preserve their existing or global default values.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(UpsertAgentConfigurationEndpointRequest req, CancellationToken ct)

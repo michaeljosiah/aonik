@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Compliance;
 using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Compliance;
 
@@ -17,6 +18,14 @@ public class AddDocumentFileEndpoint : Endpoint<AddDocumentFileRequest, Document
     {
         Post("/compliance/documents/{id}/files");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Add file metadata to a document";
+            s.Description = "Attaches file metadata (storage location, content type, hash) to an existing compliance document.";
+            s.Response(200, "File metadata added");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(AddDocumentFileRequest req, CancellationToken ct)

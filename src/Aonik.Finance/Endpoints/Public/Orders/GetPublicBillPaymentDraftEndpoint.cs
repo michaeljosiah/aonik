@@ -19,6 +19,14 @@ public class GetPublicBillPaymentDraftEndpoint : EndpointWithoutRequest<GuestBil
     {
         Get("/public/orders/bill-payments/drafts/{orderId}");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get bill payment draft (public)";
+            s.Description = "Retrieves a guest bill payment draft order by ID. No authentication required.";
+            s.Response(200, "Success");
+            s.Response(404, "Draft order not found");
+        });
+        Options(x => x.WithTags("Orders"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

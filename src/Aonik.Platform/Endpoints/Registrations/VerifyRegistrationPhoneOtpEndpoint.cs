@@ -36,6 +36,13 @@ internal class VerifyRegistrationPhoneOtpEndpoint : Endpoint<VerifyRegistrationP
     {
         Post("/v1/registrations/phone/verify-otp");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Verify registration phone OTP";
+            s.Description = "Validates the OTP code submitted for a pre-registration phone challenge and marks it as verified.";
+            s.Response(200, "Verification result returned");
+        });
+        Options(x => x.WithTags("Registration"));
     }
 
     public override async Task HandleAsync(VerifyRegistrationPhoneOtpRequest req, CancellationToken ct)

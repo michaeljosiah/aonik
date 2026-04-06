@@ -20,6 +20,16 @@ internal class UploadUserPhotoEndpoint : EndpointWithoutRequest<CustomerPhotoUpl
         Post("/admin/users/{userId}/photo");
         Policies("AdminUserPolicy");
         AllowFileUploads();
+        Summary(s =>
+        {
+            s.Summary = "Upload user profile photo";
+            s.Description = "Uploads a new profile photo for the specified user. Accepts JPEG, PNG, GIF, WebP, BMP, or SVG up to 5 MB.";
+            s.Response(200, "Photo uploaded");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "User not found");
+            s.Response(422, "Invalid file");
+        });
+        Options(x => x.WithTags("User Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

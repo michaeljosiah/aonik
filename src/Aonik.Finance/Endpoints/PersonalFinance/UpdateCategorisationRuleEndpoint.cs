@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,16 @@ internal sealed class UpdateCategorisationRuleEndpoint : Endpoint<UpdateCategori
     {
         Patch("/personal-finance/classification/rules/{id}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a categorisation rule";
+            s.Description = "Updates the matching criteria or target category of an existing categorisation rule.";
+            s.Response(200, "Rule updated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Rule not found");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(UpdateCategorisationRuleRequest req, CancellationToken ct)

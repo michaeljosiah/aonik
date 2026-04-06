@@ -3,6 +3,7 @@ using Aonik.SharedKernel.Abstractions;
 using AppModels = Aonik.Finance.Contracts.Models.Orders;
 using Aonik.Finance.Contracts.Services.Orders;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Orders;
 
@@ -19,6 +20,14 @@ public class ListOrdersEndpoint : Endpoint<ApiContracts.ListOrdersRequest, Paged
     {
         Get("/orders");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List orders";
+            s.Description = "Returns a paginated list of orders, with optional filtering by status, order type, and search term.";
+            s.Response(200, "Orders retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Orders"));
     }
 
     public override async Task HandleAsync(ApiContracts.ListOrdersRequest req, CancellationToken ct)

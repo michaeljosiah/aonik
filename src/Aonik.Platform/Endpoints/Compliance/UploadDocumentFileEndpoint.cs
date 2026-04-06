@@ -19,6 +19,15 @@ public class UploadDocumentFileEndpoint : EndpointWithoutRequest<DocumentFileRes
         Post("/compliance/documents/{id}/files/upload");
         Policies("AdminUserPolicy");
         AllowFileUploads();
+        Summary(s =>
+        {
+            s.Summary = "Upload a file to a document";
+            s.Description = "Uploads a binary file and attaches it to an existing compliance document via multipart form.";
+            s.Response(200, "File uploaded successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Models.Notifications;
 using Aonik.Platform.Contracts.Services.Notifications;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Notifications;
 
@@ -32,6 +33,14 @@ internal sealed class ListNotificationsEndpoint : Endpoint<ListNotificationsRequ
     {
         Get("/admin/notifications");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List notifications";
+            s.Description = "Returns a list of notifications for the current user with optional status filtering and cursor-based pagination.";
+            s.Response(200, "Notification list");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Notifications"));
     }
 
     public override async Task HandleAsync(ListNotificationsRequest req, CancellationToken ct)

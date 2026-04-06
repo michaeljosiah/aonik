@@ -59,6 +59,15 @@ internal class SendRegistrationPhoneOtpEndpoint : Endpoint<SendRegistrationPhone
     {
         Post("/v1/registrations/phone/send-otp");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Send registration phone OTP";
+            s.Description = "Sends a one-time verification code via SMS to the provided phone number for pre-registration verification.";
+            s.Response(200, "OTP sent successfully");
+            s.Response(400, "Invalid request");
+            s.Response(429, "Rate limit exceeded");
+        });
+        Options(x => x.WithTags("Registration"));
     }
 
     public override async Task HandleAsync(SendRegistrationPhoneOtpRequest req, CancellationToken ct)

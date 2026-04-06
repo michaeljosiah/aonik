@@ -31,6 +31,16 @@ public class UpdateCustomerProfileEndpoint : Endpoint<ApiUpdateCustomerProfileRe
     {
         Put("/profiles/customers/me");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update customer profile";
+            s.Description = "Updates the current customer's profile details such as name, title, phone, and country.";
+            s.Response(200, "Profile updated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(ApiUpdateCustomerProfileRequest req, CancellationToken ct)

@@ -4,6 +4,7 @@ using AppCreateDocumentRequest = Aonik.Platform.Contracts.Models.Compliance.Crea
 using AppDocumentResponse = Aonik.Platform.Contracts.Models.Compliance.DocumentResponse;
 using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Compliance;
 
@@ -20,6 +21,15 @@ public class CreateDocumentEndpoint : Endpoint<ApiCreateDocumentRequest, ApiDocu
     {
         Post("/compliance/documents");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a compliance document";
+            s.Description = "Creates a new compliance document record with type, issuer, country, and expiry details.";
+            s.Response(201, "Document created");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(ApiCreateDocumentRequest req, CancellationToken ct)

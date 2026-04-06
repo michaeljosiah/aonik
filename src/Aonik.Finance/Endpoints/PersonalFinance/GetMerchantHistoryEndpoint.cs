@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -23,6 +24,15 @@ internal sealed class GetMerchantHistoryEndpoint : Endpoint<GetMerchantHistoryRe
     {
         Get("/personal-finance/spending/merchants/history");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get merchant transaction history";
+            s.Description = "Returns the full transaction history for a specific merchant, including total spend, transaction count, and frequency patterns.";
+            s.Response(200, "Merchant history returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Merchant name is required");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(GetMerchantHistoryRequest req, CancellationToken ct)

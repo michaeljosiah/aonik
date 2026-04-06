@@ -30,6 +30,16 @@ public class UploadCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPho
         Post("/profiles/customers/me/photo");
         Policies("AdminUserPolicy");
         AllowFileUploads();
+        Summary(s =>
+        {
+            s.Summary = "Upload customer profile photo";
+            s.Description = "Uploads a new profile photo for the authenticated customer, replacing any existing photo.";
+            s.Response(200, "Photo uploaded successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+            s.Response(422, "Invalid or missing photo file");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -30,6 +30,15 @@ public class GetCustomerProfileEndpoint : EndpointWithoutRequest<ApiCustomerProf
     {
         Get("/profiles/customers/me");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get current customer profile";
+            s.Description = "Returns the full profile for the currently authenticated customer, including contact details and photo URL.";
+            s.Response(200, "Customer profile returned");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

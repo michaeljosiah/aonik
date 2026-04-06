@@ -19,6 +19,14 @@ public class CreatePublicBillPaymentDraftEndpoint : Endpoint<CreateGuestBillPaym
     {
         Post("/public/orders/bill-payments/drafts");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Create bill payment draft (public)";
+            s.Description = "Creates a guest bill payment draft order for the tenant specified in the X-Tenant-Id header. No authentication required.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+        });
+        Options(x => x.WithTags("Orders"));
     }
 
     public override async Task HandleAsync(CreateGuestBillPaymentDraftRequest req, CancellationToken ct)

@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Identity;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Tenants;
 
@@ -18,6 +19,14 @@ internal class ListTenantsEndpoint : Endpoint<ListTenantsRequest, PagedResult<Te
     {
         Get("/admin/tenants");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List all tenants";
+            s.Description = "Returns a paginated list of tenants with optional filtering.";
+            s.Response(200, "Paged tenant list");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Tenant Administration"));
     }
 
     public override async Task HandleAsync(ListTenantsRequest req, CancellationToken ct)

@@ -19,6 +19,15 @@ public class RegisterNotificationDeviceEndpoint : Endpoint<RegisterNotificationD
     {
         Post("/profiles/customers/me/notification-devices");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Register a notification device";
+            s.Description = "Registers a push notification device token for the authenticated user so they can receive mobile push notifications.";
+            s.Response(200, "Device registered successfully");
+            s.Response(400, "Invalid device token or provider");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(RegisterNotificationDeviceRequestDto req, CancellationToken ct)

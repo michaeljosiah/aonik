@@ -2,6 +2,7 @@ using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -32,6 +33,15 @@ internal sealed class GetCurrentCustomerInsightSnapshotEndpoint : EndpointWithou
     {
         Get("/personal-finance/customer-insights/current");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get current customer insight snapshot";
+            s.Description = "Returns the most recent customer insight snapshot containing spending patterns, category trends, and behavioural metrics.";
+            s.Response(200, "Current snapshot returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "No snapshot available yet");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -67,6 +77,14 @@ internal sealed class GetCustomerInsightSnapshotHistoryEndpoint : Endpoint<GetCu
     {
         Get("/personal-finance/customer-insights/history");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get customer insight snapshot history";
+            s.Description = "Returns a paginated list of historical customer insight snapshots, allowing trend comparison over time.";
+            s.Response(200, "Snapshot history returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(GetCustomerInsightSnapshotHistoryRequest req, CancellationToken ct)
@@ -96,6 +114,15 @@ internal sealed class GetCustomerInsightSnapshotByIdEndpoint : Endpoint<GetCusto
     {
         Get("/personal-finance/customer-insights/{SnapshotId}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get a customer insight snapshot by ID";
+            s.Description = "Returns the full details of a specific historical customer insight snapshot.";
+            s.Response(200, "Snapshot returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Snapshot not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(GetCustomerInsightSnapshotByIdRequest req, CancellationToken ct)

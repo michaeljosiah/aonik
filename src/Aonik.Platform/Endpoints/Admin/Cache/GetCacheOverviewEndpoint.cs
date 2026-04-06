@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Cache;
 
@@ -17,6 +18,14 @@ internal class GetCacheOverviewEndpoint : EndpointWithoutRequest<CacheOverviewRe
     {
         Get("/admin/cache");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get cache overview";
+            s.Description = "Returns a summary of all cache sets and their entry counts across the platform.";
+            s.Response(200, "Cache overview");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,6 +1,7 @@
 using Aonik.Ai.Contracts.Models;
 using Aonik.Ai.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Ai.Endpoints;
 
@@ -16,6 +17,14 @@ internal sealed class ListRoutePoliciesEndpoint : EndpointWithoutRequest<ListRou
     {
         Get("/ai/route-policies");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List route policies";
+            s.Description = "Returns all AI model routing policies, optionally filtered by use case.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -43,6 +52,15 @@ internal sealed class GetRoutePolicyEndpoint : Endpoint<GetRoutePolicyRequest, R
     {
         Get("/ai/route-policies/{PolicyId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get route policy by ID";
+            s.Description = "Returns details of a specific AI model routing policy including its risk tier, model assignments, and cost ceiling.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Policy not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(GetRoutePolicyRequest req, CancellationToken ct)
@@ -75,6 +93,15 @@ internal sealed class CreateRoutePolicyEndpoint : Endpoint<CreateRoutePolicyRequ
     {
         Post("/ai/route-policies");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a route policy";
+            s.Description = "Creates a new AI model routing policy with risk tier, data sensitivity, cost ceiling, and model assignments.";
+            s.Response(201, "Policy created");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CreateRoutePolicyRequest req, CancellationToken ct)
@@ -99,6 +126,16 @@ internal sealed class UpdateRoutePolicyEndpoint : Endpoint<UpdateRoutePolicyEndp
     {
         Put("/ai/route-policies/{PolicyId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a route policy";
+            s.Description = "Updates an existing AI model routing policy's risk tier, data sensitivity, cost ceiling, model assignments, or active status.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Policy not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(UpdateRoutePolicyEndpointRequest req, CancellationToken ct)
@@ -141,6 +178,15 @@ internal sealed class DeleteRoutePolicyEndpoint : Endpoint<DeleteRoutePolicyRequ
     {
         Delete("/ai/route-policies/{PolicyId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete a route policy";
+            s.Description = "Removes an AI model routing policy from the system.";
+            s.Response(204, "Policy deleted");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Policy not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(DeleteRoutePolicyRequest req, CancellationToken ct)

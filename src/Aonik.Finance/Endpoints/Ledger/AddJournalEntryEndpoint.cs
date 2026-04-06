@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Ledger;
 using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Ledger;
 
@@ -17,6 +18,15 @@ public class AddJournalEntryEndpoint : Endpoint<AddJournalEntryRequest, JournalE
     {
         Post("/ledger/journal-entries");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Add a journal entry";
+            s.Description = "Creates a new double-entry journal entry with debit and credit lines against ledger accounts.";
+            s.Response(201, "Journal entry created successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Ledger"));
     }
 
     public override async Task HandleAsync(AddJournalEntryRequest req, CancellationToken ct)

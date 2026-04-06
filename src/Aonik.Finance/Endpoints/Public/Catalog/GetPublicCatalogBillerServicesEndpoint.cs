@@ -18,6 +18,13 @@ internal class GetPublicCatalogBillerServicesEndpoint : EndpointWithoutRequest<C
     {
         Get("/public/catalog/billers/{billerId}/services");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "List biller services (public)";
+            s.Description = "Returns all services offered by a specific biller. No authentication required.";
+            s.Response(200, "Success");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

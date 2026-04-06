@@ -3,6 +3,7 @@ using Aonik.Platform.Contracts.Models.Identity;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Platform.Contracts.Services.Compliance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Compliance;
 
@@ -19,6 +20,14 @@ public class ListDocumentsEndpoint : Endpoint<ListDocumentsRequest, PagedResult<
     {
         Get("/compliance/documents");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List compliance documents";
+            s.Description = "Returns a paginated list of compliance documents with optional filtering.";
+            s.Response(200, "Document list returned");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Compliance"));
     }
 
     public override async Task HandleAsync(ListDocumentsRequest req, CancellationToken ct)

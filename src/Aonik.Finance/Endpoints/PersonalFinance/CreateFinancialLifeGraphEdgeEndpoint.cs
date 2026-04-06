@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,16 @@ internal sealed class CreateFinancialLifeGraphEdgeEndpoint : Endpoint<CreateFina
     {
         Post("/personal-finance/graph/edges");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a graph edge";
+            s.Description = "Adds a new edge (relationship or connection) between two nodes in the user's financial life graph.";
+            s.Response(200, "Graph edge created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(409, "Duplicate edge already exists");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateFinancialLifeGraphEdgeRequest req, CancellationToken ct)

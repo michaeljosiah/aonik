@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -21,6 +22,14 @@ internal sealed class ListChatThreadsEndpoint
     {
         Get("/ai/threads");
         AllowAnonymous(); // Auth handled by tenant/user providers
+        Summary(s =>
+        {
+            s.Summary = "List chat threads";
+            s.Description = "Returns active chat threads for the current user, ordered by most recent activity. Supports pagination.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(ListChatThreadsRequest req, CancellationToken ct)

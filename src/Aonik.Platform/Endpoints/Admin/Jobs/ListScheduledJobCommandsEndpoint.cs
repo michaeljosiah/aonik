@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Api.Jobs;
 using Aonik.Platform.Contracts.Services.Operations;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -30,6 +31,15 @@ internal class ListScheduledJobCommandsEndpoint
     {
         Get("/admin/jobs/scheduled/{jobName}/commands");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List scheduled job commands";
+            s.Description = "Returns a paginated list of admin commands (pause, resume, trigger) issued for the specified job.";
+            s.Response(200, "Paged command list");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Job not found");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(ListScheduledJobCommandsRequest req, CancellationToken ct)

@@ -3,6 +3,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -26,6 +27,14 @@ internal sealed class GetUserBriefEndpoint : EndpointWithoutRequest<UserBrief>
     {
         Get("/ai/user-brief");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get current user brief";
+            s.Description = "Projects a user brief for the currently authenticated user, providing context for AI agent interactions.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

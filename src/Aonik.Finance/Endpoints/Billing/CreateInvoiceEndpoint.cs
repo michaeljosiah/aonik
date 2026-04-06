@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Billing;
 using Aonik.Finance.Contracts.Services.Billing;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Billing;
 
@@ -17,6 +18,15 @@ public class CreateInvoiceEndpoint : Endpoint<CreateInvoiceRequest, InvoiceRespo
     {
         Post("/billing/invoices");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a new invoice";
+            s.Description = "Creates a new invoice for a customer with the specified line items and currency.";
+            s.Response(201, "Invoice created successfully");
+            s.Response(400, "Invalid request data");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Billing"));
     }
 
     public override async Task HandleAsync(CreateInvoiceRequest req, CancellationToken ct)

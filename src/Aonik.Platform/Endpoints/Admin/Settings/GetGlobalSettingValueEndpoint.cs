@@ -4,6 +4,7 @@ using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
 using Aonik.Platform.Entities.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Settings;
 
@@ -20,6 +21,15 @@ internal class GetGlobalSettingValueEndpoint : Endpoint<SettingKeyRequest, Setti
     {
         Get("/admin/settings/values/{key}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get a global setting value";
+            s.Description = "Retrieves the current value of a global platform setting by its key.";
+            s.Response(200, "Setting value");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Setting key not found");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(SettingKeyRequest req, CancellationToken ct)

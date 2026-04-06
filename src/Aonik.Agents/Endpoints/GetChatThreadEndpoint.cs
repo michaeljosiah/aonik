@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -21,6 +22,15 @@ internal sealed class GetChatThreadEndpoint
     {
         Get("/ai/threads/{ThreadId}");
         AllowAnonymous(); // Auth handled by tenant/user providers
+        Summary(s =>
+        {
+            s.Summary = "Get chat thread with messages";
+            s.Description = "Returns a single chat thread with all its messages, ordered by sort order.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Thread not found");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(GetChatThreadRequest req, CancellationToken ct)

@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Api.Jobs;
 using Aonik.Platform.Contracts.Services.Operations;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Jobs;
 
@@ -30,6 +31,15 @@ internal class ListScheduledJobRunsEndpoint
     {
         Get("/admin/jobs/scheduled/{jobName}/runs");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List scheduled job run history";
+            s.Description = "Returns a paginated history of execution runs for the specified scheduled job.";
+            s.Response(200, "Paged run history");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Job not found");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(ListScheduledJobRunsRequest req, CancellationToken ct)

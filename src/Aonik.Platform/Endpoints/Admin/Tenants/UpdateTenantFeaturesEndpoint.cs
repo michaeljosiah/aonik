@@ -2,6 +2,7 @@ using Aonik.Platform.Contracts.Api.Features;
 using Aonik.Platform.Contracts.Models.Features;
 using Aonik.Platform.Contracts.Services.Features;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Tenants;
 
@@ -18,6 +19,16 @@ internal class UpdateTenantFeaturesEndpoint : Endpoint<TenantFeatureUpdateReques
     {
         Put("/admin/tenants/{tenantId}/features");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update tenant feature flags";
+            s.Description = "Replaces the feature flag configuration for the specified tenant with the provided set of toggles.";
+            s.Response(200, "Updated feature flags");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Tenant not found");
+        });
+        Options(x => x.WithTags("Tenant Administration"));
     }
 
     public override async Task HandleAsync(TenantFeatureUpdateRequest req, CancellationToken ct)

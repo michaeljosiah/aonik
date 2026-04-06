@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Admin.PersonalFinance;
 
@@ -22,6 +23,14 @@ internal sealed class RebuildCustomerInsightSnapshotEndpoint : Endpoint<RebuildC
     {
         Post("/admin/personal-finance/customer-insights/rebuild/{UserId}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Rebuild customer insight snapshot";
+            s.Description = "Regenerates the customer insight snapshot for a given user, recalculating all financial metrics.";
+            s.Response(200, "Snapshot rebuilt successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(RebuildCustomerInsightSnapshotRequest req, CancellationToken ct)

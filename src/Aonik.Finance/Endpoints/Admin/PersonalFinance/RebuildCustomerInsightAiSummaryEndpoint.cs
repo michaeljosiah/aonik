@@ -1,5 +1,6 @@
 using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Admin.PersonalFinance;
 
@@ -21,6 +22,14 @@ internal sealed class RebuildCustomerInsightAiSummaryEndpoint : Endpoint<Rebuild
     {
         Post("/admin/personal-finance/customer-insights/rebuild-ai-summary/{SnapshotId}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Rebuild customer insight AI summary";
+            s.Description = "Regenerates the AI-powered narrative summary for an existing customer insight snapshot.";
+            s.Response(200, "AI summary rebuilt successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(RebuildCustomerInsightAiSummaryRequest req, CancellationToken ct)

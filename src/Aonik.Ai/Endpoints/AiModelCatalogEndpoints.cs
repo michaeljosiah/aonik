@@ -1,6 +1,7 @@
 using Aonik.Ai.Contracts.Models;
 using Aonik.Ai.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Ai.Endpoints;
 
@@ -14,6 +15,14 @@ internal sealed class ListAiCatalogModelProvidersEndpoint : EndpointWithoutReque
     {
         Get("/ai/model-catalog/model-providers");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List catalog model providers";
+            s.Description = "Returns all model providers available in the AI model catalog for discovery and import.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -38,6 +47,15 @@ internal sealed class ListAiCatalogModelsEndpoint : Endpoint<ListAiCatalogModels
     {
         Get("/ai/model-catalog/model-providers/{ModelProviderKey}/models");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List catalog models for a provider";
+            s.Description = "Returns all models available in the catalog for a specific model provider.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Model provider not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(ListAiCatalogModelsRequest req, CancellationToken ct)
@@ -81,6 +99,16 @@ internal sealed class ImportAiCatalogModelProviderEndpoint : Endpoint<ImportAiCa
     {
         Post("/ai/model-catalog/model-providers/{ModelProviderKey}/import");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Import a catalog model provider";
+            s.Description = "Imports a model provider and its models from the catalog into the active AI configuration.";
+            s.Response(200, "Import completed");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Model provider not found in catalog");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(ImportAiCatalogModelProviderEndpointRequest req, CancellationToken ct)

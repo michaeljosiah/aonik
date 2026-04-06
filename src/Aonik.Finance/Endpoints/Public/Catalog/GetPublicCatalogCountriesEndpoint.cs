@@ -18,6 +18,13 @@ internal class GetPublicCatalogCountriesEndpoint : EndpointWithoutRequest<Catalo
     {
         Get("/public/catalog/countries");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "List countries (public)";
+            s.Description = "Returns supported countries for the tenant, defaulting to bill-pay capable countries. No authentication required.";
+            s.Response(200, "Success");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

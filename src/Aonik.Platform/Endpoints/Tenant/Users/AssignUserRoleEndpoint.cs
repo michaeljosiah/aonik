@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Identity;
 using Aonik.Platform.Contracts.Services.Identity;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Tenant.Users;
 
@@ -17,6 +18,15 @@ public class AssignUserRoleEndpoint : Endpoint<AssignUserRoleRequest, UserRoleRe
     {
         Post("/tenant/users/{userId}/roles");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Assign a role to a user";
+            s.Description = "Assigns a specific role to a user within the current tenant and returns the user's updated role list.";
+            s.Response(200, "Role assigned");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("User Administration"));
     }
 
     public override async Task HandleAsync(AssignUserRoleRequest req, CancellationToken ct)

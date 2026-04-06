@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Payments;
 
@@ -17,6 +18,15 @@ public class CancelPaymentEndpoint : EndpointWithoutRequest<PaymentIntentRespons
     {
         Post("/payments/intents/{id}/cancel");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Cancel a payment intent";
+            s.Description = "Cancels an authorized payment intent, preventing it from being captured.";
+            s.Response(200, "Payment cancelled successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Payment intent not found");
+        });
+        Options(x => x.WithTags("Payments"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

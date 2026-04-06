@@ -24,6 +24,15 @@ internal sealed class CreateAccountLinkSessionEndpoint : Endpoint<CreateAccountL
     {
         Post("/admin/accounts/connections/sessions");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create an account link session";
+            s.Description = "Initiates a new account linking session to connect an external financial account.";
+            s.Response(200, "Session created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateAccountLinkSessionRequest req, CancellationToken ct)
@@ -53,6 +62,15 @@ internal sealed class ExchangeAccountLinkSessionEndpoint : Endpoint<ExchangeAcco
     {
         Post("/admin/accounts/connections/exchanges");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Exchange an account link session token";
+            s.Description = "Exchanges a temporary session token for a permanent account connection after user authorization.";
+            s.Response(200, "Exchange completed successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation or operation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ExchangeAccountLinkSessionRequest req, CancellationToken ct)
@@ -86,6 +104,14 @@ internal sealed class ListAccountConnectionsEndpoint : Endpoint<ListAccountConne
     {
         Get("/admin/accounts/connections");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List account connections";
+            s.Description = "Returns all linked external account connections, optionally including disconnected ones.";
+            s.Response(200, "Connections retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ListAccountConnectionsRequest req, CancellationToken ct)
@@ -108,6 +134,16 @@ internal sealed class RefreshAccountConnectionEndpoint : EndpointWithoutRequest<
     {
         Post("/admin/accounts/connections/{id}/refresh");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Refresh an account connection";
+            s.Description = "Triggers a refresh of the linked account connection to update account and balance data.";
+            s.Response(200, "Connection refreshed successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Connection not found");
+            s.Response(422, "Operation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -144,6 +180,15 @@ internal sealed class DisconnectAccountConnectionEndpoint : EndpointWithoutReque
     {
         Post("/admin/accounts/connections/{id}/disconnect");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Disconnect an account connection";
+            s.Description = "Disconnects a linked external account connection, stopping data synchronization.";
+            s.Response(200, "Connection disconnected successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Connection not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -173,6 +218,16 @@ internal sealed class SyncAccountTransactionsEndpoint : EndpointWithoutRequest<A
     {
         Post("/admin/accounts/connections/{id}/transactions/sync");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Sync account transactions";
+            s.Description = "Triggers a synchronization of transactions for a linked account connection.";
+            s.Response(200, "Transactions synced successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Connection not found");
+            s.Response(422, "Operation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -220,6 +275,14 @@ internal sealed class ListAccountTransactionsEndpoint : Endpoint<ListAccountTran
     {
         Get("/admin/accounts/transactions");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List account transactions";
+            s.Description = "Returns a paginated list of account transactions with optional filtering by account, connection, status, and date range.";
+            s.Response(200, "Transactions retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ListAccountTransactionsRequest req, CancellationToken ct)
@@ -251,6 +314,13 @@ internal sealed class PlaidAccountWebhookEndpoint : Endpoint<PlaidAccountWebhook
     {
         Post("/admin/accounts/webhooks/plaid");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Handle Plaid webhook";
+            s.Description = "Receives and processes webhook notifications from Plaid for account updates and transaction sync events.";
+            s.Response(200, "Webhook accepted");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(PlaidAccountWebhookRequest req, CancellationToken ct)
@@ -275,6 +345,15 @@ internal sealed class CreateAccountEndpoint : Endpoint<CreateAccountRequest, Acc
     {
         Post("/admin/accounts");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a manual account";
+            s.Description = "Creates a new manually tracked financial account (not linked via Plaid).";
+            s.Response(200, "Account created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateAccountRequest req, CancellationToken ct)
@@ -304,6 +383,14 @@ internal sealed class ListAccountsEndpoint : EndpointWithoutRequest<IReadOnlyLis
     {
         Get("/admin/accounts");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List all accounts";
+            s.Description = "Returns all financial accounts, both linked and manually created.";
+            s.Response(200, "Accounts retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -328,6 +415,15 @@ internal sealed class CreateAccountTransactionEndpoint : Endpoint<CreateAccountT
     {
         Post("/admin/accounts/transactions");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a manual transaction";
+            s.Description = "Creates a new manually entered transaction for a financial account.";
+            s.Response(200, "Transaction created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation or operation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateAccountTransactionRequest req, CancellationToken ct)
@@ -365,6 +461,16 @@ internal sealed class UploadAccountTransactionAttachmentEndpoint
         Post("/admin/accounts/transactions/{transactionId}/attachments");
         Policies("AdminPolicy");
         AllowFileUploads();
+        Summary(s =>
+        {
+            s.Summary = "Upload a transaction attachment";
+            s.Description = "Uploads a file attachment (receipt, document) to a specific account transaction.";
+            s.Response(200, "Attachment uploaded successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Transaction not found");
+            s.Response(422, "File validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -426,6 +532,14 @@ internal sealed class ListAccountTransactionAttachmentsEndpoint
     {
         Get("/admin/accounts/transactions/{transactionId}/attachments");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List transaction attachments";
+            s.Description = "Returns all file attachments for a specific account transaction.";
+            s.Response(200, "Attachments retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -449,6 +563,15 @@ internal sealed class DeleteAccountTransactionAttachmentEndpoint : EndpointWitho
     {
         Delete("/admin/accounts/attachments/{attachmentId}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete a transaction attachment";
+            s.Description = "Removes a file attachment from an account transaction.";
+            s.Response(204, "Attachment deleted successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Attachment not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

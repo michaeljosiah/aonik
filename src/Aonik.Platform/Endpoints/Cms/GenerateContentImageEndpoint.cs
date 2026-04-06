@@ -3,6 +3,7 @@ using Aonik.Platform.Contracts.Services.Cms;
 using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Cms;
 
@@ -28,6 +29,16 @@ internal class GenerateContentImageEndpoint : Endpoint<GenerateContentImageReque
     {
         Post("/cms/content-blocks/{id}/generate-image");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Generate an AI image for a content block";
+            s.Description = "Uses AI to generate an image from a text prompt and attaches it as media to the content block.";
+            s.Response(201, "Image generated and attached");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Image generation unavailable");
+        });
+        Options(x => x.WithTags("Content Management"));
     }
 
     public override async Task HandleAsync(GenerateContentImageRequest req, CancellationToken ct)

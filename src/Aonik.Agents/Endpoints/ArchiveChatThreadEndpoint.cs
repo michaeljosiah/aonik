@@ -1,5 +1,6 @@
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -21,6 +22,15 @@ internal sealed class ArchiveChatThreadEndpoint
     {
         Delete("/ai/threads/{ThreadId}");
         AllowAnonymous(); // Auth handled by tenant/user providers
+        Summary(s =>
+        {
+            s.Summary = "Archive a chat thread";
+            s.Description = "Soft-deletes a chat thread by setting its status to Archived. The thread is not physically removed.";
+            s.Response(204, "Thread archived");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Thread not found");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(ArchiveChatThreadRequest req, CancellationToken ct)

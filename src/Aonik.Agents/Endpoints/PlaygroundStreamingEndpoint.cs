@@ -44,7 +44,9 @@ public static class PlaygroundStreamingEndpoint
     {
         return endpoints.MapPost(pattern, HandlePlaygroundRequest)
             .WithName("AiPlaygroundRun")
-            .WithTags("AI", "Playground");
+            .WithTags("AI Agents")
+            .WithSummary("Stream a playground agent run")
+            .WithDescription("Executes an agent or raw prompt in the AI playground with SSE streaming. Supports custom system prompts, model overrides, and tool filters. Playground runs are ephemeral and not persisted.");
     }
 
     private static async Task HandlePlaygroundRequest(HttpContext context)

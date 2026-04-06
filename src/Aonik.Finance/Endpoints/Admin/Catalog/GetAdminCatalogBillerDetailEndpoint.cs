@@ -1,6 +1,7 @@
 using FastEndpoints;
 using Aonik.Finance.Contracts.Models.Catalog;
 using Aonik.Finance.Contracts.Services.Catalog;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Admin.Catalog;
 
@@ -17,6 +18,15 @@ internal class GetAdminCatalogBillerDetailEndpoint : EndpointWithoutRequest<Cata
     {
         Get("/admin/catalog/billers/{billerId}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get biller detail (admin)";
+            s.Description = "Returns full detail for a specific biller by ID in the tenant admin context.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Biller not found");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -29,6 +30,16 @@ internal sealed class RunWorkflowEndpoint : Endpoint<WorkflowRequest, WorkflowRe
     {
         Post("/ai/workflows/run");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Execute a named workflow";
+            s.Description = "Runs a multi-agent workflow pipeline by name. Workflows coordinate domain-specific agents through sequential or concurrent execution patterns.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Workflow not found");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(WorkflowRequest req, CancellationToken ct)

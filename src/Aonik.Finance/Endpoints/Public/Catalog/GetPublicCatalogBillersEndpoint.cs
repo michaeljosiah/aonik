@@ -19,6 +19,13 @@ internal class GetPublicCatalogBillersEndpoint : Endpoint<CatalogBillerListReque
     {
         Get("/public/catalog/billers");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "List billers (public)";
+            s.Description = "Returns a paginated list of billers for the tenant specified in the X-Tenant-Id header. No authentication required.";
+            s.Response(200, "Success");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CatalogBillerListRequest req, CancellationToken ct)

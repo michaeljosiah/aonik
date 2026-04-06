@@ -4,6 +4,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Identity;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Host.Tenants;
 
@@ -20,6 +21,14 @@ internal class GetTenantRegistrationCountriesEndpoint : EndpointWithoutRequest<T
     {
         Get("/host/tenants/{tenantId}/registration-countries");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get tenant registration countries";
+            s.Description = "Returns the list of allowed origin countries for user registration on the specified tenant.";
+            s.Response(200, "Country list returned");
+            s.Response(404, "Tenant not found");
+        });
+        Options(x => x.WithTags("Tenant Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

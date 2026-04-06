@@ -18,6 +18,14 @@ internal class GetCatalogBillerServicesEndpoint : EndpointWithoutRequest<Catalog
     {
         Get("/catalog/billers/{billerId}/services");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List biller services";
+            s.Description = "Returns all services offered by a specific biller within the current tenant.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Product Catalog"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

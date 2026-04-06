@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -22,6 +23,14 @@ internal sealed class ChatEndpoint : Endpoint<ChatRequest, AgentChatResponse>
     {
         Post("/ai/chat");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Send a chat message";
+            s.Description = "Routes a user message through the master orchestrator agent, which delegates to domain-specific agents based on intent.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(ChatRequest req, CancellationToken ct)

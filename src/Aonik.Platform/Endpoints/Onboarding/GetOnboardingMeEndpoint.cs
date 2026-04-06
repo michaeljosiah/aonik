@@ -39,6 +39,14 @@ public class GetOnboardingMeEndpoint : EndpointWithoutRequest<OnboardingSnapshot
     {
         Get("/v1/onboarding/me");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get current user onboarding status";
+            s.Description = "Evaluates onboarding policy gates for the authenticated user and returns their onboarding snapshot with next actions.";
+            s.Response(200, "Onboarding snapshot returned");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Onboarding"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

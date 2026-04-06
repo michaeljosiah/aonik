@@ -2,6 +2,7 @@ using Aonik.Finance.Contracts.Api.PayActivity;
 using Aonik.Finance.Contracts.Services.PayActivity;
 
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Payments;
 
@@ -23,6 +24,15 @@ internal sealed class GetPayActivityDetailEndpoint : EndpointWithoutRequest<PayA
     {
         Get("/payments/activity/{id}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get pay activity transaction detail";
+            s.Description = "Returns the full transaction detail for a single pay activity item.";
+            s.Response(200, "Transaction detail retrieved successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Transaction not found");
+        });
+        Options(x => x.WithTags("Payments"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -3,6 +3,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.UserBrief;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -32,6 +33,15 @@ internal sealed class ProjectUserBriefEndpoint : Endpoint<ProjectUserBriefReques
     {
         Post("/ai/playground/user-brief");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Project user brief by ID";
+            s.Description = "Projects a user brief for an arbitrary user by user ID or party ID. Used by the Admin UI playground to load real user context for testing.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(ProjectUserBriefRequest req, CancellationToken ct)

@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,14 @@ internal sealed class ListBudgetsEndpoint
     {
         Get("/personal-finance/budgets");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List all budgets";
+            s.Description = "Returns all budget categories with their spending limits and current period usage for the authenticated user.";
+            s.Response(200, "Budget list returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -39,6 +48,15 @@ internal sealed class CreateBudgetEndpoint
     {
         Post("/personal-finance/budgets");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a budget";
+            s.Description = "Creates a new budget with a spending limit for a specific transaction category.";
+            s.Response(200, "Budget created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateBudgetRequest req, CancellationToken ct)
@@ -68,6 +86,15 @@ internal sealed class UpdateBudgetAmountEndpoint
     {
         Put("/personal-finance/budgets/{budgetId}/amount");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a budget amount";
+            s.Description = "Updates the spending limit amount for an existing budget category.";
+            s.Response(200, "Budget amount updated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Budget not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(UpdateBudgetAmountRequest req, CancellationToken ct)
@@ -99,6 +126,15 @@ internal sealed class DeleteBudgetEndpoint
     {
         Delete("/personal-finance/budgets/{budgetId}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete a budget";
+            s.Description = "Removes a budget category and returns the remaining budgets for the authenticated user.";
+            s.Response(200, "Budget deleted successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Budget not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -29,6 +29,14 @@ public class PutPayaboSetupProfileEndpoint : Endpoint<PayaboSetupProfileRequest,
     {
         Put("/personal-finance/setup-profile");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Save Payabo setup profile";
+            s.Description = "Creates or updates the current user's Payabo onboarding setup profile with selected use cases, goals, and preferences.";
+            s.Response(200, "Setup profile saved");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(PayaboSetupProfileRequest req, CancellationToken ct)

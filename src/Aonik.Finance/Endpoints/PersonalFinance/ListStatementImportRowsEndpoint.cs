@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,15 @@ internal sealed class ListStatementImportRowsEndpoint : EndpointWithoutRequest<I
     {
         Get("/personal-finance/imports/statements/{id}/rows");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List statement import rows";
+            s.Description = "Returns all parsed rows from a specific statement import, showing each transaction line before it is applied.";
+            s.Response(200, "Import rows returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Statement import not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

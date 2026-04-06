@@ -4,6 +4,7 @@ using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Settings;
 using Aonik.Platform.Entities.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Settings;
 
@@ -20,6 +21,16 @@ internal class UpdateGlobalSettingValueEndpoint : Endpoint<SettingValueUpdateReq
     {
         Put("/admin/settings/values/{key}");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a global setting value";
+            s.Description = "Sets or updates the value of a global platform setting by its key.";
+            s.Response(200, "Setting updated");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Setting key not found");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(SettingValueUpdateRequest req, CancellationToken ct)

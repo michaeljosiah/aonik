@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Api.Ledger;
 using Aonik.Finance.Contracts.Services.Ledger;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.Ledger;
 
@@ -17,6 +18,14 @@ public class ListLedgerAccountsEndpoint : Endpoint<ListLedgerAccountsRequest, Li
     {
         Get("/ledger/accounts");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List ledger accounts";
+            s.Description = "Returns all accounts for a given ledger, including account type and currency.";
+            s.Response(200, "Ledger accounts retrieved successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Ledger"));
     }
 
     public override async Task HandleAsync(ListLedgerAccountsRequest req, CancellationToken ct)

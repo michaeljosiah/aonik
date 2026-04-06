@@ -29,6 +29,15 @@ public class GetNotificationPreferencesEndpoint : EndpointWithoutRequest<ApiNoti
     {
         Get("/profiles/customers/me/notifications");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get notification preferences";
+            s.Description = "Returns the current customer's push and email notification preferences.";
+            s.Response(200, "Preferences returned");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Customer not found");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -36,6 +36,14 @@ internal class IndividualRegistrationEndpoint : Endpoint<IndividualRegistrationR
     {
         Post("/v1/registrations/individual");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Register an individual user";
+            s.Description = "Creates a new individual user account, party, and returns the onboarding snapshot. Resolves tenant from request body, subdomain, or header.";
+            s.Response(200, "Registration successful");
+            s.Response(400, "Invalid request");
+        });
+        Options(x => x.WithTags("Registration"));
     }
 
     public override async Task HandleAsync(IndividualRegistrationRequest req, CancellationToken ct)

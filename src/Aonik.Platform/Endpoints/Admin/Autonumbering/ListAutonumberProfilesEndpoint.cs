@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Models.Autonumbering;
 using Aonik.Platform.Contracts.Services.Autonumbering;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Autonumbering;
 
@@ -17,6 +18,14 @@ internal class ListAutonumberProfilesEndpoint : EndpointWithoutRequest<List<Auto
     {
         Get("/admin/autonumbering/profiles");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List autonumber profiles";
+            s.Description = "Returns all configured autonumber profiles for supported entity types (Invoice, Order, CreditNote, Payment, Payout).";
+            s.Response(200, "Profile list");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

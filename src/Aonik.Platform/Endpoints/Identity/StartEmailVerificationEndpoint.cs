@@ -28,6 +28,14 @@ public class StartEmailVerificationEndpoint : Endpoint<StartEmailVerificationReq
     {
         Post("/v1/verifications/email/start");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Start email verification";
+            s.Description = "Initiates email verification by sending an OTP code to the specified email address.";
+            s.Response(200, "Verification challenge created");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Identity"));
     }
 
     public override async Task HandleAsync(StartEmailVerificationRequest req, CancellationToken ct)

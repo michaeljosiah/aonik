@@ -3,6 +3,7 @@ using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Customers;
 
@@ -58,6 +59,14 @@ internal sealed class ListCustomerInsightsEndpoint : EndpointWithoutRequest<List
     {
         Get("/admin/customers/{partyId}/insights");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get customer insights";
+            s.Description = "Retrieves the latest AI-generated summary and insight snapshot for the specified customer.";
+            s.Response(200, "Customer insights");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Customer Administration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -6,6 +6,7 @@ using Aonik.Platform.Settings;
 using Aonik.Platform.Entities.Settings;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Settings;
 
@@ -29,6 +30,15 @@ public class GetUserSettingValueEndpoint : Endpoint<SettingKeyRequest, SettingVa
     {
         Get("/v1/settings/user/{key}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get user-scoped setting value";
+            s.Description = "Retrieves the current user's override value for a specific setting key.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Setting key not found");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(SettingKeyRequest req, CancellationToken ct)

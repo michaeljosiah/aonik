@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -21,6 +22,14 @@ internal sealed class ListBillsEndpoint : Endpoint<ListBillsRequest, IReadOnlyLi
     {
         Get("/personal-finance/bills");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List bills";
+            s.Description = "Returns all personal bills for the authenticated user, with an optional status filter (e.g. active, archived).";
+            s.Response(200, "Bill list returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ListBillsRequest req, CancellationToken ct)
@@ -47,6 +56,14 @@ internal sealed class GetUpcomingBillsEndpoint : Endpoint<GetUpcomingBillsReques
     {
         Get("/personal-finance/bills/upcoming");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get upcoming bills";
+            s.Description = "Returns bills due within the specified number of days, defaulting to the next 7 days.";
+            s.Response(200, "Upcoming bills returned successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(GetUpcomingBillsRequest req, CancellationToken ct)
@@ -73,6 +90,15 @@ internal sealed class GetBillEndpoint : Endpoint<GetBillRequest, BillResponse>
     {
         Get("/personal-finance/bills/{BillId}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get a bill by ID";
+            s.Description = "Returns the full details of a single bill including payee, frequency, next due date, and autopay settings.";
+            s.Response(200, "Bill returned successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Bill not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(GetBillRequest req, CancellationToken ct)
@@ -101,6 +127,14 @@ internal sealed class CreateBillEndpoint : Endpoint<CreateBillRequest, BillRespo
     {
         Post("/personal-finance/bills");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a bill";
+            s.Description = "Creates a new recurring bill with payee, frequency, expected amount, and optional autopay configuration.";
+            s.Response(201, "Bill created successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreateBillRequest req, CancellationToken ct)
@@ -138,6 +172,15 @@ internal sealed class UpdateBillEndpoint : Endpoint<UpdateBillRouteRequest, Bill
     {
         Put("/personal-finance/bills/{BillId}");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update a bill";
+            s.Description = "Updates all fields of an existing bill including payee, frequency, due date, amount, and autopay settings.";
+            s.Response(200, "Bill updated successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Bill not found");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(UpdateBillRouteRequest req, CancellationToken ct)
@@ -174,6 +217,14 @@ internal sealed class ArchiveBillEndpoint : Endpoint<ArchiveBillRequest>
     {
         Post("/personal-finance/bills/{BillId}/archive");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Archive a bill";
+            s.Description = "Archives a bill, removing it from active views while preserving its history for reporting purposes.";
+            s.Response(204, "Bill archived successfully");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(ArchiveBillRequest req, CancellationToken ct)

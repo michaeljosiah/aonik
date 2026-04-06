@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -17,6 +18,15 @@ internal sealed class CreatePersonalAccountEndpoint : Endpoint<CreatePersonalAcc
     {
         Post("/personal-finance/accounts");
         Policies("UserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a personal account";
+            s.Description = "Creates a new personal finance account such as a bank account, credit card, or cash wallet for tracking transactions.";
+            s.Response(200, "Personal account created successfully");
+            s.Response(401, "Not authenticated");
+            s.Response(422, "Validation error");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CreatePersonalAccountRequest req, CancellationToken ct)

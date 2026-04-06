@@ -1,6 +1,7 @@
 using Aonik.Ai.Contracts.Models;
 using Aonik.Ai.Contracts.Services;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Ai.Endpoints;
 
@@ -16,6 +17,14 @@ internal sealed class ListAiProvidersEndpoint : EndpointWithoutRequest<ListAiPro
     {
         Get("/ai/providers");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List AI providers";
+            s.Description = "Returns all registered AI providers available for model routing.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)
@@ -42,6 +51,15 @@ internal sealed class GetAiProviderEndpoint : Endpoint<GetAiProviderRequest, AiP
     {
         Get("/ai/providers/{ProviderId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Get AI provider by ID";
+            s.Description = "Returns details of a specific AI provider by its identifier.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Provider not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(GetAiProviderRequest req, CancellationToken ct)
@@ -74,6 +92,15 @@ internal sealed class CreateAiProviderEndpoint : Endpoint<CreateAiProviderReques
     {
         Post("/ai/providers");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create an AI provider";
+            s.Description = "Registers a new AI provider with its authentication configuration and capabilities.";
+            s.Response(201, "Provider created");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(CreateAiProviderRequest req, CancellationToken ct)
@@ -98,6 +125,16 @@ internal sealed class UpdateAiProviderEndpoint : Endpoint<UpdateAiProviderEndpoi
     {
         Put("/ai/providers/{ProviderId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Update an AI provider";
+            s.Description = "Updates an existing AI provider's name, authentication, capabilities, or active status.";
+            s.Response(200, "Success");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Provider not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(UpdateAiProviderEndpointRequest req, CancellationToken ct)
@@ -136,6 +173,15 @@ internal sealed class DeleteAiProviderEndpoint : Endpoint<DeleteAiProviderReques
     {
         Delete("/ai/providers/{ProviderId}");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Delete an AI provider";
+            s.Description = "Removes an AI provider and disassociates it from any linked models.";
+            s.Response(204, "Provider deleted");
+            s.Response(401, "Not authenticated");
+            s.Response(404, "Provider not found");
+        });
+        Options(x => x.WithTags("AI Configuration"));
     }
 
     public override async Task HandleAsync(DeleteAiProviderRequest req, CancellationToken ct)

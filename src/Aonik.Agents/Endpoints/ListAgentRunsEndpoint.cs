@@ -2,6 +2,7 @@ using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -22,6 +23,14 @@ internal sealed class ListAgentRunsEndpoint
     {
         Get("/ai/agents/{AgentId}/runs");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "List runs for an agent";
+            s.Description = "Returns paginated agent run history for a specific agent, ordered by most recent first.";
+            s.Response(200, "Success");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("AI Agents"));
     }
 
     public override async Task HandleAsync(ListAgentRunsRequest req, CancellationToken ct)

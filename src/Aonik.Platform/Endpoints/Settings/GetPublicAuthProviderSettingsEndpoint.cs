@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Settings;
 
@@ -17,6 +18,13 @@ public class GetPublicAuthProviderSettingsEndpoint : EndpointWithoutRequest<Publ
     {
         Get("/v1/settings/auth-provider");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "Get public auth provider settings";
+            s.Description = "Returns the active authentication provider configuration (Auth0 or Azure AD) for client-side use. No authentication required.";
+            s.Response(200, "Success");
+        });
+        Options(x => x.WithTags("Settings"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,6 +1,7 @@
 using Aonik.Platform.Contracts.Models.Autonumbering;
 using Aonik.Platform.Contracts.Services.Autonumbering;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Autonumbering;
 
@@ -17,6 +18,15 @@ internal class PreviewAutonumberEndpoint : Endpoint<AutonumberGenerateRequest, A
     {
         Post("/admin/autonumbering/preview");
         Policies("AdminPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Preview next autonumber";
+            s.Description = "Returns a preview of the next number that would be generated without actually reserving it.";
+            s.Response(200, "Preview result");
+            s.Response(400, "Invalid request");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("System Administration"));
     }
 
     public override async Task HandleAsync(AutonumberGenerateRequest req, CancellationToken ct)

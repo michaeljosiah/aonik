@@ -1,6 +1,7 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Services.PersonalFinance;
 using FastEndpoints;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Finance.Endpoints.PersonalFinance;
 
@@ -15,6 +16,13 @@ internal sealed class ListTransactionCategoriesEndpoint : EndpointWithoutRequest
     {
         Get("/personal-finance/categories");
         AllowAnonymous();
+        Summary(s =>
+        {
+            s.Summary = "List transaction categories";
+            s.Description = "Returns the canonical transaction category taxonomy including category codes, display names, icons, groups, and sub-categories.";
+            s.Response(200, "Category taxonomy returned successfully");
+        });
+        Options(x => x.WithTags("Personal Finance"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

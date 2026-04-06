@@ -4,6 +4,7 @@ using FastEndpoints;
 
 using ApiCreatePartyRequest = Aonik.Platform.Contracts.Api.Party.CreatePartyRequest;
 using ApiPartyResponse = Aonik.Platform.Contracts.Api.Party.PartyResponse;
+using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Party;
 
@@ -20,6 +21,14 @@ public class CreatePartyEndpoint : Endpoint<ApiCreatePartyRequest, ApiPartyRespo
     {
         Post("/parties");
         Policies("AdminUserPolicy");
+        Summary(s =>
+        {
+            s.Summary = "Create a new party";
+            s.Description = "Creates a new party (individual or organization) with basic contact details.";
+            s.Response(200, "Party created");
+            s.Response(401, "Not authenticated");
+        });
+        Options(x => x.WithTags("Parties"));
     }
 
     public override async Task HandleAsync(ApiCreatePartyRequest req, CancellationToken ct)
