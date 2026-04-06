@@ -21,6 +21,8 @@ const buttonVariants = cva(
           "bg-[var(--color-success)] text-white shadow-sm hover:bg-[var(--color-success)]/90",
         warning:
           "bg-[var(--color-pending)] text-white shadow-sm hover:bg-[var(--color-pending)]/90",
+        destructive:
+          "bg-red-600 text-white shadow-sm hover:bg-red-700",
       },
       size: {
         default: "h-9 px-4 py-2",
