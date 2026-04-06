@@ -9,7 +9,7 @@ namespace Aonik.Finance.Agents.Tools;
 /// <summary>
 /// AI agent tools for payment intent operations.
 /// Read-only tools are safe for autonomous use; mutating tools (CreatePaymentIntent,
-/// CapturePayment, CancelPayment) are wrapped with <see cref="ApprovalRequiredAIFunction"/>.
+/// CapturePayment, CancelPayment) rely on the <c>confirmAction</c> frontend tool for approval.
 /// </summary>
 internal sealed class PaymentTools
 {
@@ -57,7 +57,7 @@ internal sealed class PaymentTools
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all payment tools.
     /// Mutating tools (CreatePaymentIntent, CapturePayment, CancelPayment)
-    /// are wrapped with <see cref="ApprovalRequiredAIFunction"/> for human-in-the-loop approval.
+    /// rely on the <c>confirmAction</c> frontend tool for human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -66,12 +66,9 @@ internal sealed class PaymentTools
         // Read-only — safe for autonomous use
         yield return AIFunctionFactory.Create(tools.GetPaymentIntent, name: "finance_get_payment_intent");
 
-        // Mutating — require approval before execution
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CreatePaymentIntent, name: "finance_create_payment_intent"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CapturePayment, name: "finance_capture_payment"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CancelPayment, name: "finance_cancel_payment"));
+        // Mutating — approval enforced via the confirmAction frontend tool
+        yield return AIFunctionFactory.Create(tools.CreatePaymentIntent, name: "finance_create_payment_intent");
+        yield return AIFunctionFactory.Create(tools.CapturePayment, name: "finance_capture_payment");
+        yield return AIFunctionFactory.Create(tools.CancelPayment, name: "finance_cancel_payment");
     }
 }

@@ -22,6 +22,10 @@ export interface PlaygroundRunRequest {
   maxTokens?: number;
   /** Client-side tool definitions to send to the agent so it knows they're available. */
   toolDefinitions?: PlaygroundToolDefinition[];
+  /** AI Task ID to test. When set, the backend resolves the task's prompt templates. */
+  aiTaskId?: string;
+  /** Key-value pairs to substitute into the AI Task's {{variable}} template placeholders. */
+  promptVariables?: Record<string, string>;
 }
 
 export interface PlaygroundToolDefinition {

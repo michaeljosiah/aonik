@@ -12,9 +12,13 @@ import {
   Wrench,
   Variable,
   SlidersHorizontal,
+  Bot,
+  ListChecks,
 } from 'lucide-react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
 import { AgentPicker } from './playground/AgentPicker';
+import { AiTaskPicker } from './playground/AiTaskPicker';
+import { PromptVariablesForm } from './playground/PromptVariablesForm';
 import { ModelSelector } from './playground/ModelSelector';
 import { UserBriefPicker } from './playground/UserBriefPicker';
 import { ToolToggleList } from './playground/ToolToggleList';
@@ -35,6 +39,7 @@ import { Switch } from '@/components/ui/switch';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import type { AgentConfigurationResponse } from '@/types/ai';
+import type { AiTaskResponse } from '@/services/aiService';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -111,19 +116,25 @@ function playWithBrowserSpeech(
   };
 }
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+type PlaygroundMode = 'agent' | 'task';
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const breadcrumbItems = [
   { label: 'AI', href: '/ai/agents' },
-  { label: 'Agent Playground', icon: <FlaskConical className="h-3.5 w-3.5" /> },
+  { label: 'AI Playground', icon: <FlaskConical className="h-3.5 w-3.5" /> },
 ];
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export function AiPlaygroundPage() {
   const [mode, setMode] = useState<'single' | 'compare'>('single');
+  const [playgroundMode, setPlaygroundMode] = useState<PlaygroundMode>('agent');
   const [allTools, setAllTools] = useState<string[]>([]);
   const [selectedAgentConfig, setSelectedAgentConfig] = useState<AgentConfigurationResponse | null>(null);
+  const [selectedTask, setSelectedTask] = useState<AiTaskResponse | null>(null);
   const defaultPromptRef = useRef<string | null>(null);
   const compareRef = useRef<ModelComparisonViewHandle>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -203,6 +214,59 @@ export function AiPlaygroundPage() {
           modelName: null,
         });
       }
+      resetChat();
+    },
+    [updateConfig, resetChat],
+  );
+
+  // ── AI Task change handler ──────────────────────────────────────────────
+
+  const handleTaskChange = useCallback(
+    (taskId: string | null, task?: AiTaskResponse) => {
+      if (task) {
+        setSelectedTask(task);
+        updateConfig({
+          aiTaskId: taskId,
+          aiTaskName: task.displayName,
+          agentName: null,
+          systemPrompt: task.systemTemplate ?? '',
+          enabledToolNames: [],
+          promptVariables: {},
+        });
+      } else {
+        setSelectedTask(null);
+        updateConfig({
+          aiTaskId: null,
+          aiTaskName: null,
+          systemPrompt: '',
+          promptVariables: {},
+        });
+      }
+      resetChat();
+    },
+    [updateConfig, resetChat],
+  );
+
+  // ── Playground mode switch handler ─────────────────────────────────────
+
+  const handlePlaygroundModeChange = useCallback(
+    (newMode: PlaygroundMode) => {
+      setPlaygroundMode(newMode);
+      // Clear selections when switching modes
+      setSelectedAgentConfig(null);
+      setSelectedTask(null);
+      setAllTools([]);
+      defaultPromptRef.current = null;
+      updateConfig({
+        agentName: null,
+        aiTaskId: null,
+        aiTaskName: null,
+        systemPrompt: '',
+        enabledToolNames: [],
+        modelId: null,
+        modelName: null,
+        promptVariables: {},
+      });
       resetChat();
     },
     [updateConfig, resetChat],
@@ -465,9 +529,41 @@ export function AiPlaygroundPage() {
         onReset={handleResetPlayground}
       />
 
-      {/* Config bar: agent + model + popover triggers */}
+      {/* Config bar: mode toggle + agent/task picker + model + popover triggers */}
       <div className="flex items-center gap-3 border-b border-[var(--color-border-light)] px-6 py-2.5">
-        <AgentPicker compact value={config.agentName} onChange={handleAgentChange} />
+        {/* Mode toggle: Agent | AI Task */}
+        <div className="flex rounded-md border border-[var(--color-border-light)]">
+          <button
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
+              playgroundMode === 'agent'
+                ? 'bg-[var(--color-brand-primary)] text-white'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
+            } rounded-l-md`}
+            onClick={() => handlePlaygroundModeChange('agent')}
+          >
+            <Bot className="h-3.5 w-3.5" />
+            Agent
+          </button>
+          <button
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors ${
+              playgroundMode === 'task'
+                ? 'bg-[var(--color-brand-primary)] text-white'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]'
+            } rounded-r-md`}
+            onClick={() => handlePlaygroundModeChange('task')}
+          >
+            <ListChecks className="h-3.5 w-3.5" />
+            AI Task
+          </button>
+        </div>
+
+        {/* Conditionally render Agent or Task picker */}
+        {playgroundMode === 'agent' ? (
+          <AgentPicker compact value={config.agentName} onChange={handleAgentChange} />
+        ) : (
+          <AiTaskPicker compact value={config.aiTaskId} onChange={handleTaskChange} />
+        )}
+
         <ModelSelector
           compact
           value={config.modelId}
@@ -502,52 +598,82 @@ export function AiPlaygroundPage() {
           )}
         </div>
 
-        {/* Tools popover */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 text-xs">
-              <Wrench className="mr-1.5 h-3.5 w-3.5" />
-              Tools
-              {config.enabledToolNames.length > 0 && (
-                <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-white">
-                  {config.enabledToolNames.length}
-                </span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-80">
-            <ToolToggleList
-              allTools={allTools}
-              enabledTools={config.enabledToolNames}
-              onChange={(tools) => updateConfig({ enabledToolNames: tools })}
-            />
-          </PopoverContent>
-        </Popover>
+        {/* Tools popover (agent mode only) */}
+        {playgroundMode === 'agent' && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 text-xs">
+                <Wrench className="mr-1.5 h-3.5 w-3.5" />
+                Tools
+                {config.enabledToolNames.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-white">
+                    {config.enabledToolNames.length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80">
+              <ToolToggleList
+                allTools={allTools}
+                enabledTools={config.enabledToolNames}
+                onChange={(tools) => updateConfig({ enabledToolNames: tools })}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
 
-        {/* Variables popover */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 text-xs">
-              <Variable className="mr-1.5 h-3.5 w-3.5" />
-              Variables
-              {config.userBriefJson && (
-                <span className="ml-1.5 h-2 w-2 rounded-full bg-[var(--color-brand-primary)]" />
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-96">
-            <UserBriefPicker
-              value={config.userBriefJson}
-              onChange={(json) => updateConfig({ userBriefJson: json })}
-            />
-          </PopoverContent>
-        </Popover>
+        {/* Prompt Variables popover (AI Task mode) */}
+        {playgroundMode === 'task' && selectedTask && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 text-xs">
+                <Variable className="mr-1.5 h-3.5 w-3.5" />
+                Variables
+                {Object.keys(config.promptVariables).length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-[var(--color-brand-primary)] px-1.5 py-0.5 text-[10px] text-white">
+                    {Object.keys(config.promptVariables).length}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-96">
+              <PromptVariablesForm
+                variablesSchema={selectedTask.variablesSchemaJson}
+                variables={config.promptVariables}
+                onChange={(vars) => updateConfig({ promptVariables: vars })}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
 
-        {/* Agent context viewer */}
-        <AgentContextDrawer
-          agentConfig={selectedAgentConfig}
-          currentUserBriefJson={config.userBriefJson}
-        />
+        {/* User Brief popover (agent mode) */}
+        {playgroundMode === 'agent' && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 text-xs">
+                <Variable className="mr-1.5 h-3.5 w-3.5" />
+                User Brief
+                {config.userBriefJson && (
+                  <span className="ml-1.5 h-2 w-2 rounded-full bg-[var(--color-brand-primary)]" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-96">
+              <UserBriefPicker
+                value={config.userBriefJson}
+                onChange={(json) => updateConfig({ userBriefJson: json })}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* Agent context viewer (agent mode only) */}
+        {playgroundMode === 'agent' && (
+          <AgentContextDrawer
+            agentConfig={selectedAgentConfig}
+            currentUserBriefJson={config.userBriefJson}
+          />
+        )}
 
         {/* Settings popover */}
         <Popover>
@@ -695,10 +821,10 @@ function PlaygroundHeader({
       <div className="mt-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
-            Agent Playground
+            AI Playground
           </h1>
           <p className="text-sm text-[var(--color-text-secondary)]">
-            Test agents, prompts, and models interactively.
+            Test agents, AI tasks, prompts, and models interactively.
           </p>
         </div>
 

@@ -1,25 +1,41 @@
+using Aonik.Ai.Persistence;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Caching;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Aonik.Ai.Services;
 
 /// <summary>
-/// Composes <see cref="IAiModelResolver"/> and <see cref="IPromptStore"/> to resolve
-/// the complete AI task profile (model + prompts) for a given use-case.
+/// Resolves the complete AI task profile (model + prompts) for a given use-case.
+/// Queries <see cref="Entities.AiTask"/> directly for prompt templates (replacing
+/// the previous <c>IPromptStore</c> → <c>TenantAwarePromptStore</c> chain) and
+/// delegates model resolution to <see cref="IAiModelResolver"/>.
+///
+/// Tenant precedence: tenant-specific AiTask row → global AiTask row.
 /// </summary>
 internal sealed class AiTaskProfileResolver : IAiTaskProfileResolver
 {
+    private readonly AiDbContext _dbContext;
     private readonly IAiModelResolver _modelResolver;
-    private readonly IPromptStore _promptStore;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly ICacheStore _cacheStore;
     private readonly ILogger<AiTaskProfileResolver> _logger;
 
+    private const string CacheSet = "ai-tasks";
+
     public AiTaskProfileResolver(
+        AiDbContext dbContext,
         IAiModelResolver modelResolver,
-        IPromptStore promptStore,
+        ITenantProvider tenantProvider,
+        ICacheStore cacheStore,
         ILogger<AiTaskProfileResolver> logger)
     {
+        _dbContext = dbContext;
         _modelResolver = modelResolver;
-        _promptStore = promptStore;
+        _tenantProvider = tenantProvider;
+        _cacheStore = cacheStore;
         _logger = logger;
     }
 
@@ -31,36 +47,63 @@ internal sealed class AiTaskProfileResolver : IAiTaskProfileResolver
     {
         var resolvedPromptName = promptName ?? useCase;
 
-        // Resolve model
+        // Resolve model via route policy (unchanged)
         var modelId = await _modelResolver.ResolveModelNameAsync(useCase, cancellationToken)
             ?? defaultModelId;
 
-        // Resolve system prompt
-        string? systemPrompt = null;
-        try
-        {
-            systemPrompt = await _promptStore.LoadPromptAsync(
-                resolvedPromptName, "v1", "system", cancellationToken);
-        }
-        catch (FileNotFoundException)
-        {
-            _logger.LogDebug(
-                "No system prompt template found for '{PromptName}', use-case '{UseCase}'.",
-                resolvedPromptName, useCase);
-        }
-
-        // Resolve user prompt template
-        string? userPromptTemplate = null;
-        try
-        {
-            userPromptTemplate = await _promptStore.LoadPromptAsync(
-                resolvedPromptName, "v1", "user", cancellationToken);
-        }
-        catch (FileNotFoundException)
-        {
-            // User prompt templates are optional
-        }
+        // Resolve prompts from AiTask table
+        var (systemPrompt, userPromptTemplate) = await ResolvePromptsAsync(
+            resolvedPromptName, cancellationToken);
 
         return new AiTaskProfile(modelId, systemPrompt, userPromptTemplate);
     }
+
+    private async Task<(string? SystemPrompt, string? UserPromptTemplate)> ResolvePromptsAsync(
+        string promptName,
+        CancellationToken cancellationToken)
+    {
+        _tenantProvider.TryGetCurrentTenantId(out var tenantId);
+        var cacheKey = $"ai-task-prompt:{tenantId}:{promptName}";
+
+        var cached = await _cacheStore.GetOrSetAsync<CachedPrompts?>(
+            cacheKey,
+            CachePolicy.Medium,
+            async ct => await LoadPromptsFromDbAsync(promptName, ct),
+            CacheSet,
+            cancellationToken);
+
+        return (cached?.SystemPrompt, cached?.UserPromptTemplate);
+    }
+
+    private async Task<CachedPrompts?> LoadPromptsFromDbAsync(
+        string promptName,
+        CancellationToken cancellationToken)
+    {
+        var hasTenantContext = _tenantProvider.TryGetCurrentTenantId(out var tenantId);
+
+        var aiTask = await _dbContext.AiTasks
+            .AsNoTracking()
+            .Where(t => t.PromptName == promptName
+                && t.IsPublished)
+            .Where(t => hasTenantContext
+                ? t.TenantId == tenantId || t.TenantId == null
+                : t.TenantId == null)
+            .OrderByDescending(t => t.TenantId.HasValue)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (aiTask is null)
+        {
+            _logger.LogDebug(
+                "No AiTask found for prompt name '{PromptName}'. Returning empty profile.",
+                promptName);
+            return null;
+        }
+
+        var systemPrompt = string.IsNullOrEmpty(aiTask.SystemTemplate) ? null : aiTask.SystemTemplate;
+        var userPromptTemplate = string.IsNullOrEmpty(aiTask.UserTemplate) ? null : aiTask.UserTemplate;
+
+        return new CachedPrompts(systemPrompt, userPromptTemplate);
+    }
+
+    private sealed record CachedPrompts(string? SystemPrompt, string? UserPromptTemplate);
 }

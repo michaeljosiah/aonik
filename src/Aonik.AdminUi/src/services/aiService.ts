@@ -28,6 +28,98 @@ import type {
 } from '@/types/ai';
 import type { PagedResult } from '@/types';
 
+// ── AI Task Types ──────────────────────────────────────────────────
+
+export interface AiTaskResponse {
+  id: string;
+  tenantId: string | null;
+  useCase: string;
+  displayName: string;
+  description: string;
+  category: string;
+  executionMode: string;
+  promptName: string;
+  promptVersion: string;
+  systemTemplate: string;
+  userTemplate: string;
+  developerTemplate: string;
+  variablesSchemaJson: string;
+  outputSchemaJson: string;
+  isPublished: boolean;
+  isActive: boolean;
+  primaryModelName: string | null;
+  isOverride: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface AiTaskStatsResponse {
+  totalRuns: number;
+  last24hRuns: number;
+  avgLatencyMs: number;
+  avgCost: number;
+  successRate: number;
+  lastRunAt: string | null;
+}
+
+export interface AiTaskDetailResponse extends AiTaskResponse {
+  stats: AiTaskStatsResponse;
+  routePolicyId: string | null;
+  routePolicyRiskTier: string | null;
+  routePolicyDataSensitivity: string | null;
+}
+
+export interface CreateAiTaskRequest {
+  useCase: string;
+  displayName: string;
+  description: string;
+  category: string;
+  executionMode: string;
+  promptName: string;
+  promptVersion: string;
+  systemTemplate: string;
+  userTemplate: string;
+  developerTemplate?: string;
+  variablesSchemaJson?: string;
+  outputSchemaJson?: string;
+  isPublished?: boolean;
+  isActive?: boolean;
+}
+
+export interface UpdateAiTaskRequest {
+  displayName?: string;
+  description?: string;
+  category?: string;
+  executionMode?: string;
+  promptName?: string;
+  promptVersion?: string;
+  systemTemplate?: string;
+  userTemplate?: string;
+  developerTemplate?: string;
+  variablesSchemaJson?: string;
+  outputSchemaJson?: string;
+  isPublished?: boolean;
+  isActive?: boolean;
+}
+
+export interface AiRunSummaryResponse {
+  id: string;
+  useCase: string;
+  modelName: string | null;
+  tokensUsed: number;
+  costEstimate: number;
+  latencyMs: number;
+  outcome: string;
+  createdAt: string;
+}
+
+export interface ListAiRunsResponse {
+  items: AiRunSummaryResponse[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
 // ── Provider service ────────────────────────────────────────────────
 
 export const aiProviderService = {
@@ -206,5 +298,41 @@ export const routePolicyService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/ai/route-policies/${id}`);
+  },
+};
+
+// ── AI Task service ────────────────────────────────────────────────
+
+export const aiTaskService = {
+  list: async (category?: string): Promise<AiTaskResponse[]> => {
+    const params = category ? `?category=${encodeURIComponent(category)}` : '';
+    const res = await api.get<{ tasks: AiTaskResponse[] }>(`/ai/tasks${params}`);
+    return res.tasks;
+  },
+
+  getDetail: async (id: string): Promise<AiTaskDetailResponse> => {
+    return api.get<AiTaskDetailResponse>(`/ai/tasks/${id}`);
+  },
+
+  create: async (request: CreateAiTaskRequest): Promise<AiTaskResponse> => {
+    return api.post<AiTaskResponse>('/ai/tasks', request);
+  },
+
+  update: async (id: string, request: UpdateAiTaskRequest): Promise<AiTaskResponse> => {
+    return api.put<AiTaskResponse>(`/ai/tasks/${id}`, request);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/ai/tasks/${id}`);
+  },
+};
+
+// ── AI Run service ─────────────────────────────────────────────────
+
+export const aiRunService = {
+  list: async (useCase: string, page: number = 1, pageSize: number = 20): Promise<ListAiRunsResponse> => {
+    return api.get<ListAiRunsResponse>(
+      `/ai/runs?useCase=${encodeURIComponent(useCase)}&page=${page}&pageSize=${pageSize}`,
+    );
   },
 };

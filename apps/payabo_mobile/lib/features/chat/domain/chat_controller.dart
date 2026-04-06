@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────
 
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -111,6 +112,24 @@ class PendingApproval {
   final void Function([String? reason]) onReject;
 }
 
+/// A pending option selection from the display_option_selector tool —
+/// awaiting user choice.
+class PendingOptionSelection {
+  const PendingOptionSelection({
+    required this.toolCallId,
+    required this.question,
+    required this.options,
+    this.multiSelect = false,
+    required this.onSelect,
+  });
+
+  final String toolCallId;
+  final String question;
+  final List<OptionItem> options;
+  final bool multiSelect;
+  final void Function(List<String> selected) onSelect;
+}
+
 /// A display widget rendered inline in the conversation, produced by a
 /// frontend display tool (e.g. display_fx_rate_chart).
 class DisplayWidget {
@@ -137,6 +156,7 @@ class ChatState {
     this.threadId,
     this.activeToolCalls = const [],
     this.pendingApprovals = const [],
+    this.pendingOptionSelections = const [],
     this.displayWidgets = const [],
     this.pendingSpeechText,
     this.pendingSpeechMessageId,
@@ -166,6 +186,9 @@ class ChatState {
 
   /// Pending approvals waiting for user interaction.
   final List<PendingApproval> pendingApprovals;
+
+  /// Pending option selections waiting for user choice.
+  final List<PendingOptionSelection> pendingOptionSelections;
 
   /// Display widgets rendered inline during the current response.
   final List<DisplayWidget> displayWidgets;
@@ -200,6 +223,7 @@ class ChatState {
     String? threadId,
     List<ActiveToolCall>? activeToolCalls,
     List<PendingApproval>? pendingApprovals,
+    List<PendingOptionSelection>? pendingOptionSelections,
     List<DisplayWidget>? displayWidgets,
     String? pendingSpeechText,
     String? pendingSpeechMessageId,
@@ -215,6 +239,8 @@ class ChatState {
       threadId: threadId ?? this.threadId,
       activeToolCalls: activeToolCalls ?? this.activeToolCalls,
       pendingApprovals: pendingApprovals ?? this.pendingApprovals,
+      pendingOptionSelections:
+          pendingOptionSelections ?? this.pendingOptionSelections,
       displayWidgets: displayWidgets ?? this.displayWidgets,
       pendingSpeechText: pendingSpeechText ?? this.pendingSpeechText,
       pendingSpeechMessageId:
@@ -237,6 +263,7 @@ class ChatState {
       streamingText: '',
       streamingMessageId: null,
       activeToolCalls: const [],
+      pendingOptionSelections: const [],
       displayWidgets: const [],
       pendingSpeechText: null,
       pendingSpeechMessageId: null,
@@ -410,6 +437,31 @@ class ChatController extends StateNotifier<ChatState> {
           activeToolCalls: updatedToolCalls,
         );
 
+      case ChatStreamOptionSelectionRequested():
+        final selection = PendingOptionSelection(
+          toolCallId: event.toolCallId,
+          question: event.question,
+          options: event.options,
+          multiSelect: event.multiSelect,
+          onSelect: event.onSelect,
+        );
+
+        final updatedToolCallsForOption = state.activeToolCalls.map((tc) {
+          if (tc.toolCallId == event.toolCallId) {
+            return tc.copyWith(status: ToolCallStatus.awaitingApproval);
+          }
+          return tc;
+        }).toList();
+
+        state = state.copyWith(
+          activity: ChatActivity.awaitingApproval,
+          pendingOptionSelections: [
+            ...state.pendingOptionSelections,
+            selection,
+          ],
+          activeToolCalls: updatedToolCallsForOption,
+        );
+
       case ChatStreamFinished():
         // Persist any display widgets into the last assistant message
         // so they survive in history after clearing transient state.
@@ -437,11 +489,24 @@ class ChatController extends StateNotifier<ChatState> {
           }
         }
 
-        state = state._clearStreaming().copyWith(
-          messages: messages,
-          activity: ChatActivity.idle,
-          pendingApprovals: const [],
-        );
+        if (state.pendingApprovals.isNotEmpty ||
+            state.pendingOptionSelections.isNotEmpty) {
+          // Defensive: RUN_FINISHED arrived while blocking tools are pending.
+          // Preserve them rather than silently discarding.
+          developer.log(
+            'ChatStreamFinished received with '
+            '${state.pendingApprovals.length} pending approval(s), '
+            '${state.pendingOptionSelections.length} pending option selection(s) '
+            '— preserving',
+            name: 'ChatController',
+          );
+          state = state.copyWith(messages: messages);
+        } else {
+          state = state._clearStreaming().copyWith(
+            messages: messages,
+            activity: ChatActivity.idle,
+          );
+        }
 
       case ChatStreamDisplayWidget():
         final widget = DisplayWidget(
@@ -475,11 +540,22 @@ class ChatController extends StateNotifier<ChatState> {
   /// This resolves the completer in the AG-UI re-run loop, allowing
   /// the agent to continue with the approved mutation.
   void approveAction(String toolCallId) {
+    developer.log(
+      'approveAction called for toolCallId=$toolCallId',
+      name: 'ChatController',
+    );
+
     final approval = state.pendingApprovals
         .where((a) => a.toolCallId == toolCallId)
         .firstOrNull;
 
-    if (approval == null) return;
+    if (approval == null) {
+      developer.log(
+        'approveAction: no pending approval found for $toolCallId',
+        name: 'ChatController',
+      );
+      return;
+    }
 
     // Resolve the completer (triggers the re-run loop to continue).
     approval.onApprove();
@@ -512,6 +588,11 @@ class ChatController extends StateNotifier<ChatState> {
 
   /// Rejects a pending confirmAction tool call with an optional reason.
   void rejectAction(String toolCallId, [String? reason]) {
+    developer.log(
+      'rejectAction called for toolCallId=$toolCallId reason=$reason',
+      name: 'ChatController',
+    );
+
     final approval = state.pendingApprovals
         .where((a) => a.toolCallId == toolCallId)
         .firstOrNull;
@@ -545,6 +626,55 @@ class ChatController extends StateNotifier<ChatState> {
     );
   }
 
+  /// Resolves a pending option selection tool call with the user's choice(s).
+  void selectOption(String toolCallId, List<String> selected) {
+    developer.log(
+      'selectOption called for toolCallId=$toolCallId selected=$selected',
+      name: 'ChatController',
+    );
+
+    final selection = state.pendingOptionSelections
+        .where((s) => s.toolCallId == toolCallId)
+        .firstOrNull;
+
+    if (selection == null) {
+      developer.log(
+        'selectOption: no pending selection found for $toolCallId',
+        name: 'ChatController',
+      );
+      return;
+    }
+
+    // Resolve the completer.
+    selection.onSelect(selected);
+
+    // Update state: remove the selection and mark the tool call.
+    final updatedSelections = state.pendingOptionSelections
+        .where((s) => s.toolCallId != toolCallId)
+        .toList();
+
+    final updatedToolCalls = state.activeToolCalls.map((tc) {
+      if (tc.toolCallId == toolCallId) {
+        return tc.copyWith(
+          result: selected.join(', '),
+          status: ToolCallStatus.completed,
+        );
+      }
+      return tc;
+    }).toList();
+
+    final hasPendingBlocking = updatedSelections.isNotEmpty ||
+        state.pendingApprovals.isNotEmpty;
+
+    state = state.copyWith(
+      pendingOptionSelections: updatedSelections,
+      activeToolCalls: updatedToolCalls,
+      activity: hasPendingBlocking
+          ? ChatActivity.awaitingApproval
+          : ChatActivity.connecting,
+    );
+  }
+
   void _onStreamError(Object error, StackTrace stackTrace) {
     state = state._clearStreaming().copyWith(
       activity: ChatActivity.error,
@@ -569,15 +699,32 @@ class ChatController extends StateNotifier<ChatState> {
         );
       }
 
-      // Reject any pending approvals so completers don't hang.
-      for (final approval in state.pendingApprovals) {
-        approval.onReject('Stream ended unexpectedly');
+      if (state.pendingApprovals.isNotEmpty ||
+          state.pendingOptionSelections.isNotEmpty) {
+        // Stream closed while user was reviewing a blocking card.
+        // Reject/resolve completers so the re-run loop doesn't hang forever.
+        developer.log(
+          'Stream closed with ${state.pendingApprovals.length} pending approval(s), '
+          '${state.pendingOptionSelections.length} pending option selection(s) — rejecting',
+          name: 'ChatController',
+        );
+        for (final approval in state.pendingApprovals) {
+          approval.onReject('Connection lost');
+        }
+        for (final selection in state.pendingOptionSelections) {
+          selection.onSelect(const []);
+        }
+        state = state._clearStreaming().copyWith(
+          activity: ChatActivity.error,
+          errorMessage: 'Connection lost — please try again.',
+          pendingApprovals: const [],
+          pendingOptionSelections: const [],
+        );
+      } else {
+        state = state._clearStreaming().copyWith(
+          activity: ChatActivity.idle,
+        );
       }
-
-      state = state._clearStreaming().copyWith(
-        activity: ChatActivity.idle,
-        pendingApprovals: const [],
-      );
     }
   }
 
@@ -585,9 +732,12 @@ class ChatController extends StateNotifier<ChatState> {
   void newConversation() {
     _subscription?.cancel();
 
-    // Reject any pending approvals.
+    // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
       approval.onReject('Conversation reset');
+    }
+    for (final selection in state.pendingOptionSelections) {
+      selection.onSelect(const []);
     }
 
     state = ChatState.initial();
@@ -597,9 +747,12 @@ class ChatController extends StateNotifier<ChatState> {
   void loadConversation(ChatConversation conversation) {
     _subscription?.cancel();
 
-    // Reject any pending approvals.
+    // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
       approval.onReject('Conversation changed');
+    }
+    for (final selection in state.pendingOptionSelections) {
+      selection.onSelect(const []);
     }
 
     state = ChatState(
@@ -612,9 +765,12 @@ class ChatController extends StateNotifier<ChatState> {
   Future<void> loadThread(String threadId) async {
     _subscription?.cancel();
 
-    // Reject any pending approvals.
+    // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
       approval.onReject('Conversation changed');
+    }
+    for (final selection in state.pendingOptionSelections) {
+      selection.onSelect(const []);
     }
 
     state = ChatState.initial().copyWith(activity: ChatActivity.connecting);
@@ -644,9 +800,12 @@ class ChatController extends StateNotifier<ChatState> {
   void dispose() {
     _subscription?.cancel();
 
-    // Reject any pending approvals.
+    // Reject any pending approvals / option selections.
     for (final approval in state.pendingApprovals) {
       approval.onReject('Controller disposed');
+    }
+    for (final selection in state.pendingOptionSelections) {
+      selection.onSelect(const []);
     }
 
     super.dispose();

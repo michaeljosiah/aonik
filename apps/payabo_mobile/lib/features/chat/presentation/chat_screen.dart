@@ -289,6 +289,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _scrollToBottom();
       }
 
+      if (next.pendingOptionSelections.length >
+              prev.pendingOptionSelections.length &&
+          keepPinnedToBottom) {
+        _scrollToBottom();
+      }
+
       if (next.displayWidgets.length > prev.displayWidgets.length &&
           keepPinnedToBottom) {
         _scrollToBottom();
@@ -460,6 +466,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           ref
                               .read(chatControllerProvider.notifier)
                               .rejectAction(toolCallId, reason);
+                          _scrollToBottom(force: true);
+                        },
+                        onSelect:
+                            (String toolCallId, List<String> selected) {
+                          ref
+                              .read(chatControllerProvider.notifier)
+                              .selectOption(toolCallId, selected);
                           _scrollToBottom(force: true);
                         },
                       ),
@@ -1374,6 +1387,7 @@ class _ChatStage extends ConsumerWidget {
     required this.onVoiceOrbTap,
     required this.onApprove,
     required this.onReject,
+    required this.onSelect,
   });
 
   final ScrollController controller;
@@ -1386,6 +1400,7 @@ class _ChatStage extends ConsumerWidget {
   final Future<void> Function() onVoiceOrbTap;
   final void Function(String toolCallId) onApprove;
   final void Function(String toolCallId, [String? reason]) onReject;
+  final void Function(String toolCallId, List<String> selected) onSelect;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1432,9 +1447,11 @@ class _ChatStage extends ConsumerWidget {
               activity: chatState.activity,
               activeToolCalls: chatState.activeToolCalls,
               pendingApprovals: chatState.pendingApprovals,
+              pendingOptionSelections: chatState.pendingOptionSelections,
               displayWidgets: chatState.displayWidgets,
               onApprove: onApprove,
               onReject: onReject,
+              onSelect: onSelect,
             );
     }
 
@@ -1601,9 +1618,11 @@ class _ConversationStage extends StatelessWidget {
     this.activity = ChatActivity.idle,
     this.activeToolCalls = const [],
     this.pendingApprovals = const [],
+    this.pendingOptionSelections = const [],
     this.displayWidgets = const [],
     this.onApprove,
     this.onReject,
+    this.onSelect,
   });
 
   final ScrollController controller;
@@ -1613,9 +1632,11 @@ class _ConversationStage extends StatelessWidget {
   final ChatActivity activity;
   final List<ActiveToolCall> activeToolCalls;
   final List<PendingApproval> pendingApprovals;
+  final List<PendingOptionSelection> pendingOptionSelections;
   final List<DisplayWidget> displayWidgets;
   final void Function(String toolCallId)? onApprove;
   final void Function(String toolCallId, [String? reason])? onReject;
+  final void Function(String toolCallId, List<String> selected)? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -1627,7 +1648,8 @@ class _ConversationStage extends StatelessWidget {
         (isStreaming ? 1 : 0) +
         (isThinking ? 1 : 0) +
         displayWidgets.length +
-        pendingApprovals.length;
+        pendingApprovals.length +
+        pendingOptionSelections.length;
 
     return ListView.builder(
       controller: controller,
@@ -1691,13 +1713,27 @@ class _ConversationStage extends StatelessWidget {
         }
         contentIndex -= displayWidgets.length;
 
-        final PendingApproval approval = pendingApprovals[contentIndex];
+        if (contentIndex < pendingApprovals.length) {
+          final PendingApproval approval = pendingApprovals[contentIndex];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
+            child: _ApprovalCard(
+              approval: approval,
+              onApprove: () => onApprove?.call(approval.toolCallId),
+              onReject: () => onReject?.call(approval.toolCallId),
+            ),
+          );
+        }
+        contentIndex -= pendingApprovals.length;
+
+        final PendingOptionSelection selection =
+            pendingOptionSelections[contentIndex];
         return Padding(
           padding: const EdgeInsets.only(bottom: PayaboSpacing.xl),
-          child: _ApprovalCard(
-            approval: approval,
-            onApprove: () => onApprove?.call(approval.toolCallId),
-            onReject: () => onReject?.call(approval.toolCallId),
+          child: _OptionSelectorCard(
+            selection: selection,
+            onSelect: (List<String> selected) =>
+                onSelect?.call(selection.toolCallId, selected),
           ),
         );
       },
@@ -3166,6 +3202,226 @@ class _ApprovalCard extends StatelessWidget {
   }
 }
 
+/// A card presenting a set of options for the user to choose from.
+///
+/// For single-select: tapping an option resolves immediately.
+/// For multi-select: checkboxes with a "Confirm" button.
+class _OptionSelectorCard extends StatefulWidget {
+  const _OptionSelectorCard({
+    required this.selection,
+    required this.onSelect,
+  });
+
+  final PendingOptionSelection selection;
+  final void Function(List<String> selected) onSelect;
+
+  @override
+  State<_OptionSelectorCard> createState() => _OptionSelectorCardState();
+}
+
+class _OptionSelectorCardState extends State<_OptionSelectorCard> {
+  final Set<String> _selected = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    const accentColor = Colors.blue;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            accentColor.withValues(alpha: 0.08),
+            accentColor.withValues(alpha: 0.03),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              PayaboSpacing.md,
+              PayaboSpacing.md,
+              PayaboSpacing.md,
+              PayaboSpacing.sm,
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.touch_app_rounded,
+                    size: 18,
+                    color: accentColor.withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(width: PayaboSpacing.sm),
+                Expanded(
+                  child: Text(
+                    widget.selection.question,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: _chatBodyTextColor(context),
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Divider
+          Container(
+            height: 1,
+            color: accentColor.withValues(alpha: 0.1),
+          ),
+          // Options
+          Padding(
+            padding: const EdgeInsets.all(PayaboSpacing.sm),
+            child: Column(
+              children: <Widget>[
+                for (final option in widget.selection.options)
+                  _buildOption(context, option, c),
+                if (widget.selection.multiSelect && _selected.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: PayaboSpacing.sm),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () =>
+                            widget.onSelect(_selected.toList()),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: c.primary,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: PayaboSpacing.sm,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          'Confirm (${_selected.length})',
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOption(
+    BuildContext context,
+    OptionItem option,
+    dynamic c,
+  ) {
+    final bool isSelected = _selected.contains(option.label);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: PayaboSpacing.xs),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () {
+            if (widget.selection.multiSelect) {
+              setState(() {
+                if (isSelected) {
+                  _selected.remove(option.label);
+                } else {
+                  _selected.add(option.label);
+                }
+              });
+            } else {
+              // Single-select: resolve immediately.
+              widget.onSelect([option.label]);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: PayaboSpacing.md,
+              vertical: PayaboSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Colors.blue.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected
+                    ? Colors.blue.withValues(alpha: 0.4)
+                    : Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Row(
+              children: <Widget>[
+                if (widget.selection.multiSelect)
+                  Padding(
+                    padding: const EdgeInsets.only(right: PayaboSpacing.sm),
+                    child: Icon(
+                      isSelected
+                          ? Icons.check_box_rounded
+                          : Icons.check_box_outline_blank_rounded,
+                      size: 20,
+                      color: isSelected
+                          ? Colors.blue
+                          : _chatMutedTextColor(context),
+                    ),
+                  ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        option.label,
+                        style:
+                            Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: _chatBodyTextColor(context),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                      ),
+                      if (option.description != null &&
+                          option.description!.isNotEmpty)
+                        Text(
+                          option.description!,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: _chatMutedTextColor(context),
+                                  ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (!widget.selection.multiSelect)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: _chatMutedTextColor(context),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A small chip showing a tool call name with a status-appropriate icon.
 class _ToolCallChip extends StatelessWidget {
   const _ToolCallChip({
@@ -3303,6 +3559,10 @@ class _DisplayWidgetDispatcher extends StatelessWidget {
         return _BudgetBreakdownCard(data: widget.data);
       case DisplayWidgetType.autopilotProposal:
         return _AutopilotProposalCard(data: widget.data);
+      case DisplayWidgetType.optionSelector:
+        // Option selector is rendered as a blocking card via
+        // pendingOptionSelections, not as a display widget.
+        return const SizedBox.shrink();
     }
   }
 }

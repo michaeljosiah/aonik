@@ -10,6 +10,7 @@
 //  - display_fx_rate_chart — GBP/NGN rate window with timing signal
 //  - display_budget_breakdown — spending categories with over/under
 //  - display_autopilot_proposal — structured approve/reject card
+//  - display_option_selector — blocking option picker for user choices
 // ─────────────────────────────────────────────────────────
 
 import 'dart:async';
@@ -91,6 +92,11 @@ class LiveChatRepository implements ChatRepository {
           },
         ),
         handler: (args, context) {
+          developer.log(
+            'confirmAction handler invoked: toolCallId=${context.toolCallId} action=${args['action']}',
+            name: 'LiveChatRepository',
+          );
+
           final completer = Completer<String>();
 
           sideChannel.add(ChatStreamApprovalRequested(
@@ -100,11 +106,19 @@ class LiveChatRepository implements ChatRepository {
             severity: _parseSeverity(args['severity']),
             onApprove: () {
               if (!completer.isCompleted) {
+                developer.log(
+                  'confirmAction approved: toolCallId=${context.toolCallId}',
+                  name: 'LiveChatRepository',
+                );
                 completer.complete('approved');
               }
             },
             onReject: ([String? reason]) {
               if (!completer.isCompleted) {
+                developer.log(
+                  'confirmAction rejected: toolCallId=${context.toolCallId} reason=$reason',
+                  name: 'LiveChatRepository',
+                );
                 final result =
                     reason != null ? 'rejected: $reason' : 'rejected';
                 completer.complete(result);
@@ -300,6 +314,94 @@ class LiveChatRepository implements ChatRepository {
           sideChannel,
           DisplayWidgetType.autopilotProposal,
         ),
+      ),
+
+      // Blocking: option selector for user choices.
+      'display_option_selector': FrontendToolRegistration(
+        tool: const AgUiToolDefinition(
+          name: 'display_option_selector',
+          description:
+              'Present a set of options for the user to choose from before '
+              'proceeding. This tool blocks until the user selects. Use when '
+              'you need the user to pick from a list (e.g., "Which account?", '
+              '"Pick a category").',
+          parameters: {
+            'type': 'object',
+            'properties': {
+              'question': {
+                'type': 'string',
+                'description':
+                    'The prompt text (e.g., "Which account should I use?")',
+              },
+              'options': {
+                'type': 'array',
+                'description': 'The available options to choose from',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'label': {
+                      'type': 'string',
+                      'description': 'Option label shown to the user',
+                    },
+                    'description': {
+                      'type': 'string',
+                      'description': 'Optional description for the option',
+                    },
+                  },
+                  'required': ['label'],
+                },
+              },
+              'multiSelect': {
+                'type': 'boolean',
+                'description':
+                    'If true, the user may select multiple options. Defaults to false.',
+              },
+            },
+            'required': ['question', 'options'],
+          },
+        ),
+        handler: (args, context) {
+          developer.log(
+            'display_option_selector handler invoked: toolCallId=${context.toolCallId} '
+            'question=${args['question']}',
+            name: 'LiveChatRepository',
+          );
+
+          final completer = Completer<String>();
+
+          final optionsList = (args['options'] as List<dynamic>? ?? const [])
+              .whereType<Map<Object?, Object?>>()
+              .map((item) {
+            final map = Map<String, dynamic>.from(item);
+            return OptionItem(
+              label: map['label']?.toString() ?? '',
+              description: map['description']?.toString(),
+            );
+          }).toList();
+
+          sideChannel.add(ChatStreamOptionSelectionRequested(
+            toolCallId: context.toolCallId,
+            question: args['question']?.toString() ?? 'Please choose an option',
+            options: optionsList,
+            multiSelect: args['multiSelect'] == true,
+            onSelect: (selected) {
+              if (!completer.isCompleted) {
+                developer.log(
+                  'display_option_selector resolved: '
+                  'toolCallId=${context.toolCallId} selected=$selected',
+                  name: 'LiveChatRepository',
+                );
+                // Return single value or JSON array depending on selection.
+                final result = selected.length == 1
+                    ? selected.first
+                    : selected.toString();
+                completer.complete(result);
+              }
+            },
+          ));
+
+          return completer.future;
+        },
       ),
     };
 

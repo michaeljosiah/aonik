@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Ai;
+// IAiTaskReader is in SharedKernel — no cross-module reference needed
 using Microsoft.Agents.AI;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 
 namespace Aonik.Agents.Endpoints;
 
@@ -78,12 +80,14 @@ public static class PlaygroundStreamingEndpoint
             return;
         }
 
-        // Validate: must have either an agent name or a system prompt
-        if (string.IsNullOrWhiteSpace(request.AgentName) && string.IsNullOrWhiteSpace(request.SystemPrompt))
+        // Validate: must have an agent name, a system prompt, or an AI task ID
+        if (string.IsNullOrWhiteSpace(request.AgentName)
+            && string.IsNullOrWhiteSpace(request.SystemPrompt)
+            && !request.AiTaskId.HasValue)
         {
             context.Response.StatusCode = 400;
             await context.Response.WriteAsync(
-                "Either 'agentName' or 'systemPrompt' is required", cancellationToken);
+                "Either 'agentName', 'systemPrompt', or 'aiTaskId' is required", cancellationToken);
             return;
         }
 
@@ -123,7 +127,17 @@ public static class PlaygroundStreamingEndpoint
             StringComparer.OrdinalIgnoreCase);
 
         // ── Assemble messages ───────────────────────────────────────────
-        var chatMessages = BuildChatMessages(request);
+        // In AI Task mode, if the user template is defined and no user messages
+        // were provided, inject the resolved user template as the user message.
+        string? aiTaskUserTemplate = null;
+        if (request.AiTaskId.HasValue && request is { Messages: null or { Count: 0 } })
+        {
+            var taskReader = context.RequestServices.GetRequiredService<IAiTaskReader>();
+            var snapshot = await taskReader.GetByIdAsync(request.AiTaskId.Value, cancellationToken);
+            aiTaskUserTemplate = ApplyVariables(snapshot?.UserTemplate, request.PromptVariables);
+        }
+
+        var chatMessages = BuildChatMessages(request, aiTaskUserTemplate);
 
         // ── Stream ──────────────────────────────────────────────────────
         var stopwatch = Stopwatch.StartNew();
@@ -342,6 +356,13 @@ public static class PlaygroundStreamingEndpoint
     {
         var chatClient = services.GetRequiredService<IChatClient>();
 
+        // ── AI Task mode ────────────────────────────────────────────────
+        if (request.AiTaskId.HasValue)
+        {
+            return await BuildFromAiTaskAsync(
+                request, chatClient, services, logger, cancellationToken);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.AgentName))
         {
             // ── Agent mode ──────────────────────────────────────────────
@@ -357,6 +378,66 @@ public static class PlaygroundStreamingEndpoint
             name: "playground-raw",
             instructions: request.SystemPrompt ?? string.Empty,
             tools: []);
+    }
+
+    /// <summary>
+    /// Resolves an AI Task by ID, applies variable substitution to its
+    /// templates, and builds a simple agent with the resolved prompts.
+    /// The user template (with variables applied) is prepended to the
+    /// conversation messages as a system message.
+    /// </summary>
+    private static async Task<AIAgent> BuildFromAiTaskAsync(
+        PlaygroundRunRequest request,
+        IChatClient chatClient,
+        IServiceProvider services,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        var taskReader = services.GetRequiredService<IAiTaskReader>();
+        var task = await taskReader.GetByIdAsync(request.AiTaskId!.Value, cancellationToken);
+
+        if (task is null)
+        {
+            throw new InvalidOperationException(
+                $"AI Task with ID '{request.AiTaskId}' was not found or is not published.");
+        }
+
+        // Apply variable substitution to templates
+        var systemPrompt = ApplyVariables(task.SystemTemplate, request.PromptVariables);
+
+        // Use the playground system prompt override if provided, otherwise use the task's
+        var instructions = !string.IsNullOrWhiteSpace(request.SystemPrompt)
+            ? request.SystemPrompt
+            : systemPrompt ?? string.Empty;
+
+        logger.LogInformation(
+            "Playground: AI Task mode '{TaskName}' (ID: {TaskId}), variables: {VarCount}",
+            task.DisplayName,
+            request.AiTaskId,
+            request.PromptVariables?.Count ?? 0);
+
+        return new ChatClientAgent(
+            chatClient,
+            name: $"playground-task-{task.UseCase}",
+            instructions: instructions,
+            tools: []);
+    }
+
+    /// <summary>
+    /// Replaces <c>{{variableName}}</c> placeholders in a template with
+    /// values from the provided dictionary. Returns the original string
+    /// if no variables or template is provided.
+    /// </summary>
+    private static string? ApplyVariables(string? template, Dictionary<string, string>? variables)
+    {
+        if (string.IsNullOrEmpty(template) || variables is null || variables.Count == 0)
+            return template;
+
+        return Regex.Replace(template, @"\{\{(\w+)\}\}", match =>
+        {
+            var key = match.Groups[1].Value;
+            return variables.TryGetValue(key, out var value) ? value : match.Value;
+        });
     }
 
     /// <summary>
@@ -457,7 +538,9 @@ public static class PlaygroundStreamingEndpoint
     /// Converts the playground request into a list of <see cref="ChatMessage"/>
     /// objects, prepending the user brief (if provided) as a system message.
     /// </summary>
-    private static List<ChatMessage> BuildChatMessages(PlaygroundRunRequest request)
+    private static List<ChatMessage> BuildChatMessages(
+        PlaygroundRunRequest request,
+        string? aiTaskUserTemplate = null)
     {
         var messages = new List<ChatMessage>();
 
@@ -473,6 +556,13 @@ public static class PlaygroundStreamingEndpoint
                 """;
 
             messages.Add(new ChatMessage(ChatRole.System, briefContent));
+        }
+
+        // In AI Task mode with no user messages, inject the resolved user template
+        if (!string.IsNullOrWhiteSpace(aiTaskUserTemplate) && request.Messages is not { Count: > 0 })
+        {
+            messages.Add(new ChatMessage(ChatRole.User, aiTaskUserTemplate));
+            return messages;
         }
 
         // Convert conversation messages

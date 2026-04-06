@@ -4,6 +4,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Finance.Agents.StructuredOutputs;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.Finance.Contracts.Services.Pricing;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,8 +14,8 @@ namespace Aonik.Finance.Agents.Tools;
 /// <summary>
 /// AI agent tools for personal finance operations.
 /// Each method is exposed to the LLM via <see cref="AIFunctionFactory.Create"/>.
-/// Read-only tools are safe for autonomous use; mutating tools are wrapped with
-/// <see cref="ApprovalRequiredAIFunction"/> to enforce human-in-the-loop approval.
+/// Read-only tools are safe for autonomous use; mutating tools rely on the
+/// <c>confirmAction</c> frontend tool for human-in-the-loop approval.
 /// </summary>
 internal sealed class PersonalFinanceTools
 {
@@ -23,6 +24,7 @@ internal sealed class PersonalFinanceTools
     private readonly IBillService _billService;
     private readonly IPersonalFinanceInsightsService _insightsService;
     private readonly IDashboardService _dashboardService;
+    private readonly IFxRateService _fxRateService;
     private readonly IChatClient _chatClient;
     private readonly IServiceProvider _serviceProvider;
     private readonly IAgentConfigurationService _agentConfigurationService;
@@ -35,6 +37,7 @@ internal sealed class PersonalFinanceTools
         IBillService billService,
         IPersonalFinanceInsightsService insightsService,
         IDashboardService dashboardService,
+        IFxRateService fxRateService,
         IChatClient chatClient,
         IServiceProvider serviceProvider,
         IAgentConfigurationService agentConfigurationService,
@@ -46,6 +49,7 @@ internal sealed class PersonalFinanceTools
         _billService = billService;
         _insightsService = insightsService;
         _dashboardService = dashboardService;
+        _fxRateService = fxRateService;
         _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _agentConfigurationService = agentConfigurationService;
@@ -164,6 +168,20 @@ internal sealed class PersonalFinanceTools
     {
         return await _dashboardService.GetDashboardAsync(cancellationToken);
     }
+
+    // ── FX Rate Read Tool ─────────────────────────────────────────
+
+    [Description("Gets historical FX rate data for a currency pair over the past N days. Returns daily rate points and a buy/hold/wait timing signal. Use this to fetch real rate data before calling the display_fx_rate_chart frontend tool.")]
+    public async Task<FxRateHistoryResult> GetFxRateHistory(
+        [Description("ISO 4217 base currency code (e.g., 'GBP')")] string baseCurrency,
+        [Description("ISO 4217 target currency code (e.g., 'NGN')")] string targetCurrency,
+        [Description("Number of days of history to fetch (default: 7)")] int days = 7,
+        CancellationToken cancellationToken = default)
+    {
+        return await _fxRateService.GetRateHistoryAsync(baseCurrency, targetCurrency, days, cancellationToken);
+    }
+
+    // ── Sub-Agent Tools ──────────────────────────────────────────
 
     [Description("Runs the internal spending-intelligence specialist and returns schema-bound analysis JSON plus the parsed structured result. Use this for reasoning-heavy questions about spending patterns, budget pressure, and where the user should focus first.")]
     public async Task<SpendingIntelligenceAgentToolResponse> RunSpendingIntelligence(
@@ -321,7 +339,7 @@ internal sealed class PersonalFinanceTools
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all personal finance tools.
     /// Mutating tools (CreateAccount, ArchiveAccount, CreateManualTransaction,
-    /// CreateBill, ArchiveBill) are wrapped with <see cref="ApprovalRequiredAIFunction"/>
+    /// CreateBill, ArchiveBill) rely on the <c>confirmAction</c> frontend tool
     /// for human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
@@ -333,6 +351,7 @@ internal sealed class PersonalFinanceTools
             serviceProvider.GetRequiredService<IBillService>(),
             serviceProvider.GetRequiredService<IPersonalFinanceInsightsService>(),
             serviceProvider.GetRequiredService<IDashboardService>(),
+            serviceProvider.GetRequiredService<IFxRateService>(),
             serviceProvider.GetRequiredService<IChatClient>(),
             serviceProvider,
             serviceProvider.GetRequiredService<IAgentConfigurationService>(),
@@ -351,20 +370,16 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.GetCategoryBreakdown, name: "pf_get_category_breakdown");
         yield return AIFunctionFactory.Create(tools.GetMerchantBreakdown, name: "pf_get_merchant_breakdown");
         yield return AIFunctionFactory.Create(tools.GetDashboard, name: "pf_get_dashboard");
+        yield return AIFunctionFactory.Create(tools.GetFxRateHistory, name: "pf_get_fx_rate_history");
         yield return AIFunctionFactory.Create(tools.RunSpendingIntelligence, name: "pf_run_spending_intelligence");
         yield return AIFunctionFactory.Create(tools.RunObligationPlanning, name: "pf_run_obligation_planning");
 
-        // Mutating — require approval before execution
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CreateAccount, name: "pf_create_account"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.ArchiveAccount, name: "pf_archive_account"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CreateManualTransaction, name: "pf_create_transaction"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CreateBill, name: "pf_create_bill"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.ArchiveBill, name: "pf_archive_bill"));
+        // Mutating — approval enforced via the confirmAction frontend tool
+        yield return AIFunctionFactory.Create(tools.CreateAccount, name: "pf_create_account");
+        yield return AIFunctionFactory.Create(tools.ArchiveAccount, name: "pf_archive_account");
+        yield return AIFunctionFactory.Create(tools.CreateManualTransaction, name: "pf_create_transaction");
+        yield return AIFunctionFactory.Create(tools.CreateBill, name: "pf_create_bill");
+        yield return AIFunctionFactory.Create(tools.ArchiveBill, name: "pf_archive_bill");
     }
 
     private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(

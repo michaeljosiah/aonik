@@ -36,6 +36,17 @@ public static class AguiStreamingEndpoint
     private static readonly Regex SpeechPreambleRegex = new(
         @"^(?:(?:here(?:'s| is)(?:\s+a)?\s+quick\s+summary|here(?:'s| is)\s+the\s+summary|quick\s+summary|summary|in\s+summary|overall|to\s+summari[sz]e)\s*:?\s*)+",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // Matches standalone decimal numbers (e.g. "45.00", "1,250.50") that are NOT
+    // preceded or followed by a currency symbol/code — those are handled by ExpandCurrencyAmounts.
+    private static readonly Regex StandaloneDecimalRegex = new(
+        @"(?<![£€$₦₹¥\w])(?<number>[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d+)(?!\s*(?:USD|EUR|GBP|NGN|GHS|ZAR|ZWL|ZIG|KES|INR|CNY)\b)",
+        RegexOptions.Compiled);
+    // Matches emoji characters: emoticons, dingbats, symbols & pictographs,
+    // transport/map symbols, supplemental symbols, flags, skin-tone modifiers,
+    // variation selectors, zero-width joiners, and other common emoji ranges.
+    private static readonly Regex EmojiRegex = new(
+        @"[\u200D\uFE0F\u00A9\u00AE\u203C\u2049\u2122\u2139\u2194-\u21AA\u231A-\u23FA\u24C2\u25AA-\u27BF\u2934-\u2935\u2B05-\u2B55\u3030\u303D\u3297\u3299]|[\uD83C-\uDBFF][\uDC00-\uDFFF]",
+        RegexOptions.Compiled);
     private const string SupportedSpeechCurrencyCodes = "USD|EUR|GBP|NGN|GHS|ZAR|ZWL|ZIG|KES|INR|CNY";
     private const string SupportedSpeechAmountPattern = @"[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?";
     private static readonly Regex CurrencyBeforeAmountRegex = new(
@@ -776,8 +787,10 @@ public static class AguiStreamingEndpoint
         }
 
         speechText = SpeechPreambleRegex.Replace(speechText, string.Empty);
-        speechText = speechText.Replace(" & ", " and ", StringComparison.Ordinal);
+        speechText = ReplaceSymbolsWithWords(speechText);
+        speechText = EmojiRegex.Replace(speechText, string.Empty);
         speechText = ExpandCurrencyAmounts(speechText);
+        speechText = NormalizeStandaloneDecimals(speechText);
         speechText = Regex.Replace(speechText, @"\s+([,.;!?])", "$1");
         speechText = MultiWhitespaceRegex.Replace(speechText, " ").Trim();
         speechText = AppendChatReviewGuidance(speechText, requiresVisualAttention, requiresApproval);
@@ -885,7 +898,7 @@ public static class AguiStreamingEndpoint
     {
         if (!SpokenCurrencies.TryGetValue(currencyCode, out var descriptor))
         {
-            return $"{amount} {currencyCode}";
+            return $"{FormatSpokenNumber(amount)} {currencyCode}";
         }
 
         var normalizedAmount = amount.Replace(",", string.Empty, StringComparison.Ordinal);
@@ -894,11 +907,143 @@ public static class AguiStreamingEndpoint
             return $"{amount} {descriptor.Plural}";
         }
 
-        var currencyName = decimal.Abs(parsedAmount) == 1m
-            ? descriptor.Singular
-            : descriptor.Plural;
+        // Build natural spoken currency: "12 pounds 50", "45 pounds", "1,250 dollars 99"
+        return FormatSpokenCurrencyPhrase(parsedAmount, descriptor);
+    }
 
-        return $"{amount} {currencyName}";
+    /// <summary>
+    /// Formats a decimal amount for natural speech output.
+    /// Whole amounts drop the decimal entirely (45.00 → "45").
+    /// Amounts with meaningful fractional parts strip trailing zeros
+    /// (3.50 → "3.5", 2.125 → "2.125").
+    /// </summary>
+    private static string FormatSpokenNumber(string rawAmount)
+    {
+        var normalized = rawAmount.Replace(",", string.Empty, StringComparison.Ordinal);
+        if (!decimal.TryParse(normalized, NumberStyles.Number | NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture, out var value))
+        {
+            return rawAmount;
+        }
+
+        // Whole number — no decimal needed
+        if (value == decimal.Truncate(value))
+        {
+            return decimal.Truncate(value).ToString("#,0", CultureInfo.InvariantCulture);
+        }
+
+        // Has a meaningful fractional part — strip trailing zeros
+        // e.g. 3.50 → "3.5", 2.125 → "2.125"
+        return value.ToString("G", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Builds a natural spoken currency phrase by placing the currency name
+    /// between the major and minor units, mirroring how humans say amounts:
+    /// <list type="bullet">
+    ///   <item>£45.00 → "45 pounds"</item>
+    ///   <item>£12.50 → "12 pounds 50"</item>
+    ///   <item>$1,250.99 → "1,250 dollars 99"</item>
+    ///   <item>£1 → "1 pound"</item>
+    ///   <item>-£5.25 → "minus 5 pounds 25"</item>
+    /// </list>
+    /// </summary>
+    private static string FormatSpokenCurrencyPhrase(
+        decimal amount,
+        SpokenCurrencyDescriptor descriptor)
+    {
+        var abs = decimal.Abs(amount);
+        var sign = amount < 0 ? "minus " : "";
+        var wholePart = decimal.Truncate(abs);
+
+        var currencyName = abs == 1m ? descriptor.Singular : descriptor.Plural;
+
+        // Whole amount — "45 pounds"
+        if (abs == wholePart)
+        {
+            return $"{sign}{wholePart:#,0} {currencyName}";
+        }
+
+        // Has minor units — extract them as an integer (pence, cents, etc.)
+        var fractional = (abs - wholePart) * 100;
+        var minorUnits = Math.Round(fractional, 0);
+
+        // Standard two-decimal-place amount — "12 pounds 50"
+        if (fractional == minorUnits && minorUnits > 0)
+        {
+            // Use whole number for minor units (no leading zero for speech)
+            return $"{sign}{wholePart:#,0} {currencyName} {minorUnits:0}";
+        }
+
+        // More than 2 decimal places (rare) — fall back to plain format
+        return $"{sign}{abs.ToString("G", CultureInfo.InvariantCulture)} {currencyName}";
+    }
+
+    /// <summary>
+    /// Replaces symbols with their spoken-word equivalents and strips
+    /// emojis/special characters that TTS engines struggle to pronounce.
+    /// </summary>
+    private static string ReplaceSymbolsWithWords(string text)
+    {
+        // Order matters: replace multi-char sequences before single chars,
+        // and contextual patterns (with surrounding spaces) before bare symbols.
+        var result = text;
+
+        // Comparison / arrow symbols
+        result = result.Replace(" >= ", " greater than or equal to ", StringComparison.Ordinal);
+        result = result.Replace(" <= ", " less than or equal to ", StringComparison.Ordinal);
+        result = result.Replace(" != ", " not equal to ", StringComparison.Ordinal);
+        result = result.Replace(" => ", " leads to ", StringComparison.Ordinal);
+        result = result.Replace(" -> ", " to ", StringComparison.Ordinal);
+        result = result.Replace(" <- ", " from ", StringComparison.Ordinal);
+        result = result.Replace(" <> ", " versus ", StringComparison.Ordinal);
+
+        // Common symbols with surrounding spaces (contextual)
+        result = result.Replace(" > ", " greater than ", StringComparison.Ordinal);
+        result = result.Replace(" < ", " less than ", StringComparison.Ordinal);
+        result = result.Replace(" = ", " equals ", StringComparison.Ordinal);
+        result = result.Replace(" + ", " plus ", StringComparison.Ordinal);
+        result = result.Replace(" - ", " minus ", StringComparison.Ordinal);
+        result = result.Replace(" x ", " times ", StringComparison.Ordinal);
+        result = result.Replace(" / ", " divided by ", StringComparison.Ordinal);
+        result = result.Replace(" & ", " and ", StringComparison.Ordinal);
+        result = result.Replace(" | ", " or ", StringComparison.Ordinal);
+        result = result.Replace(" @ ", " at ", StringComparison.Ordinal);
+        result = result.Replace(" % ", " percent ", StringComparison.Ordinal);
+
+        // Percentage attached to a number (e.g. "45%")
+        result = Regex.Replace(result, @"(\d)%", "$1 percent");
+
+        // Unicode symbols that TTS may read oddly
+        result = result.Replace("→", " to ", StringComparison.Ordinal);
+        result = result.Replace("←", " from ", StringComparison.Ordinal);
+        result = result.Replace("↑", " up ", StringComparison.Ordinal);
+        result = result.Replace("↓", " down ", StringComparison.Ordinal);
+        result = result.Replace("✓", " yes ", StringComparison.Ordinal);
+        result = result.Replace("✔", " yes ", StringComparison.Ordinal);
+        result = result.Replace("✗", " no ", StringComparison.Ordinal);
+        result = result.Replace("✘", " no ", StringComparison.Ordinal);
+        result = result.Replace("•", ",", StringComparison.Ordinal);
+        result = result.Replace("–", " to ", StringComparison.Ordinal);   // en-dash (range)
+        result = result.Replace("—", ", ", StringComparison.Ordinal);     // em-dash (pause)
+        result = result.Replace("…", "...", StringComparison.Ordinal);
+        result = result.Replace("©", " copyright ", StringComparison.Ordinal);
+        result = result.Replace("®", " registered ", StringComparison.Ordinal);
+        result = result.Replace("™", " trademark ", StringComparison.Ordinal);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Normalizes standalone decimal numbers for natural speech.
+    /// Strips unnecessary trailing zeros so TTS reads "45" instead of
+    /// "forty five dot zero zero". Only applies to numbers that were NOT
+    /// already processed by <see cref="ExpandCurrencyAmounts"/>.
+    /// </summary>
+    private static string NormalizeStandaloneDecimals(string text)
+    {
+        return StandaloneDecimalRegex.Replace(text, match =>
+            FormatSpokenNumber(match.Groups["number"].Value));
     }
 
     internal static bool IsDisplayToolCall(string toolName)

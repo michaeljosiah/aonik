@@ -26,6 +26,9 @@ internal class AiDbContext : AonikDbContextBase
     public DbSet<PromptSpec> PromptSpecs { get; set; } = null!;
     public DbSet<ToolSpec> ToolSpecs { get; set; } = null!;
 
+    // ── LLM Tasks ─────────────────────────────────────────────────
+    public DbSet<AiTask> AiTasks { get; set; } = null!;
+
     // ── Policy & Execution ─────────────────────────────────────────
     public DbSet<AiPolicy> AiPolicies { get; set; } = null!;
     public DbSet<AiRun> AiRuns { get; set; } = null!;
@@ -75,6 +78,9 @@ internal class AiDbContext : AonikDbContextBase
 
         // PromptSpec has nullable TenantId (global defaults + tenant-specific overrides)
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(PromptSpec));
+
+        // AiTask has nullable TenantId (global defaults + tenant-specific overrides)
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiTask));
     }
 
     private static void ApplyDboPrefixedTableNames(ModelBuilder modelBuilder)
@@ -83,6 +89,7 @@ internal class AiDbContext : AonikDbContextBase
         MapTable<AiModel>(modelBuilder, "AiModels");
         MapTable<AiRoutePolicy>(modelBuilder, "AiRoutePolicies");
         MapTable<PromptSpec>(modelBuilder, "PromptSpecs");
+        MapTable<AiTask>(modelBuilder, "AiTasks");
         MapTable<ToolSpec>(modelBuilder, "ToolSpecs");
         MapTable<AiPolicy>(modelBuilder, "AiPolicies");
         MapTable<AiRun>(modelBuilder, "AiRuns");

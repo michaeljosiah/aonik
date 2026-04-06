@@ -299,6 +299,26 @@ class MockChatRepository implements ChatRepository {
       return;
     }
 
+    // ── Option selector ─────────────────────────────────────
+    if (lowerPrompt.contains('choose') ||
+        lowerPrompt.contains('select') ||
+        lowerPrompt.contains('which account') ||
+        lowerPrompt.contains('pick')) {
+      yield* _mockStreamWithOptionSelector(
+        text: 'Sure! I just need to know which account you would like '
+            'me to use for this.',
+        question: 'Which account should I use for this payment?',
+        options: const [
+          OptionItem(label: 'Main Bank', description: 'Barclays ****4821'),
+          OptionItem(label: 'Savings', description: 'Monzo ****7733'),
+          OptionItem(
+              label: 'Joint Account', description: 'HSBC ****1092'),
+        ],
+        multiSelect: false,
+      );
+      return;
+    }
+
     // ── Approval (confirmAction) ───────────────────────────
     if (lowerPrompt.contains('pay') ||
         lowerPrompt.contains('create') ||
@@ -442,6 +462,79 @@ class MockChatRepository implements ChatRepository {
     final followUp = result.startsWith('approved')
         ? 'Done. The payment has been scheduled and you will get a confirmation shortly.'
         : 'No problem. I have cancelled the payment. Let me know if you change your mind.';
+
+    const followUpId = 'mock-followup-msg';
+    for (int i = 0; i < followUp.length; i++) {
+      yield ChatStreamTextDelta(followUp[i], messageId: followUpId);
+      if (i % 3 == 0) {
+        await MockBehavior.shortDelay();
+      }
+    }
+
+    yield const ChatStreamTextDone(messageId: followUpId);
+    yield const ChatStreamFinished();
+  }
+
+  /// Streams text, emits mock tool call events, then a
+  /// [ChatStreamOptionSelectionRequested] that blocks until the user picks.
+  Stream<ChatStreamEvent> _mockStreamWithOptionSelector({
+    required String text,
+    required String question,
+    required List<OptionItem> options,
+    bool multiSelect = false,
+  }) async* {
+    const messageId = 'mock-stream-msg';
+
+    // Stream the text.
+    for (int i = 0; i < text.length; i++) {
+      yield ChatStreamTextDelta(text[i], messageId: messageId);
+      if (i % 3 == 0) {
+        await MockBehavior.shortDelay();
+      }
+    }
+
+    yield const ChatStreamTextDone(messageId: messageId);
+
+    // Simulate tool call lifecycle.
+    final toolCallId = _nextToolCallId();
+    yield ChatStreamToolCallStarted(
+      toolCallId: toolCallId,
+      toolName: 'display_option_selector',
+    );
+    await MockBehavior.shortDelay(100);
+    yield ChatStreamToolCallArgs(toolCallId: toolCallId, delta: '{}');
+    yield ChatStreamToolCallEnd(toolCallId: toolCallId);
+    await MockBehavior.shortDelay(80);
+
+    // Emit the option selection request. Blocks until the user picks.
+    final completer = Completer<String>();
+
+    yield ChatStreamOptionSelectionRequested(
+      toolCallId: toolCallId,
+      question: question,
+      options: options,
+      multiSelect: multiSelect,
+      onSelect: (selected) {
+        if (!completer.isCompleted) {
+          final result =
+              selected.length == 1 ? selected.first : selected.toString();
+          completer.complete(result);
+        }
+      },
+    );
+
+    // Wait for user selection.
+    final result = await completer.future;
+
+    yield ChatStreamToolCallResult(
+      toolCallId: toolCallId,
+      content: result,
+    );
+
+    // Stream a follow-up response.
+    final followUp = result.isEmpty
+        ? 'No selection made. Let me know when you are ready to choose.'
+        : 'Great choice! I will use $result for this transaction.';
 
     const followUpId = 'mock-followup-msg';
     for (int i = 0; i < followUp.length; i++) {

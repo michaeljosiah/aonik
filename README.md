@@ -41,6 +41,8 @@ The platform provides horizontal capabilities that any domain module can consume
 
 **AI Platform** — Multi-provider LLM routing with model selection policies. Prompts and tools are versioned. Every AI execution is recorded as an `AiRun` with cost tracking and feedback loops.
 
+**Vector Store (Qdrant)** — Semantic search over document embeddings for retrieval-augmented generation (RAG). Agents retrieve domain context before reasoning, improving decision quality. Multi-tenant isolation ensures document privacy across tenants.
+
 **Agent Framework** — Domain-specific agents built on Microsoft Agent Framework. Agents reason, plan, and use tools — but they never directly mutate state. Mutating tools are wrapped with `ApprovalRequiredAIFunction` for human-in-the-loop approval:
 
 ```
@@ -139,6 +141,7 @@ services.AddAgentsModule(configuration);
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - SQL Server (LocalDB, Express, or full instance)
+- [Docker](https://www.docker.com/products/docker-desktop) (for Qdrant vector store)
 - Git
 
 ### Build and Run
@@ -160,6 +163,26 @@ dotnet run --project src/Aonik.Api
 API starts on `https://localhost:5001` with Swagger at `/swagger`.
 
 For local-only development, `src/Aonik.Api/appsettings.Development.json` also enables startup auto-migrate/seed. The migrator remains the deterministic first-install path.
+
+### Run with Qdrant Vector Store (Local Orchestration)
+
+For RAG-enabled agents and document retrieval, run the full stack with Qdrant using .NET Aspire:
+
+```bash
+# Start the orchestrated environment (API + Worker + Qdrant + Admin UI)
+dotnet run --project src/Aonik.AppHost
+
+# Aspire dashboard available at http://localhost:17070
+# API available at https://localhost:5001
+# Admin UI available at http://localhost:5173
+# Qdrant REST API available at http://localhost:6333
+```
+
+Aspire automatically:
+- Starts SQL Server and Qdrant containers
+- Configures all services with correct connection strings
+- Sets up volume mounts for Qdrant persistence
+- Monitors service health and logs
 
 ### Run Tests
 
@@ -186,10 +209,12 @@ dotnet test --filter "DisplayName~CreateInvoice"
 | API | FastEndpoints |
 | ORM | Entity Framework Core 10 |
 | Database | SQL Server |
-| AI/Agents | Microsoft Agent Framework, MCP |
+| Vector Store | Qdrant (semantic search, RAG) |
+| AI/Agents | Microsoft Agent Framework, MCP, OpenAI Embeddings |
 | Background Jobs | Quartz.NET |
 | Orchestration | .NET Aspire |
 | Caching | FusionCache |
+| Observability | OpenTelemetry (metrics, traces) |
 | Admin UI | React 19, Vite, Tailwind CSS, Dockview |
 | Testing | xUnit, FluentAssertions |
 | IaC | Bicep (Azure Container Apps + App Service) |
@@ -201,15 +226,71 @@ dotnet test --filter "DisplayName~CreateInvoice"
 
 | Document | Description |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Coding standards, architecture rules, and build commands |
+| [CLAUDE.md](CLAUDE.md) | Claude Code guidelines, architecture rules, and build commands |
 | [Architecture Overview](docs/architecture/overview.md) | System design and module boundaries |
 | [Module Organization](docs/architecture/module-organization.md) | How code is structured within modules |
 | [Technology Stack](docs/architecture/technology-stack.md) | Detailed technology choices and rationale |
+| [Vector Store Guide](docs/features/vector-store.md) | Qdrant integration, RAG context retrieval, and document indexing |
+| [Agent Framework](docs/features/agents.md) | Domain agents, MCP tools, and proposal workflows |
 | [AONIK CLI Guide](docs/guides/aonik-cli.md) | Using the command-line client for AONIK systems |
 | [Testing Guide](docs/Testing.md) | Testing patterns, conventions, and examples |
 | [Troubleshooting](docs/Troubleshooting.md) | Common issues and solutions |
 | [API Authentication](docs/features/authentication-authorization.md) | Auth setup, local usage, and endpoint security |
 | [CHANGELOG](CHANGELOG.md) | Version history |
+
+---
+
+## Vector Store and RAG
+
+AONIK includes **Qdrant vector store** integration for retrieval-augmented generation (RAG) capabilities. Agents can retrieve domain context from indexed documents before making decisions, improving answer quality and relevance.
+
+### Architecture
+
+- **Qdrant** — Open-source vector database for semantic search over document embeddings
+- **OpenAI Embeddings** — Text-embedding-3-small (1536 dimensions) for document and query embeddings
+- **RagContextProvider** — Agent framework integration that embeds queries and retrieves similar documents
+- **Multi-tenancy** — Document vectors are tenant-isolated; search results respect tenant boundaries
+- **Observability** — OpenTelemetry metrics track search latency, result counts, and embedding API performance
+
+### Document Upload and Indexing
+
+```bash
+# Upload a document for agent retrieval
+POST /ai/documents/upload
+Content-Type: multipart/form-data
+
+Document: <binary file>
+SourceName: "customer-agreement-v2"
+```
+
+The endpoint:
+1. Chunks the document into 512-token segments with 100-token overlap
+2. Generates embeddings for each chunk via OpenAI API
+3. Stores vectors in Qdrant with tenant and source metadata
+4. Returns chunk count and embedding cost
+
+### Agent Usage
+
+```csharp
+// In agent code, inject RagContextProvider
+var context = await ragContextProvider.GetContextAsync(
+    query: "What are the payment terms?",
+    collectionType: "documents",
+    topK: 5,
+    scoreThreshold: 0.6f
+);
+
+// context contains the 5 most similar document chunks
+// Pass to LLM prompt: "Given this context, answer the question..."
+```
+
+### Development and Deployment
+
+- **Local:** Run `dotnet run --project src/Aonik.AppHost` to start Qdrant with Docker Compose
+- **Dev Azure:** Deploy to Container Apps with `dotnet run --project src/Aonik.AppHost` or GitHub Actions
+- **Deterministic Embeddings:** Development uses mock embeddings (no API key required). Production uses real OpenAI API
+
+See [Vector Store Guide](docs/features/vector-store.md) for detailed configuration and examples.
 
 ---
 

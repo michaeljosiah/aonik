@@ -180,7 +180,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
         var speechText = AguiStreamingEndpoint.BuildSpeechRender(
             "You have GBP 12.50, USD 5, EUR 7, 5,000 NGN, GHS 20, ZAR 30, ZWL 4, ZIG 2, KES 9, INR 11, and CNY 13. Another item is 1 GBP.");
 
-        speechText.Should().Contain("12.50 pounds");
+        speechText.Should().Contain("12 pounds 50");
         speechText.Should().Contain("5 dollars");
         speechText.Should().Contain("7 euros");
         speechText.Should().Contain("5,000 naira");
@@ -254,7 +254,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
 
         var speechText = AguiStreamingEndpoint.BuildSpeechRender(assistantText);
 
-        speechText.Should().Be("20 pounds goes to transport. 3000 naira goes to airtime. Review the details below.");
+        speechText.Should().Be("20 pounds goes to transport. 3,000 naira goes to airtime. Review the details below.");
     }
 
     [Fact]

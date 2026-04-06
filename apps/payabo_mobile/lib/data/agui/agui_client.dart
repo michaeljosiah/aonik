@@ -24,6 +24,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
 
@@ -289,6 +290,11 @@ class AgUiClient {
               break;
             }
 
+            developer.log(
+              'Frontend tool re-run #$rerunCount: ${frontendPendingCalls.map((c) => c.name).join(', ')}',
+              name: 'AgUiClient',
+            );
+
             // Execute frontend tool handlers.
             final toolResultMessages = <AgUiMessage>[];
             final assistantToolCalls = <AgUiToolCall>[];
@@ -349,6 +355,11 @@ class AgUiClient {
               tools: currentInput.tools,
               context: currentInput.context,
               forwardedProps: currentInput.forwardedProps,
+            );
+
+            developer.log(
+              'Re-running agent with ${updatedMessages.length} messages (runId=${currentInput.runId})',
+              name: 'AgUiClient',
             );
 
             // Don't forward RUN_FINISHED — the loop will continue.

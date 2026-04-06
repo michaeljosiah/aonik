@@ -65,6 +65,23 @@ public sealed record PlaygroundRunRequest
     /// are emitted as function calls for the Admin UI to execute locally.
     /// </summary>
     public List<JsonElement>? ToolDefinitions { get; init; }
+
+    // ── AI Task mode ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// AI Task ID (GUID) to test in the playground. When set, the endpoint
+    /// resolves the task's system and user prompt templates, applies variable
+    /// substitution from <see cref="PromptVariables"/>, and runs the LLM
+    /// directly (no agent). Takes precedence over <see cref="AgentName"/>.
+    /// </summary>
+    public Guid? AiTaskId { get; init; }
+
+    /// <summary>
+    /// Key-value pairs to substitute into the AI Task's prompt templates.
+    /// Template variables use <c>{{variableName}}</c> syntax.
+    /// Only used when <see cref="AiTaskId"/> is set.
+    /// </summary>
+    public Dictionary<string, string>? PromptVariables { get; init; }
 }
 
 /// <summary>

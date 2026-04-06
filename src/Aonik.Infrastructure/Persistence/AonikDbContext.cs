@@ -180,6 +180,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(NotificationTemplate));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiRoutePolicy));
         ApplyNullableTenantQueryFilter(modelBuilder, typeof(PromptSpec));
+        ApplyNullableTenantQueryFilter(modelBuilder, typeof(AiTask));
 
         // Apply soft-delete filters for AuditableEntity types that are not tenant-scoped
         // and not already covered by nullable tenant filters above
@@ -191,7 +192,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
             typeof(Currency),
             typeof(NotificationTemplate),
             typeof(AiRoutePolicy),
-            typeof(PromptSpec));
+            typeof(PromptSpec),
+            typeof(AiTask));
 
         ApplyDboPrefixedTableNames(modelBuilder);
         ConfigureScheduledJobProjection(modelBuilder);
@@ -344,6 +346,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAiTable<AiModel>(modelBuilder, "AiModels");
         MapAiTable<AiRoutePolicy>(modelBuilder, "AiRoutePolicies");
         MapAiTable<PromptSpec>(modelBuilder, "PromptSpecs");
+        MapAiTable<AiTask>(modelBuilder, "AiTasks");
         MapAiTable<ToolSpec>(modelBuilder, "ToolSpecs");
         MapAiTable<AiPolicy>(modelBuilder, "AiPolicies");
         MapAiTable<AiRun>(modelBuilder, "AiRuns");

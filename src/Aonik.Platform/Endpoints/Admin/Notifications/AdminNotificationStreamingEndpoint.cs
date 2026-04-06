@@ -61,7 +61,7 @@ public static class AdminNotificationStreamingEndpoint
         context.Response.Headers["Pragma"] = "no-cache";
         context.Response.Headers["X-Accel-Buffering"] = "no";
 
-        await using var enumerator = realtimePublisher.SubscribeAsync(tenantId, userId, cancellationToken)
+        var enumerator = realtimePublisher.SubscribeAsync(tenantId, userId, cancellationToken)
             .GetAsyncEnumerator(cancellationToken);
 
         var summary = await notificationService.GetSummaryForCurrentUserAsync(cancellationToken);
@@ -113,6 +113,22 @@ public static class AdminNotificationStreamingEndpoint
         catch (IOException ex)
         {
             logger.LogDebug(ex, "Notification stream disconnected for tenant {TenantId} user {UserId}", tenantId, userId);
+        }
+        finally
+        {
+            // Dispose the async enumerator manually — the compiler-generated
+            // DisposeAsync on async iterator methods can throw NotSupportedException
+            // when the enumerator is disposed while WaitToReadAsync is pending.
+            try
+            {
+                await enumerator.DisposeAsync();
+            }
+            catch (NotSupportedException)
+            {
+                // Expected when the iterator state machine is in a pending state
+                // during disposal. The finally block in ReadFromChannelAsync still
+                // runs to clean up the subscriber registration.
+            }
         }
     }
 

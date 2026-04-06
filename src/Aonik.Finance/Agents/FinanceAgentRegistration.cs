@@ -8,8 +8,8 @@ namespace Aonik.Finance.Agents;
 /// <summary>
 /// Finance domain agent descriptor. Builds the finance <see cref="ChatClientAgent"/>
 /// with billing, ledger, and payment tools. Mutating tools (create, issue, cancel,
-/// mark paid, capture) are wrapped with <see cref="ApprovalRequiredAIFunction"/>
-/// to enforce human-in-the-loop approval via the MAF proposal pattern.
+/// mark paid, capture) rely on the <c>confirmAction</c> frontend tool
+/// for human-in-the-loop approval.
 ///
 /// The finance agent is split into two sub-agents for better LLM tool selection:
 /// <list type="bullet">

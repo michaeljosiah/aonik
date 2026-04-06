@@ -126,11 +126,17 @@ public sealed class AiModule : IModule
         // AI task profile resolution — composes model + prompt resolution
         services.AddScoped<IAiTaskProfileResolver, AiTaskProfileResolver>();
 
+        // Cross-module AI task reader (used by Agents playground endpoint)
+        services.AddScoped<IAiTaskReader, AiTaskReader>();
+
         // Prompt spec CRUD — manages versioned prompt templates
         services.AddScoped<Contracts.Services.IPromptSpecService, PromptSpecService>();
 
         // Route policy CRUD — manages AI model routing policies
         services.AddScoped<Contracts.Services.IRoutePolicyService, RoutePolicyService>();
+
+        // AI task CRUD — manages AI task definitions with prompt templates and metadata
+        services.AddScoped<Contracts.Services.IAiTaskService, AiTaskService>();
 
         // Insight persistence — consumed by domain modules via IInsightWriter contract
         services.AddScoped<IInsightWriter, InsightWriter>();
@@ -159,8 +165,9 @@ public sealed class AiModule : IModule
         // Cross-module provisioning contributor
         services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.AiTenantProvisioningContributor>();
 
-        // Global seed contributor (on-demand via admin endpoint)
+        // Global seed contributors (on-demand via admin endpoint)
         services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.PromptSpecSeedContributor>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.AiTaskSeedContributor>();
 
         return services;
     }

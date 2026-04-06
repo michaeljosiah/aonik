@@ -9,8 +9,8 @@ namespace Aonik.Finance.Agents.Tools;
 /// <summary>
 /// AI agent tools for invoice / billing operations.
 /// Each method is exposed to the LLM via <see cref="AIFunctionFactory.Create"/>.
-/// Read-only tools are safe for autonomous use; mutating tools are wrapped with
-/// <see cref="ApprovalRequiredAIFunction"/> to enforce human-in-the-loop approval.
+/// Read-only tools are safe for autonomous use; mutating tools rely on the
+/// <c>confirmAction</c> frontend tool for human-in-the-loop approval.
 /// </summary>
 internal sealed class InvoiceTools
 {
@@ -119,7 +119,7 @@ internal sealed class InvoiceTools
 
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all invoice tools.
-    /// Mutating tools are wrapped with <see cref="ApprovalRequiredAIFunction"/>
+    /// Mutating tools rely on the <c>confirmAction</c> frontend tool
     /// for human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
@@ -130,22 +130,14 @@ internal sealed class InvoiceTools
         yield return AIFunctionFactory.Create(tools.GetInvoice, name: "finance_get_invoice");
         yield return AIFunctionFactory.Create(tools.ListInvoices, name: "finance_list_invoices");
 
-        // Mutating — require approval before execution
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CreateInvoice, name: "finance_create_invoice"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.IssueInvoice, name: "finance_issue_invoice"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CancelInvoice, name: "finance_cancel_invoice"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.MarkInvoicePaid, name: "finance_mark_invoice_paid"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.AddLineToInvoice, name: "finance_add_invoice_line"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.UpdateLineQuantity, name: "finance_update_line_quantity"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.UpdateLineUnitPrice, name: "finance_update_line_unit_price"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.ApplyDiscount, name: "finance_apply_invoice_discount"));
+        // Mutating — approval enforced via the confirmAction frontend tool
+        yield return AIFunctionFactory.Create(tools.CreateInvoice, name: "finance_create_invoice");
+        yield return AIFunctionFactory.Create(tools.IssueInvoice, name: "finance_issue_invoice");
+        yield return AIFunctionFactory.Create(tools.CancelInvoice, name: "finance_cancel_invoice");
+        yield return AIFunctionFactory.Create(tools.MarkInvoicePaid, name: "finance_mark_invoice_paid");
+        yield return AIFunctionFactory.Create(tools.AddLineToInvoice, name: "finance_add_invoice_line");
+        yield return AIFunctionFactory.Create(tools.UpdateLineQuantity, name: "finance_update_line_quantity");
+        yield return AIFunctionFactory.Create(tools.UpdateLineUnitPrice, name: "finance_update_line_unit_price");
+        yield return AIFunctionFactory.Create(tools.ApplyDiscount, name: "finance_apply_invoice_discount");
     }
 }

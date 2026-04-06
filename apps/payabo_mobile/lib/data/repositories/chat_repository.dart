@@ -270,6 +270,44 @@ enum DisplayWidgetType {
   fxRateChart,
   budgetBreakdown,
   autopilotProposal,
+  optionSelector,
+}
+
+/// A single option presented in an option selector card.
+class OptionItem {
+  const OptionItem({required this.label, this.description});
+
+  final String label;
+  final String? description;
+}
+
+/// The agent wants the user to choose from a set of options before proceeding.
+///
+/// This is a **blocking** frontend tool — the AG-UI re-run loop waits until
+/// the user selects an option. Call [onSelect] with the chosen label(s) to
+/// resolve the tool call and allow the agent to continue.
+class ChatStreamOptionSelectionRequested extends ChatStreamEvent {
+  ChatStreamOptionSelectionRequested({
+    required this.toolCallId,
+    required this.question,
+    required this.options,
+    this.multiSelect = false,
+    required this.onSelect,
+  });
+
+  final String toolCallId;
+
+  /// The prompt text (e.g., "Which account should I use?").
+  final String question;
+
+  /// The available options to choose from.
+  final List<OptionItem> options;
+
+  /// If true, the user may select multiple options.
+  final bool multiSelect;
+
+  /// Call with the selected label(s) to resolve the tool call.
+  final void Function(List<String> selected) onSelect;
 }
 
 // ─────────────────────────────────────────────────────────

@@ -5,8 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Aonik.Finance</RootNamespace>
-    <!-- MEAI001: ApprovalRequiredAIFunction is experimental but intentionally used for human-in-the-loop approval -->
-    <NoWarn>$(NoWarn);MEAI001</NoWarn>
   </PropertyGroup>
 
   <!-- Boundary enforcement: only Api, Platform, and test projects may access internals -->

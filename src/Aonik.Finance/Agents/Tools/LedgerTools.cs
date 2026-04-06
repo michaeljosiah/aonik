@@ -9,7 +9,7 @@ namespace Aonik.Finance.Agents.Tools;
 /// <summary>
 /// AI agent tools for ledger operations.
 /// Read-only queries are safe for autonomous use; mutating tools (CreateLedger,
-/// CreateAccount) are wrapped with <see cref="ApprovalRequiredAIFunction"/>.
+/// CreateAccount) rely on the <c>confirmAction</c> frontend tool for approval.
 /// </summary>
 internal sealed class LedgerTools
 {
@@ -66,7 +66,7 @@ internal sealed class LedgerTools
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all ledger tools.
     /// Mutating tools (CreateLedger, CreateAccount) are wrapped with
-    /// <see cref="ApprovalRequiredAIFunction"/> for human-in-the-loop approval.
+    /// the <c>confirmAction</c> frontend tool for human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -77,10 +77,8 @@ internal sealed class LedgerTools
         yield return AIFunctionFactory.Create(tools.ListAccounts, name: "finance_list_accounts");
         yield return AIFunctionFactory.Create(tools.ListJournalEntries, name: "finance_list_journal_entries");
 
-        // Mutating — require approval before execution
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CreateLedger, name: "finance_create_ledger"));
-        yield return new ApprovalRequiredAIFunction(
-            AIFunctionFactory.Create(tools.CreateAccount, name: "finance_create_account"));
+        // Mutating — approval enforced via the confirmAction frontend tool
+        yield return AIFunctionFactory.Create(tools.CreateLedger, name: "finance_create_ledger");
+        yield return AIFunctionFactory.Create(tools.CreateAccount, name: "finance_create_account");
     }
 }

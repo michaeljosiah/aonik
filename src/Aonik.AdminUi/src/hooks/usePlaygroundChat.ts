@@ -18,6 +18,10 @@ export interface PlaygroundConfig {
   enabledToolNames: string[];
   temperature: number;
   maxTokens: number;
+  /** AI Task mode fields */
+  aiTaskId: string | null;
+  aiTaskName: string | null;
+  promptVariables: Record<string, string>;
 }
 
 // ─── Structured output parts ─────────────────────────────────────────────────
@@ -68,6 +72,9 @@ export function usePlaygroundChat(
     enabledToolNames: [],
     temperature: 1,
     maxTokens: 2048,
+    aiTaskId: null,
+    aiTaskName: null,
+    promptVariables: {},
   });
 
   // Single-mode output state
@@ -150,6 +157,10 @@ export function usePlaygroundChat(
             messages: msgs,
             temperature: config.temperature,
             maxTokens: config.maxTokens,
+            aiTaskId: config.aiTaskId ?? undefined,
+            promptVariables: Object.keys(config.promptVariables).length > 0
+              ? config.promptVariables
+              : undefined,
           },
           callbacks: {
             onTextDelta: (delta) => {
@@ -325,6 +336,10 @@ export function usePlaygroundChat(
             messages: playgroundMessages,
             temperature: config.temperature,
             maxTokens: config.maxTokens,
+            aiTaskId: config.aiTaskId ?? undefined,
+            promptVariables: Object.keys(config.promptVariables).length > 0
+              ? config.promptVariables
+              : undefined,
           },
           callbacks: {
             onTextDelta: (delta) => {
