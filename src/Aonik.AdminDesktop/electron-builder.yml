@@ -1,0 +1,35 @@
+appId: com.aonik.admin
+productName: Aonik Admin
+directories:
+  buildResources: resources
+  output: release
+files:
+  - out/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Aonik Admin
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: resources/icon.icns
+  category: public.app-category.business
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: resources/icon.png
+  category: Office
+publish:
+  provider: generic
+  url: https://releases.aonik.com/desktop

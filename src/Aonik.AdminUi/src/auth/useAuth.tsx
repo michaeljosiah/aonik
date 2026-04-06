@@ -3,6 +3,7 @@ import { useMsal, useIsAuthenticated as useMsalIsAuthenticated } from '@azure/ms
 import { useAuth0 } from '@auth0/auth0-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { msalLoginRequest, msalApiTokenRequest, auth0Config, type AuthProvider } from './authConfig';
+import { isElectron } from '@/lib/electron';
 
 // Unified user type
 export interface AuthUser {
@@ -97,7 +98,11 @@ function useMsalAuth(): AuthContextType {
 
   const login = useCallback(async () => {
     try {
-      await instance.loginRedirect(msalLoginRequest);
+      if (isElectron) {
+        await instance.loginPopup(msalLoginRequest);
+      } else {
+        await instance.loginRedirect(msalLoginRequest);
+      }
     } catch (error) {
       console.error('MSAL login error:', error);
       throw error;
@@ -106,9 +111,13 @@ function useMsalAuth(): AuthContextType {
 
   const logout = useCallback(async () => {
     try {
-      await instance.logoutRedirect({
-        postLogoutRedirectUri: window.location.origin,
-      });
+      if (isElectron) {
+        await instance.logoutPopup({ postLogoutRedirectUri: window.location.origin });
+      } else {
+        await instance.logoutRedirect({
+          postLogoutRedirectUri: window.location.origin,
+        });
+      }
     } catch (error) {
       console.error('MSAL logout error:', error);
       throw error;
@@ -165,6 +174,7 @@ function useAuth0Auth(): AuthContextType {
     isLoading,
     user: auth0User,
     loginWithRedirect,
+    loginWithPopup,
     logout: auth0Logout,
     getAccessTokenSilently,
     error: auth0Error,
@@ -218,20 +228,28 @@ function useAuth0Auth(): AuthContextType {
 
   const login = useCallback(async () => {
     try {
-      await loginWithRedirect({ authorizationParams: auth0Config.authorizationParams });
+      if (isElectron) {
+        await loginWithPopup({ authorizationParams: auth0Config.authorizationParams });
+      } else {
+        await loginWithRedirect({ authorizationParams: auth0Config.authorizationParams });
+      }
     } catch (error) {
       console.error('Auth0 login error:', error);
       throw error;
     }
-  }, [loginWithRedirect]);
+  }, [loginWithRedirect, loginWithPopup]);
 
   const logout = useCallback(async () => {
     try {
-      await auth0Logout({
-        logoutParams: {
-          returnTo: window.location.origin,
-        },
-      });
+      if (isElectron) {
+        await auth0Logout({ openUrl: false });
+      } else {
+        await auth0Logout({
+          logoutParams: {
+            returnTo: window.location.origin,
+          },
+        });
+      }
     } catch (error) {
       console.error('Auth0 logout error:', error);
       throw error;
