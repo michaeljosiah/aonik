@@ -1,6 +1,6 @@
 import type { AdminModule } from '../types';
 import type { NavigationSection } from '@/types';
-import type { WorkspacePanelConfig } from '@/workspace/types';
+import type { WorkspacePanelConfig, WorkspaceTemplate } from '@/workspace/types';
 import {
   CustomersListPage,
   CustomerDetailPage,
@@ -171,36 +171,37 @@ const routes = [
 // Workspace panels
 // ---------------------------------------------------------------------------
 const panels: WorkspacePanelConfig[] = [
-  { id: 'customers', title: 'Customers', type: 'internal', componentKey: 'customers-list', route: '/customers' },
-  { id: 'accounts', title: 'Accounts', type: 'internal', componentKey: 'accounts-list', route: '/accounts' },
-  { id: 'orders', title: 'Orders', type: 'internal', componentKey: 'orders-landing', route: '/orders' },
-  { id: 'orders-bill-payments-new', title: 'Create Bill Payment', type: 'internal', componentKey: 'bill-payment-form', route: '/orders/bill-payments/new' },
-  { id: 'orders-activity', title: 'Order Activity', type: 'internal', componentKey: 'orders-list', route: '/orders/activity' },
-  { id: 'billing', title: 'Billing', type: 'internal', componentKey: 'placeholder', route: '/billing' },
-  { id: 'billing-invoices', title: 'Invoices', type: 'internal', componentKey: 'invoices-list', route: '/billing/invoices' },
-  { id: 'billing-invoices-new', title: 'Create Invoice', type: 'internal', componentKey: 'invoice-form', route: '/billing/invoices/new' },
-  { id: 'billing-dunning', title: 'Dunning Plans', type: 'internal', componentKey: 'placeholder', route: '/billing/dunning' },
-  { id: 'payments', title: 'Payments', type: 'internal', componentKey: 'placeholder', route: '/payments' },
-  { id: 'payments-transactions', title: 'Transactions', type: 'internal', componentKey: 'placeholder', route: '/payments/transactions' },
-  { id: 'payments-payouts', title: 'Payouts', type: 'internal', componentKey: 'placeholder', route: '/payments/payouts' },
-  { id: 'payments-refunds', title: 'Refunds', type: 'internal', componentKey: 'placeholder', route: '/payments/refunds' },
-  { id: 'payments-chargebacks', title: 'Chargebacks', type: 'internal', componentKey: 'placeholder', route: '/payments/chargebacks' },
-  { id: 'ledger', title: 'Ledger', type: 'internal', componentKey: 'placeholder', route: '/ledger' },
-  { id: 'ledger-accounts', title: 'Accounts', type: 'internal', componentKey: 'placeholder', route: '/ledger/accounts' },
-  { id: 'ledger-journal-entries', title: 'Journal Entries', type: 'internal', componentKey: 'placeholder', route: '/ledger/journal-entries' },
-  { id: 'ledger-reconciliation', title: 'Reconciliation', type: 'internal', componentKey: 'placeholder', route: '/ledger/reconciliation' },
-  { id: 'catalog', title: 'Catalog', type: 'internal', componentKey: 'catalog-landing', route: '/catalog' },
-  { id: 'catalog-countries', title: 'Countries', type: 'internal', componentKey: 'catalog-countries', route: '/catalog/countries' },
-  { id: 'catalog-categories', title: 'Categories', type: 'internal', componentKey: 'catalog-categories', route: '/catalog/categories' },
-  { id: 'catalog-billers', title: 'Billers', type: 'internal', componentKey: 'catalog-billers', route: '/catalog/billers' },
-  { id: 'catalog-partners', title: 'Partners', type: 'internal', componentKey: 'catalog-partners', route: '/catalog/partners' },
-  { id: 'settings-autonumbering', title: 'Autonumbering', type: 'internal', componentKey: 'autonumbering', route: '/settings/autonumbering' },
-  { id: 'settings-fx-rates', title: 'FX Rates', type: 'internal', componentKey: 'fx-rates', route: '/settings/fx-rates' },
-  // App-card panels (opened from MySpace dashboard)
-  { id: 'invoice-manager', title: 'Invoice Manager', description: 'Create, manage, and track invoices with AI-assisted insights.', type: 'internal', componentKey: 'invoice-manager', appCardId: '1', defaultWidth: 520 },
-  { id: 'reconciliation-hub', title: 'Reconciliation Hub', description: 'AI-powered matching and discrepancy detection.', type: 'internal', componentKey: 'reconciliation-hub', appCardId: '2', defaultWidth: 520 },
-  { id: 'cash-flow-forecaster', title: 'Cash Flow Forecaster', description: 'Predict cash positions and run scenario planning.', type: 'internal', componentKey: 'cash-flow-forecaster', appCardId: '3', defaultWidth: 520 },
-  { id: 'fraud-detection', title: 'Fraud Detection', description: 'Real-time anomaly detection and explainable alerts.', type: 'internal', componentKey: 'fraud-detection', appCardId: '4', defaultWidth: 520 },
+  // Page panels — wrapped full-page components
+  { id: 'customers', title: 'Customers', type: 'internal', category: 'page', componentKey: 'customers-list', route: '/customers' },
+  { id: 'accounts', title: 'Accounts', type: 'internal', category: 'page', componentKey: 'accounts-list', route: '/accounts' },
+  { id: 'orders', title: 'Orders', type: 'internal', category: 'page', componentKey: 'orders-landing', route: '/orders' },
+  { id: 'orders-bill-payments-new', title: 'Create Bill Payment', type: 'internal', category: 'page', componentKey: 'bill-payment-form', route: '/orders/bill-payments/new' },
+  { id: 'orders-activity', title: 'Order Activity', type: 'internal', category: 'page', componentKey: 'orders-list', route: '/orders/activity' },
+  { id: 'billing', title: 'Billing', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/billing' },
+  { id: 'billing-invoices', title: 'Invoices', type: 'internal', category: 'page', componentKey: 'invoices-list', route: '/billing/invoices' },
+  { id: 'billing-invoices-new', title: 'Create Invoice', type: 'internal', category: 'page', componentKey: 'invoice-form', route: '/billing/invoices/new' },
+  { id: 'billing-dunning', title: 'Dunning Plans', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/billing/dunning' },
+  { id: 'payments', title: 'Payments', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments' },
+  { id: 'payments-transactions', title: 'Transactions', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/transactions' },
+  { id: 'payments-payouts', title: 'Payouts', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/payouts' },
+  { id: 'payments-refunds', title: 'Refunds', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/refunds' },
+  { id: 'payments-chargebacks', title: 'Chargebacks', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/chargebacks' },
+  { id: 'ledger', title: 'Ledger', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger' },
+  { id: 'ledger-accounts', title: 'Accounts', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger/accounts' },
+  { id: 'ledger-journal-entries', title: 'Journal Entries', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger/journal-entries' },
+  { id: 'ledger-reconciliation', title: 'Reconciliation', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger/reconciliation' },
+  { id: 'catalog', title: 'Catalog', type: 'internal', category: 'page', componentKey: 'catalog-landing', route: '/catalog' },
+  { id: 'catalog-countries', title: 'Countries', type: 'internal', category: 'page', componentKey: 'catalog-countries', route: '/catalog/countries' },
+  { id: 'catalog-categories', title: 'Categories', type: 'internal', category: 'page', componentKey: 'catalog-categories', route: '/catalog/categories' },
+  { id: 'catalog-billers', title: 'Billers', type: 'internal', category: 'page', componentKey: 'catalog-billers', route: '/catalog/billers' },
+  { id: 'catalog-partners', title: 'Partners', type: 'internal', category: 'page', componentKey: 'catalog-partners', route: '/catalog/partners' },
+  { id: 'settings-autonumbering', title: 'Autonumbering', type: 'internal', category: 'page', componentKey: 'autonumbering', route: '/settings/autonumbering' },
+  { id: 'settings-fx-rates', title: 'FX Rates', type: 'internal', category: 'page', componentKey: 'fx-rates', route: '/settings/fx-rates' },
+  // Micro-app panels — workspace-native, cross-panel communication
+  { id: 'invoice-manager', title: 'Invoice Manager', description: 'Create, manage, and track invoices with AI-assisted insights.', type: 'internal', category: 'micro-app', componentKey: 'invoice-manager', appCardId: '1', defaultWidth: 520 },
+  { id: 'reconciliation-hub', title: 'Reconciliation Hub', description: 'AI-powered matching and discrepancy detection.', type: 'internal', category: 'micro-app', componentKey: 'reconciliation-hub', appCardId: '2', defaultWidth: 520 },
+  { id: 'cash-flow-forecaster', title: 'Cash Flow Forecaster', description: 'Predict cash positions and run scenario planning.', type: 'internal', category: 'micro-app', componentKey: 'cash-flow-forecaster', appCardId: '3', defaultWidth: 520 },
+  { id: 'fraud-detection', title: 'Fraud Detection', description: 'Real-time anomaly detection and explainable alerts.', type: 'internal', category: 'micro-app', componentKey: 'fraud-detection', appCardId: '4', defaultWidth: 520 },
 ];
 
 const panelComponents = {
@@ -223,6 +224,20 @@ const panelComponents = {
   'cash-flow-forecaster': CashFlowForecasterPanel,
   'fraud-detection': FraudDetectionPanel,
 };
+
+// ---------------------------------------------------------------------------
+// Workspace templates
+// ---------------------------------------------------------------------------
+const workspaceTemplates: WorkspaceTemplate[] = [
+  {
+    id: 'billing-ops',
+    name: 'Billing Ops',
+    description: 'Invoice management with AI-powered reconciliation.',
+    icon: 'Receipt',
+    panels: ['invoice-manager', 'reconciliation-hub'],
+    layout: 'split-horizontal',
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Breadcrumbs
@@ -251,5 +266,6 @@ export const financeModule: AdminModule = {
   panels,
   panelComponents,
   defaultWorkspacePanels: ['invoice-manager', 'reconciliation-hub'],
+  workspaceTemplates,
   breadcrumbs,
 };

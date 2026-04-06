@@ -161,7 +161,7 @@ export function Header({ breadcrumb = ['My Space'], leftSlot, onFullscreenChange
 
   return (
     <>
-    <header className={`sticky top-0 z-10 shrink-0 flex items-center justify-between h-[50px] px-6 bg-[var(--color-navbar-bg)] border-b border-[var(--color-navbar-border)]${isElectron ? ' [app-region:drag]' : ''}`} style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}>
+    <header className={`sticky top-0 z-10 shrink-0 flex items-center justify-between h-[50px] px-6 bg-[var(--color-navbar-bg)] border-b border-[var(--color-border)]${isElectron ? ' [app-region:drag]' : ''}`} style={isElectron ? { WebkitAppRegion: 'drag' } as React.CSSProperties : undefined}>
       {/* Breadcrumb / Left Slot */}
       <nav className="flex items-center gap-2 text-sm min-w-0" style={isElectron ? { WebkitAppRegion: 'no-drag' } as React.CSSProperties : undefined}>
         {isWorkspace ? (

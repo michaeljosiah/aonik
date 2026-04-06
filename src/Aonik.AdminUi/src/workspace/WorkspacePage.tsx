@@ -5,7 +5,7 @@ import { WorkspaceDock } from './WorkspaceDock';
 import { useWorkspace } from './useWorkspace';
 
 function WorkspacePageContent() {
-  const { api, openPanel, loadLayout, resetToDefaultLayout, createLayoutFromActive, renameLayout, removeLayout } = useWorkspace();
+  const { api, openPanel, loadLayout, applyTemplate, resetToDefaultLayout, createLayoutFromActive, renameLayout, removeLayout } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -15,13 +15,16 @@ function WorkspacePageContent() {
 
     const panelId = searchParams.get('panel');
     const layoutId = searchParams.get('layout');
+    const templateId = searchParams.get('template');
 
-    if (!panelId && !layoutId) {
+    if (!panelId && !layoutId && !templateId) {
       return;
     }
 
     const timerId = window.setTimeout(() => {
-      if (layoutId) {
+      if (templateId) {
+        applyTemplate(templateId);
+      } else if (layoutId) {
         loadLayout(layoutId);
       }
 
@@ -32,11 +35,12 @@ function WorkspacePageContent() {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.delete('panel');
       nextParams.delete('layout');
+      nextParams.delete('template');
       setSearchParams(nextParams, { replace: true });
     }, 0);
 
     return () => window.clearTimeout(timerId);
-  }, [api, loadLayout, openPanel, searchParams, setSearchParams]);
+  }, [api, applyTemplate, loadLayout, openPanel, searchParams, setSearchParams]);
 
   useEffect(() => {
     const handleReset = () => resetToDefaultLayout();
@@ -73,18 +77,27 @@ function WorkspacePageContent() {
       }
     };
 
+    const handleApplyTemplate = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { templateId?: string } | undefined;
+      if (detail?.templateId) {
+        applyTemplate(String(detail.templateId));
+      }
+    };
+
     window.addEventListener('aonik:workspace:load', handleLoad);
     window.addEventListener('aonik:workspace:create', handleCreate);
     window.addEventListener('aonik:workspace:rename', handleRename);
     window.addEventListener('aonik:workspace:remove', handleRemove);
+    window.addEventListener('aonik:workspace:apply-template', handleApplyTemplate);
 
     return () => {
       window.removeEventListener('aonik:workspace:load', handleLoad);
       window.removeEventListener('aonik:workspace:create', handleCreate);
       window.removeEventListener('aonik:workspace:rename', handleRename);
       window.removeEventListener('aonik:workspace:remove', handleRemove);
+      window.removeEventListener('aonik:workspace:apply-template', handleApplyTemplate);
     };
-  }, [createLayoutFromActive, loadLayout, removeLayout, renameLayout]);
+  }, [applyTemplate, createLayoutFromActive, loadLayout, removeLayout, renameLayout]);
 
   return (
     <div className="flex h-full flex-col">

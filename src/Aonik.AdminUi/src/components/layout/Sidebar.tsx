@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -59,11 +59,20 @@ import {
   Layers,
   Image,
   BarChart3,
+  PanelsTopLeft,
+  Layout,
+  Timer,
+  Bell,
+  AudioLines,
+  FlaskConical,
+  Route,
 } from 'lucide-react';
 import type { NavItem, NavItemGroup, NavigationSection } from '@/types';
 import { identityService } from '@/services/identityService';
 import { useModules } from '@/modules';
-import { getWorkspacePanelForRoute } from '@/workspace/registry';
+import { getWorkspacePanelForRoute, getWorkspaceTemplates } from '@/workspace/registry';
+import type { WorkspaceTemplate } from '@/workspace/types';
+import { loadWorkspaceState } from '@/workspace/storage';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 import { isPortalAdmin as resolvePortalAdmin } from '@/lib/roleUtils';
 
@@ -118,6 +127,15 @@ const iconMap: Record<string, React.ElementType> = {
   Layers,
   Image,
   BarChart3,
+  // Workspace
+  PanelsTopLeft,
+  Layout,
+  // Settings extras
+  Timer,
+  Bell,
+  AudioLines,
+  FlaskConical,
+  Route,
 };
 
 interface SidebarProps {
@@ -218,6 +236,308 @@ function FlyoutMenu({
             onClick={onClose}
           >
             <span>{item.viewAllLabel || 'View all'}</span>
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Workspace layout summary (lightweight shape from custom event / storage)
+// ---------------------------------------------------------------------------
+interface WorkspaceLayoutSummary {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  updatedAt: string;
+}
+
+function useWorkspaceLayouts() {
+  const [layouts, setLayouts] = useState<WorkspaceLayoutSummary[]>(() => {
+    const stored = loadWorkspaceState();
+    return stored.layouts.map((l) => ({
+      id: l.id,
+      name: l.name,
+      isDefault: l.isDefault,
+      updatedAt: l.updatedAt,
+    }));
+  });
+  const [activeLayoutId, setActiveLayoutId] = useState<string>(() => {
+    return loadWorkspaceState().activeLayoutId ?? '';
+  });
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        layouts?: WorkspaceLayoutSummary[];
+        activeLayoutId?: string;
+      } | undefined;
+      if (detail?.layouts) setLayouts(detail.layouts);
+      if (detail?.activeLayoutId !== undefined) setActiveLayoutId(detail.activeLayoutId);
+    };
+    window.addEventListener('aonik:workspace:state', handler);
+    return () => window.removeEventListener('aonik:workspace:state', handler);
+  }, []);
+
+  return { layouts, activeLayoutId };
+}
+
+// ---------------------------------------------------------------------------
+// WorkspaceNavItem — replaces NavItemComponent for workspace nav items
+// Shows saved workspace layouts as dynamic flyout children.
+// ---------------------------------------------------------------------------
+function WorkspaceNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { layouts, activeLayoutId } = useWorkspaceLayouts();
+  const [templates] = useState<WorkspaceTemplate[]>(() => getWorkspaceTemplates());
+  const [showFlyout, setShowFlyout] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const Icon = iconMap[item.icon] || PanelsTopLeft;
+  const isActive = location.pathname === '/workspace';
+  const hasContent = layouts.length > 0 || templates.length > 0;
+
+  // Click-outside-to-close
+  useEffect(() => {
+    if (!showFlyout) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setShowFlyout(false);
+      }
+    };
+    const raf = requestAnimationFrame(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFlyout]);
+
+  const handleToggleClick = () => {
+    if (hasContent) {
+      setShowFlyout(!showFlyout);
+    } else {
+      navigate('/workspace');
+    }
+  };
+
+  const handleLayoutClick = useCallback(
+    (layoutId: string) => {
+      setShowFlyout(false);
+      navigate(`/workspace?layout=${layoutId}`);
+    },
+    [navigate],
+  );
+
+  const handleTemplateClick = useCallback(
+    (templateId: string) => {
+      setShowFlyout(false);
+      navigate(`/workspace?template=${templateId}`);
+    },
+    [navigate],
+  );
+
+  const handleFlyoutClose = () => setShowFlyout(false);
+
+  const baseClasses = cn(
+    collapsed
+      ? 'mx-auto flex h-10 w-10 items-center justify-center rounded-[4px] p-0 text-sm font-medium transition-all duration-200 cursor-pointer relative'
+      : 'flex items-center gap-2.5 p-2 rounded-[4px] text-sm font-medium transition-all duration-200 cursor-pointer relative',
+    'hover:bg-[var(--color-sidebar-hover)]',
+    isActive && 'bg-[var(--color-sidebar-active)] text-white hover:bg-[var(--color-sidebar-active)]',
+    !isActive && 'text-[var(--color-text-secondary)]',
+    showFlyout && !isActive && 'bg-[var(--color-sidebar-hover)]'
+  );
+
+  const content = (
+    <>
+      <Icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-white' : 'text-[var(--color-text-secondary)]')} />
+      {!collapsed && (
+        <>
+          <span className="flex-1 truncate">{item.label}</span>
+          {hasContent && (
+            <ChevronRight
+              className={cn(
+                'w-4 h-4 text-[var(--color-text-tertiary)] transition-transform',
+                showFlyout && 'rotate-90'
+              )}
+            />
+          )}
+        </>
+      )}
+    </>
+  );
+
+  // ── Flyout content ───────────────────────────────────────────────
+  const flyout = showFlyout && hasContent && (
+    <WorkspaceFlyout
+      layouts={layouts}
+      activeLayoutId={activeLayoutId}
+      templates={templates}
+      onSelectLayout={handleLayoutClick}
+      onSelectTemplate={handleTemplateClick}
+      onClose={handleFlyoutClose}
+      triggerRef={triggerRef}
+      viewAllHref={item.viewAllHref}
+      viewAllLabel={item.viewAllLabel}
+    />
+  );
+
+  if (collapsed) {
+    return (
+      <div ref={triggerRef} className="relative" onMouseLeave={handleFlyoutClose}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={baseClasses} onClick={handleToggleClick}>
+              {content}
+            </div>
+          </TooltipTrigger>
+          {!showFlyout && (
+            <TooltipContent side="right" sideOffset={8}>
+              <p>{item.label}</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+        {flyout}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={triggerRef} className="relative">
+      <div className={baseClasses} onClick={handleToggleClick}>
+        {content}
+      </div>
+      {flyout}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WorkspaceFlyout — flyout menu showing templates + saved layouts
+// ---------------------------------------------------------------------------
+function WorkspaceFlyout({
+  layouts,
+  activeLayoutId,
+  templates,
+  onSelectLayout,
+  onSelectTemplate,
+  onClose,
+  triggerRef,
+  viewAllHref,
+  viewAllLabel,
+}: {
+  layouts: WorkspaceLayoutSummary[];
+  activeLayoutId: string;
+  templates: WorkspaceTemplate[];
+  onSelectLayout: (layoutId: string) => void;
+  onSelectTemplate: (templateId: string) => void;
+  onClose: () => void;
+  triggerRef: React.RefObject<HTMLDivElement | null>;
+  viewAllHref?: string;
+  viewAllLabel?: string;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.top - 4,
+        left: rect.right + 2,
+      });
+    }
+  }, [triggerRef]);
+
+  return (
+    <div
+      ref={menuRef}
+      className="flyout-menu fixed w-56 bg-[var(--color-surface)] rounded-[4px] shadow-lg border border-[var(--color-border)] z-[9999] overflow-hidden"
+      style={{ top: `${position.top}px`, left: `${position.left}px` }}
+      onMouseLeave={onClose}
+    >
+      <div className="py-1.5 max-h-80 overflow-y-auto">
+        {/* Templates section */}
+        {templates.length > 0 && (
+          <>
+            <div className="px-3 pt-1.5 pb-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Templates
+              </span>
+            </div>
+            <div className="px-1.5">
+              {templates.map((template) => {
+                const TemplateIcon = iconMap[template.icon ?? ''] || Sparkles;
+                return (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] text-sm transition-colors text-left text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-text-primary)]"
+                    onClick={() => onSelectTemplate(template.id)}
+                    title={template.description}
+                  >
+                    <TemplateIcon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{template.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {layouts.length > 0 && (
+              <div className="my-1 mx-3 border-t border-[var(--color-border-light)]" />
+            )}
+          </>
+        )}
+
+        {/* Saved layouts section */}
+        {layouts.length > 0 && (
+          <>
+            <div className="px-3 pt-1.5 pb-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                Layouts
+              </span>
+            </div>
+            <div className="px-1.5">
+              {layouts.map((layout) => {
+                const isLayoutActive = layout.id === activeLayoutId;
+                return (
+                  <button
+                    key={layout.id}
+                    type="button"
+                    className={cn(
+                      'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] text-sm transition-colors text-left',
+                      isLayoutActive
+                        ? 'bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)]'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)] hover:text-[var(--color-text-primary)]'
+                    )}
+                    onClick={() => onSelectLayout(layout.id)}
+                  >
+                    <Layout className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{layout.name}</span>
+                    {layout.isDefault && (
+                      <Badge className="ml-auto text-[9px] px-1 py-0 shrink-0" variant="outline">
+                        Default
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Footer - View all link */}
+      {viewAllHref && (
+        <div className="px-1.5 py-1 border-t border-[var(--color-border-light)]">
+          <Link
+            to={viewAllHref}
+            className="flex items-center justify-center gap-1 px-2 py-1 rounded-[4px] text-sm text-[var(--color-brand-primary)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
+            onClick={onClose}
+          >
+            <span>{viewAllLabel || 'View all'}</span>
           </Link>
         </div>
       )}
@@ -829,7 +1149,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     <TooltipProvider delayDuration={300}>
       <aside
         className={cn(
-          'sticky top-0 flex flex-col h-screen bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border-light)] transition-all duration-300 z-40',
+          'sticky top-0 flex flex-col h-screen bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border)] transition-all duration-300 z-40',
           isVisuallyCollapsed ? 'w-[var(--sidebar-collapsed-width)]' : 'w-[var(--sidebar-width)]'
         )}
         onMouseEnter={handleMouseEnter}
@@ -876,9 +1196,13 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     </span>
                   </div>
                 )}
-                {sectionItems.map((item) => (
-                  <NavItemComponent key={item.id} item={item} collapsed={isVisuallyCollapsed} />
-                ))}
+                {sectionItems.map((item) =>
+                  item.id === 'workspace' ? (
+                    <WorkspaceNavItem key={item.id} item={item} collapsed={isVisuallyCollapsed} />
+                  ) : (
+                    <NavItemComponent key={item.id} item={item} collapsed={isVisuallyCollapsed} />
+                  )
+                )}
               </div>
             );
           })}

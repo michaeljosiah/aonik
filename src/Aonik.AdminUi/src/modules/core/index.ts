@@ -29,6 +29,14 @@ const navigation: NavigationSection[] = [
         icon: 'LayoutDashboard',
         href: '/',
       },
+      {
+        id: 'workspace',
+        label: 'Workspace',
+        icon: 'PanelsTopLeft',
+        href: '/workspace',
+        viewAllHref: '/workspace',
+        viewAllLabel: 'View all',
+      },
     ],
   },
   {
@@ -101,15 +109,15 @@ const routes = [
 // Workspace panels — cross-cutting panels
 // ---------------------------------------------------------------------------
 const panels: WorkspacePanelConfig[] = [
-  { id: 'analytics', title: 'Analytics', description: 'Portfolio-level performance, trends, and AI insights.', type: 'internal', componentKey: 'analytics', route: '/analytics', defaultWidth: 720 },
-  { id: 'search', title: 'Search', type: 'internal', componentKey: 'placeholder', route: '/search' },
-  { id: 'ai', title: 'AI & Agents', type: 'internal', componentKey: 'placeholder', route: '/ai' },
-  { id: 'ai-agents', title: 'Agents', description: 'Configure domain agents, assign models, and manage overrides.', type: 'internal', componentKey: 'agentConfig', route: '/ai/agents' },
-  { id: 'ai-models', title: 'AI Models', description: 'Manage AI providers and models used across the platform.', type: 'internal', componentKey: 'aiModels', route: '/ai/models' },
-  { id: 'ai-orchestrator', title: 'Orchestrator', type: 'internal', componentKey: 'placeholder', route: '/ai/orchestrator' },
-  { id: 'ai-prompts', title: 'Prompt Templates', description: 'Manage versioned prompt templates for AI tasks.', type: 'internal', componentKey: 'promptTemplates', route: '/ai/prompts' },
-  { id: 'ai-routing', title: 'Route Policies', description: 'Configure AI model routing policies per use-case.', type: 'internal', componentKey: 'routePolicies', route: '/ai/routing' },
-  { id: 'ai-playground', title: 'Agent Playground', description: 'Test agents, prompts, and models interactively.', type: 'internal', componentKey: 'aiPlayground', route: '/ai/playground' },
+  { id: 'analytics', title: 'Analytics', description: 'Portfolio-level performance, trends, and AI insights.', type: 'internal', category: 'page', componentKey: 'analytics', route: '/analytics', defaultWidth: 720 },
+  { id: 'search', title: 'Search', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/search' },
+  { id: 'ai', title: 'AI & Agents', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ai' },
+  { id: 'ai-agents', title: 'Agents', description: 'Configure domain agents, assign models, and manage overrides.', type: 'internal', category: 'page', componentKey: 'agentConfig', route: '/ai/agents' },
+  { id: 'ai-models', title: 'AI Models', description: 'Manage AI providers and models used across the platform.', type: 'internal', category: 'page', componentKey: 'aiModels', route: '/ai/models' },
+  { id: 'ai-orchestrator', title: 'Orchestrator', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ai/orchestrator' },
+  { id: 'ai-prompts', title: 'Prompt Templates', description: 'Manage versioned prompt templates for AI tasks.', type: 'internal', category: 'page', componentKey: 'promptTemplates', route: '/ai/prompts' },
+  { id: 'ai-routing', title: 'Route Policies', description: 'Configure AI model routing policies per use-case.', type: 'internal', category: 'page', componentKey: 'routePolicies', route: '/ai/routing' },
+  { id: 'ai-playground', title: 'Agent Playground', description: 'Test agents, prompts, and models interactively.', type: 'internal', category: 'page', componentKey: 'aiPlayground', route: '/ai/playground' },
 ];
 
 const panelComponents = {

@@ -1,6 +1,6 @@
 import type { AdminModule } from '../types';
 import type { NavigationSection } from '@/types';
-import type { WorkspacePanelConfig } from '@/workspace/types';
+import type { WorkspacePanelConfig, WorkspaceTemplate } from '@/workspace/types';
 import {
   AccessUsersPage,
   AccessRolesPage,
@@ -29,6 +29,8 @@ import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
 import { ContentWizardPage } from '@/pages/ContentWizardPage';
 import { MediaLibraryPage } from '@/pages/MediaLibraryPage';
+import { BackgroundJobsPanel } from '@/workspace/apps/BackgroundJobsPanel';
+import { AuditLogPanel } from '@/workspace/apps/AuditLogPanel';
 import { wrapPage } from '../utils';
 
 // ---------------------------------------------------------------------------
@@ -131,23 +133,27 @@ const routes = [
 // Workspace panels
 // ---------------------------------------------------------------------------
 const panels: WorkspacePanelConfig[] = [
-  { id: 'access-users', title: 'Users', type: 'internal', componentKey: 'access-users', route: '/access/users' },
-  { id: 'access-roles', title: 'Roles', type: 'internal', componentKey: 'access-roles', route: '/access/roles' },
-  { id: 'access-permissions', title: 'Permissions', type: 'internal', componentKey: 'access-permissions', route: '/access/permissions' },
-  { id: 'tenants', title: 'Tenants', type: 'internal', componentKey: 'tenants', route: '/tenants' },
-  { id: 'platform-alerts', title: 'Platform Alerts', type: 'internal', componentKey: 'platform-alerts', route: '/admin/alerts' },
-  { id: 'settings', title: 'Settings', type: 'internal', componentKey: 'settings-home', route: '/settings' },
-  { id: 'settings-general', title: 'General', type: 'internal', componentKey: 'settings-general', route: '/settings/general' },
-  { id: 'settings-webhooks', title: 'Webhooks', type: 'internal', componentKey: 'settings-webhooks', route: '/settings/webhooks' },
-  { id: 'settings-api-keys', title: 'API Keys', type: 'internal', componentKey: 'settings-api-keys', route: '/settings/api-keys' },
-  { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
-  { id: 'settings-text-to-speech', title: 'Text to Speech', type: 'internal', componentKey: 'settings-text-to-speech', route: '/settings/text-to-speech' },
-  { id: 'background-jobs', title: 'Background Jobs', type: 'internal', componentKey: 'background-jobs', route: '/settings/background-jobs' },
-  { id: 'settings-system-tools', title: 'System Tools', type: 'internal', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
-  { id: 'settings-notification-templates', title: 'Notifications', type: 'internal', componentKey: 'settings-notification-templates', route: '/settings/notification-templates' },
-  { id: 'cms', title: 'Content', type: 'internal', componentKey: 'placeholder', route: '/cms' },
-  { id: 'cms-content-blocks', title: 'Content Blocks', type: 'internal', componentKey: 'content-blocks', route: '/cms/content-blocks' },
-  { id: 'cms-media', title: 'Media Library', type: 'internal', componentKey: 'media-library', route: '/cms/media' },
+  // Page panels — wrapped full-page components
+  { id: 'access-users', title: 'Users', type: 'internal', category: 'page', componentKey: 'access-users', route: '/access/users' },
+  { id: 'access-roles', title: 'Roles', type: 'internal', category: 'page', componentKey: 'access-roles', route: '/access/roles' },
+  { id: 'access-permissions', title: 'Permissions', type: 'internal', category: 'page', componentKey: 'access-permissions', route: '/access/permissions' },
+  { id: 'tenants', title: 'Tenants', type: 'internal', category: 'page', componentKey: 'tenants', route: '/tenants' },
+  { id: 'platform-alerts', title: 'Platform Alerts', type: 'internal', category: 'page', componentKey: 'platform-alerts', route: '/admin/alerts' },
+  { id: 'settings', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-home', route: '/settings' },
+  { id: 'settings-general', title: 'General', type: 'internal', category: 'page', componentKey: 'settings-general', route: '/settings/general' },
+  { id: 'settings-webhooks', title: 'Webhooks', type: 'internal', category: 'page', componentKey: 'settings-webhooks', route: '/settings/webhooks' },
+  { id: 'settings-api-keys', title: 'API Keys', type: 'internal', category: 'page', componentKey: 'settings-api-keys', route: '/settings/api-keys' },
+  { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', category: 'page', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
+  { id: 'settings-text-to-speech', title: 'Text to Speech', type: 'internal', category: 'page', componentKey: 'settings-text-to-speech', route: '/settings/text-to-speech' },
+  { id: 'background-jobs', title: 'Background Jobs', type: 'internal', category: 'page', componentKey: 'background-jobs', route: '/settings/background-jobs' },
+  { id: 'settings-system-tools', title: 'System Tools', type: 'internal', category: 'page', componentKey: 'settings-system-tools', route: '/settings/system-tools' },
+  { id: 'settings-notification-templates', title: 'Notifications', type: 'internal', category: 'page', componentKey: 'settings-notification-templates', route: '/settings/notification-templates' },
+  { id: 'cms', title: 'Content', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/cms' },
+  { id: 'cms-content-blocks', title: 'Content Blocks', type: 'internal', category: 'page', componentKey: 'content-blocks', route: '/cms/content-blocks' },
+  { id: 'cms-media', title: 'Media Library', type: 'internal', category: 'page', componentKey: 'media-library', route: '/cms/media' },
+  // Micro-app panels — workspace-native, cross-panel communication
+  { id: 'job-monitor', title: 'Job Monitor', description: 'Monitor background jobs and trigger actions.', type: 'internal', category: 'micro-app', componentKey: 'job-monitor', appCardId: '10', defaultWidth: 480 },
+  { id: 'audit-trail', title: 'Audit Trail', description: 'Cross-referenced audit logs for job runs and commands.', type: 'internal', category: 'micro-app', componentKey: 'audit-trail', appCardId: '11', defaultWidth: 520 },
 ];
 
 const panelComponents = {
@@ -167,7 +173,23 @@ const panelComponents = {
   'settings-notification-templates': wrapPage(NotificationTemplatesPage),
   'content-blocks': wrapPage(ContentBlocksListPage),
   'media-library': wrapPage(MediaLibraryPage),
+  'job-monitor': BackgroundJobsPanel,
+  'audit-trail': AuditLogPanel,
 };
+
+// ---------------------------------------------------------------------------
+// Workspace templates
+// ---------------------------------------------------------------------------
+const workspaceTemplates: WorkspaceTemplate[] = [
+  {
+    id: 'job-auditor',
+    name: 'Job Auditor',
+    description: 'Monitor scheduled jobs and cross-reference audit logs.',
+    icon: 'Timer',
+    panels: ['job-monitor', 'audit-trail'],
+    layout: 'split-horizontal',
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Breadcrumbs
@@ -190,5 +212,7 @@ export const platformModule: AdminModule = {
   routes,
   panels,
   panelComponents,
+  defaultWorkspacePanels: ['job-monitor', 'audit-trail'],
+  workspaceTemplates,
   breadcrumbs,
 };

@@ -1,5 +1,5 @@
-import type { WorkspacePanelConfig } from './types';
-import { getAggregatedPanels, getDefaultWorkspacePanels } from '@/modules/registry';
+import type { WorkspacePanelConfig, WorkspaceTemplate } from './types';
+import { getAggregatedPanels, getDefaultWorkspacePanels, getAggregatedWorkspaceTemplates, getWorkspaceTemplate as getWorkspaceTemplateFromRegistry } from '@/modules/registry';
 
 /**
  * Workspace panel registry — now aggregated from module definitions.
@@ -57,7 +57,36 @@ export function getWorkspacePanelForApp(appCardId: string) {
   return getPanelRegistry().find((panel) => panel.appCardId === appCardId);
 }
 
+/**
+ * Find a workspace panel config that matches the given route.
+ * Only returns **micro-app** panels — pages (`category: 'page'` or unset)
+ * are never redirected into the workspace dock. They render as normal
+ * full-page routes.
+ */
 export function getWorkspacePanelForRoute(route?: string) {
   if (!route) return undefined;
-  return getPanelRegistry().find((panel) => panel.route === route);
+  return getPanelRegistry().find(
+    (panel) => panel.route === route && panel.category === 'micro-app',
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Workspace templates
+// ---------------------------------------------------------------------------
+
+let _templatesCache: WorkspaceTemplate[] | null = null;
+
+function getTemplateRegistry(): WorkspaceTemplate[] {
+  if (!_templatesCache) {
+    _templatesCache = getAggregatedWorkspaceTemplates();
+  }
+  return _templatesCache;
+}
+
+export function getWorkspaceTemplates(): WorkspaceTemplate[] {
+  return getTemplateRegistry();
+}
+
+export function getWorkspaceTemplateById(templateId: string): WorkspaceTemplate | undefined {
+  return getWorkspaceTemplateFromRegistry(templateId);
 }

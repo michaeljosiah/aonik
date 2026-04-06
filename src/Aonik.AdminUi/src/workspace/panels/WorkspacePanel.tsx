@@ -3,7 +3,6 @@ import { Card } from '@/components/ui/card';
 import { getWorkspacePanelConfig } from '../registry';
 import { workspacePanelComponents } from '../panelComponents';
 import { useWorkspace } from '../useWorkspace';
-import type { WorkspaceAction } from '../types';
 
 interface DockviewPanelProps {
   params?: {
@@ -17,55 +16,30 @@ export function WorkspacePanel({ params }: DockviewPanelProps) {
     () => (panelId ? getWorkspacePanelConfig(panelId) : undefined),
     [panelId]
   );
-  const { eventBus, dispatchAction } = useWorkspace();
+  const { iframeBridge } = useWorkspace();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
+  // Register / unregister the iframe with the bridge
   useEffect(() => {
-    if (!config || config.type !== 'external') return;
+    if (!config || config.type !== 'external' || !config.url || !panelId) return;
 
-    const handleMessage = (event: MessageEvent) => {
-      if (event.source !== iframeRef.current?.contentWindow) return;
-      if (!event.data || typeof event.data !== 'object') return;
+    let origin: string;
+    try {
+      origin = new URL(config.url).origin;
+    } catch {
+      return;
+    }
 
-      const message = event.data as { type?: string; payload?: Record<string, unknown> };
-      if (message.type === 'aonik:workspace:event' && message.payload) {
-        const workspaceEvent = message.payload as { type?: string; payload?: Record<string, unknown>; targetId?: string };
-        eventBus.emit({
-          type: String(workspaceEvent.type ?? 'external:event'),
-          payload: workspaceEvent.payload,
-          sourceId: panelId ?? 'external',
-          targetId: workspaceEvent.targetId,
-        });
-      }
+    // Wait for the iframe ref to be set
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-      if (message.type === 'aonik:workspace:action' && message.payload) {
-        const action = message.payload as Partial<WorkspaceAction>;
-        if (action && typeof action.type === 'string') {
-          dispatchAction(action as WorkspaceAction);
-        }
-      }
-    };
-
-    const unsubscribe = eventBus.on('*', (workspaceEvent) => {
-      if (!iframeRef.current?.contentWindow) return;
-      if (workspaceEvent.targetId && workspaceEvent.targetId !== panelId) return;
-
-      iframeRef.current.contentWindow.postMessage(
-        {
-          type: 'aonik:workspace:event',
-          payload: workspaceEvent,
-        },
-        '*'
-      );
-    });
-
-    window.addEventListener('message', handleMessage);
+    iframeBridge.registerIframe(panelId, iframe, origin);
 
     return () => {
-      window.removeEventListener('message', handleMessage);
-      unsubscribe();
+      iframeBridge.unregisterIframe(panelId);
     };
-  }, [config, dispatchAction, eventBus, panelId]);
+  }, [config, iframeBridge, panelId]);
 
   if (!config) {
     return (
@@ -96,10 +70,9 @@ export function WorkspacePanel({ params }: DockviewPanelProps) {
           src={config.url}
           className="h-full w-full border-0"
           onLoad={() => {
-            iframeRef.current?.contentWindow?.postMessage(
-              { type: 'aonik:workspace:init', payload: { panelId: config.id } },
-              '*'
-            );
+            if (panelId) {
+              iframeBridge.sendInit(panelId);
+            }
           }}
         />
       </div>

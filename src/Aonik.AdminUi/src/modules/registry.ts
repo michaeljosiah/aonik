@@ -1,6 +1,6 @@
 import type { AdminModule } from './types';
 import type { NavigationSection } from '@/types';
-import type { WorkspacePanelConfig, WorkspacePanelRenderProps } from '@/workspace/types';
+import type { WorkspacePanelConfig, WorkspacePanelRenderProps, WorkspaceTemplate } from '@/workspace/types';
 import type { ComponentType } from 'react';
 import type { ModuleBreadcrumb, ModuleRouteConfig } from './types';
 
@@ -106,6 +106,24 @@ export function getDefaultWorkspacePanels(enabledModuleIds?: string[]): string[]
     : allModules;
 
   return modules.flatMap((m) => m.defaultWorkspacePanels ?? []);
+}
+
+/**
+ * Aggregate all workspace templates from all enabled modules.
+ */
+export function getAggregatedWorkspaceTemplates(enabledModuleIds?: string[]): WorkspaceTemplate[] {
+  const modules = enabledModuleIds
+    ? allModules.filter((m) => enabledModuleIds.includes(m.id))
+    : allModules;
+
+  return modules.flatMap((m) => m.workspaceTemplates ?? []);
+}
+
+/**
+ * Get a workspace template by its ID.
+ */
+export function getWorkspaceTemplate(templateId: string): WorkspaceTemplate | undefined {
+  return allModules.flatMap((m) => m.workspaceTemplates ?? []).find((t) => t.id === templateId);
 }
 
 /**

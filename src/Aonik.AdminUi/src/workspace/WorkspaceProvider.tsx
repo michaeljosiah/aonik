@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { WorkspaceContext } from './context';
 import type { DockviewApi, IDockviewPanel } from 'dockview';
-import { getWorkspacePanelConfig, defaultWorkspaceLayoutPanels } from './registry';
+import { getWorkspacePanelConfig, defaultWorkspaceLayoutPanels, workspacePanelRegistry, getWorkspaceTemplateById } from './registry';
 import { loadWorkspaceState, saveWorkspaceState } from './storage';
-import type { WorkspaceAction, WorkspaceLayoutRecord, WorkspaceLayoutSnapshot } from './types';
-import { WorkspaceEventBus } from './workspaceEventBus';
+import type { WorkspaceAction, WorkspaceLayoutRecord, WorkspaceLayoutSnapshot, WorkspaceTemplate } from './types';
+import { createWorkspace } from '@aonik/workspace-sdk';
+import { WorkspaceSdkProvider } from '@aonik/workspace-sdk/react';
+import { IframeBridgeHost } from '@aonik/workspace-sdk/host';
 
 const defaultLayoutId = 'layout-default';
 
@@ -21,8 +23,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [layouts, setLayouts] = useState<WorkspaceLayoutRecord[]>([]);
   const [activeLayoutId, setActiveLayoutId] = useState('');
   const [storageLoaded, setStorageLoaded] = useState(false);
-  const eventBus = useMemo(() => new WorkspaceEventBus(), []);
+  const sdk = useMemo(() => createWorkspace(), []);
+  const { eventBus, contextStore, panelRegistry, actions: sdkActions } = sdk;
   const isRestoringRef = useRef(false);
+
+  // Build allowed origins from registered external panels
+  const iframeBridge = useMemo(() => {
+    const externalOrigins = workspacePanelRegistry
+      .filter((p) => p.type === 'external' && p.url)
+      .map((p) => {
+        try { return new URL(p.url!).origin; } catch { return ''; }
+      })
+      .filter(Boolean);
+
+    const bridge = new IframeBridgeHost({
+      eventBus,
+      contextStore,
+      actions: sdkActions,
+      panelRegistry,
+      allowedOrigins: externalOrigins,
+    });
+    bridge.start();
+    return bridge;
+  }, [eventBus, contextStore, sdkActions, panelRegistry]);
 
   const persistLayouts = useCallback(
     (nextLayouts: WorkspaceLayoutRecord[], nextActiveLayoutId?: string) => {
@@ -187,6 +210,76 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }, 0);
   }, [api, addPanelToDock, persistLayouts]);
 
+  const buildLayoutFromPanels = useCallback(
+    (panelIds: string[], layout: WorkspaceTemplate['layout']) => {
+      if (!api) return;
+      isRestoringRef.current = true;
+      api.clear();
+
+      const direction = layout === 'split-horizontal' ? 'right' : layout === 'split-vertical' ? 'below' : 'within';
+
+      let basePanel: IDockviewPanel | undefined;
+      panelIds.forEach((panelId, index) => {
+        if (index === 0) {
+          basePanel = addPanelToDock(panelId);
+        } else if (basePanel) {
+          addPanelToDock(panelId, { referencePanel: basePanel, direction });
+        } else {
+          addPanelToDock(panelId);
+        }
+      });
+
+      setTimeout(() => {
+        isRestoringRef.current = false;
+      }, 0);
+    },
+    [api, addPanelToDock],
+  );
+
+  const applyTemplate = useCallback(
+    (templateId: string) => {
+      if (!api) return;
+      const template = getWorkspaceTemplateById(templateId);
+      if (!template) return;
+
+      // Check if a layout for this template already exists
+      const existingLayout = layouts.find(
+        (l) => l.name === template.name && !l.isDefault,
+      );
+      if (existingLayout) {
+        // Re-apply the existing layout
+        isRestoringRef.current = true;
+        api.fromJSON(existingLayout.layout);
+        setActiveLayoutId(existingLayout.id);
+        persistLayouts(layouts, existingLayout.id);
+        setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 0);
+        return;
+      }
+
+      // Build a new layout from the template
+      buildLayoutFromPanels(template.panels, template.layout);
+
+      const snapshot = api.toJSON() as WorkspaceLayoutSnapshot;
+      const newLayout: WorkspaceLayoutRecord = {
+        id: `template-${templateId}-${Date.now()}`,
+        name: template.name,
+        isDefault: false,
+        updatedAt: new Date().toISOString(),
+        layout: snapshot,
+      };
+
+      setLayouts((current) => {
+        const next = [...current, newLayout];
+        persistLayouts(next, newLayout.id);
+        return next;
+      });
+      setActiveLayoutId(newLayout.id);
+    },
+    [api, layouts, buildLayoutFromPanels, persistLayouts],
+  );
+
   const renameLayout = useCallback(
     (layoutId: string, newName: string) => {
       const trimmed = newName.trim();
@@ -286,6 +379,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [activeLayoutId, api, layouts, persistLayouts, resetToDefaultLayout]
   );
 
+  // Wire the SDK action handler to the workspace dispatchAction
+  useEffect(() => {
+    sdkActions.setHandler(dispatchAction);
+  }, [sdkActions, dispatchAction]);
+
+  // Clean up the iframe bridge on unmount
+  useEffect(() => {
+    return () => iframeBridge.stop();
+  }, [iframeBridge]);
+
   const setApiInstance = useCallback((nextApi: DockviewApi) => {
     setApi(nextApi);
   }, []);
@@ -358,19 +461,23 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       saveActiveLayout,
       createLayoutFromActive,
       resetToDefaultLayout,
+      applyTemplate,
       renameLayout,
       removeLayout,
       eventBus,
       dispatchAction,
+      iframeBridge,
     }),
     [
       activeLayoutId,
       api,
+      applyTemplate,
       closePanel,
       createLayoutFromActive,
       dispatchAction,
       eventBus,
       exitMaximizedGroup,
+      iframeBridge,
       setApiInstance,
       layouts,
       loadLayout,
@@ -383,7 +490,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     ]
   );
 
+  const sdkValue = useMemo(
+    () => ({ eventBus, contextStore, panelRegistry, actions: sdkActions }),
+    [eventBus, contextStore, panelRegistry, sdkActions],
+  );
+
   return (
-    <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
+    <WorkspaceContext.Provider value={value}>
+      <WorkspaceSdkProvider value={sdkValue}>
+        {children}
+      </WorkspaceSdkProvider>
+    </WorkspaceContext.Provider>
   );
 }

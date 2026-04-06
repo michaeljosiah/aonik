@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import type { NavigationSection } from '@/types';
-import type { WorkspacePanelConfig, WorkspacePanelRenderProps } from '@/workspace/types';
+import type { WorkspacePanelConfig, WorkspacePanelRenderProps, WorkspaceTemplate } from '@/workspace/types';
 
 /**
  * Route configuration contributed by a module.
@@ -44,6 +44,8 @@ export interface AdminModule {
   panelComponents: Record<string, ComponentType<WorkspacePanelRenderProps>>;
   /** Default workspace panels to open for this module */
   defaultWorkspacePanels?: string[];
+  /** Pre-built workspace templates contributed by this module */
+  workspaceTemplates?: WorkspaceTemplate[];
   /** Breadcrumb mappings */
   breadcrumbs: ModuleBreadcrumb[];
 }
