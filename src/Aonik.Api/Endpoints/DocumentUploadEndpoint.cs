@@ -7,6 +7,7 @@ using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.IO;
 using System.Text;
 
 /// <summary>
@@ -15,11 +16,13 @@ using System.Text;
 /// </summary>
 internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, DocumentUploadResponse>
 {
-    private readonly IVectorStore vectorStore;
-    private readonly IEmbeddingService embeddingService;
-    private readonly QdrantConfiguration qdrantConfig;
-    private readonly ITenantProvider tenantProvider;
-    private readonly ILogger<DocumentUploadEndpoint> logger;
+    private readonly IVectorStore _vectorStore;
+    private readonly IEmbeddingService _embeddingService;
+    private readonly QdrantConfiguration _qdrantConfig;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly ILogger<DocumentUploadEndpoint> _logger;
+
+    private const long MaxDocumentSizeBytes = 10 * 1024 * 1024; // 10 MB
 
     public DocumentUploadEndpoint(
         IVectorStore vectorStore,
@@ -28,11 +31,11 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
         ITenantProvider tenantProvider,
         ILogger<DocumentUploadEndpoint> logger)
     {
-        this.vectorStore = vectorStore;
-        this.embeddingService = embeddingService;
-        this.qdrantConfig = qdrantOptions.Value;
-        this.tenantProvider = tenantProvider;
-        this.logger = logger;
+        _vectorStore = vectorStore;
+        _embeddingService = embeddingService;
+        _qdrantConfig = qdrantOptions.Value;
+        _tenantProvider = tenantProvider;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -60,15 +63,24 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
             return;
         }
 
+        if (req.Document.Length > MaxDocumentSizeBytes)
+        {
+            ThrowError("Document exceeds maximum size of 10 MB");
+            return;
+        }
+
         try
         {
-            // Validate file
+            // Validate file type
             if (!IsValidContentType(req.Document.ContentType))
             {
                 ThrowError(
                     $"Unsupported file type: {req.Document.ContentType}. Supported: text/plain, application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document");
                 return;
             }
+
+            // Sanitize filename to prevent path traversal
+            var safeFilename = SanitizeFilename(req.Document.FileName);
 
             // 1. Extract text from document
             var text = await ExtractTextAsync(req.Document, ct);
@@ -87,7 +99,7 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
             }
 
             // 3. Batch embed chunks
-            var embeddings = await embeddingService.GetEmbeddingsBatchAsync(
+            var embeddings = await _embeddingService.GetEmbeddingsBatchAsync(
                 chunks.Select(c => c.Content),
                 ct);
 
@@ -100,7 +112,7 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
 
             // 4. Upsert vectors to Qdrant
             var documentId = Guid.NewGuid().ToString();
-            var collectionName = qdrantConfig.GetCollectionName("documents");
+            var collectionName = _qdrantConfig.GetCollectionName("documents");
             var chunkCount = 0;
 
             for (int i = 0; i < chunks.Count; i++)
@@ -113,10 +125,10 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
                     { "source", req.SourceName ?? "uploaded_document" },
                     { "content", chunks[i].Content },
                     { "created_at", DateTime.UtcNow },
-                    { "filename", req.Document.FileName }
+                    { "filename", safeFilename }
                 };
 
-                await vectorStore.UpsertVectorAsync(
+                await _vectorStore.UpsertVectorAsync(
                     collectionName,
                     vectorId,
                     embeddingList[i],
@@ -126,14 +138,14 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
                 chunkCount++;
             }
 
-            logger.LogInformation(
+            _logger.LogInformation(
                 "Successfully processed document {DocumentId} with {ChunkCount} chunks for tenant {Tenant}",
                 documentId,
                 chunkCount,
-                tenantProvider.TryGetCurrentTenantId(out var tid) ? tid : Guid.Empty);
+                _tenantProvider.TryGetCurrentTenantId(out var tid) ? tid : Guid.Empty);
 
             // 5. Return response
-            var estimatedCost = (embeddingList.Sum(e => e.Length) / 1000000.0) * 0.02; // Rough estimate for text-embedding-3-small
+            var estimatedCost = (embeddingList.Sum(e => e.Length) / 1000000.0) * 0.02;
             var response = new DocumentUploadResponse
             {
                 DocumentId = documentId,
@@ -149,9 +161,22 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Document upload failed");
+            _logger.LogError(ex, "Document upload failed");
             ThrowError($"Document processing failed: {ex.Message}");
         }
+    }
+
+    private static string SanitizeFilename(string? filename)
+    {
+        if (string.IsNullOrWhiteSpace(filename))
+            return "unnamed_document";
+
+        // Strip path components and invalid characters
+        var name = Path.GetFileName(filename);
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitized = new string(name.Where(c => !invalidChars.Contains(c)).ToArray());
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "unnamed_document" : sanitized;
     }
 
     private static bool IsValidContentType(string? contentType) =>
@@ -165,12 +190,6 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
 
     private static async Task<string> ExtractTextAsync(IFormFile file, CancellationToken ct)
     {
-        // TODO: Implement proper text extraction
-        // For text files, read as-is
-        // For PDF, use iTextSharp or PdfSharpCore
-        // For DOCX, use DocumentFormat.OpenXml
-        // For now, handle text files only
-
         if (file.ContentType == "text/plain")
         {
             using var reader = new StreamReader(file.OpenReadStream());
@@ -223,7 +242,7 @@ internal sealed class DocumentUploadEndpoint : Endpoint<DocumentUploadRequest, D
         public required string Content { get; init; }
     }
 
-    // Stub endpoint for CreatedAt reference - in a real implementation would return document details
+    // Stub endpoint for CreatedAt reference
     private sealed class GetDocumentEndpoint : EndpointWithoutRequest
     {
         public override void Configure()

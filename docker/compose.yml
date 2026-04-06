@@ -55,7 +55,7 @@ services:
       - no-new-privileges:true
 
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.13.2
     environment:
       QDRANT_API_KEY: ${QDRANT_API_KEY:-qdrant-dev-key}
       QDRANT_SNAPSHOT_DIR: /qdrant/snapshots

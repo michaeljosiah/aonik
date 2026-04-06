@@ -17,67 +17,55 @@ using Microsoft.Extensions.Options;
 /// </summary>
 internal class OpenAiEmbeddingService : IEmbeddingService
 {
-    private readonly string apiKey;
-    private readonly QdrantConfiguration qdrantConfig;
-    private readonly ILogger<OpenAiEmbeddingService> logger;
+    private readonly string _apiKey;
+    private readonly QdrantConfiguration _qdrantConfig;
+    private readonly ILogger<OpenAiEmbeddingService> _logger;
 
-    public string ModelName => qdrantConfig.EmbeddingModel;
+    public string ModelName => _qdrantConfig.EmbeddingModel;
 
-    public int Dimensions => qdrantConfig.VectorDimensions;
+    public int Dimensions => _qdrantConfig.VectorDimensions;
 
     public OpenAiEmbeddingService(
         IConfiguration configuration,
         IOptions<QdrantConfiguration> qdrantOptions,
         ILogger<OpenAiEmbeddingService> logger)
     {
-        this.qdrantConfig = qdrantOptions.Value;
-        this.logger = logger;
+        _qdrantConfig = qdrantOptions.Value;
+        _logger = logger;
 
-        this.apiKey = configuration["AI:OpenAI:ApiKey"] ?? string.Empty;
+        _apiKey = configuration["AI:OpenAI:ApiKey"] ?? string.Empty;
 
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (string.IsNullOrWhiteSpace(_apiKey))
         {
-            logger.LogWarning(
+            _logger.LogWarning(
                 "OpenAI API key not configured. Using deterministic mock embeddings for development/testing. " +
                 "Set AI:OpenAI:ApiKey for production use.");
         }
         else
         {
-            logger.LogInformation(
+            _logger.LogInformation(
                 "Initialized OpenAI embedding service with model {Model} and {Dimensions} dimensions",
                 ModelName,
                 Dimensions);
         }
     }
 
-    public async Task<float[]> GetEmbeddingAsync(
+    public Task<float[]> GetEmbeddingAsync(
         string text,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new ArgumentException("Text required", nameof(text));
 
-        try
-        {
-            // TODO: Integrate with OpenAI SDK for actual embedding generation
-            // For now, return a properly-dimensioned vector for testing
-            // This ensures tests can run without external dependencies
-            var embedding = GenerateMockEmbedding(text);
-            return embedding;
-        }
-        catch (OperationCanceledException)
-        {
-            logger.LogDebug("Embedding request cancelled");
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to generate embedding");
-            throw;
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // TODO: Integrate with OpenAI SDK for actual embedding generation
+        // For now, return a properly-dimensioned vector for testing
+        var embedding = GenerateMockEmbedding(text);
+        return Task.FromResult(embedding);
     }
 
-    public async Task<IEnumerable<float[]>> GetEmbeddingsBatchAsync(
+    public Task<IEnumerable<float[]>> GetEmbeddingsBatchAsync(
         IEnumerable<string> texts,
         CancellationToken cancellationToken = default)
     {
@@ -85,28 +73,16 @@ internal class OpenAiEmbeddingService : IEmbeddingService
         if (!textList.Any())
             throw new ArgumentException("Texts required", nameof(texts));
 
-        try
-        {
-            // TODO: Integrate with OpenAI SDK for batch embedding generation
-            // For now, generate mock embeddings for each text
-            var vectors = textList
-                .Select(t => GenerateMockEmbedding(t))
-                .ToList();
+        cancellationToken.ThrowIfCancellationRequested();
 
-            logger.LogDebug("Generated {Count} embeddings in batch", vectors.Count);
+        // TODO: Integrate with OpenAI SDK for batch embedding generation
+        var vectors = textList
+            .Select(t => GenerateMockEmbedding(t))
+            .ToList();
 
-            return vectors;
-        }
-        catch (OperationCanceledException)
-        {
-            logger.LogDebug("Batch embedding request cancelled");
-            throw;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to generate batch embeddings");
-            throw;
-        }
+        _logger.LogDebug("Generated {Count} embeddings in batch", vectors.Count);
+
+        return Task.FromResult<IEnumerable<float[]>>(vectors);
     }
 
     /// <summary>
@@ -127,11 +103,14 @@ internal class OpenAiEmbeddingService : IEmbeddingService
             embedding[i] = (float)(random.NextDouble() * 2 - 1);
         }
 
-        // Normalize vector to unit length (L2 norm)
+        // Normalize vector to unit length (L2 norm) with zero-guard
         var norm = MathF.Sqrt(embedding.Sum(x => x * x));
-        for (int i = 0; i < Dimensions; i++)
+        if (norm > 0)
         {
-            embedding[i] /= norm;
+            for (int i = 0; i < Dimensions; i++)
+            {
+                embedding[i] /= norm;
+            }
         }
 
         return embedding;

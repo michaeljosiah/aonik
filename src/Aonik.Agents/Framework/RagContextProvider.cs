@@ -38,9 +38,9 @@ public record VectorSearchResult(string Id, float Score, Dictionary<string, obje
 /// </summary>
 public class RagContextProvider
 {
-    private readonly IVectorStore vectorStore;
-    private readonly IEmbeddingService embeddingService;
-    private readonly ILogger<RagContextProvider> logger;
+    private readonly IVectorStore _vectorStore;
+    private readonly IEmbeddingService _embeddingService;
+    private readonly ILogger<RagContextProvider> _logger;
     private const string DefaultCollectionPrefix = "aonik";
 
     public RagContextProvider(
@@ -48,21 +48,15 @@ public class RagContextProvider
         IEmbeddingService embeddingService,
         ILogger<RagContextProvider> logger)
     {
-        this.vectorStore = vectorStore;
-        this.embeddingService = embeddingService;
-        this.logger = logger;
+        _vectorStore = vectorStore;
+        _embeddingService = embeddingService;
+        _logger = logger;
     }
 
     /// <summary>
     /// Get RAG context for a query.
     /// Embeds the query, searches for similar vectors, and returns assembled context string.
     /// </summary>
-    /// <param name="query">Query text to find context for</param>
-    /// <param name="collectionType">Collection type (e.g., "documents")</param>
-    /// <param name="topK">Number of results to return</param>
-    /// <param name="scoreThreshold">Minimum similarity score (0-1)</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Context string assembled from search results, or empty string if no results</returns>
     public async Task<string> GetContextAsync(
         string query,
         string collectionType = "documents",
@@ -75,12 +69,10 @@ public class RagContextProvider
 
         try
         {
-            // 1. Embed the query
-            var queryEmbedding = await embeddingService.GetEmbeddingAsync(query, cancellationToken);
+            var queryEmbedding = await _embeddingService.GetEmbeddingAsync(query, cancellationToken);
 
-            // 2. Search for similar vectors
             var collectionName = $"{DefaultCollectionPrefix}-{collectionType}";
-            var results = await vectorStore.SearchAsync(
+            var results = await _vectorStore.SearchAsync(
                 collectionName,
                 queryEmbedding,
                 limit: topK,
@@ -90,29 +82,20 @@ public class RagContextProvider
             var resultList = results.ToList();
             if (!resultList.Any())
             {
-                logger.LogDebug(
+                _logger.LogDebug(
                     "No RAG context found for query in collection {Collection}",
                     collectionName);
                 return string.Empty;
             }
 
-            // 3. Assemble context from results
-            var contextParts = new List<string>();
-            foreach (var result in resultList)
-            {
-                if (result.Payload?.TryGetValue("content", out var content) == true && content is string contentStr)
-                {
-                    contextParts.Add($"[Score: {result.Score:F2}] {contentStr}");
-                }
-                else if (result.Payload?.TryGetValue("text", out var text) == true && text is string textStr)
-                {
-                    contextParts.Add($"[Score: {result.Score:F2}] {textStr}");
-                }
-            }
+            var contextParts = resultList
+                .Select(r => ExtractContent(r.Payload))
+                .Where(c => !string.IsNullOrEmpty(c))
+                .Select((c, i) => $"[Score: {resultList[i].Score:F2}] {c}");
 
             var context = string.Join("\n\n", contextParts);
 
-            logger.LogDebug(
+            _logger.LogDebug(
                 "Retrieved {Count} RAG context chunks (total {Length} chars) for query",
                 resultList.Count,
                 context.Length);
@@ -121,10 +104,7 @@ public class RagContextProvider
         }
         catch (Exception ex)
         {
-            logger.LogError(
-                ex,
-                "Failed to retrieve RAG context for query");
-            // Return empty context on error rather than throwing - allows graceful degradation
+            _logger.LogError(ex, "Failed to retrieve RAG context for query");
             return string.Empty;
         }
     }
@@ -144,9 +124,9 @@ public class RagContextProvider
 
         try
         {
-            var queryEmbedding = await embeddingService.GetEmbeddingAsync(query, cancellationToken);
+            var queryEmbedding = await _embeddingService.GetEmbeddingAsync(query, cancellationToken);
             var collectionName = $"{DefaultCollectionPrefix}-{collectionType}";
-            var results = await vectorStore.SearchAsync(
+            var results = await _vectorStore.SearchAsync(
                 collectionName,
                 queryEmbedding,
                 limit: topK,
@@ -163,7 +143,7 @@ public class RagContextProvider
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to retrieve RAG context with metadata");
+            _logger.LogError(ex, "Failed to retrieve RAG context with metadata");
             return Enumerable.Empty<RagContextResult>();
         }
     }

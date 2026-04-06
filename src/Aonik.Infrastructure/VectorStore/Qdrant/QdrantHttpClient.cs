@@ -10,13 +10,13 @@ using Microsoft.Extensions.Options;
 /// </summary>
 internal class QdrantHttpClient
 {
-    private readonly HttpClient httpClient;
-    private readonly QdrantConfiguration config;
+    private readonly HttpClient _httpClient;
+    private readonly QdrantConfiguration _config;
 
     public QdrantHttpClient(HttpClient httpClient, IOptions<QdrantConfiguration> options)
     {
-        this.httpClient = httpClient;
-        this.config = options.Value;
+        _httpClient = httpClient;
+        _config = options.Value;
     }
 
     /// <summary>
@@ -30,14 +30,14 @@ internal class QdrantHttpClient
         {
             vectors = new
             {
-                size = config.VectorDimensions,
+                size = _config.VectorDimensions,
                 distance = "Cosine"
             }
         };
 
         try
         {
-            var response = await httpClient.PutAsJsonAsync(
+            var response = await _httpClient.PutAsJsonAsync(
                 $"/collections/{collectionName}",
                 request,
                 cancellationToken);
@@ -64,12 +64,12 @@ internal class QdrantHttpClient
     {
         try
         {
-            var response = await httpClient.GetAsync(
+            var response = await _httpClient.GetAsync(
                 $"/collections/{collectionName}",
                 cancellationToken);
             return response.IsSuccessStatusCode;
         }
-        catch
+        catch (HttpRequestException)
         {
             return false;
         }
@@ -98,7 +98,7 @@ internal class QdrantHttpClient
             }
         };
 
-        var response = await httpClient.PutAsJsonAsync(
+        var response = await _httpClient.PutAsJsonAsync(
             $"/collections/{collectionName}/points",
             request,
             cancellationToken);
@@ -126,7 +126,7 @@ internal class QdrantHttpClient
             filter = filter
         };
 
-        var response = await httpClient.PostAsJsonAsync(
+        var response = await _httpClient.PostAsJsonAsync(
             $"/collections/{collectionName}/points/search",
             request,
             cancellationToken);
@@ -153,7 +153,7 @@ internal class QdrantHttpClient
             }
         };
 
-        var response = await httpClient.PostAsJsonAsync(
+        var response = await _httpClient.PostAsJsonAsync(
             $"/collections/{collectionName}/points/delete",
             request,
             cancellationToken);
@@ -168,10 +168,10 @@ internal class QdrantHttpClient
     {
         try
         {
-            var response = await httpClient.GetAsync("/health", cancellationToken);
+            var response = await _httpClient.GetAsync("/health", cancellationToken);
             return response.IsSuccessStatusCode;
         }
-        catch
+        catch (HttpRequestException)
         {
             return false;
         }

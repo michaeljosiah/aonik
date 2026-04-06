@@ -11,57 +11,75 @@ using Microsoft.Extensions.Options;
 /// </summary>
 internal class QdrantCollectionInitializer : IHostedService
 {
-    private readonly QdrantHttpClient httpClient;
-    private readonly QdrantConfiguration config;
-    private readonly ILogger<QdrantCollectionInitializer> logger;
+    private readonly QdrantHttpClient _httpClient;
+    private readonly QdrantConfiguration _config;
+    private readonly ILogger<QdrantCollectionInitializer> _logger;
+
+    private const int MaxRetries = 3;
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
 
     public QdrantCollectionInitializer(
         QdrantHttpClient httpClient,
         IOptions<QdrantConfiguration> options,
         ILogger<QdrantCollectionInitializer> logger)
     {
-        this.httpClient = httpClient;
-        this.config = options.Value;
-        this.logger = logger;
+        _httpClient = httpClient;
+        _config = options.Value;
+        _logger = logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         try
         {
-            logger.LogInformation(
+            _logger.LogInformation(
                 "Initializing Qdrant vector store at {Endpoint}",
-                config.Endpoint);
+                _config.Endpoint);
 
-            // Check health
-            var healthy = await httpClient.HealthAsync(cancellationToken);
-            if (!healthy)
+            // Retry health check to handle container startup race
+            var healthy = false;
+            for (var attempt = 1; attempt <= MaxRetries; attempt++)
             {
-                throw new InvalidOperationException(
-                    $"Qdrant at {config.Endpoint} is not healthy. " +
-                    "Ensure Qdrant is running and accessible.");
+                healthy = await _httpClient.HealthAsync(cancellationToken);
+                if (healthy) break;
+
+                _logger.LogWarning(
+                    "Qdrant health check attempt {Attempt}/{MaxRetries} failed, retrying in {Delay}s",
+                    attempt, MaxRetries, RetryDelay.TotalSeconds);
+
+                await Task.Delay(RetryDelay, cancellationToken);
             }
 
-            logger.LogInformation(
+            if (!healthy)
+            {
+                _logger.LogError(
+                    "Qdrant at {Endpoint} is not healthy after {MaxRetries} attempts. " +
+                    "Vector store operations will fail until Qdrant becomes available.",
+                    _config.Endpoint, MaxRetries);
+                return;
+            }
+
+            _logger.LogInformation(
                 "Qdrant vector store initialized successfully. " +
                 "Collections will be created on-demand with prefix '{Prefix}'",
-                config.CollectionPrefix);
+                _config.CollectionPrefix);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Qdrant initialization cancelled during shutdown");
         }
         catch (Exception ex)
         {
-            logger.LogError(
+            _logger.LogError(
                 ex,
                 "Failed to initialize Qdrant vector store at {Endpoint}",
-                config.Endpoint);
-
-            // Log but don't fail startup - allow app to start even if Qdrant is unavailable
-            // This is intentional to allow graceful degradation in development
+                _config.Endpoint);
         }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Stopping Qdrant collection initializer");
+        _logger.LogInformation("Stopping Qdrant collection initializer");
         return Task.CompletedTask;
     }
 }

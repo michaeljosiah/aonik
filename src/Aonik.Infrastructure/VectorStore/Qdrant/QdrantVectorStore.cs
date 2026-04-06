@@ -1,5 +1,6 @@
 namespace Aonik.Infrastructure.VectorStore.Qdrant;
 
+using System.Collections.Concurrent;
 using Aonik.Infrastructure.VectorStore.Contracts;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.Extensions.Logging;
@@ -11,10 +12,11 @@ using Microsoft.Extensions.Options;
 /// </summary>
 internal class QdrantVectorStore : IVectorStore
 {
-    private readonly QdrantHttpClient httpClient;
-    private readonly QdrantConfiguration config;
-    private readonly ITenantProvider tenantProvider;
-    private readonly ILogger<QdrantVectorStore> logger;
+    private readonly QdrantHttpClient _httpClient;
+    private readonly QdrantConfiguration _config;
+    private readonly ITenantProvider _tenantProvider;
+    private readonly ILogger<QdrantVectorStore> _logger;
+    private readonly ConcurrentDictionary<string, bool> _knownCollections = new();
 
     public QdrantVectorStore(
         QdrantHttpClient httpClient,
@@ -22,10 +24,10 @@ internal class QdrantVectorStore : IVectorStore
         ITenantProvider tenantProvider,
         ILogger<QdrantVectorStore> logger)
     {
-        this.httpClient = httpClient;
-        this.config = options.Value;
-        this.tenantProvider = tenantProvider;
-        this.logger = logger;
+        _httpClient = httpClient;
+        _config = options.Value;
+        _tenantProvider = tenantProvider;
+        _logger = logger;
     }
 
     public async Task UpsertVectorAsync(
@@ -41,34 +43,34 @@ internal class QdrantVectorStore : IVectorStore
             throw new ArgumentException("Vector ID required", nameof(vectorId));
         if (embedding == null || embedding.Length == 0)
             throw new ArgumentException("Embedding required", nameof(embedding));
-        if (embedding.Length != config.VectorDimensions)
+        if (embedding.Length != _config.VectorDimensions)
             throw new ArgumentException(
-                $"Embedding dimensions {embedding.Length} do not match configured {config.VectorDimensions}",
+                $"Embedding dimensions {embedding.Length} do not match configured {_config.VectorDimensions}",
                 nameof(embedding));
 
-        // Ensure collection exists
+        // Ensure collection exists (cached check)
         await EnsureCollectionExistsAsync(collectionName, cancellationToken);
 
-        // Add tenant isolation
+        // Add tenant isolation — fail-closed: throws if no tenant context
         var enhancedPayload = EnhancePayloadWithTenant(payload);
 
         try
         {
-            await httpClient.UpsertPointAsync(
+            await _httpClient.UpsertPointAsync(
                 collectionName,
                 vectorId,
                 embedding,
                 enhancedPayload,
                 cancellationToken);
 
-            logger.LogDebug(
+            _logger.LogDebug(
                 "Upserted vector {VectorId} to collection {Collection}",
                 vectorId,
                 collectionName);
         }
         catch (Exception ex)
         {
-            logger.LogError(
+            _logger.LogError(
                 ex,
                 "Failed to upsert vector {VectorId} to collection {Collection}",
                 vectorId,
@@ -88,21 +90,21 @@ internal class QdrantVectorStore : IVectorStore
             throw new ArgumentException("Collection name required", nameof(collectionName));
         if (queryEmbedding == null || queryEmbedding.Length == 0)
             throw new ArgumentException("Query embedding required", nameof(queryEmbedding));
-        if (queryEmbedding.Length != config.VectorDimensions)
+        if (queryEmbedding.Length != _config.VectorDimensions)
             throw new ArgumentException(
-                $"Query embedding dimensions {queryEmbedding.Length} do not match configured {config.VectorDimensions}",
+                $"Query embedding dimensions {queryEmbedding.Length} do not match configured {_config.VectorDimensions}",
                 nameof(queryEmbedding));
         if (limit <= 0)
             throw new ArgumentException("Limit must be > 0", nameof(limit));
         if (scoreThreshold < 0 || scoreThreshold > 1)
             throw new ArgumentException("Score threshold must be between 0 and 1", nameof(scoreThreshold));
 
-        // Build tenant filter
+        // Build tenant filter — fail-closed: throws if no tenant context
         var filter = BuildTenantFilter();
 
         try
         {
-            var hits = await httpClient.SearchAsync(
+            var hits = await _httpClient.SearchAsync(
                 collectionName,
                 queryEmbedding,
                 limit,
@@ -114,7 +116,7 @@ internal class QdrantVectorStore : IVectorStore
                 .Select(h => new VectorSearchResult(h.Id, h.Score, h.Payload))
                 .ToList();
 
-            logger.LogDebug(
+            _logger.LogDebug(
                 "Search in collection {Collection} returned {Count} results",
                 collectionName,
                 results.Count);
@@ -123,7 +125,7 @@ internal class QdrantVectorStore : IVectorStore
         }
         catch (Exception ex)
         {
-            logger.LogError(
+            _logger.LogError(
                 ex,
                 "Search failed in collection {Collection}",
                 collectionName);
@@ -150,12 +152,12 @@ internal class QdrantVectorStore : IVectorStore
 
             if (pointIds.Any())
             {
-                await httpClient.DeletePointsAsync(
+                await _httpClient.DeletePointsAsync(
                     collectionName,
                     pointIds,
                     cancellationToken);
 
-                logger.LogDebug(
+                _logger.LogDebug(
                     "Deleted {Count} vectors from collection {Collection}",
                     pointIds.Count,
                     collectionName);
@@ -163,7 +165,7 @@ internal class QdrantVectorStore : IVectorStore
         }
         catch (Exception ex)
         {
-            logger.LogError(
+            _logger.LogError(
                 ex,
                 "Failed to delete from collection {Collection}",
                 collectionName);
@@ -175,90 +177,85 @@ internal class QdrantVectorStore : IVectorStore
     {
         try
         {
-            var healthy = await httpClient.HealthAsync(cancellationToken);
+            var healthy = await _httpClient.HealthAsync(cancellationToken);
             if (!healthy)
             {
-                logger.LogWarning("Qdrant health check failed");
+                _logger.LogWarning("Qdrant health check failed");
             }
             return healthy;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Qdrant health check threw exception");
+            _logger.LogError(ex, "Qdrant health check threw exception");
             return false;
         }
     }
 
     /// <summary>
     /// Ensure collection exists, creating it if necessary.
+    /// Uses in-memory cache to avoid repeated HTTP calls.
     /// </summary>
     private async Task EnsureCollectionExistsAsync(
         string collectionName,
         CancellationToken cancellationToken)
     {
-        var exists = await httpClient.CollectionExistsAsync(collectionName, cancellationToken);
+        if (_knownCollections.ContainsKey(collectionName))
+            return;
+
+        var exists = await _httpClient.CollectionExistsAsync(collectionName, cancellationToken);
         if (!exists)
         {
-            logger.LogInformation("Creating collection {Collection}", collectionName);
-            await httpClient.CreateCollectionAsync(collectionName, cancellationToken);
+            _logger.LogInformation("Creating collection {Collection}", collectionName);
+            await _httpClient.CreateCollectionAsync(collectionName, cancellationToken);
         }
+
+        _knownCollections.TryAdd(collectionName, true);
     }
 
     /// <summary>
-    /// Add tenant isolation to payload.
+    /// Add tenant isolation to payload. Fail-closed: throws if no tenant context.
     /// </summary>
     private Dictionary<string, object> EnhancePayloadWithTenant(
         Dictionary<string, object>? payload)
     {
         var enhanced = new Dictionary<string, object>(payload ?? new Dictionary<string, object>());
 
-        try
+        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
         {
-            if (tenantProvider.TryGetCurrentTenantId(out var tenantId))
-            {
-                enhanced["tenant_id"] = tenantId.ToString();
-            }
-        }
-        catch
-        {
-            // If tenant context not available, continue without tenant isolation
-            logger.LogDebug("Tenant context not available for vector isolation");
+            throw new InvalidOperationException(
+                "Tenant context is required for vector store operations. " +
+                "Cannot upsert vectors without tenant isolation.");
         }
 
+        enhanced["tenant_id"] = tenantId.ToString();
         return enhanced;
     }
 
     /// <summary>
-    /// Build search filter for current tenant.
+    /// Build search filter for current tenant. Fail-closed: throws if no tenant context.
     /// </summary>
-    private Dictionary<string, object>? BuildTenantFilter()
+    private Dictionary<string, object> BuildTenantFilter()
     {
-        try
+        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
         {
-            if (!tenantProvider.TryGetCurrentTenantId(out var tenantId))
-            {
-                return null;
-            }
+            throw new InvalidOperationException(
+                "Tenant context is required for vector store search. " +
+                "Cannot search vectors without tenant isolation.");
+        }
 
-            // Qdrant filter format for exact match on tenant_id
-            return new Dictionary<string, object>
+        // Qdrant filter format for exact match on tenant_id
+        return new Dictionary<string, object>
+        {
             {
+                "must", new[]
                 {
-                    "must", new[]
+                    new Dictionary<string, object>
                     {
-                        new Dictionary<string, object>
-                        {
-                            { "key", "tenant_id" },
-                            { "match", new Dictionary<string, object> { { "value", tenantId.ToString() } } }
-                        }
+                        { "key", "tenant_id" },
+                        { "match", new Dictionary<string, object> { { "value", tenantId.ToString() } } }
                     }
                 }
-            };
-        }
-        catch
-        {
-            logger.LogDebug("Failed to build tenant filter");
-            return null;
-        }
+            }
+        };
     }
 }

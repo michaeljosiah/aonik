@@ -16,7 +16,7 @@ const string LocalDbConnectionString = @"Server=(localdb)\MSSQLLocalDB;Database=
 
 // Add Qdrant vector store
 var qdrant = builder
-    .AddContainer("qdrant", "qdrant/qdrant:latest")
+    .AddContainer("qdrant", "qdrant/qdrant", "v1.13.2")
     .WithHttpEndpoint(6333, 6333, name: "rest")
     .WithEndpoint("grpc", endpoint =>
     {
