@@ -31,3 +31,14 @@ public record InvoiceLineItemResponse(
     decimal Quantity,
     decimal UnitPrice,
     decimal LineTotal);
+
+public record AddInvoiceLineRequest(
+    string Description,
+    decimal Quantity,
+    decimal UnitPrice);
+
+public record UpdateLineQuantityRequest(decimal Quantity);
+
+public record UpdateLineUnitPriceRequest(decimal UnitPrice);
+
+public record ApplyDiscountRequest(decimal DiscountTotal);

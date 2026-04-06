@@ -37,6 +37,10 @@ import {
   CatalogPartnersPage,
   CatalogPartnerDetailPage,
 } from '@/pages/catalog';
+import {
+  InvoicesListPage,
+  InvoiceFormPage,
+} from '@/pages/billing';
 import { AutonumberingPage } from '@/pages/settings';
 import { FxRatesPage } from '@/pages/FxRatesPage';
 import { InvoiceManagerPanel } from '@/workspace/apps/InvoiceManagerPanel';
@@ -69,6 +73,12 @@ const navigation: NavigationSection[] = [
         label: 'Orders',
         icon: 'ClipboardList',
         href: '/orders/activity',
+      },
+      {
+        id: 'billing-invoices',
+        label: 'Invoices',
+        icon: 'FileText',
+        href: '/billing/invoices',
       },
       {
         id: 'accounting',
@@ -134,6 +144,9 @@ const routes = [
   { path: '/orders/activity', element: OrdersListPage },
   { path: '/orders/bill-payments/new', element: BillPaymentOrderFormPage },
   { path: '/orders/bill-payments/:orderId', element: BillPaymentOrderFormPage, isDynamic: true },
+  { path: '/billing/invoices', element: InvoicesListPage },
+  { path: '/billing/invoices/new', element: InvoiceFormPage },
+  { path: '/billing/invoices/:id', element: InvoiceFormPage, isDynamic: true },
   { path: '/ledger', element: LedgerOverviewPage },
   { path: '/ledger/accounts', element: LedgerAccountsPage },
   { path: '/ledger/journal-entries', element: LedgerJournalEntriesPage },
@@ -164,8 +177,8 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'orders-bill-payments-new', title: 'Create Bill Payment', type: 'internal', componentKey: 'bill-payment-form', route: '/orders/bill-payments/new' },
   { id: 'orders-activity', title: 'Order Activity', type: 'internal', componentKey: 'orders-list', route: '/orders/activity' },
   { id: 'billing', title: 'Billing', type: 'internal', componentKey: 'placeholder', route: '/billing' },
-  { id: 'billing-invoices', title: 'Invoices', type: 'internal', componentKey: 'placeholder', route: '/billing/invoices' },
-  { id: 'billing-invoices-new', title: 'Create Invoice', type: 'internal', componentKey: 'placeholder', route: '/billing/invoices/new' },
+  { id: 'billing-invoices', title: 'Invoices', type: 'internal', componentKey: 'invoices-list', route: '/billing/invoices' },
+  { id: 'billing-invoices-new', title: 'Create Invoice', type: 'internal', componentKey: 'invoice-form', route: '/billing/invoices/new' },
   { id: 'billing-dunning', title: 'Dunning Plans', type: 'internal', componentKey: 'placeholder', route: '/billing/dunning' },
   { id: 'payments', title: 'Payments', type: 'internal', componentKey: 'placeholder', route: '/payments' },
   { id: 'payments-transactions', title: 'Transactions', type: 'internal', componentKey: 'placeholder', route: '/payments/transactions' },
@@ -203,6 +216,8 @@ const panelComponents = {
   'catalog-partners': wrapPage(CatalogPartnersPage),
   autonumbering: wrapPage(AutonumberingPage),
   'fx-rates': wrapPage(FxRatesPage),
+  'invoices-list': wrapPage(InvoicesListPage),
+  'invoice-form': wrapPage(InvoiceFormPage),
   'invoice-manager': InvoiceManagerPanel,
   'reconciliation-hub': ReconciliationHubPanel,
   'cash-flow-forecaster': CashFlowForecasterPanel,
@@ -220,6 +235,7 @@ const breadcrumbs = [
   { pathPrefix: '/ledger', trail: ['Accounting'] },
   { pathPrefix: '/catalog', trail: ['Catalog'] },
   { pathPrefix: '/compliance', trail: ['Documents'] },
+  { pathPrefix: '/billing/invoices', trail: ['Billing', 'Invoices'] },
   { pathPrefix: '/billing', trail: ['Billing'] },
   { pathPrefix: '/payments', trail: ['Payments'] },
 ];

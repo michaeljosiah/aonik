@@ -1,4 +1,4 @@
-using Aonik.Finance.Contracts.Models.Billing;
+using Aonik.Finance.Contracts.Api.Billing;
 using Aonik.Finance.Contracts.Services.Billing;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
@@ -37,6 +37,23 @@ public class ListInvoicesEndpoint : Endpoint<ListInvoicesRequest, List<InvoiceRe
     public override async Task HandleAsync(ListInvoicesRequest req, CancellationToken ct)
     {
         var result = await _billingService.ListInvoicesAsync(req.Status, ct);
-        await Send.OkAsync(result.ToList(), ct);
+
+        var response = result.Select(r => new InvoiceResponse(
+            r.Id,
+            r.CustomerId,
+            r.InvoiceNumber,
+            r.Currency,
+            r.TotalAmount,
+            r.Status.ToString(),
+            r.IssuedUtc,
+            r.DueUtc,
+            r.LineItems.Select(li => new InvoiceLineItemResponse(
+                li.Id,
+                li.Description,
+                li.Quantity,
+                li.UnitPrice,
+                li.LineTotal)).ToList())).ToList();
+
+        await Send.OkAsync(response, ct);
     }
 }

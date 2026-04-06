@@ -66,10 +66,61 @@ internal sealed class InvoiceTools
         return $"Invoice {invoiceId} has been marked as paid.";
     }
 
+    [Description("Lists invoices, optionally filtered by status. Returns all matching invoices with line items, totals, and dates.")]
+    public async Task<IReadOnlyList<InvoiceResponse>> ListInvoices(
+        [Description("Optional status filter: Draft, Issued, Paid, or Cancelled. Leave empty for all.")] string? statusFilter = null,
+        CancellationToken cancellationToken = default)
+    {
+        return await _billingService.ListInvoicesAsync(statusFilter, cancellationToken);
+    }
+
+    [Description("Adds a new line item to an existing invoice and recalculates totals.")]
+    public async Task<string> AddLineToInvoice(
+        [Description("The unique identifier (GUID) of the invoice")] Guid invoiceId,
+        [Description("Description of the line item")] string description,
+        [Description("Quantity of the item")] decimal quantity,
+        [Description("Unit price of the item")] decimal unitPrice,
+        CancellationToken cancellationToken = default)
+    {
+        var lineRequest = new CreateInvoiceLineItemRequest(description, quantity, unitPrice);
+        await _billingService.AddLineToInvoiceAsync(invoiceId, lineRequest, cancellationToken);
+        return $"Line item '{description}' added to invoice {invoiceId}.";
+    }
+
+    [Description("Updates the quantity of an existing invoice line item and recalculates totals.")]
+    public async Task<string> UpdateLineQuantity(
+        [Description("The unique identifier (GUID) of the invoice line item")] Guid invoiceLineId,
+        [Description("The new quantity")] decimal quantity,
+        CancellationToken cancellationToken = default)
+    {
+        await _billingService.UpdateLineQuantityAsync(invoiceLineId, quantity, cancellationToken);
+        return $"Line item {invoiceLineId} quantity updated to {quantity}.";
+    }
+
+    [Description("Updates the unit price of an existing invoice line item and recalculates totals.")]
+    public async Task<string> UpdateLineUnitPrice(
+        [Description("The unique identifier (GUID) of the invoice line item")] Guid invoiceLineId,
+        [Description("The new unit price")] decimal unitPrice,
+        CancellationToken cancellationToken = default)
+    {
+        await _billingService.UpdateLineUnitPriceAsync(invoiceLineId, unitPrice, cancellationToken);
+        return $"Line item {invoiceLineId} unit price updated to {unitPrice}.";
+    }
+
+    [Description("Applies a discount amount to an invoice and recalculates totals.")]
+    public async Task<string> ApplyDiscount(
+        [Description("The unique identifier (GUID) of the invoice")] Guid invoiceId,
+        [Description("The discount amount to apply")] decimal discountTotal,
+        CancellationToken cancellationToken = default)
+    {
+        await _billingService.ApplyDiscountAsync(invoiceId, discountTotal, cancellationToken);
+        return $"Discount of {discountTotal} applied to invoice {invoiceId}.";
+    }
+
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all invoice tools.
-    /// Mutating tools (CreateInvoice, IssueInvoice, CancelInvoice, MarkInvoicePaid)
-    /// are wrapped with <see cref="ApprovalRequiredAIFunction"/> for human-in-the-loop approval.
+    /// Mutating tools are wrapped with <see cref="ApprovalRequiredAIFunction"/>
+    /// for human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -77,6 +128,7 @@ internal sealed class InvoiceTools
 
         // Read-only — safe for autonomous use
         yield return AIFunctionFactory.Create(tools.GetInvoice, name: "finance_get_invoice");
+        yield return AIFunctionFactory.Create(tools.ListInvoices, name: "finance_list_invoices");
 
         // Mutating — require approval before execution
         yield return new ApprovalRequiredAIFunction(
@@ -87,5 +139,13 @@ internal sealed class InvoiceTools
             AIFunctionFactory.Create(tools.CancelInvoice, name: "finance_cancel_invoice"));
         yield return new ApprovalRequiredAIFunction(
             AIFunctionFactory.Create(tools.MarkInvoicePaid, name: "finance_mark_invoice_paid"));
+        yield return new ApprovalRequiredAIFunction(
+            AIFunctionFactory.Create(tools.AddLineToInvoice, name: "finance_add_invoice_line"));
+        yield return new ApprovalRequiredAIFunction(
+            AIFunctionFactory.Create(tools.UpdateLineQuantity, name: "finance_update_line_quantity"));
+        yield return new ApprovalRequiredAIFunction(
+            AIFunctionFactory.Create(tools.UpdateLineUnitPrice, name: "finance_update_line_unit_price"));
+        yield return new ApprovalRequiredAIFunction(
+            AIFunctionFactory.Create(tools.ApplyDiscount, name: "finance_apply_invoice_discount"));
     }
 }

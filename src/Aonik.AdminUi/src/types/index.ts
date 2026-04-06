@@ -1560,3 +1560,39 @@ export interface UpdateNotificationTemplateBindingRequest {
   overrideTemplateId: string | null;
   isEnabled: boolean;
 }
+
+// ── Billing / Invoices ──────────────────────────────────────────────
+
+export interface InvoiceResponse {
+  id: string;
+  customerId: string;
+  invoiceNumber: string;
+  currency: string;
+  totalAmount: number;
+  status: string;
+  issuedUtc: string;
+  dueUtc: string;
+  lineItems: InvoiceLineItemResponse[];
+}
+
+export interface InvoiceLineItemResponse {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface CreateInvoiceRequest {
+  customerId: string;
+  invoiceNumber: string;
+  currency: string;
+  dueUtc: string;
+  lineItems: CreateInvoiceLineItemRequest[];
+}
+
+export interface CreateInvoiceLineItemRequest {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}

@@ -64,4 +64,60 @@ public static class InvoiceMcpTools
         await billingService.MarkInvoiceAsPaidAsync(invoiceId, cancellationToken);
         return $"Invoice {invoiceId} has been marked as paid.";
     }
+
+    [McpServerTool(Name = "finance_list_invoices"), Description("Lists invoices, optionally filtered by status. Returns all matching invoices with line items, totals, and dates.")]
+    public static async Task<IReadOnlyList<InvoiceResponse>> ListInvoices(
+        IBillingService billingService,
+        [Description("Optional status filter: Draft, Issued, Paid, or Cancelled. Leave empty for all.")] string? statusFilter = null,
+        CancellationToken cancellationToken = default)
+    {
+        return await billingService.ListInvoicesAsync(statusFilter, cancellationToken);
+    }
+
+    [McpServerTool(Name = "finance_add_invoice_line"), Description("Adds a new line item to an existing invoice and recalculates totals.")]
+    public static async Task<string> AddLineToInvoice(
+        IBillingService billingService,
+        [Description("The unique identifier (GUID) of the invoice")] Guid invoiceId,
+        [Description("Description of the line item")] string description,
+        [Description("Quantity of the item")] decimal quantity,
+        [Description("Unit price of the item")] decimal unitPrice,
+        CancellationToken cancellationToken = default)
+    {
+        var lineRequest = new CreateInvoiceLineItemRequest(description, quantity, unitPrice);
+        await billingService.AddLineToInvoiceAsync(invoiceId, lineRequest, cancellationToken);
+        return $"Line item '{description}' added to invoice {invoiceId}.";
+    }
+
+    [McpServerTool(Name = "finance_update_line_quantity"), Description("Updates the quantity of an existing invoice line item and recalculates totals.")]
+    public static async Task<string> UpdateLineQuantity(
+        IBillingService billingService,
+        [Description("The unique identifier (GUID) of the invoice line item")] Guid invoiceLineId,
+        [Description("The new quantity")] decimal quantity,
+        CancellationToken cancellationToken = default)
+    {
+        await billingService.UpdateLineQuantityAsync(invoiceLineId, quantity, cancellationToken);
+        return $"Line item {invoiceLineId} quantity updated to {quantity}.";
+    }
+
+    [McpServerTool(Name = "finance_update_line_unit_price"), Description("Updates the unit price of an existing invoice line item and recalculates totals.")]
+    public static async Task<string> UpdateLineUnitPrice(
+        IBillingService billingService,
+        [Description("The unique identifier (GUID) of the invoice line item")] Guid invoiceLineId,
+        [Description("The new unit price")] decimal unitPrice,
+        CancellationToken cancellationToken = default)
+    {
+        await billingService.UpdateLineUnitPriceAsync(invoiceLineId, unitPrice, cancellationToken);
+        return $"Line item {invoiceLineId} unit price updated to {unitPrice}.";
+    }
+
+    [McpServerTool(Name = "finance_apply_invoice_discount"), Description("Applies a discount amount to an invoice and recalculates totals.")]
+    public static async Task<string> ApplyDiscount(
+        IBillingService billingService,
+        [Description("The unique identifier (GUID) of the invoice")] Guid invoiceId,
+        [Description("The discount amount to apply")] decimal discountTotal,
+        CancellationToken cancellationToken = default)
+    {
+        await billingService.ApplyDiscountAsync(invoiceId, discountTotal, cancellationToken);
+        return $"Discount of {discountTotal} applied to invoice {invoiceId}.";
+    }
 }
