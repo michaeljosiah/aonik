@@ -23,7 +23,8 @@ ENV VITE_AUTH0_REDIRECT_URI=$VITE_AUTH0_REDIRECT_URI
 ENV VITE_AUTH0_AUDIENCE=$VITE_AUTH0_AUDIENCE
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-# Build workspace SDK (local file: dependency) so npm can resolve it
+# Build workspace SDK (local file: dependency) so npm can resolve it.
+# Only source + config are needed; dist is produced by the build step.
 COPY packages/workspace-sdk/ /packages/workspace-sdk/
 RUN cd /packages/workspace-sdk && npm install && npm run build
 
@@ -32,6 +33,8 @@ COPY src/Aonik.AdminUi/package.json ./
 # package-lock.json references the local dev layout which differs
 # from the Docker filesystem, causing npm to fail with 'extraneous'.
 RUN npm install
+# Ensure the SDK can resolve react (optional peer dep) from the Admin UI
+RUN ln -sf /app/node_modules/react /packages/workspace-sdk/node_modules/react
 
 COPY src/Aonik.AdminUi/ ./
 RUN npm run build
