@@ -522,9 +522,9 @@ resource qdrantApp 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: {
-        internal: true
         targetPort: 6333
         transport: 'http'
+        exposedPort: 0
       }
       secrets: [
         {
