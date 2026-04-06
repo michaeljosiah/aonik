@@ -33,15 +33,21 @@ internal class OpenAiEmbeddingService : IEmbeddingService
         this.qdrantConfig = qdrantOptions.Value;
         this.logger = logger;
 
-        this.apiKey = configuration["AI:OpenAI:ApiKey"]
-            ?? throw new InvalidOperationException(
-                "AI:OpenAI:ApiKey configuration is required for embeddings. " +
-                "Set it via appsettings, environment variable, or user-secrets.");
+        this.apiKey = configuration["AI:OpenAI:ApiKey"] ?? string.Empty;
 
-        logger.LogInformation(
-            "Initialized OpenAI embedding service with model {Model} and {Dimensions} dimensions",
-            ModelName,
-            Dimensions);
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            logger.LogWarning(
+                "OpenAI API key not configured. Using deterministic mock embeddings for development/testing. " +
+                "Set AI:OpenAI:ApiKey for production use.");
+        }
+        else
+        {
+            logger.LogInformation(
+                "Initialized OpenAI embedding service with model {Model} and {Dimensions} dimensions",
+                ModelName,
+                Dimensions);
+        }
     }
 
     public async Task<float[]> GetEmbeddingAsync(
