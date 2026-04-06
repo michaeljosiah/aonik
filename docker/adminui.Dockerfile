@@ -23,12 +23,14 @@ ENV VITE_AUTH0_REDIRECT_URI=$VITE_AUTH0_REDIRECT_URI
 ENV VITE_AUTH0_AUDIENCE=$VITE_AUTH0_AUDIENCE
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-# Build workspace SDK (local dependency) so npm ci can resolve it
+# Build workspace SDK (local file: dependency) so npm can resolve it
 COPY packages/workspace-sdk/ /packages/workspace-sdk/
-RUN cd /packages/workspace-sdk && npm ci && npm run build
+RUN cd /packages/workspace-sdk && npm install && npm run build
 
 COPY src/Aonik.AdminUi/package*.json ./
-RUN npm ci
+# Use npm install (not ci) because the file: dependency path in
+# package-lock.json may differ between local dev and Docker layout.
+RUN npm install
 
 COPY src/Aonik.AdminUi/ ./
 RUN npm run build
