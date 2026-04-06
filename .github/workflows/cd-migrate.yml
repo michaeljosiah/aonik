@@ -142,7 +142,7 @@ jobs:
           ConnectionStrings__DefaultConnection: ${{ steps.secret.outputs.connection_string }}
         run: |
           set -euo pipefail
-          SCRIPT="database/quartz-schema-sqlserver.sql"
+          SCRIPT="scripts/sql/quartz-schema-sqlserver.sql"
           if [ -f "$SCRIPT" ]; then
             echo "Applying Quartz schema (idempotent — uses IF NOT EXISTS)..."
             # Install sqlcmd via the mssql-tools package

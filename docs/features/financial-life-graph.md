@@ -2,7 +2,7 @@
 
 The Financial Life Graph is a tenant-scoped Personal Finance read model that projects a user's financial context into a graph-shaped response for UI, API, agent, and MCP consumers.
 
-It is the implementation companion to `.specifications/013.financial-life-graph.md`, but this document describes the code that exists today rather than the full aspirational design.
+It is the implementation companion to `docs/specifications/013.financial-life-graph.md`, but this document describes the code that exists today rather than the full aspirational design.
 
 ## What It Is
 

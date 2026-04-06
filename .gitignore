@@ -421,9 +421,17 @@ FodyWeavers.xsd
 *.msp
 /src/Aonik.Api/appsettings.Development.json
 
-# Local SDK installs
-.tools/flutter/
+# Local SDK installs & tool directories
+.tools/
+.tmp/
 nul
+
+# Stray screenshots / dev artifacts
+*.png
+!docs/images/**/*.png
+!apps/**/assets/**/*.png
+!apps/**/public/**/*.png
+!apps/**/src/**/*.png
 
 # App_Data folders - ignore contents but keep the folder structure
 **/App_Data/*
