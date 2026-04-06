@@ -205,6 +205,7 @@ dotnet test --filter "DisplayName~CreateInvoice"
 | [Architecture Overview](docs/architecture/overview.md) | System design and module boundaries |
 | [Module Organization](docs/architecture/module-organization.md) | How code is structured within modules |
 | [Technology Stack](docs/architecture/technology-stack.md) | Detailed technology choices and rationale |
+| [AONIK CLI Guide](docs/guides/aonik-cli.md) | Using the command-line client for AONIK systems |
 | [Testing Guide](docs/Testing.md) | Testing patterns, conventions, and examples |
 | [Troubleshooting](docs/Troubleshooting.md) | Common issues and solutions |
 | [API Authentication](docs/features/authentication-authorization.md) | Auth setup, local usage, and endpoint security |

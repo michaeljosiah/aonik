@@ -13,6 +13,7 @@ Welcome to the AONIK documentation! This guide will help you understand, develop
 - [Application Services](guides/application-services.md) - Service layer patterns
 - [Domain Entities](guides/domain-entities.md) - Anemic entity model
 - [API Endpoints](guides/api-endpoints.md) - FastEndpoints patterns
+- [AONIK CLI](guides/aonik-cli.md) - Command-line interaction with AONIK systems
 - [Testing](Testing.md) - Testing strategies
 - [Database Migrations](guides/database-migrations.md) - EF Core migrations
 
