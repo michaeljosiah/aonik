@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 
 using Aonik.Finance.Contracts.Models.PersonalFinance;
 using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
@@ -194,7 +195,8 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         var trendTransactions = FilterTransactions(nonTransferTransactions, trendWindowStartUtc, windowEndUtc);
 
         var recurringMerchantCandidates = BuildRecurringMerchantCandidates(nonTransferTransactions);
-        var cashPosition = BuildCashPosition(accounts);
+        var upcomingObligationsByCurrency = ComputeUpcomingObligationsByCurrency(asOfUtc, bills, subscriptions, lookaheadEndUtc);
+        var cashPosition = BuildCashPosition(accounts, upcomingObligationsByCurrency);
         var incomeSummary = BuildIncomeSummary(operationalTransactions, previousOperationalTransactions, nonTransferTransactions, operationalWindowStartUtc, windowEndUtc);
         var expenseSummary = BuildExpenseSummary(
             operationalTransactions,
@@ -204,8 +206,8 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
             recurringMerchantCandidates,
             operationalWindowStartUtc,
             windowEndUtc);
-        var categoryInsights = BuildCategoryInsights(operationalTransactions, previousOperationalTransactions, operationalWindowStartUtc, windowEndUtc);
-        var merchantInsights = BuildMerchantInsights(operationalTransactions, previousOperationalTransactions, recurringMerchantCandidates, operationalWindowStartUtc, windowEndUtc);
+        var categoryInsights = BuildCategoryInsights(operationalTransactions, previousOperationalTransactions, nonTransferTransactions, asOfUtc, operationalWindowStartUtc, windowEndUtc);
+        var merchantInsights = BuildMerchantInsights(operationalTransactions, previousOperationalTransactions, nonTransferTransactions, asOfUtc, recurringMerchantCandidates, operationalWindowStartUtc, windowEndUtc);
         var obligationInsights = BuildObligationInsights(asOfUtc, bills, subscriptions, lookaheadEndUtc, cashPosition);
         var budgetInsights = BuildBudgetInsights(budgets, normalizedTransactions, asOfUtc);
         var goalInsights = BuildGoalInsights(goals, normalizedTransactions, trendWindowStartUtc, windowEndUtc);
@@ -281,6 +283,29 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
 
         var currencies = CollectCurrencies(accounts, normalizedTransactions, bills, subscriptions, budgets, goals);
 
+        var profile = await LoadPersonalProfileAsync(tenantId, userId, cancellationToken);
+
+        var orderHistory = profile is not null
+            ? await LoadOptionalDomainAsync(
+                ct => LoadOrdersAsync(tenantId, profile.PartyId, behaviourWindowStartUtc, windowEndUtc, ct),
+                "orders",
+                "orderHistory",
+                coverageAccumulator,
+                cancellationToken)
+            : new List<Order>();
+
+        var (household, householdMembers) = profile?.HouseholdId.HasValue == true
+            ? await LoadHouseholdAsync(tenantId, profile.HouseholdId.Value, coverageAccumulator, cancellationToken)
+            : (null, new List<HouseholdMember>());
+
+        var orderHistorySection = orderHistory.Count > 0
+            ? BuildOrderHistory(orderHistory, behaviourWindowStartUtc, windowEndUtc)
+            : null;
+
+        var householdContextSection = household is not null
+            ? BuildHouseholdContext(household, householdMembers, userId)
+            : null;
+
         var snapshot = new CustomerInsightSnapshotDocument(
             CustomerInsightSnapshotContract.SchemaVersion,
             userId,
@@ -303,7 +328,9 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
             metrics,
             signals,
             riskOverview,
-            evidence);
+            evidence,
+            orderHistorySection,
+            householdContextSection);
 
         var snapshotJson = JsonSerializer.Serialize(snapshot, JsonOptions);
         var sourceHash = ComputeSourceHash(
@@ -414,12 +441,22 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         }
     }
 
-    private static CustomerInsightCashPosition BuildCashPosition(IReadOnlyList<PersonalAccount> accounts)
+    private static CustomerInsightCashPosition BuildCashPosition(
+        IReadOnlyList<PersonalAccount> accounts,
+        IReadOnlyDictionary<string, decimal> upcomingObligationsByCurrency)
     {
         var totalBalanceByCurrency = accounts
             .GroupBy(x => NormalizeCurrency(x.Currency))
             .OrderBy(x => x.Key)
             .Select(x => new CustomerInsightMoneyAmount(x.Key, decimal.Round(x.Sum(y => y.CurrentBalance), 2)))
+            .ToList();
+
+        var availableBalanceByCurrency = totalBalanceByCurrency
+            .Select(x =>
+            {
+                var committed = upcomingObligationsByCurrency.TryGetValue(x.Currency, out var amount) ? amount : 0m;
+                return new CustomerInsightMoneyAmount(x.Currency, decimal.Round(Math.Max(x.Amount - committed, 0m), 2));
+            })
             .ToList();
 
         var absoluteTotals = accounts
@@ -467,9 +504,167 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         return new CustomerInsightCashPosition(
             accounts.Count,
             totalBalanceByCurrency,
-            totalBalanceByCurrency,
+            availableBalanceByCurrency,
             balancesByAccount,
             concentration);
+    }
+
+    private static IReadOnlyDictionary<string, decimal> ComputeUpcomingObligationsByCurrency(
+        DateTime asOfUtc,
+        IReadOnlyList<Bill> bills,
+        IReadOnlyList<Subscription> subscriptions,
+        DateTime lookaheadEndUtc)
+    {
+        var today = asOfUtc.Date;
+        return bills
+            .Where(x => x.NextDueDate.Date >= today && x.NextDueDate <= lookaheadEndUtc && x.ExpectedAmount.HasValue)
+            .Select(x => (Currency: NormalizeCurrency(x.Currency), Amount: x.ExpectedAmount!.Value))
+            .Concat(subscriptions
+                .Where(x => x.RenewalDate.Date >= today && x.RenewalDate <= lookaheadEndUtc)
+                .Select(x => (Currency: NormalizeCurrency(x.Currency), Amount: x.ExpectedAmount)))
+            .GroupBy(x => x.Currency, StringComparer.Ordinal)
+            .ToDictionary(x => x.Key, x => x.Sum(y => y.Amount), StringComparer.Ordinal);
+    }
+
+    private async Task<PersonalProfile?> LoadPersonalProfileAsync(
+        Guid tenantId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _dbContext.PersonalProfiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.UserId == userId, cancellationToken);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<List<Order>> LoadOrdersAsync(
+        Guid tenantId,
+        Guid partyId,
+        DateTime windowStartUtc,
+        DateTime windowEndUtc,
+        CancellationToken cancellationToken)
+    {
+        var orderIds = await _dbContext.OrderPartyRoles
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId && x.PartyId == partyId)
+            .Select(x => x.OrderId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (orderIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await _dbContext.Orders
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId
+                && orderIds.Contains(x.Id)
+                && x.CreatedAt >= windowStartUtc
+                && x.CreatedAt <= windowEndUtc)
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task<(Household? household, List<HouseholdMember> members)> LoadHouseholdAsync(
+        Guid tenantId,
+        Guid householdId,
+        CustomerInsightCoverageAccumulator coverageAccumulator,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var household = await _dbContext.Households
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.Id == householdId, cancellationToken);
+
+            if (household is null)
+            {
+                return (null, []);
+            }
+
+            var members = await _dbContext.HouseholdMembers
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenantId && x.HouseholdId == householdId)
+                .ToListAsync(cancellationToken);
+
+            coverageAccumulator.MarkAvailable("household");
+            return (household, members);
+        }
+        catch (Exception ex)
+        {
+            coverageAccumulator.MarkMissing("household", "householdContext", ex.Message);
+            return (null, []);
+        }
+    }
+
+    private static CustomerInsightOrderHistory BuildOrderHistory(
+        IReadOnlyList<Order> orders,
+        DateTime windowStartUtc,
+        DateTime windowEndUtc)
+    {
+        var completedCount = orders.Count(x => x.Status == OrderStatuses.Complete);
+        var failedCount = orders.Count(x => x.Status is OrderStatuses.Failed or OrderStatuses.Cancelled or OrderStatuses.Expired);
+        var pendingCount = orders.Count(x => x.Status is OrderStatuses.Pending or OrderStatuses.UnderReview or OrderStatuses.Approved or OrderStatuses.Transmitted or OrderStatuses.Draft);
+
+        var recentOrders = orders
+            .Take(50)
+            .Select(x => new CustomerInsightRecentOrder(
+                x.Id,
+                string.IsNullOrWhiteSpace(x.OrderType) ? "Unknown" : x.OrderType.Trim(),
+                string.IsNullOrWhiteSpace(x.Status) ? "Unknown" : x.Status.Trim(),
+                NormalizeCurrency(x.CurrencyIn),
+                decimal.Round(x.AmountIn, 2),
+                x.CurrencyOut is null ? null : NormalizeCurrency(x.CurrencyOut),
+                x.AmountOut.HasValue ? decimal.Round(x.AmountOut.Value, 2) : null,
+                x.CreatedAt))
+            .ToList();
+
+        var byType = orders
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.OrderType) ? "Unknown" : x.OrderType.Trim())
+            .OrderBy(x => x.Key)
+            .Select(x => new CustomerInsightOrderTypeSummary(
+                x.Key,
+                x.Count(),
+                x.Count(y => y.Status == OrderStatuses.Complete),
+                x.Count(y => y.Status is OrderStatuses.Failed or OrderStatuses.Cancelled or OrderStatuses.Expired)))
+            .ToList();
+
+        return new CustomerInsightOrderHistory(
+            windowStartUtc,
+            windowEndUtc,
+            orders.Count,
+            completedCount,
+            pendingCount,
+            failedCount,
+            recentOrders,
+            byType);
+    }
+
+    private static CustomerInsightHouseholdContext BuildHouseholdContext(
+        Household household,
+        IReadOnlyList<HouseholdMember> members,
+        Guid currentUserId)
+    {
+        var memberSummaries = members
+            .OrderBy(x => x.UserId)
+            .Select(x => new CustomerInsightHouseholdMemberSummary(
+                x.UserId,
+                string.IsNullOrWhiteSpace(x.Role) ? "member" : x.Role.Trim(),
+                x.UserId == currentUserId))
+            .ToList();
+
+        return new CustomerInsightHouseholdContext(
+            household.Id,
+            string.IsNullOrWhiteSpace(household.Name) ? "Household" : household.Name.Trim(),
+            members.Count,
+            memberSummaries);
     }
 
     private static CustomerInsightIncomeSummary BuildIncomeSummary(
@@ -581,6 +776,8 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
     private static CustomerInsightCategoryInsights BuildCategoryInsights(
         IReadOnlyList<NormalizedTransaction> operationalTransactions,
         IReadOnlyList<NormalizedTransaction> previousOperationalTransactions,
+        IReadOnlyList<NormalizedTransaction> behaviourTransactions,
+        DateTime asOfUtc,
         DateTime operationalWindowStartUtc,
         DateTime windowEndUtc)
     {
@@ -631,12 +828,15 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
                 categories,
                 x => x.Currency,
                 x => x.Amount,
-                topN: 3));
+                topN: 3),
+            BuildCategoryMonthlyTrends(behaviourTransactions, asOfUtc));
     }
 
     private static CustomerInsightMerchantInsights BuildMerchantInsights(
         IReadOnlyList<NormalizedTransaction> operationalTransactions,
         IReadOnlyList<NormalizedTransaction> previousOperationalTransactions,
+        IReadOnlyList<NormalizedTransaction> behaviourTransactions,
+        DateTime asOfUtc,
         IReadOnlyList<CustomerInsightRecurringMerchantCandidate> recurringMerchantCandidates,
         DateTime operationalWindowStartUtc,
         DateTime windowEndUtc)
@@ -690,7 +890,119 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
                 merchants,
                 x => x.Currency,
                 x => x.Amount,
-                topN: 3));
+                topN: 3),
+            BuildMerchantMonthlyTrends(behaviourTransactions, asOfUtc));
+    }
+
+    private static IReadOnlyList<CustomerInsightCategoryMonthlySeries> BuildCategoryMonthlyTrends(
+        IReadOnlyList<NormalizedTransaction> behaviourTransactions,
+        DateTime asOfUtc,
+        int months = 6,
+        int topCategories = 8)
+    {
+        var expenseTransactions = behaviourTransactions.Where(x => x.IsExpense).ToList();
+        if (expenseTransactions.Count == 0)
+        {
+            return [];
+        }
+
+        var monthStarts = Enumerable.Range(0, months)
+            .Select(offset => StartOfMonth(asOfUtc).AddMonths(-(months - offset - 1)))
+            .ToList();
+
+        var monthLabels = monthStarts
+            .Select(m => m.ToString("yyyy-MM"))
+            .ToList();
+
+        var topCategoryKeys = expenseTransactions
+            .GroupBy(x => new { x.Currency, x.Category })
+            .Select(x => new { x.Key.Currency, x.Key.Category, Total = Math.Abs(x.Sum(y => y.Amount)) })
+            .GroupBy(x => x.Currency)
+            .SelectMany(g => g.OrderByDescending(x => x.Total).Take(topCategories))
+            .Select(x => (x.Currency, x.Category))
+            .ToHashSet();
+
+        return expenseTransactions
+            .Where(x => topCategoryKeys.Contains((x.Currency, x.Category)))
+            .GroupBy(x => new { x.Currency, x.Category })
+            .OrderBy(x => x.Key.Currency)
+            .ThenBy(x => x.Key.Category)
+            .Select(g =>
+            {
+                var amounts = monthStarts
+                    .Select(monthStart =>
+                    {
+                        var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
+                        return decimal.Round(Math.Abs(g
+                            .Where(x => x.OccurredAtUtc >= monthStart && x.OccurredAtUtc <= monthEnd)
+                            .Sum(x => x.Amount)), 2);
+                    })
+                    .ToList();
+
+                return new CustomerInsightCategoryMonthlySeries(
+                    g.Key.Category,
+                    g.Key.Currency,
+                    new CustomerInsightMonthlySeries(monthLabels, amounts));
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<CustomerInsightMerchantMonthlySeries> BuildMerchantMonthlyTrends(
+        IReadOnlyList<NormalizedTransaction> behaviourTransactions,
+        DateTime asOfUtc,
+        int months = 6,
+        int topMerchants = 5)
+    {
+        var expenseTransactions = behaviourTransactions
+            .Where(x => x.IsExpense && !string.IsNullOrWhiteSpace(x.MerchantKey))
+            .ToList();
+
+        if (expenseTransactions.Count == 0)
+        {
+            return [];
+        }
+
+        var monthStarts = Enumerable.Range(0, months)
+            .Select(offset => StartOfMonth(asOfUtc).AddMonths(-(months - offset - 1)))
+            .ToList();
+
+        var monthLabels = monthStarts
+            .Select(m => m.ToString("yyyy-MM"))
+            .ToList();
+
+        var topMerchantKeys = expenseTransactions
+            .GroupBy(x => new { x.Currency, x.MerchantKey, x.MerchantDisplay })
+            .Select(x => new { x.Key.Currency, x.Key.MerchantKey, x.Key.MerchantDisplay, Total = Math.Abs(x.Sum(y => y.Amount)) })
+            .GroupBy(x => x.Currency)
+            .SelectMany(g => g.OrderByDescending(x => x.Total).Take(topMerchants))
+            .Select(x => (x.Currency, x.MerchantKey, x.MerchantDisplay))
+            .ToList();
+
+        return topMerchantKeys
+            .OrderBy(x => x.Currency)
+            .ThenBy(x => x.MerchantDisplay)
+            .Select(key =>
+            {
+                var merchantTransactions = expenseTransactions
+                    .Where(x => x.Currency == key.Currency && x.MerchantKey == key.MerchantKey)
+                    .ToList();
+
+                var amounts = monthStarts
+                    .Select(monthStart =>
+                    {
+                        var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
+                        return decimal.Round(Math.Abs(merchantTransactions
+                            .Where(x => x.OccurredAtUtc >= monthStart && x.OccurredAtUtc <= monthEnd)
+                            .Sum(x => x.Amount)), 2);
+                    })
+                    .ToList();
+
+                return new CustomerInsightMerchantMonthlySeries(
+                    key.MerchantDisplay,
+                    key.Currency,
+                    new CustomerInsightMonthlySeries(monthLabels, amounts));
+            })
+            .ToList();
     }
 
     private static CustomerInsightObligationInsights BuildObligationInsights(

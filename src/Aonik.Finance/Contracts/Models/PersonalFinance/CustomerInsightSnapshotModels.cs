@@ -9,8 +9,8 @@ namespace Aonik.Finance.Contracts.Models.PersonalFinance;
 /// </summary>
 public static class CustomerInsightSnapshotContract
 {
-    public const string SchemaVersion = "customer_insight_snapshot.v1";
-    public const string GeneratorVersion = "customer_insight_snapshot_generator.v1";
+    public const string SchemaVersion = "customer_insight_snapshot.v3";
+    public const string GeneratorVersion = "customer_insight_snapshot_generator.v3";
 
     public const string StatusCurrent = "Current";
     public const string StatusSuperseded = "Superseded";
@@ -132,7 +132,9 @@ public record CustomerInsightSnapshotDocument(
     CustomerInsightMetrics Metrics,
     IReadOnlyList<CustomerInsightSignal> Signals,
     CustomerInsightRiskOverview Risk,
-    CustomerInsightEvidence Evidence);
+    CustomerInsightEvidence Evidence,
+    CustomerInsightOrderHistory? OrderHistory,
+    CustomerInsightHouseholdContext? HouseholdContext);
 
 public record CustomerInsightAnalysisWindow(
     DateTime WindowStartUtc,
@@ -203,7 +205,8 @@ public record CustomerInsightCategoryInsights(
     IReadOnlyList<CustomerInsightCategorySpend> TopCategoriesByAmount,
     IReadOnlyList<CustomerInsightCategorySpend> TopCategoriesByShare,
     IReadOnlyList<CustomerInsightCategorySpend> CategoryTrendDeltas,
-    IReadOnlyList<CustomerInsightConcentrationRatio> ConcentrationRatios);
+    IReadOnlyList<CustomerInsightConcentrationRatio> ConcentrationRatios,
+    IReadOnlyList<CustomerInsightCategoryMonthlySeries> CategoryMonthlyTrends);
 
 public record CustomerInsightMerchantInsights(
     int WindowDays,
@@ -212,7 +215,8 @@ public record CustomerInsightMerchantInsights(
     IReadOnlyList<CustomerInsightMerchantSpend> TopMerchantsByAmount,
     IReadOnlyList<CustomerInsightMerchantFrequency> TopMerchantsByFrequency,
     IReadOnlyList<CustomerInsightRecurringMerchantCandidate> RecurringMerchantCandidates,
-    IReadOnlyList<CustomerInsightConcentrationRatio> ConcentrationRatios);
+    IReadOnlyList<CustomerInsightConcentrationRatio> ConcentrationRatios,
+    IReadOnlyList<CustomerInsightMerchantMonthlySeries> TopMerchantMonthlyTrends);
 
 public record CustomerInsightObligationInsights(
     int LookaheadDays,
@@ -379,3 +383,54 @@ public record CustomerInsightGoalProgress(
 public record CustomerInsightSourceCount(string Source, int Count);
 
 public record CustomerInsightExcludedDataCount(string Source, int Count, string Reason);
+
+public record CustomerInsightMonthlySeries(
+    IReadOnlyList<string> MonthLabels,
+    IReadOnlyList<decimal> Amounts);
+
+public record CustomerInsightCategoryMonthlySeries(
+    string Category,
+    string Currency,
+    CustomerInsightMonthlySeries Series);
+
+public record CustomerInsightMerchantMonthlySeries(
+    string Merchant,
+    string Currency,
+    CustomerInsightMonthlySeries Series);
+
+public record CustomerInsightOrderHistory(
+    DateTime WindowStartUtc,
+    DateTime WindowEndUtc,
+    int TotalOrders,
+    int CompletedCount,
+    int PendingCount,
+    int FailedCount,
+    IReadOnlyList<CustomerInsightRecentOrder> RecentOrders,
+    IReadOnlyList<CustomerInsightOrderTypeSummary> ByType);
+
+public record CustomerInsightRecentOrder(
+    Guid OrderId,
+    string OrderType,
+    string Status,
+    string CurrencyIn,
+    decimal AmountIn,
+    string? CurrencyOut,
+    decimal? AmountOut,
+    DateTime CreatedAt);
+
+public record CustomerInsightOrderTypeSummary(
+    string OrderType,
+    int TotalCount,
+    int CompletedCount,
+    int FailedCount);
+
+public record CustomerInsightHouseholdContext(
+    Guid HouseholdId,
+    string HouseholdName,
+    int MemberCount,
+    IReadOnlyList<CustomerInsightHouseholdMemberSummary> Members);
+
+public record CustomerInsightHouseholdMemberSummary(
+    Guid UserId,
+    string Role,
+    bool IsCurrentUser);

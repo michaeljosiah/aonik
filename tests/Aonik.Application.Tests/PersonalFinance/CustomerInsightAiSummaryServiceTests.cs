@@ -457,7 +457,8 @@ public class CustomerInsightAiSummaryServiceTests
                     [new CustomerInsightCategorySpend("housing", "USD", 900m, 56.25m, 1, 850m, 5.88m)],
                     [new CustomerInsightCategorySpend("housing", "USD", 900m, 56.25m, 1, 850m, 5.88m)],
                     [new CustomerInsightCategorySpend("entertainment", "USD", 400m, 25m, 2, 200m, 100m)],
-                    [new CustomerInsightConcentrationRatio("USD", 81.25m)]),
+                    [new CustomerInsightConcentrationRatio("USD", 81.25m)],
+                    []),
                 new CustomerInsightMerchantInsights(
                     30,
                     asOfUtc.AddDays(-30),
@@ -465,7 +466,8 @@ public class CustomerInsightAiSummaryServiceTests
                     [new CustomerInsightMerchantSpend("Landlord", "USD", 900m, 56.25m, 1)],
                     [new CustomerInsightMerchantFrequency("Cinema World", "USD", 2, 400m)],
                     [new CustomerInsightRecurringMerchantCandidate("Netflix", "USD", 20m, 3, 3)],
-                    [new CustomerInsightConcentrationRatio("USD", 81.25m)]),
+                    [new CustomerInsightConcentrationRatio("USD", 81.25m)],
+                    []),
                 new CustomerInsightObligationInsights(
                     30,
                     asOfUtc,
@@ -511,7 +513,9 @@ public class CustomerInsightAiSummaryServiceTests
                 [new CustomerInsightSourceCount("transactions", 15)],
                 [new CustomerInsightExcludedDataCount("confirmed_internal_transfers", 1, "Excluded from totals")],
                 ["schema:customer_insight_snapshot.v1"],
-                []));
+                []),
+            null,
+            null);
 
         dbContext.CustomerInsightSnapshots.Add(new CustomerInsightSnapshot
         {

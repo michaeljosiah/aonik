@@ -134,7 +134,7 @@ internal class PromptSpecSeedService
         new("personal_spending_insight", "v1",
             VariablesSchemaJson: """{"SPENDING_DATA": "Spending summary data as JSON"}"""),
 
-        new("customer_insight_summary", "v1",
+        new("customer_insight_summary", "v2",
             VariablesSchemaJson: """{"SNAPSHOT_JSON": "Deterministic customer insight snapshot as JSON"}""",
             OutputSchemaJson: CustomerInsightAiSummaryContract.SummaryJsonSchema),
 

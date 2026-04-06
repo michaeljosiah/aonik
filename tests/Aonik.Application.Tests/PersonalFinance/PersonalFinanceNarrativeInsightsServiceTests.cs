@@ -207,7 +207,8 @@ public class PersonalFinanceNarrativeInsightsServiceTests
                         [new CustomerInsightCategorySpend("food", "USD", 700m, 38.89m, 3, 500m, 40m)],
                         [new CustomerInsightCategorySpend("food", "USD", 700m, 38.89m, 3, 500m, 40m)],
                         [new CustomerInsightCategorySpend("food", "USD", 700m, 38.89m, 3, 500m, 40m)],
-                        [new CustomerInsightConcentrationRatio("USD", 38.89m)]),
+                        [new CustomerInsightConcentrationRatio("USD", 38.89m)],
+                        []),
                     new CustomerInsightMerchantInsights(
                         30,
                         asOfUtc.AddDays(-30),
@@ -215,7 +216,8 @@ public class PersonalFinanceNarrativeInsightsServiceTests
                         [new CustomerInsightMerchantSpend("Tesco", "USD", 500m, 27.78m, 2)],
                         [new CustomerInsightMerchantFrequency("Tesco", "USD", 2, 500m)],
                         [],
-                        [new CustomerInsightConcentrationRatio("USD", 27.78m)]),
+                        [new CustomerInsightConcentrationRatio("USD", 27.78m)],
+                        []),
                     new CustomerInsightObligationInsights(
                         30,
                         asOfUtc,
@@ -253,7 +255,9 @@ public class PersonalFinanceNarrativeInsightsServiceTests
                     [],
                     [],
                     [],
-                    [])));
+                    []),
+                null,
+                null));
     }
 
     private sealed class FakeSnapshotReader : ICustomerInsightSnapshotReader

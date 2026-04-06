@@ -444,7 +444,8 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
                     [new CustomerInsightCategorySpend("housing", "USD", 900m, 75m, 1, 850m, 5.88m)],
                     [new CustomerInsightCategorySpend("housing", "USD", 900m, 75m, 1, 850m, 5.88m)],
                     [new CustomerInsightCategorySpend("housing", "USD", 900m, 75m, 1, 850m, 5.88m)],
-                    [new CustomerInsightConcentrationRatio("USD", 75m)]),
+                    [new CustomerInsightConcentrationRatio("USD", 75m)],
+                    []),
                 new CustomerInsightMerchantInsights(
                     30,
                     new DateTime(2026, 3, 2, 0, 0, 0, DateTimeKind.Utc),
@@ -452,7 +453,8 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
                     [new CustomerInsightMerchantSpend("Landlord", "USD", 900m, 75m, 1)],
                     [new CustomerInsightMerchantFrequency("Landlord", "USD", 1, 900m)],
                     [],
-                    [new CustomerInsightConcentrationRatio("USD", 75m)]),
+                    [new CustomerInsightConcentrationRatio("USD", 75m)],
+                    []),
                 new CustomerInsightObligationInsights(
                     30,
                     new DateTime(2026, 3, 31, 0, 0, 0, DateTimeKind.Utc),
@@ -466,7 +468,9 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
                 new CustomerInsightGoalInsights(0, [], CustomerInsightSnapshotContract.ConfidenceLow)),
             [],
             new CustomerInsightRiskOverview(CustomerInsightSnapshotContract.SeverityLow, CustomerInsightSnapshotContract.SeverityLow, [], CustomerInsightSnapshotContract.SeverityLow, []),
-            new CustomerInsightEvidence(0, 0, [], new DateTime(2025, 10, 4, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 3, 31, 23, 59, 59, DateTimeKind.Utc), [], [], [], []));
+            new CustomerInsightEvidence(0, 0, [], new DateTime(2025, 10, 4, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 3, 31, 23, 59, 59, DateTimeKind.Utc), [], [], [], []),
+            null,
+            null);
 
         return System.Text.Json.JsonSerializer.Serialize(document);
     }

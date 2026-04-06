@@ -4,7 +4,7 @@ public static class CustomerInsightAiSummaryContract
 {
     public const string SchemaVersion = "customer_insight_ai_summary.v1";
     public const string PromptName = "customer_insight_summary";
-    public const string PromptVersion = "v1";
+    public const string PromptVersion = "v2";
     public const string UseCase = "personal_finance_customer_insight_summary";
 
     public const string StatusCurrent = "Current";
