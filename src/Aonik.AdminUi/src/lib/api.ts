@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { apiConfig } from '@/auth';
 import { clearSelectedTenant, getSelectedTenant } from '@/lib/tenantContext';
+import { isElectron, electronAPI } from '@/lib/electron';
 
 // Create axios instance with base configuration
 const apiClient: AxiosInstance = axios.create({
@@ -10,6 +11,15 @@ const apiClient: AxiosInstance = axios.create({
   },
   timeout: 30000,
 });
+
+// In Electron production builds the renderer is served from file://, so the
+// relative /api base URL won't resolve. Override with the backend URL provided
+// by the main process via IPC.
+if (isElectron) {
+  electronAPI.getApiBaseUrl().then((url: string) => {
+    if (url) apiClient.defaults.baseURL = url;
+  });
+}
 
 // Token getter function - will be set by AuthProvider
 let getAccessTokenFn: (() => Promise<string | null>) | null = null;

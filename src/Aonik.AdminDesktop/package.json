@@ -1,0 +1,26 @@
+{
+  "name": "aonik-admin-desktop",
+  "version": "0.1.0",
+  "description": "Aonik Admin Desktop Application",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "prebuild": "npm run copy-renderer",
+    "copy-renderer": "node scripts/copy-renderer.js",
+    "pack": "npm run build && electron-builder --dir",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-vite": "^3.0.0",
+    "electron-builder": "^26.0.0",
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron-toolkit/utils": "^3.0.0",
+    "typescript": "~5.9.0"
+  }
+}
