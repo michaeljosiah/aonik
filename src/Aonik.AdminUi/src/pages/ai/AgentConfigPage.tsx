@@ -430,56 +430,57 @@ export function AgentConfigPage() {
         </div>
       )}
 
-      {/* Header toolbar */}
-      <DataTableHeader
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search agents..."
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        showViewToggle
-        actions={
-          <Button size="sm" className="gap-1.5" onClick={() => navigate('/ai/playground')}>
-            <Plus className="w-4 h-4" />
-            New Agent
-          </Button>
-        }
-        className="mb-6 px-0 border-none"
-      />
+      {/* ── Outer content card ─────────────────────────────────────── */}
+      <Card className="overflow-visible">
+        {/* Toolbar — inside card header */}
+        <DataTableHeader
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search agents..."
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          showViewToggle
+          actions={
+            <Button size="sm" className="gap-1.5" onClick={() => navigate('/ai/playground')}>
+              <Plus className="w-4 h-4" />
+              New Agent
+            </Button>
+          }
+        />
 
-      {/* Loading state */}
-      {loading && configs.length === 0 ? (
-        <div className="flex items-center justify-center py-20 text-[var(--color-text-tertiary)]">
-          <span className="text-sm">Loading agents...</span>
-        </div>
-      ) : displayConfigs.length === 0 ? (
-        /* Empty state */
-        <div className="text-center py-16">
-          <div className="text-4xl mb-3">🤖</div>
-          <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-1">
-            {searchQuery ? 'No agents found' : 'No agents configured'}
-          </h3>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            {searchQuery
-              ? 'Try adjusting your search terms.'
-              : 'Agents will appear here once they are registered in the system.'}
-          </p>
-        </div>
-      ) : viewMode === 'grid' ? (
-        /* ── Grid view ─────────────────────────────────────────────── */
-        <div className="flex flex-wrap gap-x-6 gap-y-14 pt-10">
-          {displayConfigs.map((config) => (
-            <AgentCentraliCard
-              key={config.id}
-              config={config}
-              onConfigure={() => navigate(`/ai/agents/${config.name}`)}
-              onDeleteOverride={config.isOverride ? () => confirmDeleteOverride(config) : undefined}
-            />
-          ))}
-        </div>
-      ) : (
-        /* ── List view ─────────────────────────────────────────────── */
-        <div className="rounded-md border border-[var(--color-border-light)] overflow-hidden">
+        {/* Content area */}
+        {loading && configs.length === 0 ? (
+          <div className="flex items-center justify-center py-20 text-[var(--color-text-tertiary)]">
+            <span className="text-sm">Loading agents...</span>
+          </div>
+        ) : displayConfigs.length === 0 ? (
+          /* Empty state */
+          <div className="text-center py-16">
+            <div className="text-4xl mb-3">🤖</div>
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-1">
+              {searchQuery ? 'No agents found' : 'No agents configured'}
+            </h3>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              {searchQuery
+                ? 'Try adjusting your search terms.'
+                : 'Agents will appear here once they are registered in the system.'}
+            </p>
+          </div>
+        ) : viewMode === 'grid' ? (
+          /* ── Grid view ──────────────────────────────────────────── */
+          /* Extra top padding (pt-14) makes room for floating avatars on the first row */
+          <div className="flex flex-wrap gap-x-6 gap-y-14 px-6 pt-14 pb-8 overflow-visible">
+            {displayConfigs.map((config) => (
+              <AgentCentraliCard
+                key={config.id}
+                config={config}
+                onConfigure={() => navigate(`/ai/agents/${config.name}`)}
+                onDeleteOverride={config.isOverride ? () => confirmDeleteOverride(config) : undefined}
+              />
+            ))}
+          </div>
+        ) : (
+          /* ── List view ──────────────────────────────────────────── */
           <DataTable
             data={displayConfigs}
             columns={columns}
@@ -516,8 +517,8 @@ export function AgentConfigPage() {
               />
             )}
           />
-        </div>
-      )}
+        )}
+      </Card>
     </div>
   );
 }
