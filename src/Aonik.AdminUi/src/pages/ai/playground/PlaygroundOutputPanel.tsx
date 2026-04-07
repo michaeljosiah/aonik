@@ -707,6 +707,8 @@ function DisplayToolVisual({ toolName, args }: { toolName: string; args: Record<
       return <BudgetBreakdownVisual args={args} />;
     case 'display_fx_rate_chart':
       return <FxRateChartVisual args={args} />;
+    case 'display_spending_pie_chart':
+      return <SpendingPieChartVisual args={args} />;
     case 'display_autopilot_proposal':
       return <AutopilotProposalVisual args={args} />;
     default:
@@ -808,6 +810,145 @@ function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Pie chart colors (accessible, distinct) ─────────────────────────────────
+
+const PIE_COLORS = [
+  '#3b82f6', // blue
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#14b8a6', // teal
+  '#6366f1', // indigo
+];
+
+function SpendingPieChartVisual({ args }: { args: Record<string, unknown> }) {
+  const title = String(args.title ?? 'Spending by Category');
+  const currency = String(args.currency ?? 'USD');
+  const totalSpent = Number(args.totalSpent) || 0;
+  const categories = Array.isArray(args.categories) ? args.categories : [];
+
+  const fmt = (n: number) => {
+    const sym = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency === 'NGN' ? '₦' : '$';
+    return `${sym}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  // Build slices with computed percentages
+  const slices = categories
+    .filter((c): c is Record<string, unknown> => typeof c === 'object' && c !== null)
+    .map((c, i) => {
+      const amount = Number(c.amount) || 0;
+      const pct = totalSpent > 0 ? (amount / totalSpent) * 100 : 0;
+      return {
+        name: String(c.name ?? 'Other'),
+        amount,
+        percentage: Number(c.percentage) || pct,
+        color: PIE_COLORS[i % PIE_COLORS.length],
+      };
+    })
+    .sort((a, b) => b.amount - a.amount);
+
+  // SVG pie chart math
+  const size = 140;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 54;
+  const ir = 34; // inner radius for donut
+
+  let cumulativeAngle = -90; // start at 12 o'clock
+
+  const paths = slices.map((slice) => {
+    const angle = (slice.percentage / 100) * 360;
+    const startAngle = cumulativeAngle;
+    const endAngle = cumulativeAngle + angle;
+    cumulativeAngle = endAngle;
+
+    // Edge case: full circle
+    if (angle >= 359.99) {
+      return {
+        ...slice,
+        d: `M${cx},${cy - r} A${r},${r} 0 1,1 ${cx - 0.01},${cy - r} Z M${cx},${cy - ir} A${ir},${ir} 0 1,0 ${cx - 0.01},${cy - ir} Z`,
+      };
+    }
+
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+    const largeArc = angle > 180 ? 1 : 0;
+
+    const x1 = cx + r * Math.cos(startRad);
+    const y1 = cy + r * Math.sin(startRad);
+    const x2 = cx + r * Math.cos(endRad);
+    const y2 = cy + r * Math.sin(endRad);
+    const ix1 = cx + ir * Math.cos(endRad);
+    const iy1 = cy + ir * Math.sin(endRad);
+    const ix2 = cx + ir * Math.cos(startRad);
+    const iy2 = cy + ir * Math.sin(startRad);
+
+    return {
+      ...slice,
+      d: `M${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${largeArc},0 ${ix2},${iy2} Z`,
+    };
+  });
+
+  return (
+    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-[var(--color-brand-primary)]" />
+          <span className="font-semibold text-[var(--color-text-primary)]">{title}</span>
+        </div>
+        <span className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">{fmt(totalSpent)}</span>
+      </div>
+
+      {/* Chart + Legend */}
+      <div className="flex items-start gap-6 px-4 py-4">
+        {/* Donut chart */}
+        <div className="shrink-0">
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+            {paths.map((slice, i) => (
+              <path
+                key={i}
+                d={slice.d}
+                fill={slice.color}
+                stroke="var(--color-surface)"
+                strokeWidth="1.5"
+              />
+            ))}
+            {/* Center text */}
+            <text x={cx} y={cy - 4} textAnchor="middle" className="fill-[var(--color-text-tertiary)]" fontSize="9">
+              Total
+            </text>
+            <text x={cx} y={cy + 10} textAnchor="middle" className="fill-[var(--color-text-primary)] font-semibold" fontSize="12">
+              {fmt(totalSpent)}
+            </text>
+          </svg>
+        </div>
+
+        {/* Legend */}
+        <div className="flex-1 space-y-2 min-w-0 pt-1">
+          {slices.map((slice, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                style={{ backgroundColor: slice.color }}
+              />
+              <span className="truncate text-[var(--color-text-secondary)] flex-1">{slice.name}</span>
+              <span className="tabular-nums font-medium text-[var(--color-text-primary)] shrink-0">{fmt(slice.amount)}</span>
+              <span className="tabular-nums text-[var(--color-text-tertiary)] shrink-0 w-10 text-right">
+                {slice.percentage.toFixed(0)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

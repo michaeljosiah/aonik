@@ -7,6 +7,7 @@ export const playgroundFrontendToolNames = [
   'confirmAction',
   'display_fx_rate_chart',
   'display_budget_breakdown',
+  'display_spending_pie_chart',
   'display_autopilot_proposal',
   'display_option_selector',
 ] as const;
@@ -250,6 +251,55 @@ export function createPlaygroundFrontendTools(
           },
         },
         required: ['period', 'totalBudget', 'totalSpent', 'currency', 'categories'],
+      },
+    },
+    handler: displayHandler,
+  });
+
+  registrations.set('display_spending_pie_chart', {
+    tool: {
+      name: 'display_spending_pie_chart',
+      description:
+        'Display a pie chart showing spending distribution by category. Use after pf_get_category_breakdown or pf_get_spending_summary to visualise how spending is split across categories.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+            description: 'Chart title (e.g., "Spending by Category — April 2026")',
+          },
+          currency: {
+            type: 'string',
+            description: 'ISO 4217 currency code (e.g., "USD")',
+          },
+          totalSpent: {
+            type: 'number',
+            description: 'Total amount spent across all categories',
+          },
+          categories: {
+            type: 'array',
+            description: 'Spending categories with amounts',
+            items: {
+              type: 'object',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Category name (e.g., "Groceries")',
+                },
+                amount: {
+                  type: 'number',
+                  description: 'Amount spent in this category',
+                },
+                percentage: {
+                  type: 'number',
+                  description: 'Percentage of total spending (0-100)',
+                },
+              },
+              required: ['name', 'amount'],
+            },
+          },
+        },
+        required: ['currency', 'totalSpent', 'categories'],
       },
     },
     handler: displayHandler,
