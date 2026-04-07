@@ -257,6 +257,22 @@ export interface PlaygroundRunRecord {
   };
 }
 
+// ── Playground Review types ────────────────────────────────────────
+
+export interface PlaygroundReviewMetric {
+  name: string;
+  score: number;
+  explanation: string;
+}
+
+export interface PlaygroundReviewResult {
+  overallScore: number;
+  metrics: PlaygroundReviewMetric[];
+  strengths: string[];
+  suggestions: string[];
+  promptImprovements: string[];
+}
+
 // ── API response wrappers ───────────────────────────────────────────
 
 export interface ListAiProvidersResponse {

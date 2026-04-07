@@ -6,12 +6,18 @@ import {
   Brain,
   CheckCircle2,
   ChevronDown,
+  ChevronUp,
   GripHorizontal,
+  Lightbulb,
   Loader2,
+  Sparkles,
   Square,
+  Star,
+  Target,
   Volume2,
   Wrench,
   XCircle,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +27,7 @@ import {
 } from '@/components/ui/collapsible';
 import type { PlaygroundRunMetrics } from '@/lib/playground-client';
 import type { PlaygroundOutputPart, PlaygroundToolCall } from '@/hooks/usePlaygroundChat';
+import type { PlaygroundReviewResult } from '@/types/ai';
 
 interface PlaygroundOutputPanelProps {
   output: string;
@@ -40,6 +47,12 @@ interface PlaygroundOutputPanelProps {
   } | null;
   onStopVoice?: () => void;
   onAddToMessages?: () => void;
+  // Review props
+  isReviewing?: boolean;
+  reviewResult?: PlaygroundReviewResult | null;
+  reviewRawText?: string | null;
+  reviewError?: string | null;
+  onReview?: () => void;
 }
 
 const MIN_HEIGHT = 48;
@@ -59,6 +72,11 @@ export function PlaygroundOutputPanel({
   voiceDetails,
   onStopVoice,
   onAddToMessages,
+  isReviewing = false,
+  reviewResult,
+  reviewRawText,
+  reviewError,
+  onReview,
 }: PlaygroundOutputPanelProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const dragging = useRef(false);
@@ -167,6 +185,27 @@ export function PlaygroundOutputPanel({
               )}
             </div>
           )}
+          {output && !isStreaming && onReview && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onReview}
+              disabled={isReviewing}
+              className="h-6 px-2 text-xs"
+            >
+              {isReviewing ? (
+                <>
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  Reviewing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  AI Review
+                </>
+              )}
+            </Button>
+          )}
           {output && !isStreaming && onAddToMessages && (
             <Button
               variant="ghost"
@@ -258,6 +297,15 @@ export function PlaygroundOutputPanel({
                 <div className="font-medium">Voice playback unavailable</div>
                 {voiceError}
               </div>
+            )}
+            {/* AI Review results */}
+            {(reviewResult || reviewRawText || reviewError || isReviewing) && (
+              <ReviewResultsPanel
+                result={reviewResult}
+                rawText={reviewRawText}
+                error={reviewError}
+                isReviewing={isReviewing}
+              />
             )}
           </>
         ) : (
@@ -445,6 +493,184 @@ function Markdown({ text }: { text: string }) {
       >
         {text}
       </ReactMarkdown>
+    </div>
+  );
+}
+
+// ─── Review Results Panel ─────────────────────────────────────────────────────
+
+function ReviewResultsPanel({
+  result,
+  rawText,
+  error,
+  isReviewing,
+}: {
+  result?: PlaygroundReviewResult | null;
+  rawText?: string | null;
+  error?: string | null;
+  isReviewing: boolean;
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className="mt-4 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] overflow-hidden">
+      {/* Header */}
+      <button
+        type="button"
+        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[color-mix(in_srgb,var(--color-surface-inset)_90%,var(--color-background))] transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-[var(--color-brand-primary)]" />
+          <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+            AI Review
+          </span>
+          {result && (
+            <span className="flex items-center gap-1 rounded-full bg-[var(--color-brand-primary)] px-2 py-0.5 text-[10px] font-bold text-white">
+              <Star className="h-2.5 w-2.5" />
+              {result.overallScore.toFixed(1)} / 5
+            </span>
+          )}
+          {isReviewing && (
+            <span className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Analyzing...
+            </span>
+          )}
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 text-[var(--color-text-tertiary)]" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-[var(--color-border-light)] px-4 py-3 space-y-4">
+          {error && (
+            <div className="rounded-[2px] border border-[var(--color-error)] bg-[var(--color-error-light)] px-3 py-2 text-xs text-[var(--color-error)]">
+              {error}
+            </div>
+          )}
+
+          {result && (
+            <>
+              {/* Metrics grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {result.metrics.map((metric) => (
+                  <MetricCard key={metric.name} metric={metric} />
+                ))}
+              </div>
+
+              {/* Strengths */}
+              {result.strengths.length > 0 && (
+                <div>
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-success)]">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Strengths
+                  </div>
+                  <ul className="space-y-1 pl-5 text-xs text-[var(--color-text-secondary)] list-disc">
+                    {result.strengths.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Suggestions */}
+              {result.suggestions.length > 0 && (
+                <div>
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-warning)]">
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    Suggestions
+                  </div>
+                  <ul className="space-y-1 pl-5 text-xs text-[var(--color-text-secondary)] list-disc">
+                    {result.suggestions.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Prompt Improvements */}
+              {result.promptImprovements.length > 0 && (
+                <div>
+                  <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-brand-primary)]">
+                    <Zap className="h-3.5 w-3.5" />
+                    Prompt Improvements
+                  </div>
+                  <ul className="space-y-1 pl-5 text-xs text-[var(--color-text-secondary)] list-disc">
+                    {result.promptImprovements.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Fallback: show raw text if structured parsing failed */}
+          {!result && rawText && !isReviewing && (
+            <div className="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap">
+              {rawText}
+            </div>
+          )}
+
+          {/* Loading state */}
+          {isReviewing && !result && !error && (
+            <div className="flex items-center justify-center py-6">
+              <div className="flex items-center gap-2 text-xs text-[var(--color-text-tertiary)]">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Evaluating response quality...
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ metric }: { metric: PlaygroundReviewResult['metrics'][0] }) {
+  const scoreColor =
+    metric.score >= 4
+      ? 'text-[var(--color-success)]'
+      : metric.score >= 3
+        ? 'text-[var(--color-warning)]'
+        : 'text-[var(--color-error)]';
+
+  const bgColor =
+    metric.score >= 4
+      ? 'bg-[color-mix(in_srgb,var(--color-success)_8%,transparent)]'
+      : metric.score >= 3
+        ? 'bg-[color-mix(in_srgb,var(--color-warning)_8%,transparent)]'
+        : 'bg-[color-mix(in_srgb,var(--color-error)_8%,transparent)]';
+
+  const MetricIcon =
+    metric.name === 'Faithfulness'
+      ? Target
+      : metric.name === 'Answer Relevancy'
+        ? Zap
+        : metric.name === 'Coherence'
+          ? Brain
+          : CheckCircle2;
+
+  return (
+    <div className={`rounded-lg border border-[var(--color-border-light)] ${bgColor} px-3 py-2.5`}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <MetricIcon className={`h-3 w-3 ${scoreColor}`} />
+          <span className="text-[10px] font-semibold text-[var(--color-text-primary)]">
+            {metric.name}
+          </span>
+        </div>
+        <span className={`text-sm font-bold tabular-nums ${scoreColor}`}>
+          {metric.score}/5
+        </span>
+      </div>
+      <p className="text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">
+        {metric.explanation}
+      </p>
     </div>
   );
 }

@@ -152,6 +152,10 @@ if (autoMigrateEnabled || seedDataEnabled)
             var promptSeedService = new PromptSpecSeedService(aiDbContext, fileBasedPromptStore, promptSeedLogger);
             await promptSeedService.SeedAsync();
 
+            var aiTaskSeedLogger = scope.ServiceProvider.GetRequiredService<ILogger<AiTaskSeedService>>();
+            var aiTaskSeedService = new AiTaskSeedService(aiDbContext, aiTaskSeedLogger);
+            await aiTaskSeedService.SeedAsync();
+
             startupLogger.LogInformation("Database seed routines completed successfully.");
         }
     }
@@ -359,6 +363,11 @@ app.MapAguiStreaming("/ai/agui")
 
 // 7. AI Playground streaming endpoint (admin-only, ephemeral — no thread persistence)
 app.MapPlaygroundStreaming("/ai/playground/run")
+    .RequireAuthorization("AdminPolicy")
+    .RequireCors("AonikCors");
+
+// 8. AI Playground review endpoint (evaluates agent responses with RAGAS-style metrics)
+app.MapPlaygroundReview("/ai/playground/review")
     .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");
 

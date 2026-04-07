@@ -248,6 +248,18 @@ internal sealed class AgentConfigurationService : IAgentConfigurationService
                 {
                     existing.OutputSchemaJson = resolvedSchema;
                 }
+
+                // Sync InstructionsText from descriptor when the DB value is empty
+                // (e.g. after a reset or initial migration from code-only defaults).
+                var resolvedInstructions = descriptor.Instructions ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(existing.InstructionsText) && !string.IsNullOrWhiteSpace(resolvedInstructions))
+                {
+                    existing.InstructionsText = resolvedInstructions;
+                    _logger.LogInformation(
+                        "Restored InstructionsText for agent '{AgentName}' from code descriptor ({Len} chars)",
+                        descriptor.Name, resolvedInstructions.Length);
+                }
+
                 continue;
             }
 

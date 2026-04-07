@@ -115,6 +115,145 @@ export interface StreamPlaygroundOptions {
   maxToolReruns?: number;
 }
 
+// ─── Review Types ───────────────────────────────────────────────────────────
+
+export interface PlaygroundReviewRequest {
+  systemPrompt?: string;
+  userBriefJson?: string;
+  messages?: PlaygroundMessage[];
+  assistantResponse: string;
+  toolCalls?: Array<{
+    toolName: string;
+    arguments: string;
+    result?: string;
+  }>;
+  modelId?: string;
+}
+
+export interface PlaygroundReviewCallbacks {
+  onReviewStarted?: (reviewId: string) => void;
+  onReviewDelta?: (delta: string) => void;
+  onReviewFinished?: (parsed: unknown | null, rawText: string | null) => void;
+  onReviewError?: (message: string) => void;
+}
+
+// ─── Review Streaming Function ──────────────────────────────────────────────
+
+export async function streamPlaygroundReview(options: {
+  request: PlaygroundReviewRequest;
+  callbacks: PlaygroundReviewCallbacks;
+  getAccessToken: () => Promise<string | null>;
+  signal?: AbortSignal;
+}): Promise<void> {
+  const { request, callbacks, getAccessToken, signal } = options;
+
+  const token = await getAccessToken();
+  const selectedTenant = getSelectedTenant();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (selectedTenant?.tenantId) {
+    headers['X-Tenant-Id'] = selectedTenant.tenantId;
+  }
+
+  const response = await fetch(`${apiConfig.baseUrl}/ai/playground/review`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`Review request failed: ${response.status} ${errorText}`);
+  }
+
+  if (!response.body) {
+    throw new Error('No response body (SSE streaming not supported)');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let currentData: string | null = null;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n');
+      buffer = parts.pop() ?? '';
+
+      for (const line of parts) {
+        if (line.startsWith('data: ')) {
+          const payload = line.slice(6);
+          currentData = currentData === null ? payload : currentData + '\n' + payload;
+        } else if (line === '') {
+          if (currentData !== null) {
+            try {
+              const event = JSON.parse(currentData) as Record<string, unknown>;
+              dispatchReviewEvent(event, callbacks);
+            } catch {
+              console.warn('Failed to parse review event:', currentData);
+            }
+            currentData = null;
+          }
+        }
+      }
+    }
+
+    // Process remaining buffer
+    if (buffer.startsWith('data: ')) {
+      currentData = currentData === null ? buffer.slice(6) : currentData + '\n' + buffer.slice(6);
+    }
+    if (currentData !== null) {
+      try {
+        const event = JSON.parse(currentData) as Record<string, unknown>;
+        dispatchReviewEvent(event, callbacks);
+      } catch {
+        console.warn('Failed to parse final review event:', currentData);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function dispatchReviewEvent(
+  event: Record<string, unknown>,
+  callbacks: PlaygroundReviewCallbacks,
+): void {
+  switch (event.type) {
+    case 'REVIEW_STARTED':
+      callbacks.onReviewStarted?.(event.reviewId as string);
+      break;
+
+    case 'REVIEW_CONTENT':
+      callbacks.onReviewDelta?.(event.delta as string);
+      break;
+
+    case 'REVIEW_FINISHED':
+      callbacks.onReviewFinished?.(
+        event.parsed ?? null,
+        (event.rawText as string) ?? null,
+      );
+      break;
+
+    case 'REVIEW_ERROR':
+      callbacks.onReviewError?.(event.message as string);
+      break;
+  }
+}
+
 // ─── Core Streaming Function ─────────────────────────────────────────────────
 
 export async function streamPlaygroundRun(

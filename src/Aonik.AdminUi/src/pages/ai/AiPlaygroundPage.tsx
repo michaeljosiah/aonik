@@ -16,6 +16,9 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import { streamPlaygroundReview } from '@/lib/playground-client';
+import type { PlaygroundReviewResult } from '@/types/ai';
+import { useAuth } from '@/auth';
 import { AgentPicker } from './playground/AgentPicker';
 import { AiTaskPicker } from './playground/AiTaskPicker';
 import { PromptVariablesForm } from './playground/PromptVariablesForm';
@@ -150,6 +153,14 @@ export function AiPlaygroundPage() {
     voiceId: string | null;
     aiRunId: string | null;
   } | null>(null);
+
+  // Review state
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewResult, setReviewResult] = useState<PlaygroundReviewResult | null>(null);
+  const [reviewRawText, setReviewRawText] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const reviewAbortRef = useRef<AbortController | null>(null);
+  const { getAccessToken: getReviewAccessToken } = useAuth();
 
   // Editable user/assistant messages (system prompt is in config)
   const [editableMessages, setEditableMessages] = useState<EditableMessage[]>([
@@ -455,6 +466,80 @@ export function AiPlaygroundPage() {
     }
   }, [output]);
 
+  // ── AI Review handler ───────────────────────────────────────────────────
+
+  const handleReview = useCallback(async () => {
+    if (isReviewing || !output) return;
+
+    setIsReviewing(true);
+    setReviewResult(null);
+    setReviewRawText(null);
+    setReviewError(null);
+
+    const controller = new AbortController();
+    reviewAbortRef.current = controller;
+
+    // Build tool calls from outputParts
+    const toolCalls = outputParts
+      .filter((p): p is Extract<typeof p, { type: 'tool-call' }> => p.type === 'tool-call')
+      .map((p) => ({
+        toolName: p.toolCall.toolCallName,
+        arguments: p.toolCall.args,
+        result: p.toolCall.result,
+      }));
+
+    // Build messages from editable messages
+    const msgs = editableMessages
+      .filter((m) => m.content.trim())
+      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+    let rawTextAccumulator = '';
+
+    try {
+      await streamPlaygroundReview({
+        request: {
+          systemPrompt: config.systemPrompt || undefined,
+          userBriefJson: config.userBriefJson ?? undefined,
+          messages: msgs,
+          assistantResponse: output,
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+          modelId: config.modelId ?? undefined,
+        },
+        callbacks: {
+          onReviewDelta: (delta) => {
+            rawTextAccumulator += delta;
+            setReviewRawText(rawTextAccumulator);
+          },
+          onReviewFinished: (parsed) => {
+            if (parsed && typeof parsed === 'object') {
+              const p = parsed as Record<string, unknown>;
+              setReviewResult({
+                overallScore: (p.overallScore as number) ?? 0,
+                metrics: (p.metrics as PlaygroundReviewResult['metrics']) ?? [],
+                strengths: (p.strengths as string[]) ?? [],
+                suggestions: (p.suggestions as string[]) ?? [],
+                promptImprovements: (p.promptImprovements as string[]) ?? [],
+              });
+              setReviewRawText(null); // Clear raw text since we have structured result
+            }
+          },
+          onReviewError: (message) => {
+            setReviewError(message);
+          },
+        },
+        getAccessToken: getReviewAccessToken,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setReviewError((err as Error).message);
+      }
+    } finally {
+      setIsReviewing(false);
+      reviewAbortRef.current = null;
+    }
+  }, [isReviewing, output, outputParts, editableMessages, config, getReviewAccessToken]);
+
   // ── Ctrl+Enter to submit (single mode only) ─────────────────────────────
 
   useEffect(() => {
@@ -494,6 +579,12 @@ export function AiPlaygroundPage() {
     setVoiceError(null);
     setVoiceDetails(null);
     activeSpeechMessageIdRef.current = null;
+    // Clear review state
+    reviewAbortRef.current?.abort();
+    setIsReviewing(false);
+    setReviewResult(null);
+    setReviewRawText(null);
+    setReviewError(null);
     resetChat();
     // Also reset compare view's internal chat hooks
     compareRef.current?.resetBoth();
@@ -772,6 +863,11 @@ export function AiPlaygroundPage() {
         voiceDetails={voiceDetails}
         onStopVoice={stopVoicePreview}
         onAddToMessages={handleAddOutputToMessages}
+        isReviewing={isReviewing}
+        reviewResult={reviewResult}
+        reviewRawText={reviewRawText}
+        reviewError={reviewError}
+        onReview={handleReview}
       />
 
       {/* Submit button */}
