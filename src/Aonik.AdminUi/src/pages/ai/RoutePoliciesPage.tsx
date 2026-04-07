@@ -33,7 +33,6 @@ import {
   Plus,
   AlertCircle,
   Loader2,
-  Shield,
   Globe,
   Building2,
   CheckCircle2,
@@ -256,13 +255,13 @@ export function RoutePoliciesPage() {
     {
       label: 'Edit',
       icon: <Pencil className="w-4 h-4" />,
-      onClick: (e) => openEdit(policy, e),
+      onClick: () => openEdit(policy),
     },
     {
       label: 'Delete',
       icon: <Trash2 className="w-4 h-4" />,
-      onClick: (e) => confirmDelete(policy, e),
-      destructive: true,
+      onClick: () => confirmDelete(policy),
+      variant: 'danger' as const,
     },
   ];
 
