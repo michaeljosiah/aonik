@@ -3,6 +3,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowDownToLine,
+  ArrowUpDown,
+  BarChart3,
+  Bot,
   Brain,
   Check,
   CheckCircle2,
@@ -18,6 +21,8 @@ import {
   Square,
   Star,
   Target,
+  TrendingDown,
+  TrendingUp,
   Volume2,
   Wrench,
   X,
@@ -370,6 +375,7 @@ function ToolCallCard({
   const isActive = toolCall.status === 'streaming' || toolCall.status === 'pending';
   const isAwaiting = toolCall.status === 'awaiting-approval' || toolCall.status === 'awaiting-selection';
   const isError = toolCall.status === 'error';
+  const isDisplayTool = toolCall.toolCallName.startsWith('display_');
 
   const [open, setOpen] = useState(isActive || isAwaiting);
   const prevActiveRef = useRef(isActive || isAwaiting);
@@ -420,6 +426,14 @@ function ToolCallCard({
               : 'Completed';
 
   const hasContent = !!(toolCall.args || toolCall.result || toolCall.error || isAwaiting);
+
+  // Display tools: render visual card directly (no collapsible wrapper)
+  if (isDisplayTool && toolCall.status === 'completed' && toolCall.args) {
+    const parsedArgs = tryParseJson(toolCall.args);
+    if (parsedArgs) {
+      return <DisplayToolVisual toolName={toolCall.toolCallName} args={parsedArgs} />;
+    }
+  }
 
   return (
     <Collapsible open={effectiveOpen} onOpenChange={setOpen}>
@@ -685,6 +699,265 @@ function OptionSelectionInteraction({
   );
 }
 
+// ─── Display Tool Visual Renderers ────────────────────────────────────────────
+
+function DisplayToolVisual({ toolName, args }: { toolName: string; args: Record<string, unknown> }) {
+  switch (toolName) {
+    case 'display_budget_breakdown':
+      return <BudgetBreakdownVisual args={args} />;
+    case 'display_fx_rate_chart':
+      return <FxRateChartVisual args={args} />;
+    case 'display_autopilot_proposal':
+      return <AutopilotProposalVisual args={args} />;
+    default:
+      return null;
+  }
+}
+
+function BudgetBreakdownVisual({ args }: { args: Record<string, unknown> }) {
+  const period = String(args.period ?? '');
+  const totalBudget = Number(args.totalBudget) || 0;
+  const totalSpent = Number(args.totalSpent) || 0;
+  const currency = String(args.currency ?? 'USD');
+  const categories = Array.isArray(args.categories) ? args.categories : [];
+  const spentPct = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0;
+  const isOver = totalSpent > totalBudget;
+
+  const fmt = (n: number) => {
+    const sym = currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency === 'NGN' ? '₦' : '$';
+    return `${sym}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  return (
+    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-[var(--color-brand-primary)]" />
+          <span className="font-semibold text-[var(--color-text-primary)]">Budget Breakdown</span>
+          {period && (
+            <span className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+              {period}
+            </span>
+          )}
+        </div>
+        <div className="text-right">
+          <div className={`text-sm font-bold tabular-nums ${isOver ? 'text-[var(--color-danger)]' : 'text-[var(--color-text-primary)]'}`}>
+            {fmt(totalSpent)} <span className="font-normal text-[var(--color-text-tertiary)]">/ {fmt(totalBudget)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Overall progress bar */}
+      <div className="px-4 pt-3 pb-1">
+        <div className="h-2 w-full rounded-full bg-[var(--color-surface-inset)] overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${isOver ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-brand-primary)]'}`}
+            style={{ width: `${spentPct}%` }}
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-[10px] text-[var(--color-text-tertiary)]">
+          <span>{spentPct.toFixed(0)}% used</span>
+          <span>{fmt(Math.max(totalBudget - totalSpent, 0))} remaining</span>
+        </div>
+      </div>
+
+      {/* Category rows */}
+      {categories.length > 0 && (
+        <div className="px-4 pb-3 pt-2 space-y-2">
+          {categories.map((cat: Record<string, unknown>, i: number) => {
+            const name = String(cat.name ?? '');
+            const budgeted = Number(cat.budgeted) || 0;
+            const spent = Number(cat.spent) || 0;
+            const status = String(cat.status ?? 'on_track');
+            const catPct = budgeted > 0 ? Math.min((spent / budgeted) * 100, 100) : 0;
+            const barColor =
+              status === 'over'
+                ? 'bg-[var(--color-danger)]'
+                : status === 'under'
+                  ? 'bg-[var(--color-success)]'
+                  : 'bg-[var(--color-brand-primary)]';
+            const statusLabel =
+              status === 'over' ? 'Over' : status === 'under' ? 'Under' : 'On track';
+            const statusColor =
+              status === 'over'
+                ? 'text-[var(--color-danger)]'
+                : status === 'under'
+                  ? 'text-[var(--color-success)]'
+                  : 'text-[var(--color-text-tertiary)]';
+
+            return (
+              <div key={`${name}-${i}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-[var(--color-text-primary)]">{name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="tabular-nums text-[var(--color-text-secondary)]">
+                      {fmt(spent)} / {fmt(budgeted)}
+                    </span>
+                    <span className={`text-[10px] font-medium ${statusColor}`}>{statusLabel}</span>
+                  </div>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-[var(--color-surface-inset)] overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${barColor}`}
+                    style={{ width: `${catPct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FxRateChartVisual({ args }: { args: Record<string, unknown> }) {
+  const baseCurrency = String(args.baseCurrency ?? '');
+  const targetCurrency = String(args.targetCurrency ?? '');
+  const rates = Array.isArray(args.rates) ? args.rates : [];
+  const signal = String(args.signal ?? '');
+  const signalReason = String(args.signalReason ?? '');
+
+  const rateValues = rates
+    .map((r: Record<string, unknown>) => Number(r.rate))
+    .filter((v) => Number.isFinite(v));
+  const minRate = rateValues.length > 0 ? Math.min(...rateValues) : 0;
+  const maxRate = rateValues.length > 0 ? Math.max(...rateValues) : 0;
+  const range = maxRate - minRate || 1;
+  const latestRate = rateValues.length > 0 ? rateValues[rateValues.length - 1] : 0;
+
+  const signalConfig = {
+    buy: { label: 'Buy now', color: 'text-[var(--color-success)]', bg: 'bg-[color-mix(in_srgb,var(--color-success)_12%,transparent)]', Icon: TrendingDown },
+    hold: { label: 'Hold', color: 'text-[var(--color-warning)]', bg: 'bg-[color-mix(in_srgb,var(--color-warning)_12%,transparent)]', Icon: ArrowUpDown },
+    wait: { label: 'Wait', color: 'text-[var(--color-info)]', bg: 'bg-[color-mix(in_srgb,var(--color-info)_12%,transparent)]', Icon: TrendingUp },
+  }[signal] ?? { label: signal, color: 'text-[var(--color-text-secondary)]', bg: 'bg-[var(--color-surface-inset)]', Icon: ArrowUpDown };
+
+  return (
+    <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface)] text-xs overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-[var(--color-brand-primary)]" />
+          <span className="font-semibold text-[var(--color-text-primary)]">
+            {baseCurrency}/{targetCurrency} Rate
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold tabular-nums text-[var(--color-text-primary)]">
+            {latestRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+          </span>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${signalConfig.color} ${signalConfig.bg}`}>
+            <signalConfig.Icon className="h-3 w-3" />
+            {signalConfig.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Sparkline chart */}
+      {rates.length > 1 && (
+        <div className="px-4 pt-3 pb-1">
+          <div className="relative h-16 w-full">
+            <svg viewBox={`0 0 ${(rates.length - 1) * 40} 60`} className="h-full w-full" preserveAspectRatio="none">
+              {/* Area fill */}
+              <path
+                d={
+                  rates
+                    .map((r: Record<string, unknown>, i: number) => {
+                      const x = i * 40;
+                      const y = 56 - ((Number(r.rate) - minRate) / range) * 52;
+                      return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+                    })
+                    .join(' ') + ` L${(rates.length - 1) * 40},58 L0,58 Z`
+                }
+                fill="var(--color-brand-primary)"
+                opacity="0.08"
+              />
+              {/* Line */}
+              <path
+                d={rates
+                  .map((r: Record<string, unknown>, i: number) => {
+                    const x = i * 40;
+                    const y = 56 - ((Number(r.rate) - minRate) / range) * 52;
+                    return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+                  })
+                  .join(' ')}
+                fill="none"
+                stroke="var(--color-brand-primary)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          {/* Date labels */}
+          <div className="flex justify-between text-[10px] text-[var(--color-text-tertiary)] mt-1">
+            {rates.length > 0 && <span>{String((rates[0] as Record<string, unknown>).date ?? '')}</span>}
+            {rates.length > 1 && <span>{String((rates[rates.length - 1] as Record<string, unknown>).date ?? '')}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Signal reason */}
+      {signalReason && (
+        <div className="px-4 pb-3 pt-1">
+          <p className="text-[var(--color-text-secondary)] leading-relaxed">{signalReason}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AutopilotProposalVisual({ args }: { args: Record<string, unknown> }) {
+  const agent = String(args.agent ?? '');
+  const action = String(args.action ?? '');
+  const description = String(args.description ?? '');
+  const details = Array.isArray(args.details) ? args.details : [];
+  const severity = String(args.severity ?? 'medium') as 'low' | 'medium' | 'high';
+  const config = severityConfig[severity] ?? severityConfig.medium;
+  const SeverityIcon = config.icon;
+
+  return (
+    <div className={`rounded-lg border ${config.borderClass} bg-[var(--color-surface)] text-xs overflow-hidden`}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border-light)] bg-[var(--color-surface-inset)]">
+        <div className="flex items-center gap-2">
+          <Bot className="h-4 w-4 text-[var(--color-brand-primary)]" />
+          <span className="font-semibold text-[var(--color-text-primary)]">{action}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {agent && (
+            <span className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+              {agent}
+            </span>
+          )}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${config.badgeClass}`}>
+            <SeverityIcon className="h-3 w-3" />
+            {config.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className="px-4 py-3 space-y-3">
+        <p className="text-[var(--color-text-secondary)] leading-relaxed">{description}</p>
+
+        {/* Detail rows */}
+        {details.length > 0 && (
+          <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-inset)] divide-y divide-[var(--color-border-light)]">
+            {details.map((d: Record<string, unknown>, i: number) => (
+              <div key={i} className="flex items-center justify-between px-3 py-2">
+                <span className="text-[var(--color-text-tertiary)]">{String(d.label ?? '')}</span>
+                <span className="font-medium text-[var(--color-text-primary)]">{String(d.value ?? '')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Markdown Renderer ─────────────────────────────────────────────────────────
 
 function Markdown({ text }: { text: string }) {
@@ -938,5 +1211,14 @@ function tryFormatJson(str: string): string {
     return JSON.stringify(JSON.parse(str), null, 2);
   } catch {
     return str;
+  }
+}
+
+function tryParseJson(str: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(str);
+    return typeof parsed === 'object' && parsed !== null ? parsed : null;
+  } catch {
+    return null;
   }
 }
