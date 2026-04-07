@@ -155,6 +155,7 @@ internal sealed class UpdateAiTaskEndpoint : Endpoint<UpdateAiTaskEndpointReques
             OutputSchemaJson = req.OutputSchemaJson,
             IsPublished = req.IsPublished,
             IsActive = req.IsActive,
+            PrimaryModelId = req.PrimaryModelId,
         };
 
         var task = await _service.UpdateAsync(req.TaskId, request, ct);
@@ -178,6 +179,7 @@ public sealed record UpdateAiTaskEndpointRequest
     public string? OutputSchemaJson { get; init; }
     public bool? IsPublished { get; init; }
     public bool? IsActive { get; init; }
+    public Guid? PrimaryModelId { get; init; }
 }
 
 // ── Delete AI Task ─────────────────────────────────────────────────

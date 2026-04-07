@@ -20,6 +20,7 @@ public sealed record AiTaskResponse
     public required string OutputSchemaJson { get; init; }
     public required bool IsPublished { get; init; }
     public required bool IsActive { get; init; }
+    public Guid? PrimaryModelId { get; init; }
     public string? PrimaryModelName { get; init; }
     public bool IsOverride => TenantId is not null;
     public DateTime CreatedAt { get; init; }
@@ -54,6 +55,7 @@ public sealed record AiTaskDetailResponse
     public required string OutputSchemaJson { get; init; }
     public required bool IsPublished { get; init; }
     public required bool IsActive { get; init; }
+    public Guid? PrimaryModelId { get; init; }
     public string? PrimaryModelName { get; init; }
     public bool IsOverride => TenantId is not null;
     public DateTime CreatedAt { get; init; }
@@ -80,6 +82,7 @@ public sealed record CreateAiTaskRequest
     public string? OutputSchemaJson { get; init; }
     public bool IsPublished { get; init; } = true;
     public bool IsActive { get; init; } = true;
+    public Guid? PrimaryModelId { get; init; }
 }
 
 public sealed record UpdateAiTaskRequest
@@ -97,4 +100,5 @@ public sealed record UpdateAiTaskRequest
     public string? OutputSchemaJson { get; init; }
     public bool? IsPublished { get; init; }
     public bool? IsActive { get; init; }
+    public Guid? PrimaryModelId { get; init; }
 }

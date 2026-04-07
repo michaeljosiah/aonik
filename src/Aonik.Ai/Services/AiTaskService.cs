@@ -50,7 +50,7 @@ internal sealed class AiTaskService : IAiTaskService
             .GroupBy(rp => rp.UseCase)
             .ToDictionary(
                 g => g.Key,
-                g => g.FirstOrDefault(rp => rp.TenantId != null) ?? g.First());
+                g => g.OrderByDescending(rp => rp.TenantId.HasValue).First());
 
         return tasks.Select(t => MapToResponse(t, policyByUseCase, models)).ToList();
     }
@@ -67,9 +67,11 @@ internal sealed class AiTaskService : IAiTaskService
             .OrderByDescending(rp => rp.TenantId)
             .FirstOrDefaultAsync(ct);
 
+        Guid? primaryModelId = null;
         string? primaryModelName = null;
         if (routePolicy is not null)
         {
+            primaryModelId = routePolicy.PrimaryModelId;
             var model = await _dbContext.AiModels
                 .FirstOrDefaultAsync(m => m.Id == routePolicy.PrimaryModelId, ct);
             primaryModelName = model?.ModelName;
@@ -123,6 +125,7 @@ internal sealed class AiTaskService : IAiTaskService
             OutputSchemaJson = task.OutputSchemaJson,
             IsPublished = task.IsPublished,
             IsActive = task.IsActive,
+            PrimaryModelId = primaryModelId,
             PrimaryModelName = primaryModelName,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,
@@ -159,7 +162,13 @@ internal sealed class AiTaskService : IAiTaskService
         _dbContext.AiTasks.Add(task);
         await _dbContext.SaveChangesAsync(ct);
 
-        return MapToResponse(task);
+        // Upsert route policy if a model was specified
+        if (request.PrimaryModelId.HasValue && request.PrimaryModelId.Value != Guid.Empty)
+        {
+            await UpsertRoutePolicyAsync(task.UseCase, tenantId, request.PrimaryModelId.Value, ct);
+        }
+
+        return await BuildResponseAsync(task, ct);
     }
 
     public async Task<AiTaskResponse> UpdateAsync(Guid id, UpdateAiTaskRequest request, CancellationToken ct = default)
@@ -170,7 +179,15 @@ internal sealed class AiTaskService : IAiTaskService
         ApplyUpdates(task, request);
         await _dbContext.SaveChangesAsync(ct);
 
-        return MapToResponse(task);
+        // Upsert route policy if a model was specified
+        if (request.PrimaryModelId.HasValue)
+        {
+            var tenantId = ResolveTenantScope();
+            if (request.PrimaryModelId.Value != Guid.Empty)
+                await UpsertRoutePolicyAsync(task.UseCase, tenantId, request.PrimaryModelId.Value, ct);
+        }
+
+        return await BuildResponseAsync(task, ct);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
@@ -203,20 +220,78 @@ internal sealed class AiTaskService : IAiTaskService
         if (request.IsActive.HasValue) task.IsActive = request.IsActive.Value;
     }
 
+    private async Task UpsertRoutePolicyAsync(
+        string useCase, Guid? tenantId, Guid primaryModelId, CancellationToken ct)
+    {
+        var existing = await _dbContext.AiRoutePolicies
+            .FirstOrDefaultAsync(rp => rp.UseCase == useCase && rp.TenantId == tenantId, ct);
+
+        if (existing is not null)
+        {
+            existing.PrimaryModelId = primaryModelId;
+        }
+        else
+        {
+            _dbContext.AiRoutePolicies.Add(new AiRoutePolicy
+            {
+                TenantId = tenantId,
+                UseCase = useCase,
+                PrimaryModelId = primaryModelId,
+                RiskTier = "Standard",
+                DataSensitivity = "Internal",
+                CostCeiling = 0,
+                FallbackModelIdsJson = "[]",
+                IsActive = true,
+            });
+        }
+
+        await _dbContext.SaveChangesAsync(ct);
+    }
+
+    private async Task<AiTaskResponse> BuildResponseAsync(AiTask task, CancellationToken ct)
+    {
+        var policy = await _dbContext.AiRoutePolicies
+            .Where(rp => rp.UseCase == task.UseCase)
+            .OrderByDescending(rp => rp.TenantId)
+            .FirstOrDefaultAsync(ct);
+
+        Guid? primaryModelId = null;
+        string? primaryModelName = null;
+
+        if (policy is not null)
+        {
+            primaryModelId = policy.PrimaryModelId;
+            var model = await _dbContext.AiModels
+                .FirstOrDefaultAsync(m => m.Id == policy.PrimaryModelId, ct);
+            primaryModelName = model?.ModelName;
+        }
+
+        return MapToResponse(task, primaryModelId, primaryModelName);
+    }
+
     private static AiTaskResponse MapToResponse(
         AiTask task,
         Dictionary<string, AiRoutePolicy>? policyByUseCase = null,
         Dictionary<Guid, string>? models = null)
     {
+        Guid? primaryModelId = null;
         string? primaryModelName = null;
         if (policyByUseCase is not null
-            && policyByUseCase.TryGetValue(task.UseCase, out var policy)
-            && models is not null
-            && models.TryGetValue(policy.PrimaryModelId, out var modelName))
+            && policyByUseCase.TryGetValue(task.UseCase, out var policy))
         {
-            primaryModelName = modelName;
+            primaryModelId = policy.PrimaryModelId;
+            if (models is not null && models.TryGetValue(policy.PrimaryModelId, out var modelName))
+                primaryModelName = modelName;
         }
 
+        return MapToResponse(task, primaryModelId, primaryModelName);
+    }
+
+    private static AiTaskResponse MapToResponse(
+        AiTask task,
+        Guid? primaryModelId,
+        string? primaryModelName)
+    {
         return new AiTaskResponse
         {
             Id = task.Id,
@@ -235,6 +310,7 @@ internal sealed class AiTaskService : IAiTaskService
             OutputSchemaJson = task.OutputSchemaJson,
             IsPublished = task.IsPublished,
             IsActive = task.IsActive,
+            PrimaryModelId = primaryModelId,
             PrimaryModelName = primaryModelName,
             CreatedAt = task.CreatedAt,
             UpdatedAt = task.UpdatedAt,

@@ -47,6 +47,7 @@ export interface AiTaskResponse {
   outputSchemaJson: string;
   isPublished: boolean;
   isActive: boolean;
+  primaryModelId: string | null;
   primaryModelName: string | null;
   isOverride: boolean;
   createdAt: string;
@@ -84,6 +85,7 @@ export interface CreateAiTaskRequest {
   outputSchemaJson?: string;
   isPublished?: boolean;
   isActive?: boolean;
+  primaryModelId?: string;
 }
 
 export interface UpdateAiTaskRequest {
@@ -100,6 +102,7 @@ export interface UpdateAiTaskRequest {
   outputSchemaJson?: string;
   isPublished?: boolean;
   isActive?: boolean;
+  primaryModelId?: string;
 }
 
 export interface AiRunSummaryResponse {

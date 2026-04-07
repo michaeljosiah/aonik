@@ -41,7 +41,9 @@ import {
   ChevronRight,
   HelpCircle,
 } from 'lucide-react';
-import { aiTaskService, aiRunService } from '@/services/aiService';
+import { aiTaskService, aiRunService, aiModelService, routePolicyService } from '@/services/aiService';
+import type { AiModelResponse } from '@/types/ai';
+import { SelectGroup } from '@/components/ui/select';
 import type {
   AiTaskResponse,
   AiTaskDetailResponse,
@@ -175,6 +177,15 @@ export function AiTasksPage() {
   const [formOutputSchema, setFormOutputSchema] = useState('');
   const [formIsPublished, setFormIsPublished] = useState(false);
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formPrimaryModelId, setFormPrimaryModelId] = useState<string | null>(null);
+  const [formGlobalModelName, setFormGlobalModelName] = useState<string | null>(null);
+
+  // Model list for dropdown
+  const [availableModels, setAvailableModels] = useState<AiModelResponse[]>([]);
+
+  useEffect(() => {
+    aiModelService.list().then(setAvailableModels).catch(console.error);
+  }, []);
 
   // ── Data Loading ────────────────────────────────────────────────────
 
@@ -261,6 +272,8 @@ export function AiTasksPage() {
     setFormOutputSchema('');
     setFormIsPublished(false);
     setFormIsActive(true);
+    setFormPrimaryModelId(null);
+    setFormGlobalModelName(null);
   };
 
   const openCreate = () => {
@@ -269,7 +282,7 @@ export function AiTasksPage() {
     setShowFormDialog(true);
   };
 
-  const openEdit = (task: AiTaskResponse, e?: React.MouseEvent) => {
+  const openEdit = async (task: AiTaskResponse, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setFormUseCase(task.useCase);
     setFormDisplayName(task.displayName);
@@ -284,8 +297,16 @@ export function AiTasksPage() {
     setFormOutputSchema(task.outputSchemaJson);
     setFormIsPublished(task.isPublished);
     setFormIsActive(task.isActive);
+    setFormPrimaryModelId(task.primaryModelId ?? null);
+    setFormGlobalModelName(null);
     setEditingTask(task);
     setShowFormDialog(true);
+
+    // Load global default in background for hint text
+    routePolicyService.list(task.useCase).then((policies) => {
+      const globalPolicy = policies.find((p) => !p.isOverride);
+      setFormGlobalModelName(globalPolicy?.primaryModelName ?? null);
+    }).catch(() => {/* silent */});
   };
 
   const handleSave = async () => {
@@ -305,6 +326,7 @@ export function AiTasksPage() {
           outputSchemaJson: formOutputSchema || undefined,
           isPublished: formIsPublished,
           isActive: formIsActive,
+          primaryModelId: formPrimaryModelId || undefined,
         };
         await aiTaskService.update(editingTask.id, request);
       } else {
@@ -322,6 +344,7 @@ export function AiTasksPage() {
           outputSchemaJson: formOutputSchema || undefined,
           isPublished: formIsPublished,
           isActive: formIsActive,
+          primaryModelId: formPrimaryModelId || undefined,
         };
         await aiTaskService.create(request);
       }
@@ -788,6 +811,57 @@ export function AiTasksPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <FieldLabel
+                htmlFor="task-model"
+                label="LLM Model"
+                tooltip="Your tenant's model override for this task. Selecting a model creates a tenant-scoped route policy. Leave unset to use the global default."
+              />
+              <Select
+                value={formPrimaryModelId ?? '__none__'}
+                onValueChange={(v) => setFormPrimaryModelId(v === '__none__' ? null : v)}
+              >
+                <SelectTrigger id="task-model">
+                  <SelectValue placeholder={formGlobalModelName ? `Default: ${formGlobalModelName}` : 'No default set'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    {formGlobalModelName ? `Use global default (${formGlobalModelName})` : 'No model assigned'}
+                  </SelectItem>
+                  {(() => {
+                    const activeModels = availableModels.filter((m) => m.isActive);
+                    const grouped = activeModels.reduce<Record<string, AiModelResponse[]>>((acc, m) => {
+                      const provider = m.providerName ?? 'Unknown';
+                      if (!acc[provider]) acc[provider] = [];
+                      acc[provider].push(m);
+                      return acc;
+                    }, {});
+                    return Object.entries(grouped).map(([provider, providerModels]) => (
+                      <SelectGroup key={provider}>
+                        <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-[var(--color-text-tertiary)]">
+                          {provider}
+                        </div>
+                        {providerModels.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.modelName}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
+              {formPrimaryModelId ? (
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Tenant override — overrides the global default for this tenant.
+                </p>
+              ) : formGlobalModelName ? (
+                <p className="text-xs text-[var(--color-text-tertiary)]">
+                  Using global default: <span className="font-medium">{formGlobalModelName}</span>. Select a model above to override for this tenant.
+                </p>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

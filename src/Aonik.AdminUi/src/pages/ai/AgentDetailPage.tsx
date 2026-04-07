@@ -33,8 +33,8 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
-import type { AgentConfigurationResponse, AiModelResponse } from '@/types/ai';
-import { agentConfigService, aiModelService } from '@/services/aiService';
+import type { AgentConfigurationResponse, AiModelResponse, RoutePolicyResponse } from '@/types/ai';
+import { agentConfigService, aiModelService, routePolicyService } from '@/services/aiService';
 import { loadAgentIcons, type AgentIconOption } from '@/data/agentIcons';
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -58,7 +58,6 @@ interface EditState {
   instructionsText: string;
   riskTier: string;
   isActive: boolean;
-  modelId: string;
   tools: string[];
   iconUrl: string;
 }
@@ -69,7 +68,6 @@ function createEditState(agent: AgentConfigurationResponse): EditState {
     instructionsText: agent.instructionsText,
     riskTier: agent.riskTier,
     isActive: agent.isActive,
-    modelId: agent.modelId ?? '',
     tools: parseJsonArray(agent.toolsetIdsJson),
     iconUrl: agent.iconUrl ?? '',
   };
@@ -86,6 +84,11 @@ export function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+
+  // Route policy model state — separate from agent config
+  const [tenantPolicy, setTenantPolicy] = useState<RoutePolicyResponse | null>(null);
+  const [globalPolicy, setGlobalPolicy] = useState<RoutePolicyResponse | null>(null);
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
 
   // Edit state — always active (form-first layout)
   const [editState, setEditState] = useState<EditState | null>(null);
@@ -111,17 +114,24 @@ export function AgentDetailPage() {
     setError(null);
 
     try {
-      const [agentData, modelList, icons] = await Promise.all([
+      const [agentData, modelList, icons, policies] = await Promise.all([
         agentConfigService.get(agentName),
         aiModelService.list(),
         loadAgentIcons(),
+        routePolicyService.list(agentName),
       ]);
 
       if (requestIdRef.current !== requestId) return;
 
+      const tenant = policies.find((p) => p.isOverride) ?? null;
+      const global = policies.find((p) => !p.isOverride) ?? null;
+
       setAgent(agentData);
       setModels(modelList);
       setAvailableIcons(icons);
+      setTenantPolicy(tenant);
+      setGlobalPolicy(global);
+      setSelectedModelId(tenant?.primaryModelId ?? null);
       setEditState(createEditState(agentData));
       setLoading(false);
     } catch (err: unknown) {
@@ -204,15 +214,35 @@ export function AgentDetailPage() {
     setSaving(true);
     setError(null);
     try {
+      // Save agent config (no modelId — model is managed via route policy)
       await agentConfigService.upsert(agent.name, {
         description: editState.description,
         instructionsText: editState.instructionsText,
         riskTier: editState.riskTier,
         isActive: editState.isActive,
-        modelId: editState.modelId || null,
         toolsetIdsJson: JSON.stringify(editState.tools),
         iconUrl: editState.iconUrl || null,
       });
+
+      // Save model via route policy (tenant-scoped)
+      if (selectedModelId) {
+        if (tenantPolicy) {
+          await routePolicyService.update(tenantPolicy.id, { primaryModelId: selectedModelId });
+        } else {
+          await routePolicyService.create({
+            useCase: agent.name,
+            primaryModelId: selectedModelId,
+            riskTier: editState.riskTier ?? 'Standard',
+            dataSensitivity: 'Internal',
+            costCeiling: 0,
+            isActive: true,
+          });
+        }
+      } else if (tenantPolicy) {
+        // Model cleared — remove tenant override policy
+        await routePolicyService.delete(tenantPolicy.id);
+      }
+
       toast.success('Agent configuration saved.');
       await loadData();
     } catch (err: unknown) {
@@ -228,7 +258,10 @@ export function AgentDetailPage() {
   };
 
   const cancelEdit = () => {
-    if (agent) setEditState(createEditState(agent));
+    if (agent) {
+      setEditState(createEditState(agent));
+      setSelectedModelId(tenantPolicy?.primaryModelId ?? null);
+    }
   };
 
   // ── Render guards ──────────────────────────────────────────────
@@ -274,7 +307,8 @@ export function AgentDetailPage() {
   };
 
   const currentIcon = editState.iconUrl;
-  const selectedModel = models.find((m) => m.id === editState.modelId);
+  const selectedModel = models.find((m) => m.id === selectedModelId);
+  const globalModel = models.find((m) => m.id === globalPolicy?.primaryModelId);
   const riskStyle = riskTierStyles[editState.riskTier] ?? riskTierStyles.low;
 
   // ── Render ─────────────────────────────────────────────────────
@@ -388,26 +422,41 @@ export function AgentDetailPage() {
                   </p>
                 </div>
 
-                {/* Default AI model */}
+                {/* AI model — tenant override via route policy */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-[var(--color-text-secondary)]">Default AI model</Label>
+                  <Label className="text-sm font-medium text-[var(--color-text-secondary)]">AI model</Label>
                   <Select
-                    value={editState.modelId || '__none__'}
-                    onValueChange={(v) => updateField('modelId', v === '__none__' ? '' : v)}
+                    value={selectedModelId ?? '__none__'}
+                    onValueChange={(v) => setSelectedModelId(v === '__none__' ? null : v)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Platform default" />
+                      <SelectValue placeholder={globalModel ? `Default: ${globalModel.modelName}` : 'No default set'} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">Platform default</SelectItem>
+                      <SelectItem value="__none__">
+                        {globalModel ? `Use global default (${globalModel.modelName})` : 'No model assigned'}
+                      </SelectItem>
                       {models.filter((m) => m.isActive).map((m) => (
                         <SelectItem key={m.id} value={m.id}>
                           {m.modelName}
-                          {m.providerName ? ` (${m.providerName})` : ''}
+                          {m.providerName ? ` · ${m.providerName}` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {selectedModelId ? (
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      Tenant override — overrides the global default for this agent.
+                    </p>
+                  ) : globalModel ? (
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      Using global default: <span className="font-medium">{globalModel.modelName}</span>. Select a model above to override for this tenant.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
+                      No model assigned. Set a global default in Route Policies or select one above.
+                    </p>
+                  )}
                 </div>
 
                 {/* System prompt */}
@@ -577,9 +626,15 @@ export function AgentDetailPage() {
                     <div className="flex items-center gap-1.5">
                       <Brain className="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" />
                       <span className="text-sm text-[var(--color-text-primary)]">
-                        {selectedModel ? selectedModel.modelName : 'Platform default'}
+                        {selectedModel ? selectedModel.modelName : globalModel ? globalModel.modelName : 'No model assigned'}
                       </span>
                     </div>
+                    {selectedModel && (
+                      <p className="text-[10px] text-[var(--color-brand-primary)] mt-0.5">Tenant override</p>
+                    )}
+                    {!selectedModel && globalModel && (
+                      <p className="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">Global default</p>
+                    )}
                   </div>
 
                   {/* Risk tier */}
