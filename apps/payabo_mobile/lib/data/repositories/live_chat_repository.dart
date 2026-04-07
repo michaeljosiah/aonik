@@ -9,6 +9,7 @@
 //  - confirmAction — human-in-the-loop approval for mutations
 //  - display_fx_rate_chart — GBP/NGN rate window with timing signal
 //  - display_budget_breakdown — spending categories with over/under
+//  - display_spending_pie_chart — donut chart of spending by category
 //  - display_autopilot_proposal — structured approve/reject card
 //  - display_option_selector — blocking option picker for user choices
 // ─────────────────────────────────────────────────────────
@@ -254,6 +255,63 @@ class LiveChatRepository implements ChatRepository {
         handler: _makeDisplayToolHandler(
           sideChannel,
           DisplayWidgetType.budgetBreakdown,
+        ),
+      ),
+
+      // Display: spending pie chart (donut) by category.
+      'display_spending_pie_chart': FrontendToolRegistration(
+        tool: const AgUiToolDefinition(
+          name: 'display_spending_pie_chart',
+          description:
+              'Display a pie chart showing spending distribution by category. '
+              'Use after pf_get_category_breakdown or pf_get_spending_summary '
+              'to visualise how spending is split across categories.',
+          parameters: {
+            'type': 'object',
+            'properties': {
+              'title': {
+                'type': 'string',
+                'description':
+                    'Chart title (e.g., "Spending by Category — April 2026")',
+              },
+              'currency': {
+                'type': 'string',
+                'description': 'ISO 4217 currency code (e.g., "USD")',
+              },
+              'totalSpent': {
+                'type': 'number',
+                'description': 'Total amount spent across all categories',
+              },
+              'categories': {
+                'type': 'array',
+                'description': 'Spending categories with amounts',
+                'items': {
+                  'type': 'object',
+                  'properties': {
+                    'name': {
+                      'type': 'string',
+                      'description': 'Category name (e.g., "Groceries")',
+                    },
+                    'amount': {
+                      'type': 'number',
+                      'description': 'Amount spent in this category',
+                    },
+                    'percentage': {
+                      'type': 'number',
+                      'description':
+                          'Percentage of total spending (0-100)',
+                    },
+                  },
+                  'required': ['name', 'amount'],
+                },
+              },
+            },
+            'required': ['currency', 'totalSpent', 'categories'],
+          },
+        ),
+        handler: _makeDisplayToolHandler(
+          sideChannel,
+          DisplayWidgetType.spendingPieChart,
         ),
       ),
 

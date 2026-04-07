@@ -269,6 +269,7 @@ class ChatStreamSpeechRender extends ChatStreamEvent {
 enum DisplayWidgetType {
   fxRateChart,
   budgetBreakdown,
+  spendingPieChart,
   autopilotProposal,
   optionSelector,
 }

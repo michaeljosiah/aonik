@@ -3557,6 +3557,8 @@ class _DisplayWidgetDispatcher extends StatelessWidget {
         return _FxRateChartCard(data: widget.data);
       case DisplayWidgetType.budgetBreakdown:
         return _BudgetBreakdownCard(data: widget.data);
+      case DisplayWidgetType.spendingPieChart:
+        return _SpendingPieChartCard(data: widget.data);
       case DisplayWidgetType.autopilotProposal:
         return _AutopilotProposalCard(data: widget.data);
       case DisplayWidgetType.optionSelector:
@@ -4024,6 +4026,290 @@ class _BudgetBreakdownCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Spending pie chart card — renders a donut chart showing the proportional
+/// split of spending across categories, with a legend listing each category's
+/// amount and percentage.
+class _SpendingPieChartCard extends StatelessWidget {
+  const _SpendingPieChartCard({required this.data});
+
+  final Map<String, dynamic> data;
+
+  static const List<Color> _sliceColors = [
+    Color(0xFF3B82F6), // blue
+    Color(0xFF10B981), // green
+    Color(0xFFF59E0B), // amber
+    Color(0xFFEF4444), // red
+    Color(0xFF8B5CF6), // violet
+    Color(0xFFEC4899), // pink
+    Color(0xFF06B6D4), // cyan
+    Color(0xFFF97316), // orange
+    Color(0xFF14B8A6), // teal
+    Color(0xFF6366F1), // indigo
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+
+    final title = data['title'] as String? ?? '';
+    final currency = data['currency'] as String? ?? '';
+    final totalSpent = (data['totalSpent'] as num?)?.toDouble() ?? 0.0;
+    final rawCategories = (data['categories'] as List<dynamic>?)
+            ?.map((e) => e as Map<String, dynamic>)
+            .toList() ??
+        const [];
+
+    // Sort by amount descending and compute percentages.
+    final categories = rawCategories.toList()
+      ..sort((a, b) {
+        final aAmt = (a['amount'] as num?)?.toDouble() ?? 0.0;
+        final bAmt = (b['amount'] as num?)?.toDouble() ?? 0.0;
+        return bAmt.compareTo(aAmt);
+      });
+
+    final slices = categories.map((cat) {
+      final amount = (cat['amount'] as num?)?.toDouble() ?? 0.0;
+      final pct = totalSpent > 0 ? amount / totalSpent * 100.0 : 0.0;
+      return _PieSlice(
+        name: cat['name'] as String? ?? '',
+        amount: amount,
+        percentage: pct,
+      );
+    }).toList();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: PayaboSpacing.xs),
+      decoration: BoxDecoration(
+        color: _chatPlanSurfaceColor(context),
+        gradient: _chatPlanGradient(context),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _chatPremiumBorderColor(context)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1E000000),
+            blurRadius: 16,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: 0,
+            left: 18,
+            right: 18,
+            child: Container(
+              height: 1,
+              color: _chatPremiumHighlightColor(context),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(PayaboSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Header.
+                Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.donut_large_rounded,
+                      size: 18,
+                      color: c.primary.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: PayaboSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        title.isNotEmpty ? title : 'SPENDING',
+                        style:
+                            Theme.of(context).textTheme.labelLarge?.copyWith(
+                                  color: _chatMutedTextColor(context),
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: title.isNotEmpty ? 0.0 : 2.8,
+                                ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: PayaboSpacing.lg),
+                // Donut chart + total centre label.
+                Center(
+                  child: SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: <Widget>[
+                        CustomPaint(
+                          size: const Size(160, 160),
+                          painter: _DonutChartPainter(
+                            slices: slices,
+                            colors: _sliceColors,
+                          ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Text(
+                              'Total',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(
+                                    color: _chatMutedTextColor(context),
+                                  ),
+                            ),
+                            Text(
+                              '$currency${totalSpent.toStringAsFixed(totalSpent == totalSpent.roundToDouble() ? 0 : 2)}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: _chatBodyTextColor(context),
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: PayaboSpacing.lg),
+                // Legend rows.
+                ...slices.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final slice = entry.value;
+                  final color =
+                      _sliceColors[i % _sliceColors.length];
+
+                  return Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: PayaboSpacing.sm),
+                    child: Row(
+                      children: <Widget>[
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                        const SizedBox(width: PayaboSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            slice.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: _chatBodyTextColor(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
+                        ),
+                        Text(
+                          '$currency${slice.amount.toStringAsFixed(slice.amount == slice.amount.roundToDouble() ? 0 : 2)}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                color: _chatBodyTextColor(context),
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(width: PayaboSpacing.sm),
+                        SizedBox(
+                          width: 42,
+                          child: Text(
+                            '${slice.percentage.toStringAsFixed(0)}%',
+                            textAlign: TextAlign.end,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: _chatMutedTextColor(context),
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Simple data holder for a donut slice.
+class _PieSlice {
+  const _PieSlice({
+    required this.name,
+    required this.amount,
+    required this.percentage,
+  });
+
+  final String name;
+  final double amount;
+  final double percentage;
+}
+
+/// Custom painter that draws a donut chart from [_PieSlice] data.
+class _DonutChartPainter extends CustomPainter {
+  _DonutChartPainter({
+    required this.slices,
+    required this.colors,
+  });
+
+  final List<_PieSlice> slices;
+  final List<Color> colors;
+
+  static const double _strokeWidth = 28.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (slices.isEmpty) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.shortestSide - _strokeWidth) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    const startAngle = -1.5707963; // -π/2 (12 o'clock)
+    var currentAngle = startAngle;
+
+    // Small gap between slices (in radians).
+    const gap = 0.04;
+    final totalGap = slices.length > 1 ? gap * slices.length : 0.0;
+    final availableSweep = 2 * 3.141592653589793 - totalGap;
+
+    for (var i = 0; i < slices.length; i++) {
+      final fraction = slices[i].percentage / 100.0;
+      final sweep = fraction * availableSweep;
+
+      final paint = Paint()
+        ..color = colors[i % colors.length]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _strokeWidth
+        ..strokeCap = StrokeCap.butt;
+
+      canvas.drawArc(rect, currentAngle, sweep, false, paint);
+
+      currentAngle += sweep + (slices.length > 1 ? gap : 0.0);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutChartPainter oldDelegate) {
+    return slices != oldDelegate.slices;
   }
 }
 
