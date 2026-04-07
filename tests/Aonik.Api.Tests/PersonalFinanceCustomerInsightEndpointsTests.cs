@@ -463,6 +463,8 @@ public class PersonalFinanceCustomerInsightEndpointsTests : IClassFixture<Custom
                     [],
                     [],
                     [],
+                    [],
+                    [],
                     []),
                 new CustomerInsightBudgetInsights(0, [], [], [], []),
                 new CustomerInsightGoalInsights(0, [], CustomerInsightSnapshotContract.ConfidenceLow)),
