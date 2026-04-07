@@ -16,49 +16,4 @@ public class Bill : AuditableEntity, ITenantScoped
     public Guid? LinkedInvoiceId { get; set; }
     public Guid? LinkedOrderId { get; set; }
     public string Status { get; set; } = string.Empty;
-
-    // ── Commitment fields ────────────────────────────────────
-
-    /// <summary>Verification confidence: Detected, Confirmed, or Rejected.</summary>
-    public string VerificationStatus { get; set; } = "Confirmed";
-
-    /// <summary>How the system learned about this commitment: Manual, Detected, PromotedFromTransaction, Imported.</summary>
-    public string Origin { get; set; } = "Manual";
-
-    /// <summary>Detection confidence score (0.0–1.0). Null for manually created.</summary>
-    public decimal? ConfidenceScore { get; set; }
-
-    /// <summary>The transaction that triggered detection or promotion.</summary>
-    public Guid? SourceTransactionId { get; set; }
-
-    /// <summary>Human-readable evidence for how this was detected.</summary>
-    public string? DetectionSource { get; set; }
-
-    // ── Classification ───────────────────────────────────────
-
-    public string? Category { get; set; }
-    public string? SubCategory { get; set; }
-    public string? Notes { get; set; }
-
-    // ── Payment tracking ─────────────────────────────────────
-
-    /// <summary>Last time the system observed a matching transaction.</summary>
-    public DateTime? LastObservedAt { get; set; }
-
-    /// <summary>Date of the most recent payment for this bill.</summary>
-    public DateTime? LastPaidAt { get; set; }
-
-    /// <summary>Amount of the most recent payment.</summary>
-    public decimal? LastPaidAmount { get; set; }
-
-    // ── Notification ─────────────────────────────────────────
-
-    /// <summary>Days before due date to send a reminder. Null = no reminder.</summary>
-    public int? ReminderDaysBefore { get; set; }
-
-    /// <summary>Grace period days after the due date before marking as overdue.</summary>
-    public int? GracePeriodDays { get; set; }
-
-    /// <summary>External payee reference (e.g. account number, reference code).</summary>
-    public string? PayeeReference { get; set; }
 }

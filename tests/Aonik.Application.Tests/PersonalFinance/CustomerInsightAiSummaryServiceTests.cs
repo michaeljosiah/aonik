@@ -475,6 +475,8 @@ public class CustomerInsightAiSummaryServiceTests
                     [new CustomerInsightCommitmentItem("Bill", Guid.NewGuid(), "Electric Co", "USD", 150m, asOfUtc.AddDays(5), "monthly")],
                     [new CustomerInsightCommitmentItem("Subscription", Guid.NewGuid(), "Netflix", "USD", 20m, asOfUtc.AddDays(15), "monthly")],
                     [],
+                    [],
+                    [],
                     [new CustomerInsightMoneyAmount("USD", 170m)],
                     [new CustomerInsightCoverageRatio("USD", 1800m, 170m, 10.59m)]),
                 new CustomerInsightBudgetInsights(

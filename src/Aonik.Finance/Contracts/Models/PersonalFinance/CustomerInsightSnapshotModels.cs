@@ -224,6 +224,8 @@ public record CustomerInsightObligationInsights(
     DateTime WindowEndUtc,
     IReadOnlyList<CustomerInsightCommitmentItem> UpcomingBills,
     IReadOnlyList<CustomerInsightCommitmentItem> Subscriptions,
+    IReadOnlyList<CustomerInsightCommitmentItem> PersonalRecurringBills,
+    IReadOnlyList<CustomerInsightCommitmentItem> DebtRepayments,
     IReadOnlyList<CustomerInsightCommitmentItem> SupportObligations,
     IReadOnlyList<CustomerInsightMoneyAmount> TotalUpcomingByCurrency,
     IReadOnlyList<CustomerInsightCoverageRatio> CoverageRatios);

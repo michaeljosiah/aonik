@@ -131,6 +131,46 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
             coverageAccumulator,
             cancellationToken);
 
+        var personalRecurringBills = await LoadOptionalDomainAsync(
+            async ct =>
+            {
+                var results = await _dbContext.PersonalRecurringBills
+                    .AsNoTracking()
+                    .Where(x => x.TenantId == tenantId && x.UserId == userId)
+                    .ToListAsync(ct);
+
+                return results
+                    .Where(x => IsActiveStatus(x.Status) && x.VerificationStatus != "Rejected")
+                    .OrderBy(x => x.NextDueDate)
+                    .ThenBy(x => NormalizeKey(x.Payee))
+                    .ThenBy(x => x.Id)
+                    .ToList();
+            },
+            "personalRecurringBills",
+            "metrics.obligations.personalRecurringBills",
+            coverageAccumulator,
+            cancellationToken);
+
+        var debtRepayments = await LoadOptionalDomainAsync(
+            async ct =>
+            {
+                var results = await _dbContext.DebtRepayments
+                    .AsNoTracking()
+                    .Where(x => x.TenantId == tenantId && x.UserId == userId)
+                    .ToListAsync(ct);
+
+                return results
+                    .Where(x => IsActiveStatus(x.Status) && x.VerificationStatus != "Rejected")
+                    .OrderBy(x => x.NextDueDate)
+                    .ThenBy(x => NormalizeKey(x.CreditorName))
+                    .ThenBy(x => x.Id)
+                    .ToList();
+            },
+            "debtRepayments",
+            "metrics.obligations.debtRepayments",
+            coverageAccumulator,
+            cancellationToken);
+
         var budgets = await LoadOptionalDomainAsync(
             async ct =>
             {
@@ -195,7 +235,7 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         var trendTransactions = FilterTransactions(nonTransferTransactions, trendWindowStartUtc, windowEndUtc);
 
         var recurringMerchantCandidates = BuildRecurringMerchantCandidates(nonTransferTransactions);
-        var upcomingObligationsByCurrency = ComputeUpcomingObligationsByCurrency(asOfUtc, bills, subscriptions, lookaheadEndUtc);
+        var upcomingObligationsByCurrency = ComputeUpcomingObligationsByCurrency(asOfUtc, bills, subscriptions, personalRecurringBills, debtRepayments, lookaheadEndUtc);
         var cashPosition = BuildCashPosition(accounts, upcomingObligationsByCurrency);
         var incomeSummary = BuildIncomeSummary(operationalTransactions, previousOperationalTransactions, nonTransferTransactions, operationalWindowStartUtc, windowEndUtc);
         var expenseSummary = BuildExpenseSummary(
@@ -208,7 +248,7 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
             windowEndUtc);
         var categoryInsights = BuildCategoryInsights(operationalTransactions, previousOperationalTransactions, nonTransferTransactions, asOfUtc, operationalWindowStartUtc, windowEndUtc);
         var merchantInsights = BuildMerchantInsights(operationalTransactions, previousOperationalTransactions, nonTransferTransactions, asOfUtc, recurringMerchantCandidates, operationalWindowStartUtc, windowEndUtc);
-        var obligationInsights = BuildObligationInsights(asOfUtc, bills, subscriptions, lookaheadEndUtc, cashPosition);
+        var obligationInsights = BuildObligationInsights(asOfUtc, bills, subscriptions, personalRecurringBills, debtRepayments, lookaheadEndUtc, cashPosition);
         var budgetInsights = BuildBudgetInsights(budgets, normalizedTransactions, asOfUtc);
         var goalInsights = BuildGoalInsights(goals, normalizedTransactions, trendWindowStartUtc, windowEndUtc);
 
@@ -513,6 +553,8 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         DateTime asOfUtc,
         IReadOnlyList<Bill> bills,
         IReadOnlyList<Subscription> subscriptions,
+        IReadOnlyList<PersonalRecurringBill> personalRecurringBills,
+        IReadOnlyList<DebtRepayment> debtRepayments,
         DateTime lookaheadEndUtc)
     {
         var today = asOfUtc.Date;
@@ -522,6 +564,12 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
             .Concat(subscriptions
                 .Where(x => x.RenewalDate.Date >= today && x.RenewalDate <= lookaheadEndUtc)
                 .Select(x => (Currency: NormalizeCurrency(x.Currency), Amount: x.ExpectedAmount)))
+            .Concat(personalRecurringBills
+                .Where(x => x.NextDueDate.Date >= today && x.NextDueDate <= lookaheadEndUtc && x.ExpectedAmount.HasValue)
+                .Select(x => (Currency: NormalizeCurrency(x.Currency), Amount: x.ExpectedAmount!.Value)))
+            .Concat(debtRepayments
+                .Where(x => x.NextDueDate.Date >= today && x.NextDueDate <= lookaheadEndUtc && x.ExpectedAmount.HasValue)
+                .Select(x => (Currency: NormalizeCurrency(x.Currency), Amount: x.ExpectedAmount!.Value)))
             .GroupBy(x => x.Currency, StringComparer.Ordinal)
             .ToDictionary(x => x.Key, x => x.Sum(y => y.Amount), StringComparer.Ordinal);
     }
@@ -1009,6 +1057,8 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
         DateTime asOfUtc,
         IReadOnlyList<Bill> bills,
         IReadOnlyList<Subscription> subscriptions,
+        IReadOnlyList<PersonalRecurringBill> personalRecurringBills,
+        IReadOnlyList<DebtRepayment> debtRepayments,
         DateTime lookaheadEndUtc,
         CustomerInsightCashPosition cashPosition)
     {
@@ -1038,12 +1088,38 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
                 "monthly"))
             .ToList();
 
+        var upcomingPersonalRecurringBills = personalRecurringBills
+            .Where(x => x.NextDueDate.Date >= today && x.NextDueDate <= lookaheadEndUtc && x.ExpectedAmount.HasValue)
+            .Select(x => new CustomerInsightCommitmentItem(
+                "PersonalRecurringBill",
+                x.Id,
+                string.IsNullOrWhiteSpace(x.Payee) ? "Unnamed recurring bill" : x.Payee.Trim(),
+                NormalizeCurrency(x.Currency),
+                decimal.Round(x.ExpectedAmount ?? 0m, 2),
+                x.NextDueDate,
+                string.IsNullOrWhiteSpace(x.Frequency) ? null : x.Frequency.Trim()))
+            .ToList();
+
+        var upcomingDebtRepayments = debtRepayments
+            .Where(x => x.NextDueDate.Date >= today && x.NextDueDate <= lookaheadEndUtc && x.ExpectedAmount.HasValue)
+            .Select(x => new CustomerInsightCommitmentItem(
+                "DebtRepayment",
+                x.Id,
+                string.IsNullOrWhiteSpace(x.CreditorName) ? "Unnamed debt" : x.CreditorName.Trim(),
+                NormalizeCurrency(x.Currency),
+                decimal.Round(x.ExpectedAmount ?? 0m, 2),
+                x.NextDueDate,
+                string.IsNullOrWhiteSpace(x.Frequency) ? null : x.Frequency.Trim()))
+            .ToList();
+
         var supportObligations = upcomingBills
             .Where(x => bills.Any(y => y.Id == x.SourceId && y.LinkedOrderId.HasValue))
             .ToList();
 
         var totalUpcoming = upcomingBills
             .Concat(upcomingSubscriptions)
+            .Concat(upcomingPersonalRecurringBills)
+            .Concat(upcomingDebtRepayments)
             .GroupBy(x => x.Currency)
             .OrderBy(x => x.Key)
             .Select(x => new CustomerInsightMoneyAmount(x.Key, decimal.Round(x.Sum(y => y.Amount), 2)))
@@ -1067,6 +1143,8 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
             lookaheadEndUtc,
             upcomingBills,
             upcomingSubscriptions,
+            upcomingPersonalRecurringBills,
+            upcomingDebtRepayments,
             supportObligations,
             totalUpcoming,
             coverageRatios);

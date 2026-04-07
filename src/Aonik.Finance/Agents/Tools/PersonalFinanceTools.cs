@@ -22,6 +22,7 @@ internal sealed class PersonalFinanceTools
     private readonly IPersonalAccountService _accountService;
     private readonly IPersonalTransactionService _transactionService;
     private readonly IBillService _billService;
+    private readonly ICommitmentService _commitmentService;
     private readonly IPersonalFinanceInsightsService _insightsService;
     private readonly IDashboardService _dashboardService;
     private readonly IFxRateService _fxRateService;
@@ -35,6 +36,7 @@ internal sealed class PersonalFinanceTools
         IPersonalAccountService accountService,
         IPersonalTransactionService transactionService,
         IBillService billService,
+        ICommitmentService commitmentService,
         IPersonalFinanceInsightsService insightsService,
         IDashboardService dashboardService,
         IFxRateService fxRateService,
@@ -47,6 +49,7 @@ internal sealed class PersonalFinanceTools
         _accountService = accountService;
         _transactionService = transactionService;
         _billService = billService;
+        _commitmentService = commitmentService;
         _insightsService = insightsService;
         _dashboardService = dashboardService;
         _fxRateService = fxRateService;
@@ -334,13 +337,92 @@ internal sealed class PersonalFinanceTools
         return $"Bill {billId} has been archived successfully.";
     }
 
+    // ── Commitment Read Tools ─────────────────────────────────────
+
+    [Description("Lists all recurring commitments (bills, subscriptions, debt repayments) for the current user. Supports filtering by type ('Bill', 'Subscription', 'DebtRepayment'), status ('Active', 'Paused', 'Cancelled'), and verification status ('Detected', 'Confirmed', 'Rejected'). Returns paginated results with summary totals.")]
+    public async Task<CommitmentListResponse> ListCommitments(
+        [Description("Filter by commitment type: 'Bill', 'Subscription', or 'DebtRepayment'. Null returns all.")] string? type = null,
+        [Description("Filter by lifecycle status: 'Active', 'Paused', 'Cancelled', 'Archived'. Null returns all.")] string? status = null,
+        [Description("Filter by verification status: 'Detected', 'Confirmed', 'Rejected'. Null returns all.")] string? verificationStatus = null,
+        [Description("Page number (default: 1)")] int page = 1,
+        [Description("Page size (default: 20, max: 100)")] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var filter = new CommitmentListFilter(
+            Type: type,
+            Status: status,
+            VerificationStatus: verificationStatus,
+            Page: page,
+            PageSize: pageSize);
+        return await _commitmentService.ListCommitmentsAsync(filter, cancellationToken);
+    }
+
+    [Description("Gets full details of a single commitment by ID. Works across all commitment types (bills, subscriptions, debt repayments).")]
+    public async Task<CommitmentDetail?> GetCommitment(
+        [Description("The unique identifier (GUID) of the commitment")] Guid commitmentId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _commitmentService.GetCommitmentAsync(commitmentId, cancellationToken);
+    }
+
+    [Description("Lists all detected (unreviewed) commitments that the system found from transaction patterns. These need user review to confirm or reject.")]
+    public async Task<IReadOnlyList<CommitmentItem>> ListDetectedCommitments(
+        CancellationToken cancellationToken = default)
+    {
+        return await _commitmentService.ListDetectedAsync(cancellationToken);
+    }
+
+    // ── Commitment Mutating Tools ───────────────────────────────
+
+    [Description("Promotes a personal transaction into a tracked recurring commitment. Creates a PersonalRecurringBill, Subscription, or DebtRepayment based on the specified type.")]
+    public async Task<CommitmentDetail> CreateCommitmentFromTransaction(
+        [Description("The transaction ID (GUID) to promote")] Guid transactionId,
+        [Description("Commitment type: 'Bill', 'Subscription', or 'DebtRepayment'")] string commitmentType,
+        [Description("Display name for the commitment (e.g. payee or merchant name)")] string displayName,
+        [Description("Billing frequency: 'Monthly', 'Weekly', 'Yearly', 'Quarterly'")] string frequency,
+        [Description("Next expected due date in UTC")] DateTime nextDueDate,
+        [Description("ISO 4217 currency code (e.g. USD, GBP, NGN)")] string currency,
+        [Description("Expected recurring amount")] decimal? expectedAmount = null,
+        [Description("Whether this commitment is on autopay")] bool autopay = false,
+        [Description("Optional: account ID payments come from")] Guid? paidFromAccountId = null,
+        [Description("Optional: free-text notes")] string? notes = null,
+        [Description("Optional: debt type for DebtRepayment (e.g. 'Mortgage', 'PersonalLoan', 'CreditCardRepayment')")] string? debtType = null,
+        [Description("Optional: external account or loan reference")] string? accountReference = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new CreateCommitmentFromTransactionRequest(
+            transactionId, commitmentType, displayName, frequency,
+            nextDueDate, expectedAmount, currency, paidFromAccountId,
+            autopay, notes, debtType, accountReference);
+        return await _commitmentService.CreateFromTransactionAsync(request, cancellationToken);
+    }
+
+    [Description("Confirms a detected commitment, marking it as verified by the user. Only works on commitments with VerificationStatus = 'Detected'.")]
+    public async Task<CommitmentDetail> ConfirmCommitment(
+        [Description("The unique identifier (GUID) of the detected commitment to confirm")] Guid commitmentId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _commitmentService.ConfirmDetectedAsync(commitmentId, cancellationToken);
+    }
+
+    [Description("Rejects a detected commitment, indicating it is not a real recurring obligation. Only works on commitments with VerificationStatus = 'Detected'.")]
+    public async Task<string> RejectCommitment(
+        [Description("The unique identifier (GUID) of the detected commitment to reject")] Guid commitmentId,
+        [Description("Optional reason for rejection")] string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        await _commitmentService.RejectDetectedAsync(commitmentId, reason, cancellationToken);
+        return $"Commitment {commitmentId} has been rejected.";
+    }
+
     // ── Tool Factory ──────────────────────────────────────────────
 
     /// <summary>
     /// Creates <see cref="AITool"/> instances for all personal finance tools.
     /// Mutating tools (CreateAccount, ArchiveAccount, CreateManualTransaction,
-    /// CreateBill, ArchiveBill) rely on the <c>confirmAction</c> frontend tool
-    /// for human-in-the-loop approval.
+    /// CreateBill, ArchiveBill, CreateCommitmentFromTransaction, ConfirmCommitment,
+    /// RejectCommitment) rely on the <c>confirmAction</c> frontend tool for
+    /// human-in-the-loop approval.
     /// </summary>
     public static IEnumerable<AITool> CreateAll(IServiceProvider serviceProvider)
     {
@@ -349,6 +431,7 @@ internal sealed class PersonalFinanceTools
             serviceProvider.GetRequiredService<IPersonalAccountService>(),
             serviceProvider.GetRequiredService<IPersonalTransactionService>(),
             serviceProvider.GetRequiredService<IBillService>(),
+            serviceProvider.GetRequiredService<ICommitmentService>(),
             serviceProvider.GetRequiredService<IPersonalFinanceInsightsService>(),
             serviceProvider.GetRequiredService<IDashboardService>(),
             serviceProvider.GetRequiredService<IFxRateService>(),
@@ -373,6 +456,9 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.GetFxRateHistory, name: "pf_get_fx_rate_history");
         yield return AIFunctionFactory.Create(tools.RunSpendingIntelligence, name: "pf_run_spending_intelligence");
         yield return AIFunctionFactory.Create(tools.RunObligationPlanning, name: "pf_run_obligation_planning");
+        yield return AIFunctionFactory.Create(tools.ListCommitments, name: "pf_list_commitments");
+        yield return AIFunctionFactory.Create(tools.GetCommitment, name: "pf_get_commitment");
+        yield return AIFunctionFactory.Create(tools.ListDetectedCommitments, name: "pf_list_detected_commitments");
 
         // Mutating — approval enforced via the confirmAction frontend tool
         yield return AIFunctionFactory.Create(tools.CreateAccount, name: "pf_create_account");
@@ -380,6 +466,9 @@ internal sealed class PersonalFinanceTools
         yield return AIFunctionFactory.Create(tools.CreateManualTransaction, name: "pf_create_transaction");
         yield return AIFunctionFactory.Create(tools.CreateBill, name: "pf_create_bill");
         yield return AIFunctionFactory.Create(tools.ArchiveBill, name: "pf_archive_bill");
+        yield return AIFunctionFactory.Create(tools.CreateCommitmentFromTransaction, name: "pf_create_commitment_from_transaction");
+        yield return AIFunctionFactory.Create(tools.ConfirmCommitment, name: "pf_confirm_commitment");
+        yield return AIFunctionFactory.Create(tools.RejectCommitment, name: "pf_reject_commitment");
     }
 
     private async Task<ChatClientAgent> BuildStructuredSubAgentAsync(

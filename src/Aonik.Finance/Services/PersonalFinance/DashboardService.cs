@@ -66,21 +66,32 @@ internal sealed class DashboardService : IDashboardService
         // ── Run queries sequentially (DbContext is not thread-safe) ──
         var accounts = await GetActiveAccountsAsync(tenantId, userId, cancellationToken);
         var upcomingBills = await GetUpcomingBillsAsync(tenantId, userId, now, cancellationToken);
+        var upcomingPersonalRecurringBills = await GetUpcomingPersonalRecurringBillsAsync(tenantId, userId, now, cancellationToken);
+        var upcomingDebtRepayments = await GetUpcomingDebtRepaymentsAsync(tenantId, userId, now, cancellationToken);
         var transactions = await GetMonthTransactionsAsync(tenantId, userId, monthStart, monthEnd, cancellationToken);
         var recentOrders = await GetRecentOrdersAsync(tenantId, userId, cancellationToken);
 
         // ── Determine primary currency from accounts ────────────────
         var currency = DeterminePrimaryCurrency(accounts);
 
-        // ── Build metrics ───────────────────────────────────────────
-        var metrics = BuildMetrics(accounts, upcomingBills, transactions, currency);
+        // ── Build metrics (include all obligation types) ────────────
+        var allUpcomingObligationAmounts = upcomingBills
+            .Where(b => b.ExpectedAmount.HasValue)
+            .Sum(b => b.ExpectedAmount!.Value)
+            + upcomingPersonalRecurringBills
+                .Where(b => b.ExpectedAmount.HasValue)
+                .Sum(b => b.ExpectedAmount!.Value)
+            + upcomingDebtRepayments
+                .Where(d => d.ExpectedAmount.HasValue)
+                .Sum(d => d.ExpectedAmount!.Value);
+        var totalObligationCount = upcomingBills.Count + upcomingPersonalRecurringBills.Count + upcomingDebtRepayments.Count;
+        var metrics = BuildMetrics(accounts, allUpcomingObligationAmounts, totalObligationCount, transactions, currency);
 
         // ── Build overview slices ───────────────────────────────────
         var overview = BuildOverview(transactions, currency, now);
 
-        // ── Map bills to DTOs ───────────────────────────────────────
+        // ── Map all upcoming obligations to bill DTOs ────────────────
         var billDtos = upcomingBills
-            .Take(UpcomingBillsLimit)
             .Select(bill => new DashboardBillDto(
                 bill.Id,
                 bill.Payee,
@@ -89,6 +100,26 @@ internal sealed class DashboardService : IDashboardService
                 bill.Currency,
                 bill.NextDueDate,
                 FormatDate(bill.NextDueDate)))
+            .Concat(upcomingPersonalRecurringBills
+                .Select(b => new DashboardBillDto(
+                    b.Id,
+                    b.Payee,
+                    b.ExpectedAmount,
+                    FormatAmount(b.ExpectedAmount ?? 0, b.Currency),
+                    b.Currency,
+                    b.NextDueDate,
+                    FormatDate(b.NextDueDate))))
+            .Concat(upcomingDebtRepayments
+                .Select(d => new DashboardBillDto(
+                    d.Id,
+                    d.CreditorName,
+                    d.ExpectedAmount,
+                    FormatAmount(d.ExpectedAmount ?? 0, d.Currency),
+                    d.Currency,
+                    d.NextDueDate,
+                    FormatDate(d.NextDueDate))))
+            .OrderBy(b => b.NextDueDate)
+            .Take(UpcomingBillsLimit)
             .ToList();
 
         // ── Map orders to DTOs ──────────────────────────────────────
@@ -102,19 +133,21 @@ internal sealed class DashboardService : IDashboardService
     // ═════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Builds the dashboard metrics from account balances, upcoming bills,
+    /// <summary>
+    /// Builds the dashboard metrics from account balances, upcoming obligations,
     /// and this month's transactions.
     ///
     /// Calculations:
     ///   Net Worth = Sum(asset balances) - Sum(liability balances)
     ///   Total Assets = Sum of balances where AccountType is an asset type
-    ///   Total Bills Due = Sum of ExpectedAmount for upcoming active bills
-    ///   Available to Spend = Monthly Income - Monthly Expenses - Upcoming Bill Amounts
+    ///   Total Bills Due = Sum of ExpectedAmount for all upcoming obligations (bills + personal recurring bills + debt repayments)
+    ///   Available to Spend = Monthly Income - Monthly Expenses - Upcoming Obligation Amounts
     ///   Spendable Progress = Available to Spend / Monthly Income (clamped 0..1)
     /// </summary>
     private DashboardMetricsDto BuildMetrics(
         List<PersonalAccount> accounts,
-        List<Bill> upcomingBills,
+        decimal totalObligationsDue,
+        int upcomingObligationsCount,
         List<PersonalTransaction> transactions,
         string currency)
     {
@@ -157,14 +190,12 @@ internal sealed class DashboardService : IDashboardService
             : 0.0;
         var trendDirection = netChange >= 0 ? "up" : "down";
 
-        // ── Upcoming bills total ────────────────────────────────────
-        var totalBillsDue = upcomingBills
-            .Where(b => b.ExpectedAmount.HasValue)
-            .Sum(b => b.ExpectedAmount!.Value);
+        // ── Upcoming obligations total ───────────────────────────────
+        var totalBillsDue = totalObligationsDue;
 
         // ── Available to spend ──────────────────────────────────────
         // Simple calculation: what income has come in, minus what's been
-        // spent, minus what's still committed (upcoming bills).
+        // spent, minus what's still committed (upcoming obligations).
         var availableToSpend = Math.Max(0, monthlyIncome - monthlyExpenses - totalBillsDue);
 
         // ── Spendable progress ──────────────────────────────────────
@@ -191,7 +222,7 @@ internal sealed class DashboardService : IDashboardService
             TotalBillsDue: totalBillsDue,
             BillsLabel: FormatCompactAmount(totalBillsDue, currency),
             Currency: currency,
-            UpcomingBillsCount: upcomingBills.Count);
+            UpcomingBillsCount: upcomingObligationsCount);
     }
 
     // ═════════════════════════════════════════════════════════════════
@@ -259,6 +290,42 @@ internal sealed class DashboardService : IDashboardService
                 && b.NextDueDate >= now.Date
                 && b.NextDueDate <= cutoff)
             .OrderBy(b => b.NextDueDate)
+            .ToListAsync(ct);
+    }
+
+    private async Task<List<PersonalRecurringBill>> GetUpcomingPersonalRecurringBillsAsync(
+        Guid tenantId, Guid userId, DateTime now, CancellationToken ct)
+    {
+        var cutoff = now.Date.AddDays(UpcomingBillsDaysAhead);
+
+        return await _financeDbContext.PersonalRecurringBills
+            .AsNoTracking()
+            .Where(b =>
+                b.TenantId == tenantId
+                && b.UserId == userId
+                && b.Status == "Active"
+                && b.VerificationStatus != "Rejected"
+                && b.NextDueDate >= now.Date
+                && b.NextDueDate <= cutoff)
+            .OrderBy(b => b.NextDueDate)
+            .ToListAsync(ct);
+    }
+
+    private async Task<List<DebtRepayment>> GetUpcomingDebtRepaymentsAsync(
+        Guid tenantId, Guid userId, DateTime now, CancellationToken ct)
+    {
+        var cutoff = now.Date.AddDays(UpcomingBillsDaysAhead);
+
+        return await _financeDbContext.DebtRepayments
+            .AsNoTracking()
+            .Where(d =>
+                d.TenantId == tenantId
+                && d.UserId == userId
+                && d.Status == "Active"
+                && d.VerificationStatus != "Rejected"
+                && d.NextDueDate >= now.Date
+                && d.NextDueDate <= cutoff)
+            .OrderBy(d => d.NextDueDate)
             .ToListAsync(ct);
     }
 

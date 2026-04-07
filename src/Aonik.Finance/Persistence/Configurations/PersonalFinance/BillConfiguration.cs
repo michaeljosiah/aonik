@@ -32,46 +32,8 @@ internal class BillConfiguration : IEntityTypeConfiguration<Bill>
             .IsRequired()
             .HasMaxLength(50);
 
-        // ── Commitment fields ────────────────────────────────
-
-        builder.Property(x => x.VerificationStatus)
-            .IsRequired()
-            .HasMaxLength(50)
-            .HasDefaultValue("Confirmed");
-
-        builder.Property(x => x.Origin)
-            .IsRequired()
-            .HasMaxLength(50)
-            .HasDefaultValue("Manual");
-
-        builder.Property(x => x.ConfidenceScore)
-            .HasPrecision(5, 4);
-
-        builder.Property(x => x.DetectionSource)
-            .HasMaxLength(500);
-
-        builder.Property(x => x.Category)
-            .HasMaxLength(100);
-
-        builder.Property(x => x.SubCategory)
-            .HasMaxLength(100);
-
-        builder.Property(x => x.Notes)
-            .HasMaxLength(1000);
-
-        builder.Property(x => x.LastPaidAmount)
-            .HasPrecision(19, 4);
-
-        builder.Property(x => x.PayeeReference)
-            .HasMaxLength(200);
-
-        // ── Indexes ──────────────────────────────────────────
-
         builder.HasIndex(x => new { x.TenantId, x.UserId });
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.NextDueDate });
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.Status });
-        builder.HasIndex(x => new { x.TenantId, x.UserId, x.VerificationStatus });
-        builder.HasIndex(x => new { x.TenantId, x.UserId, x.SourceTransactionId })
-            .HasFilter("[SourceTransactionId] IS NOT NULL");
     }
 }

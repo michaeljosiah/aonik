@@ -132,6 +132,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.PersonalFinance.ITransactionAttachmentService, Services.PersonalFinance.TransactionAttachmentService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IFinancialContextService, Services.PersonalFinance.FinancialContextService>();
         services.AddScoped<Contracts.Services.PersonalFinance.IBudgetService, Services.PersonalFinance.BudgetService>();
+        services.AddScoped<Contracts.Services.PersonalFinance.ICommitmentService, Services.PersonalFinance.CommitmentService>();
 
         // Cross-module personal profile provisioner (used by Platform registration flow)
         services.AddScoped<SharedKernel.Abstractions.PersonalFinance.IPersonalProfileProvisioner, Services.PersonalFinance.PersonalProfileProvisioner>();

@@ -225,6 +225,8 @@ public class PersonalFinanceNarrativeInsightsServiceTests
                         [new CustomerInsightCommitmentItem("Bill", Guid.NewGuid(), "Rent", "USD", 1200m, asOfUtc.AddDays(5), "monthly")],
                         [],
                         [],
+                        [],
+                        [],
                         [new CustomerInsightMoneyAmount("USD", 1200m)],
                         [new CustomerInsightCoverageRatio("USD", 2500m, 1200m, 2.08m)]),
                     new CustomerInsightBudgetInsights(0, [], [], [], []),

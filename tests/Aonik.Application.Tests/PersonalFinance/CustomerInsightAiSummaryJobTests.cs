@@ -386,7 +386,7 @@ public class CustomerInsightAiSummaryJobTests
                 new CustomerInsightExpenseSummary(30, asOfUtc.AddDays(-30), asOfUtc, [new CustomerInsightMoneyAmount("USD", 1500m)], [new CustomerInsightMoneyAmount("USD", 1000m)], [new CustomerInsightMoneyAmount("USD", 500m)], [new CustomerInsightMoneyAmount("USD", 1200m)], [new CustomerInsightMoneyAmount("USD", 300m)], [new CustomerInsightAccountFlow(Guid.NewGuid(), "Main", "USD", 1500m, 3)], [new CustomerInsightPeriodDelta("USD", 1500m, 1400m, 100m, 7.14m)], [new CustomerInsightAverageSpend("USD", 350m, 1500m)]),
                 new CustomerInsightCategoryInsights(30, asOfUtc.AddDays(-30), asOfUtc, [new CustomerInsightCategorySpend("food", "USD", 500m, 33.33m, 2, 450m, 11.11m)], [new CustomerInsightCategorySpend("food", "USD", 500m, 33.33m, 2, 450m, 11.11m)], [new CustomerInsightCategorySpend("food", "USD", 500m, 33.33m, 2, 450m, 11.11m)], [new CustomerInsightConcentrationRatio("USD", 33.33m)], []),
                 new CustomerInsightMerchantInsights(30, asOfUtc.AddDays(-30), asOfUtc, [new CustomerInsightMerchantSpend("Tesco", "USD", 500m, 33.33m, 2)], [new CustomerInsightMerchantFrequency("Tesco", "USD", 2, 500m)], [], [new CustomerInsightConcentrationRatio("USD", 33.33m)], []),
-                new CustomerInsightObligationInsights(30, asOfUtc, asOfUtc.AddDays(30), [], [], [], [], []),
+                new CustomerInsightObligationInsights(30, asOfUtc, asOfUtc.AddDays(30), [], [], [], [], [], [], []),
                 new CustomerInsightBudgetInsights(0, [], [], [], []),
                 new CustomerInsightGoalInsights(0, [], CustomerInsightSnapshotContract.ConfidenceLow)),
             [],

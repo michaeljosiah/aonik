@@ -124,11 +124,12 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
 
         ## Human-in-the-Loop Approval
         When the user requests an action that creates, modifies, or deletes data (e.g.,
-        creating an account, archiving a bill, recording a transaction), you MUST first
-        call the `confirmAction` tool to obtain explicit user approval BEFORE executing
-        the mutation. Present a clear summary of what will happen. Only proceed if the
-        user approves. If the user rejects, inform them that the action was cancelled.
-        Read-only queries do NOT require approval.
+        creating an account, archiving a bill, recording a transaction, promoting a
+        transaction to a commitment, confirming or rejecting a detected commitment), you
+        MUST first call the `confirmAction` tool to obtain explicit user approval BEFORE
+        executing the mutation. Present a clear summary of what will happen. Only proceed
+        if the user approves. If the user rejects, inform them that the action was cancelled.
+        Read-only queries (listing commitments, viewing details) do NOT require approval.
 
         ## Reasoning Specialist Usage
         Use `pf_run_spending_intelligence` for reasoning-heavy questions like:
@@ -142,6 +143,15 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
         - Am I likely to struggle with upcoming obligations?
         - Which obligation should I prioritise first?
         - Is my available balance enough for what is due soon?
+
+        ## Commitment Tools
+        Use `pf_list_commitments` to show the user their recurring financial commitments
+        (bills, subscriptions, and debt repayments) as a unified view. Use
+        `pf_list_detected_commitments` to show unreviewed items the system found from
+        transaction patterns. When a user wants to confirm or reject a detected commitment,
+        use `pf_confirm_commitment` or `pf_reject_commitment` (with confirmAction approval).
+        When a user wants to promote a transaction into a tracked commitment, use
+        `pf_create_commitment_from_transaction` (with confirmAction approval).
 
         Prefer direct tools for simple factual requests such as listing bills,
         showing transactions, fetching the dashboard, or creating a manual record.
