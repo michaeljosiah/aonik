@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   Dialog,
   DialogContent,
@@ -19,9 +20,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Route, Plus, Search, Pencil, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  DataTable,
+  DataTableHeader,
+  DataTablePagination,
+  DataTableRowActions,
+  type ColumnDef,
+  type DataTableAction,
+} from '@/components/ui/data-table';
+import {
+  Route,
+  Plus,
+  AlertCircle,
+  Loader2,
+  Shield,
+  Globe,
+  Building2,
+  CheckCircle2,
+  Eye,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { routePolicyService, aiModelService } from '@/services/aiService';
-import type { RoutePolicyResponse, CreateRoutePolicyRequest, UpdateRoutePolicyRequest, AiModelResponse } from '@/types/ai';
+import type {
+  RoutePolicyResponse,
+  CreateRoutePolicyRequest,
+  UpdateRoutePolicyRequest,
+  AiModelResponse,
+} from '@/types/ai';
+
+// ── Helpers ──────────────────────────────────────────────────────────
 
 const getErrorMessage = (err: unknown, fallback: string) => {
   if (err && typeof err === 'object' && 'userMessage' in err) {
@@ -31,17 +59,22 @@ const getErrorMessage = (err: unknown, fallback: string) => {
   return fallback;
 };
 
-const riskTierOptions = ['Low', 'Medium', 'High'];
+const riskTierOptions = ['Low', 'Standard', 'Medium', 'High'];
 const dataSensitivityOptions = ['Public', 'Internal', 'Confidential', 'Restricted'];
 
 const riskTierColor = (tier: string) => {
   switch (tier.toLowerCase()) {
     case 'low': return 'bg-green-500/10 text-green-700 border-green-200';
+    case 'standard': return 'bg-blue-500/10 text-blue-700 border-blue-200';
     case 'medium': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
     case 'high': return 'bg-red-500/10 text-red-700 border-red-200';
-    default: return '';
+    default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
   }
 };
+
+const PAGE_SIZE = 20;
+
+// ── Main Page ────────────────────────────────────────────────────────
 
 export function RoutePoliciesPage() {
   const [policies, setPolicies] = useState<RoutePolicyResponse[]>([]);
@@ -49,21 +82,33 @@ export function RoutePoliciesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('');
+  const [pageNumber, setPageNumber] = useState(1);
   const requestIdRef = useRef(0);
 
-  // Dialog state
+  // Create/Edit dialog
   const [showDialog, setShowDialog] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<RoutePolicyResponse | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Detail dialog
+  const [detailPolicy, setDetailPolicy] = useState<RoutePolicyResponse | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
+
+  // Delete confirmation dialog
+  const [deleteTarget, setDeleteTarget] = useState<RoutePolicyResponse | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // Form state
   const [formUseCase, setFormUseCase] = useState('');
-  const [formRiskTier, setFormRiskTier] = useState('Low');
-  const [formDataSensitivity, setFormDataSensitivity] = useState('Public');
-  const [formCostCeiling, setFormCostCeiling] = useState(1000);
+  const [formRiskTier, setFormRiskTier] = useState('Standard');
+  const [formDataSensitivity, setFormDataSensitivity] = useState('Internal');
+  const [formCostCeiling, setFormCostCeiling] = useState(0);
   const [formPrimaryModelId, setFormPrimaryModelId] = useState('');
-  const [formFallbackModelIds, setFormFallbackModelIds] = useState('[]');
   const [formIsActive, setFormIsActive] = useState(true);
+
+  // ── Data Loading ──────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -71,7 +116,7 @@ export function RoutePoliciesPage() {
     setError(null);
     try {
       const [policiesResult, modelsResult] = await Promise.all([
-        routePolicyService.list(searchQuery || undefined),
+        routePolicyService.list(),
         aiModelService.list(),
       ]);
       if (requestIdRef.current !== requestId) return;
@@ -83,17 +128,44 @@ export function RoutePoliciesPage() {
     } finally {
       if (requestIdRef.current === requestId) setLoading(false);
     }
-  }, [searchQuery]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ── Filtering & Pagination ────────────────────────────────────────
+
+  const filteredPolicies = policies.filter((p) => {
+    const matchesSearch = !searchQuery ||
+      p.useCase.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.primaryModelName ?? '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesScope = !scopeFilter ||
+      (scopeFilter === 'global' && !p.isOverride) ||
+      (scopeFilter === 'override' && p.isOverride);
+    return matchesSearch && matchesScope;
+  });
+
+  useEffect(() => { setPageNumber(1); }, [searchQuery, scopeFilter]);
+
+  const paginatedPolicies = filteredPolicies.slice(
+    (pageNumber - 1) * PAGE_SIZE,
+    pageNumber * PAGE_SIZE,
+  );
+
+  // ── Stats ─────────────────────────────────────────────────────────
+
+  const totalPolicies = filteredPolicies.length;
+  const activePolicies = filteredPolicies.filter((p) => p.isActive).length;
+  const globalPolicies = filteredPolicies.filter((p) => !p.isOverride).length;
+  const overridePolicies = filteredPolicies.filter((p) => p.isOverride).length;
+
+  // ── Form helpers ──────────────────────────────────────────────────
+
   const resetForm = () => {
     setFormUseCase('');
-    setFormRiskTier('Low');
-    setFormDataSensitivity('Public');
-    setFormCostCeiling(1000);
+    setFormRiskTier('Standard');
+    setFormDataSensitivity('Internal');
+    setFormCostCeiling(0);
     setFormPrimaryModelId('');
-    setFormFallbackModelIds('[]');
     setFormIsActive(true);
   };
 
@@ -103,16 +175,27 @@ export function RoutePoliciesPage() {
     setShowDialog(true);
   };
 
-  const openEdit = (policy: RoutePolicyResponse) => {
+  const openEdit = (policy: RoutePolicyResponse, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     setFormUseCase(policy.useCase);
     setFormRiskTier(policy.riskTier);
     setFormDataSensitivity(policy.dataSensitivity);
     setFormCostCeiling(policy.costCeiling);
-    setFormPrimaryModelId(policy.primaryModelId);
-    setFormFallbackModelIds(policy.fallbackModelIdsJson);
+    setFormPrimaryModelId(policy.primaryModelId ?? '');
     setFormIsActive(policy.isActive);
     setEditingPolicy(policy);
     setShowDialog(true);
+  };
+
+  const openDetail = (policy: RoutePolicyResponse) => {
+    setDetailPolicy(policy);
+    setShowDetailDialog(true);
+  };
+
+  const confirmDelete = (policy: RoutePolicyResponse, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setDeleteTarget(policy);
+    setShowDeleteDialog(true);
   };
 
   const handleSave = async () => {
@@ -123,8 +206,7 @@ export function RoutePoliciesPage() {
           riskTier: formRiskTier,
           dataSensitivity: formDataSensitivity,
           costCeiling: formCostCeiling,
-          primaryModelId: formPrimaryModelId,
-          fallbackModelIdsJson: formFallbackModelIds,
+          primaryModelId: formPrimaryModelId || null,
           isActive: formIsActive,
         };
         await routePolicyService.update(editingPolicy.id, request);
@@ -135,7 +217,6 @@ export function RoutePoliciesPage() {
           dataSensitivity: formDataSensitivity,
           costCeiling: formCostCeiling,
           primaryModelId: formPrimaryModelId,
-          fallbackModelIdsJson: formFallbackModelIds || undefined,
           isActive: formIsActive,
         };
         await routePolicyService.create(request);
@@ -149,140 +230,366 @@ export function RoutePoliciesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await routePolicyService.delete(id);
+      await routePolicyService.delete(deleteTarget.id);
+      setShowDeleteDialog(false);
+      setDeleteTarget(null);
       loadData();
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to delete route policy'));
+    } finally {
+      setDeleting(false);
     }
   };
 
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+  // ── Table columns ─────────────────────────────────────────────────
+
+  const getRowActions = (policy: RoutePolicyResponse): DataTableAction[] => [
+    {
+      label: 'View Details',
+      icon: <Eye className="w-4 h-4" />,
+      onClick: () => openDetail(policy),
+    },
+    {
+      label: 'Edit',
+      icon: <Pencil className="w-4 h-4" />,
+      onClick: (e) => openEdit(policy, e),
+    },
+    {
+      label: 'Delete',
+      icon: <Trash2 className="w-4 h-4" />,
+      onClick: (e) => confirmDelete(policy, e),
+      destructive: true,
+    },
+  ];
+
+  const columns: ColumnDef<RoutePolicyResponse>[] = [
+    {
+      id: 'useCase',
+      header: 'Use Case',
+      accessorKey: 'useCase',
+      sortable: true,
+      cell: (policy) => (
         <div>
-          <h1 className="text-2xl font-bold">Route Policies</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Configure which AI model is used for each use-case. Tenant-specific policies override global defaults.
+          <p className="font-medium font-mono text-sm text-[var(--color-text-primary)]">{policy.useCase}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {policy.isOverride ? (
+              <span className="inline-flex items-center gap-1 text-[11px] text-blue-600">
+                <Building2 className="w-3 h-3" /> Tenant override
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)]">
+                <Globe className="w-3 h-3" /> Global default
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'model',
+      header: 'Model',
+      accessorFn: (row) => row.primaryModelName ?? '',
+      sortable: true,
+      cell: (policy) => (
+        policy.primaryModelName ? (
+          <Badge variant="outline" className="text-xs font-mono">{policy.primaryModelName}</Badge>
+        ) : (
+          <span className="text-xs text-[var(--color-text-tertiary)] italic">Not set</span>
+        )
+      ),
+    },
+    {
+      id: 'riskTier',
+      header: 'Risk Tier',
+      accessorKey: 'riskTier',
+      sortable: true,
+      cell: (policy) => (
+        <Badge className={`text-xs ${riskTierColor(policy.riskTier)}`}>{policy.riskTier}</Badge>
+      ),
+    },
+    {
+      id: 'dataSensitivity',
+      header: 'Sensitivity',
+      accessorKey: 'dataSensitivity',
+      sortable: true,
+      cell: (policy) => (
+        <span className="text-sm text-[var(--color-text-secondary)]">{policy.dataSensitivity}</span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      accessorKey: 'isActive',
+      sortable: true,
+      cell: (policy) => (
+        policy.isActive ? (
+          <Badge className="text-xs bg-green-500/10 text-green-700 border-green-200">Active</Badge>
+        ) : (
+          <Badge variant="secondary" className="text-xs">Inactive</Badge>
+        )
+      ),
+    },
+  ];
+
+  // ── Grouped models for selector ───────────────────────────────────
+
+  const activeModels = models.filter((m) => m.isActive);
+  const groupedModels = activeModels.reduce<Record<string, AiModelResponse[]>>((acc, m) => {
+    const provider = m.providerName ?? 'Unknown';
+    if (!acc[provider]) acc[provider] = [];
+    acc[provider].push(m);
+    return acc;
+  }, {});
+
+  // ── Breadcrumb ────────────────────────────────────────────────────
+
+  const breadcrumbItems = [
+    { label: 'AI', href: '/ai/agents' },
+    { label: 'Route Policies', icon: <Route className="w-3.5 h-3.5" /> },
+  ];
+
+  // ── Render ────────────────────────────────────────────────────────
+
+  return (
+    <div className="h-full overflow-auto p-6">
+      <Breadcrumb items={breadcrumbItems} className="mb-4" />
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Route Policies</h1>
+          <p className="text-[var(--color-text-secondary)]">
+            Configure which AI model is used for each use case. Tenant overrides take precedence over global defaults.
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Policy
+        <Button onClick={openCreate} className="rounded-sm">
+          <Plus className="w-4 h-4 mr-2" />
+          New Policy
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by use case..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
+      {/* Stat cards */}
+      <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+              <Route className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Total policies</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{totalPolicies}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Matches current filters</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-success-light)] text-[var(--color-success)]">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Active</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{activePolicies}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">On this page</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]">
+              <Globe className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Global defaults</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{globalPolicies}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Apply to all tenants</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500/10 text-blue-600">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Tenant overrides</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)]">{overridePolicies}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Tenant-specific</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-destructive text-sm">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
+        <Card className="mb-6 border-[var(--color-error)] bg-[var(--color-error-light)]">
+          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={loadData} className="ml-auto">Retry</Button>
+          </CardContent>
+        </Card>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : policies.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Route className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>No route policies found</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {policies.map((policy) => (
-            <Card key={policy.id} className="relative group">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-base font-semibold font-mono">{policy.useCase}</CardTitle>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={`text-xs ${riskTierColor(policy.riskTier)}`}>
-                        {policy.riskTier}
-                      </Badge>
-                      {policy.isActive ? (
-                        <Badge className="text-xs bg-green-500/10 text-green-700 border-green-200">Active</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">Inactive</Badge>
-                      )}
-                      {policy.isOverride && (
-                        <Badge className="text-xs bg-blue-500/10 text-blue-700 border-blue-200">Override</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEdit(policy)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => handleDelete(policy.id)}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Model</span>
-                    <span className="font-medium">{policy.primaryModelName ?? 'Not set'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Sensitivity</span>
-                    <span>{policy.dataSensitivity}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cost Ceiling</span>
-                    <span>${policy.costCeiling.toFixed(2)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* Table */}
+      <Card>
+        <CardContent className="p-4">
+          <DataTableHeader
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search by use case or model..."
+            filterValue={scopeFilter}
+            onFilterChange={setScopeFilter}
+            filterOptions={[
+              { value: 'global', label: 'Global defaults' },
+              { value: 'override', label: 'Tenant overrides' },
+            ]}
+            filterPlaceholder="Scope"
+            showViewToggle={false}
+            className="px-0 border-b-0"
+          />
 
+          <div className="mt-3 rounded-md border border-[var(--color-border-light)] overflow-hidden">
+            <DataTable
+              data={paginatedPolicies}
+              columns={columns}
+              getRowId={(p) => p.id}
+              onRowClick={openDetail}
+              loading={loading}
+              loadingMessage="Loading route policies..."
+              showCheckboxes={false}
+              emptyIcon={<Route className="w-12 h-12" />}
+              emptyTitle="No route policies found"
+              emptyDescription={
+                searchQuery || scopeFilter
+                  ? 'Try adjusting your filters.'
+                  : 'Route policies will appear here once created. Use the button above to create your first policy.'
+              }
+              rowActions={(policy) => <DataTableRowActions actions={getRowActions(policy)} />}
+            />
+          </div>
+
+          <div className="pt-4">
+            <DataTablePagination
+              pageNumber={pageNumber}
+              pageSize={PAGE_SIZE}
+              totalCount={filteredPolicies.length}
+              onPageChange={setPageNumber}
+              onPageSizeChange={() => {/* fixed page size */}}
+              className="px-0 border-t-0"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Detail Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
+        <DialogContent className="max-w-[500px]">
+          {detailPolicy && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="font-mono">{detailPolicy.useCase}</DialogTitle>
+                <DialogDescription>
+                  {detailPolicy.isOverride ? 'Tenant override policy' : 'Global default policy'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Model</p>
+                    <p className="text-sm font-medium font-mono">{detailPolicy.primaryModelName ?? 'Not set'}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Risk Tier</p>
+                    <Badge className={`text-xs ${riskTierColor(detailPolicy.riskTier)}`}>{detailPolicy.riskTier}</Badge>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Data Sensitivity</p>
+                    <p className="text-sm font-medium">{detailPolicy.dataSensitivity}</p>
+                  </div>
+                  <div className="rounded-lg border p-3">
+                    <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Cost Ceiling</p>
+                    <p className="text-sm font-medium">${detailPolicy.costCeiling.toFixed(2)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {detailPolicy.isActive ? (
+                    <Badge className="text-xs bg-green-500/10 text-green-700 border-green-200">Active</Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                  )}
+                  {detailPolicy.isOverride ? (
+                    <Badge className="text-xs bg-blue-500/10 text-blue-700 border-blue-200">
+                      <Building2 className="w-3 h-3 mr-1" />Tenant override
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">
+                      <Globe className="w-3 h-3 mr-1" />Global default
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDetailDialog(false)}>Close</Button>
+                <Button onClick={() => { setShowDetailDialog(false); openEdit(detailPolicy); }}>
+                  <Pencil className="w-4 h-4 mr-2" />Edit
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create/Edit Dialog ─────────────────────────────────────────── */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-[600px]">
+        <DialogContent className="max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>{editingPolicy ? `Edit: ${editingPolicy.useCase}` : 'Create Route Policy'}</DialogTitle>
+            <DialogTitle>{editingPolicy ? `Edit: ${editingPolicy.useCase}` : 'New Route Policy'}</DialogTitle>
             <DialogDescription>
-              {editingPolicy ? 'Update the route policy configuration.' : 'Create a new AI model routing policy.'}
+              {editingPolicy
+                ? 'Update the model assignment and governance settings for this use case.'
+                : 'Create a new AI model routing policy for a use case.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto">
+          <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto pr-1">
+
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="use-case">Use Case</label>
               <Input
                 id="use-case"
                 value={formUseCase}
                 onChange={(e) => setFormUseCase(e.target.value)}
-                placeholder="e.g. title-generation"
+                placeholder="e.g. personal-finance-agent"
                 disabled={!!editingPolicy}
+                className="font-mono"
               />
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Must match the agent name or task use case exactly.
+              </p>
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="primary-model">Primary Model</label>
-              <Select value={formPrimaryModelId} onValueChange={setFormPrimaryModelId}>
+              <Select value={formPrimaryModelId || '__none__'} onValueChange={(v) => setFormPrimaryModelId(v === '__none__' ? '' : v)}>
                 <SelectTrigger id="primary-model">
-                  <SelectValue placeholder="Select a model" />
+                  <SelectValue placeholder="Select a model..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {models.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.modelName} ({model.providerName})
-                    </SelectItem>
+                  <SelectItem value="__none__">No model assigned</SelectItem>
+                  {Object.entries(groupedModels).map(([provider, providerModels]) => (
+                    <div key={provider}>
+                      <div className="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-[var(--color-text-tertiary)]">
+                        {provider}
+                      </div>
+                      {providerModels.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.modelName}
+                        </SelectItem>
+                      ))}
+                    </div>
                   ))}
                 </SelectContent>
               </Select>
@@ -318,24 +625,26 @@ export function RoutePoliciesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="cost-ceiling">Cost Ceiling ($)</label>
+              <label className="text-sm font-medium" htmlFor="cost-ceiling">Cost Ceiling ($ per run)</label>
               <Input
                 id="cost-ceiling"
                 type="number"
                 value={formCostCeiling}
                 onChange={(e) => setFormCostCeiling(Number(e.target.value))}
                 min={0}
-                step={0.01}
+                step={0.001}
               />
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Set to 0 to disable cost limiting.
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Switch
-                id="active"
-                checked={formIsActive}
-                onCheckedChange={setFormIsActive}
-              />
-              <label className="text-sm font-medium" htmlFor="active">Active</label>
+            <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Active</p>
+                <p className="text-xs text-[var(--color-text-tertiary)]">Inactive policies are ignored at runtime.</p>
+              </div>
+              <Switch id="active" checked={formIsActive} onCheckedChange={setFormIsActive} />
             </div>
           </div>
           <DialogFooter>
@@ -343,6 +652,28 @@ export function RoutePoliciesPage() {
             <Button onClick={handleSave} disabled={saving || (!editingPolicy && !formUseCase)}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingPolicy ? 'Save Changes' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirmation Dialog ─────────────────────────────────── */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Delete Route Policy</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the policy for <strong className="font-mono">{deleteTarget?.useCase}</strong>? This action cannot be undone.
+              {deleteTarget?.isOverride && (
+                <span className="block mt-1 text-blue-600">This is a tenant override — deleting it will revert to the global default.</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
