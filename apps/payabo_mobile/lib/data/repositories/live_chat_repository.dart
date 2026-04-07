@@ -640,16 +640,16 @@ class LiveChatRepository implements ChatRepository {
               : null,
         ));
 
-        // If the assistant message had tool calls with results, add tool
-        // result messages after the assistant message.
+        // Every tool call MUST have a matching tool result message —
+        // the LLM API rejects messages where tool_call_ids are unmatched.
+        // Frontend tools (confirmAction, display_*) may not have results
+        // persisted in ChatToolCallInfo, so use a sensible fallback.
         for (final tc in msg.toolCalls) {
-          if (tc.result != null) {
-            agUiMessages.add(AgUiMessage.tool(
-              id: _nextId(),
-              toolCallId: tc.toolCallId,
-              content: tc.result!,
-            ));
-          }
+          agUiMessages.add(AgUiMessage.tool(
+            id: _nextId(),
+            toolCallId: tc.toolCallId,
+            content: tc.result ?? 'completed',
+          ));
         }
       }
     }
