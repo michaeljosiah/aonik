@@ -31,7 +31,6 @@ class SpendingBudgetScreen extends ConsumerStatefulWidget {
 }
 
 class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
-  String _expandedCategoryId = spendingBudgetCategories.first.id;
   bool _isCreatingBudget = false;
 
   @override
@@ -103,18 +102,6 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
                       monthLabel: spendingBudgetMonthLabel,
                       categories: categories,
                     );
-                    final String expandedCategoryId;
-                    if (_expandedCategoryId.isEmpty) {
-                      expandedCategoryId = '';
-                    } else if (categories.any(
-                      (SpendingBudgetCategory category) =>
-                          category.id == _expandedCategoryId,
-                    )) {
-                      expandedCategoryId = _expandedCategoryId;
-                    } else {
-                      expandedCategoryId =
-                          categories.isNotEmpty ? categories.first.id : '';
-                    }
 
                     return RefreshIndicator(
                       onRefresh: () async {
@@ -140,9 +127,6 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
                               ),
                               child: _BudgetCategoryCard(
                                 category: category,
-                                expanded: expandedCategoryId == category.id,
-                                onExpandToggle: () =>
-                                    _toggleCategory(category.id),
                                 onOpen: () => context.push(
                                   '/spending/budgets/${category.id}',
                                 ),
@@ -206,12 +190,6 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
     }
   }
 
-  void _toggleCategory(String categoryId) {
-    setState(() {
-      _expandedCategoryId = _expandedCategoryId == categoryId ? '' : categoryId;
-    });
-  }
-
   Future<void> _handleCreateBudget() async {
     if (_isCreatingBudget) {
       return;
@@ -240,6 +218,10 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
           .read(budgetRepositoryProvider)
           .createBudget(categoryId: result.categoryId);
       ref.invalidate(spendingBudgetsProvider);
+      // Wait for the provider to re-fetch so the detail screen sees the
+      // new budget immediately — otherwise _resolveSelectedCategory falls
+      // back to categories.first (the previous budget).
+      await ref.read(spendingBudgetsProvider.future);
 
       if (!mounted) {
         return;
@@ -501,14 +483,10 @@ class _BudgetSectionIntro extends StatelessWidget {
 class _BudgetCategoryCard extends StatelessWidget {
   const _BudgetCategoryCard({
     required this.category,
-    required this.expanded,
-    required this.onExpandToggle,
     required this.onOpen,
   });
 
   final SpendingBudgetCategory category;
-  final bool expanded;
-  final VoidCallback onExpandToggle;
   final VoidCallback onOpen;
 
   @override
@@ -519,16 +497,11 @@ class _BudgetCategoryCard extends StatelessWidget {
       spent: category.spent,
     );
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
+    return Container(
       decoration: BoxDecoration(
         color: c.surfaceBase,
         borderRadius: BorderRadius.circular(PayaboRadii.xl),
-        border: Border.all(
-          color:
-              expanded ? c.spendingInsightBorder : c.spendingQuickActionBorder,
-        ),
+        border: Border.all(color: c.spendingQuickActionBorder),
         boxShadow: PayaboShadows.soft,
       ),
       child: Material(
@@ -583,18 +556,6 @@ class _BudgetCategoryCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(width: PayaboSpacing.xs),
-                    IconButton(
-                      key: Key('budget-expand-${category.id}'),
-                      onPressed: onExpandToggle,
-                      splashRadius: 20,
-                      icon: Icon(
-                        expanded
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                        color: c.accentBrownMuted,
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: PayaboSpacing.lg),
@@ -618,42 +579,6 @@ class _BudgetCategoryCard extends StatelessWidget {
                       foregroundColor: state.progressColorRole.resolve(c),
                     ),
                   ],
-                ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  child: expanded
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: PayaboSpacing.lg),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Container(
-                                height: 1,
-                                color: c.spendingQuickActionBorder,
-                              ),
-                              const SizedBox(height: PayaboSpacing.lg),
-                              Wrap(
-                                spacing: PayaboSpacing.sm,
-                                runSpacing: PayaboSpacing.sm,
-                                children: <Widget>[
-                                  _BudgetDetailChip(
-                                    label: 'Spent',
-                                    value: formatSpendingBudgetCurrency(
-                                        category.spent),
-                                  ),
-                                  _BudgetDetailChip(
-                                    label: 'Remaining',
-                                    value: state.remainingLabel,
-                                    valueColor:
-                                        state.remainingColorRole.resolve(c),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        )
-                      : const SizedBox.shrink(),
                 ),
               ],
             ),
@@ -683,55 +608,6 @@ class _BudgetCategoryIcon extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: Icon(icon, color: color, size: 24),
-    );
-  }
-}
-
-class _BudgetDetailChip extends StatelessWidget {
-  const _BudgetDetailChip({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarm,
-        borderRadius: BorderRadius.circular(PayaboRadii.pill),
-        border: Border.all(color: c.spendingQuickActionBorder),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: PayaboSpacing.md,
-        vertical: PayaboSpacing.sm,
-      ),
-      child: RichText(
-        text: TextSpan(
-          children: <InlineSpan>[
-            TextSpan(
-              text: '$label ',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: c.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            TextSpan(
-              text: value,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: valueColor ?? c.accentBrown,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

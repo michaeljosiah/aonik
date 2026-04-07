@@ -398,6 +398,7 @@ class _SpendingBudgetDetailScreenState
           .read(budgetRepositoryProvider)
           .createBudget(categoryId: result.categoryId);
       ref.invalidate(spendingBudgetsProvider);
+      await ref.read(spendingBudgetsProvider.future);
 
       if (!mounted) {
         return;

@@ -125,6 +125,7 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<BudgetLine> BudgetLines { get; set; } = null!;
     public DbSet<Bill> Bills { get; set; } = null!;
     public DbSet<Subscription> Subscriptions { get; set; } = null!;
+    public DbSet<DebtRepayment> DebtRepayments { get; set; } = null!;
     public DbSet<Goal> Goals { get; set; } = null!;
     public DbSet<Budget> Budgets { get; set; } = null!;
     public DbSet<CustomerInsightSnapshot> CustomerInsightSnapshots { get; set; } = null!;
@@ -224,6 +225,7 @@ internal class FinanceDbContext : AonikDbContextBase
         MapTable<BudgetLine>(modelBuilder, "BudgetLines");
         MapTable<Bill>(modelBuilder, "Bills");
         MapTable<Subscription>(modelBuilder, "Subscriptions");
+        MapTable<DebtRepayment>(modelBuilder, "DebtRepayments");
         MapTable<Goal>(modelBuilder, "Goals");
         MapTable<Budget>(modelBuilder, "Budgets");
         MapTable<CustomerInsightSnapshot>(modelBuilder, "CustomerInsightSnapshots");

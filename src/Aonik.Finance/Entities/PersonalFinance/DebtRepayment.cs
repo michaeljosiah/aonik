@@ -2,20 +2,29 @@ using Aonik.SharedKernel.Primitives;
 
 namespace Aonik.Finance.Entities.PersonalFinance;
 
-public class Bill : AuditableEntity, ITenantScoped
+public class DebtRepayment : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid UserId { get; set; }
     public Guid? PaidFromAccountId { get; set; }
-    public string Payee { get; set; } = string.Empty;
-    public string Frequency { get; set; } = string.Empty;
+
+    /// <summary>Name of the lender or creditor (e.g. "Halifax", "Klarna").</summary>
+    public string CreditorName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Debt classification: Mortgage, PersonalLoan, StudentLoan, AutoLoan,
+    /// CreditCardRepayment, BNPL, Other.
+    /// </summary>
+    public string DebtType { get; set; } = string.Empty;
+
     public DateTime NextDueDate { get; set; }
     public decimal? ExpectedAmount { get; set; }
     public string Currency { get; set; } = string.Empty;
+    public string Frequency { get; set; } = "Monthly";
     public bool Autopay { get; set; }
-    public Guid? LinkedInvoiceId { get; set; }
-    public Guid? LinkedOrderId { get; set; }
-    public string Status { get; set; } = string.Empty;
+
+    /// <summary>Lifecycle status: Active, Paused, Dormant, Cancelled, Archived.</summary>
+    public string Status { get; set; } = "Active";
 
     // ── Commitment fields ────────────────────────────────────
 
@@ -31,34 +40,21 @@ public class Bill : AuditableEntity, ITenantScoped
     /// <summary>The transaction that triggered detection or promotion.</summary>
     public Guid? SourceTransactionId { get; set; }
 
-    /// <summary>Human-readable evidence for how this was detected.</summary>
-    public string? DetectionSource { get; set; }
-
     // ── Classification ───────────────────────────────────────
 
-    public string? Category { get; set; }
-    public string? SubCategory { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>External account or loan reference number.</summary>
+    public string? AccountReference { get; set; }
 
     // ── Payment tracking ─────────────────────────────────────
 
     /// <summary>Last time the system observed a matching transaction.</summary>
     public DateTime? LastObservedAt { get; set; }
 
-    /// <summary>Date of the most recent payment for this bill.</summary>
+    /// <summary>Date of the most recent payment.</summary>
     public DateTime? LastPaidAt { get; set; }
 
     /// <summary>Amount of the most recent payment.</summary>
     public decimal? LastPaidAmount { get; set; }
-
-    // ── Notification ─────────────────────────────────────────
-
-    /// <summary>Days before due date to send a reminder. Null = no reminder.</summary>
-    public int? ReminderDaysBefore { get; set; }
-
-    /// <summary>Grace period days after the due date before marking as overdue.</summary>
-    public int? GracePeriodDays { get; set; }
-
-    /// <summary>External payee reference (e.g. account number, reference code).</summary>
-    public string? PayeeReference { get; set; }
 }

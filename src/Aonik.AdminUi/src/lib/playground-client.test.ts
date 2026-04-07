@@ -183,13 +183,26 @@ describe('streamPlaygroundRun frontend tools', () => {
       },
       expectedResult: 'displayed',
     },
+    {
+      toolName: 'display_option_selector',
+      args: {
+        question: 'Which account should I use?',
+        options: [
+          { label: 'Main account', description: 'Everyday spending account' },
+          { label: 'Savings pot', description: 'Emergency buffer' },
+        ],
+        multiSelect: false,
+      },
+      expectedResult: 'Main account',
+    },
   ])('executes $toolName client-side and reruns with the tool result', async ({
     toolName,
     args,
     expectedResult,
   }) => {
     const confirmAction = vi.fn(() => true);
-    const frontendTools = createPlaygroundFrontendTools({ confirmAction });
+    const selectOptions = vi.fn(() => ['Main account']);
+    const frontendTools = createPlaygroundFrontendTools({ confirmAction, selectOptions });
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(createInitialToolCallResponse(toolName, args))
@@ -244,8 +257,20 @@ describe('streamPlaygroundRun frontend tools', () => {
         description: 'Create a simple April budget.',
         severity: 'high',
       });
+      expect(selectOptions).not.toHaveBeenCalled();
+    } else if (toolName === 'display_option_selector') {
+      expect(selectOptions).toHaveBeenCalledWith({
+        question: 'Which account should I use?',
+        options: [
+          { label: 'Main account', description: 'Everyday spending account' },
+          { label: 'Savings pot', description: 'Emergency buffer' },
+        ],
+        multiSelect: false,
+      });
+      expect(confirmAction).not.toHaveBeenCalled();
     } else {
       expect(confirmAction).not.toHaveBeenCalled();
+      expect(selectOptions).not.toHaveBeenCalled();
     }
   });
 

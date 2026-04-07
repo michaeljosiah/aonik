@@ -139,6 +139,7 @@ class AgUiClient {
   Stream<AgUiEvent> run(
     AgUiRunInput input, {
     CancelToken? cancelToken,
+    bool closeOnTerminalEvent = true,
   }) {
     late StreamController<AgUiEvent> controller;
     CancelToken? effectiveCancelToken;
@@ -151,7 +152,12 @@ class AgUiClient {
 
     effectiveCancelToken = cancelToken ?? CancelToken();
 
-    _streamEvents(controller, input, effectiveCancelToken);
+    _streamEvents(
+      controller,
+      input,
+      effectiveCancelToken,
+      closeOnTerminalEvent: closeOnTerminalEvent,
+    );
 
     return controller.stream;
   }
@@ -193,9 +199,8 @@ class AgUiClient {
     effectiveCancelToken = cancelToken ?? CancelToken();
 
     // Inject tool definitions into the input so the LLM sees them.
-    final toolDefinitions = frontendTools.values
-        .map((r) => r.tool.toJson())
-        .toList();
+    final toolDefinitions =
+        frontendTools.values.map((r) => r.tool.toJson()).toList();
 
     final inputWithTools = AgUiRunInput(
       threadId: input.threadId,
@@ -239,9 +244,28 @@ class AgUiClient {
         // Track tool calls in this run for client-side execution.
         final pendingToolCalls = <String, _PendingToolCall>{};
         final serverResolvedToolCalls = <String>{};
+        var shouldRerun = false;
 
         // Stream one full run's events to the public controller.
-        await for (final event in run(currentInput, cancelToken: cancelToken)) {
+        final runController = StreamController<AgUiEvent>();
+        final runCancelToken = CancelToken();
+
+        cancelToken.whenCancel.then((error) {
+          if (!runCancelToken.isCancelled) {
+            runCancelToken.cancel(error.error);
+          }
+        }).catchError((_) {
+          // Ignore propagation errors from cancellation listeners.
+        });
+
+        _streamEvents(
+          runController,
+          currentInput,
+          runCancelToken,
+          closeOnTerminalEvent: false,
+        );
+
+        await for (final event in runController.stream) {
           if (controller.isClosed) return;
 
           // Track tool calls internally.
@@ -254,8 +278,7 @@ class AgUiClient {
               );
 
             case ToolCallArgsEvent():
-              pendingToolCalls[event.toolCallId]?.argFragments
-                  .add(event.delta);
+              pendingToolCalls[event.toolCallId]?.argFragments.add(event.delta);
 
             case ToolCallResultEvent():
               // Server-side tools get results via TOOL_CALL_RESULT events;
@@ -348,7 +371,8 @@ class AgUiClient {
             // Prepare re-run input.
             currentInput = AgUiRunInput(
               threadId: currentInput.threadId,
-              runId: 'rerun_${DateTime.now().millisecondsSinceEpoch}_$rerunCount',
+              runId:
+                  'rerun_${DateTime.now().millisecondsSinceEpoch}_$rerunCount',
               agentId: currentInput.agentId,
               messages: updatedMessages,
               state: currentInput.state,
@@ -362,14 +386,20 @@ class AgUiClient {
               name: 'AgUiClient',
             );
 
-            // Don't forward RUN_FINISHED — the loop will continue.
-            continue;
+            // Don't forward RUN_FINISHED — restart the outer loop with the
+            // tool results now appended to the conversation history.
+            shouldRerun = true;
+            break;
           }
 
           controller.add(event);
         }
 
-        // If we didn't re-run (broke out of the for-loop normally), we're done.
+        if (shouldRerun) {
+          continue;
+        }
+
+        // If we didn't schedule another run, we're done.
         break;
       }
 
@@ -391,8 +421,9 @@ class AgUiClient {
   Future<void> _streamEvents(
     StreamController<AgUiEvent> controller,
     AgUiRunInput input,
-    CancelToken cancelToken,
-  ) async {
+    CancelToken cancelToken, {
+    bool closeOnTerminalEvent = true,
+  }) async {
     try {
       final response = await _dio.post<ResponseBody>(
         endpoint,
@@ -449,7 +480,8 @@ class AgUiClient {
             controller.add(event);
 
             // Auto-close after terminal events.
-            if (event is RunFinishedEvent || event is RunErrorEvent) {
+            if (closeOnTerminalEvent &&
+                (event is RunFinishedEvent || event is RunErrorEvent)) {
               await controller.close();
               return;
             }

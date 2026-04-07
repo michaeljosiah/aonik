@@ -8,6 +8,7 @@ export const playgroundFrontendToolNames = [
   'display_fx_rate_chart',
   'display_budget_breakdown',
   'display_autopilot_proposal',
+  'display_option_selector',
 ] as const;
 
 export type PlaygroundFrontendToolName = (typeof playgroundFrontendToolNames)[number];
@@ -20,6 +21,11 @@ interface ConfirmActionArgs {
 
 interface CreatePlaygroundFrontendToolsOptions {
   confirmAction?: (args: Required<ConfirmActionArgs>) => Promise<boolean> | boolean;
+  selectOptions?: (args: {
+    question: string;
+    options: Array<{ label: string; description?: string }>;
+    multiSelect: boolean;
+  }) => Promise<string[]> | string[];
 }
 
 function defaultConfirmAction(args: Required<ConfirmActionArgs>): boolean {
@@ -32,6 +38,46 @@ function defaultConfirmAction(args: Required<ConfirmActionArgs>): boolean {
   );
 }
 
+function defaultSelectOptions(args: {
+  question: string;
+  options: Array<{ label: string; description?: string }>;
+  multiSelect: boolean;
+}): string[] {
+  if (args.options.length === 0) {
+    return [];
+  }
+
+  if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
+    return [args.options[0].label];
+  }
+
+  const promptBody = args.options
+    .map((option, index) => `${index + 1}. ${option.label}${option.description ? ` - ${option.description}` : ''}`)
+    .join('\n');
+
+  const rawSelection = window.prompt(
+    `${args.question}\n\n${promptBody}\n\n${args.multiSelect ? 'Enter comma-separated option numbers.' : 'Enter one option number.'}`,
+    '1',
+  );
+
+  if (!rawSelection) {
+    return [args.options[0].label];
+  }
+
+  const selectedLabels = rawSelection
+    .split(',')
+    .map((value) => Number.parseInt(value.trim(), 10))
+    .filter((value) => Number.isFinite(value) && value >= 1 && value <= args.options.length)
+    .map((value) => args.options[value - 1]?.label)
+    .filter((label): label is string => typeof label === 'string' && label.length > 0);
+
+  if (selectedLabels.length === 0) {
+    return [args.options[0].label];
+  }
+
+  return args.multiSelect ? selectedLabels : [selectedLabels[0]];
+}
+
 const displayHandler: PlaygroundFrontendToolHandler = async () => 'displayed';
 
 export function createPlaygroundFrontendTools(
@@ -39,6 +85,7 @@ export function createPlaygroundFrontendTools(
 ): Map<string, PlaygroundFrontendToolRegistration> {
   const registrations = new Map<string, PlaygroundFrontendToolRegistration>();
   const confirmAction = options.confirmAction ?? defaultConfirmAction;
+  const selectOptions = options.selectOptions ?? defaultSelectOptions;
 
   const confirmHandler: PlaygroundFrontendToolHandler = async (args) => {
     const normalizedArgs = {
@@ -236,6 +283,74 @@ export function createPlaygroundFrontendTools(
       },
     },
     handler: displayHandler,
+  });
+
+  registrations.set('display_option_selector', {
+    tool: {
+      name: 'display_option_selector',
+      description:
+        'Present a set of options for the user to choose from before proceeding. This tool blocks until the user selects.',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: {
+            type: 'string',
+            description: 'The prompt text (e.g., "Which account should I use?")',
+          },
+          options: {
+            type: 'array',
+            description: 'The available options to choose from',
+            items: {
+              type: 'object',
+              properties: {
+                label: {
+                  type: 'string',
+                  description: 'Option label shown to the user',
+                },
+                description: {
+                  type: 'string',
+                  description: 'Optional description for the option',
+                },
+              },
+              required: ['label'],
+            },
+          },
+          multiSelect: {
+            type: 'boolean',
+            description: 'If true, the user may select multiple options. Defaults to false.',
+          },
+        },
+        required: ['question', 'options'],
+      },
+    },
+    handler: async (args) => {
+      const question =
+        typeof args.question === 'string' && args.question.trim().length > 0
+          ? args.question
+          : 'Please choose an option';
+      const optionsArg = Array.isArray(args.options) ? args.options : [];
+      const normalizedOptions = optionsArg
+        .filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null)
+        .map((item) => ({
+          label:
+            typeof item.label === 'string' && item.label.trim().length > 0
+              ? item.label
+              : '',
+          description:
+            typeof item.description === 'string' && item.description.trim().length > 0
+              ? item.description
+              : undefined,
+        }))
+        .filter((item) => item.label.length > 0);
+
+      const selected = await selectOptions({
+        question,
+        options: normalizedOptions,
+        multiSelect: args.multiSelect === true,
+      });
+
+      return selected.length <= 1 ? (selected[0] ?? '') : JSON.stringify(selected);
+    },
   });
 
   return registrations;

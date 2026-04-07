@@ -26,7 +26,7 @@ export interface PlaygroundConfig {
 
 // ─── Structured output parts ─────────────────────────────────────────────────
 
-export type PlaygroundToolCallStatus = 'streaming' | 'completed' | 'error';
+export type PlaygroundToolCallStatus = 'streaming' | 'pending' | 'completed' | 'error';
 
 export interface PlaygroundToolCall {
   toolCallId: string;
@@ -176,11 +176,10 @@ export function usePlaygroundChat(
             onRerun: () => {
               fullResponse = '';
               setOutput('');
-              partsRef.current = [];
               currentTextRef.current = '';
               currentReasoningRef.current = '';
-              toolCallMapRef.current.clear();
-              setOutputParts([]);
+              partsRef.current = partsRef.current.filter((part) => part.type === 'tool-call');
+              setOutputParts([...partsRef.current]);
             },
 
             onSpeechRender: (payload) => {
@@ -234,11 +233,11 @@ export function usePlaygroundChat(
 
             onToolCallEnd: (toolCallId) => {
               const tc = toolCallMapRef.current.get(toolCallId);
-              if (tc && tc.status === 'streaming') {
-                tc.status = 'completed';
-                syncParts();
-              }
-            },
+               if (tc && tc.status === 'streaming') {
+                 tc.status = 'pending';
+                 syncParts();
+               }
+             },
 
             onToolResult: (toolCallId, content) => {
               const tc = toolCallMapRef.current.get(toolCallId);

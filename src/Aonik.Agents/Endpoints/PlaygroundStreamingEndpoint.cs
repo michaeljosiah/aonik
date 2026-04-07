@@ -208,8 +208,8 @@ public static class PlaygroundStreamingEndpoint
 
                         case FunctionCallContent functionCall:
                             // Use a stable ID across START/ARGS/END — providers may
-                            // leave CallId null, so generate a fallback once and reuse it.
-                            var toolCallId = functionCall.CallId ?? Guid.NewGuid().ToString("N");
+                            // leave CallId empty, so generate a fallback once and reuse it.
+                            var toolCallId = AguiStreamingEndpoint.ResolveToolCallId(functionCall);
                             var toolName = functionCall.Name ?? string.Empty;
                             requiresVisualAttention |= AguiStreamingEndpoint.IsDisplayToolCall(toolName)
                                 || clientToolNames.Contains(toolName);

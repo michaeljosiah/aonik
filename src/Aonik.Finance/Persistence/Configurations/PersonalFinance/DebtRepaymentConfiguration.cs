@@ -5,32 +5,38 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Aonik.Finance.Persistence.Configurations.PersonalFinance;
 
-internal class BillConfiguration : IEntityTypeConfiguration<Bill>
+internal class DebtRepaymentConfiguration : IEntityTypeConfiguration<DebtRepayment>
 {
-    public void Configure(EntityTypeBuilder<Bill> builder)
+    public void Configure(EntityTypeBuilder<DebtRepayment> builder)
     {
-        builder.ToTable("Bills", SchemaNames.Default);
+        builder.ToTable("DebtRepayments", SchemaNames.Default);
 
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.Payee)
+        builder.Property(x => x.CreditorName)
             .IsRequired()
             .HasMaxLength(200);
 
-        builder.Property(x => x.Frequency)
+        builder.Property(x => x.DebtType)
             .IsRequired()
             .HasMaxLength(50);
+
+        builder.Property(x => x.ExpectedAmount)
+            .HasPrecision(19, 4);
 
         builder.Property(x => x.Currency)
             .IsRequired()
             .HasMaxLength(3);
 
-        builder.Property(x => x.ExpectedAmount)
-            .HasPrecision(19, 4);
+        builder.Property(x => x.Frequency)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("Monthly");
 
         builder.Property(x => x.Status)
             .IsRequired()
-            .HasMaxLength(50);
+            .HasMaxLength(50)
+            .HasDefaultValue("Active");
 
         // ── Commitment fields ────────────────────────────────
 
@@ -47,23 +53,14 @@ internal class BillConfiguration : IEntityTypeConfiguration<Bill>
         builder.Property(x => x.ConfidenceScore)
             .HasPrecision(5, 4);
 
-        builder.Property(x => x.DetectionSource)
-            .HasMaxLength(500);
-
-        builder.Property(x => x.Category)
-            .HasMaxLength(100);
-
-        builder.Property(x => x.SubCategory)
-            .HasMaxLength(100);
-
         builder.Property(x => x.Notes)
             .HasMaxLength(1000);
 
+        builder.Property(x => x.AccountReference)
+            .HasMaxLength(200);
+
         builder.Property(x => x.LastPaidAmount)
             .HasPrecision(19, 4);
-
-        builder.Property(x => x.PayeeReference)
-            .HasMaxLength(200);
 
         // ── Indexes ──────────────────────────────────────────
 

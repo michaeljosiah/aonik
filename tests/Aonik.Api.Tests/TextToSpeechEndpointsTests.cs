@@ -149,6 +149,33 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
     }
 
     [Fact]
+    public void ResolveToolCallId_ReturnsExistingCallId_WhenProvided()
+    {
+        var functionCall = new Microsoft.Extensions.AI.FunctionCallContent(
+            callId: "call-123",
+            name: "confirmAction",
+            arguments: new Dictionary<string, object?>());
+
+        var toolCallId = AguiStreamingEndpoint.ResolveToolCallId(functionCall);
+
+        toolCallId.Should().Be("call-123");
+    }
+
+    [Fact]
+    public void ResolveToolCallId_GeneratesStableFallback_WhenCallIdMissing()
+    {
+        var functionCall = new Microsoft.Extensions.AI.FunctionCallContent(
+            callId: string.Empty,
+            name: "confirmAction",
+            arguments: new Dictionary<string, object?>());
+
+        var toolCallId = AguiStreamingEndpoint.ResolveToolCallId(functionCall);
+
+        toolCallId.Should().NotBeNullOrWhiteSpace();
+        Guid.TryParse(toolCallId, out _).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task PlaygroundStreaming_EmitsSpeechRenderCustomEvent()
     {
         var auth = TestAuthOptions.Create().WithRoles("Admin", "PlatformAdmin");

@@ -289,7 +289,7 @@ function ReasoningBlock({ content }: { content: string }) {
 // ─── Tool Call Card ────────────────────────────────────────────────────────────
 
 function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
-  const isActive = toolCall.status === 'streaming';
+  const isActive = toolCall.status === 'streaming' || toolCall.status === 'pending';
   const isError = toolCall.status === 'error';
 
   const [open, setOpen] = useState(isActive);
@@ -314,7 +314,9 @@ function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
   );
 
   const statusLabel = isActive
-    ? 'Executing...'
+    ? toolCall.status === 'pending'
+      ? 'Awaiting execution...'
+      : 'Streaming...'
     : isError
       ? 'Failed'
       : 'Completed';

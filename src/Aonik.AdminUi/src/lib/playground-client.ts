@@ -141,10 +141,16 @@ export async function streamPlaygroundRun(
 
   let currentRequest = effectiveRequest;
   let rerunCount = 0;
+  let shouldResetOutputForRerun = false;
 
   // Re-run loop: after executing frontend tools, re-invoke the agent
   while (true) {
     if (signal?.aborted) break;
+
+    if (shouldResetOutputForRerun) {
+      callbacks.onRerun?.();
+      shouldResetOutputForRerun = false;
+    }
 
     // Track tool calls during this run for client-side execution
     const pendingToolCalls = new Map<
@@ -201,8 +207,6 @@ export async function streamPlaygroundRun(
       break;
     }
 
-    callbacks.onRerun?.();
-
     // Execute frontend tools and append results as messages for the re-run
     const toolResultMessages: PlaygroundMessage[] = [];
     const assistantToolCalls: NonNullable<PlaygroundMessage['toolCalls']> = [];
@@ -252,6 +256,7 @@ export async function streamPlaygroundRun(
         ...toolResultMessages,
       ],
     };
+    shouldResetOutputForRerun = true;
   }
 }
 
@@ -360,6 +365,7 @@ async function executePlaygroundStream(
 
 // Accumulate tool call args across TOOL_CALL_ARGS events
 const toolCallArgs = new Map<string, string[]>();
+const toolCallNames = new Map<string, string>();
 
 function dispatchEvent(
   event: Record<string, unknown>,
@@ -383,6 +389,7 @@ function dispatchEvent(
       const toolCallId = event.toolCallId as string;
       const toolName = event.toolCallName as string;
       toolCallArgs.set(toolCallId, []);
+      toolCallNames.set(toolCallId, toolName);
       callbacks.onToolCallStart?.(toolCallId, toolName);
       callbacks.onToolCall?.(toolCallId, toolName);
       internalCallbacks?.onToolCallStartInternal?.(toolCallId, toolName);
@@ -405,8 +412,9 @@ function dispatchEvent(
       if (fragments) {
         // Re-dispatch with complete args
         callbacks.onToolCallEnd?.(id);
-        callbacks.onToolCall?.(id, '', fragments.join(''));
+        callbacks.onToolCall?.(id, toolCallNames.get(id) ?? '', fragments.join(''));
         toolCallArgs.delete(id);
+        toolCallNames.delete(id);
       }
       break;
     }
@@ -417,6 +425,8 @@ function dispatchEvent(
         event.content as string,
       );
       internalCallbacks?.onToolCallResultInternal?.(event.toolCallId as string);
+      toolCallArgs.delete(event.toolCallId as string);
+      toolCallNames.delete(event.toolCallId as string);
       break;
 
     // Reasoning events (emitted when the model uses extended thinking)

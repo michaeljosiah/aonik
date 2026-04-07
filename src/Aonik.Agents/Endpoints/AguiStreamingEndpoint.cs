@@ -338,6 +338,9 @@ public static class AguiStreamingEndpoint
                             break;
 
                         case FunctionCallContent functionCall:
+                            // Use a stable ID across START/ARGS/END — providers may
+                            // leave CallId empty, so generate a fallback once and reuse it.
+                            var toolCallId = ResolveToolCallId(functionCall);
                             var toolName = functionCall.Name ?? string.Empty;
                             requiresVisualAttention |= IsDisplayToolCall(toolName);
                             requiresApproval |= IsApprovalToolCall(toolName);
@@ -345,7 +348,7 @@ public static class AguiStreamingEndpoint
                             await WriteSseEventAsync(context.Response, new
                             {
                                 type = "TOOL_CALL_START",
-                                toolCallId = functionCall.CallId ?? Guid.NewGuid().ToString("N"),
+                                toolCallId,
                                 toolCallName = functionCall.Name,
                                 parentMessageId = messageId,
                             }, cancellationToken);
@@ -357,7 +360,7 @@ public static class AguiStreamingEndpoint
                                 await WriteSseEventAsync(context.Response, new
                                 {
                                     type = "TOOL_CALL_ARGS",
-                                    toolCallId = functionCall.CallId,
+                                    toolCallId,
                                     delta = argsJson,
                                 }, cancellationToken);
                             }
@@ -365,7 +368,7 @@ public static class AguiStreamingEndpoint
                             await WriteSseEventAsync(context.Response, new
                             {
                                 type = "TOOL_CALL_END",
-                                toolCallId = functionCall.CallId,
+                                toolCallId,
                             }, cancellationToken);
                             break;
 
@@ -1049,6 +1052,13 @@ public static class AguiStreamingEndpoint
     internal static bool IsDisplayToolCall(string toolName)
     {
         return toolName.StartsWith("display_", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string ResolveToolCallId(FunctionCallContent functionCall)
+    {
+        return !string.IsNullOrWhiteSpace(functionCall.CallId)
+            ? functionCall.CallId
+            : Guid.NewGuid().ToString("N");
     }
 
     internal static bool IsApprovalToolCall(string toolName)
