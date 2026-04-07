@@ -86,24 +86,24 @@ function AgentCentraliCard({ config, onConfigure, onDeleteOverride }: AgentCentr
 
   return (
     /* Wrapper: provides top padding to accommodate the floating avatar */
-    <div className="relative pt-[3rem] w-[340px] flex-shrink-0">
+    <div className="relative pt-[3rem] min-w-[320px]">
       {/* Floating avatar */}
-      <div className="absolute top-0 left-4 z-10">
+      <div className="absolute top-0 left-6 z-10">
         <AgentAvatarIcon iconUrl={config.iconUrl} size={85} />
       </div>
 
       {/* Card */}
       <Card
         className={cn(
-          'h-full overflow-hidden cursor-pointer',
+          'h-full flex flex-col overflow-hidden cursor-pointer',
           'shadow-md border border-[var(--color-border-light)]',
           'transition-all duration-300 hover:scale-[1.02]',
           'hover:border-[var(--color-brand-primary)] hover:shadow-lg',
         )}
         onClick={onConfigure}
       >
-        {/* ── Top section ─────────────────────────────────── */}
-        <div className="px-4 pt-4 pb-3 relative">
+        {/* ── Top section — pt-10 clears the ~37px avatar overhang ── */}
+        <div className="px-5 pt-10 pb-3 relative">
           {/* Actions menu — top-right, stop propagation */}
           <div
             className="absolute top-3 right-3 z-[3]"
@@ -131,7 +131,7 @@ function AgentCentraliCard({ config, onConfigure, onDeleteOverride }: AgentCentr
         </div>
 
         {/* ── Bottom section ──────────────────────────────── */}
-        <div className="bg-[#f6f6f9] flex flex-col px-6 pt-5 pb-5 rounded-b-lg">
+        <div className="bg-[#f6f6f9] flex flex-col flex-1 px-6 pt-5 pb-5 rounded-b-lg">
           {/* Metadata grid: TYPE | DOMAIN */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 mb-4">
             <div>
@@ -313,17 +313,18 @@ export function AgentConfigPage() {
       header: 'Agent',
       sortable: true,
       accessorKey: 'name',
+      className: 'max-w-[400px]',
       cell: (row) => (
-        <div className="flex flex-col">
+        <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-sm text-[var(--color-text-primary)]">{row.name}</span>
+            <span className="font-semibold text-sm text-[var(--color-text-primary)] truncate">{row.name}</span>
             {row.isOverride && (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] uppercase tracking-wide">
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[var(--color-brand-primary-light)] text-[var(--color-brand-primary)] uppercase tracking-wide flex-shrink-0">
                 override
               </span>
             )}
           </div>
-          <span className="text-xs text-[var(--color-text-tertiary)] line-clamp-1">{row.description}</span>
+          <span className="text-xs text-[var(--color-text-tertiary)] truncate">{row.description}</span>
         </div>
       ),
     },
@@ -333,7 +334,7 @@ export function AgentConfigPage() {
       sortable: false,
       accessorKey: 'agentType',
       cell: (row) => (
-        <Badge variant={row.agentType === 1 ? 'enterprise' : 'team'} className="text-xs">
+        <Badge variant={row.agentType === 1 ? 'enterprise' : 'team'} className="text-xs whitespace-nowrap">
           {agentTypeLabel(row.agentType)}
         </Badge>
       ),
@@ -344,7 +345,7 @@ export function AgentConfigPage() {
       sortable: true,
       accessorKey: 'domain',
       cell: (row) => (
-        <span className="text-sm text-[var(--color-text-primary)]">{row.domain || '—'}</span>
+        <span className="text-sm text-[var(--color-text-primary)] whitespace-nowrap">{row.domain || '—'}</span>
       ),
     },
     {
@@ -468,8 +469,8 @@ export function AgentConfigPage() {
           </div>
         ) : viewMode === 'grid' ? (
           /* ── Grid view ──────────────────────────────────────────── */
-          /* Extra top padding (pt-14) makes room for floating avatars on the first row */
-          <div className="flex flex-wrap gap-x-6 gap-y-14 px-6 pt-14 pb-8 overflow-visible">
+          /* CSS grid for equal-height cards; pt-14 clears first-row floating avatars */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-x-6 gap-y-14 px-6 pt-14 pb-8 overflow-visible">
             {displayConfigs.map((config) => (
               <AgentCentraliCard
                 key={config.id}
