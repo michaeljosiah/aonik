@@ -90,6 +90,34 @@ All contexts share the same physical SQL Server database. Module contexts exist 
 5. **Never generate migrations against `PlatformDbContext`** or other module contexts. The `PlatformDbContext` migration folder (`src/Aonik.Platform/Persistence/Migrations/`) is frozen legacy — do not add to it.
 6. **Table naming**: All tables use `Ank` prefix in `dbo` schema (e.g. `AnkInvoices`, `AnkUsers`).
 
+### CRITICAL: Migrations Must Be Tool-Generated Only
+
+**Agents (Claude, Copilot, or any AI assistant) are NEVER permitted to hand-write or manually author migration files.** All migrations MUST be generated exclusively by the EF Core CLI tooling:
+
+```bash
+dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+```
+
+**Why this rule exists:** Hand-written migrations cause model snapshot drift. The Designer.cs snapshot diverges from the actual database state, leading to duplicate column errors, missing tables, and cascading failures that require dangerous manual SQL patches to fix. Manual SQL patches then corrupt the migration history further, creating a cycle of breakage.
+
+**The correct workflow for any schema change:**
+1. Modify the entity class and/or its `IEntityTypeConfiguration<T>`
+2. Add `DbSet<T>` to `AonikDbContext` (and module context if needed)
+3. Run `dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api`
+4. **Review the generated migration** — verify it only contains the expected changes
+5. If the migration contains unexpected changes, investigate and fix the model first, then `dotnet ef migrations remove` and regenerate
+6. Run `dotnet ef database update` locally to verify the migration applies cleanly
+7. Commit both the migration `.cs` and `.Designer.cs` files
+
+**Prohibited actions:**
+- Writing `migrationBuilder.AddColumn(...)`, `migrationBuilder.CreateTable(...)`, etc. by hand
+- Copying and modifying an existing migration file
+- Editing a generated migration's `.Designer.cs` snapshot
+- Running raw SQL against production/dev databases to "fix" schema drift (except as a last-resort emergency with explicit user approval)
+- Using `--no-build` with migration generation if model changes haven't been compiled
+
+**After deployment, always verify:** Run `dotnet ef migrations list --connection <conn>` against the target database to confirm the migration was applied. If auto-migration at startup fails silently, apply it explicitly with `dotnet ef database update --connection <conn>`.
+
 ## Non-Negotiable Architectural Rules
 
 1. **Ledger is the source of financial truth** (double-entry, immutable)

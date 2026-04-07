@@ -262,6 +262,31 @@ AonikDbContextBase (abstract — multi-tenancy filters, audit stamping, soft-del
 5. **The `PlatformDbContext` migration folder** (`src/Aonik.Platform/Persistence/Migrations/`) is frozen legacy. Do not add to it.
 6. **Design-time factory**: Only `AonikDbContext` has an `IDesignTimeDbContextFactory` (`AonikDbContextFactory`). This is why `dotnet ef` only works with `--project src/Aonik.Infrastructure`.
 
+### CRITICAL: Migrations Must Be Tool-Generated Only
+
+**AI agents are NEVER permitted to hand-write or manually author EF Core migration files.** All migrations MUST be generated exclusively by the EF Core CLI:
+
+```bash
+dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api
+```
+
+Hand-written migrations cause model snapshot drift — the Designer.cs file diverges from the actual database state, leading to duplicate column errors, missing tables, and cascading failures. Manual SQL patches to "fix" drift make the problem worse by corrupting the migration history.
+
+**Correct workflow for any schema change:**
+1. Modify the entity class and/or its `IEntityTypeConfiguration<T>`
+2. Add `DbSet<T>` to `AonikDbContext` (and module context if needed)
+3. Run `dotnet ef migrations add <Name> --project src/Aonik.Infrastructure --startup-project src/Aonik.Api`
+4. Review the generated migration — verify it only contains expected changes
+5. If unexpected, fix the model, `dotnet ef migrations remove`, and regenerate
+6. Run `dotnet ef database update` locally to verify it applies cleanly
+7. Commit both `.cs` and `.Designer.cs` files
+
+**Prohibited:**
+- ❌ Writing `migrationBuilder.AddColumn(...)` or `migrationBuilder.CreateTable(...)` by hand
+- ❌ Copying/modifying an existing migration file
+- ❌ Editing a generated `.Designer.cs` snapshot
+- ❌ Running raw SQL against databases to fix schema drift (except last-resort emergency with explicit user approval)
+
 ### Common Mistakes to Avoid
 
 - ❌ Running `dotnet ef migrations add` against `PlatformDbContext` or other module contexts
