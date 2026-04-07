@@ -24,6 +24,8 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
+        timeout: 120000, // 2 min socket timeout — LLM calls can take 15-30s
+        proxyTimeout: 120000, // 2 min proxy timeout for target response
       },
       // Proxy static content media files served by the API
       '/storage': {

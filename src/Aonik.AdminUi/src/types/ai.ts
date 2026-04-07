@@ -273,6 +273,71 @@ export interface PlaygroundReviewResult {
   promptImprovements: string[];
 }
 
+// ── Playground Scenario types ──────────────────────────────────────
+
+export interface PlaygroundScenarioTurnResponse {
+  id: string;
+  role: string;
+  content: string;
+  sortOrder: number;
+}
+
+export interface PlaygroundScenarioResponse {
+  id: string;
+  name: string;
+  description?: string | null;
+  tags: string[];
+  systemPrompt?: string | null;
+  userBriefJson?: string | null;
+  agentName?: string | null;
+  aiTaskId?: string | null;
+  modelId?: string | null;
+  promptVariables?: Record<string, string> | null;
+  turns: PlaygroundScenarioTurnResponse[];
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface PlaygroundScenarioSummaryResponse {
+  id: string;
+  name: string;
+  description?: string | null;
+  tags: string[];
+  agentName?: string | null;
+  aiTaskId?: string | null;
+  turnCount: number;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface CreatePlaygroundScenarioRequest {
+  name: string;
+  description?: string | null;
+  tags?: string[];
+  systemPrompt?: string | null;
+  userBriefJson?: string | null;
+  agentName?: string | null;
+  aiTaskId?: string | null;
+  modelId?: string | null;
+  promptVariables?: Record<string, string>;
+  turns: { role: string; content: string }[];
+}
+
+export interface UpdatePlaygroundScenarioRequest {
+  name?: string;
+  description?: string;
+  tags?: string[];
+  systemPrompt?: string;
+  turns?: { role: string; content: string }[];
+}
+
+export interface GeneratePlaygroundScenarioRequest {
+  instructions: string;
+  agentName?: string | null;
+  aiTaskId?: string | null;
+  modelId?: string | null;
+}
+
 // ── API response wrappers ───────────────────────────────────────────
 
 export interface ListAiProvidersResponse {

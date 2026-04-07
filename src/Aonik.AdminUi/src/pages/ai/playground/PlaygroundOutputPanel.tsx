@@ -4,18 +4,23 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowDownToLine,
   Brain,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   GripHorizontal,
   Lightbulb,
   Loader2,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldX,
   Sparkles,
   Square,
   Star,
   Target,
   Volume2,
   Wrench,
+  X,
   XCircle,
   Zap,
 } from 'lucide-react';
@@ -53,6 +58,10 @@ interface PlaygroundOutputPanelProps {
   reviewRawText?: string | null;
   reviewError?: string | null;
   onReview?: () => void;
+  // Tool approval/selection callbacks
+  onApproveToolCall?: (toolCallId: string) => void;
+  onRejectToolCall?: (toolCallId: string) => void;
+  onSelectToolCallOptions?: (toolCallId: string, selected: string[]) => void;
 }
 
 const MIN_HEIGHT = 48;
@@ -77,6 +86,9 @@ export function PlaygroundOutputPanel({
   reviewRawText,
   reviewError,
   onReview,
+  onApproveToolCall,
+  onRejectToolCall,
+  onSelectToolCallOptions,
 }: PlaygroundOutputPanelProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const dragging = useRef(false);
@@ -247,7 +259,15 @@ export function PlaygroundOutputPanel({
                     case 'reasoning':
                       return <ReasoningBlock key={`r-${i}`} content={part.content} />;
                     case 'tool-call':
-                      return <ToolCallCard key={part.toolCall.toolCallId} toolCall={part.toolCall} />;
+                      return (
+                        <ToolCallCard
+                          key={part.toolCall.toolCallId}
+                          toolCall={part.toolCall}
+                          onApprove={onApproveToolCall}
+                          onReject={onRejectToolCall}
+                          onSelectOptions={onSelectToolCallOptions}
+                        />
+                      );
                     case 'text':
                       return (
                         <div key={`t-${i}`} className="text-sm leading-relaxed text-[var(--color-text-primary)]">
@@ -336,27 +356,49 @@ function ReasoningBlock({ content }: { content: string }) {
 
 // ─── Tool Call Card ────────────────────────────────────────────────────────────
 
-function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
+function ToolCallCard({
+  toolCall,
+  onApprove,
+  onReject,
+  onSelectOptions,
+}: {
+  toolCall: PlaygroundToolCall;
+  onApprove?: (toolCallId: string) => void;
+  onReject?: (toolCallId: string) => void;
+  onSelectOptions?: (toolCallId: string, selected: string[]) => void;
+}) {
   const isActive = toolCall.status === 'streaming' || toolCall.status === 'pending';
+  const isAwaiting = toolCall.status === 'awaiting-approval' || toolCall.status === 'awaiting-selection';
   const isError = toolCall.status === 'error';
 
-  const [open, setOpen] = useState(isActive);
-  const prevActiveRef = useRef(isActive);
+  const [open, setOpen] = useState(isActive || isAwaiting);
+  const prevActiveRef = useRef(isActive || isAwaiting);
 
-  // Auto-collapse when transitioning from active -> done
+  // Auto-collapse when transitioning from active/awaiting -> done
   useEffect(() => {
-    if (prevActiveRef.current && !isActive) {
+    const wasActive = prevActiveRef.current;
+    const nowActive = isActive || isAwaiting;
+    if (wasActive && !nowActive) {
       setOpen(false);
     }
-    prevActiveRef.current = isActive;
-  }, [isActive]);
+    prevActiveRef.current = nowActive;
+  }, [isActive, isAwaiting]);
 
-  const effectiveOpen = isActive ? true : open;
+  // Force open when awaiting user input
+  const effectiveOpen = isActive || isAwaiting ? true : open;
 
   const statusIcon = isActive ? (
     <Loader2 className="h-3 w-3 animate-spin text-[var(--color-info)]" />
+  ) : toolCall.status === 'awaiting-approval' ? (
+    <ShieldAlert className="h-3 w-3 text-[var(--color-warning)]" />
+  ) : toolCall.status === 'awaiting-selection' ? (
+    <ShieldAlert className="h-3 w-3 text-[var(--color-info)]" />
   ) : isError ? (
     <XCircle className="h-3 w-3 text-[var(--color-danger)]" />
+  ) : toolCall.result === 'approved' ? (
+    <ShieldCheck className="h-3 w-3 text-[var(--color-success)]" />
+  ) : toolCall.result === 'rejected' ? (
+    <ShieldX className="h-3 w-3 text-[var(--color-text-tertiary)]" />
   ) : (
     <CheckCircle2 className="h-3 w-3 text-[var(--color-success)]" />
   );
@@ -365,11 +407,19 @@ function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
     ? toolCall.status === 'pending'
       ? 'Awaiting execution...'
       : 'Streaming...'
-    : isError
-      ? 'Failed'
-      : 'Completed';
+    : toolCall.status === 'awaiting-approval'
+      ? 'Awaiting approval'
+      : toolCall.status === 'awaiting-selection'
+        ? 'Awaiting selection'
+        : isError
+          ? 'Failed'
+          : toolCall.result === 'approved'
+            ? 'Approved'
+            : toolCall.result === 'rejected'
+              ? 'Rejected'
+              : 'Completed';
 
-  const hasContent = !!(toolCall.args || toolCall.result || toolCall.error);
+  const hasContent = !!(toolCall.args || toolCall.result || toolCall.error || isAwaiting);
 
   return (
     <Collapsible open={effectiveOpen} onOpenChange={setOpen}>
@@ -377,7 +427,9 @@ function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
         className={`group rounded-lg border text-xs transition-colors ${
           isError
             ? 'border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[color-mix(in_srgb,var(--color-danger)_6%,transparent)]'
-            : 'border-[var(--color-border-light)] bg-[var(--color-surface)]'
+            : isAwaiting
+              ? 'border-[color-mix(in_srgb,var(--color-warning)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-warning)_6%,transparent)]'
+              : 'border-[var(--color-border-light)] bg-[var(--color-surface)]'
         }`}
       >
         <CollapsibleTrigger asChild disabled={!hasContent}>
@@ -390,9 +442,11 @@ function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
               className={`font-medium ${
                 isActive
                   ? 'text-shimmer'
-                  : isError
-                    ? 'text-[var(--color-danger)]'
-                    : 'text-[var(--color-text-secondary)]'
+                  : isAwaiting
+                    ? 'text-[var(--color-warning)]'
+                    : isError
+                      ? 'text-[var(--color-danger)]'
+                      : 'text-[var(--color-text-secondary)]'
               }`}
             >
               {toolCall.toolCallName}
@@ -412,8 +466,28 @@ function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <div className="border-t border-[var(--color-border-light)] px-3 py-2 space-y-1">
-            {toolCall.args && (
+          <div className="border-t border-[var(--color-border-light)] px-3 py-2 space-y-2">
+            {/* Approval interaction */}
+            {toolCall.status === 'awaiting-approval' && toolCall.approval && (
+              <ApprovalInteraction
+                toolCallId={toolCall.toolCallId}
+                approval={toolCall.approval}
+                onApprove={onApprove}
+                onReject={onReject}
+              />
+            )}
+
+            {/* Option selection interaction */}
+            {toolCall.status === 'awaiting-selection' && toolCall.optionSelection && (
+              <OptionSelectionInteraction
+                toolCallId={toolCall.toolCallId}
+                selection={toolCall.optionSelection}
+                onSelect={onSelectOptions}
+              />
+            )}
+
+            {/* Args (show for non-interactive states, or below interactive UI) */}
+            {toolCall.args && !isAwaiting && (
               <pre className="text-[var(--color-text-tertiary)] whitespace-pre-wrap break-all">
                 {tryFormatJson(toolCall.args)}
               </pre>
@@ -430,6 +504,184 @@ function ToolCallCard({ toolCall }: { toolCall: PlaygroundToolCall }) {
         </CollapsibleContent>
       </div>
     </Collapsible>
+  );
+}
+
+// ─── Approval Interaction ─────────────────────────────────────────────────────
+
+const severityConfig = {
+  low: {
+    label: 'Low risk',
+    icon: ShieldCheck,
+    badgeClass: 'bg-[color-mix(in_srgb,var(--color-info)_15%,transparent)] text-[var(--color-info)]',
+    borderClass: 'border-[color-mix(in_srgb,var(--color-info)_20%,transparent)]',
+  },
+  medium: {
+    label: 'Medium risk',
+    icon: ShieldAlert,
+    badgeClass: 'bg-[color-mix(in_srgb,var(--color-warning)_15%,transparent)] text-[var(--color-warning)]',
+    borderClass: 'border-[color-mix(in_srgb,var(--color-warning)_20%,transparent)]',
+  },
+  high: {
+    label: 'High risk',
+    icon: ShieldX,
+    badgeClass: 'bg-[color-mix(in_srgb,var(--color-danger)_15%,transparent)] text-[var(--color-danger)]',
+    borderClass: 'border-[color-mix(in_srgb,var(--color-danger)_20%,transparent)]',
+  },
+} as const;
+
+function ApprovalInteraction({
+  toolCallId,
+  approval,
+  onApprove,
+  onReject,
+}: {
+  toolCallId: string;
+  approval: { action: string; description: string; severity: 'low' | 'medium' | 'high' };
+  onApprove?: (toolCallId: string) => void;
+  onReject?: (toolCallId: string) => void;
+}) {
+  const config = severityConfig[approval.severity] ?? severityConfig.medium;
+  const SeverityIcon = config.icon;
+
+  return (
+    <div className={`rounded-md border ${config.borderClass} bg-[var(--color-surface)] p-3 space-y-2.5`}>
+      {/* Severity badge + action name */}
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${config.badgeClass}`}>
+          <SeverityIcon className="h-3 w-3" />
+          {config.label}
+        </span>
+        <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+          {approval.action}
+        </span>
+      </div>
+
+      {/* Description */}
+      {approval.description && (
+        <p className="text-xs leading-relaxed text-[var(--color-text-secondary)]">
+          {approval.description}
+        </p>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          size="sm"
+          className="h-7 gap-1.5 bg-[var(--color-success)] px-3 text-xs font-medium text-white hover:bg-[color-mix(in_srgb,var(--color-success)_85%,black)]"
+          onClick={() => onApprove?.(toolCallId)}
+        >
+          <Check className="h-3 w-3" />
+          Approve
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 px-3 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)]"
+          onClick={() => onReject?.(toolCallId)}
+        >
+          <X className="h-3 w-3" />
+          Reject
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Option Selection Interaction ─────────────────────────────────────────────
+
+function OptionSelectionInteraction({
+  toolCallId,
+  selection,
+  onSelect,
+}: {
+  toolCallId: string;
+  selection: {
+    question: string;
+    options: Array<{ label: string; description?: string }>;
+    multiSelect: boolean;
+  };
+  onSelect?: (toolCallId: string, selected: string[]) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleOption = (label: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (selection.multiSelect) {
+        if (next.has(label)) next.delete(label);
+        else next.add(label);
+      } else {
+        // Single-select: replace
+        next.clear();
+        next.add(label);
+      }
+      return next;
+    });
+  };
+
+  const handleConfirm = () => {
+    if (selected.size > 0 && onSelect) {
+      onSelect(toolCallId, Array.from(selected));
+    }
+  };
+
+  return (
+    <div className="rounded-md border border-[color-mix(in_srgb,var(--color-info)_20%,transparent)] bg-[var(--color-surface)] p-3 space-y-2.5">
+      {/* Question */}
+      <p className="text-xs font-semibold text-[var(--color-text-primary)]">
+        {selection.question}
+      </p>
+
+      {/* Options list */}
+      <div className="space-y-1">
+        {selection.options.map((option) => {
+          const isSelected = selected.has(option.label);
+          return (
+            <button
+              key={option.label}
+              type="button"
+              onClick={() => toggleOption(option.label)}
+              className={`flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                isSelected
+                  ? 'border-[var(--color-brand-primary)] bg-[color-mix(in_srgb,var(--color-brand-primary)_8%,transparent)]'
+                  : 'border-[var(--color-border-light)] bg-[var(--color-surface)] hover:bg-[var(--color-background)]'
+              }`}
+            >
+              {/* Radio/checkbox indicator */}
+              <span className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-${selection.multiSelect ? 'sm' : 'full'} border ${
+                isSelected
+                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)]'
+                  : 'border-[var(--color-text-tertiary)]'
+              }`}>
+                {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+              </span>
+              <div className="min-w-0">
+                <span className={`font-medium ${isSelected ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
+                  {option.label}
+                </span>
+                {option.description && (
+                  <p className="mt-0.5 text-[var(--color-text-tertiary)]">{option.description}</p>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Confirm button */}
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          size="sm"
+          className="h-7 gap-1.5 px-3 text-xs font-medium"
+          onClick={handleConfirm}
+          disabled={selected.size === 0}
+        >
+          <Check className="h-3 w-3" />
+          Confirm{selected.size > 0 ? ` (${selected.size})` : ''}
+        </Button>
+      </div>
+    </div>
   );
 }
 

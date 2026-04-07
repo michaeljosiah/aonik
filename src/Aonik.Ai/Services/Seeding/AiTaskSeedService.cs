@@ -857,6 +857,98 @@ internal class AiTaskSeedService
                 ## Assistant Response to Review
                 {{ASSISTANT_RESPONSE}}
                 """),
+
+        // ── Playground Scenario Generator ──────────────────────────────────
+        new(
+            UseCase: "playground_scenario_generation",
+            DisplayName: "Playground Scenario Generator",
+            Description: "Generates realistic multi-turn conversation scenarios for testing AI agents in the playground. Used by the AI Wizard button in the scenario picker.",
+            Category: "Playground",
+            PromptName: "playground_scenario_generation",
+            PromptVersion: "v1",
+            ExecutionMode: "Realtime",
+            VariablesSchemaJson: """
+                {
+                  "INSTRUCTIONS": "Natural language instructions describing the desired scenario",
+                  "AGENT_NAME": "The target agent name (if specified)",
+                  "AI_TASK_ID": "The target AI task ID (if specified)"
+                }
+                """,
+            OutputSchemaJson: """
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" },
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "systemPrompt": { "type": "string" },
+                    "turns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "role": { "type": "string", "enum": ["user", "assistant"] },
+                          "content": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+                """,
+            SystemTemplate: """
+                <role>
+                You are an AI Playground Scenario Generator for the AONIK platform. You create realistic, multi-turn conversation scenarios for testing AI agents and tasks.
+                </role>
+
+                <task>
+                Generate a complete playground scenario — a structured conversation setup with a name, description, tags, optional system prompt, and a series of user/assistant message turns — based on the user's natural language instructions.
+                </task>
+
+                <constraints>
+                - Generate realistic, domain-appropriate conversation turns.
+                - Include 2-6 turns unless the user requests otherwise.
+                - Alternate between "user" and "assistant" roles naturally.
+                - The first turn should always be a "user" message.
+                - Tags should be lowercase, hyphenated, and relevant to the scenario content.
+                - Do not include actual sensitive data (account numbers, SSNs, etc.) — use realistic placeholders.
+                - Assistant turns should reflect how a well-configured agent would respond, including referencing tools and data.
+                </constraints>
+
+                <output_contract>
+                Return valid JSON only — no markdown fences, no commentary outside the JSON.
+                Use this exact structure:
+                {
+                  "name": "<short descriptive name>",
+                  "description": "<1-2 sentence description of what this scenario tests>",
+                  "tags": ["<tag1>", "<tag2>"],
+                  "systemPrompt": null,
+                  "turns": [
+                    { "role": "user", "content": "<user message>" },
+                    { "role": "assistant", "content": "<expected assistant response>" }
+                  ]
+                }
+                </output_contract>
+
+                <definition_of_done>
+                The scenario is complete when:
+                - name is a clear, concise title (under 100 characters).
+                - description explains what the scenario tests.
+                - tags contains 1-5 relevant lowercase tags.
+                - turns contains at least 2 messages starting with a user message.
+                - All turns have valid role ("user" or "assistant") and non-empty content.
+                - The output is valid, parseable JSON with no text outside the JSON object.
+                </definition_of_done>
+                """,
+            UserTemplate: """
+                ## Instructions
+                {{INSTRUCTIONS}}
+
+                ## Context
+                - Target agent: {{AGENT_NAME}}
+                - Target AI task: {{AI_TASK_ID}}
+
+                Generate the scenario as JSON.
+                """),
     ];
 
     private sealed record AiTaskDefinition(

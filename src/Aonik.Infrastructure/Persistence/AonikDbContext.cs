@@ -137,6 +137,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<ChatThread> ChatThreads { get; set; } = null!;
     public virtual DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
 
+    // Playground Scenarios (Agents module)
+    public virtual DbSet<PlaygroundScenario> PlaygroundScenarios { get; set; } = null!;
+    public virtual DbSet<PlaygroundScenarioTurn> PlaygroundScenarioTurns { get; set; } = null!;
+
     public AonikDbContext(
         DbContextOptions<AonikDbContext> options,
         ITenantProvider? tenantProvider = null,
@@ -368,6 +372,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<Proposal>(modelBuilder, "Proposals");
         MapAgentsTable<ChatThread>(modelBuilder, "ChatThreads");
         MapAgentsTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
+        MapAgentsTable<PlaygroundScenario>(modelBuilder, "PlaygroundScenarios");
+        MapAgentsTable<PlaygroundScenarioTurn>(modelBuilder, "PlaygroundScenarioTurns");
     }
 
     private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)

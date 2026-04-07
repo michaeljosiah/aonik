@@ -339,3 +339,48 @@ export const aiRunService = {
     );
   },
 };
+
+// ── Playground Scenario service ───────────────────────────────────
+
+import type {
+  PlaygroundScenarioResponse,
+  PlaygroundScenarioSummaryResponse,
+  CreatePlaygroundScenarioRequest,
+  UpdatePlaygroundScenarioRequest,
+  GeneratePlaygroundScenarioRequest,
+} from '../types/ai';
+
+export const playgroundScenarioService = {
+  list: async (agentName?: string, tag?: string): Promise<PlaygroundScenarioSummaryResponse[]> => {
+    const params = new URLSearchParams();
+    if (agentName) params.set('agentName', agentName);
+    if (tag) params.set('tag', tag);
+    const query = params.toString();
+    const res = await api.get<{ scenarios: PlaygroundScenarioSummaryResponse[] }>(
+      `/ai/playground/scenarios${query ? `?${query}` : ''}`,
+    );
+    return res.scenarios;
+  },
+
+  get: async (id: string): Promise<PlaygroundScenarioResponse> => {
+    return api.get<PlaygroundScenarioResponse>(`/ai/playground/scenarios/${id}`);
+  },
+
+  create: async (request: CreatePlaygroundScenarioRequest): Promise<PlaygroundScenarioResponse> => {
+    return api.post<PlaygroundScenarioResponse>('/ai/playground/scenarios', request);
+  },
+
+  update: async (id: string, request: UpdatePlaygroundScenarioRequest): Promise<PlaygroundScenarioResponse> => {
+    return api.put<PlaygroundScenarioResponse>(`/ai/playground/scenarios/${id}`, request);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/ai/playground/scenarios/${id}`);
+  },
+
+  generate: async (request: GeneratePlaygroundScenarioRequest): Promise<PlaygroundScenarioResponse> => {
+    return api.post<PlaygroundScenarioResponse>('/ai/playground/scenarios/generate', request, {
+      timeout: 120000, // 2 minutes — LLM generation can take 15-60s
+    });
+  },
+};

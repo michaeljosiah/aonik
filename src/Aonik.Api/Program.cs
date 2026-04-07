@@ -371,6 +371,15 @@ app.MapPlaygroundReview("/ai/playground/review")
     .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");
 
+// 9. AI Playground scenario endpoints (CRUD + AI wizard)
+app.MapPlaygroundScenarios("/ai/playground/scenarios")
+    .RequireAuthorization("AdminPolicy")
+    .RequireCors("AonikCors");
+
+app.MapPlaygroundScenarioGenerate("/ai/playground/scenarios/generate")
+    .RequireAuthorization("AdminPolicy")
+    .RequireCors("AonikCors");
+
 app.MapAdminNotificationStreaming("/admin/notifications/stream")
     .RequireAuthorization("AdminPolicy")
     .RequireCors("AonikCors");

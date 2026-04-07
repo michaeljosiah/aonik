@@ -62,6 +62,9 @@ public sealed class AgentsModule : IModule
         // Scoped because it depends on IChatClient (scoped from AiModule).
         services.AddScoped<IMasterOrchestratorService, MasterOrchestratorService>();
 
+        // Playground scenario service — manages saved test conversation setups.
+        services.AddScoped<IPlaygroundScenarioService, PlaygroundScenarioService>();
+
         // Chat thread persistence — manages persisted threads and messages.
         // Scoped because it depends on AgentsDbContext and tenant/user providers.
         services.AddScoped<IChatThreadService, ChatThreadService>();

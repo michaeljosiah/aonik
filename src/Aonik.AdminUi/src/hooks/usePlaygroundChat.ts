@@ -1,11 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   streamPlaygroundRun,
   type PlaygroundRunMetrics,
   type PlaygroundMessage,
-  type PlaygroundFrontendToolRegistration,
 } from '@/lib/playground-client';
 import { upsertTrailingTextPart } from '@/hooks/playgroundOutputParts';
+import { createPlaygroundFrontendTools } from '@/pages/ai/playground/frontendTools';
 import type { PlaygroundRunRecord } from '@/types/ai';
 import { useAuth } from '@/auth';
 
@@ -26,7 +26,13 @@ export interface PlaygroundConfig {
 
 // ─── Structured output parts ─────────────────────────────────────────────────
 
-export type PlaygroundToolCallStatus = 'streaming' | 'pending' | 'completed' | 'error';
+export type PlaygroundToolCallStatus =
+  | 'streaming'
+  | 'pending'
+  | 'awaiting-approval'
+  | 'awaiting-selection'
+  | 'completed'
+  | 'error';
 
 export interface PlaygroundToolCall {
   toolCallId: string;
@@ -35,6 +41,18 @@ export interface PlaygroundToolCall {
   result?: string;
   error?: string;
   status: PlaygroundToolCallStatus;
+  /** Populated when status is 'awaiting-approval' (confirmAction tool). */
+  approval?: {
+    action: string;
+    description: string;
+    severity: 'low' | 'medium' | 'high';
+  };
+  /** Populated when status is 'awaiting-selection' (display_option_selector tool). */
+  optionSelection?: {
+    question: string;
+    options: Array<{ label: string; description?: string }>;
+    multiSelect: boolean;
+  };
 }
 
 export interface PlaygroundSpeechRender {
@@ -57,9 +75,7 @@ interface ChatMessage {
   content: string;
 }
 
-export function usePlaygroundChat(
-  frontendTools?: Map<string, PlaygroundFrontendToolRegistration>,
-) {
+export function usePlaygroundChat() {
   const { getAccessToken } = useAuth();
 
   // Config state
@@ -96,6 +112,7 @@ export function usePlaygroundChat(
   const currentTextRef = useRef('');
   const currentReasoningRef = useRef('');
   const toolCallMapRef = useRef(new Map<string, PlaygroundToolCall>());
+  const pendingResolversRef = useRef(new Map<string, (result: string) => void>());
 
   const updateConfig = useCallback(
     (updates: Partial<PlaygroundConfig>) => {
@@ -123,6 +140,77 @@ export function usePlaygroundChat(
   const syncParts = useCallback(() => {
     setOutputParts([...partsRef.current]);
   }, []);
+
+  // ── Frontend tools with React-based approval/selection ───────────────────
+
+  const frontendTools = useMemo(() => {
+    return createPlaygroundFrontendTools({
+      confirmAction: (toolCallId, args) => {
+        return new Promise<string>((resolve) => {
+          pendingResolversRef.current.set(toolCallId, resolve);
+          const tc = toolCallMapRef.current.get(toolCallId);
+          if (tc) {
+            tc.status = 'awaiting-approval';
+            tc.approval = args;
+            syncParts();
+          }
+        });
+      },
+      selectOptions: (toolCallId, args) => {
+        return new Promise<string>((resolve) => {
+          pendingResolversRef.current.set(toolCallId, resolve);
+          const tc = toolCallMapRef.current.get(toolCallId);
+          if (tc) {
+            tc.status = 'awaiting-selection';
+            tc.optionSelection = args;
+            syncParts();
+          }
+        });
+      },
+    });
+  }, [syncParts]);
+
+  const approveToolCall = useCallback((toolCallId: string) => {
+    const resolver = pendingResolversRef.current.get(toolCallId);
+    if (resolver) {
+      resolver('approved');
+      pendingResolversRef.current.delete(toolCallId);
+    }
+    const tc = toolCallMapRef.current.get(toolCallId);
+    if (tc) {
+      tc.status = 'completed';
+      tc.result = 'approved';
+      syncParts();
+    }
+  }, [syncParts]);
+
+  const rejectToolCall = useCallback((toolCallId: string) => {
+    const resolver = pendingResolversRef.current.get(toolCallId);
+    if (resolver) {
+      resolver('rejected');
+      pendingResolversRef.current.delete(toolCallId);
+    }
+    const tc = toolCallMapRef.current.get(toolCallId);
+    if (tc) {
+      tc.status = 'completed';
+      tc.result = 'rejected';
+      syncParts();
+    }
+  }, [syncParts]);
+
+  const selectToolCallOptions = useCallback((toolCallId: string, selected: string[]) => {
+    const resolver = pendingResolversRef.current.get(toolCallId);
+    if (resolver) {
+      resolver(selected.length <= 1 ? (selected[0] ?? '') : JSON.stringify(selected));
+      pendingResolversRef.current.delete(toolCallId);
+    }
+    const tc = toolCallMapRef.current.get(toolCallId);
+    if (tc) {
+      tc.status = 'completed';
+      tc.result = selected.join(', ');
+      syncParts();
+    }
+  }, [syncParts]);
 
   // ── Submit messages (single-mode: message block editor) ────────────────────
 
@@ -410,6 +498,7 @@ export function usePlaygroundChat(
     currentTextRef.current = '';
     currentReasoningRef.current = '';
     toolCallMapRef.current.clear();
+    pendingResolversRef.current.clear();
   }, []);
 
   const addRunRecord = useCallback((record: PlaygroundRunRecord) => {
@@ -437,5 +526,8 @@ export function usePlaygroundChat(
     resetChat,
     addRunRecord,
     clearHistory,
+    approveToolCall,
+    rejectToolCall,
+    selectToolCallOptions,
   };
 }

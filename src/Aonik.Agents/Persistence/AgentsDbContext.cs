@@ -21,6 +21,8 @@ internal class AgentsDbContext : AonikDbContextBase
     public DbSet<ChatThread> ChatThreads { get; set; } = null!;
     public DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
     public DbSet<ConversationSummary> ConversationSummaries { get; set; } = null!;
+    public DbSet<PlaygroundScenario> PlaygroundScenarios { get; set; } = null!;
+    public DbSet<PlaygroundScenarioTurn> PlaygroundScenarioTurns { get; set; } = null!;
 
     public AgentsDbContext(
         DbContextOptions<AgentsDbContext> options,
@@ -61,6 +63,9 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<Proposal>(modelBuilder, "Proposals");
         MapTable<ChatThread>(modelBuilder, "ChatThreads");
         MapTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
+
+        MapTable<PlaygroundScenario>(modelBuilder, "PlaygroundScenarios");
+        MapTable<PlaygroundScenarioTurn>(modelBuilder, "PlaygroundScenarioTurns");
 
         // ConversationSummary is already owned by the canonical AonikDbContext
         // migration stream as dbo.ConversationSummaries.

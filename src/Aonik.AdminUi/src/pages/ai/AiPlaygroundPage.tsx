@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import {
   FlaskConical,
   Loader2,
@@ -26,11 +26,11 @@ import { ModelSelector } from './playground/ModelSelector';
 import { UserBriefPicker } from './playground/UserBriefPicker';
 import { ToolToggleList } from './playground/ToolToggleList';
 import { AgentContextDrawer } from './playground/AgentContextDrawer';
+import { ScenarioPicker } from './playground/ScenarioPicker';
 import { PlaygroundMessageBlock } from './playground/PlaygroundMessageBlock';
 import { PlaygroundOutputPanel } from './playground/PlaygroundOutputPanel';
 import { ModelComparisonView, type ModelComparisonViewHandle } from './playground/ModelComparisonView';
 import { RunHistoryPanel } from './playground/RunHistoryPanel';
-import { createPlaygroundFrontendTools } from './playground/frontendTools';
 import {
   Popover,
   PopoverTrigger,
@@ -41,7 +41,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
-import type { AgentConfigurationResponse } from '@/types/ai';
+import type { AgentConfigurationResponse, PlaygroundScenarioResponse } from '@/types/ai';
 import type { AiTaskResponse } from '@/services/aiService';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -167,11 +167,6 @@ export function AiPlaygroundPage() {
     { id: `msg-${Date.now()}`, role: 'user', content: '' },
   ]);
 
-  // ── Frontend tools (same as main chat AG-UI process) ────────────────────
-  const frontendTools = useMemo(() => {
-    return createPlaygroundFrontendTools();
-  }, []);
-
   const {
     config,
     updateConfig,
@@ -187,7 +182,10 @@ export function AiPlaygroundPage() {
     resetChat,
     addRunRecord,
     clearHistory,
-  } = usePlaygroundChat(frontendTools);
+    approveToolCall,
+    rejectToolCall,
+    selectToolCallOptions,
+  } = usePlaygroundChat();
 
   // ── Agent change handler ────────────────────────────────────────────────
 
@@ -590,6 +588,44 @@ export function AiPlaygroundPage() {
     compareRef.current?.resetBoth();
   };
 
+  // ── Load scenario handler ───────────────────────────────────────────────
+
+  const handleLoadScenario = useCallback(
+    (scenario: PlaygroundScenarioResponse) => {
+      // Set playground mode based on scenario context
+      if (scenario.aiTaskId) {
+        setPlaygroundMode('task');
+      } else if (scenario.agentName) {
+        setPlaygroundMode('agent');
+      }
+
+      // Update config with scenario data
+      const configUpdates: Record<string, unknown> = {};
+      if (scenario.systemPrompt) configUpdates.systemPrompt = scenario.systemPrompt;
+      if (scenario.agentName) configUpdates.agentName = scenario.agentName;
+      if (scenario.aiTaskId) configUpdates.aiTaskId = scenario.aiTaskId;
+      if (scenario.modelId) configUpdates.modelId = scenario.modelId;
+      if (scenario.userBriefJson) configUpdates.userBriefJson = scenario.userBriefJson;
+      if (scenario.promptVariables) configUpdates.promptVariables = scenario.promptVariables;
+      updateConfig(configUpdates);
+
+      // Populate conversation turns
+      if (scenario.turns.length > 0) {
+        setEditableMessages(
+          scenario.turns.map((t, i) => ({
+            id: `msg-${Date.now()}-${i}`,
+            role: t.role as 'user' | 'assistant',
+            content: t.content,
+          })),
+        );
+      }
+
+      // Clear previous output
+      resetChat();
+    },
+    [updateConfig, resetChat],
+  );
+
   // ── Compare mode ────────────────────────────────────────────────────────
 
   if (mode === 'compare') {
@@ -809,6 +845,27 @@ export function AiPlaygroundPage() {
             </div>
           </PopoverContent>
         </Popover>
+
+        <div className="mx-1 h-5 w-px bg-[var(--color-border-light)]" />
+
+        {/* Scenarios */}
+        <ScenarioPicker
+          agentName={config.agentName}
+          aiTaskId={config.aiTaskId}
+          modelId={config.modelId}
+          currentScenarioData={{
+            systemPrompt: config.systemPrompt || null,
+            userBriefJson: config.userBriefJson || null,
+            agentName: config.agentName || null,
+            aiTaskId: config.aiTaskId || null,
+            modelId: config.modelId || null,
+            promptVariables: config.promptVariables,
+            turns: editableMessages
+              .filter((m) => m.content.trim())
+              .map((m) => ({ role: m.role, content: m.content })),
+          }}
+          onLoad={handleLoadScenario}
+        />
       </div>
 
       {/* Scrollable message area */}
@@ -868,6 +925,9 @@ export function AiPlaygroundPage() {
         reviewRawText={reviewRawText}
         reviewError={reviewError}
         onReview={handleReview}
+        onApproveToolCall={approveToolCall}
+        onRejectToolCall={rejectToolCall}
+        onSelectToolCallOptions={selectToolCallOptions}
       />
 
       {/* Submit button */}

@@ -20,35 +20,52 @@ interface ConfirmActionArgs {
 }
 
 interface CreatePlaygroundFrontendToolsOptions {
-  confirmAction?: (args: Required<ConfirmActionArgs>) => Promise<boolean> | boolean;
-  selectOptions?: (args: {
+  /** Promise-based confirm handler that receives toolCallId for React component resolution. */
+  confirmAction?: (
+    toolCallId: string,
+    args: Required<ConfirmActionArgs>,
+  ) => Promise<string>;
+  /** Promise-based option selector that receives toolCallId for React component resolution. */
+  selectOptions?: (
+    toolCallId: string,
+    args: {
+      question: string;
+      options: Array<{ label: string; description?: string }>;
+      multiSelect: boolean;
+    },
+  ) => Promise<string>;
+}
+
+/** Fallback using browser native window.confirm (used when no React handler is provided). */
+function defaultConfirmAction(
+  _toolCallId: string,
+  args: Required<ConfirmActionArgs>,
+): Promise<string> {
+  if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
+    return Promise.resolve('rejected');
+  }
+
+  const approved = window.confirm(
+    `[${args.severity.toUpperCase()}] ${args.action}\n\n${args.description}\n\nApprove this action?`,
+  );
+  return Promise.resolve(approved ? 'approved' : 'rejected');
+}
+
+/** Fallback using browser native window.prompt (used when no React handler is provided). */
+function defaultSelectOptions(
+  _toolCallId: string,
+  args: {
     question: string;
     options: Array<{ label: string; description?: string }>;
     multiSelect: boolean;
-  }) => Promise<string[]> | string[];
-}
-
-function defaultConfirmAction(args: Required<ConfirmActionArgs>): boolean {
-  if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
-    return false;
-  }
-
-  return window.confirm(
-    `[${args.severity.toUpperCase()}] ${args.action}\n\n${args.description}\n\nApprove this action?`,
-  );
-}
-
-function defaultSelectOptions(args: {
-  question: string;
-  options: Array<{ label: string; description?: string }>;
-  multiSelect: boolean;
-}): string[] {
+  },
+): Promise<string> {
   if (args.options.length === 0) {
-    return [];
+    return Promise.resolve('');
   }
 
   if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
-    return [args.options[0].label];
+    return Promise.resolve(args.options[0].label);
   }
 
   const promptBody = args.options
@@ -61,7 +78,7 @@ function defaultSelectOptions(args: {
   );
 
   if (!rawSelection) {
-    return [args.options[0].label];
+    return Promise.resolve(args.options[0].label);
   }
 
   const selectedLabels = rawSelection
@@ -72,10 +89,11 @@ function defaultSelectOptions(args: {
     .filter((label): label is string => typeof label === 'string' && label.length > 0);
 
   if (selectedLabels.length === 0) {
-    return [args.options[0].label];
+    return Promise.resolve(args.options[0].label);
   }
 
-  return args.multiSelect ? selectedLabels : [selectedLabels[0]];
+  const result = args.multiSelect ? selectedLabels : [selectedLabels[0]];
+  return Promise.resolve(result.length <= 1 ? (result[0] ?? '') : JSON.stringify(result));
 }
 
 const displayHandler: PlaygroundFrontendToolHandler = async () => 'displayed';
@@ -87,16 +105,18 @@ export function createPlaygroundFrontendTools(
   const confirmAction = options.confirmAction ?? defaultConfirmAction;
   const selectOptions = options.selectOptions ?? defaultSelectOptions;
 
-  const confirmHandler: PlaygroundFrontendToolHandler = async (args) => {
-    const normalizedArgs = {
+  const confirmHandler: PlaygroundFrontendToolHandler = async (args, context) => {
+    const normalizedArgs: Required<ConfirmActionArgs> = {
       action: typeof args.action === 'string' && args.action.trim().length > 0 ? args.action : 'Unknown action',
       description:
         typeof args.description === 'string' && args.description.trim().length > 0 ? args.description : '',
       severity:
-        typeof args.severity === 'string' && args.severity.trim().length > 0 ? args.severity : 'medium',
+        typeof args.severity === 'string' && ['low', 'medium', 'high'].includes(args.severity as string)
+          ? (args.severity as string)
+          : 'medium',
     };
 
-    return (await confirmAction(normalizedArgs)) ? 'approved' : 'rejected';
+    return confirmAction(context.toolCallId, normalizedArgs);
   };
 
   registrations.set('confirmAction', {
@@ -323,7 +343,7 @@ export function createPlaygroundFrontendTools(
         required: ['question', 'options'],
       },
     },
-    handler: async (args) => {
+    handler: async (args, context) => {
       const question =
         typeof args.question === 'string' && args.question.trim().length > 0
           ? args.question
@@ -343,13 +363,11 @@ export function createPlaygroundFrontendTools(
         }))
         .filter((item) => item.label.length > 0);
 
-      const selected = await selectOptions({
+      return selectOptions(context.toolCallId, {
         question,
         options: normalizedOptions,
         multiSelect: args.multiSelect === true,
       });
-
-      return selected.length <= 1 ? (selected[0] ?? '') : JSON.stringify(selected);
     },
   });
 
