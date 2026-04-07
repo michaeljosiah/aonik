@@ -138,7 +138,7 @@ describe('streamPlaygroundRun frontend tools', () => {
   });
 
   it('registers all supported AI Playground frontend tools', () => {
-    const tools = createPlaygroundFrontendTools({ confirmAction: () => true });
+    const tools = createPlaygroundFrontendTools({ confirmAction: async () => 'approved' });
 
     expect(Array.from(tools.keys())).toEqual([...playgroundFrontendToolNames]);
   });
@@ -175,6 +175,18 @@ describe('streamPlaygroundRun frontend tools', () => {
       expectedResult: 'displayed',
     },
     {
+      toolName: 'display_spending_pie_chart',
+      args: {
+        currency: 'USD',
+        totalSpent: 512.5,
+        categories: [
+          { name: 'Utilities', amount: 200, percentage: 39 },
+          { name: 'Transport', amount: 120, percentage: 23.4 },
+        ],
+      },
+      expectedResult: 'displayed',
+    },
+    {
       toolName: 'display_autopilot_proposal',
       args: {
         agent: 'personal-finance-agent',
@@ -200,8 +212,8 @@ describe('streamPlaygroundRun frontend tools', () => {
     args,
     expectedResult,
   }) => {
-    const confirmAction = vi.fn(() => true);
-    const selectOptions = vi.fn(() => ['Main account']);
+    const confirmAction = vi.fn(async () => 'approved');
+    const selectOptions = vi.fn(async () => 'Main account');
     const frontendTools = createPlaygroundFrontendTools({ confirmAction, selectOptions });
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -252,14 +264,14 @@ describe('streamPlaygroundRun frontend tools', () => {
     expect(onToolResult).toHaveBeenCalledWith('call-1', expectedResult);
 
     if (toolName === 'confirmAction') {
-      expect(confirmAction).toHaveBeenCalledWith({
+      expect(confirmAction).toHaveBeenCalledWith('call-1', {
         action: 'Create starter budget',
         description: 'Create a simple April budget.',
         severity: 'high',
       });
       expect(selectOptions).not.toHaveBeenCalled();
     } else if (toolName === 'display_option_selector') {
-      expect(selectOptions).toHaveBeenCalledWith({
+      expect(selectOptions).toHaveBeenCalledWith('call-1', {
         question: 'Which account should I use?',
         options: [
           { label: 'Main account', description: 'Everyday spending account' },
@@ -282,7 +294,7 @@ describe('streamPlaygroundRun frontend tools', () => {
       .mockResolvedValueOnce(finalResponse);
     vi.stubGlobal('fetch', fetchMock);
 
-    const frontendTools = createPlaygroundFrontendTools({ confirmAction: () => true });
+    const frontendTools = createPlaygroundFrontendTools({ confirmAction: async () => 'approved' });
     let combinedOutput = '';
 
     await streamPlaygroundRun({

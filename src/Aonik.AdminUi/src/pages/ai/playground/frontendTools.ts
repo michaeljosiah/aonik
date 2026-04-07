@@ -17,7 +17,7 @@ export type PlaygroundFrontendToolName = (typeof playgroundFrontendToolNames)[nu
 interface ConfirmActionArgs {
   action?: string;
   description?: string;
-  severity?: string;
+  severity?: 'low' | 'medium' | 'high';
 }
 
 interface CreatePlaygroundFrontendToolsOptions {
@@ -113,7 +113,7 @@ export function createPlaygroundFrontendTools(
         typeof args.description === 'string' && args.description.trim().length > 0 ? args.description : '',
       severity:
         typeof args.severity === 'string' && ['low', 'medium', 'high'].includes(args.severity as string)
-          ? (args.severity as string)
+          ? (args.severity as 'low' | 'medium' | 'high')
           : 'medium',
     };
 
