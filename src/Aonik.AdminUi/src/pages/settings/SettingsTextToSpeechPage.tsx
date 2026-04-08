@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, AudioLines, CircleHelp, Plus, RefreshCw, Save, Trash2, Upload, Volume2, Waves } from 'lucide-react';
+import { AlertCircle, AudioLines, CircleHelp, RefreshCw, Save, Upload, Volume2, Waves } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/auth';
