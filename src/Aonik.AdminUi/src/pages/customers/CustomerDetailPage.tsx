@@ -3,11 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import {
   AlertCircle,
-  CalendarClock,
   Download,
   FileText,
   Lightbulb,
-  Link2,
   Mail,
   MapPin,
   Phone,
@@ -447,7 +445,6 @@ export function CustomerDetailPage() {
                         { value: 'accounts', label: 'Accounts' },
                         { value: 'relationships', label: 'Relationships' },
                         { value: 'consents', label: 'Consents' },
-                        { value: 'activity', label: 'Activity' },
                         { value: 'insights', label: 'Insights' },
                         { value: 'documents', label: 'Documents' },
                       ].map((tab) => (
@@ -752,33 +749,6 @@ export function CustomerDetailPage() {
                           )}
                         </CardContent>
                       </Card>
-                    </TabsContent>
-
-                    <TabsContent value="activity" className="mt-0">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Audit Events</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-center py-10">
-                            <CalendarClock className="w-10 h-10 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-                            <p className="text-sm text-[var(--color-text-secondary)]">
-                              Audit events will appear here.
-                            </p>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-sm">Ledger Activity</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-center py-10">
-                            <Link2 className="w-10 h-10 mx-auto mb-3 text-[var(--color-text-tertiary)]" />
-                            <p className="text-sm text-[var(--color-text-secondary)]">
-                              Ledger entries will appear here.
-                            </p>
-                          </CardContent>
-                        </Card>
-                      </div>
                     </TabsContent>
 
                     <TabsContent value="insights" className="mt-0">

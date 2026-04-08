@@ -5,10 +5,8 @@ import {
   ArrowUpRight,
   Cog,
   Hash,
-  KeyRound,
   ScrollText,
   SlidersHorizontal,
-  Webhook,
   Wrench,
 } from 'lucide-react';
 
@@ -35,22 +33,6 @@ const settingsTiles: SettingsTile[] = [
     href: '/settings/general',
     icon: SlidersHorizontal,
     badge: 'Core',
-  },
-  {
-    section: 'Platform',
-    title: 'Webhooks',
-    description: 'Configure endpoint delivery, signing secrets, and event subscriptions.',
-    href: '/settings/webhooks',
-    icon: Webhook,
-    badge: 'Integration',
-  },
-  {
-    section: 'Platform',
-    title: 'API Keys',
-    description: 'Create and revoke credentials for programmatic platform access.',
-    href: '/settings/api-keys',
-    icon: KeyRound,
-    badge: 'Security',
   },
   {
     section: 'Platform',

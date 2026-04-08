@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, Edit, Eye, User, UserMinus, UserPlus, Users, UsersRound } from 'lucide-react';
+import { AlertCircle, Edit, Eye, User, UserMinus, Users, UsersRound } from 'lucide-react';
 import { userService } from '@/services/userService';
 import type { AccessUserSummary, PagedResult } from '@/types';
 import {
@@ -390,10 +390,6 @@ export function AccessUsersPage() {
               Manage tenant users, invitations, and access status.
             </p>
           </div>
-          <Button disabled title="Invite flow coming soon" className="rounded-sm">
-            <UserPlus className="w-4 h-4 mr-2" />
-            Invite User
-          </Button>
         </div>
 
         {/* Error State */}

@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, RefreshCw, Search, Shield, ShieldPlus, UsersRound } from 'lucide-react';
+import { AlertCircle, RefreshCw, Search, Shield, UsersRound } from 'lucide-react';
 import { roleService } from '@/services/roleService';
 import type { AccessRoleSummary, PagedResult } from '@/types';
 import { DataTablePagination } from '@/components/ui/data-table';
@@ -83,10 +83,6 @@ export function AccessRolesPage() {
             Define reusable permission sets and assign them to teams.
           </p>
         </div>
-        <Button disabled title="Role creation coming soon" className="rounded-sm">
-          <ShieldPlus className="w-4 h-4 mr-2" />
-          Create Role
-        </Button>
       </div>
 
       {error && (

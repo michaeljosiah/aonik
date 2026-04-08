@@ -45,8 +45,6 @@ import { AutonumberingPage } from '@/pages/settings';
 import { FxRatesPage } from '@/pages/FxRatesPage';
 import { InvoiceManagerPanel } from '@/workspace/apps/InvoiceManagerPanel';
 import { ReconciliationHubPanel } from '@/workspace/apps/ReconciliationHubPanel';
-import { CashFlowForecasterPanel } from '@/workspace/apps/CashFlowForecasterPanel';
-import { FraudDetectionPanel } from '@/workspace/apps/FraudDetectionPanel';
 import { wrapPage } from '../utils';
 
 // ---------------------------------------------------------------------------
@@ -177,19 +175,8 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'orders', title: 'Orders', type: 'internal', category: 'page', componentKey: 'orders-landing', route: '/orders' },
   { id: 'orders-bill-payments-new', title: 'Create Bill Payment', type: 'internal', category: 'page', componentKey: 'bill-payment-form', route: '/orders/bill-payments/new' },
   { id: 'orders-activity', title: 'Order Activity', type: 'internal', category: 'page', componentKey: 'orders-list', route: '/orders/activity' },
-  { id: 'billing', title: 'Billing', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/billing' },
   { id: 'billing-invoices', title: 'Invoices', type: 'internal', category: 'page', componentKey: 'invoices-list', route: '/billing/invoices' },
   { id: 'billing-invoices-new', title: 'Create Invoice', type: 'internal', category: 'page', componentKey: 'invoice-form', route: '/billing/invoices/new' },
-  { id: 'billing-dunning', title: 'Dunning Plans', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/billing/dunning' },
-  { id: 'payments', title: 'Payments', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments' },
-  { id: 'payments-transactions', title: 'Transactions', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/transactions' },
-  { id: 'payments-payouts', title: 'Payouts', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/payouts' },
-  { id: 'payments-refunds', title: 'Refunds', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/refunds' },
-  { id: 'payments-chargebacks', title: 'Chargebacks', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/payments/chargebacks' },
-  { id: 'ledger', title: 'Ledger', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger' },
-  { id: 'ledger-accounts', title: 'Accounts', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger/accounts' },
-  { id: 'ledger-journal-entries', title: 'Journal Entries', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger/journal-entries' },
-  { id: 'ledger-reconciliation', title: 'Reconciliation', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ledger/reconciliation' },
   { id: 'catalog', title: 'Catalog', type: 'internal', category: 'page', componentKey: 'catalog-landing', route: '/catalog' },
   { id: 'catalog-countries', title: 'Countries', type: 'internal', category: 'page', componentKey: 'catalog-countries', route: '/catalog/countries' },
   { id: 'catalog-categories', title: 'Categories', type: 'internal', category: 'page', componentKey: 'catalog-categories', route: '/catalog/categories' },
@@ -200,8 +187,6 @@ const panels: WorkspacePanelConfig[] = [
   // Micro-app panels — workspace-native, cross-panel communication
   { id: 'invoice-manager', title: 'Invoice Manager', description: 'Create, manage, and track invoices with AI-assisted insights.', type: 'internal', category: 'micro-app', componentKey: 'invoice-manager', appCardId: '1', defaultWidth: 520 },
   { id: 'reconciliation-hub', title: 'Reconciliation Hub', description: 'AI-powered matching and discrepancy detection.', type: 'internal', category: 'micro-app', componentKey: 'reconciliation-hub', appCardId: '2', defaultWidth: 520 },
-  { id: 'cash-flow-forecaster', title: 'Cash Flow Forecaster', description: 'Predict cash positions and run scenario planning.', type: 'internal', category: 'micro-app', componentKey: 'cash-flow-forecaster', appCardId: '3', defaultWidth: 520 },
-  { id: 'fraud-detection', title: 'Fraud Detection', description: 'Real-time anomaly detection and explainable alerts.', type: 'internal', category: 'micro-app', componentKey: 'fraud-detection', appCardId: '4', defaultWidth: 520 },
 ];
 
 const panelComponents = {
@@ -221,8 +206,6 @@ const panelComponents = {
   'invoice-form': wrapPage(InvoiceFormPage),
   'invoice-manager': InvoiceManagerPanel,
   'reconciliation-hub': ReconciliationHubPanel,
-  'cash-flow-forecaster': CashFlowForecasterPanel,
-  'fraud-detection': FraudDetectionPanel,
 };
 
 // ---------------------------------------------------------------------------
@@ -251,8 +234,6 @@ const breadcrumbs = [
   { pathPrefix: '/catalog', trail: ['Catalog'] },
   { pathPrefix: '/compliance', trail: ['Documents'] },
   { pathPrefix: '/billing/invoices', trail: ['Billing', 'Invoices'] },
-  { pathPrefix: '/billing', trail: ['Billing'] },
-  { pathPrefix: '/payments', trail: ['Payments'] },
 ];
 
 // ---------------------------------------------------------------------------

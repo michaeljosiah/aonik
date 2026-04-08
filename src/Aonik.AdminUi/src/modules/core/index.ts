@@ -1,17 +1,14 @@
 import type { AdminModule } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig } from '@/workspace/types';
-import { AnalyticsPage } from '@/pages/AnalyticsPage';
 import { AiModelsPage } from '@/pages/ai/AiModelsPage';
 import { AgentConfigPage } from '@/pages/ai/AgentConfigPage';
 import { AgentDetailPage } from '@/pages/ai/AgentDetailPage';
-import { AnalyticsPanel } from '@/workspace/apps/AnalyticsPanel';
 import { AiModelsPanel } from '@/workspace/apps/AiModelsPanel';
 import { AgentConfigPanel } from '@/workspace/apps/AgentConfigPanel';
 import { PromptTemplatesPage } from '@/pages/ai/PromptTemplatesPage';
 import { RoutePoliciesPage } from '@/pages/ai/RoutePoliciesPage';
 import { AiTasksPage } from '@/pages/ai/AiTasksPage';
-import { PlaceholderPanel } from '@/workspace/apps/PlaceholderPanel';
 import { PromptTemplatesPanel } from '@/workspace/apps/PromptTemplatesPanel';
 import { RoutePoliciesPanel } from '@/workspace/apps/RoutePoliciesPanel';
 import { AiTasksPanel } from '@/workspace/apps/AiTasksPanel';
@@ -104,7 +101,6 @@ const navigation: NavigationSection[] = [
 // Setup/auth routes are handled separately in AuthenticatedApp, not here.
 // ---------------------------------------------------------------------------
 const routes = [
-  { path: '/analytics', element: AnalyticsPage },
   { path: '/ai/models', element: AiModelsPage },
   { path: '/ai/agents', element: AgentConfigPage },
   { path: '/ai/agents/:agentName', element: AgentDetailPage },
@@ -118,12 +114,8 @@ const routes = [
 // Workspace panels — cross-cutting panels
 // ---------------------------------------------------------------------------
 const panels: WorkspacePanelConfig[] = [
-  { id: 'analytics', title: 'Analytics', description: 'Portfolio-level performance, trends, and AI insights.', type: 'internal', category: 'page', componentKey: 'analytics', route: '/analytics', defaultWidth: 720 },
-  { id: 'search', title: 'Search', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/search' },
-  { id: 'ai', title: 'AI & Agents', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ai' },
   { id: 'ai-agents', title: 'Agents', description: 'Configure domain agents, assign models, and manage overrides.', type: 'internal', category: 'page', componentKey: 'agentConfig', route: '/ai/agents' },
   { id: 'ai-models', title: 'AI Models', description: 'Manage AI providers and models used across the platform.', type: 'internal', category: 'page', componentKey: 'aiModels', route: '/ai/models' },
-  { id: 'ai-orchestrator', title: 'Orchestrator', type: 'internal', category: 'page', componentKey: 'placeholder', route: '/ai/orchestrator' },
   { id: 'ai-tasks', title: 'LLM Tasks', description: 'View and manage LLM task configurations, prompts, and model routing.', type: 'internal', category: 'page', componentKey: 'aiTasks', route: '/ai/tasks' },
   { id: 'ai-prompts', title: 'Prompt Templates', description: 'Manage versioned prompt templates for AI tasks.', type: 'internal', category: 'page', componentKey: 'promptTemplates', route: '/ai/prompts' },
   { id: 'ai-routing', title: 'Route Policies', description: 'Configure AI model routing policies per use-case.', type: 'internal', category: 'page', componentKey: 'routePolicies', route: '/ai/routing' },
@@ -131,21 +123,18 @@ const panels: WorkspacePanelConfig[] = [
 ];
 
 const panelComponents = {
-  analytics: AnalyticsPanel,
   aiModels: AiModelsPanel,
   agentConfig: AgentConfigPanel,
   aiTasks: AiTasksPanel,
   promptTemplates: PromptTemplatesPanel,
   routePolicies: RoutePoliciesPanel,
   aiPlayground: AiPlaygroundPanel,
-  placeholder: PlaceholderPanel,
 };
 
 // ---------------------------------------------------------------------------
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
-  { pathPrefix: '/analytics', trail: ['Analytics'] },
   { pathPrefix: '/ai/models', trail: ['AI', 'Models'] },
   { pathPrefix: '/ai/tasks', trail: ['AI', 'LLM Tasks'] },
   { pathPrefix: '/ai/prompts', trail: ['AI', 'Prompt Templates'] },

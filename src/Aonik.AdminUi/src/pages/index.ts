@@ -1,5 +1,4 @@
 export { MySpacePage } from './MySpacePage';
-export { AnalyticsPage } from './AnalyticsPage';
 export { LoginPage } from './LoginPage';
 export { SetupWizardPage } from './SetupWizardPage';
 export { SetupJourneyPage } from './SetupJourneyPage';
@@ -34,8 +33,6 @@ export {
   SystemToolsPage,
   SettingsLandingPage,
   SettingsGeneralPage,
-  SettingsWebhooksPage,
-  SettingsApiKeysPage,
   SettingsAuditLogsPage,
 } from './settings';
 export { FxRatesPage } from './FxRatesPage';
