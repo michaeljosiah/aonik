@@ -40,6 +40,15 @@ internal sealed class DashboardService : IDashboardService
         "CreditCard", "Loan", "Mortgage", "LineOfCredit", "StudentLoan", "AutoLoan"
     };
 
+    /// <summary>
+    /// Liquid account types used for Available-to-Spend calculation.
+    /// Investment/retirement accounts are excluded — they are not day-to-day spending money.
+    /// </summary>
+    private static readonly HashSet<string> LiquidAccountTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Checking", "Savings", "Cash", "MoneyMarket", "Prepaid"
+    };
+
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
@@ -141,8 +150,9 @@ internal sealed class DashboardService : IDashboardService
     ///   Net Worth = Sum(asset balances) - Sum(liability balances)
     ///   Total Assets = Sum of balances where AccountType is an asset type
     ///   Total Bills Due = Sum of ExpectedAmount for all upcoming obligations (bills + personal recurring bills + debt repayments)
-    ///   Available to Spend = Monthly Income - Monthly Expenses - Upcoming Obligation Amounts
-    ///   Spendable Progress = Available to Spend / Monthly Income (clamped 0..1)
+    ///   Liquid Assets = Sum of balances for Checking / Savings / Cash / MoneyMarket / Prepaid accounts
+    ///   Available to Spend = Liquid Assets - Total Bills Due  (floor 0)
+    ///   Spendable Progress = Available to Spend / Liquid Assets (clamped 0..1)
     /// </summary>
     private DashboardMetricsDto BuildMetrics(
         List<PersonalAccount> accounts,
@@ -194,22 +204,33 @@ internal sealed class DashboardService : IDashboardService
         var totalBillsDue = totalObligationsDue;
 
         // ── Available to spend ──────────────────────────────────────
-        // Simple calculation: what income has come in, minus what's been
-        // spent, minus what's still committed (upcoming obligations).
-        var availableToSpend = Math.Max(0, monthlyIncome - monthlyExpenses - totalBillsDue);
+        // Based on actual liquid account balances minus upcoming obligations.
+        // This gives a meaningful number regardless of where we are in the month —
+        // an income-minus-expenses formula produces £0 on the 2nd of the month
+        // even when the user has £26k in their accounts.
+        //
+        // Formula: Liquid Assets (Checking + Savings + Cash) - Upcoming Obligations (30 days)
+        //
+        // Note: amounts are summed in the user's primary currency (DeterminePrimaryCurrency).
+        // Cross-currency FX normalisation is deferred to V2 once exchange rate data is available.
+        var liquidAssets = accounts
+            .Where(a => LiquidAccountTypes.Contains(a.AccountType))
+            .Sum(a => a.CurrentBalance);
+
+        var availableToSpend = Math.Max(0, liquidAssets - totalBillsDue);
 
         // ── Spendable progress ──────────────────────────────────────
-        // Represents how much of the user's disposable income remains.
-        // 1.0 = nothing spent yet, 0.0 = fully consumed.
-        var spendableProgress = monthlyIncome > 0
-            ? Math.Min(1.0, Math.Max(0.0, (double)(availableToSpend / monthlyIncome)))
+        // Proportion of liquid assets remaining after committed obligations.
+        // 1.0 = no upcoming bills, 0.0 = obligations consume all liquid cash.
+        var spendableProgress = liquidAssets > 0
+            ? Math.Min(1.0, Math.Max(0.0, (double)(availableToSpend / liquidAssets)))
             : 0.0;
         var progressPercent = (int)Math.Round(spendableProgress * 100);
 
         return new DashboardMetricsDto(
             AvailableToSpend: availableToSpend,
             AvailableToSpendLabel: FormatAmount(availableToSpend, currency),
-            AvailableToSpendSubtitle: BuildSpendableSubtitle(monthlyExpenses, totalBillsDue, currency),
+            AvailableToSpendSubtitle: BuildSpendableSubtitle(liquidAssets, totalBillsDue, currency),
             SpendableProgress: spendableProgress,
             SpendableProgressLabel: $"{progressPercent}% free",
             NetWorth: netWorth,
@@ -524,19 +545,14 @@ internal sealed class DashboardService : IDashboardService
         return date.ToString("d MMM", CultureInfo.InvariantCulture);
     }
 
-    private static string BuildSpendableSubtitle(decimal monthlyExpenses, decimal totalBillsDue, string currency)
+    private static string BuildSpendableSubtitle(decimal liquidAssets, decimal totalBillsDue, string currency)
     {
-        if (monthlyExpenses == 0 && totalBillsDue == 0)
-            return "No spending recorded this month yet.";
+        if (liquidAssets == 0)
+            return "No liquid accounts linked yet.";
 
-        var parts = new List<string>();
+        if (totalBillsDue == 0)
+            return $"{FormatAmount(liquidAssets, currency)} across your accounts, no upcoming bills.";
 
-        if (monthlyExpenses > 0)
-            parts.Add($"{FormatAmount(monthlyExpenses, currency)} spent");
-
-        if (totalBillsDue > 0)
-            parts.Add($"{FormatAmount(totalBillsDue, currency)} in upcoming bills");
-
-        return $"After {string.Join(" and ", parts)} this month.";
+        return $"{FormatAmount(liquidAssets, currency)} in accounts · {FormatAmount(totalBillsDue, currency)} committed to bills.";
     }
 }
