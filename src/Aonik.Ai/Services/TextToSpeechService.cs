@@ -52,11 +52,13 @@ internal sealed class TextToSpeechService : ITextToSpeechService
             throw new TextToSpeechPolicyViolationException("Text-to-speech is disabled for this tenant.", "tts_disabled");
         }
 
-        var text = string.IsNullOrWhiteSpace(request.SpeechText) ? string.Empty : request.SpeechText.Trim();
-        if (string.IsNullOrWhiteSpace(text))
+        var rawText = string.IsNullOrWhiteSpace(request.SpeechText) ? string.Empty : request.SpeechText.Trim();
+        if (string.IsNullOrWhiteSpace(rawText))
         {
             throw new TextToSpeechPolicyViolationException("Speech text is required.", "text_required");
         }
+
+        var text = SpeechTextNormalizer.Normalize(rawText);
 
         if (!_rateLimiter.TryConsume(tenantId, userId, effectiveSettings.Policy.MaxRequestsPerMinutePerUser, out var retryAfter))
         {

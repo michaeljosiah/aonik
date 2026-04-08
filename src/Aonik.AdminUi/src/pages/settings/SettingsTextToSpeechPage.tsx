@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, AudioLines, CircleHelp, RefreshCw, Save, Upload, Volume2, Waves } from 'lucide-react';
+import { AlertCircle, AudioLines, CircleHelp, Info, RefreshCw, Save, Upload, Volume2, Waves } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/auth';
@@ -7,6 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -285,6 +295,67 @@ function buildRequest(formState: TextToSpeechFormState): TextToSpeechSettingsUpd
         : null,
     },
   };
+}
+
+// ── Voice cloning instructions dialog ──────────────────────────────────
+
+function VoiceUploadInstructionsDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+          <Info className="h-4 w-4" />
+          How to create a voice
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Creating a Custom Voice</DialogTitle>
+          <DialogDescription>Follow these steps to clone a voice from an audio sample.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 text-sm text-[var(--color-text-secondary)]">
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]/10 text-xs font-semibold text-[var(--color-accent)]">1</span>
+              <div>
+                <p className="font-medium text-[var(--color-text-primary)]">Prepare an audio sample</p>
+                <p className="mt-0.5 text-xs leading-relaxed">Record or select a clear audio clip of the voice you want to clone. A minimum of 2-3 seconds is required, but 10-30 seconds of clean speech produces the best results. Avoid background noise, music, or multiple speakers.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]/10 text-xs font-semibold text-[var(--color-accent)]">2</span>
+              <div>
+                <p className="font-medium text-[var(--color-text-primary)]">Enter a voice name</p>
+                <p className="mt-0.5 text-xs leading-relaxed">Type a descriptive name in the "Voice name" field below. This name will appear in the voice selection dropdown after creation.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]/10 text-xs font-semibold text-[var(--color-accent)]">3</span>
+              <div>
+                <p className="font-medium text-[var(--color-text-primary)]">Upload the audio file</p>
+                <p className="mt-0.5 text-xs leading-relaxed">Click "Upload Sample" and select your audio file. Supported formats include MP3, WAV, FLAC, OGG, and other common audio formats. The file will be uploaded and processed by the provider.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]/10 text-xs font-semibold text-[var(--color-accent)]">4</span>
+              <div>
+                <p className="font-medium text-[var(--color-text-primary)]">Select and preview</p>
+                <p className="mt-0.5 text-xs leading-relaxed">Once created, the new voice will be automatically selected. Use the Preview section at the bottom of this page to verify it sounds as expected before saving your settings.</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-md border border-[var(--color-border-light)] bg-[var(--color-surface-secondary)] px-3 py-2.5">
+            <p className="text-xs"><span className="font-medium text-[var(--color-text-primary)]">Tip:</span> For the clearest clone, use a recording with natural speech at a consistent volume. Whispers, singing, and heavily processed audio will produce less accurate results.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Got it</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function SettingsTextToSpeechPage() {
@@ -637,7 +708,6 @@ export function SettingsTextToSpeechPage() {
     }
   };
 
-  const showHostCredentialCard = isPlatformAdmin;
   const providerLabel = formState?.provider ?? 'Provider';
 
   return (
@@ -695,64 +765,117 @@ export function SettingsTextToSpeechPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <div className={`grid gap-6 ${showHostCredentialCard ? 'xl:grid-cols-2' : ''}`}>
-            {showHostCredentialCard && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <CardTitle>Host Credential</CardTitle>
-                      <CardDescription>Default {providerLabel} API key used when a tenant does not provide an override.</CardDescription>
-                    </div>
-                    <Badge variant={toCredentialBadgeVariant(hostCredential?.hasHostCredential ?? false)}>
-                      {hostCredential?.hasHostCredential ? 'Configured' : 'Missing'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-md border border-[var(--color-border-light)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
-                    Effective source: <span className="font-medium text-[var(--color-text-primary)]">{hostCredential?.effectiveSource ?? 'Unknown'}</span>
-                  </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <Label htmlFor="tts-host-api-key">{providerLabel} API Key (update only)</Label>
-                    </div>
-                    <Input
-                      id="tts-host-api-key"
-                      type="password"
-                      value={formState.hostApiKey}
-                      placeholder="Leave empty to keep existing host key"
-                      onChange={(event) => updateField('hostApiKey', event.target.value)}
-                    />
-                  </div>
+          {/* ── 1. Provider & Playback ─────────────────────────────────── */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <CardTitle>Provider & Playback</CardTitle>
+                  <CardDescription>Choose your TTS provider and enable speech synthesis for this tenant. The provider selection determines credentials, voices, and options below.</CardDescription>
+                </div>
+                <Badge variant={formState.enabled ? 'success' : 'outline'}>
+                  {formState.enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <FieldLabel
+                  label="Provider"
+                  helpTitle="Provider"
+                  helpDescription="The backend text-to-speech provider. ElevenLabs offers high-quality multilingual voices. Mistral (Voxtral) supports zero-shot voice cloning from short audio samples."
+                />
+                <Select value={formState.provider} onValueChange={(value) => void handleProviderChange(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDER_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => void handleSaveHostCredential(false)}
-                      disabled={savingHostCredential || saving || previewing}
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      Save host key
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => void handleSaveHostCredential(true)}
-                      disabled={savingHostCredential || saving || previewing || !(hostCredential?.hasHostCredential ?? false)}
-                    >
-                      Clear host key
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+              <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Tenant TTS enabled</p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Allow backend speech synthesis for this tenant.</p>
+                </div>
+                <Switch checked={formState.enabled} onCheckedChange={(checked) => updateField('enabled', checked)} />
+              </div>
 
+              <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Fallback to native on failure</p>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">Use device-native speech when backend synthesis or playback fails.</p>
+                </div>
+                <Switch
+                  checked={formState.fallbackToNativeOnFailure}
+                  onCheckedChange={(checked) => updateField('fallbackToNativeOnFailure', checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── 2. API Credential ─────────────────────────────────────── */}
+          {isPlatformAdmin ? (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <CardTitle>Tenant Override</CardTitle>
-                    <CardDescription>Optional {providerLabel} API key override for the currently selected tenant.</CardDescription>
+                    <CardTitle>Host Credential</CardTitle>
+                    <CardDescription>Default {providerLabel} API key used when a tenant does not provide an override.</CardDescription>
+                  </div>
+                  <Badge variant={toCredentialBadgeVariant(hostCredential?.hasHostCredential ?? false)}>
+                    {hostCredential?.hasHostCredential ? 'Configured' : 'Missing'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-md border border-[var(--color-border-light)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
+                  Effective source: <span className="font-medium text-[var(--color-text-primary)]">{hostCredential?.effectiveSource ?? 'Unknown'}</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="tts-host-api-key">{providerLabel} API Key (update only)</Label>
+                  </div>
+                  <Input
+                    id="tts-host-api-key"
+                    type="password"
+                    value={formState.hostApiKey}
+                    placeholder="Leave empty to keep existing host key"
+                    onChange={(event) => updateField('hostApiKey', event.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => void handleSaveHostCredential(false)}
+                    disabled={savingHostCredential || saving || previewing}
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    Save host key
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleSaveHostCredential(true)}
+                    disabled={savingHostCredential || saving || previewing || !(hostCredential?.hasHostCredential ?? false)}
+                  >
+                    Clear host key
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <CardTitle>Tenant Credential</CardTitle>
+                    <CardDescription>Your {providerLabel} API key for the currently selected tenant.</CardDescription>
                   </div>
                   <Badge variant={toCredentialBadgeVariant(tenantCredential?.hasTenantOverride ?? false)}>
                     {tenantCredential?.hasTenantOverride ? 'Override active' : 'Using host default'}
@@ -797,66 +920,62 @@ export function SettingsTextToSpeechPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+          )}
 
+          {/* ── 3. Voice Creation (upload) ────────────────────────────── */}
+          {isMistral && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <CardTitle>Create a Voice</CardTitle>
+                    <CardDescription>Upload an audio sample to clone a custom voice via Mistral. Created voices appear in the voice selection below.</CardDescription>
+                  </div>
+                  <VoiceUploadInstructionsDialog />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tts-voice-name">Voice name</Label>
+                  <Input
+                    id="tts-voice-name"
+                    placeholder="e.g. Customer Support - Sarah"
+                    value={voiceCreateName}
+                    onChange={(e) => setVoiceCreateName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <input
+                    ref={voiceFileRef}
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={handleCreateVoice}
+                  />
+                  <Button
+                    variant="outline"
+                    disabled={creatingVoice || !toTrimmed(voiceCreateName)}
+                    onClick={() => voiceFileRef.current?.click()}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    {creatingVoice ? 'Creating voice...' : 'Upload Sample'}
+                  </Button>
+                  {!toTrimmed(voiceCreateName) && (
+                    <p className="mt-2 text-xs text-[var(--color-text-tertiary)]">Enter a voice name above to enable uploading.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── 4. Voice & Output Configuration ───────────────────────── */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <CardTitle>Playback Controls</CardTitle>
-                  <CardDescription>Enable tenant TTS and decide whether device-native speech should take over on backend failure.</CardDescription>
-                </div>
-                <Badge variant={formState.enabled ? 'success' : 'outline'}>
-                  {formState.enabled ? 'Enabled' : 'Disabled'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Tenant TTS enabled</p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Allow backend speech synthesis for this tenant.</p>
-                </div>
-                <Switch checked={formState.enabled} onCheckedChange={(checked) => updateField('enabled', checked)} />
-              </div>
-
-              <div className="flex items-center justify-between rounded-md border border-[var(--color-border-light)] px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">Fallback to native on failure</p>
-                  <p className="text-xs text-[var(--color-text-tertiary)]">Use device-native speech when backend synthesis or playback fails.</p>
-                </div>
-                <Switch
-                  checked={formState.fallbackToNativeOnFailure}
-                  onCheckedChange={(checked) => updateField('fallbackToNativeOnFailure', checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Provider and Voice</CardTitle>
-              <CardDescription>Configure the active provider, voice, model, and output profile used for speech synthesis.</CardDescription>
+              <CardTitle>Voice & Output Configuration</CardTitle>
+              <CardDescription>Select a voice, model, locale, and output format for speech synthesis.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Provider"
-                  helpTitle="Provider"
-                  helpDescription="The backend text-to-speech provider. ElevenLabs offers high-quality multilingual voices. Mistral (Voxtral) supports zero-shot voice cloning from short audio samples."
-                />
-                <Select value={formState.provider} onValueChange={(value) => void handleProviderChange(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROVIDER_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="space-y-2">
                 <FieldLabel
                   label="Voice"
@@ -903,39 +1022,6 @@ export function SettingsTextToSpeechPage() {
                   <p className="text-xs text-[var(--color-error)]">{voiceLoadError}</p>
                 )}
               </div>
-
-              {isMistral && (
-                <div className="space-y-2 md:col-span-2">
-                  <FieldLabel
-                    label="Create Voice (Clone)"
-                    helpTitle="Voice Cloning"
-                    helpDescription="Upload a short audio sample (2–3 seconds minimum) to create a cloned voice via Mistral. The voice will appear in your voice list after creation."
-                  />
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Voice name"
-                      value={voiceCreateName}
-                      onChange={(e) => setVoiceCreateName(e.target.value)}
-                      className="max-w-xs"
-                    />
-                    <input
-                      ref={voiceFileRef}
-                      type="file"
-                      accept="audio/*"
-                      className="hidden"
-                      onChange={handleCreateVoice}
-                    />
-                    <Button
-                      variant="outline"
-                      disabled={creatingVoice || !toTrimmed(voiceCreateName)}
-                      onClick={() => voiceFileRef.current?.click()}
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      {creatingVoice ? 'Creating...' : 'Upload Sample'}
-                    </Button>
-                  </div>
-                </div>
-              )}
 
               <div className="space-y-2">
                 <FieldLabel
@@ -1063,6 +1149,7 @@ export function SettingsTextToSpeechPage() {
             </CardContent>
           </Card>
 
+          {/* ── 5. Usage Policy ────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>Usage Policy</CardTitle>
@@ -1084,6 +1171,7 @@ export function SettingsTextToSpeechPage() {
             </CardContent>
           </Card>
 
+          {/* ── 6. Preview ─────────────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <CardTitle>Preview</CardTitle>
