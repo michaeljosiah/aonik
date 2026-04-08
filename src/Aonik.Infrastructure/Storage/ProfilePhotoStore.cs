@@ -40,6 +40,13 @@ public class ProfilePhotoStore : IProfilePhotoStore
             throw new ArgumentException("Only image uploads are supported.", nameof(contentType));
         }
 
+        // Buffer the upload into a seekable MemoryStream so ImageSharp can
+        // re-read it for each thumbnail size.  IFormFile streams from
+        // multipart uploads are not guaranteed to be seekable.
+        using var buffered = new MemoryStream();
+        await fileStream.CopyToAsync(buffered, cancellationToken);
+        buffered.Position = 0;
+
         // Generate blob paths for original and all thumbnail sizes
         var blobPath = BuildPhotoBlobPath(tenantId, partyId, contentType);
         var mediumThumbPath = BuildThumbnailPath(blobPath, 512);
@@ -48,9 +55,8 @@ public class ProfilePhotoStore : IProfilePhotoStore
 
         // Save original image (resized to max 1920x1920 for performance)
         using var originalStream = new MemoryStream();
-        fileStream.Position = 0;
         await _imageProcessingService.ResizeImageAsync(
-            fileStream,
+            buffered,
             originalStream,
             maxWidth: 1920,
             maxHeight: 1920,
@@ -62,9 +68,9 @@ public class ProfilePhotoStore : IProfilePhotoStore
 
         // Generate medium thumbnail (512x512) for profile pages
         using var mediumThumbStream = new MemoryStream();
-        fileStream.Position = 0;
+        buffered.Position = 0;
         await _imageProcessingService.CreateThumbnailAsync(
-            fileStream,
+            buffered,
             mediumThumbStream,
             size: 512,
             quality: 85,
@@ -75,9 +81,9 @@ public class ProfilePhotoStore : IProfilePhotoStore
 
         // Generate small thumbnail (128x128) for avatars
         using var smallThumbStream = new MemoryStream();
-        fileStream.Position = 0;
+        buffered.Position = 0;
         await _imageProcessingService.CreateThumbnailAsync(
-            fileStream,
+            buffered,
             smallThumbStream,
             size: 128,
             quality: 80,
@@ -88,9 +94,9 @@ public class ProfilePhotoStore : IProfilePhotoStore
 
         // Generate tiny thumbnail (64x64) for compact lists
         using var tinyThumbStream = new MemoryStream();
-        fileStream.Position = 0;
+        buffered.Position = 0;
         await _imageProcessingService.CreateThumbnailAsync(
-            fileStream,
+            buffered,
             tinyThumbStream,
             size: 64,
             quality: 75,
