@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable, type ColumnDef, DataTableRowActions } from '@/components/ui/data-table';
 import {
   Dialog,
@@ -134,7 +134,7 @@ export function NotificationTemplatesPage() {
   const [sampleJson, setSampleJson] = useState('{\n  "first_name": "Amara",\n  "tenant_name": "Payabo",\n  "otp_code": "482910",\n  "confirmation_url": "https://app.payabo.com/confirm?token=abc123",\n  "expiry_hours": 24,\n  "expiry_minutes": 10\n}');
   const [previewResult, setPreviewResult] = useState<{ subject: string; body: string } | null>(null);
   const [previewing, setPreviewing] = useState(false);
-  const previewTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // ── AI generation ──────────────────────────────────────────────────────
   const [generatingDescription, setGeneratingDescription] = useState(false);
@@ -798,7 +798,7 @@ export function NotificationTemplatesPage() {
                           </div>
                           {selectedDetail && (
                             <div className="ml-auto text-xs text-[var(--color-text-tertiary)]">
-                              Last updated {new Date(selectedDetail.updatedAt).toLocaleDateString()}
+                              Last updated {selectedDetail.updatedAt ? new Date(selectedDetail.updatedAt).toLocaleDateString() : 'N/A'}
                             </div>
                           )}
                         </div>
