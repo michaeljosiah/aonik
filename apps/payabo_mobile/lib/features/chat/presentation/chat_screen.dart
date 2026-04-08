@@ -228,6 +228,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   String _voiceLiveTranscript = '';
   bool _showVoiceStage = false;
 
+  /// Guards against re-entrant voice taps while an async voice operation
+  /// (initialise, start listening, stop listening, dismiss) is in flight.
+  /// Without this, rapid taps cause the state machine to diverge from the
+  /// actual service state, leaving voice mode permanently broken until the
+  /// user restarts the app.
+  bool _voiceBusy = false;
+
   @override
   void initState() {
     super.initState();
@@ -490,8 +497,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         isVoiceActive: isVoiceActive,
                         voiceStagePhase: _voiceStagePhase,
                         voiceVisualStateListenable: _voiceVisualState,
-                        onEndVoiceTap: _dismissVoiceStage,
-                        onVoiceTap: _handleVoiceTap,
+                        onEndVoiceTap: () => unawaited(_dismissVoiceStage()),
+                        onVoiceTap: () => unawaited(_handleVoiceTap()),
                         onSubmitted: _submitPrompt,
                       ),
                     ),
@@ -552,7 +559,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _startNewConversation() {
     FocusScope.of(context).unfocus();
     _closeHistoryOverlay();
-    _dismissVoiceStage();
+    unawaited(_dismissVoiceStage());
 
     ref.read(chatControllerProvider.notifier).newConversation();
     ref.invalidate(_chatConversationsProvider);
@@ -606,7 +613,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     FocusScope.of(context).unfocus();
     _controller.clear();
-    _dismissVoiceStage();
+    unawaited(_dismissVoiceStage());
 
     ref.read(chatControllerProvider.notifier).sendMessage(prompt);
     _scrollToBottom(force: true);
@@ -629,18 +636,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _handleVoiceTap() async {
+    if (_voiceBusy) {
+      _voiceLog('voice tap IGNORED — async operation in flight');
+      return;
+    }
+
     _voiceLog('voice tap while phase=$_voiceStagePhase');
-    switch (_voiceStagePhase) {
-      case _VoiceStagePhase.idle:
-      case _VoiceStagePhase.ready:
-        await _startVoiceStage();
-      case _VoiceStagePhase.listening:
-        await _stopVoiceStage();
-      case _VoiceStagePhase.speaking:
-        _finishVoiceReply(_activeVoiceTurnId);
-        await _startVoiceStage();
-      case _VoiceStagePhase.thinking:
-        return;
+    _voiceBusy = true;
+    try {
+      switch (_voiceStagePhase) {
+        case _VoiceStagePhase.idle:
+        case _VoiceStagePhase.ready:
+          await _startVoiceStage();
+        case _VoiceStagePhase.listening:
+          await _stopVoiceStage();
+        case _VoiceStagePhase.speaking:
+          _finishVoiceReply(_activeVoiceTurnId);
+          await _startVoiceStage();
+        case _VoiceStagePhase.thinking:
+          break;
+      }
+    } finally {
+      _voiceBusy = false;
     }
   }
 
@@ -687,7 +704,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final bool available = await _beginVoiceListeningSession(turnId);
 
     if (!available && mounted) {
-      _dismissVoiceStage();
+      await _dismissVoiceStage();
       _showVoiceSnackBar('Voice recognition is not available on this device.');
     }
   }
@@ -746,7 +763,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
         _showVoiceSnackBar('Voice input unavailable: $message');
         if (_voiceLiveTranscript.trim().isEmpty) {
-          _dismissVoiceStage();
+          unawaited(_dismissVoiceStage());
         }
       },
       localeTag: localeTag,
@@ -863,7 +880,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     final String transcript = _voiceLiveTranscript.trim();
     if (transcript.isEmpty) {
-      _dismissVoiceStage();
+      await _dismissVoiceStage();
       return;
     }
 
@@ -886,34 +903,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _scrollToBottom(force: true);
   }
 
-  void _dismissVoiceStage() {
-    _voiceLog('dismiss voice stage');
-    _cancelVoiceTimers();
-    unawaited(_chatVoiceService.stopThinkingLoop());
-    unawaited(_chatVoiceService.stopListening());
-    unawaited(_chatVoiceService.stopSpeaking());
-
-    if (_voiceStagePhase == _VoiceStagePhase.idle &&
-        _voicePulseTick == 0 &&
-        _voiceElapsedMs == 0 &&
-        _voiceLiveTranscript.isEmpty) {
-      return;
+  Future<void> _dismissVoiceStage() async {
+    if (_voiceBusy) {
+      _voiceLog('dismiss voice stage DEFERRED — async operation in flight');
+      // Still proceed with dismiss since the user explicitly wants to exit,
+      // but skip the busy guard so we don't deadlock.
     }
 
-    setState(() {
-      _showVoiceStage = false;
-      _activeVoiceTurnId = null;
-      _voiceBackendTurnId = null;
-      _voiceStagePhase = _VoiceStagePhase.idle;
-      _voiceSpeakingPulse = 0.18;
-      _voiceLiveTranscript = '';
-      _voiceAwaitingBackendReply = false;
-      _voiceBackendReplyCompleted = false;
-      _voiceChunkSpeaking = false;
-      _voicePendingSpeechText = null;
-      _voiceSpeechQueue.clear();
-    });
-    _resetVoiceVisualState();
+    _voiceLog('dismiss voice stage');
+    _voiceBusy = true;
+    try {
+      _cancelVoiceTimers();
+
+      // Await cleanup so the voice service is fully stopped before
+      // resetting UI state.  Previously these were unawaited, meaning
+      // the service could still be mid-cleanup when the next tap arrived,
+      // leaving voice mode permanently broken.
+      await Future.wait(<Future<void>>[
+        _chatVoiceService.stopThinkingLoop(),
+        _chatVoiceService.stopListening(),
+        _chatVoiceService.stopSpeaking(),
+      ]);
+
+      if (!mounted) {
+        return;
+      }
+
+      if (_voiceStagePhase == _VoiceStagePhase.idle &&
+          _voicePulseTick == 0 &&
+          _voiceElapsedMs == 0 &&
+          _voiceLiveTranscript.isEmpty) {
+        return;
+      }
+
+      setState(() {
+        _showVoiceStage = false;
+        _activeVoiceTurnId = null;
+        _voiceBackendTurnId = null;
+        _voiceStagePhase = _VoiceStagePhase.idle;
+        _voiceSpeakingPulse = 0.18;
+        _voiceLiveTranscript = '';
+        _voiceAwaitingBackendReply = false;
+        _voiceBackendReplyCompleted = false;
+        _voiceChunkSpeaking = false;
+        _voicePendingSpeechText = null;
+        _voiceSpeechQueue.clear();
+      });
+      _resetVoiceVisualState();
+    } finally {
+      _voiceBusy = false;
+    }
   }
 
   void _finishVoiceReply([int? turnId]) {
