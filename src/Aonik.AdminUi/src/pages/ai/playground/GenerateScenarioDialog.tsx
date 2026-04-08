@@ -111,7 +111,7 @@ export function GenerateScenarioDialog({
         if (!v) resetState();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-[32rem]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />

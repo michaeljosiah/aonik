@@ -72,7 +72,7 @@ export function SaveScenarioDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-[28rem]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Save className="h-4 w-4" />
