@@ -2,33 +2,40 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  FileText,
-  FileUp,
-  ClipboardCheck,
-  CheckCircle2,
   AlertTriangle,
   ArrowLeft,
+  Calendar,
   CalendarClock,
+  CheckCircle2,
+  CloudUpload,
+  FileText,
+  Files,
   Hash,
+  Pencil,
+  Save,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { documentService } from '@/services/documentService';
 import type {
-  AddDocumentFileRequest,
-  AddDocumentUsageRequest,
-  AddDocumentVerificationRequest,
   DocumentDetailsResponse,
   DocumentUsageResponse,
 } from '@/types';
 
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
 const formatDate = (dateString?: string | null) => {
-  if (!dateString) return '—';
+  if (!dateString) return '\u2014';
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -37,7 +44,7 @@ const formatDate = (dateString?: string | null) => {
 };
 
 const formatDateTime = (dateString?: string | null) => {
-  if (!dateString) return '—';
+  if (!dateString) return '\u2014';
   return new Date(dateString).toLocaleString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -47,81 +54,96 @@ const formatDateTime = (dateString?: string | null) => {
   });
 };
 
-const statusStyles: Record<string, string> = {
-  Draft: 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]',
-  Pending: 'bg-[var(--color-warning-light)] text-[var(--color-warning)]',
-  Approved: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
-  Rejected: 'bg-[var(--color-error-light)] text-[var(--color-error)]',
-  Expired: 'bg-[var(--color-pending-light)] text-[var(--color-pending)]',
+const statusConfig: Record<string, { bg: string; text: string; dot: string }> = {
+  Draft: {
+    bg: 'bg-[var(--color-surface-inset)]',
+    text: 'text-[var(--color-text-secondary)]',
+    dot: 'bg-[var(--color-text-tertiary)]',
+  },
+  Pending: {
+    bg: 'bg-[var(--color-warning-light)]',
+    text: 'text-[var(--color-warning)]',
+    dot: 'bg-[var(--color-warning)]',
+  },
+  Approved: {
+    bg: 'bg-[var(--color-success-light)]',
+    text: 'text-[var(--color-success)]',
+    dot: 'bg-[var(--color-success)]',
+  },
+  Rejected: {
+    bg: 'bg-[var(--color-error-light)]',
+    text: 'text-[var(--color-error)]',
+    dot: 'bg-[var(--color-error)]',
+  },
+  Expired: {
+    bg: 'bg-[var(--color-pending-light)]',
+    text: 'text-[var(--color-pending)]',
+    dot: 'bg-[var(--color-pending)]',
+  },
 };
 
-const formatAttributes = (attributesJson: string) => {
-  try {
-    return JSON.stringify(JSON.parse(attributesJson), null, 2);
-  } catch {
-    return attributesJson;
-  }
+const fallbackStatus = {
+  bg: 'bg-[var(--color-surface-inset)]',
+  text: 'text-[var(--color-text-secondary)]',
+  dot: 'bg-[var(--color-text-tertiary)]',
 };
 
-const flattenVerifications = (usages: DocumentUsageResponse[]) => {
-  return usages.flatMap((usage) =>
-    usage.verifications.map((verification) => ({
-      usage,
-      verification,
-    }))
+function formatFileSize(bytes?: number | null): string {
+  if (!bytes) return '\u2014';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const flattenVerifications = (usages: DocumentUsageResponse[]) =>
+  usages.flatMap((usage) =>
+    usage.verifications.map((v) => ({ usage, verification: v })),
   );
+
+const isExpiringSoon = (expiresOn?: string | null) => {
+  if (!expiresOn) return false;
+  const expiresAt = new Date(expiresOn).getTime();
+  if (Number.isNaN(expiresAt)) return false;
+  const daysRemaining = (expiresAt - Date.now()) / (1000 * 60 * 60 * 24);
+  return daysRemaining >= 0 && daysRemaining <= 30;
 };
+
+/* -------------------------------------------------------------------------- */
+/*  Component                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export function DocumentDetailPage() {
   const navigate = useNavigate();
   const { documentId } = useParams<{ documentId: string }>();
-  const [document, setDocument] = useState<DocumentDetailsResponse | null>(null);
+
+  // Data
+  const [doc, setDoc] = useState<DocumentDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [fileForm, setFileForm] = useState<AddDocumentFileRequest>({
-    storageProvider: '',
-    storageContainer: '',
-    storageKey: '',
-    contentType: '',
-    fileName: '',
-    fileSizeBytes: undefined,
-    sha256: '',
-    pageIndex: undefined,
-    side: '',
-    capturedAt: '',
-    capturedBy: '',
-    metadataJson: '',
+
+  // File upload
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Metadata editing
+  const [isEditingMeta, setIsEditingMeta] = useState(false);
+  const [metaForm, setMetaForm] = useState({
+    issuerName: '',
+    countryCode: '',
+    referenceNumber: '',
+    issuedOn: '',
+    expiresOn: '',
   });
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadMeta, setUploadMeta] = useState({
-    pageIndex: '',
-    side: '',
-    capturedAt: '',
-    capturedBy: '',
-    metadataJson: '',
-  });
-  const [usageForm, setUsageForm] = useState<AddDocumentUsageRequest>({
-    ownerPartyId: '',
-    purpose: '',
-    relatedEntityType: '',
-    relatedEntityId: '',
-    status: '',
-    notes: '',
-  });
-  const [verificationForm, setVerificationForm] = useState<AddDocumentVerificationRequest>({
-    decision: '',
-    decisionReasonCode: '',
-    decisionNotes: '',
-    verifierType: '',
-    verifierId: '',
-    aiRunId: '',
-  });
-  const [selectedUsageId, setSelectedUsageId] = useState('');
-  const [isSubmittingFile, setIsSubmittingFile] = useState(false);
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const [isSubmittingUsage, setIsSubmittingUsage] = useState(false);
-  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+
+  // Sections
+  const [usageOpen, setUsageOpen] = useState(false);
+  const [verificationsOpen, setVerificationsOpen] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+
+  /* ---------------------------------------------------------------------- */
+  /*  Load                                                                    */
+  /* ---------------------------------------------------------------------- */
 
   const loadDocument = useCallback(async () => {
     if (!documentId) return;
@@ -129,15 +151,20 @@ export function DocumentDetailPage() {
     setError(null);
     try {
       const data = await documentService.get(documentId);
-      setDocument(data);
-      setUsageForm((prev) => ({ ...prev, ownerPartyId: data.document.ownerPartyId }));
-      setSelectedUsageId((prev) => prev || data.usages[0]?.documentUsageId || '');
+      setDoc(data);
+      setMetaForm({
+        issuerName: data.document.issuerName ?? '',
+        countryCode: data.document.countryCode ?? '',
+        referenceNumber: data.document.referenceNumber ?? '',
+        issuedOn: data.document.issuedOn ?? '',
+        expiresOn: data.document.expiresOn ?? '',
+      });
     } catch (err: unknown) {
-      console.error('Failed to load document:', err);
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
-      setError(message || 'Failed to load document. Please try again.');
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
+      setError(message || 'Failed to load document.');
     } finally {
       setLoading(false);
     }
@@ -147,198 +174,92 @@ export function DocumentDetailPage() {
     loadDocument();
   }, [loadDocument]);
 
-  const breadcrumbItems = useMemo(() => [
-    { label: 'Compliance', href: '/compliance' },
-    { label: 'Documents', href: '/compliance/documents' },
-    { label: document?.document.documentType ?? 'Document', icon: <FileText className="w-3.5 h-3.5" /> },
-  ], [document?.document.documentType]);
+  /* ---------------------------------------------------------------------- */
+  /*  File handling                                                          */
+  /* ---------------------------------------------------------------------- */
 
-  const handleAddFile = async () => {
-    if (!documentId) return;
-    if (!fileForm.storageProvider || !fileForm.storageKey || !fileForm.contentType) {
-      toast.error('Storage provider, key, and content type are required.');
-      return;
-    }
-    setIsSubmittingFile(true);
+  const addFiles = useCallback((incoming: FileList | File[]) => {
+    const newFiles = Array.from(incoming);
+    setPendingFiles((prev) => {
+      const existing = new Set(prev.map((f) => `${f.name}:${f.size}`));
+      return [...prev, ...newFiles.filter((f) => !existing.has(`${f.name}:${f.size}`))];
+    });
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+    },
+    [addFiles],
+  );
+
+  const handleUpload = async () => {
+    if (!documentId || pendingFiles.length === 0) return;
+    setIsUploading(true);
     try {
-      await documentService.addFile(documentId, {
-        storageProvider: fileForm.storageProvider,
-        storageContainer: fileForm.storageContainer || undefined,
-        storageKey: fileForm.storageKey,
-        contentType: fileForm.contentType,
-        fileName: fileForm.fileName || undefined,
-        fileSizeBytes: fileForm.fileSizeBytes ? Number(fileForm.fileSizeBytes) : undefined,
-        sha256: fileForm.sha256 || undefined,
-        pageIndex: fileForm.pageIndex ? Number(fileForm.pageIndex) : undefined,
-        side: fileForm.side || undefined,
-        capturedAt: fileForm.capturedAt || undefined,
-        capturedBy: fileForm.capturedBy || undefined,
-        metadataJson: fileForm.metadataJson || '{}',
-      });
-      toast.success('Document file added.');
-      setFileForm({
-        storageProvider: '',
-        storageContainer: '',
-        storageKey: '',
-        contentType: '',
-        fileName: '',
-        fileSizeBytes: undefined,
-        sha256: '',
-        pageIndex: undefined,
-        side: '',
-        capturedAt: '',
-        capturedBy: '',
-        metadataJson: '',
-      });
+      for (const file of pendingFiles) {
+        await documentService.uploadFile(documentId, { file });
+      }
+      toast.success(`${pendingFiles.length} file${pendingFiles.length > 1 ? 's' : ''} uploaded.`);
+      setPendingFiles([]);
       await loadDocument();
     } catch (err: unknown) {
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
-      toast.error(message || 'Failed to add document file.');
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
+      toast.error(message || 'Failed to upload files.');
     } finally {
-      setIsSubmittingFile(false);
+      setIsUploading(false);
     }
   };
 
-  const handleUploadFile = async () => {
-    if (!documentId) return;
-    if (!uploadFile) {
-      toast.error('Select a file to upload.');
-      return;
-    }
+  /* ---------------------------------------------------------------------- */
+  /*  Render states                                                          */
+  /* ---------------------------------------------------------------------- */
 
-    const pageIndex = uploadMeta.pageIndex.trim().length > 0
-      ? Number.parseInt(uploadMeta.pageIndex, 10)
-      : undefined;
-
-    if (pageIndex !== undefined && Number.isNaN(pageIndex)) {
-      toast.error('Page index must be a number.');
-      return;
-    }
-
-    setIsUploadingFile(true);
-    try {
-      await documentService.uploadFile(documentId, {
-        file: uploadFile,
-        pageIndex,
-        side: uploadMeta.side || undefined,
-        capturedAt: uploadMeta.capturedAt || undefined,
-        capturedBy: uploadMeta.capturedBy || undefined,
-        metadataJson: uploadMeta.metadataJson || undefined,
-      });
-      toast.success('File uploaded.');
-      setUploadFile(null);
-      setUploadMeta({
-        pageIndex: '',
-        side: '',
-        capturedAt: '',
-        capturedBy: '',
-        metadataJson: '',
-      });
-      await loadDocument();
-    } catch (err: unknown) {
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
-      toast.error(message || 'Failed to upload file.');
-    } finally {
-      setIsUploadingFile(false);
-    }
-  };
-
-  const handleAddUsage = async () => {
-    if (!documentId) return;
-    if (!usageForm.purpose) {
-      toast.error('Usage purpose is required.');
-      return;
-    }
-    setIsSubmittingUsage(true);
-    try {
-      const result = await documentService.addUsage(documentId, {
-        ...usageForm,
-        ownerPartyId: usageForm.ownerPartyId || document?.document.ownerPartyId || '',
-        relatedEntityId: usageForm.relatedEntityId || undefined,
-        status: usageForm.status || undefined,
-      });
-      toast.success('Usage added to document.');
-      setUsageForm((prev) => ({
-        ownerPartyId: prev.ownerPartyId,
-        purpose: '',
-        relatedEntityType: '',
-        relatedEntityId: '',
-        status: '',
-        notes: '',
-      }));
-      setSelectedUsageId(result.documentUsageId);
-      await loadDocument();
-      setActiveTab('usage');
-    } catch (err: unknown) {
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
-      toast.error(message || 'Failed to add document usage.');
-    } finally {
-      setIsSubmittingUsage(false);
-    }
-  };
-
-  const handleAddVerification = async () => {
-    if (!selectedUsageId) {
-      toast.error('Select a usage record to verify.');
-      return;
-    }
-    if (!verificationForm.decision || !verificationForm.verifierType) {
-      toast.error('Decision and verifier type are required.');
-      return;
-    }
-    setIsSubmittingVerification(true);
-    try {
-      await documentService.addVerification(selectedUsageId, {
-        ...verificationForm,
-        decisionReasonCode: verificationForm.decisionReasonCode || undefined,
-        decisionNotes: verificationForm.decisionNotes || undefined,
-        verifierId: verificationForm.verifierId || undefined,
-        aiRunId: verificationForm.aiRunId || undefined,
-      });
-      toast.success('Verification recorded.');
-      setVerificationForm({
-        decision: '',
-        decisionReasonCode: '',
-        decisionNotes: '',
-        verifierType: '',
-        verifierId: '',
-        aiRunId: '',
-      });
-      await loadDocument();
-      setActiveTab('verification');
-    } catch (err: unknown) {
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
-      toast.error(message || 'Failed to add verification.');
-    } finally {
-      setIsSubmittingVerification(false);
-    }
-  };
+  const breadcrumbItems = useMemo(
+    () => [
+      { label: 'Compliance', href: '/compliance' },
+      { label: 'Documents', href: '/compliance/documents' },
+      {
+        label: doc?.document.documentType ?? 'Document',
+        icon: <FileText className="w-3.5 h-3.5" />,
+      },
+    ],
+    [doc?.document.documentType],
+  );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-4 border-[var(--color-brand-primary)] border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-brand-primary)] border-t-transparent" />
       </div>
     );
   }
 
-  if (error || !document) {
+  if (error || !doc) {
     return (
       <div className="h-full overflow-auto p-6">
-        <Breadcrumb items={[{ label: 'Compliance', href: '/compliance' }, { label: 'Documents', href: '/compliance/documents' }]} className="mb-4" />
+        <Breadcrumb
+          items={[
+            { label: 'Compliance', href: '/compliance' },
+            { label: 'Documents', href: '/compliance/documents' },
+          ]}
+          className="mb-4"
+        />
         <Card className="border-[var(--color-error)] bg-[var(--color-error-light)]">
-          <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
-            <AlertTriangle className="w-5 h-5" />
+          <CardContent className="flex items-center gap-3 p-4 text-[var(--color-error)]">
+            <AlertTriangle className="h-5 w-5" />
             <span>{error || 'Document not found.'}</span>
-            <Button variant="outline" size="sm" onClick={() => navigate('/compliance/documents')} className="ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/compliance/documents')}
+              className="ml-auto"
+            >
               Back to documents
             </Button>
           </CardContent>
@@ -347,462 +268,410 @@ export function DocumentDetailPage() {
     );
   }
 
-  const verifications = flattenVerifications(document.usages);
+  const status = statusConfig[doc.document.status] ?? fallbackStatus;
+  const verifications = flattenVerifications(doc.usages);
+  const expiring = isExpiringSoon(doc.document.expiresOn);
 
   return (
     <div className="h-full overflow-auto p-6">
       <Breadcrumb items={breadcrumbItems} className="mb-4" />
 
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon-sm" onClick={() => navigate('/compliance/documents')}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{document.document.documentType}</h1>
-              <p className="text-[var(--color-text-secondary)]">Owner: {document.document.ownerPartyId}</p>
-            </div>
-          </div>
-        </div>
+      {/* Header */}
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Badge className={`rounded-full ${statusStyles[document.document.status] ?? 'bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)]'}`}>
-            {document.document.status}
-          </Badge>
-          <Button variant="outline" onClick={() => setActiveTab('files')}>
-            <FileUp className="w-4 h-4 mr-2" />
-            Add File
+          <Button variant="ghost" size="icon-sm" onClick={() => navigate('/compliance/documents')}>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" onClick={() => setActiveTab('usage')}>
-            <ClipboardCheck className="w-4 h-4 mr-2" />
-            Add Usage
-          </Button>
-          <Button onClick={() => setActiveTab('verification')}>
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            Add Verification
-          </Button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+                {doc.document.documentType}
+              </h1>
+              <Badge className={`rounded-full text-xs ${status.bg} ${status.text}`}>
+                <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                {doc.document.status}
+              </Badge>
+            </div>
+            <p className="mt-0.5 text-sm text-[var(--color-text-tertiary)]">
+              Owner: {doc.document.ownerPartyId}
+            </p>
+          </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="usage">Usage</TabsTrigger>
-          <TabsTrigger value="verification">Verification</TabsTrigger>
-          <TabsTrigger value="versions">Versions</TabsTrigger>
-        </TabsList>
+      <div className="mx-auto max-w-[64rem] space-y-6">
+        {/* ================================================================ */}
+        {/*  Files section — primary                                          */}
+        {/* ================================================================ */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Files className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+              <CardTitle className="text-sm">
+                Files ({doc.files.length})
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Existing files */}
+            {doc.files.length > 0 && (
+              <div className="space-y-2">
+                {doc.files.map((file) => (
+                  <div
+                    key={file.documentFileId}
+                    className="flex items-center gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/40 px-4 py-3"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand-primary-light)]">
+                      <FileText className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                        {file.fileName || file.storageKey}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        {file.contentType} \u00b7 {formatFileSize(file.fileSizeBytes)}
+                      </p>
+                    </div>
+                    <div className="text-right text-xs text-[var(--color-text-tertiary)]">
+                      <p>{file.storageProvider}</p>
+                      <p>{formatDateTime(file.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
-        <TabsContent value="overview">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-sm">Document Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2 text-sm">
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Issuer</div>
-                  <div className="text-[var(--color-text-primary)]">{document.document.issuerName || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Country</div>
-                  <div className="text-[var(--color-text-primary)]">{document.document.countryCode || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Reference</div>
-                  <div className="text-[var(--color-text-primary)]">{document.document.referenceNumber || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Issued On</div>
-                  <div className="text-[var(--color-text-primary)]">{formatDate(document.document.issuedOn)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Expires On</div>
-                  <div className="text-[var(--color-text-primary)]">{formatDate(document.document.expiresOn)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Tags</div>
-                  <div className="flex flex-wrap gap-2">
-                    {document.document.tags.length === 0 ? (
-                      <span className="text-[var(--color-text-tertiary)]">—</span>
-                    ) : (
-                      document.document.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="rounded-full text-xs">
-                          {tag}
-                        </Badge>
-                      ))
-                    )}
+            {doc.files.length === 0 && pendingFiles.length === 0 && (
+              <p className="text-sm text-[var(--color-text-tertiary)]">No files attached yet.</p>
+            )}
+
+            {/* Upload drop zone */}
+            <div
+              className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-8 transition-colors ${
+                isDragOver
+                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
+                  : 'border-[var(--color-border-light)] hover:border-[var(--color-brand-primary)]/50'
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <CloudUpload className="mb-2 h-6 w-6 text-[var(--color-text-tertiary)]" />
+              <p className="mb-1 text-sm text-[var(--color-text-secondary)]">
+                Drag & drop files to upload
+              </p>
+              <p className="mb-3 text-xs text-[var(--color-text-tertiary)]">or click to browse</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.multiple = true;
+                  input.onchange = () => {
+                    if (input.files) addFiles(input.files);
+                  };
+                  input.click();
+                }}
+              >
+                Choose Files
+              </Button>
+            </div>
+
+            {/* Pending uploads */}
+            {pendingFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-[var(--color-text-secondary)]">
+                  Ready to upload ({pendingFiles.length})
+                </p>
+                {pendingFiles.map((file, idx) => (
+                  <div
+                    key={`${file.name}-${file.size}`}
+                    className="flex items-center gap-3 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary-light)]/40 px-4 py-3"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand-primary-light)]">
+                      <FileText className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        {formatFileSize(file.size)}
+                        {file.type && ` \u00b7 ${file.type}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPendingFiles((p) => p.filter((_, i) => i !== idx))}
+                      className="rounded-md p-1 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)] transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <Button onClick={handleUpload} disabled={isUploading} className="mt-2">
+                  <CloudUpload className="mr-2 h-4 w-4" />
+                  {isUploading ? 'Uploading...' : `Upload ${pendingFiles.length} File${pendingFiles.length > 1 ? 's' : ''}`}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ================================================================ */}
+        {/*  Document details / metadata                                      */}
+        {/* ================================================================ */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+              <CardTitle className="text-sm">Document Details</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+              <DetailField label="Issuer" value={doc.document.issuerName} />
+              <DetailField label="Country" value={doc.document.countryCode} />
+              <DetailField label="Reference" value={doc.document.referenceNumber} mono />
+              <DetailField label="Issued On" value={formatDate(doc.document.issuedOn)} />
+              <DetailField
+                label="Expires On"
+                value={formatDate(doc.document.expiresOn)}
+                highlight={expiring}
+                highlightLabel="Expiring soon"
+              />
+              <DetailField
+                label="Created"
+                value={formatDateTime(doc.document.createdAt)}
+              />
+              <DetailField
+                label="Last Updated"
+                value={formatDateTime(doc.document.updatedAt)}
+              />
+              {doc.document.tags.length > 0 && (
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <p className="mb-1 text-xs text-[var(--color-text-tertiary)]">Tags</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {doc.document.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="rounded-full text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Created</div>
-                  <div className="text-[var(--color-text-primary)]">{formatDateTime(document.document.createdAt)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-[var(--color-text-tertiary)]">Updated</div>
-                  <div className="text-[var(--color-text-primary)]">{formatDateTime(document.document.updatedAt)}</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Attributes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="text-xs whitespace-pre-wrap bg-[var(--color-surface-inset)]/60 border border-[var(--color-border-light)] rounded-md p-3">
-                  {formatAttributes(document.document.attributesJson)}
-                </pre>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="files">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Upload File</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
-                <div className="md:col-span-2">
-                  <Input
-                    type="file"
-                    onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
-                  />
-                  {uploadFile && (
-                    <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-                      {uploadFile.name} · {(uploadFile.size / 1024).toFixed(1)} KB · {uploadFile.type || 'unknown'}
-                    </div>
-                  )}
-                </div>
-                <Input
-                  value={uploadMeta.pageIndex}
-                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, pageIndex: event.target.value }))}
-                  placeholder="Page index"
-                  type="number"
-                />
-                <Input
-                  value={uploadMeta.side}
-                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, side: event.target.value }))}
-                  placeholder="Side (front/back)"
-                />
-                <Input
-                  value={uploadMeta.capturedAt}
-                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, capturedAt: event.target.value }))}
-                  placeholder="Captured at (ISO)"
-                />
-                <Input
-                  value={uploadMeta.capturedBy}
-                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, capturedBy: event.target.value }))}
-                  placeholder="Captured by"
-                />
-                <Textarea
-                  value={uploadMeta.metadataJson}
-                  onChange={(event) => setUploadMeta((prev) => ({ ...prev, metadataJson: event.target.value }))}
-                  placeholder="Metadata JSON"
-                  className="md:col-span-2"
-                />
-                <div className="md:col-span-2">
-                  <Button onClick={handleUploadFile} disabled={isUploadingFile}>
-                    {isUploadingFile ? 'Uploading...' : 'Upload File'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Add a File</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
-                <Input
-                  value={fileForm.storageProvider}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, storageProvider: event.target.value }))}
-                  placeholder="Storage provider (e.g., S3, Azure)"
-                />
-                <Input
-                  value={fileForm.storageKey}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, storageKey: event.target.value }))}
-                  placeholder="Storage key"
-                />
-                <Input
-                  value={fileForm.contentType}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, contentType: event.target.value }))}
-                  placeholder="Content type"
-                />
-                <Input
-                  value={fileForm.fileName ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, fileName: event.target.value }))}
-                  placeholder="File name"
-                />
-                <Input
-                  value={fileForm.storageContainer ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, storageContainer: event.target.value }))}
-                  placeholder="Storage container"
-                />
-                <Input
-                  value={fileForm.fileSizeBytes?.toString() ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, fileSizeBytes: event.target.value ? Number(event.target.value) : undefined }))}
-                  placeholder="File size (bytes)"
-                  type="number"
-                />
-                <Input
-                  value={fileForm.sha256 ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, sha256: event.target.value }))}
-                  placeholder="SHA-256 hash"
-                />
-                <Input
-                  value={fileForm.pageIndex?.toString() ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, pageIndex: event.target.value ? Number(event.target.value) : undefined }))}
-                  placeholder="Page index"
-                  type="number"
-                />
-                <Input
-                  value={fileForm.side ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, side: event.target.value }))}
-                  placeholder="Side (front/back)"
-                />
-                <Input
-                  value={fileForm.capturedAt ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, capturedAt: event.target.value }))}
-                  placeholder="Captured at (ISO)"
-                />
-                <Input
-                  value={fileForm.capturedBy ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, capturedBy: event.target.value }))}
-                  placeholder="Captured by"
-                />
-                <Textarea
-                  value={fileForm.metadataJson ?? ''}
-                  onChange={(event) => setFileForm((prev) => ({ ...prev, metadataJson: event.target.value }))}
-                  placeholder="Metadata JSON"
-                  className="md:col-span-2"
-                />
-                <div className="md:col-span-2">
-                  <Button onClick={handleAddFile} disabled={isSubmittingFile}>
-                    {isSubmittingFile ? 'Saving...' : 'Add File'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+        {/* ================================================================ */}
+        {/*  Collapsible advanced sections                                    */}
+        {/* ================================================================ */}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Files</CardTitle>
+        {/* Usage Records */}
+        <Collapsible open={usageOpen} onOpenChange={setUsageOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer select-none hover:bg-[var(--color-surface-inset)]/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    <CardTitle className="text-sm">
+                      Usage Records ({doc.usages.length})
+                    </CardTitle>
+                  </div>
+                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                    {usageOpen ? 'Collapse' : 'Expand'}
+                  </span>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {document.files.length === 0 ? (
-                  <div className="text-sm text-[var(--color-text-tertiary)]">No files attached.</div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                {doc.usages.length === 0 ? (
+                  <p className="text-sm text-[var(--color-text-tertiary)]">No usage records.</p>
                 ) : (
-                  document.files.map((file) => (
-                    <div key={file.documentFileId} className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-4 last:border-b-0">
+                  doc.usages.map((usage) => (
+                    <div
+                      key={usage.documentUsageId}
+                      className="flex items-start justify-between gap-4 rounded-lg border border-[var(--color-border-light)] px-4 py-3"
+                    >
                       <div>
-                        <div className="text-sm font-medium text-[var(--color-text-primary)]">{file.fileName || file.storageKey}</div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">{file.contentType} · {file.fileSizeBytes ?? '—'} bytes</div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">SHA-256: {file.sha256 || '—'}</div>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                          {usage.purpose}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          {usage.relatedEntityType
+                            ? `${usage.relatedEntityType} \u00b7 ${usage.relatedEntityId ?? '\u2014'}`
+                            : 'No related entity'}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          Status: {usage.status} \u00b7 Verified: {formatDateTime(usage.verifiedAt)}
+                        </p>
                       </div>
-                      <div className="text-xs text-[var(--color-text-tertiary)] text-right">
-                        <div>{file.storageProvider}</div>
-                        <div>{formatDateTime(file.createdAt)}</div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="usage">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Add Usage</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
-                <Input
-                  value={usageForm.ownerPartyId}
-                  onChange={(event) => setUsageForm((prev) => ({ ...prev, ownerPartyId: event.target.value }))}
-                  placeholder="Owner party ID"
-                />
-                <Input
-                  value={usageForm.purpose}
-                  onChange={(event) => setUsageForm((prev) => ({ ...prev, purpose: event.target.value }))}
-                  placeholder="Purpose (e.g., KYC)"
-                />
-                <Input
-                  value={usageForm.relatedEntityType ?? ''}
-                  onChange={(event) => setUsageForm((prev) => ({ ...prev, relatedEntityType: event.target.value }))}
-                  placeholder="Related entity type"
-                />
-                <Input
-                  value={usageForm.relatedEntityId ?? ''}
-                  onChange={(event) => setUsageForm((prev) => ({ ...prev, relatedEntityId: event.target.value }))}
-                  placeholder="Related entity ID"
-                />
-                <Input
-                  value={usageForm.status ?? ''}
-                  onChange={(event) => setUsageForm((prev) => ({ ...prev, status: event.target.value }))}
-                  placeholder="Status (Pending, Satisfied)"
-                />
-                <Textarea
-                  value={usageForm.notes ?? ''}
-                  onChange={(event) => setUsageForm((prev) => ({ ...prev, notes: event.target.value }))}
-                  placeholder="Notes"
-                  className="md:col-span-2"
-                />
-                <div className="md:col-span-2">
-                  <Button onClick={handleAddUsage} disabled={isSubmittingUsage}>
-                    {isSubmittingUsage ? 'Saving...' : 'Add Usage'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Usage Records</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {document.usages.length === 0 ? (
-                  <div className="text-sm text-[var(--color-text-tertiary)]">No usage records.</div>
-                ) : (
-                  document.usages.map((usage) => (
-                    <div key={usage.documentUsageId} className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-4 last:border-b-0">
-                      <div>
-                        <div className="text-sm font-medium text-[var(--color-text-primary)]">{usage.purpose}</div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">
-                          {usage.relatedEntityType ? `${usage.relatedEntityType} · ${usage.relatedEntityId ?? '—'}` : 'No related entity'}
-                        </div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">Status: {usage.status}</div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">Verified: {formatDateTime(usage.verifiedAt)}</div>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {usage.verifications.length} verifications
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {usage.verifications.length} verification{usage.verifications.length !== 1 ? 's' : ''}
                       </Badge>
                     </div>
                   ))
                 )}
               </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
-        <TabsContent value="verification">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Add Verification</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
-                <Input
-                  value={selectedUsageId}
-                  onChange={(event) => setSelectedUsageId(event.target.value)}
-                  placeholder="Document usage ID"
-                />
-                <Input
-                  value={verificationForm.decision}
-                  onChange={(event) => setVerificationForm((prev) => ({ ...prev, decision: event.target.value }))}
-                  placeholder="Decision (Approved/Rejected)"
-                />
-                <Input
-                  value={verificationForm.verifierType}
-                  onChange={(event) => setVerificationForm((prev) => ({ ...prev, verifierType: event.target.value }))}
-                  placeholder="Verifier type (Human/AI)"
-                />
-                <Input
-                  value={verificationForm.verifierId ?? ''}
-                  onChange={(event) => setVerificationForm((prev) => ({ ...prev, verifierId: event.target.value }))}
-                  placeholder="Verifier ID"
-                />
-                <Input
-                  value={verificationForm.decisionReasonCode ?? ''}
-                  onChange={(event) => setVerificationForm((prev) => ({ ...prev, decisionReasonCode: event.target.value }))}
-                  placeholder="Decision reason code"
-                />
-                <Input
-                  value={verificationForm.aiRunId ?? ''}
-                  onChange={(event) => setVerificationForm((prev) => ({ ...prev, aiRunId: event.target.value }))}
-                  placeholder="AI Run ID"
-                />
-                <Textarea
-                  value={verificationForm.decisionNotes ?? ''}
-                  onChange={(event) => setVerificationForm((prev) => ({ ...prev, decisionNotes: event.target.value }))}
-                  placeholder="Decision notes"
-                  className="md:col-span-2"
-                />
-                <div className="md:col-span-2">
-                  <Button onClick={handleAddVerification} disabled={isSubmittingVerification}>
-                    {isSubmittingVerification ? 'Saving...' : 'Add Verification'}
-                  </Button>
+        {/* Verifications */}
+        <Collapsible open={verificationsOpen} onOpenChange={setVerificationsOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer select-none hover:bg-[var(--color-surface-inset)]/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    <CardTitle className="text-sm">
+                      Verifications ({verifications.length})
+                    </CardTitle>
+                  </div>
+                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                    {verificationsOpen ? 'Collapse' : 'Expand'}
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Verification Timeline</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
                 {verifications.length === 0 ? (
-                  <div className="text-sm text-[var(--color-text-tertiary)]">No verifications recorded.</div>
+                  <p className="text-sm text-[var(--color-text-tertiary)]">No verifications recorded.</p>
                 ) : (
                   verifications.map(({ usage, verification }) => (
-                    <div key={verification.documentVerificationId} className="flex items-start gap-4 border-b border-[var(--color-border-light)] pb-4 last:border-b-0">
-                      <div className="mt-1">
-                        <CalendarClock className="w-4 h-4 text-[var(--color-text-tertiary)]" />
-                      </div>
+                    <div
+                      key={verification.documentVerificationId}
+                      className="flex items-start gap-3 rounded-lg border border-[var(--color-border-light)] px-4 py-3"
+                    >
+                      <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="text-sm font-medium text-[var(--color-text-primary)]">{verification.decision}</div>
-                          <Badge variant="outline" className="text-xs">{usage.purpose}</Badge>
+                          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                            {verification.decision}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {usage.purpose}
+                          </Badge>
                         </div>
-                        <div className="text-xs text-[var(--color-text-tertiary)]">
-                          {verification.verifierType} · {verification.verifierId || 'Unknown'} · {formatDateTime(verification.createdAt)}
-                        </div>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          {verification.verifierType} \u00b7{' '}
+                          {verification.verifierId || 'Unknown'} \u00b7{' '}
+                          {formatDateTime(verification.createdAt)}
+                        </p>
                         {verification.decisionNotes && (
-                          <div className="text-xs text-[var(--color-text-secondary)] mt-1">{verification.decisionNotes}</div>
+                          <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                            {verification.decisionNotes}
+                          </p>
                         )}
                         {verification.aiRunId && (
-                          <div className="text-xs text-[var(--color-text-tertiary)] mt-1 flex items-center gap-2">
-                            <Hash className="w-3.5 h-3.5" />
-                            AI Run ID: {verification.aiRunId}
-                          </div>
+                          <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]">
+                            <Hash className="h-3 w-3" />
+                            AI Run: {verification.aiRunId}
+                          </p>
                         )}
                       </div>
                     </div>
                   ))
                 )}
               </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="versions">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Document Versions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {document.versions.length === 0 ? (
-                <div className="text-sm text-[var(--color-text-tertiary)]">No versions recorded.</div>
-              ) : (
-                document.versions.map((version) => (
-                  <div key={version.documentVersionId} className="flex items-start justify-between gap-4 border-b border-[var(--color-border-light)] pb-4 last:border-b-0">
-                    <div>
-                      <div className="text-sm font-medium text-[var(--color-text-primary)]">Version {version.version}</div>
-                      <div className="text-xs text-[var(--color-text-tertiary)]">Status: {version.status}</div>
-                      <div className="text-xs text-[var(--color-text-tertiary)]">Submitted: {formatDateTime(version.submittedAt)}</div>
-                    </div>
-                    <div className="text-xs text-[var(--color-text-tertiary)] text-right">
-                      Decisioned: {formatDateTime(version.decisionedAt)}
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
+            </CollapsibleContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </Collapsible>
+
+        {/* Versions */}
+        <Collapsible open={versionsOpen} onOpenChange={setVersionsOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer select-none hover:bg-[var(--color-surface-inset)]/30 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-[var(--color-text-tertiary)]" />
+                    <CardTitle className="text-sm">
+                      Versions ({doc.versions.length})
+                    </CardTitle>
+                  </div>
+                  <span className="text-xs text-[var(--color-text-tertiary)]">
+                    {versionsOpen ? 'Collapse' : 'Expand'}
+                  </span>
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-3 pt-0">
+                {doc.versions.length === 0 ? (
+                  <p className="text-sm text-[var(--color-text-tertiary)]">No versions recorded.</p>
+                ) : (
+                  doc.versions.map((version) => (
+                    <div
+                      key={version.documentVersionId}
+                      className="flex items-start justify-between gap-4 rounded-lg border border-[var(--color-border-light)] px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                          Version {version.version}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          Status: {version.status} \u00b7 Submitted: {formatDateTime(version.submittedAt)}
+                        </p>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        Decisioned: {formatDateTime(version.decisionedAt)}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Detail Field                                                               */
+/* -------------------------------------------------------------------------- */
+
+function DetailField({
+  label,
+  value,
+  mono,
+  highlight,
+  highlightLabel,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+  highlight?: boolean;
+  highlightLabel?: string;
+}) {
+  return (
+    <div>
+      <p className="mb-0.5 text-xs text-[var(--color-text-tertiary)]">{label}</p>
+      <div className="flex items-center gap-2">
+        <p
+          className={`text-sm text-[var(--color-text-primary)] ${mono ? 'font-mono' : ''} ${
+            highlight ? 'text-[var(--color-warning)] font-medium' : ''
+          }`}
+        >
+          {value || '\u2014'}
+        </p>
+        {highlight && highlightLabel && (
+          <Badge className="rounded-full bg-[var(--color-warning-light)] text-[var(--color-warning)] text-xs">
+            {highlightLabel}
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }

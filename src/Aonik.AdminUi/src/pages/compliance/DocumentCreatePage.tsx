@@ -1,118 +1,149 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { FilePlus, ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  CloudUpload,
+  FileText,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { documentService } from '@/services/documentService';
-import type { AddDocumentUsageRequest, CreateDocumentRequest } from '@/types';
+
+/* -------------------------------------------------------------------------- */
+/*  Constants                                                                  */
+/* -------------------------------------------------------------------------- */
+
+const DOCUMENT_TYPES = [
+  'National ID',
+  'Passport',
+  'Driving Licence',
+  'Proof of Address',
+  'Bank Statement',
+  'Utility Bill',
+  'Tax Certificate',
+  'Certificate of Incorporation',
+  'Business Licence',
+  'Power of Attorney',
+  'Other',
+] as const;
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileIcon(contentType: string) {
+  if (contentType.startsWith('image/')) return 'image';
+  if (contentType === 'application/pdf') return 'pdf';
+  return 'file';
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Component                                                                  */
+/* -------------------------------------------------------------------------- */
 
 export function DocumentCreatePage() {
   const navigate = useNavigate();
+
+  // Form state
+  const [ownerPartyId, setOwnerPartyId] = useState('');
+  const [documentType, setDocumentType] = useState('');
+  const [customType, setCustomType] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [documentForm, setDocumentForm] = useState<CreateDocumentRequest>({
-    ownerPartyId: '',
-    documentType: '',
-    status: '',
-    issuedOn: '',
-    expiresOn: '',
-    issuerName: '',
-    countryCode: '',
-    referenceNumber: '',
-    tags: [],
-    attributesJson: '',
-  });
-  const [tagInput, setTagInput] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileForm, setFileForm] = useState({
-    pageIndex: '',
-    side: '',
-    capturedAt: '',
-    capturedBy: '',
-    metadataJson: '',
-  });
-  const [usageForm, setUsageForm] = useState<AddDocumentUsageRequest>({
-    ownerPartyId: '',
-    purpose: '',
-    relatedEntityType: '',
-    relatedEntityId: '',
-    status: '',
-    notes: '',
-  });
+
+  const resolvedType = documentType === 'Other' ? customType.trim() : documentType;
+
+  /* ---------------------------------------------------------------------- */
+  /*  File handling                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  const addFiles = useCallback((incoming: FileList | File[]) => {
+    const newFiles = Array.from(incoming);
+    setFiles((prev) => {
+      // Deduplicate by name + size
+      const existing = new Set(prev.map((f) => `${f.name}:${f.size}`));
+      const unique = newFiles.filter((f) => !existing.has(`${f.name}:${f.size}`));
+      return [...prev, ...unique];
+    });
+  }, []);
+
+  const removeFile = useCallback((index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      if (e.dataTransfer.files.length > 0) {
+        addFiles(e.dataTransfer.files);
+      }
+    },
+    [addFiles],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /*  Submit                                                                  */
+  /* ---------------------------------------------------------------------- */
 
   const handleSubmit = async () => {
-    if (!documentForm.ownerPartyId || !documentForm.documentType) {
-      toast.error('Owner party ID and document type are required.');
+    if (!ownerPartyId.trim()) {
+      toast.error('Owner party ID is required.');
       return;
     }
+    if (!resolvedType) {
+      toast.error('Please select a document type.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const tags = tagInput
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0);
+      const created = await documentService.create({
+        ownerPartyId: ownerPartyId.trim(),
+        documentType: resolvedType,
+        status: 'Draft',
+      });
 
-      const pageIndex = selectedFile && fileForm.pageIndex.trim().length > 0
-        ? Number.parseInt(fileForm.pageIndex, 10)
-        : undefined;
-
-      if (selectedFile && pageIndex !== undefined && Number.isNaN(pageIndex)) {
-        toast.error('Page index must be a number.');
-        return;
+      // Upload files sequentially
+      for (const file of files) {
+        await documentService.uploadFile(created.documentId, { file });
       }
 
-      const documentPayload: CreateDocumentRequest = {
-        ownerPartyId: documentForm.ownerPartyId,
-        documentType: documentForm.documentType,
-        status: documentForm.status || undefined,
-        issuedOn: documentForm.issuedOn || undefined,
-        expiresOn: documentForm.expiresOn || undefined,
-        issuerName: documentForm.issuerName || undefined,
-        countryCode: documentForm.countryCode || undefined,
-        referenceNumber: documentForm.referenceNumber || undefined,
-        tags,
-        attributesJson: documentForm.attributesJson || undefined,
-      };
-
-      const created = await documentService.create(documentPayload);
-
-      if (selectedFile) {
-        await documentService.uploadFile(created.documentId, {
-          file: selectedFile,
-          pageIndex,
-          side: fileForm.side || undefined,
-          capturedAt: fileForm.capturedAt || undefined,
-          capturedBy: fileForm.capturedBy || undefined,
-          metadataJson: fileForm.metadataJson || undefined,
-        });
-      }
-
-      const hasUsagePayload = usageForm.purpose;
-      if (hasUsagePayload) {
-        await documentService.addUsage(created.documentId, {
-          ownerPartyId: usageForm.ownerPartyId || created.ownerPartyId,
-          purpose: usageForm.purpose,
-          relatedEntityType: usageForm.relatedEntityType || undefined,
-          relatedEntityId: usageForm.relatedEntityId || undefined,
-          status: usageForm.status || undefined,
-          notes: usageForm.notes || undefined,
-        });
-      }
-
-      toast.success('Document created.');
+      toast.success(
+        files.length > 0
+          ? `Document created with ${files.length} file${files.length > 1 ? 's' : ''}.`
+          : 'Document created.',
+      );
       navigate(`/compliance/documents/${created.documentId}`);
     } catch (err: unknown) {
-      const message = err && typeof err === 'object' && 'userMessage' in err
-        ? String((err as { userMessage?: string }).userMessage ?? '')
-        : '';
+      const message =
+        err && typeof err === 'object' && 'userMessage' in err
+          ? String((err as { userMessage?: string }).userMessage ?? '')
+          : '';
       toast.error(message || 'Failed to create document.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  /* ---------------------------------------------------------------------- */
+  /*  Render                                                                  */
+  /* ---------------------------------------------------------------------- */
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -120,171 +151,157 @@ export function DocumentCreatePage() {
         items={[
           { label: 'Compliance', href: '/compliance' },
           { label: 'Documents', href: '/compliance/documents' },
-          { label: 'Create', icon: <FilePlus className="w-3.5 h-3.5" /> },
+          { label: 'New Document' },
         ]}
         className="mb-4"
       />
 
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon-sm" onClick={() => navigate('/compliance/documents')}>
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Create Document</h1>
-            <p className="text-[var(--color-text-secondary)]">
-              Register a document and optionally attach files and usage context.
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">New Document</h1>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Choose a type and attach your files.
             </p>
           </div>
         </div>
-        <Button onClick={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : 'Create Document'}
+        <Button onClick={handleSubmit} disabled={isSubmitting || !resolvedType || !ownerPartyId.trim()}>
+          {isSubmitting ? 'Creating...' : 'Create Document'}
         </Button>
       </div>
 
-      <div className="grid gap-6">
+      <div className="mx-auto max-w-[48rem] space-y-6">
+        {/* Document info */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Document Metadata</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
-            <Input
-              value={documentForm.ownerPartyId}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, ownerPartyId: event.target.value }))}
-              placeholder="Owner party ID"
-            />
-            <Input
-              value={documentForm.documentType}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, documentType: event.target.value }))}
-              placeholder="Document type"
-            />
-            <Input
-              value={documentForm.status ?? ''}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, status: event.target.value }))}
-              placeholder="Status (Draft, Pending)"
-            />
-            <Input
-              value={documentForm.issuerName ?? ''}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, issuerName: event.target.value }))}
-              placeholder="Issuer name"
-            />
-            <Input
-              value={documentForm.countryCode ?? ''}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, countryCode: event.target.value }))}
-              placeholder="Country code"
-            />
-            <Input
-              value={documentForm.referenceNumber ?? ''}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, referenceNumber: event.target.value }))}
-              placeholder="Reference number"
-            />
-            <Input
-              value={documentForm.issuedOn ?? ''}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, issuedOn: event.target.value }))}
-              placeholder="Issued on (ISO date)"
-            />
-            <Input
-              value={documentForm.expiresOn ?? ''}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, expiresOn: event.target.value }))}
-              placeholder="Expires on (ISO date)"
-            />
-            <Input
-              value={tagInput}
-              onChange={(event) => setTagInput(event.target.value)}
-              placeholder="Tags (comma-separated)"
-              className="md:col-span-2"
-            />
-            <Textarea
-              value={documentForm.attributesJson ?? ''}
-              onChange={(event) => setDocumentForm((prev) => ({ ...prev, attributesJson: event.target.value }))}
-              placeholder="Attributes JSON"
-              className="md:col-span-2"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Initial File (Optional)</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
-            <div className="md:col-span-2">
+          <CardContent className="p-6 space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="owner-party">Owner Party ID</Label>
               <Input
-                type="file"
-                onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                id="owner-party"
+                value={ownerPartyId}
+                onChange={(e) => setOwnerPartyId(e.target.value)}
+                placeholder="e.g. party_01HXYZ..."
               />
-              {selectedFile && (
-                <div className="mt-2 text-xs text-[var(--color-text-tertiary)]">
-                  {selectedFile.name} · {(selectedFile.size / 1024).toFixed(1)} KB · {selectedFile.type || 'unknown'}
-                </div>
-              )}
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                The customer or entity this document belongs to.
+              </p>
             </div>
-            <Input
-              value={fileForm.pageIndex}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, pageIndex: event.target.value }))}
-              placeholder="Page index"
-              type="number"
-            />
-            <Input
-              value={fileForm.side}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, side: event.target.value }))}
-              placeholder="Side (front/back)"
-            />
-            <Input
-              value={fileForm.capturedAt}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, capturedAt: event.target.value }))}
-              placeholder="Captured at (ISO)"
-            />
-            <Input
-              value={fileForm.capturedBy}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, capturedBy: event.target.value }))}
-              placeholder="Captured by"
-            />
-            <Textarea
-              value={fileForm.metadataJson}
-              onChange={(event) => setFileForm((prev) => ({ ...prev, metadataJson: event.target.value }))}
-              placeholder="Metadata JSON"
-              className="md:col-span-2"
-            />
+
+            <div className="space-y-1.5">
+              <Label htmlFor="doc-type">Document Type</Label>
+              <Select value={documentType} onValueChange={setDocumentType}>
+                <SelectTrigger id="doc-type">
+                  <SelectValue placeholder="Select a type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {documentType === 'Other' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="custom-type">Custom Type</Label>
+                <Input
+                  id="custom-type"
+                  value={customType}
+                  onChange={(e) => setCustomType(e.target.value)}
+                  placeholder="Enter a custom document type"
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* File upload */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Usage Context (Optional)</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 text-sm">
-            <Input
-              value={usageForm.ownerPartyId}
-              onChange={(event) => setUsageForm((prev) => ({ ...prev, ownerPartyId: event.target.value }))}
-              placeholder="Owner party ID (defaults to document owner)"
-            />
-            <Input
-              value={usageForm.purpose}
-              onChange={(event) => setUsageForm((prev) => ({ ...prev, purpose: event.target.value }))}
-              placeholder="Purpose (KYC, KYB, Compliance)"
-            />
-            <Input
-              value={usageForm.relatedEntityType ?? ''}
-              onChange={(event) => setUsageForm((prev) => ({ ...prev, relatedEntityType: event.target.value }))}
-              placeholder="Related entity type"
-            />
-            <Input
-              value={usageForm.relatedEntityId ?? ''}
-              onChange={(event) => setUsageForm((prev) => ({ ...prev, relatedEntityId: event.target.value }))}
-              placeholder="Related entity ID"
-            />
-            <Input
-              value={usageForm.status ?? ''}
-              onChange={(event) => setUsageForm((prev) => ({ ...prev, status: event.target.value }))}
-              placeholder="Status"
-            />
-            <Textarea
-              value={usageForm.notes ?? ''}
-              onChange={(event) => setUsageForm((prev) => ({ ...prev, notes: event.target.value }))}
-              placeholder="Notes"
-              className="md:col-span-2"
-            />
+          <CardContent className="p-6">
+            <Label className="mb-3 block">Files</Label>
+
+            {/* Drop zone */}
+            <div
+              className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition-colors ${
+                isDragOver
+                  ? 'border-[var(--color-brand-primary)] bg-[var(--color-brand-primary-light)]'
+                  : 'border-[var(--color-border-light)] hover:border-[var(--color-brand-primary)]/50'
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <CloudUpload className="mb-3 h-8 w-8 text-[var(--color-text-tertiary)]" />
+              <p className="mb-1 text-sm font-medium text-[var(--color-text-primary)]">
+                Drag & drop files here
+              </p>
+              <p className="mb-3 text-xs text-[var(--color-text-tertiary)]">
+                or click to browse from your computer
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.multiple = true;
+                  input.onchange = () => {
+                    if (input.files) addFiles(input.files);
+                  };
+                  input.click();
+                }}
+              >
+                Choose Files
+              </Button>
+            </div>
+
+            {/* File list */}
+            {files.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {files.map((file, index) => {
+                  const kind = fileIcon(file.type);
+                  return (
+                    <div
+                      key={`${file.name}-${file.size}`}
+                      className="flex items-center gap-3 rounded-lg border border-[var(--color-border-light)] bg-[var(--color-surface-inset)]/40 px-4 py-3"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand-primary-light)]">
+                        <FileText className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          {formatFileSize(file.size)}
+                          {file.type && ` \u00b7 ${file.type}`}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs capitalize">
+                        {kind}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="ml-1 rounded-md p-1 text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-inset)] hover:text-[var(--color-error)] transition-colors"
+                        title="Remove file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
