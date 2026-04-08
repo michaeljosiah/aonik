@@ -257,9 +257,11 @@ function useAuth0Auth(): AuthContextType {
   }, [auth0Logout]);
 
   const getAccessToken = useCallback(async (): Promise<string | null> => {
-    if (isLoading || !isAuthenticated) {
-      return null;
-    }
+    // Do NOT gate on isLoading/isAuthenticated here. Those values are captured
+    // at the time this callback is created, so a stale closure causes the
+    // getter to return null even after Auth0 has finished processing.
+    // getAccessTokenSilently handles its own state checks internally and will
+    // throw if the user is not authenticated.
     try {
       const token = await getAccessTokenSilently({ authorizationParams: auth0Config.authorizationParams });
       setAccessToken(token);
@@ -301,7 +303,7 @@ function useAuth0Auth(): AuthContextType {
       console.error('Auth0 token acquisition error:', error);
       return null;
     }
-  }, [getAccessTokenSilently, loginWithRedirect, isAuthenticated, isLoading]);
+  }, [getAccessTokenSilently, loginWithRedirect]);
 
   // Acquire token on mount if authenticated
   useEffect(() => {

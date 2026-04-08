@@ -9,4 +9,13 @@ public interface ITextToSpeechService
     Task<IReadOnlyList<TextToSpeechVoiceOption>> GetVoicesAsync(
         string? provider = null,
         CancellationToken cancellationToken = default);
+
+    Task<TextToSpeechVoiceCreationResult> CreateVoiceAsync(
+        TextToSpeechVoiceCreationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteVoiceAsync(
+        string provider,
+        string voiceId,
+        CancellationToken cancellationToken = default);
 }

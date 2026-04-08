@@ -4,7 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import { agentIconsManifest } from './plugins/agent-icons-manifest'
 
-const apiTarget = process.env.services__api__https__0 || process.env.services__api__http__0 || 'https://localhost:5001'
+// Prefer the HTTPS endpoint to avoid HTTP→HTTPS redirects that strip the
+// Authorization header (standard behaviour when following cross-origin 307s).
+const apiTarget = process.env.services__api__https__0 || 'https://localhost:5001'
 
 // https://vite.dev/config/
 export default defineConfig({

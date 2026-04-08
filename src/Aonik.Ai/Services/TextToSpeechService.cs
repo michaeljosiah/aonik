@@ -66,11 +66,7 @@ internal sealed class TextToSpeechService : ITextToSpeechService
         }
 
         var provider = ResolveProvider(effectiveSettings.DefaultProfile.Provider);
-        var credential = await _credentialResolver.ResolveAsync(effectiveSettings.DefaultProfile.Provider, cancellationToken);
-        if (!credential.HasCredential || string.IsNullOrWhiteSpace(credential.ApiKey))
-        {
-            throw new InvalidOperationException($"Text-to-speech provider '{effectiveSettings.DefaultProfile.Provider}' is not configured.");
-        }
+        var credential = await ResolveRequiredCredentialAsync(effectiveSettings.DefaultProfile.Provider, cancellationToken);
 
         var aiRunId = await _aiRunWriter.StartRunAsync(
             request.UseCase ?? "payabo.chat.tts",
@@ -170,6 +166,62 @@ internal sealed class TextToSpeechService : ITextToSpeechService
         return await resolvedProvider.GetVoicesAsync(credential.ApiKey, cancellationToken);
     }
 
+    public async Task<TextToSpeechVoiceCreationResult> CreateVoiceAsync(
+        TextToSpeechVoiceCreationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var providerName = string.IsNullOrWhiteSpace(request.Provider)
+            ? throw new ArgumentException("Provider is required for voice creation.")
+            : request.Provider.Trim();
+
+        var resolvedProvider = ResolveProvider(providerName);
+        if (!resolvedProvider.SupportsVoiceCreation)
+        {
+            throw new InvalidOperationException($"Provider '{providerName}' does not support voice creation.");
+        }
+
+        var credential = await ResolveRequiredCredentialAsync(providerName, cancellationToken);
+
+        var providerRequest = new TextToSpeechCreateVoiceRequest(
+            request.Name,
+            request.SampleAudioBase64,
+            request.SampleFilename,
+            credential.ApiKey!,
+            request.Languages,
+            request.Gender,
+            request.Age,
+            request.Tags);
+
+        var result = await resolvedProvider.CreateVoiceAsync(providerRequest, cancellationToken);
+
+        _logger.LogInformation(
+            "Created TTS voice '{VoiceName}' ({VoiceId}) via provider {Provider}",
+            result.Name, result.VoiceId, providerName);
+
+        return new TextToSpeechVoiceCreationResult(result.VoiceId, result.Name, providerName);
+    }
+
+    public async Task DeleteVoiceAsync(
+        string provider,
+        string voiceId,
+        CancellationToken cancellationToken = default)
+    {
+        var providerName = string.IsNullOrWhiteSpace(provider)
+            ? throw new ArgumentException("Provider is required for voice deletion.")
+            : provider.Trim();
+
+        var resolvedProvider = ResolveProvider(providerName);
+        var credential = await ResolveRequiredCredentialAsync(providerName, cancellationToken);
+
+        await resolvedProvider.DeleteVoiceAsync(
+            new TextToSpeechDeleteVoiceRequest(voiceId, credential.ApiKey),
+            cancellationToken);
+
+        _logger.LogInformation(
+            "Deleted TTS voice {VoiceId} via provider {Provider}",
+            voiceId, providerName);
+    }
+
     private static TextToSpeechSettings ApplyVoiceOverride(
         TextToSpeechSettings settings,
         TextToSpeechVoiceProfile? overrideProfile,
@@ -210,6 +262,19 @@ internal sealed class TextToSpeechService : ITextToSpeechService
         }
 
         return userId;
+    }
+
+    private async Task<TextToSpeechProviderCredentialResolution> ResolveRequiredCredentialAsync(
+        string providerName,
+        CancellationToken cancellationToken)
+    {
+        var credential = await _credentialResolver.ResolveAsync(providerName, cancellationToken);
+        if (!credential.HasCredential || string.IsNullOrWhiteSpace(credential.ApiKey))
+        {
+            throw new InvalidOperationException($"Text-to-speech provider '{providerName}' is not configured.");
+        }
+
+        return credential;
     }
 
     private ITextToSpeechProvider ResolveProvider(string providerName)

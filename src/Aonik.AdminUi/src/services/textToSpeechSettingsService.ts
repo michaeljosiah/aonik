@@ -25,6 +25,23 @@ export interface TextToSpeechSynthesizeRequest {
   messageId?: string | null;
 }
 
+export interface CreateVoiceRequest {
+  provider: string;
+  name: string;
+  sampleAudioBase64: string;
+  sampleFilename?: string | null;
+  languages?: string[] | null;
+  gender?: string | null;
+  age?: number | null;
+  tags?: string[] | null;
+}
+
+export interface CreateVoiceResponse {
+  voiceId: string;
+  name: string;
+  provider: string;
+}
+
 function tryGetString(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
@@ -102,16 +119,20 @@ export const textToSpeechSettingsService = {
     return api.put<TextToSpeechSettingsResponse>('/tenant/settings/text-to-speech', request);
   },
 
-  getHostCredential: async (): Promise<TextToSpeechCredentialResponse> => {
-    return api.get<TextToSpeechCredentialResponse>('/admin/settings/text-to-speech/credentials/host');
+  getHostCredential: async (provider?: string): Promise<TextToSpeechCredentialResponse> => {
+    return api.get<TextToSpeechCredentialResponse>('/admin/settings/text-to-speech/credentials/host', {
+      params: provider ? { provider } : undefined,
+    });
   },
 
   updateHostCredential: async (request: TextToSpeechCredentialUpdateRequest): Promise<TextToSpeechCredentialResponse> => {
     return api.put<TextToSpeechCredentialResponse>('/admin/settings/text-to-speech/credentials/host', request);
   },
 
-  getTenantCredential: async (): Promise<TextToSpeechCredentialResponse> => {
-    return api.get<TextToSpeechCredentialResponse>('/tenant/settings/text-to-speech/credentials');
+  getTenantCredential: async (provider?: string): Promise<TextToSpeechCredentialResponse> => {
+    return api.get<TextToSpeechCredentialResponse>('/tenant/settings/text-to-speech/credentials', {
+      params: provider ? { provider } : undefined,
+    });
   },
 
   updateTenantCredential: async (request: TextToSpeechCredentialUpdateRequest): Promise<TextToSpeechCredentialResponse> => {
@@ -121,6 +142,16 @@ export const textToSpeechSettingsService = {
   listVoices: async (provider?: string): Promise<TextToSpeechVoiceOptionResponse[]> => {
     return api.get<TextToSpeechVoiceOptionResponse[]>('/tenant/settings/text-to-speech/voices', {
       params: provider ? { provider } : undefined,
+    });
+  },
+
+  createVoice: async (request: CreateVoiceRequest): Promise<CreateVoiceResponse> => {
+    return api.post<CreateVoiceResponse>('/tenant/settings/text-to-speech/voices', request);
+  },
+
+  deleteVoice: async (provider: string, voiceId: string): Promise<void> => {
+    return api.delete(`/tenant/settings/text-to-speech/voices/${encodeURIComponent(voiceId)}`, {
+      params: { provider },
     });
   },
 

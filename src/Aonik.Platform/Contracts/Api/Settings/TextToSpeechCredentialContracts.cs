@@ -1,5 +1,7 @@
 namespace Aonik.Platform.Contracts.Api.Settings;
 
+public record GetTenantTextToSpeechCredentialRequest(string? Provider);
+
 public record TextToSpeechCredentialResponse(
     string Provider,
     bool HasHostCredential,

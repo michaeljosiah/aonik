@@ -89,7 +89,7 @@ internal sealed class ElevenLabsTextToSpeechProvider : ITextToSpeechProvider
             _logger.LogWarning(
                 "ElevenLabs TTS request failed with status {StatusCode}: {ErrorBody}",
                 (int)response.StatusCode,
-                Truncate(errorBody));
+                TextToSpeechProviderHelpers.Truncate(errorBody));
             response.Dispose();
             throw new InvalidOperationException(BuildErrorMessage("text-to-speech", response.StatusCode, errorBody));
         }
@@ -125,7 +125,7 @@ internal sealed class ElevenLabsTextToSpeechProvider : ITextToSpeechProvider
             _logger.LogWarning(
                 "ElevenLabs voice list request failed with status {StatusCode}: {ErrorBody}",
                 (int)response.StatusCode,
-                Truncate(errorBody));
+                TextToSpeechProviderHelpers.Truncate(errorBody));
             throw new InvalidOperationException(BuildErrorMessage("voice list", response.StatusCode, errorBody));
         }
 
@@ -189,61 +189,8 @@ internal sealed class ElevenLabsTextToSpeechProvider : ITextToSpeechProvider
         return settings.IsEmpty ? null : settings;
     }
 
-    private static string Truncate(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        return value.Length <= 300 ? value : value[..300];
-    }
-
     private static string BuildErrorMessage(string operation, System.Net.HttpStatusCode statusCode, string? errorBody)
-    {
-        var detail = TryExtractErrorMessage(errorBody);
-        return string.IsNullOrWhiteSpace(detail)
-            ? $"ElevenLabs {operation} failed with status {(int)statusCode}."
-            : detail;
-    }
-
-    private static string? TryExtractErrorMessage(string? errorBody)
-    {
-        if (string.IsNullOrWhiteSpace(errorBody))
-        {
-            return null;
-        }
-
-        try
-        {
-            using var document = JsonDocument.Parse(errorBody);
-            var root = document.RootElement;
-
-            if (root.TryGetProperty("detail", out var detail))
-            {
-                if (detail.ValueKind == JsonValueKind.String)
-                {
-                    return detail.GetString();
-                }
-
-                if (detail.ValueKind == JsonValueKind.Object && detail.TryGetProperty("message", out var message))
-                {
-                    return message.GetString();
-                }
-            }
-
-            if (root.TryGetProperty("message", out var rootMessage))
-            {
-                return rootMessage.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            // Fall back to raw payload below.
-        }
-
-        return Truncate(errorBody);
-    }
+        => TextToSpeechProviderHelpers.BuildErrorMessage("ElevenLabs", operation, statusCode, errorBody);
 
     private sealed record ElevenLabsStreamRequest(
         string Text,

@@ -41,3 +41,18 @@ public record TextToSpeechSynthesisResult(
     string VoiceId,
     Guid AiRunId,
     IDisposable? ResourceToDispose = null);
+
+public record TextToSpeechVoiceCreationRequest(
+    string Provider,
+    string Name,
+    string SampleAudioBase64,
+    string? SampleFilename = null,
+    IReadOnlyList<string>? Languages = null,
+    string? Gender = null,
+    int? Age = null,
+    IReadOnlyList<string>? Tags = null);
+
+public record TextToSpeechVoiceCreationResult(
+    string VoiceId,
+    string Name,
+    string Provider);

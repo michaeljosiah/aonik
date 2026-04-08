@@ -186,24 +186,27 @@ apiClient.interceptors.response.use(
       }
 
       // Token might be missing/expired. Retry once with a fresh token.
-      if (originalRequest && !originalRequest._retry) {
+      if (originalRequest && !originalRequest._retry && getAccessTokenFn) {
         originalRequest._retry = true;
 
-        if (getAccessTokenFn) {
-          try {
-            const token = await getAccessTokenFn();
-            if (token) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-              return apiClient(originalRequest);
-            }
-          } catch (refreshError) {
-            console.error('Error getting access token:', refreshError);
+        try {
+          const token = await getAccessTokenFn();
+          if (token) {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
           }
+        } catch (refreshError) {
+          console.error('Error getting access token:', refreshError);
         }
       }
 
-      // If we still don't have a valid token/session, force re-auth.
-      redirectToLogin('session-expired');
+      // If no token getter is registered yet (app still initializing), don't
+      // redirect — the request simply failed before auth was ready.  Callers
+      // can handle the rejection.  Only redirect when a getter exists and still
+      // could not produce a valid token.
+      if (getAccessTokenFn) {
+        redirectToLogin('session-expired');
+      }
       return Promise.reject({ ...error, userMessage: message });
     }
 

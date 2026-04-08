@@ -22,9 +22,29 @@ internal sealed record TextToSpeechProviderStreamResult(
     string? ModelId,
     IDisposable? ResourceToDispose = null);
 
+internal sealed record TextToSpeechCreateVoiceRequest(
+    string Name,
+    string SampleAudioBase64,
+    string? SampleFilename,
+    string? ApiKey,
+    IReadOnlyList<string>? Languages = null,
+    string? Gender = null,
+    int? Age = null,
+    IReadOnlyList<string>? Tags = null);
+
+internal sealed record TextToSpeechCreateVoiceResult(
+    string VoiceId,
+    string Name);
+
+internal sealed record TextToSpeechDeleteVoiceRequest(
+    string VoiceId,
+    string? ApiKey);
+
 internal interface ITextToSpeechProvider
 {
     string Name { get; }
+
+    bool SupportsVoiceCreation => false;
 
     Task<TextToSpeechProviderStreamResult> SynthesizeAsync(
         TextToSpeechProviderRequest request,
@@ -33,4 +53,18 @@ internal interface ITextToSpeechProvider
     Task<IReadOnlyList<Aonik.SharedKernel.Abstractions.Ai.TextToSpeechVoiceOption>> GetVoicesAsync(
         string? apiKey,
         CancellationToken cancellationToken = default);
+
+    Task<TextToSpeechCreateVoiceResult> CreateVoiceAsync(
+        TextToSpeechCreateVoiceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException($"Provider '{Name}' does not support voice creation.");
+    }
+
+    Task DeleteVoiceAsync(
+        TextToSpeechDeleteVoiceRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException($"Provider '{Name}' does not support voice deletion.");
+    }
 }

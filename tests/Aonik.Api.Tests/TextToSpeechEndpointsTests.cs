@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Aonik.Agents.Endpoints;
 using Aonik.Ai.Providers;
 using Aonik.Infrastructure.Persistence;
+using Aonik.Platform.Contracts.Api.Settings;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Services.Settings;
@@ -345,7 +346,143 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
         segments.Should().OnlyContain(segment => !segment.Contains("  "));
     }
 
-    private sealed class TextToSpeechTestWebApplicationFactory : CustomWebApplicationFactory
+    [Fact]
+    public async Task MistralSynthesize_ReturnsDecodedAudioFromBase64Response()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("PersonalUser");
+
+        await using var factory = new MistralTextToSpeechTestWebApplicationFactory();
+        var client = await factory.CreateAuthenticatedClientAsync(auth);
+        await factory.EnableTenantTextToSpeechAsync(auth.TenantId!.Value, "mistral-voice-1", "Mistral");
+
+        var response = await client.PostAsJsonAsync(
+            "/mobile/text-to-speech/synthesize",
+            new
+            {
+                speechText = "Hello from Mistral TTS.",
+                locale = "en-US",
+                threadId = "thread-m1",
+                messageId = "message-m1"
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("audio/mpeg");
+        response.Headers.GetValues("X-Tts-Provider").Should().ContainSingle().Which.Should().Be("Mistral");
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        bytes.Should().Equal(Encoding.UTF8.GetBytes("fake-mistral-audio"));
+    }
+
+    [Fact]
+    public async Task MistralGetVoices_ReturnsMappedVoiceList()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("TenantAdmin");
+
+        await using var factory = new MistralTextToSpeechTestWebApplicationFactory();
+        var client = await factory.CreateAuthenticatedClientAsync(auth);
+        await factory.EnableTenantTextToSpeechAsync(auth.TenantId!.Value, "mistral-voice-1", "Mistral");
+
+        var response = await client.GetAsync("/tenant/settings/text-to-speech/voices?provider=Mistral");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var voices = await response.Content.ReadFromJsonAsync<List<TextToSpeechVoiceOptionResponse>>();
+        voices.Should().NotBeNull();
+        voices!.Should().HaveCount(2);
+        voices[0].VoiceId.Should().Be("voice-abc");
+        voices[0].Name.Should().Be("Aria");
+        voices[0].Labels.Should().ContainKey("gender");
+        voices[0].Labels["gender"].Should().Be("female");
+        voices[1].VoiceId.Should().Be("voice-def");
+        voices[1].Name.Should().Be("Marcus");
+    }
+
+    [Fact]
+    public async Task MistralCreateVoice_Returns201WithVoiceId()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("TenantAdmin");
+
+        await using var factory = new MistralTextToSpeechTestWebApplicationFactory();
+        var client = await factory.CreateAuthenticatedClientAsync(auth);
+        await factory.EnableTenantTextToSpeechAsync(auth.TenantId!.Value, "mistral-voice-1", "Mistral");
+
+        var sampleAudio = Convert.ToBase64String(Encoding.UTF8.GetBytes("fake-audio-data"));
+        var response = await client.PostAsJsonAsync(
+            "/tenant/settings/text-to-speech/voices",
+            new
+            {
+                provider = "Mistral",
+                name = "My Custom Voice",
+                sampleAudioBase64 = sampleAudio,
+                sampleFilename = "sample.mp3",
+                languages = new[] { "en", "fr" },
+                gender = "female"
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var result = await response.Content.ReadFromJsonAsync<CreateTextToSpeechVoiceResponse>();
+        result.Should().NotBeNull();
+        result!.VoiceId.Should().Be("new-voice-123");
+        result.Name.Should().Be("My Custom Voice");
+        result.Provider.Should().Be("Mistral");
+    }
+
+    [Fact]
+    public async Task MistralDeleteVoice_Returns204()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("TenantAdmin");
+
+        await using var factory = new MistralTextToSpeechTestWebApplicationFactory();
+        var client = await factory.CreateAuthenticatedClientAsync(auth);
+        await factory.EnableTenantTextToSpeechAsync(auth.TenantId!.Value, "mistral-voice-1", "Mistral");
+
+        var response = await client.DeleteAsync(
+            "/tenant/settings/text-to-speech/voices/voice-abc?provider=Mistral");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task ElevenLabsCreateVoice_Returns400_ProviderDoesNotSupportVoiceCreation()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("TenantAdmin");
+
+        await using var factory = new TextToSpeechTestWebApplicationFactory();
+        var client = await factory.CreateAuthenticatedClientAsync(auth);
+        await factory.EnableTenantTextToSpeechAsync(auth.TenantId!.Value, "voice_123");
+
+        var sampleAudio = Convert.ToBase64String(Encoding.UTF8.GetBytes("fake-audio-data"));
+        var response = await client.PostAsJsonAsync(
+            "/tenant/settings/text-to-speech/voices",
+            new
+            {
+                provider = "ElevenLabs",
+                name = "My Voice",
+                sampleAudioBase64 = sampleAudio
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CredentialResolution_WorksForMistralProvider()
+    {
+        var auth = TestAuthOptions.Create().WithRoles("TenantAdmin");
+
+        await using var factory = new MistralTextToSpeechTestWebApplicationFactory();
+        var client = await factory.CreateAuthenticatedClientAsync(auth);
+        await factory.EnableTenantTextToSpeechAsync(auth.TenantId!.Value, "mistral-voice-1", "Mistral");
+
+        var response = await client.GetAsync("/tenant/settings/text-to-speech/credentials?provider=Mistral");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var cred = await response.Content.ReadFromJsonAsync<TextToSpeechCredentialResponse>();
+        cred.Should().NotBeNull();
+        cred!.Provider.Should().Be("Mistral");
+        cred.HasHostCredential.Should().BeTrue();
+        cred.EffectiveSource.Should().Be("HostDefault");
+    }
+
+    private class TextToSpeechTestWebApplicationFactory : CustomWebApplicationFactory
     {
         protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
         {
@@ -369,12 +506,18 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
 
         public async Task EnableTenantTextToSpeechAsync(Guid tenantId, string voiceId)
         {
+            await EnableTenantTextToSpeechAsync(tenantId, voiceId, "ElevenLabs");
+        }
+
+        public async Task EnableTenantTextToSpeechAsync(Guid tenantId, string voiceId, string provider)
+        {
             await using var scope = Services.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
             var protector = scope.ServiceProvider.GetRequiredService<ISettingValueProtector>();
 
+            var credentialKey = TextToSpeechSettingNames.GetProviderApiKeySettingName(provider);
             var hostCredential = await db.Settings.FirstOrDefaultAsync(item =>
-                item.Key == TextToSpeechSettingNames.ElevenLabsApiKey
+                item.Key == credentialKey
                 && item.Scope == SettingScope.Global
                 && item.TenantId == null
                 && item.UserId == null);
@@ -383,7 +526,7 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
             {
                 db.Settings.Add(new Setting
                 {
-                    Key = TextToSpeechSettingNames.ElevenLabsApiKey,
+                    Key = credentialKey,
                     Scope = SettingScope.Global,
                     TenantId = null,
                     UserId = null,
@@ -395,6 +538,13 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
                 hostCredential.Value = protector.Protect("test-api-key");
             }
 
+            var modelId = provider.Equals("Mistral", StringComparison.OrdinalIgnoreCase)
+                ? "voxtral-mini-tts-2603"
+                : "eleven_multilingual_v2";
+            var outputFormat = provider.Equals("Mistral", StringComparison.OrdinalIgnoreCase)
+                ? "mp3"
+                : "mp3_44100_128";
+
             var existing = await db.Settings.FirstOrDefaultAsync(item =>
                 item.Key == TextToSpeechSettingNames.TenantProfile
                 && item.Scope == SettingScope.Tenant
@@ -405,11 +555,11 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
                   "enabled": true,
                   "fallbackToNativeOnFailure": true,
                   "defaultProfile": {
-                    "provider": "ElevenLabs",
+                    "provider": "{{provider}}",
                     "voiceId": "{{voiceId}}",
-                    "modelId": "eleven_multilingual_v2",
+                    "modelId": "{{modelId}}",
                     "locale": "en-US",
-                    "outputFormat": "mp3_44100_128",
+                    "outputFormat": "{{outputFormat}}",
                     "providerOptions": {}
                   },
                   "policy": {
@@ -439,6 +589,21 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
         }
     }
 
+    private sealed class MistralTextToSpeechTestWebApplicationFactory : TextToSpeechTestWebApplicationFactory
+    {
+        protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<MistralTextToSpeechProvider>();
+                services.AddHttpClient<MistralTextToSpeechProvider>()
+                    .ConfigurePrimaryHttpMessageHandler(() => new StubMistralHandler());
+            });
+        }
+    }
+
     private sealed class StubElevenLabsHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -458,6 +623,65 @@ public class TextToSpeechEndpointsTests : IClassFixture<CustomWebApplicationFact
                     Headers = { ContentType = new MediaTypeHeaderValue("audio/mpeg") }
                 }
             });
+        }
+    }
+
+    private sealed class StubMistralHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+            // GET /v1/audio/voices — list voices
+            if (request.Method == HttpMethod.Get && path.Contains("/v1/audio/voices", StringComparison.OrdinalIgnoreCase))
+            {
+                var voicesJson = """
+                    {
+                      "items": [
+                        { "id": "voice-abc", "name": "Aria", "gender": "female", "languages": ["en", "fr"], "tags": ["warm"] },
+                        { "id": "voice-def", "name": "Marcus", "gender": "male", "languages": ["en"] }
+                      ],
+                      "total": 2
+                    }
+                    """;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(voicesJson, Encoding.UTF8, "application/json")
+                };
+            }
+
+            // POST /v1/audio/voices — create voice
+            if (request.Method == HttpMethod.Post && path.Equals("/v1/audio/voices", StringComparison.OrdinalIgnoreCase))
+            {
+                var body = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : "{}";
+                var doc = System.Text.Json.JsonDocument.Parse(body);
+                var name = doc.RootElement.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : "unnamed";
+                var createJson = $$"""{"id":"new-voice-123","name":"{{name}}"}""";
+                return new HttpResponseMessage(HttpStatusCode.Created)
+                {
+                    Content = new StringContent(createJson, Encoding.UTF8, "application/json")
+                };
+            }
+
+            // DELETE /v1/audio/voices/{id} — delete voice
+            if (request.Method == HttpMethod.Delete && path.Contains("/v1/audio/voices/", StringComparison.OrdinalIgnoreCase))
+            {
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            // POST /v1/audio/speech — synthesize
+            if (request.Method == HttpMethod.Post && path.Contains("/v1/audio/speech", StringComparison.OrdinalIgnoreCase))
+            {
+                var audioBytes = Encoding.UTF8.GetBytes("fake-mistral-audio");
+                var audioBase64 = Convert.ToBase64String(audioBytes);
+                var speechJson = $$"""{"audio_data":"{{audioBase64}}"}""";
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(speechJson, Encoding.UTF8, "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
         }
     }
 }

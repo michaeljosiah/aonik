@@ -237,23 +237,29 @@ internal sealed class TextToSpeechCredentialSettingsService : ITextToSpeechCrede
 
     private string? GetConfigurationFallback(string provider)
     {
-        return provider.Equals("ElevenLabs", StringComparison.OrdinalIgnoreCase)
-            ? _configuration["AI:TextToSpeech:ElevenLabsApiKey"]
-            : null;
+        // Convention: AI:TextToSpeech:{Provider}ApiKey  (e.g. ElevenLabsApiKey, MistralApiKey)
+        return _configuration[$"AI:TextToSpeech:{provider}ApiKey"];
     }
 
     private string? GetConfigurationFallbackFromKey(string key)
     {
-        return key == TextToSpeechSettingNames.ElevenLabsApiKey
-            ? _configuration["AI:TextToSpeech:ElevenLabsApiKey"]
-            : null;
+        // Reverse-map the setting key to a provider name, then use the standard fallback.
+        // Key format: Platform.TextToSpeech.Providers.{Provider}.ApiKey
+        const string prefix = "Platform.TextToSpeech.Providers.";
+        const string suffix = ".ApiKey";
+        if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && key.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            var provider = key[prefix.Length..^suffix.Length];
+            return GetConfigurationFallback(provider);
+        }
+
+        return null;
     }
 
     private static string GetProviderSettingKey(string provider)
     {
-        return provider.Equals("ElevenLabs", StringComparison.OrdinalIgnoreCase)
-            ? TextToSpeechSettingNames.ElevenLabsApiKey
-            : throw new InvalidOperationException($"Text-to-speech provider '{provider}' is not supported.");
+        return TextToSpeechSettingNames.GetProviderApiKeySettingName(provider);
     }
 
     private static string NormalizeProvider(string provider)

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, AudioLines, CircleHelp, RefreshCw, Save, Volume2, Waves } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, AudioLines, CircleHelp, Plus, RefreshCw, Save, Trash2, Upload, Volume2, Waves } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/auth';
@@ -17,6 +17,7 @@ import { isPortalAdmin } from '@/lib/roleUtils';
 import { getSelectedTenant } from '@/lib/tenantContext';
 import { identityService } from '@/services/identityService';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
+import type { CreateVoiceRequest } from '@/services/textToSpeechSettingsService';
 import type {
   TextToSpeechCredentialResponse,
   TextToSpeechSettingsResponse,
@@ -48,29 +49,22 @@ const UNAVAILABLE_VOICE_PREFIX = '__unavailable_voice__:';
 
 const PROVIDER_OPTIONS = [
   { value: 'ElevenLabs', label: 'ElevenLabs' },
+  { value: 'Mistral', label: 'Mistral (Voxtral)' },
 ] as const;
 
-const MODEL_OPTIONS = [
+// ── Provider-specific option maps ────────────────────────────────────
+
+const ELEVENLABS_MODEL_OPTIONS = [
   { value: 'eleven_multilingual_v2', label: 'Multilingual v2' },
   { value: 'eleven_turbo_v2_5', label: 'Turbo v2.5' },
   { value: 'eleven_flash_v2_5', label: 'Flash v2.5' },
 ] as const;
 
-const LOCALE_OPTIONS = [
-  { value: 'en-US', label: 'English (US)' },
-  { value: 'en-GB', label: 'English (UK)' },
-  { value: 'en-NG', label: 'English (Nigeria)' },
-  { value: 'fr-FR', label: 'French' },
-  { value: 'de-DE', label: 'German' },
-  { value: 'es-ES', label: 'Spanish' },
-  { value: 'it-IT', label: 'Italian' },
-  { value: 'pt-BR', label: 'Portuguese (Brazil)' },
-  { value: 'ar-SA', label: 'Arabic' },
-  { value: 'hi-IN', label: 'Hindi' },
-  { value: 'ja-JP', label: 'Japanese' },
+const MISTRAL_MODEL_OPTIONS = [
+  { value: 'voxtral-mini-tts-2603', label: 'Voxtral Mini TTS' },
 ] as const;
 
-const OUTPUT_FORMAT_OPTIONS = [
+const ELEVENLABS_OUTPUT_FORMAT_OPTIONS = [
   { value: 'mp3_22050_32', label: 'MP3 22.05 kHz · 32 kbps' },
   { value: 'mp3_24000_48', label: 'MP3 24 kHz · 48 kbps' },
   { value: 'mp3_44100_32', label: 'MP3 44.1 kHz · 32 kbps' },
@@ -94,6 +88,28 @@ const OUTPUT_FORMAT_OPTIONS = [
   { value: 'opus_48000_192', label: 'Opus 48 kHz · 192 kbps' },
 ] as const;
 
+const MISTRAL_OUTPUT_FORMAT_OPTIONS = [
+  { value: 'mp3', label: 'MP3' },
+  { value: 'wav', label: 'WAV' },
+  { value: 'pcm', label: 'PCM (lowest latency)' },
+  { value: 'flac', label: 'FLAC (lossless)' },
+  { value: 'opus', label: 'Opus (low bitrate streaming)' },
+] as const;
+
+const LOCALE_OPTIONS = [
+  { value: 'en-US', label: 'English (US)' },
+  { value: 'en-GB', label: 'English (UK)' },
+  { value: 'en-NG', label: 'English (Nigeria)' },
+  { value: 'fr-FR', label: 'French' },
+  { value: 'de-DE', label: 'German' },
+  { value: 'es-ES', label: 'Spanish' },
+  { value: 'it-IT', label: 'Italian' },
+  { value: 'pt-BR', label: 'Portuguese (Brazil)' },
+  { value: 'ar-SA', label: 'Arabic' },
+  { value: 'hi-IN', label: 'Hindi' },
+  { value: 'ja-JP', label: 'Japanese' },
+] as const;
+
 const OPTIMIZE_STREAMING_LATENCY_OPTIONS = [
   { value: '0', label: '0 · Best quality' },
   { value: '1', label: '1 · Balanced quality' },
@@ -107,10 +123,24 @@ const UNIT_INTERVAL_OPTIONS = Array.from({ length: 21 }, (_, index) => {
   return { value, label: value };
 });
 
+function getModelOptions(provider: string) {
+  return provider === 'Mistral' ? MISTRAL_MODEL_OPTIONS : ELEVENLABS_MODEL_OPTIONS;
+}
+
+function getOutputFormatOptions(provider: string) {
+  return provider === 'Mistral' ? MISTRAL_OUTPUT_FORMAT_OPTIONS : ELEVENLABS_OUTPUT_FORMAT_OPTIONS;
+}
+
+function getDefaultModel(provider: string) {
+  return provider === 'Mistral' ? 'voxtral-mini-tts-2603' : 'eleven_multilingual_v2';
+}
+
+function getDefaultOutputFormat(provider: string) {
+  return provider === 'Mistral' ? 'mp3' : 'mp3_44100_128';
+}
+
 const PROVIDER_VALUES = PROVIDER_OPTIONS.map((option) => option.value);
-const MODEL_VALUES = MODEL_OPTIONS.map((option) => option.value);
 const LOCALE_VALUES = LOCALE_OPTIONS.map((option) => option.value);
-const OUTPUT_FORMAT_VALUES = OUTPUT_FORMAT_OPTIONS.map((option) => option.value);
 const OPTIMIZE_STREAMING_LATENCY_VALUES = OPTIMIZE_STREAMING_LATENCY_OPTIONS.map((option) => option.value);
 const UNIT_INTERVAL_VALUES = UNIT_INTERVAL_OPTIONS.map((option) => option.value);
 
@@ -198,14 +228,18 @@ function resolveUserMessage(error: unknown, fallbackMessage: string) {
 }
 
 function buildFormState(snapshot: TextToSpeechSettingsResponse): TextToSpeechFormState {
+  const provider = normalizeAllowedValue(snapshot.defaultProfile.provider, PROVIDER_VALUES, 'ElevenLabs');
+  const modelValues = getModelOptions(provider).map((o) => o.value) as readonly string[];
+  const formatValues = getOutputFormatOptions(provider).map((o) => o.value) as readonly string[];
+
   return {
     enabled: snapshot.enabled,
     fallbackToNativeOnFailure: snapshot.fallbackToNativeOnFailure,
-    provider: normalizeAllowedValue(snapshot.defaultProfile.provider, PROVIDER_VALUES, 'ElevenLabs'),
+    provider,
     voiceId: toInputValue(snapshot.defaultProfile.voiceId),
-    modelId: normalizeAllowedValue(snapshot.defaultProfile.modelId, MODEL_VALUES, 'eleven_multilingual_v2'),
+    modelId: normalizeAllowedValue(snapshot.defaultProfile.modelId, modelValues, getDefaultModel(provider)),
     locale: normalizeAllowedValue(snapshot.defaultProfile.locale, LOCALE_VALUES, 'en-US'),
-    outputFormat: normalizeAllowedValue(snapshot.defaultProfile.outputFormat, OUTPUT_FORMAT_VALUES, 'mp3_44100_128'),
+    outputFormat: normalizeAllowedValue(snapshot.defaultProfile.outputFormat, formatValues, getDefaultOutputFormat(provider)),
     optimizeStreamingLatency: normalizeLatencyValue(snapshot.defaultProfile.providerOptions.optimizeStreamingLatency),
     stability: normalizeUnitIntervalValue(snapshot.defaultProfile.providerOptions.stability),
     similarityBoost: normalizeUnitIntervalValue(snapshot.defaultProfile.providerOptions.similarityBoost),
@@ -225,15 +259,18 @@ function toCredentialBadgeVariant(value: boolean): 'success' | 'outline' {
 }
 
 function buildRequest(formState: TextToSpeechFormState): TextToSpeechSettingsUpdateRequest {
+  const modelValues = getModelOptions(formState.provider).map((o) => o.value) as readonly string[];
+  const formatValues = getOutputFormatOptions(formState.provider).map((o) => o.value) as readonly string[];
+
   return {
     enabled: formState.enabled,
     fallbackToNativeOnFailure: formState.fallbackToNativeOnFailure,
     defaultProfile: {
       provider: normalizeAllowedValue(formState.provider, PROVIDER_VALUES, 'ElevenLabs'),
       voiceId: toTrimmed(formState.voiceId),
-      modelId: normalizeAllowedValue(formState.modelId, MODEL_VALUES, 'eleven_multilingual_v2'),
+      modelId: normalizeAllowedValue(formState.modelId, modelValues, getDefaultModel(formState.provider)),
       locale: normalizeAllowedValue(formState.locale, LOCALE_VALUES, 'en-US'),
-      outputFormat: normalizeAllowedValue(formState.outputFormat, OUTPUT_FORMAT_VALUES, 'mp3_44100_128'),
+      outputFormat: normalizeAllowedValue(formState.outputFormat, formatValues, getDefaultOutputFormat(formState.provider)),
       providerOptions: {
         optimizeStreamingLatency: normalizeLatencyValue(formState.optimizeStreamingLatency),
         stability: normalizeUnitIntervalValue(formState.stability) || null,
@@ -269,6 +306,14 @@ export function SettingsTextToSpeechPage() {
   const [loadingUserRoles, setLoadingUserRoles] = useState(
     !!user && (user.roleSource === 'api' || !user.roles || user.roles.length === 0),
   );
+  const [creatingVoice, setCreatingVoice] = useState(false);
+  const [voiceCreateName, setVoiceCreateName] = useState('');
+  const voiceFileRef = useRef<HTMLInputElement>(null);
+
+  const isElevenLabs = formState?.provider === 'ElevenLabs';
+  const isMistral = formState?.provider === 'Mistral';
+  const modelOptions = formState ? getModelOptions(formState.provider) : ELEVENLABS_MODEL_OPTIONS;
+  const outputFormatOptions = formState ? getOutputFormatOptions(formState.provider) : ELEVENLABS_OUTPUT_FORMAT_OPTIONS;
 
   const activeVoice = useMemo(
     () => voices.find((voice) => voice.voiceId === formState?.voiceId) ?? null,
@@ -309,21 +354,27 @@ export function SettingsTextToSpeechPage() {
     }
   };
 
+  const loadCredentials = async (provider: string) => {
+    const [hostSnap, tenantSnap] = await Promise.all([
+      isPlatformAdmin ? textToSpeechSettingsService.getHostCredential(provider) : Promise.resolve(null),
+      textToSpeechSettingsService.getTenantCredential(provider),
+    ]);
+    setHostCredential(hostSnap);
+    setTenantCredential(tenantSnap);
+  };
+
   const loadSettings = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [snapshot, hostCredentialSnapshot, tenantCredentialSnapshot] = await Promise.all([
-        textToSpeechSettingsService.get(),
-        isPlatformAdmin ? textToSpeechSettingsService.getHostCredential() : Promise.resolve(null),
-        textToSpeechSettingsService.getTenantCredential(),
-      ]);
+      const snapshot = await textToSpeechSettingsService.get();
       const nextState = buildFormState(snapshot);
       setFormState(nextState);
-      setHostCredential(hostCredentialSnapshot);
-      setTenantCredential(tenantCredentialSnapshot);
-      await loadVoices(nextState.provider);
+      await Promise.all([
+        loadCredentials(nextState.provider),
+        loadVoices(nextState.provider),
+      ]);
     } catch (err: unknown) {
       setError(resolveUserMessage(err, 'Failed to load text-to-speech settings.'));
     } finally {
@@ -331,10 +382,22 @@ export function SettingsTextToSpeechPage() {
     }
   };
 
+  const handleProviderChange = useCallback(async (newProvider: string) => {
+    updateField('provider', newProvider);
+    updateField('modelId', getDefaultModel(newProvider));
+    updateField('outputFormat', getDefaultOutputFormat(newProvider));
+    updateField('voiceId', '');
+    updateField('hostApiKey', '');
+    updateField('tenantApiKey', '');
+
+    await Promise.all([
+      loadCredentials(newProvider),
+      loadVoices(newProvider),
+    ]);
+  }, [isPlatformAdmin]);
+
   const handleSaveHostCredential = async (clearStoredValue = false) => {
-    if (!formState) {
-      return;
-    }
+    if (!formState) return;
 
     setSavingHostCredential(true);
     setError(null);
@@ -345,15 +408,15 @@ export function SettingsTextToSpeechPage() {
         apiKey: clearStoredValue ? null : toTrimmed(formState.hostApiKey) || null,
         clearStoredValue,
       });
-      const tenantSnapshot = await textToSpeechSettingsService.getTenantCredential();
+      const tenantSnapshot = await textToSpeechSettingsService.getTenantCredential(formState.provider);
 
       setHostCredential(snapshot);
       setTenantCredential(tenantSnapshot);
       updateField('hostApiKey', '');
       await loadVoices(formState.provider || 'ElevenLabs');
-      toast.success(clearStoredValue ? 'Host ElevenLabs key cleared.' : 'Host ElevenLabs key saved.');
+      toast.success(clearStoredValue ? `Host ${formState.provider} key cleared.` : `Host ${formState.provider} key saved.`);
     } catch (err: unknown) {
-      const message = resolveUserMessage(err, 'Failed to update host ElevenLabs key.');
+      const message = resolveUserMessage(err, `Failed to update host ${formState.provider} key.`);
       setError(message);
       toast.error(message);
     } finally {
@@ -362,9 +425,7 @@ export function SettingsTextToSpeechPage() {
   };
 
   const handleSaveTenantCredential = async (clearStoredValue = false) => {
-    if (!formState) {
-      return;
-    }
+    if (!formState) return;
 
     setSavingTenantCredential(true);
     setError(null);
@@ -379,15 +440,53 @@ export function SettingsTextToSpeechPage() {
       setTenantCredential(snapshot);
       updateField('tenantApiKey', '');
       await loadVoices(formState.provider || 'ElevenLabs');
-      toast.success(clearStoredValue ? 'Tenant ElevenLabs override cleared.' : 'Tenant ElevenLabs override saved.');
+      toast.success(clearStoredValue ? `Tenant ${formState.provider} override cleared.` : `Tenant ${formState.provider} override saved.`);
     } catch (err: unknown) {
-      const message = resolveUserMessage(err, 'Failed to update tenant ElevenLabs key.');
+      const message = resolveUserMessage(err, `Failed to update tenant ${formState.provider} key.`);
       setError(message);
       toast.error(message);
     } finally {
       setSavingTenantCredential(false);
     }
   };
+
+  const handleCreateVoice = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !formState) return;
+
+    const name = toTrimmed(voiceCreateName);
+    if (!name) {
+      toast.error('Enter a voice name before uploading.');
+      if (voiceFileRef.current) voiceFileRef.current.value = '';
+      return;
+    }
+
+    setCreatingVoice(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
+      );
+
+      const request: CreateVoiceRequest = {
+        provider: formState.provider,
+        name,
+        sampleAudioBase64: base64,
+        sampleFilename: file.name,
+      };
+
+      const result = await textToSpeechSettingsService.createVoice(request);
+      toast.success(`Voice "${result.name}" created (${result.voiceId}).`);
+      setVoiceCreateName('');
+      updateField('voiceId', result.voiceId);
+      await loadVoices(formState.provider);
+    } catch (err: unknown) {
+      toast.error(resolveUserMessage(err, 'Failed to create voice.'));
+    } finally {
+      setCreatingVoice(false);
+      if (voiceFileRef.current) voiceFileRef.current.value = '';
+    }
+  }, [formState, voiceCreateName]);
 
   useEffect(() => {
     let active = true;
@@ -450,35 +549,8 @@ export function SettingsTextToSpeechPage() {
     };
   }, [previewAudio]);
 
-  useEffect(() => {
-    if (!formState?.provider) {
-      return;
-    }
-
-    let active = true;
-    void textToSpeechSettingsService.listVoices(formState.provider)
-      .then((items) => {
-        if (active) {
-          setVoiceLoadError(null);
-          setVoices(items);
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          setVoiceLoadError(resolveUserMessage(err, 'Failed to load voices.'));
-          setVoices([]);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [formState?.provider]);
-
   const handleSave = async () => {
-    if (!formState) {
-      return;
-    }
+    if (!formState) return;
 
     setSaving(true);
     setError(null);
@@ -496,9 +568,7 @@ export function SettingsTextToSpeechPage() {
   };
 
   const handlePreview = async () => {
-    if (!formState) {
-      return;
-    }
+    if (!formState) return;
 
     if (!previewCredentialConfigured) {
       const message = 'Add a host default, tenant override, or configuration fallback credential before previewing.';
@@ -568,6 +638,7 @@ export function SettingsTextToSpeechPage() {
   };
 
   const showHostCredentialCard = isPlatformAdmin;
+  const providerLabel = formState?.provider ?? 'Provider';
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -583,7 +654,7 @@ export function SettingsTextToSpeechPage() {
         <div>
           <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Text to Speech</h1>
           <p className="text-[var(--color-text-secondary)]">
-            Configure host and tenant ElevenLabs credentials, tenant voice playback, fallback behavior, and usage limits.
+            Configure provider credentials, voice selection, playback behavior, and usage limits.
           </p>
         </div>
         <div className="flex gap-2">
@@ -631,7 +702,7 @@ export function SettingsTextToSpeechPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <CardTitle>Host Credential</CardTitle>
-                      <CardDescription>Default ElevenLabs API key used when a tenant does not provide an override.</CardDescription>
+                      <CardDescription>Default {providerLabel} API key used when a tenant does not provide an override.</CardDescription>
                     </div>
                     <Badge variant={toCredentialBadgeVariant(hostCredential?.hasHostCredential ?? false)}>
                       {hostCredential?.hasHostCredential ? 'Configured' : 'Missing'}
@@ -645,8 +716,7 @@ export function SettingsTextToSpeechPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <Label htmlFor="tts-host-api-key">ElevenLabs API Key (update only)</Label>
-                      <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">Platform.TextToSpeech.Providers.ElevenLabs.ApiKey</span>
+                      <Label htmlFor="tts-host-api-key">{providerLabel} API Key (update only)</Label>
                     </div>
                     <Input
                       id="tts-host-api-key"
@@ -682,7 +752,7 @@ export function SettingsTextToSpeechPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <CardTitle>Tenant Override</CardTitle>
-                    <CardDescription>Optional ElevenLabs API key override for the currently selected tenant.</CardDescription>
+                    <CardDescription>Optional {providerLabel} API key override for the currently selected tenant.</CardDescription>
                   </div>
                   <Badge variant={toCredentialBadgeVariant(tenantCredential?.hasTenantOverride ?? false)}>
                     {tenantCredential?.hasTenantOverride ? 'Override active' : 'Using host default'}
@@ -698,8 +768,7 @@ export function SettingsTextToSpeechPage() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="tts-tenant-api-key">Tenant ElevenLabs API Key (update only)</Label>
-                    <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">Platform.TextToSpeech.Providers.ElevenLabs.ApiKey</span>
+                    <Label htmlFor="tts-tenant-api-key">Tenant {providerLabel} API Key (update only)</Label>
                   </div>
                   <Input
                     id="tts-tenant-api-key"
@@ -774,9 +843,9 @@ export function SettingsTextToSpeechPage() {
                 <FieldLabel
                   label="Provider"
                   helpTitle="Provider"
-                  helpDescription="The backend text-to-speech provider used for synthesis. This page currently supports ElevenLabs only, but the setting stays explicit so tenant playback policy is auditable."
+                  helpDescription="The backend text-to-speech provider. ElevenLabs offers high-quality multilingual voices. Mistral (Voxtral) supports zero-shot voice cloning from short audio samples."
                 />
-                <Select value={formState.provider} onValueChange={(value) => updateField('provider', value)}>
+                <Select value={formState.provider} onValueChange={(value) => void handleProviderChange(value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select provider" />
                   </SelectTrigger>
@@ -792,7 +861,7 @@ export function SettingsTextToSpeechPage() {
                 <FieldLabel
                   label="Voice"
                   helpTitle="Voice"
-                  helpDescription="The actual ElevenLabs voice used for playback. The list comes from the provider API for the currently effective credential, so you only choose voices that are available to that account."
+                  helpDescription="The voice used for playback. The list comes from the provider API for the currently effective credential."
                 />
                 <Select value={voiceSelectValue} onValueChange={(value) => updateField('voiceId', value)}>
                   <SelectTrigger>
@@ -807,6 +876,7 @@ export function SettingsTextToSpeechPage() {
                     {voices.map((voice) => (
                       <SelectItem key={voice.voiceId} value={voice.voiceId}>
                         {voice.name}
+                        {voice.labels?.gender ? ` (${voice.labels.gender})` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -814,8 +884,9 @@ export function SettingsTextToSpeechPage() {
                 {activeVoice && (
                   <p className="text-xs text-[var(--color-text-tertiary)]">
                     {activeVoice.category ?? 'General'}
-                    {activeVoice.labels?.gender ? ` • ${activeVoice.labels.gender}` : ''}
-                    {activeVoice.labels?.accent ? ` • ${activeVoice.labels.accent}` : ''}
+                    {activeVoice.labels?.gender ? ` · ${activeVoice.labels.gender}` : ''}
+                    {activeVoice.labels?.accent ? ` · ${activeVoice.labels.accent}` : ''}
+                    {activeVoice.labels?.languages ? ` · ${activeVoice.labels.languages}` : ''}
                   </p>
                 )}
                 {savedVoiceUnavailable && formState.voiceId && (
@@ -833,19 +904,54 @@ export function SettingsTextToSpeechPage() {
                 )}
               </div>
 
+              {isMistral && (
+                <div className="space-y-2 md:col-span-2">
+                  <FieldLabel
+                    label="Create Voice (Clone)"
+                    helpTitle="Voice Cloning"
+                    helpDescription="Upload a short audio sample (2–3 seconds minimum) to create a cloned voice via Mistral. The voice will appear in your voice list after creation."
+                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Voice name"
+                      value={voiceCreateName}
+                      onChange={(e) => setVoiceCreateName(e.target.value)}
+                      className="max-w-xs"
+                    />
+                    <input
+                      ref={voiceFileRef}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={handleCreateVoice}
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={creatingVoice || !toTrimmed(voiceCreateName)}
+                      onClick={() => voiceFileRef.current?.click()}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {creatingVoice ? 'Creating...' : 'Upload Sample'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <FieldLabel
                   label="Model"
                   htmlFor="tts-model-id"
                   helpTitle="Model"
-                  helpDescription="ElevenLabs model used for generation. `eleven_multilingual_v2` is the default multilingual model. Turbo and Flash variants trade some quality depth for lower latency."
+                  helpDescription={isElevenLabs
+                    ? 'ElevenLabs model used for generation. Multilingual v2 is the default. Turbo and Flash variants trade some quality for lower latency.'
+                    : 'Mistral model used for generation. Voxtral Mini TTS is the default zero-shot voice cloning model.'}
                 />
                 <Select value={formState.modelId} onValueChange={(value) => updateField('modelId', value)}>
                   <SelectTrigger id="tts-model-id">
                     <SelectValue placeholder="Select model" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MODEL_OPTIONS.map((option) => (
+                    {modelOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -857,7 +963,7 @@ export function SettingsTextToSpeechPage() {
                   label="Locale"
                   htmlFor="tts-locale"
                   helpTitle="Locale"
-                  helpDescription="Language and regional accent hint sent to the provider. ElevenLabs uses the ISO language code portion for normalization and pronunciation. Choose the closest supported locale for your audience."
+                  helpDescription="Language and regional accent hint sent to the provider."
                 />
                 <Select value={formState.locale} onValueChange={(value) => updateField('locale', value)}>
                   <SelectTrigger id="tts-locale">
@@ -876,85 +982,91 @@ export function SettingsTextToSpeechPage() {
                   label="Output format"
                   htmlFor="tts-output-format"
                   helpTitle="Output format"
-                  helpDescription="Audio encoding returned by ElevenLabs. Compressed MP3 is usually best for browser and mobile playback. Higher-fidelity PCM/WAV options may require higher ElevenLabs subscription tiers."
+                  helpDescription={isElevenLabs
+                    ? 'Audio encoding returned by ElevenLabs. Compressed MP3 is usually best for browser and mobile playback.'
+                    : 'Audio format returned by Mistral. PCM offers lowest latency (~0.8s). MP3 is best for general use (~3s).'}
                 />
                 <Select value={formState.outputFormat} onValueChange={(value) => updateField('outputFormat', value)}>
                   <SelectTrigger id="tts-output-format">
                     <SelectValue placeholder="Select output format" />
                   </SelectTrigger>
                   <SelectContent>
-                    {OUTPUT_FORMAT_OPTIONS.map((option) => (
+                    {outputFormatOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Streaming latency optimization"
-                  htmlFor="tts-optimize-streaming"
-                  helpTitle="Streaming latency optimization"
-                  helpDescription="ElevenLabs latency tuning from 0 to 4. Higher values return speech faster, but can reduce quality. Value 4 also disables the text normalizer, which can affect pronunciation for dates and numbers."
-                />
-                <Select value={formState.optimizeStreamingLatency} onValueChange={(value) => updateField('optimizeStreamingLatency', value)}>
-                  <SelectTrigger id="tts-optimize-streaming">
-                    <SelectValue placeholder="Select latency mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OPTIMIZE_STREAMING_LATENCY_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {isElevenLabs && (
+                <>
+                  <div className="space-y-2">
+                    <FieldLabel
+                      label="Streaming latency optimization"
+                      htmlFor="tts-optimize-streaming"
+                      helpTitle="Streaming latency optimization"
+                      helpDescription="ElevenLabs latency tuning from 0 to 4. Higher values return speech faster, but can reduce quality."
+                    />
+                    <Select value={formState.optimizeStreamingLatency} onValueChange={(value) => updateField('optimizeStreamingLatency', value)}>
+                      <SelectTrigger id="tts-optimize-streaming">
+                        <SelectValue placeholder="Select latency mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OPTIMIZE_STREAMING_LATENCY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Stability"
-                  htmlFor="tts-stability"
-                  helpTitle="Stability"
-                  helpDescription="Overrides ElevenLabs voice stability on this tenant profile. Lower values create more expressive variation. Higher values create steadier, more controlled delivery and can sound more monotone."
-                />
-                <Select value={formState.stability || DEFAULT_SELECT_VALUE} onValueChange={(value) => updateField('stability', value === DEFAULT_SELECT_VALUE ? '' : value)}>
-                  <SelectTrigger id="tts-stability">
-                    <SelectValue placeholder="Use voice default" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={DEFAULT_SELECT_VALUE}>Use voice default</SelectItem>
-                    {UNIT_INTERVAL_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <FieldLabel
+                      label="Stability"
+                      htmlFor="tts-stability"
+                      helpTitle="Stability"
+                      helpDescription="Overrides ElevenLabs voice stability. Lower values create more expressive variation. Higher values create steadier delivery."
+                    />
+                    <Select value={formState.stability || DEFAULT_SELECT_VALUE} onValueChange={(value) => updateField('stability', value === DEFAULT_SELECT_VALUE ? '' : value)}>
+                      <SelectTrigger id="tts-stability">
+                        <SelectValue placeholder="Use voice default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DEFAULT_SELECT_VALUE}>Use voice default</SelectItem>
+                        {UNIT_INTERVAL_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="space-y-2">
-                <FieldLabel
-                  label="Similarity boost"
-                  htmlFor="tts-similarity"
-                  helpTitle="Similarity boost"
-                  helpDescription="Controls how closely the synthesis should stay aligned to the original voice characteristics. Higher values push the output closer to the recorded speaker style."
-                />
-                <Select value={formState.similarityBoost || DEFAULT_SELECT_VALUE} onValueChange={(value) => updateField('similarityBoost', value === DEFAULT_SELECT_VALUE ? '' : value)}>
-                  <SelectTrigger id="tts-similarity">
-                    <SelectValue placeholder="Use voice default" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={DEFAULT_SELECT_VALUE}>Use voice default</SelectItem>
-                    {UNIT_INTERVAL_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <FieldLabel
+                      label="Similarity boost"
+                      htmlFor="tts-similarity"
+                      helpTitle="Similarity boost"
+                      helpDescription="Controls how closely the synthesis stays aligned to the original voice characteristics."
+                    />
+                    <Select value={formState.similarityBoost || DEFAULT_SELECT_VALUE} onValueChange={(value) => updateField('similarityBoost', value === DEFAULT_SELECT_VALUE ? '' : value)}>
+                      <SelectTrigger id="tts-similarity">
+                        <SelectValue placeholder="Use voice default" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DEFAULT_SELECT_VALUE}>Use voice default</SelectItem>
+                        {UNIT_INTERVAL_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
               <CardTitle>Usage Policy</CardTitle>
-              <CardDescription>Guardrails applied before ElevenLabs synthesis starts.</CardDescription>
+              <CardDescription>Guardrails applied before synthesis starts.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
@@ -988,7 +1100,7 @@ export function SettingsTextToSpeechPage() {
                 />
               </div>
               <p className="text-xs text-[var(--color-text-tertiary)]">
-                Preview validates provider access, stores an `AiRun` for audit, and plays the synthesized audio in-browser.
+                Preview validates provider access, stores an AiRun for audit, and plays the synthesized audio in-browser.
               </p>
               {previewBlockedMessage && (
                 <p className="text-xs text-[var(--color-text-secondary)]">{previewBlockedMessage}</p>

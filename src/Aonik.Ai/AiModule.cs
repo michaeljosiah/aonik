@@ -146,15 +146,8 @@ public sealed class AiModule : IModule
         services.AddScoped<ICustomerInsightAiSummaryReader, CustomerInsightAiSummaryReader>();
         services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();
         services.AddScoped<ITextToSpeechService, TextToSpeechService>();
-        services.AddHttpClient<ElevenLabsTextToSpeechProvider>((sp, client) =>
-        {
-            var options = configuration.GetSection("AI:TextToSpeech").Get<Aonik.Ai.Services.TextToSpeechOptions>()
-                ?? new Aonik.Ai.Services.TextToSpeechOptions();
-            client.BaseAddress = new Uri(options.ElevenLabsBaseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        });
-        services.AddScoped<ITextToSpeechProvider>(sp => sp.GetRequiredService<ElevenLabsTextToSpeechProvider>());
+        RegisterTtsProvider<ElevenLabsTextToSpeechProvider>(services, configuration, opts => opts.ElevenLabsBaseUrl);
+        RegisterTtsProvider<MistralTextToSpeechProvider>(services, configuration, opts => opts.MistralBaseUrl);
 
         // User memory — manages AI-learned facts, preferences, and corrections about users
         services.AddScoped<Contracts.Services.IUserMemoryService, UserMemoryService>();
@@ -170,6 +163,23 @@ public sealed class AiModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.IGlobalSeedContributor, Services.Seeding.AiTaskSeedContributor>();
 
         return services;
+    }
+
+    private static void RegisterTtsProvider<TProvider>(
+        IServiceCollection services,
+        IConfiguration configuration,
+        Func<Aonik.Ai.Services.TextToSpeechOptions, string> baseUrlSelector)
+        where TProvider : class, ITextToSpeechProvider
+    {
+        services.AddHttpClient<TProvider>((_, client) =>
+        {
+            var options = configuration.GetSection("AI:TextToSpeech").Get<Aonik.Ai.Services.TextToSpeechOptions>()
+                ?? new Aonik.Ai.Services.TextToSpeechOptions();
+            client.BaseAddress = new Uri(baseUrlSelector(options));
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        });
+        services.AddScoped<ITextToSpeechProvider>(sp => sp.GetRequiredService<TProvider>());
     }
 }
 

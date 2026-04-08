@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Platform.Endpoints.Admin.Settings;
 
-internal sealed class GetHostTextToSpeechCredentialEndpoint : EndpointWithoutRequest<TextToSpeechCredentialResponse>
+internal sealed class GetHostTextToSpeechCredentialEndpoint : Endpoint<GetTenantTextToSpeechCredentialRequest, TextToSpeechCredentialResponse>
 {
     private readonly ITextToSpeechCredentialSettingsService _service;
 
@@ -28,9 +28,10 @@ internal sealed class GetHostTextToSpeechCredentialEndpoint : EndpointWithoutReq
         Options(x => x.WithTags("Settings"));
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(GetTenantTextToSpeechCredentialRequest req, CancellationToken ct)
     {
-        var snapshot = await _service.GetHostAsync("ElevenLabs", ct);
+        var provider = string.IsNullOrWhiteSpace(req.Provider) ? "ElevenLabs" : req.Provider;
+        var snapshot = await _service.GetHostAsync(provider, ct);
         await Send.OkAsync(new TextToSpeechCredentialResponse(
             snapshot.Provider,
             snapshot.HasHostCredential,
