@@ -193,7 +193,7 @@ export function SetupGuidePage() {
                       <span>{state.guide?.title ? '5 mins read' : 'Guide'}</span>
                     </div>
                     {guideDescription && (
-                      <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed max-w-2xl">{guideDescription}</p>
+                      <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed max-w-[42rem]">{guideDescription}</p>
                     )}
                   </div>
                   {slug && (

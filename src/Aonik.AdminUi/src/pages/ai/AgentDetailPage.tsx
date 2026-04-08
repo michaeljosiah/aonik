@@ -322,7 +322,7 @@ export function AgentDetailPage() {
 
       {error && (
         <div className="flex justify-center px-6 pt-4">
-          <Card className="border-[var(--color-error)] bg-[var(--color-error-light)] max-w-5xl w-full">
+          <Card className="border-[var(--color-error)] bg-[var(--color-error-light)] max-w-[64rem] w-full">
             <CardContent className="p-4 flex items-center gap-3 text-[var(--color-error)]">
               <AlertCircle className="w-5 h-5" />
               <span className="flex-1">{error}</span>
@@ -334,7 +334,7 @@ export function AgentDetailPage() {
 
       {/* Centered card container */}
       <div className="flex justify-center px-6 py-8">
-        <Card className="w-full max-w-5xl shadow-sm">
+        <Card className="w-full max-w-[64rem] shadow-sm">
           <CardContent className="p-0">
             <div className="flex flex-col xl:flex-row">
 

@@ -35,7 +35,7 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
     if (!hasRequiredRole) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-[var(--color-background)]">
-          <div className="text-center p-8 bg-[var(--color-surface)] rounded-md shadow-lg max-w-md">
+          <div className="text-center p-8 bg-[var(--color-surface)] rounded-md shadow-lg max-w-[28rem]">
             <svg 
               className="w-16 h-16 mx-auto mb-4 text-[var(--color-warning)]" 
               fill="none" 

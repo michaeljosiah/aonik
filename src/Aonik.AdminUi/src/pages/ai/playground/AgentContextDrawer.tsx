@@ -84,7 +84,7 @@ export function AgentContextDrawer({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden flex flex-col">
+      <DialogContent className="max-h-[85vh] max-w-[48rem] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Cpu className="h-4 w-4" />

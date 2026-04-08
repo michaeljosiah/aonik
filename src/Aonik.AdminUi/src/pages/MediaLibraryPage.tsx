@@ -74,7 +74,7 @@ export function MediaLibraryPage() {
 
         {/* Search */}
         <div className="mb-6">
-          <div className="relative max-w-md">
+          <div className="relative max-w-[28rem]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
             <Input
               value={searchQuery}

@@ -105,7 +105,7 @@ export function FxRatesPage() {
 
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div className="flex-1 max-w-3xl">
+          <div className="flex-1 max-w-[48rem]">
             <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">FX Rate Management</h1>
             <p className="text-[var(--color-text-secondary)]">
               Manage foreign exchange quotes, rate sources, spread policies, and refresh schedules.

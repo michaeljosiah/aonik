@@ -520,7 +520,7 @@ export function TenantSetupWizardPage({ onComplete }: TenantSetupWizardPageProps
     <div className="fixed inset-0 flex bg-[var(--color-background)]">
       {/* Left Panel - Form */}
       <div className="flex-1 overflow-y-auto min-w-0">
-        <div className="max-w-3xl mx-auto px-10 py-10 w-full">
+        <div className="max-w-[48rem] mx-auto px-10 py-10 w-full">
           {/* Logo */}
           <div className="flex items-center gap-2 mb-12">
             <div className="w-8 h-8 rounded bg-[var(--color-brand-primary)] flex items-center justify-center">

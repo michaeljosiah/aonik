@@ -344,7 +344,7 @@ export function PlaygroundMessageBlock({
 
           {/* Editor area */}
           <div className="flex-1 overflow-auto p-6">
-            <div className="mx-auto max-w-4xl space-y-4">
+            <div className="mx-auto max-w-[56rem] space-y-4">
               <textarea
                 ref={fullscreenTextareaRef}
                 value={content}
