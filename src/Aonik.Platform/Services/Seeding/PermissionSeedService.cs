@@ -218,7 +218,8 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
                 "Invoice.Issue",
                 "Catalog.Read",
                 "Customers.Read",
-                "Customers.Create"
+                "Customers.Create",
+                "Customers.Write"
             ],
             ["Operations"] =
             [
@@ -237,7 +238,8 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
                 "Invoice.Issue",
                 "Catalog.Read",
                 "Customers.Read",
-                "Customers.Create"
+                "Customers.Create",
+                "Customers.Write"
             ],
             ["ReadOnly"] =
             [
@@ -384,7 +386,8 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             "Invoice.Issue",
             "Catalog.Read",
             "Customers.Read",
-            "Customers.Create"
+            "Customers.Create",
+            "Customers.Write"
         };
 
         var permissions = await _dbContext.Permissions

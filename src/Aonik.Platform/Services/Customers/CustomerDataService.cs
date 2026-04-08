@@ -156,8 +156,8 @@ internal class CustomerDataService : AdminServiceBase, ICustomerDataService
             // Redact IdP references — environment-specific
             foreach (var user in users)
             {
-                user.ExternalSubject = null;
-                user.ExternalIssuer = null;
+                user.ExternalSubject = string.Empty;
+                user.ExternalIssuer = string.Empty;
                 user.ExternalTenantId = null;
             }
 

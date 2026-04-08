@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { AlertCircle, Building2, Eye, Plus, User, UserCheck, UsersRound, UserX } from 'lucide-react';
+import { AlertCircle, Building2, Eye, Plus, Upload, User, UserCheck, UsersRound, UserX } from 'lucide-react';
 
 import { customerService } from '@/services/customerService';
+import type { CustomerDataImportResponse } from '@/services/customerService';
 import type { CreateCustomerRequest, CustomerListItem, PagedResult } from '@/types';
 import {
   DataTable,
@@ -82,6 +83,9 @@ export function CustomersListPage() {
   const [imageLoadStates, setImageLoadStates] = useState<Record<string, 'loading' | 'loaded' | 'error'>>({});
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<CustomerDataImportResponse | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   const loadCustomers = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
@@ -142,6 +146,40 @@ export function CustomersListPage() {
     async (data: CreateCustomerRequest) => {
       await customerService.create(data);
       await loadCustomers();
+    },
+    [loadCustomers]
+  );
+
+  const handleImportFile = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setIsImporting(true);
+      setError(null);
+      setImportResult(null);
+      try {
+        const result = await customerService.importData(file);
+        setImportResult(result);
+        await loadCustomers();
+      } catch (err: unknown) {
+        let msg = 'Import failed';
+        if (err && typeof err === 'object' && 'response' in err) {
+          const axiosErr = err as { response?: { data?: { errors?: { generalErrors?: string[] }; message?: string } } };
+          const generalErrors = axiosErr.response?.data?.errors?.generalErrors;
+          if (generalErrors && generalErrors.length > 0) {
+            msg = generalErrors.join('; ');
+          } else if (axiosErr.response?.data?.message) {
+            msg = axiosErr.response.data.message;
+          }
+        } else if (err instanceof Error) {
+          msg = err.message;
+        }
+        setError(msg);
+      } finally {
+        setIsImporting(false);
+        if (importFileRef.current) importFileRef.current.value = '';
+      }
     },
     [loadCustomers]
   );
@@ -376,11 +414,47 @@ export function CustomersListPage() {
             Browse people and businesses connected to this tenant.
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="rounded-sm">
-          <Plus className="w-4 h-4 mr-2" />
-          New Customer
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <Button
+            variant="outline"
+            className="rounded-sm"
+            disabled={isImporting}
+            onClick={() => importFileRef.current?.click()}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {isImporting ? 'Importing...' : 'Import Customer'}
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="rounded-sm">
+            <Plus className="w-4 h-4 mr-2" />
+            New Customer
+          </Button>
+        </div>
       </div>
+
+      {importResult && (
+        <div className="mb-4 rounded border border-[var(--color-success)] bg-[var(--color-success-light)] p-4 text-sm">
+          <p className="font-medium text-[var(--color-success)]">
+            Import successful — {importResult.totalEntities} entities imported
+          </p>
+          <p className="text-[var(--color-text-secondary)] mt-1">
+            New customer ID: <code className="text-xs">{importResult.newPartyId}</code>
+          </p>
+          {importResult.warnings.length > 0 && (
+            <ul className="mt-2 list-disc pl-5 text-[var(--color-warning)]">
+              {importResult.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 mb-6 md:grid-cols-2 xl:grid-cols-4">
         <Card className="rounded-none border-[var(--color-border-light)] bg-[var(--color-surface)]">

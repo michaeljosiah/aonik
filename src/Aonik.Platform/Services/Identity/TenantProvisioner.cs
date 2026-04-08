@@ -252,10 +252,10 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
                 "Invoice.Update",
                 "Invoice.Delete",
                 "Invoice.Issue",
-                "Catalog.Read"
-                ,
+                "Catalog.Read",
                 "Customers.Read",
-                "Customers.Create"
+                "Customers.Create",
+                "Customers.Write"
             ],
             ["Operations"] =
             [
@@ -272,10 +272,10 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
                 "Invoice.Update",
                 "Invoice.Delete",
                 "Invoice.Issue",
-                "Catalog.Read"
-                ,
+                "Catalog.Read",
                 "Customers.Read",
-                "Customers.Create"
+                "Customers.Create",
+                "Customers.Write"
             ],
             ["ReadOnly"] =
             [
@@ -411,6 +411,7 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
             ("Catalog.Read", "View catalog and biller data"),
             ("Customers.Read", "View customers"),
             ("Customers.Create", "Create customers"),
+            ("Customers.Write", "Edit and import customers"),
             ("PersonalFinance.Accounts.Read", "View personal finance accounts"),
             ("PersonalFinance.Accounts.Write", "Create and manage personal finance accounts"),
             ("PersonalFinance.Transactions.Read", "View personal finance transactions"),
@@ -494,7 +495,8 @@ internal class TenantProvisioner : AdminServiceBase, ITenantProvisioner, IBootst
             "Invoice.Issue",
             "Catalog.Read",
             "Customers.Read",
-            "Customers.Create"
+            "Customers.Create",
+            "Customers.Write"
         };
 
         var permissions = await _dbContext.Permissions

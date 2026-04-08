@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   AlertCircle,
   CalendarClock,
+  Download,
   FileText,
   Lightbulb,
   Link2,
@@ -315,6 +316,20 @@ export function CustomerDetailPage() {
           <Breadcrumb items={breadcrumbItems} className="mt-1" />
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await customerService.exportData(partyId!);
+              } catch {
+                /* toast or ignore */
+              }
+            }}
+          >
+            <Download className="w-4 h-4 mr-1.5" />
+            Export Data
+          </Button>
           <Button variant="outline" size="sm" onClick={loadCustomer}>
             Refresh
           </Button>

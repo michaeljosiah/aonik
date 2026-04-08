@@ -93,6 +93,7 @@ internal class IdentitySeedService
             // Customers permissions
             new Permission { Key = "Customers.Read", Description = "View customers" },
             new Permission { Key = "Customers.Create", Description = "Create customers" },
+            new Permission { Key = "Customers.Write", Description = "Edit and import customers" },
 
             // Personal Finance permissions
             new Permission { Key = "PersonalFinance.Accounts.Read", Description = "View personal finance accounts" },

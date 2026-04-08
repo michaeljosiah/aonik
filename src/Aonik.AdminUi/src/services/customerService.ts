@@ -1,3 +1,4 @@
+import apiClient from '@/lib/api';
 import { api } from '@/lib/api';
 import type {
   CreateCustomerRequest,
@@ -40,6 +41,42 @@ export const customerService = {
   listInsights: async (partyId: string): Promise<CustomerInsightsResponse> => {
     return api.get<CustomerInsightsResponse>(`/admin/customers/${partyId}/insights`);
   },
+
+  /** Downloads the customer data bundle as a JSON file. */
+  exportData: async (partyId: string): Promise<void> => {
+    const response = await apiClient.get(`/admin/customers/${partyId}/export`, {
+      responseType: 'blob',
+    });
+
+    // Extract filename from Content-Disposition header or use a default.
+    const disposition = response.headers['content-disposition'] as string | undefined;
+    const match = disposition?.match(/filename="?([^"]+)"?/);
+    const fileName = match?.[1] ?? `customer-export-${partyId}.json`;
+
+    // Trigger browser download.
+    const blob = new Blob([response.data as BlobPart], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  /** Imports a customer data bundle from a JSON file. */
+  importData: async (
+    file: File,
+    conflictMode: string = 'fail',
+  ): Promise<CustomerDataImportResponse> => {
+    const text = await file.text();
+    const bundle = JSON.parse(text);
+    return api.post<CustomerDataImportResponse>('/admin/customers/import', {
+      bundle,
+      conflictMode,
+    });
+  },
 };
 
 export interface CustomerInsightAiSummaryDetail {
@@ -64,6 +101,13 @@ export interface CustomerInsightSnapshotOverview {
   topSignalDescription: string | null;
   cashflowStressLevel: string | null;
   createdUtc: string;
+}
+
+export interface CustomerDataImportResponse {
+  newPartyId: string;
+  entityCounts: Record<string, number>;
+  totalEntities: number;
+  warnings: string[];
 }
 
 export interface CustomerInsightsResponse {

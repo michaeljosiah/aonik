@@ -105,6 +105,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IComplianceService, ComplianceService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<ICustomerAdminService, CustomerAdminService>();
+        services.AddScoped<ICustomerDataService, CustomerDataService>();
         services.AddScoped<ITenantFeatureService, TenantFeatureService>();
         services.AddScoped<IAccessManagementService, AccessManagementService>();
         services.AddScoped<ITenantCurrencyProvider, TenantCurrencyProvider>();
