@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CloudUpload,
   FileText,
-  Trash2,
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -117,6 +116,7 @@ export function DocumentCreatePage() {
         ownerPartyId: ownerPartyId.trim(),
         documentType: resolvedType,
         status: 'Draft',
+        tags: [],
       });
 
       // Upload files sequentially

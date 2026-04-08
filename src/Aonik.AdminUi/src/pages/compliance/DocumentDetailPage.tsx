@@ -12,7 +12,6 @@ import {
   Files,
   Hash,
   Pencil,
-  Save,
   ShieldCheck,
   X,
 } from 'lucide-react';
@@ -21,9 +20,6 @@ import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { documentService } from '@/services/documentService';
 import type {
   DocumentDetailsResponse,
@@ -126,16 +122,6 @@ export function DocumentDetailPage() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Metadata editing
-  const [isEditingMeta, setIsEditingMeta] = useState(false);
-  const [metaForm, setMetaForm] = useState({
-    issuerName: '',
-    countryCode: '',
-    referenceNumber: '',
-    issuedOn: '',
-    expiresOn: '',
-  });
-
   // Sections
   const [usageOpen, setUsageOpen] = useState(false);
   const [verificationsOpen, setVerificationsOpen] = useState(false);
@@ -152,13 +138,6 @@ export function DocumentDetailPage() {
     try {
       const data = await documentService.get(documentId);
       setDoc(data);
-      setMetaForm({
-        issuerName: data.document.issuerName ?? '',
-        countryCode: data.document.countryCode ?? '',
-        referenceNumber: data.document.referenceNumber ?? '',
-        issuedOn: data.document.issuedOn ?? '',
-        expiresOn: data.document.expiresOn ?? '',
-      });
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'userMessage' in err
