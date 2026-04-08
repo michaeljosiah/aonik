@@ -19,6 +19,7 @@ import 'widgets/spending_section_pills.dart';
 const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
   SpendingSection.transactions,
   SpendingSection.budgets,
+  SpendingSection.bills,
   SpendingSection.accounts,
 ];
 
@@ -183,6 +184,9 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
         context.go('/spending');
         return;
       case SpendingSection.budgets:
+        return;
+      case SpendingSection.bills:
+        context.go('/spending/bills');
         return;
       case SpendingSection.accounts:
         context.go('/spending/accounts');

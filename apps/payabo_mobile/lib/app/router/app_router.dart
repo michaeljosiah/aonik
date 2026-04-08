@@ -58,6 +58,7 @@ import '../../features/spending/presentation/manual_account_create_screen.dart';
 import '../../features/spending/presentation/manual_transaction_create_screen.dart';
 import '../../features/spending/presentation/spending_account_link_return_screen.dart';
 import '../../features/spending/presentation/spending_accounts_screen.dart';
+import '../../features/spending/presentation/spending_bills_screen.dart';
 import '../../features/spending/presentation/spending_budget_detail_screen.dart';
 import '../../features/spending/presentation/spending_budget_screen.dart';
 import '../../features/spending/presentation/spending_category_detail_screen.dart';
@@ -372,6 +373,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
           path: '/spending/accounts',
           name: 'spending-accounts',
           builder: (context, state) => const SpendingAccountsScreen(),
+        ),
+        GoRoute(
+          path: '/spending/bills',
+          name: 'spending-bills',
+          builder: (context, state) => const SpendingBillsScreen(),
         ),
         GoRoute(
           path: '/spending/accounts/return',

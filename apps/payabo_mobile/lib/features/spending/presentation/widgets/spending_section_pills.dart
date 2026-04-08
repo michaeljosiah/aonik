@@ -7,6 +7,7 @@ enum SpendingSection {
   transactions,
   budgets,
   accounts,
+  bills,
 }
 
 extension SpendingSectionLabel on SpendingSection {
@@ -20,6 +21,8 @@ extension SpendingSectionLabel on SpendingSection {
         return 'Budgets';
       case SpendingSection.accounts:
         return 'Accounts';
+      case SpendingSection.bills:
+        return 'Bills';
     }
   }
 }
