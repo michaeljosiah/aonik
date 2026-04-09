@@ -2,6 +2,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Finance.Agents;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -42,6 +43,9 @@ public sealed class FinanceModule : IModule
                     sqlServerOptions.EnableRetryOnFailure());
             }
         });
+
+        // ── Event Bus ────────────────────────────────────────────────
+        services.AddEventBus(typeof(FinanceModule).Assembly);
 
         // ── Finance Services ─────────────────────────────────────────
         // Ledger
