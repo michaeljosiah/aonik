@@ -499,34 +499,48 @@ class _BudgetCategoryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: PayaboSpacing.sm),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: <Widget>[
-                        Text(
-                          formatSpendingBudgetCurrency(category.allocated),
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: c.accentBrown,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                        const SizedBox(height: PayaboSpacing.xs),
-                        Text(
-                          state.remainingLabel,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: state.remainingColorRole.resolve(c),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ],
+                    Text.rich(
+                      TextSpan(
+                        children: <InlineSpan>[
+                          TextSpan(
+                            text: formatSpendingBudgetCurrency(
+                                category.allocated),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: c.accentBrown,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          TextSpan(
+                            text: '  ·  ',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: c.muted),
+                          ),
+                          TextSpan(
+                            text: state.remainingLabel,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color:
+                                      state.remainingColorRole.resolve(c),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: PayaboSpacing.lg),
+                const SizedBox(height: PayaboSpacing.md),
                 _BudgetProgressBar(
                   value: state.progress,
                   color: state.progressColorRole.resolve(c),
+                  slim: true,
                 ),
               ],
             ),
@@ -564,10 +578,12 @@ class _BudgetProgressBar extends StatelessWidget {
   const _BudgetProgressBar({
     required this.value,
     required this.color,
+    this.slim = false,
   });
 
   final double value;
   final Color color;
+  final bool slim;
 
   @override
   Widget build(BuildContext context) {
@@ -576,7 +592,7 @@ class _BudgetProgressBar extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(PayaboRadii.pill),
       child: LinearProgressIndicator(
-        minHeight: 10,
+        minHeight: slim ? 6 : 10,
         value: value.clamp(0, 1),
         backgroundColor: c.border,
         valueColor: AlwaysStoppedAnimation<Color>(color),
