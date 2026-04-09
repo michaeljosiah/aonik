@@ -319,7 +319,6 @@ export function AccountsSubTab() {
 
   const active = accounts.filter((a) => !a.isArchived);
   const archived = accounts.filter((a) => a.isArchived);
-  const totalBalance = active.reduce((sum, a) => sum + a.currentBalance, 0);
 
   return (
     <div className="space-y-4">
