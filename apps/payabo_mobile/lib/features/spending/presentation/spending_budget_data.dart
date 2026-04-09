@@ -480,7 +480,7 @@ class SpendingBudgetSummary {
       return SpendingBudgetColorRole.warning;
     }
 
-    return SpendingBudgetColorRole.success;
+    return SpendingBudgetColorRole.primary;
   }
 
   String get description {
@@ -505,7 +505,7 @@ class SpendingBudgetSummary {
     }
 
     return remaining >= 0
-        ? SpendingBudgetColorRole.success
+        ? SpendingBudgetColorRole.primary
         : SpendingBudgetColorRole.danger;
   }
 
@@ -656,7 +656,7 @@ class SpendingBudgetState {
       remainingLabel: remainingLabel,
       remainingColorRole: isOver
           ? SpendingBudgetColorRole.danger
-          : SpendingBudgetColorRole.success,
+          : SpendingBudgetColorRole.primary,
       percentUsedLabel: '${(progress.clamp(0, 1) * 100).toStringAsFixed(0)}%',
       remainingAmount: remaining,
     );

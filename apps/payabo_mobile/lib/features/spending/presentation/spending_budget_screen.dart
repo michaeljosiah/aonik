@@ -1,15 +1,18 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
-import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_button.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
+import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import 'spending_budget_data.dart';
 import 'spending_budget_state.dart';
 import 'widgets/budget_category_picker.dart';
@@ -23,6 +26,10 @@ const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
   SpendingSection.accounts,
 ];
 
+// ─────────────────────────────────────────────────────────
+//  Screen
+// ─────────────────────────────────────────────────────────
+
 class SpendingBudgetScreen extends ConsumerStatefulWidget {
   const SpendingBudgetScreen({super.key});
 
@@ -34,144 +41,96 @@ class SpendingBudgetScreen extends ConsumerStatefulWidget {
 class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
   bool _isCreatingBudget = false;
 
+  final ValueNotifier<double> _statusBarProgress = ValueNotifier<double>(0.0);
+
+  @override
+  void dispose() {
+    _statusBarProgress.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final AsyncValue<List<SpendingBudgetCategory>> budgetsValue =
         ref.watch(spendingBudgetsProvider);
 
-    return Scaffold(
-      backgroundColor: c.surfaceWarm,
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: c.warmScreenGradient,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: <Widget>[
-              _BudgetHeader(
-                onSectionSelected: _handleSectionSelected,
-                onNotificationsTap: () => context.push('/notifications'),
-                onProfileTap: () => context.go('/profile'),
-              ),
-              Expanded(
-                child: budgetsValue.when(
-                  data: (List<SpendingBudgetCategory> categories) {
-                    if (categories.isEmpty) {
-                      return LayoutBuilder(
-                        builder: (
-                          BuildContext context,
-                          BoxConstraints constraints,
-                        ) {
-                          return RefreshIndicator(
-                            onRefresh: () async {
-                              ref.invalidate(spendingBudgetsProvider);
-                              await ref.read(spendingBudgetsProvider.future);
-                            },
-                            child: SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.fromLTRB(
-                                PayaboSpacing.xl,
-                                PayaboSpacing.md,
-                                PayaboSpacing.xl,
-                                PayaboSpacing.x4,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: constraints.maxHeight -
-                                      (PayaboSpacing.x4 + PayaboSpacing.md),
-                                ),
-                                child: SpendingBudgetEmptyState(
-                                  title: 'Create your first budget',
-                                  description:
-                                      'Budgets help you group spending into categories, set monthly limits, and understand what is left before the month ends.',
-                                  caption:
-                                      'Start with one simple budget and adjust the amount as your spending pattern becomes clearer.',
-                                  actionLabel: 'Create new budget',
-                                  busy: _isCreatingBudget,
-                                  onPressed: _handleCreateBudget,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }
+    return budgetsValue.when(
+      data: (List<SpendingBudgetCategory> categories) {
+        if (categories.isEmpty) {
+          return Scaffold(
+            backgroundColor: c.surfaceWarm,
+            body: _BudgetEmptyLayout(
+              isCreatingBudget: _isCreatingBudget,
+              onCreateBudget: _handleCreateBudget,
+              onSectionSelected: _handleSectionSelected,
+            ),
+            bottomNavigationBar: const PayaboPrimaryAppShell(
+              destination: PayaboPrimaryDestination.spending,
+            ),
+          );
+        }
 
-                    final SpendingBudgetSummary summary =
-                        SpendingBudgetSummary.fromCategories(
-                      monthLabel: spendingBudgetMonthLabel,
-                      categories: categories,
-                    );
+        final SpendingBudgetSummary summary =
+            SpendingBudgetSummary.fromCategories(
+          monthLabel: spendingBudgetMonthLabel,
+          categories: categories,
+        );
 
-                    return RefreshIndicator(
-                      onRefresh: () async {
-                        ref.invalidate(spendingBudgetsProvider);
-                        await ref.read(spendingBudgetsProvider.future);
-                      },
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(
-                          PayaboSpacing.xl,
-                          PayaboSpacing.md,
-                          PayaboSpacing.xl,
-                          PayaboSpacing.x4,
-                        ),
-                        children: <Widget>[
-                          _BudgetHeroCard(summary: summary),
-                          const SizedBox(height: PayaboSpacing.lg),
-                          _BudgetSectionIntro(summary: summary),
-                          const SizedBox(height: PayaboSpacing.lg),
-                          ...categories.map(
-                            (SpendingBudgetCategory category) => Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: PayaboSpacing.md,
-                              ),
-                              child: _BudgetCategoryCard(
-                                category: category,
-                                onOpen: () => context.push(
-                                  '/spending/budgets/${category.id}',
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: PayaboSpacing.md),
-                          Center(
-                            child: PayaboButton(
-                              key: const Key('budget-create-new'),
-                              label: _isCreatingBudget
-                                  ? 'Creating…'
-                                  : 'Create new budget',
-                              variant: PayaboButtonVariant.secondary,
-                              size: PayaboButtonSize.lg,
-                              leading: const Icon(Icons.add_rounded, size: 20),
-                              onPressed: _isCreatingBudget
-                                  ? null
-                                  : _handleCreateBudget,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (Object error, StackTrace stackTrace) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(PayaboSpacing.xl),
-                        child: Text('Unable to load budgets: $error'),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+        return PayaboWarmScaffold(
+          backgroundDecoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: c.isDark
+                  ? const <Color>[Color(0xFF1A1A1A), Color(0xFF121212)]
+                  : const <Color>[Color(0xFF2C1810), Color(0xFF1A0E08)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
           ),
+          statusBarColorNotifier: _statusBarProgress,
+          bottomNavigationBar: const PayaboPrimaryAppShell(
+            destination: PayaboPrimaryDestination.spending,
+          ),
+          body: _BudgetHeroAndSheet(
+            summary: summary,
+            categories: categories,
+            isCreatingBudget: _isCreatingBudget,
+            onSectionSelected: _handleSectionSelected,
+            onCreateBudget: _handleCreateBudget,
+            onOpenCategory: (String id) => context.push(
+              '/spending/budgets/$id',
+            ),
+            onRefresh: () async {
+              ref.invalidate(spendingBudgetsProvider);
+              await ref.read(spendingBudgetsProvider.future);
+            },
+            onSheetExtentChanged: (double extent) {
+              _statusBarProgress.value = extent;
+            },
+          ),
+        );
+      },
+      loading: () => Scaffold(
+        backgroundColor: c.surfaceWarm,
+        body: const Center(child: CircularProgressIndicator()),
+        bottomNavigationBar: const PayaboPrimaryAppShell(
+          destination: PayaboPrimaryDestination.spending,
         ),
       ),
-      bottomNavigationBar: const PayaboPrimaryAppShell(
-        destination: PayaboPrimaryDestination.spending,
-      ),
+      error: (Object error, StackTrace stackTrace) {
+        return Scaffold(
+          backgroundColor: c.surfaceWarm,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(PayaboSpacing.xl),
+              child: Text('Unable to load budgets: $error'),
+            ),
+          ),
+          bottomNavigationBar: const PayaboPrimaryAppShell(
+            destination: PayaboPrimaryDestination.spending,
+          ),
+        );
+      },
     );
   }
 
@@ -222,9 +181,6 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
           .read(budgetRepositoryProvider)
           .createBudget(categoryId: result.categoryId);
       ref.invalidate(spendingBudgetsProvider);
-      // Wait for the provider to re-fetch so the detail screen sees the
-      // new budget immediately — otherwise _resolveSelectedCategory falls
-      // back to categories.first (the previous budget).
       await ref.read(spendingBudgetsProvider.future);
 
       if (!mounted) {
@@ -250,113 +206,72 @@ class _SpendingBudgetScreenState extends ConsumerState<SpendingBudgetScreen> {
   }
 }
 
-class _BudgetHeader extends StatelessWidget {
-  const _BudgetHeader({
+// ─────────────────────────────────────────────────────────
+//  Empty state — full screen, no hero/sheet
+// ─────────────────────────────────────────────────────────
+
+class _BudgetEmptyLayout extends StatelessWidget {
+  const _BudgetEmptyLayout({
+    required this.isCreatingBudget,
+    required this.onCreateBudget,
     required this.onSectionSelected,
-    required this.onNotificationsTap,
-    required this.onProfileTap,
   });
 
+  final bool isCreatingBudget;
+  final VoidCallback onCreateBudget;
   final ValueChanged<SpendingSection> onSectionSelected;
-  final VoidCallback onNotificationsTap;
-  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    return PayaboAppHeader(
-      title: 'Spend',
-      titleStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: c.accentBrown,
-          ),
-      onNotificationsTap: onNotificationsTap,
-      onProfileTap: onProfileTap,
-      bottom: SpendingSectionPills(
-        selectedSection: SpendingSection.budgets,
-        sections: _visibleSpendingSections,
-        onSelected: onSectionSelected,
-      ),
-    );
-  }
-}
-
-class _BudgetHeroCard extends StatelessWidget {
-  const _BudgetHeroCard({required this.summary});
-
-  final SpendingBudgetSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarmElevated,
-        borderRadius: BorderRadius.circular(PayaboRadii.xl),
-        border: Border.all(color: c.spendingQuickActionBorder),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(PayaboSpacing.xl),
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: c.warmScreenGradient),
+      child: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    summary.monthLabel,
-                    style:
-                        Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: c.accentBrownMuted,
-                            ),
-                  ),
-                ),
-                const SizedBox(width: PayaboSpacing.md),
-                _BudgetStatusPill(
-                  label: summary.statusLabel,
-                  foregroundColor: summary.statusColorRole.resolve(c),
-                ),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Text(
-              formatSpendingBudgetCurrency(summary.totalBudget),
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+            PayaboAppHeader(
+              title: 'Spend',
+              titleStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                     color: c.accentBrown,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
                   ),
+              bottom: SpendingSectionPills(
+                selectedSection: SpendingSection.budgets,
+                sections: _visibleSpendingSections,
+                onSelected: onSectionSelected,
+              ),
             ),
-            const SizedBox(height: PayaboSpacing.xl),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: _BudgetSummaryMetric(
-                    label: 'Left to spend',
-                    valueLabel: summary.leftToSpendLabel,
-                    valueColor: summary.leftToSpendColorRole.resolve(c),
-                  ),
-                ),
-                const SizedBox(width: PayaboSpacing.md),
-                Expanded(
-                  child: _BudgetSummaryMetric(
-                    label: 'Used so far',
-                    valueLabel:
-                        formatSpendingBudgetCurrency(summary.totalSpent),
-                    valueColor: c.accentBrown,
-                    alignEnd: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            _BudgetProgressBar(
-              value: summary.progress,
-              color: summary.statusColorRole.resolve(c),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      PayaboSpacing.xl,
+                      PayaboSpacing.md,
+                      PayaboSpacing.xl,
+                      PayaboSpacing.x4,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight -
+                            (PayaboSpacing.x4 + PayaboSpacing.md),
+                      ),
+                      child: SpendingBudgetEmptyState(
+                        title: 'Create your first budget',
+                        description:
+                            'Budgets help you group spending into categories, set monthly limits, and understand what is left before the month ends.',
+                        caption:
+                            'Start with one simple budget and adjust the amount as your spending pattern becomes clearer.',
+                        actionLabel: 'Create new budget',
+                        busy: isCreatingBudget,
+                        onPressed: onCreateBudget,
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -365,48 +280,258 @@ class _BudgetHeroCard extends StatelessWidget {
   }
 }
 
-class _BudgetSummaryMetric extends StatelessWidget {
-  const _BudgetSummaryMetric({
-    required this.label,
-    required this.valueLabel,
-    required this.valueColor,
-    this.alignEnd = false,
+// ─────────────────────────────────────────────────────────
+//  Hero + Pinned Header + DraggableScrollableSheet
+// ─────────────────────────────────────────────────────────
+
+class _BudgetHeroAndSheet extends StatefulWidget {
+  const _BudgetHeroAndSheet({
+    required this.summary,
+    required this.categories,
+    required this.isCreatingBudget,
+    required this.onSectionSelected,
+    required this.onCreateBudget,
+    required this.onOpenCategory,
+    required this.onRefresh,
+    this.onSheetExtentChanged,
   });
 
-  final String label;
-  final String valueLabel;
-  final Color valueColor;
-  final bool alignEnd;
+  static const double _maxSheetSize = 1.0;
+  static const double _pinnedHeaderHeight = 76;
+  static const double _sheetTopGap = 10;
+  static const double _minHeroHeight = 200;
+  static const double _maxHeroHeight = 248;
+
+  final SpendingBudgetSummary summary;
+  final List<SpendingBudgetCategory> categories;
+  final bool isCreatingBudget;
+  final ValueChanged<SpendingSection> onSectionSelected;
+  final VoidCallback onCreateBudget;
+  final ValueChanged<String> onOpenCategory;
+  final Future<void> Function() onRefresh;
+  final ValueChanged<double>? onSheetExtentChanged;
+
+  @override
+  State<_BudgetHeroAndSheet> createState() => _BudgetHeroAndSheetState();
+}
+
+class _BudgetHeroAndSheetState extends State<_BudgetHeroAndSheet> {
+  late final DraggableScrollableController _sheetController;
+  late final ValueNotifier<double> _sheetExtentNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _sheetController = DraggableScrollableController();
+    _sheetExtentNotifier = ValueNotifier<double>(0);
+    _sheetController.addListener(_syncSheetExtent);
+  }
+
+  void _syncSheetExtent() {
+    if (!_sheetController.isAttached) return;
+
+    final double nextExtent = _sheetController.size;
+    if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
+      final SchedulerPhase phase = WidgetsBinding.instance.schedulerPhase;
+
+      if (phase == SchedulerPhase.idle ||
+          phase == SchedulerPhase.postFrameCallbacks) {
+        _sheetExtentNotifier.value = nextExtent;
+        widget.onSheetExtentChanged?.call(nextExtent);
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_sheetController.isAttached) return;
+        if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
+          _sheetExtentNotifier.value = nextExtent;
+          widget.onSheetExtentChanged?.call(nextExtent);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _sheetController.removeListener(_syncSheetExtent);
+    _sheetController.dispose();
+    _sheetExtentNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double viewportHeight =
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 640;
+
+        final double heroHeight = math.min(
+          _BudgetHeroAndSheet._maxHeroHeight,
+          math.max(
+            _BudgetHeroAndSheet._minHeroHeight,
+            viewportHeight * 0.37,
+          ),
+        );
+
+        const double pinnedHeaderHeight =
+            _BudgetHeroAndSheet._pinnedHeaderHeight;
+        const double pinnedSheetTop =
+            pinnedHeaderHeight + _BudgetHeroAndSheet._sheetTopGap;
+
+        final double sheetViewportHeight =
+            math.max(1, viewportHeight - pinnedHeaderHeight);
+
+        final double collapsedSheetTop = math.max(
+          pinnedSheetTop + 164,
+          heroHeight + PayaboSpacing.sm,
+        );
+
+        final double initialSheetSize = (1 -
+                ((collapsedSheetTop - pinnedHeaderHeight) /
+                    sheetViewportHeight))
+            .clamp(0.62, 0.76)
+            .toDouble();
+        final double minSheetSize =
+            (initialSheetSize - 0.10).clamp(0.56, initialSheetSize).toDouble();
+
+        final double heroBottomPadding = math.max(
+          40,
+          heroHeight - collapsedSheetTop + 28,
+        );
+
+        return Stack(
+          children: <Widget>[
+            // ── LAYER 1: Hero banner — budget summary on dark gradient ──
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: heroHeight,
+              child: _BudgetHeroBanner(
+                summary: widget.summary,
+                bottomPadding: heroBottomPadding,
+              ),
+            ),
+
+            // ── LAYER 2: Pinned header (profile + bell, 76px) ──
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: pinnedHeaderHeight,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _sheetExtentNotifier,
+                builder: (
+                  BuildContext context,
+                  double sheetExtent,
+                  Widget? _,
+                ) {
+                  final double eff =
+                      (sheetExtent <= 0 ? initialSheetSize : sheetExtent)
+                          .clamp(
+                            minSheetSize,
+                            _BudgetHeroAndSheet._maxSheetSize,
+                          )
+                          .toDouble();
+                  const double fadeZone = 0.05;
+                  final double fadeStart = math.max(
+                    0.0,
+                    _BudgetHeroAndSheet._maxSheetSize - fadeZone,
+                  );
+                  final double bgProgress = Curves.easeOut.transform(
+                    ((eff - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
+                  );
+                  return _BudgetPinnedHeader(
+                    backgroundProgress: bgProgress,
+                  );
+                },
+              ),
+            ),
+
+            // ── LAYER 3: Draggable sheet — pills + category list ──
+            Positioned(
+              top: pinnedHeaderHeight,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: DraggableScrollableSheet(
+                controller: _sheetController,
+                initialChildSize: initialSheetSize,
+                minChildSize: minSheetSize,
+                maxChildSize: _BudgetHeroAndSheet._maxSheetSize,
+                snap: true,
+                snapSizes: <double>[
+                  initialSheetSize,
+                  _BudgetHeroAndSheet._maxSheetSize,
+                ],
+                builder: (
+                  BuildContext context,
+                  ScrollController scrollController,
+                ) {
+                  return ValueListenableBuilder<double>(
+                    valueListenable: _sheetExtentNotifier,
+                    builder: (
+                      BuildContext context,
+                      double extent,
+                      Widget? child,
+                    ) {
+                      const double fadeZone = 0.05;
+                      final double fadeFraction = ((extent -
+                                  (_BudgetHeroAndSheet._maxSheetSize -
+                                      fadeZone)) /
+                              fadeZone)
+                          .clamp(0.0, 1.0);
+                      return _BudgetSheet(
+                        scrollController: scrollController,
+                        topBorderRadius: 24.0 * (1.0 - fadeFraction),
+                        summary: widget.summary,
+                        categories: widget.categories,
+                        isCreatingBudget: widget.isCreatingBudget,
+                        onSectionSelected: widget.onSectionSelected,
+                        onCreateBudget: widget.onCreateBudget,
+                        onOpenCategory: widget.onOpenCategory,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Pinned header — profile + notification bell (76px)
+// ─────────────────────────────────────────────────────────
+
+class _BudgetPinnedHeader extends StatelessWidget {
+  const _BudgetPinnedHeader({required this.backgroundProgress});
+
+  final double backgroundProgress;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final CrossAxisAlignment crossAxisAlignment =
-        alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final Alignment alignment =
-        alignEnd ? Alignment.centerRight : Alignment.centerLeft;
 
-    return Column(
-      crossAxisAlignment: crossAxisAlignment,
+    return Stack(
       children: <Widget>[
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: c.muted,
-                fontWeight: FontWeight.w600,
-              ),
+        Positioned.fill(
+          child: Opacity(
+            opacity: backgroundProgress,
+            child: ColoredBox(color: c.surfaceBase),
+          ),
         ),
-        const SizedBox(height: PayaboSpacing.xs),
-        Align(
-          alignment: alignment,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              valueLabel,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: valueColor,
-                    fontWeight: FontWeight.w700,
-                  ),
+        const Positioned.fill(
+          child: PayaboAppHeader(
+            padding: EdgeInsets.fromLTRB(
+              PayaboSpacing.xl,
+              PayaboSpacing.md,
+              PayaboSpacing.xl,
+              0,
             ),
           ),
         ),
@@ -415,35 +540,268 @@ class _BudgetSummaryMetric extends StatelessWidget {
   }
 }
 
-class _BudgetSectionIntro extends StatelessWidget {
-  const _BudgetSectionIntro({required this.summary});
+// ─────────────────────────────────────────────────────────
+//  Hero banner — budget summary on dark gradient
+// ─────────────────────────────────────────────────────────
+
+class _BudgetHeroBanner extends StatelessWidget {
+  const _BudgetHeroBanner({
+    required this.summary,
+    this.bottomPadding = 40,
+  });
 
   final SpendingBudgetSummary summary;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          0,
+          PayaboSpacing.xl,
+          bottomPadding,
+        ),
+        child: Align(
+          alignment: Alignment.bottomLeft,
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints box) {
+              final bool compact = box.maxHeight < 190;
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // ── Month label + status pill ──
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        summary.monthLabel,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: PayaboSpacing.sm),
+                      _BudgetStatusPill(
+                        label: summary.statusLabel,
+                        foregroundColor:
+                            summary.statusColorRole.resolve(c),
+                      ),
+                    ],
+                  ),
+                  SizedBox(
+                    height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
+                  ),
+
+                  // ── Total budget amount ──
+                  Text(
+                    formatSpendingBudgetCurrency(summary.totalBudget),
+                    style: (compact
+                            ? textTheme.headlineLarge
+                            : textTheme.displaySmall)
+                        ?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                  SizedBox(
+                    height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
+                  ),
+
+                  // ── Left to spend · Used so far ──
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        summary.leftToSpendLabel,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: summary.leftToSpendColorRole
+                              .resolve(c)
+                              .withValues(alpha: 0.9),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '  left',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(width: PayaboSpacing.lg),
+                      Text(
+                        formatSpendingBudgetCurrency(summary.totalSpent),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '  used',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: PayaboSpacing.md),
+
+                  // ── Progress bar ──
+                  _BudgetProgressBar(
+                    value: summary.progress,
+                    color: summary.statusColorRole.resolve(c),
+                    trackColor: Colors.white.withValues(alpha: 0.15),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Sheet — section pills + category list
+// ─────────────────────────────────────────────────────────
+
+class _BudgetSheet extends StatelessWidget {
+  const _BudgetSheet({
+    required this.scrollController,
+    required this.summary,
+    required this.categories,
+    required this.isCreatingBudget,
+    required this.onSectionSelected,
+    required this.onCreateBudget,
+    required this.onOpenCategory,
+    this.topBorderRadius = 24.0,
+  });
+
+  final ScrollController scrollController;
+  final SpendingBudgetSummary summary;
+  final List<SpendingBudgetCategory> categories;
+  final bool isCreatingBudget;
+  final ValueChanged<SpendingSection> onSectionSelected;
+  final VoidCallback onCreateBudget;
+  final ValueChanged<String> onOpenCategory;
+  final double topBorderRadius;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            'Category budgets',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: c.accentBrown,
-                  fontWeight: FontWeight.w700,
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: c.surfaceBase,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(topBorderRadius),
+          topRight: Radius.circular(topBorderRadius),
+        ),
+        boxShadow: topBorderRadius > 0
+            ? <BoxShadow>[
+                BoxShadow(
+                  color:
+                      Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, -4),
                 ),
+              ]
+            : const <BoxShadow>[],
+      ),
+      child: ListView(
+        controller: scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          PayaboSpacing.md,
+          PayaboSpacing.xl,
+          PayaboSpacing.x4,
+        ),
+        children: <Widget>[
+          // ── Drag handle ──
+          Center(
+            child: Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
+                color: c.borderStrong,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: PayaboSpacing.md),
-        _BudgetStatusPill(
-          label: '${summary.categoryCount} active',
-          foregroundColor: c.primary,
-        ),
-      ],
+          const SizedBox(height: PayaboSpacing.lg),
+
+          // ── Section pills ──
+          SpendingSectionPills(
+            selectedSection: SpendingSection.budgets,
+            sections: _visibleSpendingSections,
+            onSelected: onSectionSelected,
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+
+          // ── Section heading ──
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Category budgets',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: c.accentBrown,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              _BudgetStatusPill(
+                label: '${summary.categoryCount} active',
+                foregroundColor: c.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: PayaboSpacing.sm),
+
+          // ── Category rows ──
+          for (int i = 0; i < categories.length; i++) ...[
+            _BudgetCategoryCard(
+              category: categories[i],
+              onOpen: () => onOpenCategory(categories[i].id),
+            ),
+            if (i < categories.length - 1)
+              Divider(
+                height: 1,
+                color: c.borderStrong.withValues(alpha: 0.3),
+              ),
+          ],
+          const SizedBox(height: PayaboSpacing.lg),
+
+          // ── Create button ──
+          Center(
+            child: PayaboButton(
+              key: const Key('budget-create-new'),
+              label: isCreatingBudget ? 'Creating\u2026' : 'Create new budget',
+              variant: PayaboButtonVariant.secondary,
+              size: PayaboButtonSize.lg,
+              leading: const Icon(Icons.add_rounded, size: 20),
+              onPressed: isCreatingBudget ? null : onCreateBudget,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────
+//  Category row — mirrors transaction row styling
+// ─────────────────────────────────────────────────────────
 
 class _BudgetCategoryCard extends StatelessWidget {
   const _BudgetCategoryCard({
@@ -462,128 +820,106 @@ class _BudgetCategoryCard extends StatelessWidget {
       spent: category.spent,
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surfaceBase,
-        borderRadius: BorderRadius.circular(PayaboRadii.xl),
-        border: Border.all(color: c.spendingQuickActionBorder),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: Key('budget-card-${category.id}'),
-          onTap: onOpen,
-          borderRadius: BorderRadius.circular(PayaboRadii.xl),
-          child: Padding(
-            padding: const EdgeInsets.all(PayaboSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final theme = Theme.of(context);
+
+    return InkWell(
+      key: Key('budget-card-${category.id}'),
+      onTap: onOpen,
+      borderRadius: PayaboRadii.radiusSm,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
+        child: Row(
+          children: <Widget>[
+            // ── Icon ─────────────────────────────
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c.isDark
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : c.spendingMerchantIconWarmSurface,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                category.icon,
+                color: c.spendingMerchantIconDark,
+                size: 18,
+              ),
+            ),
+
+            const SizedBox(width: PayaboSpacing.md),
+
+            // ── Name + progress bar ──────────────
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    category.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _BudgetProgressBar(
+                    value: state.progress,
+                    color: state.progressColorRole.resolve(c),
+                    slim: true,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: PayaboSpacing.md),
+
+            // ── Amount + remaining ───────────────
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    _BudgetCategoryIcon(
-                      icon: category.icon,
-                      color: category.accentRole.resolve(c),
-                    ),
-                    const SizedBox(width: PayaboSpacing.md),
-                    Expanded(
-                      child: Text(
-                        category.name,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: c.accentBrown,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                      ),
-                    ),
-                    const SizedBox(width: PayaboSpacing.sm),
-                    Text.rich(
-                      TextSpan(
-                        children: <InlineSpan>[
-                          TextSpan(
-                            text: formatSpendingBudgetCurrency(
-                                category.allocated),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: c.accentBrown,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          TextSpan(
-                            text: '  ·  ',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(color: c.muted),
-                          ),
-                          TextSpan(
-                            text: state.remainingLabel,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color:
-                                      state.remainingColorRole.resolve(c),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  formatSpendingBudgetCurrency(category.allocated),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
-                const SizedBox(height: PayaboSpacing.md),
-                _BudgetProgressBar(
-                  value: state.progress,
-                  color: state.progressColorRole.resolve(c),
-                  slim: true,
+                const SizedBox(height: 2),
+                Text(
+                  state.remainingLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: state.remainingColorRole.resolve(c),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _BudgetCategoryIcon extends StatelessWidget {
-  const _BudgetCategoryIcon({
-    required this.icon,
-    required this.color,
-  });
-
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: color, size: 24),
-    );
-  }
-}
+// ─────────────────────────────────────────────────────────
+//  Shared small widgets
+// ─────────────────────────────────────────────────────────
 
 class _BudgetProgressBar extends StatelessWidget {
   const _BudgetProgressBar({
     required this.value,
     required this.color,
     this.slim = false,
+    this.trackColor,
   });
 
   final double value;
   final Color color;
   final bool slim;
+  final Color? trackColor;
 
   @override
   Widget build(BuildContext context) {
@@ -594,7 +930,7 @@ class _BudgetProgressBar extends StatelessWidget {
       child: LinearProgressIndicator(
         minHeight: slim ? 6 : 10,
         value: value.clamp(0, 1),
-        backgroundColor: c.border,
+        backgroundColor: trackColor ?? c.border,
         valueColor: AlwaysStoppedAnimation<Color>(color),
       ),
     );

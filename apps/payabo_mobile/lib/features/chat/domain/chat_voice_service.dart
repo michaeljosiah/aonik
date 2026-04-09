@@ -415,7 +415,11 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _log('stopSpeaking requested');
     _ttsStopRequested = true;
     _cancelActiveTtsRequest();
-    await _speechPlayer.stop();
+    try {
+      await _speechPlayer.stop();
+    } catch (_) {
+      // Player may not have been created yet — safe to ignore.
+    }
     await _flutterTts.stop();
     await _deleteActiveSpeechFile();
     _log('stopSpeaking completed');
@@ -432,9 +436,13 @@ class DeviceChatVoiceService implements ChatVoiceService {
     _thinkingLoopActive = false;
     _thinkingLoopStopping = false;
     _thinkingLoopVolume = 0;
-    await _thinkingLoopPlayer.dispose();
+    try {
+      await _thinkingLoopPlayer.dispose();
+    } catch (_) {}
     _cancelActiveTtsRequest();
-    await _speechPlayer.dispose();
+    try {
+      await _speechPlayer.dispose();
+    } catch (_) {}
     await _flutterTts.stop();
     await _deleteActiveSpeechFile();
     _log('dispose complete');

@@ -139,14 +139,16 @@ public class ProfilePhotoStore : IProfilePhotoStore
 
     public string GetPhotoUrl(string blobPath)
     {
+        var normalizedPath = blobPath.TrimStart('/');
+
         if (!string.IsNullOrWhiteSpace(_contentTypeOptions.PublicBaseUrl))
         {
-            return $"{_contentTypeOptions.PublicBaseUrl.TrimEnd('/')}/{blobPath}";
+            return $"{_contentTypeOptions.PublicBaseUrl.TrimEnd('/')}/{normalizedPath}";
         }
 
         // For local storage, return path that will be served by static file middleware
         // Static files are served from /storage/profiles
-        return $"/storage/profiles/{blobPath}";
+        return $"/storage/profiles/{normalizedPath}";
     }
 
     private async Task WriteBlobAsync(string blobPath, Stream stream, CancellationToken cancellationToken)

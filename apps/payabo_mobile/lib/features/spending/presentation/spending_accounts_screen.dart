@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,12 +12,11 @@ import '../../../data/repositories/repository_providers.dart';
 import '../../../shared/reference/payabo_country_reference.dart';
 import '../../../shared/theme/payabo_color_resolver.dart';
 import '../../../shared/theme/payabo_radii.dart';
-import '../../../shared/theme/payabo_shadows.dart';
 import '../../../shared/theme/payabo_spacing.dart';
 import '../../../shared/widgets/payabo_app_header.dart';
 import '../../../shared/widgets/payabo_button.dart';
-import '../../../shared/widgets/payabo_card.dart';
 import '../../../shared/widgets/payabo_primary_app_shell.dart';
+import '../../../shared/widgets/payabo_warm_scaffold.dart';
 import 'account_link_connect_sheet.dart';
 import 'spending_accounts_state.dart';
 import 'widgets/spending_section_pills.dart';
@@ -26,11 +28,26 @@ const List<SpendingSection> _visibleSpendingSections = <SpendingSection>[
   SpendingSection.accounts,
 ];
 
-class SpendingAccountsScreen extends ConsumerWidget {
+class SpendingAccountsScreen extends ConsumerStatefulWidget {
   const SpendingAccountsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SpendingAccountsScreen> createState() =>
+      _SpendingAccountsScreenState();
+}
+
+class _SpendingAccountsScreenState
+    extends ConsumerState<SpendingAccountsScreen> {
+  final ValueNotifier<double> _statusBarProgress = ValueNotifier<double>(0.0);
+
+  @override
+  void dispose() {
+    _statusBarProgress.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final c = context.colors;
     final AsyncValue<AccountLinksSummary> summaryValue =
         ref.watch(accountLinksSummaryProvider);
@@ -40,139 +57,120 @@ class SpendingAccountsScreen extends ConsumerWidget {
         ref.watch(demoDataModeProvider) == DemoDataMode.fresh;
     final bool isRefreshingSummary = summaryValue.isRefreshing;
 
-    return Scaffold(
-      backgroundColor: c.surfaceWarm,
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: c.warmScreenGradient,
-        ),
-        child: SafeArea(
-          child: Column(
+    return summaryValue.when(
+      data: (AccountLinksSummary summary) {
+        if (!summary.hasAccounts) {
+          return Scaffold(
+            backgroundColor: c.surfaceWarm,
+            body: _AccountsEmptyLayout(
+              isFreshDemo: isFreshDemo,
+              onSectionSelected: _handleSectionSelected,
+              onConnectTap: () => _showConnectSheet(context, ref),
+              onUploadTap: () => _showUploadMessage(context),
+              onAddManualTap: () => _showManualMessage(context),
+            ),
+            bottomNavigationBar: const PayaboPrimaryAppShell(
+              destination: PayaboPrimaryDestination.spending,
+            ),
+          );
+        }
+
+        return PayaboWarmScaffold(
+          backgroundDecoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: c.isDark
+                  ? const <Color>[Color(0xFF1A1A1A), Color(0xFF121212)]
+                  : const <Color>[Color(0xFF2C1810), Color(0xFF1A0E08)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          statusBarColorNotifier: _statusBarProgress,
+          bottomNavigationBar: const PayaboPrimaryAppShell(
+            destination: PayaboPrimaryDestination.spending,
+          ),
+          body: Stack(
+            fit: StackFit.expand,
             children: <Widget>[
-              _AccountsHeader(
-                onSectionSelected: (SpendingSection section) =>
-                    _handleSectionSelected(context, section),
-                onNotificationsTap: () => context.push('/notifications'),
-                onProfileTap: () => context.go('/profile'),
+              _AccountsHeroAndSheet(
+                summary: summary,
+                flowState: flowState,
+                onSectionSelected: _handleSectionSelected,
+                onConnectTap: () => _showConnectSheet(context, ref),
+                onUploadTap: () => _showUploadMessage(context),
+                onAddManualTap: () => _showManualMessage(context),
+                onReconnectTap: (AccountLinkItem item) =>
+                    _handleReconnect(context, ref, item),
+                onRefreshTap: (AccountLinkItem item) =>
+                    _handleRefresh(context, ref, item),
+                onDisconnectTap: (AccountLinkItem item) =>
+                    _handleDisconnect(context, ref, item),
+                onDeleteTap: (AccountLinkItem item) =>
+                    _handleDeleteManualAccount(context, ref, item),
+                onManageTap: (AccountLinkItem item) =>
+                    _showManageMessage(context, item),
+                onRefreshAll: () async {
+                  ref.invalidate(accountLinksSummaryProvider);
+                  await ref.read(accountLinksSummaryProvider.future);
+                },
+                onSheetExtentChanged: (double extent) {
+                  _statusBarProgress.value = extent;
+                },
               ),
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: <Widget>[
-                    summaryValue.when(
-                      data: (AccountLinksSummary summary) {
-                        return RefreshIndicator(
-                          onRefresh: () async {
-                            ref.invalidate(accountLinksSummaryProvider);
-                            await ref.read(accountLinksSummaryProvider.future);
-                          },
-                          child: ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(
-                              PayaboSpacing.xl,
-                              PayaboSpacing.md,
-                              PayaboSpacing.xl,
-                              PayaboSpacing.x4,
-                            ),
-                            children: <Widget>[
-                              _AccountsHeroCard(
-                                summary: summary,
-                                isFreshDemo: isFreshDemo,
-                                onConnectTap: () {
-                                  _showConnectSheet(context, ref);
-                                },
-                              ),
-                              const SizedBox(height: PayaboSpacing.lg),
-                              _QuickActionsRow(
-                                onConnectTap: () {
-                                  _showConnectSheet(context, ref);
-                                },
-                                onUploadTap: () => _showUploadMessage(context),
-                                onAddManualTap: () =>
-                                    _showManualMessage(context),
-                              ),
-                              const SizedBox(height: PayaboSpacing.xl),
-                              if (!summary.hasAccounts)
-                                isFreshDemo
-                                    ? const _FreshAccountsStateCard()
-                                    : const _UnlinkedAccountsStateCard()
-                              else ...<Widget>[
-                                const _AccountsSectionHeading(
-                                  title: 'Accounts in Spend',
-                                  subtitle:
-                                      'Linked and manual sources powering budgets, categories, and merchant views.',
-                                ),
-                                const SizedBox(height: PayaboSpacing.md),
-                                ...summary.accounts.map(
-                                  (AccountLinkItem item) => Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: PayaboSpacing.md,
-                                    ),
-                                    child: _AccountLinkCard(
-                                      item: item,
-                                      isBusy: flowState.isSubmitting &&
-                                          flowState.activeConnectionId ==
-                                              item.connectionId,
-                                      onReconnectTap: () => _handleReconnect(
-                                        context,
-                                        ref,
-                                        item,
-                                      ),
-                                      onRefreshTap: () =>
-                                          _handleRefresh(context, ref, item),
-                                      onDisconnectTap: () => _handleDisconnect(
-                                        context,
-                                        ref,
-                                        item,
-                                      ),
-                                      onDeleteTap: () =>
-                                          _handleDeleteManualAccount(
-                                        context,
-                                        ref,
-                                        item,
-                                      ),
-                                      onManageTap: () =>
-                                          _showManageMessage(context, item),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: PayaboSpacing.xl),
-                              const _AccountsExplainerCard(),
-                            ],
-                          ),
-                        );
-                      },
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (Object error, StackTrace stackTrace) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(PayaboSpacing.xl),
-                            child: _AccountsLoadErrorCard(
-                              message: error.toString(),
-                              onRetry: () =>
-                                  ref.invalidate(accountLinksSummaryProvider),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    if (isRefreshingSummary) const _AccountsRefreshingOverlay(),
-                  ],
-                ),
-              ),
+              if (isRefreshingSummary) const _AccountsRefreshingOverlay(),
             ],
           ),
+        );
+      },
+      loading: () => Scaffold(
+        backgroundColor: c.surfaceWarm,
+        body: const Center(child: CircularProgressIndicator()),
+        bottomNavigationBar: const PayaboPrimaryAppShell(
+          destination: PayaboPrimaryDestination.spending,
         ),
       ),
-      bottomNavigationBar: const PayaboPrimaryAppShell(
-        destination: PayaboPrimaryDestination.spending,
-      ),
+      error: (Object error, StackTrace stackTrace) {
+        return Scaffold(
+          backgroundColor: c.surfaceWarm,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(PayaboSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 48,
+                    color: c.muted,
+                  ),
+                  const SizedBox(height: PayaboSpacing.md),
+                  Text(
+                    'Unable to load accounts right now.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: c.muted),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: PayaboSpacing.lg),
+                  TextButton(
+                    onPressed: () =>
+                        ref.invalidate(accountLinksSummaryProvider),
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          bottomNavigationBar: const PayaboPrimaryAppShell(
+            destination: PayaboPrimaryDestination.spending,
+          ),
+        );
+      },
     );
   }
 
-  void _handleSectionSelected(BuildContext context, SpendingSection section) {
+  void _handleSectionSelected(SpendingSection section) {
     switch (section) {
       case SpendingSection.overview:
         context.go('/spending/overview');
@@ -491,160 +489,125 @@ class SpendingAccountsScreen extends ConsumerWidget {
   }
 }
 
-class _AccountsHeader extends StatelessWidget {
-  const _AccountsHeader({
-    required this.onSectionSelected,
-    required this.onNotificationsTap,
-    required this.onProfileTap,
-  });
+// ─────────────────────────────────────────────────────────
+//  Empty state — full screen, no hero/sheet
+// ─────────────────────────────────────────────────────────
 
-  final ValueChanged<SpendingSection> onSectionSelected;
-  final VoidCallback onNotificationsTap;
-  final VoidCallback onProfileTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return PayaboAppHeader(
-      title: 'Spend',
-      titleStyle: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: c.accentBrown,
-          ),
-      onNotificationsTap: onNotificationsTap,
-      onProfileTap: onProfileTap,
-      bottom: SpendingSectionPills(
-        selectedSection: SpendingSection.accounts,
-        sections: _visibleSpendingSections,
-        onSelected: onSectionSelected,
-      ),
-    );
-  }
-}
-
-class _AccountsHeroCard extends StatelessWidget {
-  const _AccountsHeroCard({
-    required this.summary,
+class _AccountsEmptyLayout extends StatelessWidget {
+  const _AccountsEmptyLayout({
     required this.isFreshDemo,
+    required this.onSectionSelected,
     required this.onConnectTap,
+    required this.onUploadTap,
+    required this.onAddManualTap,
   });
 
-  final AccountLinksSummary summary;
   final bool isFreshDemo;
+  final ValueChanged<SpendingSection> onSectionSelected;
   final VoidCallback onConnectTap;
+  final VoidCallback onUploadTap;
+  final VoidCallback onAddManualTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final String description;
+    final theme = Theme.of(context);
 
-    if (isFreshDemo) {
-      description =
-          'Fresh demo mode starts this hub blank so you can plan your first secure account connection.';
-    } else if (!summary.hasAccounts) {
-      description =
-          'Connect a bank once to keep budgets, merchants, and spend insights closer to real life.';
-    } else if (summary.attentionCount > 0) {
-      description =
-          '${summary.attentionCount} account${summary.attentionCount == 1 ? '' : 's'} need attention before sync can fully resume.';
-    } else {
-      description =
-          'Your linked and manual accounts are ready to feed richer spending coverage across Payabo.';
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surfaceCardElevated,
-        borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(color: c.spendingQuickActionBorder),
-        boxShadow: c.isDark ? PayaboShadows.soft : PayaboShadows.soft,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(PayaboSpacing.xl),
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: c.warmScreenGradient),
+      child: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
+            PayaboAppHeader(
+              title: 'Spend',
+              titleStyle: theme.textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: c.accentBrown,
+                  ),
+              bottom: SpendingSectionPills(
+                selectedSection: SpendingSection.accounts,
+                sections: _visibleSpendingSections,
+                onSelected: onSectionSelected,
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(PayaboSpacing.x4),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(
-                        'Connected accounts',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: c.accentBrownMuted,
-                                ),
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: c.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.account_balance_outlined,
+                          size: 36,
+                          color: c.primary,
+                        ),
                       ),
-                      const SizedBox(height: PayaboSpacing.xs),
+                      const SizedBox(height: PayaboSpacing.xl),
                       Text(
-                        description,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: c.muted,
-                              height: 1.45,
+                        isFreshDemo
+                            ? 'Fresh accounts state'
+                            : 'No linked accounts yet',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: c.accentBrown,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: PayaboSpacing.sm),
+                      Text(
+                        isFreshDemo
+                            ? 'Fresh demo mode starts this hub blank so you can plan your first secure account connection.'
+                            : 'Connect a bank or add a manual account to widen spend coverage.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: c.muted,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: PayaboSpacing.xl),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PayaboButton(
+                          label: 'Connect bank account',
+                          leading:
+                              const Icon(Icons.add_link_outlined, size: 18),
+                          onPressed: onConnectTap,
+                        ),
+                      ),
+                      const SizedBox(height: PayaboSpacing.sm),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: PayaboButton(
+                              label: 'Upload statement',
+                              variant: PayaboButtonVariant.link,
+                              leading: const Icon(Icons.upload_file_outlined,
+                                  size: 18),
+                              onPressed: onUploadTap,
                             ),
+                          ),
+                          const SizedBox(width: PayaboSpacing.sm),
+                          Expanded(
+                            child: PayaboButton(
+                              label: 'Add manual',
+                              variant: PayaboButtonVariant.link,
+                              leading: const Icon(Icons.edit_note_outlined,
+                                  size: 18),
+                              onPressed: onAddManualTap,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: PayaboSpacing.md),
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: c.primary.withValues(alpha: c.isDark ? 0.14 : 0.12),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Icon(
-                    Icons.account_balance_outlined,
-                    color: c.primary,
-                    size: 28,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.xl),
-            Text(
-              '${summary.linkedCount}',
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    color: c.accentBrown,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: PayaboSpacing.xs),
-            Text(
-              'linked account${summary.linkedCount == 1 ? '' : 's'} ready for Spend',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: c.accentBrownMuted,
-                  ),
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Wrap(
-              spacing: PayaboSpacing.sm,
-              runSpacing: PayaboSpacing.sm,
-              children: <Widget>[
-                _MetricChip(label: 'Linked', value: '${summary.linkedCount}'),
-                _MetricChip(label: 'Manual', value: '${summary.manualCount}'),
-                _MetricChip(
-                  label: 'Needs attention',
-                  value: '${summary.attentionCount}',
-                  valueColor:
-                      summary.attentionCount > 0 ? c.warning : c.accentBrown,
-                ),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: PayaboButton(
-                key: const Key('accounts-connect-primary'),
-                label: 'Connect bank account',
-                leading: const Icon(Icons.add_link_outlined, size: 18),
-                onPressed: onConnectTap,
               ),
             ),
           ],
@@ -654,118 +617,236 @@ class _AccountsHeroCard extends StatelessWidget {
   }
 }
 
-class _MetricChip extends StatelessWidget {
-  const _MetricChip({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+// ─────────────────────────────────────────────────────────
+//  Hero + Pinned Header + DraggableScrollableSheet
+// ─────────────────────────────────────────────────────────
 
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarm,
-        borderRadius: BorderRadius.circular(PayaboRadii.pill),
-        border: Border.all(color: c.spendingQuickActionBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: PayaboSpacing.md,
-          vertical: PayaboSpacing.sm,
-        ),
-        child: RichText(
-          text: TextSpan(
-            children: <InlineSpan>[
-              TextSpan(
-                text: '$label ',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: c.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              TextSpan(
-                text: value,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: valueColor ?? c.accentBrown,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionsRow extends StatelessWidget {
-  const _QuickActionsRow({
+class _AccountsHeroAndSheet extends StatefulWidget {
+  const _AccountsHeroAndSheet({
+    required this.summary,
+    required this.flowState,
+    required this.onSectionSelected,
     required this.onConnectTap,
     required this.onUploadTap,
     required this.onAddManualTap,
+    required this.onReconnectTap,
+    required this.onRefreshTap,
+    required this.onDisconnectTap,
+    required this.onDeleteTap,
+    required this.onManageTap,
+    required this.onRefreshAll,
+    this.onSheetExtentChanged,
   });
 
+  static const double _maxSheetSize = 1.0;
+  static const double _pinnedHeaderHeight = 76;
+  static const double _sheetTopGap = 10;
+  static const double _minHeroHeight = 200;
+  static const double _maxHeroHeight = 248;
+
+  final AccountLinksSummary summary;
+  final AccountLinkFlowState flowState;
+  final ValueChanged<SpendingSection> onSectionSelected;
   final VoidCallback onConnectTap;
   final VoidCallback onUploadTap;
   final VoidCallback onAddManualTap;
+  final ValueChanged<AccountLinkItem> onReconnectTap;
+  final ValueChanged<AccountLinkItem> onRefreshTap;
+  final ValueChanged<AccountLinkItem> onDisconnectTap;
+  final ValueChanged<AccountLinkItem> onDeleteTap;
+  final ValueChanged<AccountLinkItem> onManageTap;
+  final Future<void> Function() onRefreshAll;
+  final ValueChanged<double>? onSheetExtentChanged;
+
+  @override
+  State<_AccountsHeroAndSheet> createState() => _AccountsHeroAndSheetState();
+}
+
+class _AccountsHeroAndSheetState extends State<_AccountsHeroAndSheet> {
+  late final DraggableScrollableController _sheetController;
+  late final ValueNotifier<double> _sheetExtentNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _sheetController = DraggableScrollableController();
+    _sheetExtentNotifier = ValueNotifier<double>(0);
+    _sheetController.addListener(_syncSheetExtent);
+  }
+
+  void _syncSheetExtent() {
+    if (!_sheetController.isAttached) return;
+
+    final double nextExtent = _sheetController.size;
+    if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
+      final SchedulerPhase phase = WidgetsBinding.instance.schedulerPhase;
+
+      if (phase == SchedulerPhase.idle ||
+          phase == SchedulerPhase.postFrameCallbacks) {
+        _sheetExtentNotifier.value = nextExtent;
+        widget.onSheetExtentChanged?.call(nextExtent);
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_sheetController.isAttached) return;
+        if ((_sheetExtentNotifier.value - nextExtent).abs() > 0.001) {
+          _sheetExtentNotifier.value = nextExtent;
+          widget.onSheetExtentChanged?.call(nextExtent);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _sheetController.removeListener(_syncSheetExtent);
+    _sheetController.dispose();
+    _sheetExtentNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool stack = constraints.maxWidth < 960;
-        final List<Widget> actions = <Widget>[
-          PayaboButton(
-            key: const Key('accounts-connect-quick-action'),
-            label: 'Connect bank',
-            variant: PayaboButtonVariant.secondary,
-            expand: true,
-            leading: const Icon(Icons.account_balance_outlined, size: 18),
-            onPressed: onConnectTap,
-          ),
-          PayaboButton(
-            label: 'Upload statement',
-            variant: PayaboButtonVariant.link,
-            expand: true,
-            leading: const Icon(Icons.upload_file_outlined, size: 18),
-            onPressed: onUploadTap,
-          ),
-          PayaboButton(
-            label: 'Add manual',
-            variant: PayaboButtonVariant.link,
-            expand: true,
-            leading: const Icon(Icons.edit_note_outlined, size: 18),
-            onPressed: onAddManualTap,
-          ),
-        ];
+        final double viewportHeight =
+            constraints.maxHeight.isFinite ? constraints.maxHeight : 640;
 
-        if (stack) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              actions[0],
-              const SizedBox(height: PayaboSpacing.sm),
-              actions[1],
-              const SizedBox(height: PayaboSpacing.sm),
-              actions[2],
-            ],
-          );
-        }
+        final double heroHeight = math.min(
+          _AccountsHeroAndSheet._maxHeroHeight,
+          math.max(
+            _AccountsHeroAndSheet._minHeroHeight,
+            viewportHeight * 0.37,
+          ),
+        );
 
-        return Row(
+        const double pinnedHeaderHeight =
+            _AccountsHeroAndSheet._pinnedHeaderHeight;
+        const double pinnedSheetTop =
+            pinnedHeaderHeight + _AccountsHeroAndSheet._sheetTopGap;
+
+        final double sheetViewportHeight =
+            math.max(1, viewportHeight - pinnedHeaderHeight);
+
+        final double collapsedSheetTop = math.max(
+          pinnedSheetTop + 164,
+          heroHeight + PayaboSpacing.sm,
+        );
+
+        final double initialSheetSize = (1 -
+                ((collapsedSheetTop - pinnedHeaderHeight) /
+                    sheetViewportHeight))
+            .clamp(0.62, 0.76)
+            .toDouble();
+        final double minSheetSize =
+            (initialSheetSize - 0.10).clamp(0.56, initialSheetSize).toDouble();
+
+        final double heroBottomPadding = math.max(
+          40,
+          heroHeight - collapsedSheetTop + 28,
+        );
+
+        return Stack(
           children: <Widget>[
-            Expanded(child: actions[0]),
-            const SizedBox(width: PayaboSpacing.sm),
-            Expanded(child: actions[1]),
-            const SizedBox(width: PayaboSpacing.sm),
-            Expanded(child: actions[2]),
+            // ── LAYER 1: Hero banner ──
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: heroHeight,
+              child: _AccountsHeroBanner(
+                summary: widget.summary,
+                bottomPadding: heroBottomPadding,
+              ),
+            ),
+
+            // ── LAYER 2: Pinned header (profile + bell, 76px) ──
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: pinnedHeaderHeight,
+              child: ValueListenableBuilder<double>(
+                valueListenable: _sheetExtentNotifier,
+                builder: (
+                  BuildContext context,
+                  double sheetExtent,
+                  Widget? _,
+                ) {
+                  final double eff =
+                      (sheetExtent <= 0 ? initialSheetSize : sheetExtent)
+                          .clamp(
+                            minSheetSize,
+                            _AccountsHeroAndSheet._maxSheetSize,
+                          )
+                          .toDouble();
+                  const double fadeZone = 0.05;
+                  final double fadeStart = math.max(
+                    0.0,
+                    _AccountsHeroAndSheet._maxSheetSize - fadeZone,
+                  );
+                  final double bgProgress = Curves.easeOut.transform(
+                    ((eff - fadeStart) / fadeZone).clamp(0.0, 1.0).toDouble(),
+                  );
+                  return _AccountsPinnedHeader(
+                    backgroundProgress: bgProgress,
+                  );
+                },
+              ),
+            ),
+
+            // ── LAYER 3: Draggable sheet — pills + account list ──
+            Positioned(
+              top: pinnedHeaderHeight,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: DraggableScrollableSheet(
+                controller: _sheetController,
+                initialChildSize: initialSheetSize,
+                minChildSize: minSheetSize,
+                maxChildSize: _AccountsHeroAndSheet._maxSheetSize,
+                snap: true,
+                snapSizes: <double>[
+                  initialSheetSize,
+                  _AccountsHeroAndSheet._maxSheetSize,
+                ],
+                builder: (
+                  BuildContext context,
+                  ScrollController scrollController,
+                ) {
+                  return ValueListenableBuilder<double>(
+                    valueListenable: _sheetExtentNotifier,
+                    builder: (
+                      BuildContext context,
+                      double extent,
+                      Widget? child,
+                    ) {
+                      const double fadeZone = 0.05;
+                      final double fadeFraction = ((extent -
+                                  (_AccountsHeroAndSheet._maxSheetSize -
+                                      fadeZone)) /
+                              fadeZone)
+                          .clamp(0.0, 1.0);
+                      return _AccountsSheet(
+                        scrollController: scrollController,
+                        topBorderRadius: 24.0 * (1.0 - fadeFraction),
+                        summary: widget.summary,
+                        flowState: widget.flowState,
+                        onSectionSelected: widget.onSectionSelected,
+                        onConnectTap: widget.onConnectTap,
+                        onReconnectTap: widget.onReconnectTap,
+                        onRefreshTap: widget.onRefreshTap,
+                        onDisconnectTap: widget.onDisconnectTap,
+                        onDeleteTap: widget.onDeleteTap,
+                        onManageTap: widget.onManageTap,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
           ],
         );
       },
@@ -773,233 +854,298 @@ class _QuickActionsRow extends StatelessWidget {
   }
 }
 
-class _AccountsSectionHeading extends StatelessWidget {
-  const _AccountsSectionHeading({
-    required this.title,
-    required this.subtitle,
-  });
+// ─────────────────────────────────────────────────────────
+//  Pinned header — profile + notification bell (76px)
+// ─────────────────────────────────────────────────────────
 
-  final String title;
-  final String subtitle;
+class _AccountsPinnedHeader extends StatelessWidget {
+  const _AccountsPinnedHeader({required this.backgroundProgress});
+
+  final double backgroundProgress;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: <Widget>[
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: c.accentBrown,
-                fontWeight: FontWeight.w700,
-              ),
+        Positioned.fill(
+          child: Opacity(
+            opacity: backgroundProgress,
+            child: ColoredBox(color: c.surfaceBase),
+          ),
         ),
-        const SizedBox(height: PayaboSpacing.xs),
-        Text(
-          subtitle,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: c.accentBrownMuted,
-              ),
+        const Positioned.fill(
+          child: PayaboAppHeader(
+            padding: EdgeInsets.fromLTRB(
+              PayaboSpacing.xl,
+              PayaboSpacing.md,
+              PayaboSpacing.xl,
+              0,
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _UnlinkedAccountsStateCard extends StatelessWidget {
-  const _UnlinkedAccountsStateCard();
+// ─────────────────────────────────────────────────────────
+//  Hero banner — account summary on dark gradient
+// ─────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarmElevated,
-        borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(color: c.spendingQuickActionBorder),
-        boxShadow: PayaboShadows.soft,
-      ),
-      padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: c.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              Icons.link_outlined,
-              color: c.primary,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'No linked accounts yet',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: c.accentBrown,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          Text(
-            'Connect a bank or add a manual account to widen spend coverage, improve merchant rollups, and keep budgets closer to reality.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: c.muted,
-                  height: 1.45,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          const _SetupStepRow(
-            icon: Icons.account_balance_outlined,
-            title: 'Link a bank securely',
-            subtitle:
-                'Use a provider-backed session without exposing credentials in the app.',
-          ),
-          const SizedBox(height: PayaboSpacing.md),
-          const _SetupStepRow(
-            icon: Icons.insights_outlined,
-            title: 'Improve spending insight quality',
-            subtitle:
-                'Bring in richer category, merchant, and trend coverage for Spend.',
-          ),
-          const SizedBox(height: PayaboSpacing.md),
-          const _SetupStepRow(
-            icon: Icons.upload_file_outlined,
-            title: 'Fallback with statements or manual accounts',
-            subtitle:
-                'Keep the page useful before full live-bank linking is switched on.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FreshAccountsStateCard extends StatelessWidget {
-  const _FreshAccountsStateCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarmElevated,
-        borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(color: c.spendingQuickActionBorder),
-        boxShadow: PayaboShadows.soft,
-      ),
-      padding: const EdgeInsets.all(PayaboSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: c.primary.withValues(alpha: c.isDark ? 0.14 : 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              Icons.wallet_outlined,
-              color: c.primary,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'Fresh accounts state',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: c.accentBrown,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          Text(
-            'Fresh demo mode removes the seeded account showcase so this page starts empty and ready for your first secure connection or manual account.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: c.muted,
-                  height: 1.45,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          Text(
-            'Switch back to Populated demo data in Profile if you want to review linked-account examples again.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: c.chatTextSecondary,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SetupStepRow extends StatelessWidget {
-  const _SetupStepRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
+class _AccountsHeroBanner extends StatelessWidget {
+  const _AccountsHeroBanner({
+    required this.summary,
+    this.bottomPadding = 40,
   });
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
+  final AccountLinksSummary summary;
+  final double bottomPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          0,
+          PayaboSpacing.xl,
+          bottomPadding,
+        ),
+        child: Align(
+          alignment: Alignment.bottomLeft,
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints box) {
+              final bool compact = box.maxHeight < 190;
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  // ── Label ──
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        'Connected accounts',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (summary.attentionCount > 0) ...<Widget>[
+                        const SizedBox(width: PayaboSpacing.sm),
+                        _AccountStatusPill(
+                          label: '${summary.attentionCount} needs attention',
+                          foregroundColor: c.warning,
+                        ),
+                      ],
+                    ],
+                  ),
+                  SizedBox(
+                    height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
+                  ),
+
+                  // ── Account count as hero number ──
+                  Text(
+                    '${summary.linkedCount + summary.manualCount}',
+                    style: (compact
+                            ? textTheme.headlineLarge
+                            : textTheme.displaySmall)
+                        ?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                  SizedBox(
+                    height: compact ? PayaboSpacing.sm : PayaboSpacing.md,
+                  ),
+
+                  // ── Summary metrics ──
+                  Row(
+                    children: <Widget>[
+                      Text(
+                        '${summary.linkedCount} linked',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: PayaboSpacing.lg),
+                      Text(
+                        '${summary.manualCount} manual',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  Sheet — section pills + account list
+// ─────────────────────────────────────────────────────────
+
+class _AccountsSheet extends StatelessWidget {
+  const _AccountsSheet({
+    required this.scrollController,
+    required this.summary,
+    required this.flowState,
+    required this.onSectionSelected,
+    required this.onConnectTap,
+    required this.onReconnectTap,
+    required this.onRefreshTap,
+    required this.onDisconnectTap,
+    required this.onDeleteTap,
+    required this.onManageTap,
+    this.topBorderRadius = 24.0,
+  });
+
+  final ScrollController scrollController;
+  final AccountLinksSummary summary;
+  final AccountLinkFlowState flowState;
+  final ValueChanged<SpendingSection> onSectionSelected;
+  final VoidCallback onConnectTap;
+  final ValueChanged<AccountLinkItem> onReconnectTap;
+  final ValueChanged<AccountLinkItem> onRefreshTap;
+  final ValueChanged<AccountLinkItem> onDisconnectTap;
+  final ValueChanged<AccountLinkItem> onDeleteTap;
+  final ValueChanged<AccountLinkItem> onManageTap;
+  final double topBorderRadius;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: c.surfaceBase,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: c.spendingQuickActionBorder),
-          ),
-          child: Icon(icon, color: c.primary, size: 22),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: c.surfaceBase,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(topBorderRadius),
+          topRight: Radius.circular(topBorderRadius),
         ),
-        const SizedBox(width: PayaboSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: c.accentBrown,
-                      fontWeight: FontWeight.w700,
-                    ),
+        boxShadow: topBorderRadius > 0
+            ? <BoxShadow>[
+                BoxShadow(
+                  color:
+                      Colors.black.withValues(alpha: c.isDark ? 0.22 : 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, -4),
+                ),
+              ]
+            : const <BoxShadow>[],
+      ),
+      child: ListView(
+        controller: scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          PayaboSpacing.xl,
+          PayaboSpacing.md,
+          PayaboSpacing.xl,
+          PayaboSpacing.x4,
+        ),
+        children: <Widget>[
+          // ── Drag handle ──
+          Center(
+            child: Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
+                color: c.borderStrong,
+                borderRadius: BorderRadius.circular(999),
               ),
-              const SizedBox(height: PayaboSpacing.xxs),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: c.accentBrownMuted,
-                      height: 1.45,
-                    ),
+            ),
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+
+          // ── Section pills ──
+          SpendingSectionPills(
+            selectedSection: SpendingSection.accounts,
+            sections: _visibleSpendingSections,
+            onSelected: onSectionSelected,
+          ),
+          const SizedBox(height: PayaboSpacing.lg),
+
+          // ── Section heading ──
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Accounts in Spend',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: c.accentBrown,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              _AccountStatusPill(
+                label: '${summary.accounts.length} active',
+                foregroundColor: c.primary,
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: PayaboSpacing.sm),
+
+          // ── Account rows ──
+          for (int i = 0; i < summary.accounts.length; i++) ...[
+            _AccountRow(
+              item: summary.accounts[i],
+              isBusy: flowState.isSubmitting &&
+                  flowState.activeConnectionId ==
+                      summary.accounts[i].connectionId,
+              onReconnectTap: () => onReconnectTap(summary.accounts[i]),
+              onRefreshTap: () => onRefreshTap(summary.accounts[i]),
+              onDisconnectTap: () => onDisconnectTap(summary.accounts[i]),
+              onDeleteTap: () => onDeleteTap(summary.accounts[i]),
+              onManageTap: () => onManageTap(summary.accounts[i]),
+            ),
+            if (i < summary.accounts.length - 1)
+              Divider(
+                height: 1,
+                color: c.borderStrong.withValues(alpha: 0.3),
+              ),
+          ],
+          const SizedBox(height: PayaboSpacing.lg),
+
+          // ── Connect button ──
+          Center(
+            child: PayaboButton(
+              key: const Key('accounts-connect-sheet'),
+              label: 'Connect bank account',
+              variant: PayaboButtonVariant.secondary,
+              size: PayaboButtonSize.lg,
+              leading: const Icon(Icons.add_link_outlined, size: 20),
+              onPressed: onConnectTap,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _AccountLinkCard extends StatelessWidget {
-  const _AccountLinkCard({
+// ─────────────────────────────────────────────────────────
+//  Account row — mirrors transaction row styling
+// ─────────────────────────────────────────────────────────
+
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({
     required this.item,
     required this.isBusy,
     required this.onReconnectTap,
@@ -1017,169 +1163,163 @@ class _AccountLinkCard extends StatelessWidget {
   final VoidCallback onDeleteTap;
   final VoidCallback onManageTap;
 
+  IconData _iconForAccount() {
+    if (item.source == AccountLinkSource.manual) {
+      return Icons.edit_note_outlined;
+    } else if (item.accountTypeLabel.toLowerCase().contains('savings')) {
+      return Icons.savings_outlined;
+    } else if (item.accountTypeLabel.toLowerCase().contains('credit')) {
+      return Icons.credit_card_outlined;
+    } else {
+      return Icons.account_balance_wallet_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final Color accentColor = _statusColor(context, item.status);
+    final theme = Theme.of(context);
 
-    return Container(
+    return InkWell(
       key: Key('account-card-${item.id}'),
-      decoration: BoxDecoration(
-        color: c.surfaceBase,
-        borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(
-          color: item.needsReconnect
-              ? c.spendingInsightBorder
-              : c.spendingQuickActionBorder,
-        ),
-        boxShadow: PayaboShadows.soft,
-      ),
+      onTap: onManageTap,
+      borderRadius: PayaboRadii.radiusSm,
       child: Padding(
-        padding: const EdgeInsets.all(PayaboSpacing.lg),
+        padding: const EdgeInsets.symmetric(vertical: PayaboSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _AccountIcon(item: item, accentColor: accentColor),
+                // ── Icon ─────────────────────────────
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: c.isDark
+                        ? theme.colorScheme.surfaceContainerHighest
+                        : c.spendingMerchantIconWarmSurface,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    _iconForAccount(),
+                    color: c.spendingMerchantIconDark,
+                    size: 18,
+                  ),
+                ),
+
                 const SizedBox(width: PayaboSpacing.md),
+
+                // ── Name + institution ──────────────
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        item.institutionName,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: c.accentBrownMuted,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: PayaboSpacing.xxs),
-                      Text(
                         item.name,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: c.accentBrown,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.institutionName,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: c.muted,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: PayaboSpacing.sm),
-                _StatusPill(
-                  label: item.statusLabel,
-                  color: accentColor,
-                ),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    item.balanceLabel ?? item.accountTypeLabel,
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          color: c.accentBrown,
-                          fontSize: item.balanceLabel == null ? 28 : 32,
-                          height: 1,
+
+                const SizedBox(width: PayaboSpacing.md),
+
+                // ── Balance / type + status ─────────
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    if (item.balanceLabel != null)
+                      Text(
+                        item.balanceLabel!,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
                         ),
-                  ),
-                ),
-                if (item.balanceLabel != null)
-                  Text(
-                    item.accountTypeLabel,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: c.accentBrownMuted,
-                          fontWeight: FontWeight.w600,
+                      )
+                    else
+                      Text(
+                        item.accountTypeLabel,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
                         ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.sm),
-            Text(
-              item.statusDetail,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: c.muted,
-                    height: 1.45,
-                  ),
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Wrap(
-              spacing: PayaboSpacing.sm,
-              runSpacing: PayaboSpacing.sm,
-              children: <Widget>[
-                _MetaChip(label: item.sourceLabel),
-                _MetaChip(label: item.accountTypeLabel),
-                _MetaChip(label: item.currencyCode),
-                if (item.maskedIdentifier != null)
-                  _MetaChip(label: item.maskedIdentifier!),
-                if (item.lastSyncedLabel != null)
-                  _MetaChip(label: item.lastSyncedLabel!),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Wrap(
-              spacing: PayaboSpacing.sm,
-              runSpacing: PayaboSpacing.sm,
-              children: <Widget>[
-                if (item.canReconnect)
-                  PayaboButton(
-                    label: 'Reconnect',
-                    variant: PayaboButtonVariant.secondary,
-                    size: PayaboButtonSize.sm,
-                    expand: false,
-                    onPressed: isBusy ? null : onReconnectTap,
-                  ),
-                if (item.canRefresh)
-                  PayaboButton(
-                    label: 'Refresh',
-                    variant: PayaboButtonVariant.secondary,
-                    size: PayaboButtonSize.sm,
-                    expand: false,
-                    onPressed: isBusy ? null : onRefreshTap,
-                  ),
-                if (item.canDisconnect)
-                  PayaboButton(
-                    label: 'Disconnect',
-                    variant: PayaboButtonVariant.link,
-                    size: PayaboButtonSize.sm,
-                    expand: false,
-                    onPressed: isBusy ? null : onDisconnectTap,
-                  ),
-                if (item.source == AccountLinkSource.manual)
-                  PayaboButton(
-                    label: 'Delete',
-                    variant: PayaboButtonVariant.link,
-                    size: PayaboButtonSize.sm,
-                    expand: false,
-                    onPressed: isBusy ? null : onDeleteTap,
-                  ),
-                PayaboButton(
-                  label: item.source == AccountLinkSource.linked
-                      ? 'Manage'
-                      : 'View details',
-                  variant: PayaboButtonVariant.link,
-                  size: PayaboButtonSize.sm,
-                  expand: false,
-                  onPressed: isBusy ? null : onManageTap,
+                      ),
+                    const SizedBox(height: 2),
+                    _AccountStatusPill(
+                      label: item.statusLabel,
+                      foregroundColor: _statusColor(c, item.status),
+                    ),
+                  ],
                 ),
               ],
             ),
+
+            // ── Action buttons (only if account needs attention) ──
+            if (item.needsReconnect || item.canRefresh) ...<Widget>[
+              const SizedBox(height: PayaboSpacing.sm),
+              Wrap(
+                spacing: PayaboSpacing.sm,
+                runSpacing: PayaboSpacing.sm,
+                children: <Widget>[
+                  if (item.canReconnect)
+                    PayaboButton(
+                      label: 'Reconnect',
+                      variant: PayaboButtonVariant.secondary,
+                      size: PayaboButtonSize.sm,
+                      expand: false,
+                      onPressed: isBusy ? null : onReconnectTap,
+                    ),
+                  if (item.canRefresh)
+                    PayaboButton(
+                      label: 'Refresh',
+                      variant: PayaboButtonVariant.secondary,
+                      size: PayaboButtonSize.sm,
+                      expand: false,
+                      onPressed: isBusy ? null : onRefreshTap,
+                    ),
+                  if (item.canDisconnect)
+                    PayaboButton(
+                      label: 'Disconnect',
+                      variant: PayaboButtonVariant.link,
+                      size: PayaboButtonSize.sm,
+                      expand: false,
+                      onPressed: isBusy ? null : onDisconnectTap,
+                    ),
+                  if (item.source == AccountLinkSource.manual)
+                    PayaboButton(
+                      label: 'Delete',
+                      variant: PayaboButtonVariant.link,
+                      size: PayaboButtonSize.sm,
+                      expand: false,
+                      onPressed: isBusy ? null : onDeleteTap,
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Color _statusColor(BuildContext context, AccountLinkStatus status) {
-    final c = context.colors;
-
+  Color _statusColor(PayaboColorResolver c, AccountLinkStatus status) {
     switch (status) {
       case AccountLinkStatus.connected:
-        return c.success;
+        return c.primary;
       case AccountLinkStatus.syncing:
         return c.info;
       case AccountLinkStatus.actionRequired:
@@ -1192,55 +1332,24 @@ class _AccountLinkCard extends StatelessWidget {
   }
 }
 
-class _AccountIcon extends StatelessWidget {
-  const _AccountIcon({
-    required this.item,
-    required this.accentColor,
-  });
+// ─────────────────────────────────────────────────────────
+//  Shared small widgets
+// ─────────────────────────────────────────────────────────
 
-  final AccountLinkItem item;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final IconData icon;
-
-    if (item.source == AccountLinkSource.manual) {
-      icon = Icons.edit_note_outlined;
-    } else if (item.accountTypeLabel.toLowerCase().contains('savings')) {
-      icon = Icons.savings_outlined;
-    } else if (item.accountTypeLabel.toLowerCase().contains('credit')) {
-      icon = Icons.credit_card_outlined;
-    } else {
-      icon = Icons.account_balance_wallet_outlined;
-    }
-
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: accentColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Icon(icon, color: accentColor, size: 24),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({
+class _AccountStatusPill extends StatelessWidget {
+  const _AccountStatusPill({
     required this.label,
-    required this.color,
+    required this.foregroundColor,
   });
 
   final String label;
-  final Color color;
+  final Color foregroundColor;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: foregroundColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(PayaboRadii.pill),
       ),
       child: Padding(
@@ -1251,168 +1360,10 @@ class _StatusPill extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color,
+                color: foregroundColor,
                 fontWeight: FontWeight.w700,
               ),
         ),
-      ),
-    );
-  }
-}
-
-class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.spendingCardWarm,
-        borderRadius: BorderRadius.circular(PayaboRadii.pill),
-        border: Border.all(color: c.spendingQuickActionBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: PayaboSpacing.md,
-          vertical: PayaboSpacing.sm,
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: c.accentBrownMuted,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountsExplainerCard extends StatelessWidget {
-  const _AccountsExplainerCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: c.isDark
-              ? <Color>[c.surfaceCardElevated, c.surfaceWarmElevated]
-              : const <Color>[Color(0xFFFFFCF7), Color(0xFFFFF2E3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: PayaboRadii.radiusSm,
-        border: Border.all(color: c.borderWarm),
-        boxShadow: PayaboShadows.soft,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(PayaboSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: c.surfaceBase.withValues(alpha: 0.82),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Icon(
-                    Icons.shield_outlined,
-                    color: c.primary,
-                  ),
-                ),
-                const SizedBox(width: PayaboSpacing.md),
-                Expanded(
-                  child: Text(
-                    'How secure account connections will work',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: c.accentBrown,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            Text(
-              'Payabo will request a short-lived secure session, open the provider link flow, and hand the temporary result back to AONIK. Long-lived provider credentials stay on the server, not in the mobile app.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: c.accentBrownMuted,
-                    height: 1.5,
-                  ),
-            ),
-            const SizedBox(height: PayaboSpacing.lg),
-            const _SetupStepRow(
-              icon: Icons.privacy_tip_outlined,
-              title: 'Server-side secret handling',
-              subtitle:
-                  'Provider secrets and access tokens remain in protected backend storage only.',
-            ),
-            const SizedBox(height: PayaboSpacing.md),
-            const _SetupStepRow(
-              icon: Icons.sync_outlined,
-              title: 'Provider-agnostic connection layer',
-              subtitle:
-                  'Plaid can be the first adapter without locking Payabo into a single provider.',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountsLoadErrorCard extends StatelessWidget {
-  const _AccountsLoadErrorCard({
-    required this.message,
-    required this.onRetry,
-  });
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-
-    return PayaboCard(
-      backgroundColor: c.spendingCardWarmElevated,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'Unable to load accounts right now',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: c.accentBrown,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.sm),
-          Text(
-            message,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: c.muted,
-                  height: 1.45,
-                ),
-          ),
-          const SizedBox(height: PayaboSpacing.lg),
-          PayaboButton(
-            label: 'Try again',
-            variant: PayaboButtonVariant.secondary,
-            onPressed: onRetry,
-          ),
-        ],
       ),
     );
   }
@@ -1441,7 +1392,6 @@ class _AccountsRefreshingOverlay extends StatelessWidget {
               color: c.surfaceCardElevated,
               borderRadius: BorderRadius.circular(PayaboRadii.lg),
               border: Border.all(color: c.borderWarm),
-              boxShadow: PayaboShadows.soft,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
