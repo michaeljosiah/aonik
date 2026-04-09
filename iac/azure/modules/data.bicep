@@ -267,6 +267,82 @@ resource qdrantStorageAccountKeyValueSecret 'Microsoft.KeyVault/vaults/secrets@2
   }
 }
 
+// ── Blob Storage for uploads (profile photos, documents, etc.) ───────
+
+resource blobStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: replace('${namePrefix}blobs', '-', '')
+  location: location
+  tags: tags
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    accessTier: 'Hot'
+    allowSharedKeyAccess: true
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: true
+  }
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+  name: 'default'
+  parent: blobStorageAccount
+}
+
+resource profilesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'profiles'
+  parent: blobService
+  properties: {
+    publicAccess: 'Blob'
+  }
+}
+
+resource documentsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'documents'
+  parent: blobService
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+resource attachmentsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'attachments'
+  parent: blobService
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+resource contentMediaContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  name: 'content-media'
+  parent: blobService
+  properties: {
+    publicAccess: 'Blob'
+  }
+}
+
+resource blobStorageAccountNameSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'BlobStorage--Azure--AccountName'
+  parent: keyVault
+  properties: {
+    value: blobStorageAccount.name
+  }
+}
+
+resource blobStorageAccountKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: 'BlobStorage--Azure--AccountKey'
+  parent: keyVault
+  properties: {
+    value: blobStorageAccount.listKeys().keys[0].value
+  }
+}
+
+output blobStorageAccountName string = blobStorageAccount.name
+output blobStorageAccountNameSecretUri string = blobStorageAccountNameSecret.properties.secretUri
+output blobStorageAccountKeySecretUri string = blobStorageAccountKeySecret.properties.secretUri
+output blobStoragePublicEndpoint string = blobStorageAccount.properties.primaryEndpoints.blob
+
 output qdrantStorageAccountName string = qdrantStorageAccount.name
 output qdrantStorageAccountKey string = qdrantStorageAccount.listKeys().keys[0].value
 output qdrantApiKeySecretUri string = qdrantApiKeySecret.properties.secretUri

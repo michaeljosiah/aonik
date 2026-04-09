@@ -307,24 +307,12 @@ class _BudgetHeroCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        summary.monthLabel,
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: c.accentBrownMuted,
-                                ),
-                      ),
-                      const SizedBox(height: PayaboSpacing.xs),
-                      Text(
-                        'Monthly budget',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: c.muted,
+                  child: Text(
+                    summary.monthLabel,
+                    style:
+                        Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: c.accentBrownMuted,
                             ),
-                      ),
-                    ],
                   ),
                 ),
                 const SizedBox(width: PayaboSpacing.md),
@@ -341,14 +329,6 @@ class _BudgetHeroCard extends StatelessWidget {
                     color: c.accentBrown,
                     height: 1,
                     fontWeight: FontWeight.w800,
-                  ),
-            ),
-            const SizedBox(height: PayaboSpacing.sm),
-            Text(
-              summary.description,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: c.muted,
-                    height: 1.45,
                   ),
             ),
             const SizedBox(height: PayaboSpacing.xl),
@@ -377,13 +357,6 @@ class _BudgetHeroCard extends StatelessWidget {
             _BudgetProgressBar(
               value: summary.progress,
               color: summary.statusColorRole.resolve(c),
-            ),
-            const SizedBox(height: PayaboSpacing.sm),
-            Text(
-              summary.progressLabel,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: c.accentBrownMuted,
-                  ),
             ),
           ],
         ),
@@ -454,24 +427,12 @@ class _BudgetSectionIntro extends StatelessWidget {
     return Row(
       children: <Widget>[
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'Category budgets',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: c.accentBrown,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: PayaboSpacing.xs),
-              Text(
-                'Open a budget to see what is left in each spending pocket.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: c.accentBrownMuted,
-                    ),
-              ),
-            ],
+          child: Text(
+            'Category budgets',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: c.accentBrown,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ),
         const SizedBox(width: PayaboSpacing.md),
@@ -566,23 +527,6 @@ class _BudgetCategoryCard extends StatelessWidget {
                 _BudgetProgressBar(
                   value: state.progress,
                   color: state.progressColorRole.resolve(c),
-                ),
-                const SizedBox(height: PayaboSpacing.sm),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        '${state.percentUsedLabel} used',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: c.accentBrownMuted,
-                            ),
-                      ),
-                    ),
-                    _BudgetStatusPill(
-                      label: state.statusLabel,
-                      foregroundColor: state.progressColorRole.resolve(c),
-                    ),
-                  ],
                 ),
               ],
             ),

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FastEndpoints;
 
 using Aonik.Platform.Contracts.Services.Identity;
@@ -9,10 +10,14 @@ namespace Aonik.Platform.Endpoints.Admin.Users;
 internal class UploadUserPhotoEndpoint : EndpointWithoutRequest<CustomerPhotoUploadResponse>
 {
     private readonly IAccessManagementService _accessManagementService;
+    private readonly ILogger<UploadUserPhotoEndpoint> _logger;
 
-    public UploadUserPhotoEndpoint(IAccessManagementService accessManagementService)
+    public UploadUserPhotoEndpoint(
+        IAccessManagementService accessManagementService,
+        ILogger<UploadUserPhotoEndpoint> logger)
     {
         _accessManagementService = accessManagementService;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -96,6 +101,18 @@ internal class UploadUserPhotoEndpoint : EndpointWithoutRequest<CustomerPhotoUpl
         {
             HttpContext.Response.StatusCode = 422;
             await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Photo upload failed due to storage I/O error for user {UserId}", userId);
+            HttpContext.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Unable to save photo — storage is temporarily unavailable." }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during photo upload for user {UserId}", userId);
+            HttpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred while saving your photo." }, ct);
         }
     }
 }

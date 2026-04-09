@@ -30,19 +30,27 @@ public class ProfilePhotoStorageInitializer : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "Profile photo storage: Provider={Provider}, LocalBasePath={LocalBasePath}, " +
+            "ContainerName={ContainerName}, PublicBaseUrl={PublicBaseUrl}",
+            _options.Provider,
+            _options.LocalBasePath,
+            _options.ProfilePhotos.ContainerName,
+            _options.ProfilePhotos.PublicBaseUrl ?? "(none — using local static files)");
+
         try
         {
-            var initPath = StoragePath.Combine(_options.ProfilePhotos.Path, ".init");
+            var initPath = StoragePath.Combine("customers", ".init");
             await _blobStorage.WriteAsync(initPath, new MemoryStream(new byte[] { 0 }), false, cancellationToken);
             _logger.LogInformation("Profile photo storage initialized successfully");
         }
         catch (Exception ex)
         {
-            // In containerized/production environments with local storage configured,
-            // the filesystem may be read-only. Log and continue — the app can still
-            // function; photo storage will fail at runtime if actually used.
-            _logger.LogWarning(ex, "Failed to initialize profile photo storage. " +
-                "If running in a container, consider configuring Azure Blob Storage instead of local storage");
+            _logger.LogError(ex,
+                "Profile photo storage initialization FAILED. Provider={Provider}. " +
+                "Photo uploads will fail at runtime. " +
+                "If running in a container, set BlobStorage__Provider=Azure and provide Azure credentials",
+                _options.Provider);
         }
     }
 

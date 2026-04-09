@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using FastEndpoints;
 
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -14,15 +15,18 @@ public class UploadCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPho
     private readonly IUserProfileService _userProfileService;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly ILogger<UploadCustomerPhotoEndpoint> _logger;
 
     public UploadCustomerPhotoEndpoint(
         IUserProfileService userProfileService,
         ITenantProvider tenantProvider,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        ILogger<UploadCustomerPhotoEndpoint> logger)
     {
         _userProfileService = userProfileService;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -101,6 +105,18 @@ public class UploadCustomerPhotoEndpoint : EndpointWithoutRequest<ApiCustomerPho
         {
             HttpContext.Response.StatusCode = 422;
             await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Photo upload failed due to storage I/O error for user {UserId}", userId);
+            HttpContext.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "Unable to save photo — storage is temporarily unavailable." }, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during photo upload for user {UserId}", userId);
+            HttpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred while saving your photo." }, ct);
         }
     }
 }

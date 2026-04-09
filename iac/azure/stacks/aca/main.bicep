@@ -283,6 +283,17 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'qdrant-api-key'
           value: qdrantApiKey
         }
+      ], [
+        {
+          name: 'blob-storage-account-name'
+          keyVaultUrl: data.outputs.blobStorageAccountNameSecretUri
+          identity: 'system'
+        }
+        {
+          name: 'blob-storage-account-key'
+          keyVaultUrl: data.outputs.blobStorageAccountKeySecretUri
+          identity: 'system'
+        }
       ])
     }
     template: {
@@ -348,6 +359,27 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Qdrant__CollectionPrefix'
               value: 'aonik-${environmentName}'
+            }
+          ], [
+            {
+              name: 'BlobStorage__Provider'
+              value: 'Azure'
+            }
+            {
+              name: 'BlobStorage__Azure__AccountName'
+              secretRef: 'blob-storage-account-name'
+            }
+            {
+              name: 'BlobStorage__Azure__AccountKey'
+              secretRef: 'blob-storage-account-key'
+            }
+            {
+              name: 'BlobStorage__ProfilePhotos__PublicBaseUrl'
+              value: '${data.outputs.blobStoragePublicEndpoint}profiles'
+            }
+            {
+              name: 'BlobStorage__ContentMedia__PublicBaseUrl'
+              value: '${data.outputs.blobStoragePublicEndpoint}content-media'
             }
           ], apiAdditionalEnvVars)
           resources: {

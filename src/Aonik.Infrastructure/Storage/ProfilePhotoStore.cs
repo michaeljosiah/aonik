@@ -1,5 +1,6 @@
 using FluentStorage;
 using FluentStorage.Blobs;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Aonik.Application.Abstractions.Storage;
 using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
@@ -16,16 +17,21 @@ public class ProfilePhotoStore : IProfilePhotoStore
 {
     private readonly IBlobStorage _blobStorage;
     private readonly ContentTypeOptions _contentTypeOptions;
+    private readonly BlobStorageOptions _storageOptions;
     private readonly IImageProcessingService _imageProcessingService;
+    private readonly ILogger<ProfilePhotoStore> _logger;
 
     public ProfilePhotoStore(
         IBlobStorageFactory blobStorageFactory,
         IOptions<BlobStorageOptions> storageOptions,
-        IImageProcessingService imageProcessingService)
+        IImageProcessingService imageProcessingService,
+        ILogger<ProfilePhotoStore> logger)
     {
-        _contentTypeOptions = storageOptions.Value.ProfilePhotos;
+        _storageOptions = storageOptions.Value;
+        _contentTypeOptions = _storageOptions.ProfilePhotos;
         _blobStorage = blobStorageFactory.Create(_contentTypeOptions);
         _imageProcessingService = imageProcessingService;
+        _logger = logger;
     }
 
     public async Task<PhotoUploadResult> UploadCustomerPhotoAsync(
@@ -64,7 +70,7 @@ public class ProfilePhotoStore : IProfilePhotoStore
             cancellationToken);
 
         originalStream.Position = 0;
-        await _blobStorage.WriteAsync(blobPath, originalStream, append: false, cancellationToken);
+        await WriteBlobAsync(blobPath, originalStream, cancellationToken);
 
         // Generate medium thumbnail (512x512) for profile pages
         using var mediumThumbStream = new MemoryStream();
@@ -77,7 +83,7 @@ public class ProfilePhotoStore : IProfilePhotoStore
             cancellationToken);
 
         mediumThumbStream.Position = 0;
-        await _blobStorage.WriteAsync(mediumThumbPath, mediumThumbStream, append: false, cancellationToken);
+        await WriteBlobAsync(mediumThumbPath, mediumThumbStream, cancellationToken);
 
         // Generate small thumbnail (128x128) for avatars
         using var smallThumbStream = new MemoryStream();
@@ -90,7 +96,7 @@ public class ProfilePhotoStore : IProfilePhotoStore
             cancellationToken);
 
         smallThumbStream.Position = 0;
-        await _blobStorage.WriteAsync(smallThumbPath, smallThumbStream, append: false, cancellationToken);
+        await WriteBlobAsync(smallThumbPath, smallThumbStream, cancellationToken);
 
         // Generate tiny thumbnail (64x64) for compact lists
         using var tinyThumbStream = new MemoryStream();
@@ -103,7 +109,7 @@ public class ProfilePhotoStore : IProfilePhotoStore
             cancellationToken);
 
         tinyThumbStream.Position = 0;
-        await _blobStorage.WriteAsync(tinyThumbPath, tinyThumbStream, append: false, cancellationToken);
+        await WriteBlobAsync(tinyThumbPath, tinyThumbStream, cancellationToken);
 
         var originalUrl = GetPhotoUrl(blobPath);
         var mediumThumbUrl = GetPhotoUrl(mediumThumbPath);
@@ -141,6 +147,24 @@ public class ProfilePhotoStore : IProfilePhotoStore
         // For local storage, return path that will be served by static file middleware
         // Static files are served from /storage/profiles
         return $"/storage/profiles/{blobPath}";
+    }
+
+    private async Task WriteBlobAsync(string blobPath, Stream stream, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _blobStorage.WriteAsync(blobPath, stream, append: false, cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            _logger.LogError(ex,
+                "Failed to write blob {BlobPath} using provider {Provider}. " +
+                "LocalBasePath={LocalBasePath}, ContentTypePath={ContentTypePath}",
+                blobPath, _storageOptions.Provider, _storageOptions.LocalBasePath, _contentTypeOptions.Path);
+            throw new IOException(
+                $"Unable to save photo to storage (provider: {_storageOptions.Provider}). " +
+                "Ensure blob storage is correctly configured.", ex);
+        }
     }
 
     private string BuildPhotoBlobPath(Guid tenantId, Guid partyId, string contentType)

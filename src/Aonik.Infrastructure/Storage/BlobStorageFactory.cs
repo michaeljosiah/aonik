@@ -43,10 +43,19 @@ public static class BlobStorageFactory
             throw new InvalidOperationException("Azure Blob Storage AccountKey is required when Provider is set to 'Azure'.");
         }
 
-        // Note: FluentStorage Azure Blob operates at account level
-        // Container name is used in the blob path operations
-        return StorageFactory.Blobs.AzureBlobStorageWithSharedKey(
+        // FluentStorage Azure Blob operates at account level. The first path
+        // segment of each blob path is treated as the container name.
+        // We use a PrefixedBlobStorage wrapper so that callers write to
+        // "customers/..." and the actual blob lands in "<containerName>/customers/...".
+        var storage = StorageFactory.Blobs.AzureBlobStorageWithSharedKey(
             azureOptions.AccountName,
             azureOptions.AccountKey);
+
+        if (!string.IsNullOrWhiteSpace(contentTypeOptions.ContainerName))
+        {
+            return new PrefixedBlobStorage(storage, contentTypeOptions.ContainerName);
+        }
+
+        return storage;
     }
 }
