@@ -283,6 +283,106 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
   }
 
+  /// Prepares [text] for natural speech by removing constructs that cause
+  /// TTS engines to produce double-read artefacts (e.g. "$79.99 USD" → "79.99
+  /// dollars" rather than "79 dollars dollars 99").
+  ///
+  /// Rules applied (in order):
+  /// 1. Currency symbol + amount + redundant code → amount + spoken name
+  ///    e.g. "$79.99 USD" → "79 dollars and 99 cents"
+  /// 2. Bare currency symbol + amount (no code) → amount + spoken name
+  ///    e.g. "$79" → "79 dollars"
+  /// 3. Amount + currency code (no symbol) → amount + spoken name
+  ///    e.g. "79.99 GBP" → "79 pounds and 99 pence"
+  String _sanitizeSpeechText(String text) {
+    // Map of currency symbol → [code, singular spoken name, cents name]
+    const Map<String, List<String>> symbolMap = {
+      r'$': ['USD', 'dollar', 'cent'],
+      '£': ['GBP', 'pound', 'penny'],
+      '€': ['EUR', 'euro', 'cent'],
+      '₦': ['NGN', 'naira', 'kobo'],
+      '₵': ['GHS', 'cedi', 'pesewa'],
+    };
+
+    // Map of currency code → [singular spoken name, cents name]
+    const Map<String, List<String>> codeMap = {
+      'USD': ['dollar', 'cent'],
+      'GBP': ['pound', 'penny'],
+      'EUR': ['euro', 'cent'],
+      'NGN': ['naira', 'kobo'],
+      'GHS': ['cedi', 'pesewa'],
+      'KES': ['shilling', 'cent'],
+      'ZAR': ['rand', 'cent'],
+      'UGX': ['shilling', 'cent'],
+    };
+
+    String result = text;
+
+    // Pass 1: symbol + amount + optional code → spoken form
+    for (final entry in symbolMap.entries) {
+      final String sym = RegExp.escape(entry.key);
+      final String code = entry.value[0];
+      final String unit = entry.value[1];
+      final String subunit = entry.value[2];
+
+      // With code: e.g. $79.99 USD
+      result = result.replaceAllMapped(
+        RegExp(r'(?<!\w)' + sym + r'(\d[\d,]*)\.(\d{1,2})\s*' + code + r'\b',
+            caseSensitive: false),
+        (m) => _spokenAmount(m.group(1)!, m.group(2), unit, subunit),
+      );
+      // Without code: e.g. $79.99
+      result = result.replaceAllMapped(
+        RegExp(r'(?<!\w)' + sym + r'(\d[\d,]*)\.(\d{1,2})(?!\d|\s*[A-Z]{3})'),
+        (m) => _spokenAmount(m.group(1)!, m.group(2), unit, subunit),
+      );
+      // Whole dollars with code: e.g. $200 USD
+      result = result.replaceAllMapped(
+        RegExp(r'(?<!\w)' + sym + r'(\d[\d,]*)\s*' + code + r'\b',
+            caseSensitive: false),
+        (m) => _spokenAmount(m.group(1)!, null, unit, subunit),
+      );
+      // Whole dollars no code: e.g. $200
+      result = result.replaceAllMapped(
+        RegExp(r'(?<!\w)' + sym + r'(\d[\d,]*)(?!\d|\.\d|\s*[A-Z]{3})'),
+        (m) => _spokenAmount(m.group(1)!, null, unit, subunit),
+      );
+    }
+
+    // Pass 2: amount + code (no symbol) → spoken form
+    for (final entry in codeMap.entries) {
+      final String code = entry.key;
+      final String unit = entry.value[0];
+      final String subunit = entry.value[1];
+
+      result = result.replaceAllMapped(
+        RegExp(r'(\d[\d,]*)\.(\d{1,2})\s*' + code + r'\b',
+            caseSensitive: false),
+        (m) => _spokenAmount(m.group(1)!, m.group(2), unit, subunit),
+      );
+      result = result.replaceAllMapped(
+        RegExp(r'(\d[\d,]*)\s*' + code + r'\b', caseSensitive: false),
+        (m) => _spokenAmount(m.group(1)!, null, unit, subunit),
+      );
+    }
+
+    return result;
+  }
+
+  String _spokenAmount(
+      String whole, String? cents, String unit, String subunit) {
+    final int wholeNum = int.tryParse(whole.replaceAll(',', '')) ?? 0;
+    final String unitWord = wholeNum == 1 ? unit : '${unit}s';
+
+    if (cents == null || cents == '00') {
+      return '$wholeNum $unitWord';
+    }
+
+    final int centsNum = int.tryParse(cents) ?? 0;
+    final String subunitWord = centsNum == 1 ? subunit : '${subunit}s';
+    return '$wholeNum $unitWord and $centsNum $subunitWord';
+  }
+
   @override
   Future<void> speak(
     String text, {
@@ -293,9 +393,10 @@ class DeviceChatVoiceService implements ChatVoiceService {
     ChatVoiceErrorCallback? onError,
     String? localeTag,
   }) async {
+    final String sanitized = _sanitizeSpeechText(text);
     final int sessionId = ++_speakSessionId;
     _log(
-        'speak requested: session=$sessionId locale=${localeTag ?? 'default'} length=${text.length}');
+        'speak requested: session=$sessionId locale=${localeTag ?? 'default'} length=${sanitized.length}');
     await initialize();
 
     await stopThinkingLoop();
@@ -336,7 +437,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     try {
       await _speakViaBackend(
         sessionId,
-        text,
+        sanitized,
         localeTag: localeTag,
         onStart: onStart,
       );
@@ -364,7 +465,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
           error,
           stage: 'backend_rejected',
           localeTag: localeTag,
-          textLength: text.length,
+          textLength: sanitized.length,
           includeCrashlytics: false,
         );
         _handledSpeakTerminalSessionId = sessionId;
@@ -380,7 +481,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
         error,
         stage: 'backend_delivery',
         localeTag: localeTag,
-        textLength: text.length,
+        textLength: sanitized.length,
       );
     }
 
@@ -392,7 +493,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     await _recordNativeFallbackActivation(
       reason: 'backend_tts_failed',
       localeTag: localeTag,
-      textLength: text.length,
+      textLength: sanitized.length,
     );
 
     if (_activeSpeakSessionId != sessionId || _ttsStopRequested) {
@@ -400,7 +501,7 @@ class DeviceChatVoiceService implements ChatVoiceService {
     }
 
     try {
-      await _flutterTts.speak(text);
+      await _flutterTts.speak(sanitized);
     } catch (error) {
       _handledSpeakTerminalSessionId = sessionId;
       _activeSpeakSessionId = null;
