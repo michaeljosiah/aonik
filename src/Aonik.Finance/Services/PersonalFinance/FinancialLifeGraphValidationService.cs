@@ -244,8 +244,17 @@ internal sealed class FinancialLifeGraphValidationService
 
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var userId = GetCurrentUserId();
-        var hasAccess = await _financeDbContext.HouseholdMembers
-            .AnyAsync(item => item.TenantId == tenantId && item.HouseholdId == householdId.Value && item.UserId == userId, cancellationToken);
+        var memberships = await _financeDbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.HouseholdId == householdId.Value && item.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var membership in memberships)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+        }
+
+        var hasAccess = memberships.Any(HouseholdMembershipRules.IsAccepted);
 
         if (!hasAccess)
         {
@@ -343,9 +352,17 @@ internal sealed class FinancialLifeGraphValidationService
                     return null;
                 }
 
-                return await _financeDbContext.HouseholdMembers
+                var householdMembers = await _financeDbContext.HouseholdMembers
                     .AsNoTracking()
-                    .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId && item.HouseholdId == currentHouseholdId, cancellationToken)
+                    .Where(item => item.TenantId == tenantId && item.Id == nodeId && item.HouseholdId == currentHouseholdId)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var householdMember in householdMembers)
+                {
+                    HouseholdMembershipRules.NormalizeLegacyMember(householdMember);
+                }
+
+                return householdMembers.Any(HouseholdMembershipRules.IsAccepted)
                     ? FinancialLifeGraphNodeTypes.HouseholdMember
                     : null;
 
@@ -374,9 +391,37 @@ internal sealed class FinancialLifeGraphValidationService
                     : null;
 
             case FinancialLifeGraphNodeKeys.PersonalAccount:
-                return await _financeDbContext.PersonalAccounts
+                if (await _financeDbContext.PersonalAccounts
                     .AsNoTracking()
                     .AnyAsync(item => item.TenantId == tenantId && item.UserId == userId && item.Id == nodeId, cancellationToken)
+                    )
+                {
+                    return FinancialLifeGraphNodeTypes.PersonalAccount;
+                }
+
+                if (profile?.HouseholdId is not Guid accountHouseholdId)
+                {
+                    return null;
+                }
+
+                var householdMemberships = await _financeDbContext.HouseholdMembers
+                    .AsNoTracking()
+                    .Where(item => item.TenantId == tenantId && item.UserId == userId && item.HouseholdId == accountHouseholdId)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var membership in householdMemberships)
+                {
+                    HouseholdMembershipRules.NormalizeLegacyMember(membership);
+                }
+
+                if (!householdMemberships.Any(HouseholdMembershipRules.IsAccepted))
+                {
+                    return null;
+                }
+
+                return await _financeDbContext.PersonalAccounts
+                    .AsNoTracking()
+                    .AnyAsync(item => item.TenantId == tenantId && item.Id == nodeId && item.HouseholdId == accountHouseholdId, cancellationToken)
                     ? FinancialLifeGraphNodeTypes.PersonalAccount
                     : null;
 

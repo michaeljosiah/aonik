@@ -7,6 +7,8 @@ internal interface IFinancialLifeGraphCacheInvalidator
 {
     void InvalidateCurrentUserGraph();
     Task InvalidateCurrentUserGraphAsync(CancellationToken cancellationToken = default);
+    Task InvalidateUserGraphAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task InvalidateUserGraphsAsync(IEnumerable<Guid> userIds, CancellationToken cancellationToken = default);
     Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default);
 }
 
@@ -38,6 +40,16 @@ internal sealed class FinancialLifeGraphCacheInvalidator : IFinancialLifeGraphCa
             return;
         }
 
+        await InvalidateUserGraphAsync(userId, cancellationToken);
+    }
+
+    public async Task InvalidateUserGraphAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        if (userId == Guid.Empty)
+        {
+            return;
+        }
+
         var tenantId = _tenantProvider.GetCurrentTenantId();
         await _cacheInvalidationPublisher.PublishAsync(
             new CacheInvalidationEvent(FinancialLifeGraphHydrationService.CoreCacheSet, GetCoreCacheKey(tenantId, userId)),
@@ -46,6 +58,14 @@ internal sealed class FinancialLifeGraphCacheInvalidator : IFinancialLifeGraphCa
         await _cacheInvalidationPublisher.PublishAsync(
             new CacheInvalidationEvent(FinancialLifeGraphHydrationService.FxCacheSet, GetFxCacheKey(tenantId, userId)),
             cancellationToken);
+    }
+
+    public async Task InvalidateUserGraphsAsync(IEnumerable<Guid> userIds, CancellationToken cancellationToken = default)
+    {
+        foreach (var userId in userIds.Where(id => id != Guid.Empty).Distinct())
+        {
+            await InvalidateUserGraphAsync(userId, cancellationToken);
+        }
     }
 
     public async Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default)

@@ -11,6 +11,10 @@ public record InviteHouseholdMemberRequest(
     string Role,
     IReadOnlyList<string>? Permissions);
 
+public record TransferOwnershipRequest(Guid NewOwnerUserId);
+
+public record ShareAccountWithHouseholdRequest(Guid HouseholdId);
+
 public record HouseholdResponse(
     Guid HouseholdId,
     string Name,
@@ -23,6 +27,48 @@ public record HouseholdMemberResponse(
     Guid UserId,
     string Role,
     IReadOnlyList<string> Permissions,
+    string InvitationStatus,
+    Guid? InvitedByUserId,
+    DateTime? InvitedAt,
+    DateTime? RespondedAt,
+    DateTime? ExpiresAt,
+    DateTime CreatedAt);
+
+public record HouseholdMemberDetailResponse(
+    Guid MemberId,
+    Guid HouseholdId,
+    Guid UserId,
+    string DisplayName,
+    string Role,
+    IReadOnlyList<string> Permissions,
+    string InvitationStatus,
+    bool IsCurrentUser,
+    Guid? InvitedByUserId,
+    string? InvitedByDisplayName,
+    DateTime? InvitedAt,
+    DateTime? RespondedAt,
+    DateTime? ExpiresAt,
+    DateTime CreatedAt);
+
+public record HouseholdInvitationResponse(
+    Guid MemberId,
+    Guid HouseholdId,
+    string HouseholdName,
+    Guid UserId,
+    string Role,
+    string InvitationStatus,
+    Guid? InvitedByUserId,
+    string? InvitedByDisplayName,
+    DateTime? InvitedAt,
+    DateTime? RespondedAt,
+    DateTime? ExpiresAt,
+    DateTime CreatedAt);
+
+public record HouseholdDetailResponse(
+    Guid HouseholdId,
+    string Name,
+    string CurrentUserRole,
+    IReadOnlyList<HouseholdMemberDetailResponse> Members,
     DateTime CreatedAt);
 
 public record CreatePersonalAccountRequest(

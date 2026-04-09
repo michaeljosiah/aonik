@@ -642,6 +642,13 @@ internal sealed class CustomerInsightSnapshotGenerator : ICustomerInsightSnapsho
                 .Where(x => x.TenantId == tenantId && x.HouseholdId == householdId)
                 .ToListAsync(cancellationToken);
 
+            foreach (var member in members)
+            {
+                HouseholdMembershipRules.NormalizeLegacyMember(member);
+            }
+
+            members = members.Where(HouseholdMembershipRules.IsAccepted).ToList();
+
             coverageAccumulator.MarkAvailable("household");
             return (household, members);
         }

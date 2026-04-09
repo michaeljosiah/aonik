@@ -60,7 +60,11 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
             true,
             snapshot.Household.Id,
             snapshot.HouseholdMembers.Count,
-            graph.Nodes.Where(item => string.Equals(item.NodeId, householdPrefix, StringComparison.OrdinalIgnoreCase) || item.NodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)).ToList(),
+            graph.Nodes.Where(item => string.Equals(item.NodeId, householdPrefix, StringComparison.OrdinalIgnoreCase)
+                    || item.NodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)
+                    || graph.Edges.Any(edge => string.Equals(edge.Predicate, FinancialLifeGraphPredicates.HouseholdHasAccount, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(edge.ToNodeId, item.NodeId, StringComparison.OrdinalIgnoreCase)))
+                .ToList(),
             graph.Edges.Where(item => string.Equals(item.FromNodeId, householdPrefix, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(item.ToNodeId, householdPrefix, StringComparison.OrdinalIgnoreCase)
                 || item.FromNodeId.StartsWith(memberPrefix, StringComparison.OrdinalIgnoreCase)
@@ -145,6 +149,39 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
                         member.PermissionsJson
                     })));
                 edges.Add(new FinancialLifeGraphEdgeResponse(householdNodeId, FinancialLifeGraphPredicates.HouseholdHasMember, memberNodeId, null));
+            }
+
+            foreach (var householdAccount in snapshot.HouseholdAccounts)
+            {
+                var accountNodeId = FinancialLifeGraphFormatting.BuildNodeId(FinancialLifeGraphNodeKeys.PersonalAccount, householdAccount.Id);
+
+                if (!nodes.Any(node => string.Equals(node.NodeId, accountNodeId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    nodes.Add(new FinancialLifeGraphNodeResponse(
+                        accountNodeId,
+                        FinancialLifeGraphNodeTypes.PersonalAccount,
+                        householdAccount.Name,
+                        nameof(PersonalAccount),
+                        householdAccount.Id,
+                        FinancialLifeGraphFormatting.SerializeMetadata(new
+                        {
+                            householdAccount.UserId,
+                            householdAccount.HouseholdId,
+                            householdAccount.AccountType,
+                            householdAccount.Currency,
+                            householdAccount.InstitutionName,
+                            householdAccount.Status,
+                            householdAccount.AccountSubtype,
+                            householdAccount.Last4,
+                            householdAccount.IsArchived
+                        })));
+                }
+
+                edges.Add(new FinancialLifeGraphEdgeResponse(
+                    householdNodeId,
+                    FinancialLifeGraphPredicates.HouseholdHasAccount,
+                    accountNodeId,
+                    null));
             }
         }
 
@@ -480,6 +517,7 @@ internal sealed class FinancialLifeGraphService : IFinancialLifeGraphService
         var sourceCoverage = new List<FinancialLifeGraphSourceCoverageItemResponse>
         {
             new(FinancialLifeGraphNodeTypes.PersonalAccount, snapshot.Accounts.Count),
+            new("HouseholdPersonalAccount", snapshot.HouseholdAccounts.Count),
             new(FinancialLifeGraphNodeTypes.PersonalLinkedAccount, snapshot.LinkedAccounts.Count),
             new(FinancialLifeGraphNodeTypes.PersonalTransaction, snapshot.Transactions.Count),
             new(FinancialLifeGraphNodeTypes.Bill, snapshot.Bills.Count),

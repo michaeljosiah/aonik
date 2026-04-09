@@ -28,4 +28,16 @@ public interface IPersonalAccountService
     Task DeleteManualAccountAsync(
         Guid accountId,
         CancellationToken cancellationToken = default);
+
+    Task<PersonalAccountResponse> ShareAccountWithHouseholdAsync(
+        Guid accountId,
+        ShareAccountWithHouseholdRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<PersonalAccountResponse> UnshareAccountAsync(
+        Guid accountId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PersonalAccountResponse>> ListHouseholdAccountsAsync(
+        CancellationToken cancellationToken = default);
 }

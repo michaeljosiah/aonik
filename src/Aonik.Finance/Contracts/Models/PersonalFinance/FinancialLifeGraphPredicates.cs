@@ -52,6 +52,11 @@ public static class FinancialLifeGraphPredicates
     public const string HouseholdHasMember = "HOUSEHOLD_HAS_MEMBER";
 
     /// <summary>
+    /// Connects a household node to a household-shared personal account.
+    /// </summary>
+    public const string HouseholdHasAccount = "HOUSEHOLD_HAS_ACCOUNT";
+
+    /// <summary>
     /// Connects the user root node to a related party derived from Party relationships.
     /// </summary>
     public const string RelatedToParty = "RELATED_TO_PARTY";

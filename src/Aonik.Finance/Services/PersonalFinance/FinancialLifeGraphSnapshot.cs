@@ -14,6 +14,7 @@ internal sealed record FinancialLifeGraphSnapshot(
     IReadOnlyList<HouseholdMember> HouseholdMembers,
     IReadOnlyDictionary<Guid, string> HouseholdMemberDisplayNames,
     IReadOnlyList<PersonalAccount> Accounts,
+    IReadOnlyList<PersonalAccount> HouseholdAccounts,
     IReadOnlyList<PersonalLinkedAccount> LinkedAccounts,
     IReadOnlyList<PersonalTransaction> Transactions,
     IReadOnlyList<Bill> Bills,

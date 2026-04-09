@@ -180,6 +180,8 @@ internal sealed class FinancialLifeGraphSchema
                 "Follow this to find the user's household. The household is the shared financial context for family members or cohabitants."),
             new(FinancialLifeGraphPredicates.HouseholdHasMember, FinancialLifeGraphNodeTypes.Household, FinancialLifeGraphNodeTypes.HouseholdMember, false,
                 "Follow this to find all members within a household. Each member has a role and permissions within the shared financial context."),
+            new(FinancialLifeGraphPredicates.HouseholdHasAccount, FinancialLifeGraphNodeTypes.Household, FinancialLifeGraphNodeTypes.PersonalAccount, false,
+                "Follow this to find personal accounts that have been explicitly shared with the household. Ownership stays with the original user, but accepted household members can view the shared account context."),
             new(FinancialLifeGraphPredicates.RelatedToParty, FinancialLifeGraphNodeTypes.UserRoot, FinancialLifeGraphNodeTypes.Party, true,
                 "Follow this to find all parties the user has a financial relationship with — family members receiving remittances, businesses they pay, beneficiaries, etc. The edge metadata carries the relationship type."),
             new(FinancialLifeGraphPredicates.LinkedToOrder, FinancialLifeGraphNodeTypes.Bill, FinancialLifeGraphNodeTypes.OrderRef, false,

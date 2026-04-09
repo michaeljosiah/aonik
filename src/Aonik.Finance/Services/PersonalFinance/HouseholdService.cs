@@ -1,40 +1,49 @@
+using System.Data;
 using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
 
-using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Finance.Contracts.Services.PersonalFinance;
+using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Events;
+using Aonik.SharedKernel.Events.Integration;
 
 namespace Aonik.Finance.Services.PersonalFinance;
 
-internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdService
+internal sealed class HouseholdService : IHouseholdService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
-    private static readonly IReadOnlyList<string> EmptyPermissions = Array.Empty<string>();
-    private const string OwnerRole = "Owner";
+    private const string NotificationSource = "Finance.Household";
+    private const int InvitationExpiryDays = 7;
 
     private readonly FinanceDbContext _financeDbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
+    private readonly IClock _clock;
+    private readonly IEventBus _eventBus;
+    private readonly IUserNotificationWriter _notificationWriter;
 
     public HouseholdService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator,
+        IClock clock,
+        IEventBus eventBus,
+        IUserNotificationWriter notificationWriter)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
+        _clock = clock;
+        _eventBus = eventBus;
+        _notificationWriter = notificationWriter;
     }
 
     public async Task<HouseholdResponse> CreateHouseholdAsync(
@@ -46,19 +55,25 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
             throw new ArgumentException("Household name is required.", nameof(request.Name));
         }
 
-        if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
+        var userId = GetCurrentUserId();
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var profile = await GetRequiredPersonalProfileAsync(userId, tenantId, cancellationToken);
+
+        var memberships = await _financeDbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var membership in memberships)
         {
-            throw new InvalidOperationException("Authenticated user is required.");
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+            if (HouseholdMembershipRules.IsAccepted(membership))
+            {
+                throw new InvalidOperationException("User already belongs to a household.");
+            }
         }
 
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        await EnsurePersonalProfileAsync(userId, tenantId, cancellationToken);
-
-        var alreadyMember = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.TenantId == tenantId && member.UserId == userId, cancellationToken);
-
-        if (alreadyMember)
+        if (profile.HouseholdId.HasValue)
         {
             throw new InvalidOperationException("User already belongs to a household.");
         }
@@ -69,39 +84,35 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
             Name = request.Name.Trim()
         };
 
-        _financeDbContext.Households.Add(household);
-
         var member = new HouseholdMember
         {
             TenantId = tenantId,
             HouseholdId = household.Id,
             UserId = userId,
-            Role = OwnerRole,
-            PermissionsJson = JsonSerializer.Serialize(EmptyPermissions, JsonOptions)
+            Role = HouseholdRoles.Owner,
+            PermissionsJson = HouseholdMembershipRules.SerializePermissions(HouseholdMembershipRules.EmptyPermissions),
+            InvitationStatus = HouseholdInvitationStatuses.Accepted,
+            InvitedAt = _clock.UtcNow
         };
 
+        _financeDbContext.Households.Add(household);
         _financeDbContext.HouseholdMembers.Add(member);
 
-        await AssignHouseholdToProfileAsync(userId, tenantId, household.Id, cancellationToken);
-        await _financeDbContext.SaveChangesAsync(cancellationToken);
-        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+        profile.HouseholdId = household.Id;
 
-        var ownerResponse = new HouseholdMemberResponse(
-            member.Id,
-            household.Id,
-            member.UserId,
-            member.Role,
-            EmptyPermissions,
-            member.CreatedAt);
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+        await _eventBus.PublishAsync(new HouseholdCreatedEvent(tenantId, household.Id, userId), cancellationToken);
+        await _cacheInvalidator.InvalidateUserGraphAsync(userId, cancellationToken);
 
         return new HouseholdResponse(
             household.Id,
             household.Name,
-            ownerResponse,
+            MapMemberResponse(member),
             household.CreatedAt);
     }
 
-    public async Task<HouseholdMemberResponse> InviteMemberAsync(
+    public async Task<HouseholdInvitationResponse> InviteMemberAsync(
         InviteHouseholdMemberRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -115,133 +126,832 @@ internal class HouseholdService : Contracts.Services.PersonalFinance.IHouseholdS
             throw new ArgumentException("UserId is required.", nameof(request.UserId));
         }
 
-        if (string.IsNullOrWhiteSpace(request.Role))
-        {
-            throw new ArgumentException("Role is required.", nameof(request.Role));
-        }
-
-        if (!_currentUserProvider.TryGetCurrentUserId(out var currentUserId))
-        {
-            throw new InvalidOperationException("Authenticated user is required.");
-        }
-
         var tenantId = _tenantProvider.GetCurrentTenantId();
+        var inviterUserId = GetCurrentUserId();
+        var normalizedRole = HouseholdMembershipRules.NormalizeRole(request.Role);
+        var permissions = HouseholdMembershipRules.NormalizePermissions(request.Permissions);
+        var household = await GetRequiredHouseholdAsync(request.HouseholdId, tenantId, cancellationToken);
+        var inviterMembership = await GetRequiredAcceptedMembershipAsync(tenantId, household.Id, inviterUserId, cancellationToken);
 
-        var household = await _financeDbContext.Households
-            .FirstOrDefaultAsync(h => h.Id == request.HouseholdId && h.TenantId == tenantId, cancellationToken);
-
-        if (household == null)
+        if (!HouseholdMembershipRules.CanManageMembers(inviterMembership))
         {
-            throw new InvalidOperationException("Household not found.");
+            throw new UnauthorizedAccessException("Only household owners or managers can invite members.");
         }
 
-        var inviterIsMember = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.TenantId == tenantId && member.HouseholdId == household.Id && member.UserId == currentUserId, cancellationToken);
+        await EnsureUserExistsWithPersonalProfileAsync(request.UserId, tenantId, cancellationToken);
 
-        if (!inviterIsMember)
+        var acceptedMembershipElsewhere = await _financeDbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.UserId == request.UserId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var membership in acceptedMembershipElsewhere)
         {
-            throw new InvalidOperationException("Only household members can invite others.");
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+            if (membership.HouseholdId != household.Id && HouseholdMembershipRules.IsAccepted(membership))
+            {
+                throw new InvalidOperationException("User already belongs to a household.");
+            }
         }
 
-        await EnsurePersonalProfileAsync(request.UserId, tenantId, cancellationToken);
+        var existingMembership = await _financeDbContext.HouseholdMembers
+            .FirstOrDefaultAsync(
+                member => member.TenantId == tenantId && member.HouseholdId == household.Id && member.UserId == request.UserId,
+                cancellationToken);
 
-        var userExists = await _financeDbContext.Users
-            .AnyAsync(user => user.Id == request.UserId && user.TenantId == tenantId, cancellationToken);
+        var now = _clock.UtcNow;
 
-        if (!userExists)
+        if (existingMembership != null)
         {
-            throw new InvalidOperationException("User not found.");
+            HouseholdMembershipRules.NormalizeLegacyMember(existingMembership);
+
+            if (HouseholdMembershipRules.IsAccepted(existingMembership))
+            {
+                throw new InvalidOperationException("User is already a member of this household.");
+            }
+
+            if (HouseholdMembershipRules.IsPending(existingMembership) && !IsExpired(existingMembership, now))
+            {
+                throw new InvalidOperationException("Household invitation is already pending.");
+            }
+
+            existingMembership.Role = normalizedRole;
+            existingMembership.PermissionsJson = HouseholdMembershipRules.SerializePermissions(permissions);
+            existingMembership.InvitationStatus = HouseholdInvitationStatuses.Pending;
+            existingMembership.InvitedByUserId = inviterUserId;
+            existingMembership.InvitedAt = now;
+            existingMembership.ExpiresAt = now.AddDays(InvitationExpiryDays);
+            existingMembership.RespondedAt = null;
+
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+            var invitationResponse = await BuildInvitationResponseAsync(existingMembership, household.Name, inviterUserId, cancellationToken);
+            await PublishInvitationSideEffectsAsync(tenantId, household, existingMembership, inviterUserId, cancellationToken);
+            return invitationResponse;
         }
-
-        var alreadyMember = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.TenantId == tenantId && member.HouseholdId == household.Id && member.UserId == request.UserId, cancellationToken);
-
-        if (alreadyMember)
-        {
-            throw new InvalidOperationException("User is already a member of this household.");
-        }
-
-        var anyMembership = await _financeDbContext.HouseholdMembers
-            .AnyAsync(member => member.TenantId == tenantId && member.UserId == request.UserId, cancellationToken);
-
-        if (anyMembership)
-        {
-            throw new InvalidOperationException("User already belongs to a household.");
-        }
-
-        var permissions = NormalizePermissions(request.Permissions);
 
         var member = new HouseholdMember
         {
             TenantId = tenantId,
             HouseholdId = household.Id,
             UserId = request.UserId,
-            Role = request.Role.Trim(),
-            PermissionsJson = JsonSerializer.Serialize(permissions, JsonOptions)
+            Role = normalizedRole,
+            PermissionsJson = HouseholdMembershipRules.SerializePermissions(permissions),
+            InvitationStatus = HouseholdInvitationStatuses.Pending,
+            InvitedByUserId = inviterUserId,
+            InvitedAt = now,
+            ExpiresAt = now.AddDays(InvitationExpiryDays)
         };
 
         _financeDbContext.HouseholdMembers.Add(member);
-
-        await AssignHouseholdToProfileAsync(request.UserId, tenantId, household.Id, cancellationToken);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
-        await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
 
-        return new HouseholdMemberResponse(
-            member.Id,
-            household.Id,
+        var createdInvitation = await BuildInvitationResponseAsync(member, household.Name, inviterUserId, cancellationToken);
+        await PublishInvitationSideEffectsAsync(tenantId, household, member, inviterUserId, cancellationToken);
+        return createdInvitation;
+    }
+
+    public async Task<HouseholdMemberResponse> AcceptInvitationAsync(
+        Guid householdId,
+        CancellationToken cancellationToken = default)
+    {
+        if (householdId == Guid.Empty)
+        {
+            throw new ArgumentException("HouseholdId is required.", nameof(householdId));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var now = _clock.UtcNow;
+        var useTransaction = _financeDbContext.Database.IsRelational();
+        var committed = false;
+        await using var transaction = useTransaction
+            ? await _financeDbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
+            : null;
+
+        try
+        {
+            var invitation = await _financeDbContext.HouseholdMembers
+                .FirstOrDefaultAsync(
+                    member => member.TenantId == tenantId
+                        && member.HouseholdId == householdId
+                        && member.UserId == userId,
+                    cancellationToken)
+                ?? throw new InvalidOperationException("Pending household invitation not found.");
+
+            HouseholdMembershipRules.NormalizeLegacyMember(invitation);
+
+            if (!HouseholdMembershipRules.IsPending(invitation))
+            {
+                throw new InvalidOperationException("Pending household invitation not found.");
+            }
+
+            if (IsExpired(invitation, now))
+            {
+                throw new InvalidOperationException("Household invitation has expired.");
+            }
+
+            var competingMemberships = await _financeDbContext.HouseholdMembers
+                .AsNoTracking()
+                .Where(member => member.TenantId == tenantId
+                    && member.UserId == userId
+                    && member.Id != invitation.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (var competingMembership in competingMemberships)
+            {
+                HouseholdMembershipRules.NormalizeLegacyMember(competingMembership);
+                if (HouseholdMembershipRules.IsAccepted(competingMembership))
+                {
+                    throw new InvalidOperationException("User already belongs to a household.");
+                }
+            }
+
+            invitation.Role = HouseholdMembershipRules.NormalizeRole(invitation.Role);
+            invitation.InvitationStatus = HouseholdInvitationStatuses.Accepted;
+            invitation.InvitedAt ??= invitation.CreatedAt;
+            invitation.RespondedAt = now;
+
+            var profile = await GetRequiredPersonalProfileAsync(userId, tenantId, cancellationToken);
+
+            if (profile.HouseholdId.HasValue && profile.HouseholdId.Value != householdId)
+            {
+                throw new InvalidOperationException("User already belongs to a household.");
+            }
+
+            profile.HouseholdId = householdId;
+
+            var otherPendingInvitations = await _financeDbContext.HouseholdMembers
+                .Where(member => member.TenantId == tenantId
+                    && member.UserId == userId
+                    && member.Id != invitation.Id
+                    && member.InvitationStatus == HouseholdInvitationStatuses.Pending)
+                .ToListAsync(cancellationToken);
+
+            foreach (var otherInvitation in otherPendingInvitations)
+            {
+                HouseholdMembershipRules.NormalizeLegacyMember(otherInvitation);
+                otherInvitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
+                otherInvitation.RespondedAt = now;
+            }
+
+            await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+            if (transaction != null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                committed = true;
+            }
+
+            await _eventBus.PublishAsync(new HouseholdInvitationAcceptedEvent(tenantId, householdId, userId), cancellationToken);
+            await NotifyActorAsync(
+                tenantId,
+                userId,
+                "household.accepted",
+                "Household joined",
+                "You joined the household successfully.",
+                "Success",
+                $"/household",
+                JsonSerializer.Serialize(new { householdId }),
+                cancellationToken);
+
+            var affectedAcceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+            await _cacheInvalidator.InvalidateUserGraphsAsync(
+                affectedAcceptedMembers.Select(item => item.UserId).Append(userId).Distinct(),
+                cancellationToken);
+
+            return MapMemberResponse(invitation);
+        }
+        catch
+        {
+            if (transaction != null && !committed)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+
+            throw;
+        }
+    }
+
+    public async Task DeclineInvitationAsync(
+        Guid householdId,
+        CancellationToken cancellationToken = default)
+    {
+        if (householdId == Guid.Empty)
+        {
+            throw new ArgumentException("HouseholdId is required.", nameof(householdId));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var invitation = await _financeDbContext.HouseholdMembers
+            .FirstOrDefaultAsync(
+                member => member.TenantId == tenantId
+                    && member.HouseholdId == householdId
+                    && member.UserId == userId,
+                cancellationToken)
+            ?? throw new InvalidOperationException("Pending household invitation not found.");
+
+        HouseholdMembershipRules.NormalizeLegacyMember(invitation);
+
+        if (!HouseholdMembershipRules.IsPending(invitation))
+        {
+            throw new InvalidOperationException("Pending household invitation not found.");
+        }
+
+        invitation.InvitationStatus = HouseholdInvitationStatuses.Declined;
+        invitation.RespondedAt = _clock.UtcNow;
+
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+        await _eventBus.PublishAsync(new HouseholdInvitationDeclinedEvent(tenantId, householdId, userId), cancellationToken);
+    }
+
+    public async Task RemoveMemberAsync(
+        Guid householdId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        if (householdId == Guid.Empty)
+        {
+            throw new ArgumentException("HouseholdId is required.", nameof(householdId));
+        }
+
+        if (userId == Guid.Empty)
+        {
+            throw new ArgumentException("UserId is required.", nameof(userId));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var actorUserId = GetCurrentUserId();
+        var actorMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, actorUserId, cancellationToken);
+
+        if (!HouseholdMembershipRules.CanManageMembers(actorMembership))
+        {
+            throw new UnauthorizedAccessException("Only household owners or managers can remove members.");
+        }
+
+        if (actorUserId == userId)
+        {
+            throw new InvalidOperationException("Use leave household to remove yourself.");
+        }
+
+        var targetMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, userId, cancellationToken);
+        var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+
+        if (HouseholdMembershipRules.IsOwner(targetMembership) && acceptedMembers.Count(HouseholdMembershipRules.IsOwner) == 1)
+        {
+            throw new InvalidOperationException("Cannot remove the sole accepted household owner.");
+        }
+
+        await RemoveMembershipAsync(targetMembership, actorUserId, tenantId, householdId, isSelfRemoval: false, cancellationToken);
+
+        await _eventBus.PublishAsync(new HouseholdMemberRemovedEvent(tenantId, householdId, userId, actorUserId), cancellationToken);
+        await NotifyActorAsync(
+            tenantId,
+            userId,
+            "household.removed",
+            "Removed from household",
+            "You were removed from a household.",
+            "Warning",
+            "/household",
+            JsonSerializer.Serialize(new { householdId, removedByUserId = actorUserId }),
+            cancellationToken);
+    }
+
+    public async Task LeaveHouseholdAsync(
+        Guid householdId,
+        CancellationToken cancellationToken = default)
+    {
+        if (householdId == Guid.Empty)
+        {
+            throw new ArgumentException("HouseholdId is required.", nameof(householdId));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var membership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, userId, cancellationToken);
+        var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+
+        if (HouseholdMembershipRules.IsOwner(membership) && acceptedMembers.Count(HouseholdMembershipRules.IsOwner) == 1)
+        {
+            throw new InvalidOperationException("Transfer household ownership before leaving as the sole owner.");
+        }
+
+        await RemoveMembershipAsync(membership, userId, tenantId, householdId, isSelfRemoval: true, cancellationToken);
+
+        await _eventBus.PublishAsync(new HouseholdMemberLeftEvent(tenantId, householdId, userId), cancellationToken);
+        await NotifyActorAsync(
+            tenantId,
+            userId,
+            "household.left",
+            "Left household",
+            "You left the household.",
+            "Info",
+            "/household",
+            JsonSerializer.Serialize(new { householdId }),
+            cancellationToken);
+    }
+
+    public async Task<HouseholdDetailResponse> TransferOwnershipAsync(
+        Guid householdId,
+        Guid newOwnerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (householdId == Guid.Empty)
+        {
+            throw new ArgumentException("HouseholdId is required.", nameof(householdId));
+        }
+
+        if (newOwnerUserId == Guid.Empty)
+        {
+            throw new ArgumentException("NewOwnerUserId is required.", nameof(newOwnerUserId));
+        }
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var currentUserId = GetCurrentUserId();
+        var currentOwnerMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, currentUserId, cancellationToken);
+
+        if (!HouseholdMembershipRules.IsOwner(currentOwnerMembership))
+        {
+            throw new UnauthorizedAccessException("Only a household owner can transfer ownership.");
+        }
+
+        var targetMembership = await GetRequiredAcceptedMembershipAsync(tenantId, householdId, newOwnerUserId, cancellationToken);
+        currentOwnerMembership.Role = HouseholdRoles.Manager;
+        targetMembership.Role = HouseholdRoles.Owner;
+
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+        await _eventBus.PublishAsync(
+            new HouseholdOwnershipTransferredEvent(tenantId, householdId, currentUserId, newOwnerUserId),
+            cancellationToken);
+
+        var acceptedMembers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+        await _cacheInvalidator.InvalidateUserGraphsAsync(acceptedMembers.Select(item => item.UserId), cancellationToken);
+
+        return (await GetMyHouseholdAsync(cancellationToken))
+            ?? throw new InvalidOperationException("Household not found.");
+    }
+
+    public async Task<HouseholdDetailResponse?> GetMyHouseholdAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var memberships = await _financeDbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .OrderByDescending(member => member.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        if (memberships.Count == 0)
+        {
+            return null;
+        }
+
+        foreach (var membership in memberships)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+        }
+
+        var acceptedMembership = memberships.FirstOrDefault(HouseholdMembershipRules.IsAccepted);
+        if (acceptedMembership == null)
+        {
+            return null;
+        }
+
+        return await BuildHouseholdDetailAsync(tenantId, acceptedMembership.HouseholdId, userId, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<HouseholdInvitationResponse>> GetPendingInvitationsAsync(CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var now = _clock.UtcNow;
+
+        var invitations = await _financeDbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId
+                && member.UserId == userId
+                && member.InvitationStatus == HouseholdInvitationStatuses.Pending)
+            .OrderByDescending(member => member.InvitedAt ?? member.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        if (invitations.Count == 0)
+        {
+            return [];
+        }
+
+        foreach (var invitation in invitations)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(invitation);
+        }
+
+        invitations = invitations
+            .Where(invitation => !IsExpired(invitation, now))
+            .ToList();
+
+        if (invitations.Count == 0)
+        {
+            return [];
+        }
+
+        var householdNames = await _financeDbContext.Households
+            .AsNoTracking()
+            .Where(household => household.TenantId == tenantId && invitations.Select(member => member.HouseholdId).Contains(household.Id))
+            .ToDictionaryAsync(household => household.Id, household => household.Name, cancellationToken);
+
+        var displayNames = await ResolveDisplayNamesAsync(
+            tenantId,
+            invitations.Where(item => item.InvitedByUserId.HasValue).Select(item => item.InvitedByUserId!.Value),
+            userId,
+            cancellationToken);
+
+        return invitations
+            .Select(invitation => new HouseholdInvitationResponse(
+                invitation.Id,
+                invitation.HouseholdId,
+                householdNames.TryGetValue(invitation.HouseholdId, out var householdName) ? householdName : "Household",
+                invitation.UserId,
+                HouseholdMembershipRules.NormalizeRole(invitation.Role),
+                HouseholdMembershipRules.NormalizeInvitationStatus(invitation.InvitationStatus),
+                invitation.InvitedByUserId,
+                invitation.InvitedByUserId.HasValue && displayNames.TryGetValue(invitation.InvitedByUserId.Value, out var invitedByDisplayName)
+                    ? invitedByDisplayName
+                    : null,
+                invitation.InvitedAt,
+                invitation.RespondedAt,
+                invitation.ExpiresAt,
+                invitation.CreatedAt))
+            .OrderByDescending(item => item.InvitedAt ?? item.CreatedAt)
+            .ToList();
+    }
+
+    private async Task PublishInvitationSideEffectsAsync(
+        Guid tenantId,
+        Household household,
+        HouseholdMember member,
+        Guid inviterUserId,
+        CancellationToken cancellationToken)
+    {
+        var inviterDisplayNames = await ResolveDisplayNamesAsync(
+            tenantId,
+            [inviterUserId],
             member.UserId,
-            member.Role,
-            permissions,
+            cancellationToken);
+        var inviterDisplayName = inviterDisplayNames.TryGetValue(inviterUserId, out var resolvedInviterDisplayName)
+            ? resolvedInviterDisplayName
+            : null;
+
+        await _eventBus.PublishAsync(
+            new HouseholdMemberInvitedEvent(tenantId, household.Id, member.UserId, inviterUserId, HouseholdMembershipRules.NormalizeRole(member.Role)),
+            cancellationToken);
+
+        await NotifyActorAsync(
+            tenantId,
+            member.UserId,
+            "household.invited",
+            $"Invitation to join {household.Name}",
+            string.IsNullOrWhiteSpace(inviterDisplayName)
+                ? $"You were invited to join {household.Name}."
+                : $"{inviterDisplayName} invited you to join {household.Name}.",
+            "Info",
+            "/household/invitations",
+            JsonSerializer.Serialize(new { householdId = household.Id, invitedByUserId = inviterUserId }),
+            cancellationToken);
+    }
+
+    private async Task RemoveMembershipAsync(
+        HouseholdMember membership,
+        Guid actorUserId,
+        Guid tenantId,
+        Guid householdId,
+        bool isSelfRemoval,
+        CancellationToken cancellationToken)
+    {
+        membership.InvitationStatus = HouseholdInvitationStatuses.Removed;
+        membership.RespondedAt = _clock.UtcNow;
+
+        var profile = await _financeDbContext.PersonalProfiles
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.UserId == membership.UserId, cancellationToken);
+
+        if (profile != null && profile.HouseholdId == householdId)
+        {
+            profile.HouseholdId = null;
+        }
+
+        var ownedHouseholdAccounts = await _financeDbContext.PersonalAccounts
+            .Where(account => account.TenantId == tenantId && account.UserId == membership.UserId && account.HouseholdId == householdId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var account in ownedHouseholdAccounts)
+        {
+            account.HouseholdId = null;
+        }
+
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+        var affectedUsers = await GetAcceptedMembershipsAsync(tenantId, householdId, cancellationToken);
+        var affectedUserIds = affectedUsers.Select(item => item.UserId)
+            .Append(membership.UserId)
+            .Append(actorUserId)
+            .Distinct()
+            .ToList();
+
+        await _cacheInvalidator.InvalidateUserGraphsAsync(affectedUserIds, cancellationToken);
+
+        foreach (var account in ownedHouseholdAccounts)
+        {
+            await _eventBus.PublishAsync(new HouseholdAccountUnsharedEvent(tenantId, householdId, account.Id), cancellationToken);
+        }
+
+        if (!isSelfRemoval)
+        {
+            await NotifyActorAsync(
+                tenantId,
+                actorUserId,
+                "household.member-removed",
+                "Household member removed",
+                "The household member was removed successfully.",
+                "Info",
+                "/household",
+                JsonSerializer.Serialize(new { householdId, userId = membership.UserId }),
+                cancellationToken);
+        }
+    }
+
+    private async Task<HouseholdDetailResponse> BuildHouseholdDetailAsync(
+        Guid tenantId,
+        Guid householdId,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var household = await GetRequiredHouseholdAsync(householdId, tenantId, cancellationToken);
+        var members = await _financeDbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId)
+            .OrderBy(member => member.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        foreach (var member in members)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(member);
+        }
+
+        var acceptedMembers = members
+            .Where(HouseholdMembershipRules.IsAccepted)
+            .ToList();
+
+        var displayNames = await ResolveDisplayNamesAsync(tenantId, acceptedMembers.Select(member => member.UserId), currentUserId, cancellationToken);
+        var inviterIds = acceptedMembers.Where(member => member.InvitedByUserId.HasValue).Select(member => member.InvitedByUserId!.Value).Distinct().ToList();
+        var inviterDisplayNames = inviterIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await ResolveDisplayNamesAsync(tenantId, inviterIds, currentUserId, cancellationToken);
+
+        var currentMembership = acceptedMembers.FirstOrDefault(member => member.UserId == currentUserId)
+            ?? throw new InvalidOperationException("Household membership not found.");
+
+        var responseMembers = acceptedMembers
+            .Select(member => new HouseholdMemberDetailResponse(
+                member.Id,
+                member.HouseholdId,
+                member.UserId,
+                displayNames.TryGetValue(member.UserId, out var displayName) ? displayName : $"Member {member.UserId}",
+                HouseholdMembershipRules.NormalizeRole(member.Role),
+                HouseholdMembershipRules.ParsePermissions(member.PermissionsJson),
+                HouseholdMembershipRules.NormalizeInvitationStatus(member.InvitationStatus),
+                member.UserId == currentUserId,
+                member.InvitedByUserId,
+                member.InvitedByUserId.HasValue && inviterDisplayNames.TryGetValue(member.InvitedByUserId.Value, out var invitedByDisplayName)
+                    ? invitedByDisplayName
+                    : null,
+                member.InvitedAt,
+                member.RespondedAt,
+                member.ExpiresAt,
+                member.CreatedAt))
+            .ToList();
+
+        return new HouseholdDetailResponse(
+            household.Id,
+            household.Name,
+            HouseholdMembershipRules.NormalizeRole(currentMembership.Role),
+            responseMembers,
+            household.CreatedAt);
+    }
+
+    private async Task<HouseholdInvitationResponse> BuildInvitationResponseAsync(
+        HouseholdMember member,
+        string householdName,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var inviterDisplayNames = member.InvitedByUserId.HasValue
+            ? await ResolveDisplayNamesAsync(_tenantProvider.GetCurrentTenantId(), [member.InvitedByUserId.Value], currentUserId, cancellationToken)
+            : new Dictionary<Guid, string>();
+
+        return new HouseholdInvitationResponse(
+            member.Id,
+            member.HouseholdId,
+            householdName,
+            member.UserId,
+            HouseholdMembershipRules.NormalizeRole(member.Role),
+            HouseholdMembershipRules.NormalizeInvitationStatus(member.InvitationStatus),
+            member.InvitedByUserId,
+            member.InvitedByUserId.HasValue && inviterDisplayNames.TryGetValue(member.InvitedByUserId.Value, out var invitedByDisplayName)
+                ? invitedByDisplayName
+                : null,
+            member.InvitedAt,
+            member.RespondedAt,
+            member.ExpiresAt,
             member.CreatedAt);
     }
 
-    private async Task AssignHouseholdToProfileAsync(
-        Guid userId,
+    private async Task<Dictionary<Guid, string>> ResolveDisplayNamesAsync(
+        Guid tenantId,
+        IEnumerable<Guid> userIds,
+        Guid currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var distinctUserIds = userIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (distinctUserIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        var profiles = await _financeDbContext.PersonalProfiles
+            .AsNoTracking()
+            .Where(profile => profile.TenantId == tenantId && distinctUserIds.Contains(profile.UserId))
+            .ToListAsync(cancellationToken);
+
+        var partyIds = profiles.Select(profile => profile.PartyId).Distinct().ToList();
+        var partyLookup = partyIds.Count == 0
+            ? new Dictionary<Guid, string>()
+            : await _financeDbContext.Parties
+                .AsNoTracking()
+                .Where(party => party.TenantId == tenantId && partyIds.Contains(party.Id))
+                .ToDictionaryAsync(party => party.Id, party => party.DisplayName, cancellationToken);
+
+        var users = await _financeDbContext.Users
+            .AsNoTracking()
+            .Where(user => user.TenantId == tenantId && distinctUserIds.Contains(user.Id))
+            .ToListAsync(cancellationToken);
+
+        var result = new Dictionary<Guid, string>();
+        var profileLookup = profiles.ToDictionary(profile => profile.UserId, profile => profile.PartyId);
+        var userLookup = users.ToDictionary(user => user.Id, user => user.Email);
+
+        foreach (var userId in distinctUserIds)
+        {
+            if (userId == currentUserId)
+            {
+                result[userId] = "You";
+                continue;
+            }
+
+            if (profileLookup.TryGetValue(userId, out var partyId)
+                && partyLookup.TryGetValue(partyId, out var displayName)
+                && !string.IsNullOrWhiteSpace(displayName))
+            {
+                result[userId] = displayName.Trim();
+                continue;
+            }
+
+            if (userLookup.TryGetValue(userId, out var email) && !string.IsNullOrWhiteSpace(email))
+            {
+                result[userId] = email.Trim();
+                continue;
+            }
+
+            result[userId] = $"Member {userId}";
+        }
+
+        return result;
+    }
+
+    private async Task<Household> GetRequiredHouseholdAsync(Guid householdId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        return await _financeDbContext.Households
+            .FirstOrDefaultAsync(household => household.Id == householdId && household.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("Household not found.");
+    }
+
+    private async Task<PersonalProfile> GetRequiredPersonalProfileAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        return await _financeDbContext.PersonalProfiles
+            .FirstOrDefaultAsync(item => item.UserId == userId && item.TenantId == tenantId, cancellationToken)
+            ?? throw new InvalidOperationException("Personal profile is required to manage household membership.");
+    }
+
+    private async Task EnsureUserExistsWithPersonalProfileAsync(Guid userId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var userExists = await _financeDbContext.Users
+            .AnyAsync(user => user.Id == userId && user.TenantId == tenantId, cancellationToken);
+
+        if (!userExists)
+        {
+            throw new InvalidOperationException("User not found.");
+        }
+
+        _ = await GetRequiredPersonalProfileAsync(userId, tenantId, cancellationToken);
+    }
+
+    private async Task<HouseholdMember> GetRequiredAcceptedMembershipAsync(
         Guid tenantId,
         Guid householdId,
-        CancellationToken cancellationToken)
-    {
-        var profile = await _financeDbContext.PersonalProfiles
-            .FirstOrDefaultAsync(item => item.UserId == userId && item.TenantId == tenantId, cancellationToken);
-
-        if (profile == null)
-        {
-            throw new InvalidOperationException("Personal profile is required to manage household membership.");
-        }
-
-        if (profile.HouseholdId.HasValue && profile.HouseholdId.Value != householdId)
-        {
-            throw new InvalidOperationException("User already belongs to a household.");
-        }
-
-        profile.HouseholdId = householdId;
-    }
-
-    private async Task EnsurePersonalProfileAsync(
         Guid userId,
-        Guid tenantId,
         CancellationToken cancellationToken)
     {
-        var profileExists = await _financeDbContext.PersonalProfiles
-            .AnyAsync(item => item.UserId == userId && item.TenantId == tenantId, cancellationToken);
+        var membership = await _financeDbContext.HouseholdMembers
+            .FirstOrDefaultAsync(
+                member => member.TenantId == tenantId && member.HouseholdId == householdId && member.UserId == userId,
+                cancellationToken)
+            ?? throw new InvalidOperationException("Household membership not found.");
 
-        if (!profileExists)
+        HouseholdMembershipRules.NormalizeLegacyMember(membership);
+
+        if (!HouseholdMembershipRules.IsAccepted(membership))
         {
-            throw new InvalidOperationException("Personal profile is required to manage household membership.");
+            throw new InvalidOperationException("Household membership not found.");
         }
+
+        return membership;
     }
 
-    private static IReadOnlyList<string> NormalizePermissions(IReadOnlyList<string>? permissions)
+    private async Task<List<HouseholdMember>> GetAcceptedMembershipsAsync(Guid tenantId, Guid householdId, CancellationToken cancellationToken)
     {
-        if (permissions == null || permissions.Count == 0)
+        var members = await _financeDbContext.HouseholdMembers
+            .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var member in members)
         {
-            return EmptyPermissions;
+            HouseholdMembershipRules.NormalizeLegacyMember(member);
         }
 
-        return permissions
-            .Where(permission => !string.IsNullOrWhiteSpace(permission))
-            .Select(permission => permission.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return members.Where(HouseholdMembershipRules.IsAccepted).ToList();
     }
+
+    private async Task NotifyActorAsync(
+        Guid tenantId,
+        Guid userId,
+        string type,
+        string title,
+        string body,
+        string severity,
+        string actionUrl,
+        string? metadataJson,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _notificationWriter.WriteForUserAsync(
+                new UserNotificationWriteRequest(
+                    tenantId,
+                    userId,
+                    type,
+                    NotificationSource,
+                    title,
+                    body,
+                    severity,
+                    actionUrl,
+                    null,
+                    null,
+                    metadataJson),
+                cancellationToken);
+        }
+        catch
+        {
+            // Household flows should still complete if notification delivery fails.
+        }
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        if (!_currentUserProvider.TryGetCurrentUserId(out var userId))
+        {
+            throw new InvalidOperationException("Authenticated user is required.");
+        }
+
+        return userId;
+    }
+
+    private static HouseholdMemberResponse MapMemberResponse(HouseholdMember member)
+    {
+        HouseholdMembershipRules.NormalizeLegacyMember(member);
+
+        return new HouseholdMemberResponse(
+            member.Id,
+            member.HouseholdId,
+            member.UserId,
+            HouseholdMembershipRules.NormalizeRole(member.Role),
+            HouseholdMembershipRules.ParsePermissions(member.PermissionsJson),
+            HouseholdMembershipRules.NormalizeInvitationStatus(member.InvitationStatus),
+            member.InvitedByUserId,
+            member.InvitedAt,
+            member.RespondedAt,
+            member.ExpiresAt,
+            member.CreatedAt);
+    }
+
+    private static bool IsExpired(HouseholdMember member, DateTime now)
+        => member.ExpiresAt.HasValue && member.ExpiresAt.Value <= now;
 }

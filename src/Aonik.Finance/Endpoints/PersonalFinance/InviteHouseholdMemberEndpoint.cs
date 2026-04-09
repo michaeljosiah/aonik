@@ -13,7 +13,7 @@ internal record InviteHouseholdMemberEndpointRequest(
     string Role,
     IReadOnlyList<string>? Permissions);
 
-internal class InviteHouseholdMemberEndpoint : Endpoint<InviteHouseholdMemberEndpointRequest, HouseholdMemberResponse>
+internal class InviteHouseholdMemberEndpoint : Endpoint<InviteHouseholdMemberEndpointRequest, HouseholdInvitationResponse>
 {
     private readonly IHouseholdService _householdService;
     private readonly ITenantProvider _tenantProvider;
@@ -92,6 +92,11 @@ internal class InviteHouseholdMemberEndpoint : Endpoint<InviteHouseholdMemberEnd
         catch (ArgumentException ex)
         {
             HttpContext.Response.StatusCode = 422;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
         }
         catch (InvalidOperationException ex)

@@ -89,3 +89,52 @@ public record ConversationSessionEndedEvent(
     Guid TenantId,
     Guid UserId,
     Guid ChatThreadId) : IIntegrationEvent;
+
+public record HouseholdCreatedEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid OwnerUserId) : IIntegrationEvent;
+
+public record HouseholdMemberInvitedEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid InvitedUserId,
+    Guid InvitedByUserId,
+    string Role) : IIntegrationEvent;
+
+public record HouseholdInvitationAcceptedEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid UserId) : IIntegrationEvent;
+
+public record HouseholdInvitationDeclinedEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid UserId) : IIntegrationEvent;
+
+public record HouseholdMemberRemovedEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid UserId,
+    Guid RemovedByUserId) : IIntegrationEvent;
+
+public record HouseholdMemberLeftEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid UserId) : IIntegrationEvent;
+
+public record HouseholdOwnershipTransferredEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid PreviousOwnerUserId,
+    Guid NewOwnerUserId) : IIntegrationEvent;
+
+public record HouseholdAccountSharedEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid AccountId) : IIntegrationEvent;
+
+public record HouseholdAccountUnsharedEvent(
+    Guid TenantId,
+    Guid HouseholdId,
+    Guid AccountId) : IIntegrationEvent;

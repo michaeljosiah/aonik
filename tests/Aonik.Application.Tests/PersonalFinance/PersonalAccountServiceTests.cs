@@ -1,8 +1,10 @@
 using Aonik.Finance.Contracts.Models.PersonalFinance;
+using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Events;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,7 +56,18 @@ public class PersonalAccountServiceTests
 
         public Task InvalidateCurrentUserGraphAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task InvalidateUserGraphAsync(Guid userId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task InvalidateUserGraphsAsync(IEnumerable<Guid> userIds, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task InvalidateAllGraphCachesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class NoOpEventBus : IEventBus
+    {
+        public Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
+            where TEvent : Aonik.SharedKernel.Events.IIntegrationEvent
+            => Task.CompletedTask;
     }
 
     private static FinanceDbContext CreateDbContext(Guid tenantId)
@@ -77,7 +90,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
 
         var request = new CreatePersonalAccountRequest(
             "Main Bank",
@@ -110,7 +124,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Card",
@@ -144,7 +159,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
 
         var request = new CreatePersonalAccountRequest(
             "Rooster",
@@ -175,7 +191,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Rooster",
@@ -216,7 +233,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
 
         var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
             "Cash Wallet",
@@ -269,7 +287,8 @@ public class PersonalAccountServiceTests
             context,
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
-            new NoOpGraphCacheInvalidator());
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
 
         // Act
         var act = () => service.DeleteManualAccountAsync(Guid.NewGuid());
@@ -277,5 +296,113 @@ public class PersonalAccountServiceTests
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*not found*");
+    }
+
+    [Fact]
+    public async Task ShareAccountWithHouseholdAsync_Should_SetHouseholdId_WhenCurrentUserIsOwner()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalAccountService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
+
+        var household = new Household
+        {
+            TenantId = tenantId,
+            Name = "Shared Home"
+        };
+
+        context.Households.Add(household);
+        context.HouseholdMembers.Add(new HouseholdMember
+        {
+            TenantId = tenantId,
+            HouseholdId = household.Id,
+            UserId = userId,
+            Role = HouseholdRoles.Owner,
+            PermissionsJson = "[]",
+            InvitationStatus = HouseholdInvitationStatuses.Accepted,
+            InvitedAt = DateTime.UtcNow,
+            RespondedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
+            "Main Account",
+            "Bank",
+            "USD",
+            null,
+            null,
+            null,
+            null));
+
+        // Act
+        var shared = await service.ShareAccountWithHouseholdAsync(
+            created.PersonalAccountId,
+            new ShareAccountWithHouseholdRequest(household.Id));
+
+        // Assert
+        shared.HouseholdId.Should().Be(household.Id);
+
+        var persisted = await context.PersonalAccounts.SingleAsync(item => item.Id == created.PersonalAccountId);
+        persisted.HouseholdId.Should().Be(household.Id);
+    }
+
+    [Fact]
+    public async Task ShareAccountWithHouseholdAsync_Should_ThrowWhenCurrentUserIsViewer()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        using var context = CreateDbContext(tenantId);
+        var service = new PersonalAccountService(
+            context,
+            new TestTenantProvider(tenantId),
+            new TestCurrentUserProvider(userId),
+            new NoOpGraphCacheInvalidator(),
+            new NoOpEventBus());
+
+        var household = new Household
+        {
+            TenantId = tenantId,
+            Name = "Shared Home"
+        };
+
+        context.Households.Add(household);
+        context.HouseholdMembers.Add(new HouseholdMember
+        {
+            TenantId = tenantId,
+            HouseholdId = household.Id,
+            UserId = userId,
+            Role = HouseholdRoles.Viewer,
+            PermissionsJson = "[]",
+            InvitationStatus = HouseholdInvitationStatuses.Accepted,
+            InvitedAt = DateTime.UtcNow,
+            RespondedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var created = await service.CreateAccountAsync(new CreatePersonalAccountRequest(
+            "Main Account",
+            "Bank",
+            "USD",
+            null,
+            null,
+            null,
+            null));
+
+        // Act
+        var act = () => service.ShareAccountWithHouseholdAsync(
+            created.PersonalAccountId,
+            new ShareAccountWithHouseholdRequest(household.Id));
+
+        // Assert
+        await act.Should().ThrowAsync<UnauthorizedAccessException>()
+            .WithMessage("*owners or managers*");
     }
 }

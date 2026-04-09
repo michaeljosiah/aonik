@@ -15,5 +15,10 @@ internal sealed class HouseholdMemberConfiguration : IEntityTypeConfiguration<Ho
         builder.Property(item => item.Role)
             .IsRequired()
             .HasMaxLength(100);
+
+        builder.Property(item => item.InvitationStatus)
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasDefaultValue(Contracts.Models.PersonalFinance.HouseholdInvitationStatuses.Accepted);
     }
 }

@@ -4,6 +4,8 @@ using Aonik.Finance.Entities.PersonalFinance;
 using Aonik.Finance.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Events;
+using Aonik.SharedKernel.Events.Integration;
 using Microsoft.EntityFrameworkCore;
 
 namespace Aonik.Finance.Services.PersonalFinance;
@@ -14,17 +16,20 @@ internal sealed class PersonalAccountService : IPersonalAccountService
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IFinancialLifeGraphCacheInvalidator _cacheInvalidator;
+    private readonly IEventBus _eventBus;
 
     public PersonalAccountService(
         FinanceDbContext financeDbContext,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IFinancialLifeGraphCacheInvalidator cacheInvalidator)
+        IFinancialLifeGraphCacheInvalidator cacheInvalidator,
+        IEventBus eventBus)
     {
         _financeDbContext = financeDbContext;
         _tenantProvider = tenantProvider;
         _currentUserProvider = currentUserProvider;
         _cacheInvalidator = cacheInvalidator;
+        _eventBus = eventBus;
     }
 
     public async Task<PersonalAccountResponse> CreateAccountAsync(
@@ -204,6 +209,127 @@ internal sealed class PersonalAccountService : IPersonalAccountService
         _financeDbContext.PersonalAccounts.Remove(account);
         await _financeDbContext.SaveChangesAsync(cancellationToken);
         await _cacheInvalidator.InvalidateCurrentUserGraphAsync(cancellationToken);
+    }
+
+    public async Task<PersonalAccountResponse> ShareAccountWithHouseholdAsync(
+        Guid accountId,
+        ShareAccountWithHouseholdRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.HouseholdId == Guid.Empty)
+        {
+            throw new ArgumentException("HouseholdId is required.", nameof(request.HouseholdId));
+        }
+
+        var account = await GetOwnedAccountAsync(accountId, cancellationToken)
+            ?? throw new InvalidOperationException("Personal account not found.");
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var memberships = await _financeDbContext.HouseholdMembers
+            .Where(member => member.TenantId == tenantId
+                && member.HouseholdId == request.HouseholdId
+                && member.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var membership in memberships)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+        }
+
+        var acceptedMembership = memberships.FirstOrDefault(HouseholdMembershipRules.IsAccepted)
+            ?? throw new InvalidOperationException("Current user is not an accepted member of this household.");
+
+        if (!HouseholdMembershipRules.CanManageMembers(acceptedMembership))
+        {
+            throw new UnauthorizedAccessException("Only household owners or managers can share accounts with the household.");
+        }
+
+        account.HouseholdId = request.HouseholdId;
+
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+        var acceptedMembers = await _financeDbContext.HouseholdMembers
+            .Where(member => member.TenantId == tenantId && member.HouseholdId == request.HouseholdId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var membership in acceptedMembers)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+        }
+
+        await _eventBus.PublishAsync(new HouseholdAccountSharedEvent(tenantId, request.HouseholdId, account.Id), cancellationToken);
+        await _cacheInvalidator.InvalidateUserGraphsAsync(
+            acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
+            cancellationToken);
+
+        return MapToResponse(account);
+    }
+
+    public async Task<PersonalAccountResponse> UnshareAccountAsync(
+        Guid accountId,
+        CancellationToken cancellationToken = default)
+    {
+        var account = await GetOwnedAccountAsync(accountId, cancellationToken)
+            ?? throw new InvalidOperationException("Personal account not found.");
+
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var householdId = account.HouseholdId;
+
+        account.HouseholdId = null;
+
+        await _financeDbContext.SaveChangesAsync(cancellationToken);
+
+        if (householdId.HasValue)
+        {
+            var acceptedMembers = await _financeDbContext.HouseholdMembers
+                .Where(member => member.TenantId == tenantId && member.HouseholdId == householdId.Value)
+                .ToListAsync(cancellationToken);
+
+            foreach (var membership in acceptedMembers)
+            {
+                HouseholdMembershipRules.NormalizeLegacyMember(membership);
+            }
+
+            await _eventBus.PublishAsync(new HouseholdAccountUnsharedEvent(tenantId, householdId.Value, account.Id), cancellationToken);
+            await _cacheInvalidator.InvalidateUserGraphsAsync(
+                acceptedMembers.Where(HouseholdMembershipRules.IsAccepted).Select(item => item.UserId).Append(userId).Distinct(),
+                cancellationToken);
+        }
+        else
+        {
+            await _cacheInvalidator.InvalidateUserGraphAsync(userId, cancellationToken);
+        }
+
+        return MapToResponse(account);
+    }
+
+    public async Task<IReadOnlyList<PersonalAccountResponse>> ListHouseholdAccountsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var userId = GetCurrentUserId();
+        var memberships = await _financeDbContext.HouseholdMembers
+            .AsNoTracking()
+            .Where(member => member.TenantId == tenantId && member.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var membership in memberships)
+        {
+            HouseholdMembershipRules.NormalizeLegacyMember(membership);
+        }
+
+        var acceptedMembership = memberships.FirstOrDefault(HouseholdMembershipRules.IsAccepted)
+            ?? throw new InvalidOperationException("Current user does not belong to an accepted household.");
+
+        var accounts = await _financeDbContext.PersonalAccounts
+            .AsNoTracking()
+            .Where(account => account.TenantId == tenantId && account.HouseholdId == acceptedMembership.HouseholdId)
+            .OrderBy(account => account.Name)
+            .ToListAsync(cancellationToken);
+
+        return accounts.Select(MapToResponse).ToList();
     }
 
     private Guid GetCurrentUserId()

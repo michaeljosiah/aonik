@@ -32,6 +32,7 @@ internal sealed class FinancialLifeGraphLoader
         Household? household = null;
         List<HouseholdMember> householdMembers = new();
         Dictionary<Guid, string> householdMemberDisplayNames = new();
+        List<PersonalAccount> householdAccounts = new();
 
         if (personalProfile?.HouseholdId is Guid householdId)
         {
@@ -45,7 +46,22 @@ internal sealed class FinancialLifeGraphLoader
                 .OrderBy(item => item.CreatedAt)
                 .ToListAsync(cancellationToken);
 
+            foreach (var member in householdMembers)
+            {
+                HouseholdMembershipRules.NormalizeLegacyMember(member);
+            }
+
+            householdMembers = householdMembers
+                .Where(HouseholdMembershipRules.IsAccepted)
+                .ToList();
+
             householdMemberDisplayNames = await BuildHouseholdMemberDisplayNamesAsync(tenantId, userId, householdMembers, cancellationToken);
+
+            householdAccounts = await _financeDbContext.PersonalAccounts
+                .AsNoTracking()
+                .Where(item => item.TenantId == tenantId && item.HouseholdId == householdId)
+                .OrderBy(item => item.Name)
+                .ToListAsync(cancellationToken);
         }
 
         var accounts = await _financeDbContext.PersonalAccounts
@@ -172,6 +188,7 @@ internal sealed class FinancialLifeGraphLoader
             householdMembers,
             householdMemberDisplayNames,
             accounts,
+            householdAccounts,
             linkedAccounts,
             transactions,
             bills,
