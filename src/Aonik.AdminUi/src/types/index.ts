@@ -1596,3 +1596,102 @@ export interface CreateInvoiceLineItemRequest {
   quantity: number;
   unitPrice: number;
 }
+
+// ── Personal Finance — Accounts ─────────────────────────────────────
+
+export interface PersonalAccountResponse {
+  personalAccountId: string;
+  userId: string;
+  householdId?: string | null;
+  name: string;
+  accountType: string;
+  currency: string;
+  institutionName?: string | null;
+  externalReference?: string | null;
+  status: string;
+  accountSubtype?: string | null;
+  last4?: string | null;
+  currentBalance: number;
+  balanceAsOf?: string | null;
+  isArchived: boolean;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface CreatePersonalAccountRequest {
+  name: string;
+  accountType: string;
+  currency: string;
+  institutionName?: string | null;
+  externalReference?: string | null;
+  accountSubtype?: string | null;
+  last4?: string | null;
+  startingBalance?: number | null;
+}
+
+// ── Personal Finance — Transactions ─────────────────────────────────
+
+export interface PersonalTransactionResponse {
+  personalTransactionId: string;
+  userId: string;
+  personalAccountId?: string | null;
+  financialContextId?: string | null;
+  sourceType: string;
+  occurredAt: string;
+  amount: number;
+  currency: string;
+  transactionType: string;
+  merchant?: string | null;
+  description?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
+  confidence: number;
+  categorisedBy?: string | null;
+  classificationMethod?: string | null;
+  notes?: string | null;
+  tags: string[];
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface CreateManualPersonalTransactionRequest {
+  personalAccountId?: string | null;
+  occurredAt: string;
+  amount: number;
+  currency: string;
+  merchant?: string | null;
+  description?: string | null;
+  category?: string | null;
+  notes?: string | null;
+  tags?: string[] | null;
+}
+
+// ── Personal Finance — Categories ────────────────────────────────────
+
+export interface TransactionCategoryGroupResponse {
+  groupName: string;
+  categories: TransactionCategoryResponse[];
+}
+
+export interface TransactionCategoryResponse {
+  code: string;
+  displayName: string;
+  groupName: string;
+  iconName?: string | null;
+  sortOrder: number;
+  subCategories?: TransactionSubCategoryResponse[] | null;
+}
+
+export interface TransactionSubCategoryResponse {
+  code: string;
+  displayName: string;
+  iconName?: string | null;
+  sortOrder: number;
+}
+
+export interface TransactionCategoryListResponse {
+  groups: TransactionCategoryGroupResponse[];
+  categories: TransactionCategoryResponse[];
+}

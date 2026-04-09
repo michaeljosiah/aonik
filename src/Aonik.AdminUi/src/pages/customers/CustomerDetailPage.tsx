@@ -27,6 +27,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { customerService } from '@/services/customerService';
 import type { CustomerInsightsResponse } from '@/services/customerService';
 import { documentService } from '@/services/documentService';
+import { AccountsSubTab } from './finance/AccountsSubTab';
+import { TransactionsSubTab } from './finance/TransactionsSubTab';
 import type { CurrencyAmount, CustomerDetail, CustomerStats, DocumentListItem } from '@/types';
 
 const statusStyles: Record<string, { text: string; bg: string }> = {
@@ -54,6 +56,7 @@ export function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [financeSubTab, setFinanceSubTab] = useState<'accounts' | 'transactions'>('accounts');
   const [stats, setStats] = useState<CustomerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
@@ -440,6 +443,7 @@ export function CustomerDetailPage() {
                     <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-0">
                       {[
                         { value: 'overview', label: 'Overview' },
+                        { value: 'finance', label: 'Finance' },
                         { value: 'contacts', label: 'Contacts' },
                         { value: 'addresses', label: 'Addresses' },
                         { value: 'accounts', label: 'Accounts' },
@@ -460,6 +464,34 @@ export function CustomerDetailPage() {
                   </div>
 
                   <div className="p-6">
+                    <TabsContent value="finance" className="mt-0">
+                      {/* Sub-tab navigation */}
+                      <div className="flex items-center gap-1 border-b border-[var(--color-border-light)] -mx-6 px-6 mb-5">
+                        {(['accounts', 'transactions'] as const).map((sub) => (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => setFinanceSubTab(sub)}
+                            className={`pb-2.5 px-1 mr-4 text-sm capitalize border-b-2 transition-colors ${
+                              financeSubTab === sub
+                                ? 'border-[var(--color-brand-primary)] text-[var(--color-brand-primary)] font-medium'
+                                : 'border-transparent text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'
+                            }`}
+                          >
+                            {sub.charAt(0).toUpperCase() + sub.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Sub-tab content — keyed so each mounts fresh */}
+                      {financeSubTab === 'accounts' && (
+                        <AccountsSubTab key="accounts" />
+                      )}
+                      {financeSubTab === 'transactions' && (
+                        <TransactionsSubTab key="transactions" />
+                      )}
+                    </TabsContent>
+
                     <TabsContent value="overview" className="mt-0">
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <Card>
