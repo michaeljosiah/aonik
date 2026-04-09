@@ -914,6 +914,7 @@ export interface CustomerStats {
 
 export interface CustomerDetail {
   partyId: string;
+  userId?: string | null;
   displayName: string;
   partyType: string;
   status: string;
@@ -1694,4 +1695,65 @@ export interface TransactionSubCategoryResponse {
 export interface TransactionCategoryListResponse {
   groups: TransactionCategoryGroupResponse[];
   categories: TransactionCategoryResponse[];
+}
+
+// ── Personal Finance — Admin Budget ─────────────────────────────────────
+
+export interface AdminBudgetLineItem {
+  category: string;
+  limitAmount: number;
+  currency: string;
+}
+
+export interface AdminBudgetResponse {
+  budgetId: string;
+  periodType: string;
+  periodStart: string;
+  status: string;
+  lines: AdminBudgetLineItem[];
+}
+
+// ── Personal Finance — Commitments ──────────────────────────────────────
+
+export interface CommitmentItem {
+  commitmentId: string;
+  commitmentType: string;
+  verificationStatus: string;
+  origin: string;
+  displayName: string;
+  amount?: number | null;
+  currency: string;
+  dueDate: string;
+  frequency: string;
+  status: string;
+  autopay: boolean;
+  paidFromAccountId?: string | null;
+  category?: string | null;
+  confidenceScore?: number | null;
+  lastPaidAt?: string | null;
+  lastPaidAmount?: number | null;
+  createdAt: string;
+}
+
+export interface CommitmentTotals {
+  totalUpcomingAmount: number;
+  dueSoonCount: number;
+  detectedCount: number;
+  billsCount: number;
+  subscriptionsCount: number;
+  debtRepaymentsCount: number;
+}
+
+export interface CommitmentListResponse {
+  items: CommitmentItem[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+  totals: CommitmentTotals;
+}
+
+// ── CustomerDetail — extended with userId ───────────────────────────────
+
+export interface CustomerDetailWithUserId {
+  userId?: string | null;
 }

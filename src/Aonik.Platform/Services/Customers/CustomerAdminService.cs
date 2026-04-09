@@ -339,8 +339,15 @@ internal class CustomerAdminService : AdminServiceBase, ICustomerAdminService
                 r.Notes))
             .ToListAsync(cancellationToken);
 
+        var userId = await _dbContext.UserParties
+            .AsNoTracking()
+            .Where(up => up.PartyId == partyId)
+            .Select(up => (Guid?)up.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return new CustomerDetail(
             party.Id,
+            userId,
             party.DisplayName,
             party.PartyType,
             party.Status,

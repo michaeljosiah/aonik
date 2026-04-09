@@ -284,7 +284,7 @@ function AccountCard({ account }: { account: PersonalAccountResponse }) {
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
-export function AccountsSubTab() {
+export function AccountsSubTab({ userId }: { userId: string }) {
   const [accounts, setAccounts] = useState<PersonalAccountResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -295,7 +295,7 @@ export function AccountsSubTab() {
     setLoading(true);
     setError(null);
     try {
-      const data = await personalFinanceService.listAccounts(includeArchived);
+      const data = await personalFinanceService.admin.listAccounts(userId, includeArchived);
       setAccounts(data);
     } catch (err: unknown) {
       const message =

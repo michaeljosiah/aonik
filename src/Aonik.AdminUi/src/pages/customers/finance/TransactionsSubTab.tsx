@@ -340,7 +340,7 @@ function TransactionRow({
 /*  Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
-export function TransactionsSubTab() {
+export function TransactionsSubTab({ userId }: { userId: string }) {
   const [transactions, setTransactions] = useState<PersonalTransactionResponse[]>([]);
   const [accounts, setAccounts] = useState<PersonalAccountResponse[]>([]);
   const [categories, setCategories] = useState<TransactionCategoryResponse[]>([]);
@@ -360,7 +360,7 @@ export function TransactionsSubTab() {
     setError(null);
     try {
       const [txns, accs, cats] = await Promise.all([
-        personalFinanceService.listTransactions({
+        personalFinanceService.admin.listTransactions(userId, {
           search: search || undefined,
           category: categoryFilter || undefined,
           personalAccountId: accountFilter || undefined,
@@ -368,7 +368,7 @@ export function TransactionsSubTab() {
           to: toFilter || undefined,
           pageSize: 100,
         }),
-        personalFinanceService.listAccounts(),
+        personalFinanceService.admin.listAccounts(userId),
         personalFinanceService.listCategories(),
       ]);
       setTransactions(txns);
@@ -383,7 +383,7 @@ export function TransactionsSubTab() {
     } finally {
       setLoading(false);
     }
-  }, [search, categoryFilter, accountFilter, fromFilter, toFilter]);
+  }, [userId, search, categoryFilter, accountFilter, fromFilter, toFilter]);
 
   useEffect(() => {
     load();

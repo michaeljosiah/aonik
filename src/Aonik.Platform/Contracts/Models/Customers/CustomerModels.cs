@@ -69,6 +69,7 @@ public record CustomerStats(
 
 public record CustomerDetail(
     Guid PartyId,
+    Guid? UserId,
     string DisplayName,
     string PartyType,
     string Status,
