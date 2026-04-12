@@ -34,6 +34,12 @@ public sealed class StaleSessionDetectorJobOptions
     public string CronExpression { get; set; } = "0 0/5 * * * ?";
 
     public int BatchSize { get; set; } = 10;
+
+    /// <summary>
+    /// Agent names whose conversations should be summarised.
+    /// Empty list = no conversations are summarised.
+    /// </summary>
+    public List<string> AgentNames { get; set; } = [];
 }
 
 public sealed class CustomerInsightSnapshotJobOptions

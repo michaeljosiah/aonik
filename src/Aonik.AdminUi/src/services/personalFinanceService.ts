@@ -133,5 +133,56 @@ export const personalFinanceService = {
         `/admin/personal-finance/users/${userId}/commitments${q ? `?${q}` : ''}`,
       );
     },
+
+    getFinancialLifeGraph: async (userId: string): Promise<FinancialLifeGraphResponse> => {
+      return api.get<FinancialLifeGraphResponse>(
+        `/admin/personal-finance/users/${userId}/graph`,
+      );
+    },
   },
 };
+
+// ── Financial Life Graph Types ──────────────────────────────────────
+
+export interface FinancialLifeGraphResponse {
+  tenantId: string;
+  userId: string;
+  householdId: string | null;
+  generatedAt: string;
+  summary: FinancialLifeGraphSummary;
+  nodes: FinancialLifeGraphNode[];
+  edges: FinancialLifeGraphEdge[];
+  sourceCoverage: { sourceType: string; count: number }[];
+}
+
+export interface FinancialLifeGraphSummary {
+  accountsCount: number;
+  linkedAccountsCount: number;
+  transactionsCount: number;
+  billsCount: number;
+  goalsCount: number;
+  subscriptionsCount: number;
+  fundingRelationshipCount: number;
+  inferredAnnotationCount: number;
+  hasHousehold: boolean;
+  householdMembersCount: number;
+  relatedPartiesCount: number;
+  partyId: string | null;
+  householdId: string | null;
+}
+
+export interface FinancialLifeGraphNode {
+  nodeId: string;
+  nodeType: string;
+  displayName: string;
+  sourceType: string;
+  sourceId: string | null;
+  metadataJson: string | null;
+}
+
+export interface FinancialLifeGraphEdge {
+  fromNodeId: string;
+  predicate: string;
+  toNodeId: string;
+  metadataJson: string | null;
+}

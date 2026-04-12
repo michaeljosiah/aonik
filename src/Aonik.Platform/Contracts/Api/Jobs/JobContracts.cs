@@ -41,7 +41,8 @@ public record ScheduledJobDetailResponse(
     string? LastOutcome,
     string? LastOutcomeSummary,
     int? LastDurationMs,
-    DateTime LastSyncedAtUtc);
+    DateTime LastSyncedAtUtc,
+    string? ConfigurationJson);
 
 // ── Run History ─────────────────────────────────────────────────────
 
@@ -65,6 +66,17 @@ public record ScheduledJobCommandSummary(
     Guid? RequestedByUserId,
     DateTime CreatedAt,
     DateTime? ProcessedAtUtc);
+
+// ── Job Configuration ───────────────────────────────────────────────
+
+public record UpdateScheduledJobConfigurationRequest
+{
+    public string? ConfigurationJson { get; init; }
+}
+
+public record ScheduledJobConfigurationResponse(
+    string JobName,
+    string? ConfigurationJson);
 
 // ── Scheduler Health ────────────────────────────────────────────────
 

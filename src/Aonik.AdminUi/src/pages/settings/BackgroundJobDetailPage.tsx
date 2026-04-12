@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Timer, Play, Pause, RefreshCw, ServerCog, ArrowLeft, AlertTriangle, Clock, ScrollText } from 'lucide-react';
+import { Timer, Play, Pause, RefreshCw, ServerCog, ArrowLeft, AlertTriangle, Clock, ScrollText, Plus, X, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   jobService,
@@ -73,6 +75,64 @@ export function BackgroundJobDetailPage() {
   const [runsPage, setRunsPage] = useState(1);
   const [commandsPage, setCommandsPage] = useState(1);
 
+  // ── Agent Names Configuration (StaleSessionDetector only) ──
+  const [agentNames, setAgentNames] = useState<string[]>([]);
+  const [savedAgentNames, setSavedAgentNames] = useState<string[]>([]);
+  const [newAgentName, setNewAgentName] = useState('');
+  const [configSaving, setConfigSaving] = useState(false);
+  const isStaleSessionDetector = jobName === 'StaleSessionDetectorJob';
+  const configIsDirty = JSON.stringify(agentNames) !== JSON.stringify(savedAgentNames);
+
+  const loadConfiguration = useCallback(async () => {
+    if (!jobName || !isStaleSessionDetector) return;
+    try {
+      const result = await jobService.getJobConfiguration(jobName);
+      if (result.configurationJson) {
+        const parsed = JSON.parse(result.configurationJson) as { agentNames?: string[] };
+        const names = parsed.agentNames ?? [];
+        setAgentNames(names);
+        setSavedAgentNames(names);
+      }
+    } catch (err) {
+      console.error('Failed to load job configuration:', err);
+    }
+  }, [jobName, isStaleSessionDetector]);
+
+  const addAgentName = () => {
+    const name = newAgentName.trim();
+    if (!name) return;
+    if (agentNames.includes(name)) {
+      toast.error('Agent already in the list.');
+      return;
+    }
+    setAgentNames([...agentNames, name]);
+    setNewAgentName('');
+  };
+
+  const removeAgentName = (name: string) => {
+    setAgentNames(agentNames.filter((n) => n !== name));
+  };
+
+  const saveConfiguration = async () => {
+    if (!jobName) return;
+    setConfigSaving(true);
+    try {
+      const configJson = JSON.stringify({ agentNames });
+      await jobService.updateJobConfiguration(jobName, configJson);
+      setSavedAgentNames([...agentNames]);
+      toast.success('Agent names configuration saved.');
+    } catch {
+      toast.error('Failed to save configuration.');
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
+  const resetConfiguration = () => {
+    setAgentNames([...savedAgentNames]);
+    setNewAgentName('');
+  };
+
   const loadDetail = useCallback(async () => {
     if (!jobName) return;
     try {
@@ -109,6 +169,7 @@ export function BackgroundJobDetailPage() {
     void loadDetail();
     void loadRuns(1);
     void loadCommands(1);
+    void loadConfiguration();
 
     const interval = setInterval(() => {
       void loadDetail();
@@ -116,7 +177,7 @@ export function BackgroundJobDetailPage() {
       void loadCommands(commandsPage);
     }, 30_000);
     return () => clearInterval(interval);
-  }, [loadDetail, loadRuns, loadCommands, runsPage, commandsPage]);
+  }, [loadDetail, loadRuns, loadCommands, loadConfiguration, runsPage, commandsPage]);
 
   const handleAction = async (action: 'trigger' | 'pause' | 'resume') => {
     if (!jobName) return;
@@ -279,6 +340,67 @@ export function BackgroundJobDetailPage() {
         </TabsList>
 
         <TabsContent value="overview">
+          {isStaleSessionDetector && (
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle>Conversation Summarisation</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm">Agent Names</Label>
+                  <p className="text-xs text-[var(--color-text-tertiary)]">
+                    Only conversations with these agents will be summarised. If empty, no conversations are summarised.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={newAgentName}
+                      onChange={(e) => setNewAgentName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAgentName(); } }}
+                      placeholder="Enter agent name..."
+                      className="font-mono text-xs flex-1"
+                    />
+                    <Button variant="outline" size="sm" onClick={addAgentName} disabled={!newAgentName.trim()}>
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  {agentNames.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {agentNames.map((name) => (
+                        <span
+                          key={name}
+                          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface-inset)] text-[var(--color-text-secondary)] border border-[var(--color-border-light)] font-mono"
+                        >
+                          {name}
+                          <button
+                            type="button"
+                            onClick={() => removeAgentName(name)}
+                            className="ml-0.5 rounded-full hover:bg-[var(--color-error-light)] hover:text-[var(--color-error)] p-0.5 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">No agents configured — summarisation is disabled.</p>
+                  )}
+                </div>
+                {configIsDirty && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button size="sm" onClick={() => void saveConfiguration()} disabled={configSaving}>
+                      <Save className="w-3.5 h-3.5 mr-1" />
+                      {configSaving ? 'Saving...' : 'Save'}
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={resetConfiguration} disabled={configSaving}>
+                      Reset
+                    </Button>
+                    <span className="text-xs text-[var(--color-text-tertiary)]">Unsaved changes</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Job Configuration</CardTitle>

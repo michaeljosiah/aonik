@@ -30,6 +30,7 @@ import { documentService } from '@/services/documentService';
 import { AccountsSubTab } from './finance/AccountsSubTab';
 import { BudgetsSubTab } from './finance/BudgetsSubTab';
 import { CommitmentsSubTab } from './finance/CommitmentsSubTab';
+import { FinancialGraphSubTab } from './finance/FinancialGraphSubTab';
 import { TransactionsSubTab } from './finance/TransactionsSubTab';
 import type { CurrencyAmount, CustomerDetail, CustomerStats, DocumentListItem } from '@/types';
 
@@ -58,7 +59,7 @@ export function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [financeSubTab, setFinanceSubTab] = useState<'accounts' | 'transactions' | 'budgets' | 'commitments'>('accounts');
+  const [financeSubTab, setFinanceSubTab] = useState<'accounts' | 'transactions' | 'budgets' | 'commitments' | 'graph'>('accounts');
   const [stats, setStats] = useState<CustomerStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
@@ -477,12 +478,13 @@ export function CustomerDetailPage() {
                         <>
                           {/* Sub-tab navigation */}
                           <div className="flex items-center gap-1 border-b border-[var(--color-border-light)] -mx-6 px-6 mb-5">
-                            {(['accounts', 'transactions', 'budgets', 'commitments'] as const).map((sub) => {
+                            {(['accounts', 'transactions', 'budgets', 'commitments', 'graph'] as const).map((sub) => {
                               const labels: Record<string, string> = {
                                 accounts: 'Accounts',
                                 transactions: 'Transactions',
                                 budgets: 'Budgets',
                                 commitments: 'Commitments',
+                                graph: 'Financial Graph',
                               };
                               return (
                                 <button
@@ -513,6 +515,9 @@ export function CustomerDetailPage() {
                           )}
                           {financeSubTab === 'commitments' && (
                             <CommitmentsSubTab key="commitments" userId={customer.userId} />
+                          )}
+                          {financeSubTab === 'graph' && (
+                            <FinancialGraphSubTab key="graph" userId={customer.userId} />
                           )}
                         </>
                       )}

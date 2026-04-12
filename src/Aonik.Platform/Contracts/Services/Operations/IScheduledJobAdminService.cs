@@ -22,4 +22,8 @@ public interface IScheduledJobAdminService
     Task<ScheduledJobActionResponse?> QueueResumeAsync(string jobName, CancellationToken cancellationToken = default);
 
     Task<ScheduledJobActionResponse?> QueueTriggerAsync(string jobName, CancellationToken cancellationToken = default);
+
+    Task<ScheduledJobConfigurationResponse?> GetJobConfigurationAsync(string jobName, CancellationToken cancellationToken = default);
+
+    Task<ScheduledJobConfigurationResponse?> UpdateJobConfigurationAsync(string jobName, string? configurationJson, CancellationToken cancellationToken = default);
 }

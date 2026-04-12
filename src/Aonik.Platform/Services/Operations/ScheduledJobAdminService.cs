@@ -81,7 +81,8 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
                 x.LastOutcome,
                 x.LastOutcomeSummary,
                 x.LastDurationMs,
-                x.LastSyncedAtUtc))
+                x.LastSyncedAtUtc,
+                x.ConfigurationJson))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -160,6 +161,77 @@ internal class ScheduledJobAdminService : IScheduledJobAdminService
                 x.TotalTriggerCount,
                 x.RecordedAtUtc))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<ScheduledJobConfigurationResponse?> GetJobConfigurationAsync(
+        string jobName, CancellationToken cancellationToken = default)
+    {
+        var projection = await _dbContext.ScheduledJobProjections
+            .AsNoTracking()
+            .Where(x => x.GroupName == ScheduledJobGroups.ScheduledJobs && x.JobName == jobName)
+            .Select(x => new ScheduledJobConfigurationResponse(x.JobName, x.ConfigurationJson))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return projection;
+    }
+
+    public async Task<ScheduledJobConfigurationResponse?> UpdateJobConfigurationAsync(
+        string jobName, string? configurationJson, CancellationToken cancellationToken = default)
+    {
+        var projection = await _dbContext.ScheduledJobProjections
+            .FirstOrDefaultAsync(
+                x => x.GroupName == ScheduledJobGroups.ScheduledJobs && x.JobName == jobName,
+                cancellationToken);
+
+        if (projection is null)
+        {
+            return null;
+        }
+
+        projection.ConfigurationJson = configurationJson;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await TryWriteConfigurationAuditLogAsync(projection, configurationJson, cancellationToken);
+
+        return new ScheduledJobConfigurationResponse(projection.JobName, projection.ConfigurationJson);
+    }
+
+    private async Task TryWriteConfigurationAuditLogAsync(
+        ScheduledJobProjection projection,
+        string? configurationJson,
+        CancellationToken cancellationToken)
+    {
+        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
+        {
+            return;
+        }
+
+        try
+        {
+            var userId = _currentUserProvider.TryGetCurrentUserId(out var uid) ? uid : (Guid?)null;
+            var detailsJson = JsonSerializer.Serialize(new
+            {
+                jobName = projection.JobName,
+                groupName = projection.GroupName,
+                displayName = projection.DisplayName,
+                configurationJson,
+                source = "AdminUi"
+            });
+
+            await _auditLogWriter.LogAsync(
+                "ScheduledJobConfigurationUpdated",
+                nameof(ScheduledJobProjection),
+                projection.Id,
+                tenantId,
+                userId,
+                projection.Id.ToString("D"),
+                detailsJson,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to write audit log for job configuration update on {JobName}.", projection.JobName);
+        }
     }
 
     public Task<ScheduledJobActionResponse?> QueuePauseAsync(string jobName, CancellationToken cancellationToken = default)

@@ -18,4 +18,10 @@ public class ScheduledJobProjection : AuditableEntity, ITenantScoped
     public string? LastOutcomeSummary { get; set; }
     public int? LastDurationMs { get; set; }
     public DateTime LastSyncedAtUtc { get; set; }
+
+    /// <summary>
+    /// Runtime-editable job configuration stored as JSON.
+    /// Managed via the Admin UI; takes precedence over appsettings defaults.
+    /// </summary>
+    public string? ConfigurationJson { get; set; }
 }

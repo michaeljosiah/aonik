@@ -13,6 +13,8 @@ public interface IConversationSummaryService
 
     /// <summary>
     /// Finds stale active sessions that need summarisation and generates summaries for them.
+    /// Only threads belonging to agents in <paramref name="agentNames"/> are considered.
+    /// If <paramref name="agentNames"/> is null or empty, no threads are processed.
     /// </summary>
-    Task ProcessStaleSessionsAsync(int batchSize = 10, CancellationToken cancellationToken = default);
+    Task ProcessStaleSessionsAsync(int batchSize = 10, IReadOnlyList<string>? agentNames = null, CancellationToken cancellationToken = default);
 }

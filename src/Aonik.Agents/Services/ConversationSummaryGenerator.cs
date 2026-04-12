@@ -42,15 +42,23 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
         => GenerateAsync(chatThreadId, cancellationToken);
 
     /// <inheritdoc />
-    public async Task ProcessStaleSessionsAsync(int batchSize = 10, CancellationToken cancellationToken = default)
+    public async Task ProcessStaleSessionsAsync(int batchSize = 10, IReadOnlyList<string>? agentNames = null, CancellationToken cancellationToken = default)
     {
+        if (agentNames is null || agentNames.Count == 0)
+        {
+            _logger.LogDebug("No agent names configured for conversation summarisation, skipping.");
+            return;
+        }
+
         var cutoff = DateTime.UtcNow - InactivityThreshold;
 
         var staleThreadIds = await _dbContext.ChatThreads
             .Where(t => t.Status == ChatThreadStatus.Active
                 && t.LastMessageAt != null
                 && t.LastMessageAt < cutoff
-                && t.MessageCount > 0)
+                && t.MessageCount > 0
+                && t.AgentName != null
+                && agentNames.Contains(t.AgentName))
             .Where(t => !_dbContext.ConversationSummaries.Any(s => s.ChatThreadId == t.Id))
             .Select(t => t.Id)
             .Take(batchSize)

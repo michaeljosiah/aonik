@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, AudioLines, CircleHelp, Info, RefreshCw, Save, Upload, Volume2, Waves } from 'lucide-react';
+import { AlertCircle, AudioLines, CircleHelp, Download, Info, RefreshCw, Save, Upload, Volume2, Waves } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/auth';
@@ -370,6 +370,7 @@ export function SettingsTextToSpeechPage() {
   const [savingTenantCredential, setSavingTenantCredential] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<{ blob: Blob; contentType: string } | null>(null);
   const [hostCredential, setHostCredential] = useState<TextToSpeechCredentialResponse | null>(null);
   const [tenantCredential, setTenantCredential] = useState<TextToSpeechCredentialResponse | null>(null);
   const [voiceLoadError, setVoiceLoadError] = useState<string | null>(null);
@@ -685,6 +686,8 @@ export function SettingsTextToSpeechPage() {
       previewAudio?.pause();
       previewAudio?.removeAttribute('src');
 
+      setPreviewBlob({ blob: preview.audioBlob, contentType: preview.contentType });
+
       const audioUrl = URL.createObjectURL(preview.audioBlob);
       const audio = new Audio(audioUrl);
 
@@ -706,6 +709,23 @@ export function SettingsTextToSpeechPage() {
     } finally {
       setPreviewing(false);
     }
+  };
+
+  const handleDownloadPreview = () => {
+    if (!previewBlob) return;
+    const ext = previewBlob.contentType.includes('wav') ? 'wav'
+      : previewBlob.contentType.includes('flac') ? 'flac'
+      : previewBlob.contentType.includes('ogg') || previewBlob.contentType.includes('opus') ? 'ogg'
+      : previewBlob.contentType.includes('pcm') ? 'pcm'
+      : 'mp3';
+    const url = URL.createObjectURL(previewBlob.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tts-preview.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const providerLabel = formState?.provider ?? 'Provider';
@@ -739,6 +759,15 @@ export function SettingsTextToSpeechPage() {
           >
             <Volume2 className="mr-2 h-4 w-4" />
             {previewing ? 'Previewing...' : 'Preview'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDownloadPreview}
+            disabled={!previewBlob || previewing}
+            title={previewBlob ? 'Download the last previewed audio' : 'Preview audio first, then download'}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download
           </Button>
           <Button onClick={() => void handleSave()} disabled={loading || saving || previewing || !formState}>
             <Save className="mr-2 h-4 w-4" />

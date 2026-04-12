@@ -44,6 +44,7 @@ export interface ScheduledJobDetailResponse {
   lastOutcomeSummary: string | null;
   lastDurationMs: number | null;
   lastSyncedAtUtc: string;
+  configurationJson: string | null;
 }
 
 export interface ScheduledJobRunSummary {
@@ -89,6 +90,11 @@ export function buildJobCommandAuditUrl(command: Pick<ScheduledJobCommandSummary
   });
 
   return `/settings/audit-logs?${params.toString()}`;
+}
+
+export interface ScheduledJobConfigurationResponse {
+  jobName: string;
+  configurationJson: string | null;
 }
 
 export interface SchedulerHealthResponse {
@@ -158,5 +164,13 @@ export const jobService = {
 
   resumeJob: async (jobName: string): Promise<ScheduledJobActionResponse> => {
     return api.post<ScheduledJobActionResponse>(`/admin/jobs/scheduled/${encodeURIComponent(jobName)}/resume`);
+  },
+
+  getJobConfiguration: async (jobName: string): Promise<ScheduledJobConfigurationResponse> => {
+    return api.get<ScheduledJobConfigurationResponse>(`/admin/jobs/scheduled/${encodeURIComponent(jobName)}/configuration`);
+  },
+
+  updateJobConfiguration: async (jobName: string, configurationJson: string | null): Promise<ScheduledJobConfigurationResponse> => {
+    return api.put<ScheduledJobConfigurationResponse>(`/admin/jobs/scheduled/${encodeURIComponent(jobName)}/configuration`, { configurationJson });
   },
 };
