@@ -218,7 +218,7 @@ internal sealed class FinancialLifeGraphLoader
         return await _financeDbContext.FxQuotes
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId
-                && !string.Equals(item.BaseCurrency, item.TargetCurrency, StringComparison.OrdinalIgnoreCase)
+                && item.BaseCurrency != item.TargetCurrency
                 && relevantAccountCurrencies.Contains(item.BaseCurrency)
                 && relevantAccountCurrencies.Contains(item.TargetCurrency))
             .OrderByDescending(item => item.ExpiresAt)
