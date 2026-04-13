@@ -64,6 +64,10 @@ public static class SettingDefinitions
             [AiSettingNames.OpenAiImageModel] = new SettingDefinition(AiSettingNames.OpenAiImageModel, "dall-e-3"),
             [AiSettingNames.UserMemoryBackend] = new SettingDefinition(AiSettingNames.UserMemoryBackend, "SqlServer"),
 
+            // ── Observability ────────────────────────────────────────────
+            [ObservabilitySettingNames.AppInsightsAppId] = new SettingDefinition(ObservabilitySettingNames.AppInsightsAppId),
+            [ObservabilitySettingNames.AppInsightsApiKey] = new SettingDefinition(ObservabilitySettingNames.AppInsightsApiKey, IsEncrypted: true),
+
             // ── Text To Speech ───────────────────────────────────────────
             [TextToSpeechSettingNames.TenantProfile] = new SettingDefinition(TextToSpeechSettingNames.TenantProfile),
         });

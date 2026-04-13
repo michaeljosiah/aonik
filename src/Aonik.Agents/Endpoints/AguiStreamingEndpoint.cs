@@ -455,8 +455,10 @@ public static class AguiStreamingEndpoint
             };
 
             logger.LogInformation(
-                "AG-UI run {RunId} completed — latency {LatencyMs}ms, TTFT {TimeToFirstTokenMs}ms, tokens {InputTokens}in/{OutputTokens}out",
-                runId, metrics.latencyMs, metrics.timeToFirstTokenMs, inputTokens, outputTokens);
+                "AguiRunCompleted: RunId={RunId} AgentName={AgentName} ThreadId={ThreadId} LatencyMs={LatencyMs} TtftMs={TtftMs} InputTokens={InputTokens} OutputTokens={OutputTokens} TotalTokens={TotalTokens}",
+                runId, input.AgentId ?? "orchestrator", threadId,
+                metrics.latencyMs, metrics.timeToFirstTokenMs,
+                inputTokens, outputTokens, inputTokens + outputTokens);
 
             await WriteSseEventAsync(context.Response, new
             {

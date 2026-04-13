@@ -368,4 +368,18 @@ abstract class ChatRepository {
   ///
   /// Retained for backward compatibility with mock mode.
   Future<ChatMessage> getReply(String prompt);
+
+  /// Reports client-side performance metrics for a completed chat run.
+  /// Fire-and-forget — implementations must swallow failures silently.
+  Future<void> reportMetrics({
+    required int clientRoundTripMs,
+    required int clientTtftMs,
+    int serverLatencyMs = 0,
+    int serverTtftMs = 0,
+    int inputTokens = 0,
+    int outputTokens = 0,
+    String? threadId,
+    String? runId,
+    String? agentName,
+  });
 }

@@ -23,6 +23,7 @@ import {
   GlobalSettingsPage,
 } from '@/pages/settings';
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
+import { ObservabilityPage } from '@/pages/observability';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
 import { ContentBlockEditPage } from '@/pages/ContentBlockEditPage';
 import { ContentWizardPage } from '@/pages/ContentWizardPage';
@@ -77,6 +78,7 @@ const navigation: NavigationSection[] = [
               { id: 'platform-alerts', label: 'Platform Alerts', icon: 'Bell', href: '/admin/alerts' },
               { id: 'background-jobs', label: 'Background Jobs', icon: 'Timer', href: '/settings/background-jobs' },
               { id: 'settings-system-tools', label: 'System Tools', icon: 'Wrench', href: '/settings/system-tools' },
+              { id: 'observability', label: 'Observability', icon: 'Activity', href: '/admin/observability' },
             ],
           },
           {
@@ -122,6 +124,7 @@ const routes = [
   { path: '/cms/content-blocks/:id', element: ContentBlockEditPage, isDynamic: true },
   { path: '/cms/content-wizard', element: ContentWizardPage },
   { path: '/cms/media', element: MediaLibraryPage },
+  { path: '/admin/observability', element: ObservabilityPage },
 ];
 
 // ---------------------------------------------------------------------------
@@ -143,6 +146,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'settings-notification-templates', title: 'Notifications', type: 'internal', category: 'page', componentKey: 'settings-notification-templates', route: '/settings/notification-templates' },
   { id: 'cms-content-blocks', title: 'Content Blocks', type: 'internal', category: 'page', componentKey: 'content-blocks', route: '/cms/content-blocks' },
   { id: 'cms-media', title: 'Media Library', type: 'internal', category: 'page', componentKey: 'media-library', route: '/cms/media' },
+  { id: 'observability', title: 'Observability', type: 'internal', category: 'page', componentKey: 'observability', route: '/admin/observability' },
   // Micro-app panels — workspace-native, cross-panel communication
   { id: 'job-monitor', title: 'Job Monitor', description: 'Monitor background jobs and trigger actions.', type: 'internal', category: 'micro-app', componentKey: 'job-monitor', appCardId: '10', defaultWidth: 480 },
   { id: 'audit-trail', title: 'Audit Trail', description: 'Cross-referenced audit logs for job runs and commands.', type: 'internal', category: 'micro-app', componentKey: 'audit-trail', appCardId: '11', defaultWidth: 520 },
@@ -163,6 +167,7 @@ const panelComponents = {
   'settings-notification-templates': wrapPage(NotificationTemplatesPage),
   'content-blocks': wrapPage(ContentBlocksListPage),
   'media-library': wrapPage(MediaLibraryPage),
+  'observability': wrapPage(ObservabilityPage),
   'job-monitor': BackgroundJobsPanel,
   'audit-trail': AuditLogPanel,
 };
@@ -186,6 +191,7 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/access', trail: ['Team'] },
+  { pathPrefix: '/admin/observability', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/admin', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/tenants', trail: ['Admin', 'Infrastructure'] },
   { pathPrefix: '/settings', trail: ['Admin', 'Settings'] },

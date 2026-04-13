@@ -891,4 +891,40 @@ class LiveChatRepository implements ChatRepository {
       lines: buffer.isEmpty ? const ['...'] : [buffer.toString()],
     );
   }
+
+  @override
+  Future<void> reportMetrics({
+    required int clientRoundTripMs,
+    required int clientTtftMs,
+    int serverLatencyMs = 0,
+    int serverTtftMs = 0,
+    int inputTokens = 0,
+    int outputTokens = 0,
+    String? threadId,
+    String? runId,
+    String? agentName,
+  }) async {
+    try {
+      await _apiClient.post<void>(
+        '/api/chat/metrics',
+        data: {
+          'clientRoundTripMs': clientRoundTripMs,
+          'clientTtftMs': clientTtftMs,
+          'serverLatencyMs': serverLatencyMs,
+          'serverTtftMs': serverTtftMs,
+          'inputTokens': inputTokens,
+          'outputTokens': outputTokens,
+          'threadId': threadId,
+          'runId': runId,
+          'agentName': agentName,
+        },
+      );
+    } catch (e) {
+      developer.log(
+        'Failed to report chat metrics: $e',
+        name: 'LiveChatRepository',
+      );
+      // Swallow — metrics reporting must never disrupt UX.
+    }
+  }
 }

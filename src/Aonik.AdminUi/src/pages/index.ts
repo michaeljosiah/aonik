@@ -36,3 +36,4 @@ export {
   GlobalSettingsPage,
 } from './settings';
 export { FxRatesPage } from './FxRatesPage';
+export { ObservabilityPage } from './observability';

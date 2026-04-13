@@ -21,6 +21,7 @@ using Aonik.Platform.Contracts.Services.ReferenceData;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Application.Abstractions.Storage;
 using Aonik.Application.Options;
+using Aonik.Platform.Contracts.Services.Observability;
 using Aonik.Platform.Contracts.Services.Storage;
 using Aonik.Platform.Services.Onboarding;
 
@@ -193,6 +194,14 @@ public static class DependencyInjection
         services.AddHttpClient<IPushNotificationSender, FirebasePushNotificationSender>();
 
 
+
+        // Application Insights observability queries
+        services.AddHttpClient("AppInsights", client =>
+        {
+            client.BaseAddress = new Uri("https://api.applicationinsights.io/v1/apps/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddScoped<IObservabilityService, Observability.AppInsightsQueryService>();
 
         // Background jobs core services. Quartz runtime registration is owned by execution hosts.
         services.AddAonikBackgroundJobCoreServices();

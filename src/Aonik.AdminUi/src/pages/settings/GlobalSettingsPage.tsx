@@ -225,6 +225,33 @@ const GLOBAL_TABS: GlobalTabDef[] = [
     ],
   },
   {
+    id: 'observability',
+    label: 'Observability',
+    sections: [
+      {
+        title: 'Azure Application Insights',
+        description: 'Configure the Application Insights instance used for the Observability dashboard.',
+        fields: [
+          {
+            key: 'Observability.AppInsights.AppId',
+            label: 'Application ID',
+            type: 'text',
+            placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+            help: 'The Application ID from Azure Portal > Application Insights > API Access. This is NOT the Instrumentation Key or Connection String.',
+          },
+          {
+            key: 'Observability.AppInsights.ApiKey',
+            label: 'API Key',
+            type: 'password',
+            placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+            description: 'Encrypted at rest. Leave blank to keep current value.',
+            help: 'Generate an API key from Azure Portal > Application Insights > API Access > Create API Key. Grant Read telemetry permission.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: 'platform',
     label: 'Platform Admin',
     sections: [

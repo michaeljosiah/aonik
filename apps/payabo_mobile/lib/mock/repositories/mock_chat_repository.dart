@@ -658,4 +658,19 @@ class MockChatRepository implements ChatRepository {
       ],
     );
   }
+
+  @override
+  Future<void> reportMetrics({
+    required int clientRoundTripMs,
+    required int clientTtftMs,
+    int serverLatencyMs = 0,
+    int serverTtftMs = 0,
+    int inputTokens = 0,
+    int outputTokens = 0,
+    String? threadId,
+    String? runId,
+    String? agentName,
+  }) async {
+    // No-op in mock mode.
+  }
 }

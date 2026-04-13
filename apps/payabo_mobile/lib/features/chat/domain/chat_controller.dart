@@ -292,6 +292,7 @@ class ChatController extends StateNotifier<ChatState> {
   /// round-trip latency from mobile → server → LLM → mobile.
   final Stopwatch _clientStopwatch = Stopwatch();
   int? _clientTimeToFirstTokenMs;
+  String? _currentRunId;
 
   /// Sends the very first message in a conversation that was initiated by a
   /// conversation starter question. Seeds the starter as an assistant message
@@ -396,6 +397,7 @@ class ChatController extends StateNotifier<ChatState> {
   void _onEvent(ChatStreamEvent event) {
     switch (event) {
       case ChatStreamStarted():
+        _currentRunId = event.runId;
         state = state.copyWith(
           activity: ChatActivity.connecting,
           threadId: event.threadId ?? state.threadId,
@@ -538,6 +540,20 @@ class ChatController extends StateNotifier<ChatState> {
           'Run completed — client: total=${clientTotalMs}ms, ttft=${clientTtftMs}ms'
           '${serverMetrics != null ? ' | server: $serverMetrics' : ''}',
           name: 'ChatController',
+        );
+
+        // Fire-and-forget: report combined client + server metrics to backend
+        // for App Insights observability dashboard visualisation.
+        _repository.reportMetrics(
+          clientRoundTripMs: clientTotalMs,
+          clientTtftMs: clientTtftMs,
+          serverLatencyMs: serverMetrics?.latencyMs ?? 0,
+          serverTtftMs: serverMetrics?.timeToFirstTokenMs ?? 0,
+          inputTokens: serverMetrics?.inputTokens ?? 0,
+          outputTokens: serverMetrics?.outputTokens ?? 0,
+          threadId: state.threadId,
+          runId: _currentRunId,
+          agentName: 'personal-finance-agent',
         );
 
         // Persist any display widgets into the last assistant message
