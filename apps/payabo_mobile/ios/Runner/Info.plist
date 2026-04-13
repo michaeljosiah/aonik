@@ -39,6 +39,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Payabo uses Face ID to unlock the app and keep your account secure.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Payabo needs camera access so you can take a profile photo.</string>
 	<key>NSMicrophoneUsageDescription</key>

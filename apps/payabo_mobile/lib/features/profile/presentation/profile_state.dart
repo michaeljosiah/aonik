@@ -3,8 +3,8 @@ import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../app/auth/auth_session_store.dart';
 import '../../../app/errors/api_error_notifier.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../data/repositories/repository_providers.dart';
@@ -673,10 +673,11 @@ class ProfileMarketingController extends StateNotifier<ProfileMarketingState> {
 }
 
 class BiometricPreferenceController extends StateNotifier<bool> {
-  BiometricPreferenceController() : super(false) {
+  BiometricPreferenceController(this._store) : super(false) {
     unawaited(ensureLoaded());
   }
 
+  final KeyValueStore _store;
   bool _loaded = false;
 
   Future<void> ensureLoaded({bool force = false}) async {
@@ -684,8 +685,8 @@ class BiometricPreferenceController extends StateNotifier<bool> {
       return;
     }
 
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    state = prefs.getBool(_touchIdKey) ?? false;
+    final String? raw = await _store.read(_touchIdKey);
+    state = raw == 'true';
     _loaded = true;
   }
 
@@ -695,8 +696,7 @@ class BiometricPreferenceController extends StateNotifier<bool> {
 
   Future<void> setTouchId(bool enabled) async {
     state = enabled;
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_touchIdKey, enabled);
+    await _store.write(_touchIdKey, enabled.toString());
     _loaded = true;
   }
 }
@@ -759,7 +759,7 @@ final StateNotifierProvider<ProfileMarketingController, ProfileMarketingState>
 final StateNotifierProvider<BiometricPreferenceController, bool>
     biometricPreferenceProvider =
     StateNotifierProvider<BiometricPreferenceController, bool>(
-  (Ref ref) => BiometricPreferenceController(),
+  (Ref ref) => BiometricPreferenceController(ref.watch(keyValueStoreProvider)),
 );
 
 final Provider<ProfileDataCoordinator> profileDataCoordinatorProvider =

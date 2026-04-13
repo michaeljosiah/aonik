@@ -1140,23 +1140,25 @@ class _AccountCard extends StatelessWidget {
                   children: <InlineSpan>[
                     TextSpan(
                       text: account.currencySymbol,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: c.spendingAccountAccentPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: c.spendingAccountAccentPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
                     ),
                     TextSpan(
                       text: account.balanceMajor,
                       style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          Theme.of(context).textTheme.displayLarge?.copyWith(
                                 color: c.spendingAccountAccentPrimary,
                                 fontWeight: FontWeight.w800,
+                                fontSize: 40,
                                 height: 1,
                               ),
                     ),
                     TextSpan(
                       text: account.balanceMinor,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             color: c.spendingAccountAccentPrimary
                                 .withValues(alpha: 0.7),
                             fontWeight: FontWeight.w600,

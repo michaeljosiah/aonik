@@ -1,6 +1,7 @@
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 
 import '../api/api_exception.dart';
 import 'spending_repository.dart';
@@ -199,7 +200,8 @@ class LiveSpendingRepository implements SpendingRepository {
       final int totalCents = (bal.abs() * 100).round();
       final int whole = totalCents ~/ 100;
       final int cents = totalCents.remainder(100);
-      balanceMajor = '${isNegative ? '-' : ''}$whole';
+      final String formattedWhole = NumberFormat('#,##0').format(whole);
+      balanceMajor = '${isNegative ? '-' : ''}$formattedWhole';
       balanceMinor = '.${cents.toString().padLeft(2, '0')}';
       balanceLabel = '$symbol$balanceMajor$balanceMinor';
     } else {

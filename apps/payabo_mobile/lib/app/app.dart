@@ -12,9 +12,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/api/api_client.dart';
+import '../features/profile/presentation/profile_state.dart';
 import '../shared/theme/payabo_theme.dart';
 import '../shared/theme/theme_mode_provider.dart';
+import 'auth/app_lock_controller.dart';
 import 'auth/auth_controller.dart';
+import 'auth/biometric_lock_gate.dart';
+import 'demo/demo_mode.dart';
 import 'errors/api_error_listener.dart';
 import 'router/app_router.dart';
 
@@ -25,7 +29,8 @@ class PayaboApp extends ConsumerStatefulWidget {
   ConsumerState<PayaboApp> createState() => _PayaboAppState();
 }
 
-class _PayaboAppState extends ConsumerState<PayaboApp> {
+class _PayaboAppState extends ConsumerState<PayaboApp>
+    with WidgetsBindingObserver {
   static const String _firebaseLogName = 'Payabo.Firebase';
   static const String _deviceRegistrationPath =
       '/profiles/customers/me/notification-devices';
@@ -36,19 +41,46 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
   String? _lastRegisteredToken;
   bool _messagingConfigured = false;
 
+  /// Tracks when the app was last backgrounded for biometric re-lock.
+  DateTime? _backgroundedAt;
+
   bool get _hasFirebaseApp => Firebase.apps.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_configureFirebaseMessaging());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tokenRefreshSubscription?.cancel();
     _messageOpenedSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _backgroundedAt = DateTime.now();
+    } else if (state == AppLifecycleState.resumed) {
+      final backgroundedAt = _backgroundedAt;
+      _backgroundedAt = null;
+
+      if (backgroundedAt != null) {
+        final elapsed = DateTime.now().difference(backgroundedAt);
+        if (elapsed >= kBackgroundLockDelay) {
+          final isDemo = ref.read(isDemoProvider);
+          final biometricEnabled = ref.read(biometricPreferenceProvider);
+          if (!isDemo && biometricEnabled) {
+            ref.read(appLockControllerProvider.notifier).lockIfEnabled();
+          }
+        }
+      }
+    }
   }
 
   Future<void> _configureFirebaseMessaging() async {
@@ -227,7 +259,9 @@ class _PayaboAppState extends ConsumerState<PayaboApp> {
       themeMode: themeMode,
       routerConfig: router,
       builder: (context, child) => ApiErrorListener(
-        child: child ?? const SizedBox.shrink(),
+        child: BiometricLockGate(
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }
