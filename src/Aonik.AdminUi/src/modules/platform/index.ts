@@ -14,13 +14,13 @@ import {
 } from '@/pages/tenants';
 import {
   SettingsLandingPage,
-  SettingsGeneralPage,
   SettingsAuditLogsPage,
   SettingsTextToSpeechPage,
   SystemToolsPage,
   NotificationTemplatesPage,
   BackgroundJobsPage,
   BackgroundJobDetailPage,
+  GlobalSettingsPage,
 } from '@/pages/settings';
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
 import { ContentBlocksListPage } from '@/pages/ContentBlocksListPage';
@@ -82,7 +82,7 @@ const navigation: NavigationSection[] = [
           {
             label: 'Settings',
             items: [
-              { id: 'settings-general', label: 'General', icon: 'Cog', href: '/settings/general' },
+              { id: 'settings-global', label: 'Settings', icon: 'SlidersHorizontal', href: '/settings/global' },
               { id: 'settings-audit-logs', label: 'Audit Logs', icon: 'ScrollText', href: '/settings/audit-logs' },
               { id: 'settings-text-to-speech', label: 'Text to Speech', icon: 'AudioLines', href: '/settings/text-to-speech' },
               { id: 'settings-autonumbering', label: 'Autonumbering', icon: 'Hash', href: '/settings/autonumbering' },
@@ -109,7 +109,8 @@ const routes = [
   { path: '/admin/alerts', element: AlertsPage },
   { path: '/admin/alerts/:id', element: AlertDetailPage, isDynamic: true },
   { path: '/settings', element: SettingsLandingPage },
-  { path: '/settings/general', element: SettingsGeneralPage },
+  { path: '/settings/general', element: GlobalSettingsPage },
+  { path: '/settings/global', element: GlobalSettingsPage },
   { path: '/settings/audit-logs', element: SettingsAuditLogsPage },
   { path: '/settings/text-to-speech', element: SettingsTextToSpeechPage },
   { path: '/settings/background-jobs', element: BackgroundJobsPage },
@@ -134,7 +135,7 @@ const panels: WorkspacePanelConfig[] = [
   { id: 'tenants', title: 'Tenants', type: 'internal', category: 'page', componentKey: 'tenants', route: '/tenants' },
   { id: 'platform-alerts', title: 'Platform Alerts', type: 'internal', category: 'page', componentKey: 'platform-alerts', route: '/admin/alerts' },
   { id: 'settings', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-home', route: '/settings' },
-  { id: 'settings-general', title: 'General', type: 'internal', category: 'page', componentKey: 'settings-general', route: '/settings/general' },
+  { id: 'settings-global', title: 'Settings', type: 'internal', category: 'page', componentKey: 'settings-global', route: '/settings/global' },
   { id: 'settings-audit-logs', title: 'Audit Logs', type: 'internal', category: 'page', componentKey: 'settings-audit-logs', route: '/settings/audit-logs' },
   { id: 'settings-text-to-speech', title: 'Text to Speech', type: 'internal', category: 'page', componentKey: 'settings-text-to-speech', route: '/settings/text-to-speech' },
   { id: 'background-jobs', title: 'Background Jobs', type: 'internal', category: 'page', componentKey: 'background-jobs', route: '/settings/background-jobs' },
@@ -154,7 +155,7 @@ const panelComponents = {
   tenants: wrapPage(TenantsListPage),
   'platform-alerts': wrapPage(AlertsPage),
   'settings-home': wrapPage(SettingsLandingPage),
-  'settings-general': wrapPage(SettingsGeneralPage),
+  'settings-global': wrapPage(GlobalSettingsPage),
   'settings-audit-logs': wrapPage(SettingsAuditLogsPage),
   'settings-text-to-speech': wrapPage(SettingsTextToSpeechPage),
   'background-jobs': wrapPage(BackgroundJobsPage),

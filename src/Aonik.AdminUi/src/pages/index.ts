@@ -32,7 +32,7 @@ export {
   AutonumberingPage,
   SystemToolsPage,
   SettingsLandingPage,
-  SettingsGeneralPage,
   SettingsAuditLogsPage,
+  GlobalSettingsPage,
 } from './settings';
 export { FxRatesPage } from './FxRatesPage';

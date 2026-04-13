@@ -28,11 +28,11 @@ interface SettingsTile {
 const settingsTiles: SettingsTile[] = [
   {
     section: 'Platform',
-    title: 'General',
-    description: 'Manage workspace profile, timezone, locale, and approval controls.',
-    href: '/settings/general',
+    title: 'Settings',
+    description: 'Workspace profile, AI provider, storage, communication, feature flags, and platform configuration.',
+    href: '/settings/global',
     icon: SlidersHorizontal,
-    badge: 'Core',
+    badge: 'Configuration',
   },
   {
     section: 'Platform',

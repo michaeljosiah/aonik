@@ -1,9 +1,9 @@
 export { AutonumberingPage } from './AutonumberingPage';
 export { SystemToolsPage } from './SystemToolsPage';
 export { SettingsLandingPage } from './SettingsLandingPage';
-export { SettingsGeneralPage } from './SettingsGeneralPage';
 export { SettingsAuditLogsPage } from './SettingsAuditLogsPage';
 export { SettingsTextToSpeechPage } from './SettingsTextToSpeechPage';
 export { NotificationTemplatesPage } from './NotificationTemplatesPage';
 export { BackgroundJobsPage } from './BackgroundJobsPage';
 export { BackgroundJobDetailPage } from './BackgroundJobDetailPage';
+export { GlobalSettingsPage } from './GlobalSettingsPage';

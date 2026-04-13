@@ -16,3 +16,9 @@ public record SettingValueResponse(
 public record PublicSettingValueResponse(
     string Key,
     string? Value);
+
+public record BatchGetSettingValuesRequest(
+    IReadOnlyList<string> Keys);
+
+public record BatchGetSettingValuesResponse(
+    IReadOnlyList<SettingValueResponse> Settings);
