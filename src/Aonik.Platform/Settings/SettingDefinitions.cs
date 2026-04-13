@@ -57,6 +57,13 @@ public static class SettingDefinitions
             // ── Payabo ───────────────────────────────────────────────────
             [PayaboSettingNames.SetupProfile] = new SettingDefinition(PayaboSettingNames.SetupProfile),
 
+            // ── AI ───────────────────────────────────────────────────────
+            [AiSettingNames.Provider] = new SettingDefinition(AiSettingNames.Provider, "Stub"),
+            [AiSettingNames.OpenAiApiKey] = new SettingDefinition(AiSettingNames.OpenAiApiKey, IsEncrypted: true),
+            [AiSettingNames.OpenAiModel] = new SettingDefinition(AiSettingNames.OpenAiModel, "gpt-5-mini"),
+            [AiSettingNames.OpenAiImageModel] = new SettingDefinition(AiSettingNames.OpenAiImageModel, "dall-e-3"),
+            [AiSettingNames.UserMemoryBackend] = new SettingDefinition(AiSettingNames.UserMemoryBackend, "SqlServer"),
+
             // ── Text To Speech ───────────────────────────────────────────
             [TextToSpeechSettingNames.TenantProfile] = new SettingDefinition(TextToSpeechSettingNames.TenantProfile),
         });

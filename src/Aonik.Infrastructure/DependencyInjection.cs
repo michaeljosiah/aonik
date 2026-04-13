@@ -222,6 +222,26 @@ public static class DependencyInjection
         // OpenTelemetry metrics for vector store
         services.AddSingleton<Aonik.Infrastructure.VectorStore.QdrantMetrics>();
 
+        // User memory backend selection — factory reads the Ai.UserMemory.Backend setting
+        // and resolves either the SQL-based or Qdrant-backed implementation.
+        services.AddScoped<Aonik.Infrastructure.VectorStore.QdrantUserMemoryService>();
+        services.AddScoped<Aonik.Ai.Contracts.Services.IUserMemoryService>(sp =>
+        {
+            var settingProvider = sp.GetRequiredService<Aonik.Platform.Contracts.Services.Settings.ISettingProvider>();
+            var backend = settingProvider.GetAsync(Aonik.Platform.Settings.AiSettingNames.UserMemoryBackend)
+                .GetAwaiter().GetResult() ?? "SqlServer";
+
+            return backend.Equals("Qdrant", StringComparison.OrdinalIgnoreCase)
+                ? sp.GetRequiredService<Aonik.Infrastructure.VectorStore.QdrantUserMemoryService>()
+                : sp.GetRequiredService<Aonik.Ai.Services.UserMemoryService>();
+        });
+
+        // AI provider settings — resolves from Settings module with IConfiguration fallback.
+        // Registered here (not in AiModule) because the implementation needs ISettingProvider
+        // from Aonik.Platform, which Aonik.Ai does not reference.
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IAiProviderSettings,
+            Aonik.Infrastructure.Settings.AiProviderSettings>();
+
         return services;
     }
 

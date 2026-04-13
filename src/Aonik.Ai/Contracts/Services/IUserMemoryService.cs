@@ -40,6 +40,18 @@ public interface IUserMemoryService
     Task ConfirmEntryAsync(
         Guid entryId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Semantically search user memory entries using a natural language query.
+    /// Returns entries ranked by relevance. Returns an empty list if the backend
+    /// does not support semantic search (e.g. SQL Server without vector embeddings).
+    /// </summary>
+    Task<IReadOnlyList<SemanticMemorySearchResult>> SemanticSearchAsync(
+        Guid userId,
+        string query,
+        int limit = 5,
+        float scoreThreshold = 0.6f,
+        CancellationToken cancellationToken = default);
 }
 
 public record SetUserMemoryEntryRequest(
@@ -64,3 +76,7 @@ public record UserMemoryEntryResponse(
     Guid? SupersededById,
     DateTime CreatedAt,
     DateTime LastConfirmedAt);
+
+public record SemanticMemorySearchResult(
+    UserMemoryEntryResponse Entry,
+    float RelevanceScore);

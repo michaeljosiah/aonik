@@ -1,5 +1,6 @@
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
+using Aonik.Agents.Tools;
 using Aonik.Finance.Agents.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -174,6 +175,8 @@ public sealed class PersonalFinanceAgentDescriptor : IDomainAgentDescriptor
 
     private static IEnumerable<AITool> GetTools(IServiceProvider serviceProvider)
     {
-        return PersonalFinanceTools.CreateAll(serviceProvider);
+        return PersonalFinanceTools.CreateAll(serviceProvider)
+            .Concat(UserMemoryRecallTools.CreateAll(serviceProvider))
+            .Concat(UserMemorySaveTools.CreateAll(serviceProvider));
     }
 }

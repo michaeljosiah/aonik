@@ -38,6 +38,51 @@ public interface IVectorStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Search for similar vectors in a collection with additional payload filter constraints.
+    /// </summary>
+    /// <param name="collectionName">Collection name</param>
+    /// <param name="queryEmbedding">Query vector embedding</param>
+    /// <param name="limit">Maximum number of results to return</param>
+    /// <param name="scoreThreshold">Minimum similarity score (0-1)</param>
+    /// <param name="additionalFilter">Additional payload filter constraints merged with tenant isolation</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Ordered list of search results with scores and metadata</returns>
+    Task<IEnumerable<VectorSearchResult>> SearchAsync(
+        string collectionName,
+        float[] queryEmbedding,
+        int limit,
+        float scoreThreshold,
+        Dictionary<string, object>? additionalFilter,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieve points by payload filter (no vector similarity).
+    /// Returns point IDs and payloads matching the filter, scoped to the current tenant.
+    /// </summary>
+    /// <param name="collectionName">Collection name</param>
+    /// <param name="additionalFilter">Additional payload filter constraints merged with tenant isolation</param>
+    /// <param name="limit">Maximum number of results to return</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task<IEnumerable<VectorPointResult>> ScrollAsync(
+        string collectionName,
+        Dictionary<string, object>? additionalFilter = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Update payload fields on existing points without re-uploading vectors.
+    /// </summary>
+    /// <param name="collectionName">Collection name</param>
+    /// <param name="pointIds">IDs of points to update</param>
+    /// <param name="payload">Payload fields to set or update</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task SetPayloadAsync(
+        string collectionName,
+        IEnumerable<string> pointIds,
+        Dictionary<string, object> payload,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Delete vector(s) from a collection.
     /// </summary>
     /// <param name="collectionName">Collection name</param>
@@ -64,4 +109,11 @@ public interface IVectorStore
 public record VectorSearchResult(
     string Id,
     float Score,
+    Dictionary<string, object>? Payload = null);
+
+/// <summary>
+/// Result of a scroll (filter-based retrieval, no similarity score).
+/// </summary>
+public record VectorPointResult(
+    string Id,
     Dictionary<string, object>? Payload = null);

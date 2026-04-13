@@ -12,27 +12,37 @@ namespace Aonik.Agents.Services;
 /// Generates a ConversationSummary from a completed ChatThread by summarising
 /// its messages via an LLM call and extracting structured data (decisions,
 /// open loops, recommendation outcomes).
+/// <para>
+/// After the summary is persisted, a second LLM call extracts learnable user
+/// facts (preferences, identity, corrections) and writes them to long-term
+/// memory via <see cref="IUserMemorySaveProvider"/>.
+/// </para>
 /// </summary>
 internal sealed class ConversationSummaryGenerator : Contracts.Services.IConversationSummaryService
 {
     private readonly AgentsDbContext _dbContext;
     private readonly IChatClient _chatClient;
     private readonly IAiTaskProfileResolver _profileResolver;
+    private readonly IUserMemorySaveProvider? _memorySaveProvider;
     private readonly ILogger<ConversationSummaryGenerator> _logger;
 
-    private const string UseCase = "conversation-summary";
-    private const string PromptName = "conversation_summary";
+    private const string SummaryUseCase = "conversation-summary";
+    private const string SummaryPromptName = "conversation_summary";
+    private const string MemoryExtractionUseCase = "conversation-memory-extraction";
+    private const string MemoryExtractionPromptName = "conversation_memory_extraction";
 
     public ConversationSummaryGenerator(
         AgentsDbContext dbContext,
         IChatClient chatClient,
         IAiTaskProfileResolver profileResolver,
-        ILogger<ConversationSummaryGenerator> logger)
+        ILogger<ConversationSummaryGenerator> logger,
+        IUserMemorySaveProvider? memorySaveProvider = null)
     {
         _dbContext = dbContext;
         _chatClient = chatClient;
         _profileResolver = profileResolver;
         _logger = logger;
+        _memorySaveProvider = memorySaveProvider;
     }
 
     private static readonly TimeSpan InactivityThreshold = TimeSpan.FromMinutes(15);
@@ -82,8 +92,8 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
     }
 
     /// <summary>
-    /// Generates a summary for the given chat thread. Idempotent — skips if
-    /// a summary already exists for this thread.
+    /// Generates a summary for the given chat thread, then extracts and persists
+    /// learnable user memories. Idempotent — skips if a summary already exists.
     /// </summary>
     private async Task GenerateAsync(Guid chatThreadId, CancellationToken cancellationToken = default)
     {
@@ -116,7 +126,24 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
         // Build conversation transcript for the LLM
         var transcript = BuildTranscript(thread.Messages);
 
-        var profile = await _profileResolver.ResolveAsync(UseCase, PromptName, cancellationToken: cancellationToken);
+        // ── Step 1: Generate conversation summary ──
+        await GenerateSummaryAsync(thread, transcript, chatThreadId, cancellationToken);
+
+        // ── Step 2: Extract and persist user memories ──
+        if (_memorySaveProvider is not null && thread.UserId is not null && thread.UserId != Guid.Empty)
+        {
+            await ExtractAndSaveMemoriesAsync(thread.UserId.Value, transcript, cancellationToken);
+        }
+    }
+
+    private async Task GenerateSummaryAsync(
+        ChatThread thread,
+        string transcript,
+        Guid chatThreadId,
+        CancellationToken cancellationToken)
+    {
+        var profile = await _profileResolver.ResolveAsync(
+            SummaryUseCase, SummaryPromptName, cancellationToken: cancellationToken);
 
         try
         {
@@ -165,6 +192,82 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
         }
     }
 
+    /// <summary>
+    /// Makes a second LLM call to extract learnable user facts from the transcript,
+    /// then writes each extracted memory via <see cref="IUserMemorySaveProvider"/>.
+    /// Failures are logged but do not prevent the summary from being persisted.
+    /// </summary>
+    private async Task ExtractAndSaveMemoriesAsync(
+        Guid userId,
+        string transcript,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var profile = await _profileResolver.ResolveAsync(
+                MemoryExtractionUseCase, MemoryExtractionPromptName, cancellationToken: cancellationToken);
+
+            var messages = new List<ChatMessage>();
+            if (!string.IsNullOrEmpty(profile.SystemPrompt))
+                messages.Add(new ChatMessage(ChatRole.System, profile.SystemPrompt));
+            messages.Add(new ChatMessage(ChatRole.User, transcript));
+
+            var options = profile.ModelId is not null ? new ChatOptions { ModelId = profile.ModelId } : null;
+
+            var response = await _chatClient.GetResponseAsync(
+                messages,
+                options: options,
+                cancellationToken: cancellationToken);
+
+            var responseText = response.Text ?? "{}";
+            var memories = ParseMemoryExtractionResponse(responseText);
+
+            if (memories.Count == 0)
+            {
+                _logger.LogDebug("No learnable memories extracted from conversation for User {UserId}.", userId);
+                return;
+            }
+
+            _logger.LogInformation(
+                "Extracted {Count} memory entries from conversation for User {UserId}.",
+                memories.Count, userId);
+
+            foreach (var memory in memories)
+            {
+                try
+                {
+                    var source = memory.Confidence >= 0.9m ? "UserStated" : "AiInferred";
+
+                    await _memorySaveProvider!.SaveAsync(
+                        new UserMemorySaveRequest(
+                            UserId: userId,
+                            EntryType: memory.EntryType,
+                            Key: memory.Key,
+                            ValueJson: memory.ValueJson,
+                            Confidence: memory.Confidence,
+                            Source: source),
+                        cancellationToken);
+
+                    _logger.LogDebug(
+                        "Saved extracted memory: Key={Key}, EntryType={EntryType}, Confidence={Confidence} for User {UserId}.",
+                        memory.Key, memory.EntryType, memory.Confidence, userId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to save extracted memory Key={Key} for User {UserId}. Continuing with remaining entries.",
+                        memory.Key, userId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Memory extraction failed for User {UserId}. Summary was still persisted successfully.",
+                userId);
+        }
+    }
+
     private static string BuildTranscript(IEnumerable<ChatThreadMessage> messages)
     {
         var orderedMessages = messages.OrderBy(m => m.SortOrder);
@@ -194,9 +297,60 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
         }
     }
 
+    private static IReadOnlyList<ExtractedMemory> ParseMemoryExtractionResponse(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("memories", out var memoriesElement) ||
+                memoriesElement.ValueKind != JsonValueKind.Array)
+            {
+                return Array.Empty<ExtractedMemory>();
+            }
+
+            var memories = new List<ExtractedMemory>();
+            foreach (var item in memoriesElement.EnumerateArray())
+            {
+                var key = item.TryGetProperty("key", out var k) ? k.GetString() : null;
+                var entryType = item.TryGetProperty("entryType", out var et) ? et.GetString() : null;
+                var valueJson = item.TryGetProperty("valueJson", out var v) ? v.GetRawText() : null;
+                var confidence = item.TryGetProperty("confidence", out var c) && c.TryGetDecimal(out var conf)
+                    ? conf : 0.7m;
+
+                // valueJson might be a raw string (e.g. "London") — need to handle both
+                // raw JSON text from GetRawText() and string values
+                if (valueJson is null && item.TryGetProperty("valueJson", out var vs) && vs.ValueKind == JsonValueKind.String)
+                    valueJson = $"\"{vs.GetString()}\"";
+
+                if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(valueJson))
+                    continue;
+
+                memories.Add(new ExtractedMemory(
+                    Key: key,
+                    EntryType: entryType ?? "Fact",
+                    ValueJson: valueJson,
+                    Confidence: Math.Clamp(confidence, 0.1m, 1.0m)));
+            }
+
+            return memories;
+        }
+        catch
+        {
+            return Array.Empty<ExtractedMemory>();
+        }
+    }
+
     private record ParsedSummary(
         string Summary,
         string? KeyDecisionsJson,
         string? OpenLoopsJson,
         string? RecommendationOutcomesJson);
+
+    private record ExtractedMemory(
+        string Key,
+        string EntryType,
+        string ValueJson,
+        decimal Confidence);
 }

@@ -79,11 +79,20 @@ internal class QdrantVectorStore : IVectorStore
         }
     }
 
-    public async Task<IEnumerable<VectorSearchResult>> SearchAsync(
+    public Task<IEnumerable<VectorSearchResult>> SearchAsync(
         string collectionName,
         float[] queryEmbedding,
         int limit = 10,
         float scoreThreshold = 0.5f,
+        CancellationToken cancellationToken = default)
+        => SearchAsync(collectionName, queryEmbedding, limit, scoreThreshold, additionalFilter: null, cancellationToken);
+
+    public async Task<IEnumerable<VectorSearchResult>> SearchAsync(
+        string collectionName,
+        float[] queryEmbedding,
+        int limit,
+        float scoreThreshold,
+        Dictionary<string, object>? additionalFilter,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(collectionName))
@@ -99,8 +108,8 @@ internal class QdrantVectorStore : IVectorStore
         if (scoreThreshold < 0 || scoreThreshold > 1)
             throw new ArgumentException("Score threshold must be between 0 and 1", nameof(scoreThreshold));
 
-        // Build tenant filter — fail-closed: throws if no tenant context
-        var filter = BuildTenantFilter();
+        // Build tenant filter, merging additional constraints — fail-closed
+        var filter = BuildMergedFilter(additionalFilter);
 
         try
         {
@@ -128,6 +137,79 @@ internal class QdrantVectorStore : IVectorStore
             _logger.LogError(
                 ex,
                 "Search failed in collection {Collection}",
+                collectionName);
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<VectorPointResult>> ScrollAsync(
+        string collectionName,
+        Dictionary<string, object>? additionalFilter = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(collectionName))
+            throw new ArgumentException("Collection name required", nameof(collectionName));
+        if (limit <= 0)
+            throw new ArgumentException("Limit must be > 0", nameof(limit));
+
+        var filter = BuildMergedFilter(additionalFilter);
+
+        try
+        {
+            var points = await _httpClient.ScrollAsync(
+                collectionName,
+                filter,
+                limit,
+                cancellationToken);
+
+            var results = points
+                .Select(p => new VectorPointResult(p.Id, p.Payload))
+                .ToList();
+
+            _logger.LogDebug(
+                "Scroll in collection {Collection} returned {Count} results",
+                collectionName,
+                results.Count);
+
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Scroll failed in collection {Collection}",
+                collectionName);
+            throw;
+        }
+    }
+
+    public async Task SetPayloadAsync(
+        string collectionName,
+        IEnumerable<string> pointIds,
+        Dictionary<string, object> payload,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(collectionName))
+            throw new ArgumentException("Collection name required", nameof(collectionName));
+
+        try
+        {
+            await _httpClient.SetPayloadAsync(
+                collectionName,
+                pointIds,
+                payload,
+                cancellationToken);
+
+            _logger.LogDebug(
+                "Updated payload on points in collection {Collection}",
+                collectionName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to update payload in collection {Collection}",
                 collectionName);
             throw;
         }
@@ -235,27 +317,49 @@ internal class QdrantVectorStore : IVectorStore
     /// Build search filter for current tenant. Fail-closed: throws if no tenant context.
     /// </summary>
     private Dictionary<string, object> BuildTenantFilter()
+        => BuildMergedFilter(additionalFilter: null);
+
+    /// <summary>
+    /// Build a filter that always includes the tenant isolation clause, and optionally
+    /// merges additional <c>must</c> and <c>must_not</c> clauses from the caller.
+    /// Fail-closed: throws if no tenant context.
+    /// </summary>
+    private Dictionary<string, object> BuildMergedFilter(Dictionary<string, object>? additionalFilter)
     {
         if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId))
         {
             throw new InvalidOperationException(
-                "Tenant context is required for vector store search. " +
-                "Cannot search vectors without tenant isolation.");
+                "Tenant context is required for vector store operations. " +
+                "Cannot operate on vectors without tenant isolation.");
         }
 
-        // Qdrant filter format for exact match on tenant_id
-        return new Dictionary<string, object>
+        var tenantClause = new Dictionary<string, object>
         {
-            {
-                "must", new[]
-                {
-                    new Dictionary<string, object>
-                    {
-                        { "key", "tenant_id" },
-                        { "match", new Dictionary<string, object> { { "value", tenantId.ToString() } } }
-                    }
-                }
-            }
+            { "key", "tenant_id" },
+            { "match", new Dictionary<string, object> { { "value", tenantId.ToString() } } }
         };
+
+        // Start must array with tenant clause
+        var mustClauses = new List<object> { tenantClause };
+
+        // Merge additional must clauses
+        if (additionalFilter?.TryGetValue("must", out var extraMust) == true
+            && extraMust is IEnumerable<object> extraMustArray)
+        {
+            mustClauses.AddRange(extraMustArray);
+        }
+
+        var filter = new Dictionary<string, object>
+        {
+            { "must", mustClauses.ToArray() }
+        };
+
+        // Pass through must_not clauses if present
+        if (additionalFilter?.TryGetValue("must_not", out var mustNot) == true)
+        {
+            filter["must_not"] = mustNot;
+        }
+
+        return filter;
     }
 }

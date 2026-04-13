@@ -1,5 +1,4 @@
 using Aonik.SharedKernel.Abstractions.Ai;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAI.Images;
 
@@ -7,26 +6,26 @@ namespace Aonik.Ai.Services;
 
 /// <summary>
 /// Generates images using OpenAI's image generation API (DALL-E / gpt-image).
+/// Reads API key and model from <see cref="IAiProviderSettings"/> (database-backed,
+/// runtime-configurable via the Settings module).
 /// </summary>
 public sealed class ContentImageGenerator : IContentImageGenerator
 {
     private readonly ImageClient? _imageClient;
     private readonly ILogger<ContentImageGenerator> _logger;
 
-    public ContentImageGenerator(IConfiguration configuration, ILogger<ContentImageGenerator> logger)
+    public ContentImageGenerator(IAiProviderSettings aiSettings, ILogger<ContentImageGenerator> logger)
     {
         _logger = logger;
 
-        var apiKey = configuration["AI:OpenAI:ApiKey"];
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (string.IsNullOrWhiteSpace(aiSettings.OpenAiApiKey))
         {
-            _logger.LogWarning("AI:OpenAI:ApiKey not configured — image generation disabled.");
+            _logger.LogWarning("OpenAI API key not configured — image generation disabled.");
             return;
         }
 
-        var model = configuration["AI:OpenAI:ImageModel"] ?? "dall-e-3";
-        _imageClient = new ImageClient(model, apiKey);
-        _logger.LogInformation("Image generation enabled with model: {Model}", model);
+        _imageClient = new ImageClient(aiSettings.OpenAiImageModel, aiSettings.OpenAiApiKey);
+        _logger.LogInformation("Image generation enabled with model: {Model}", aiSettings.OpenAiImageModel);
     }
 
     public bool IsAvailable => _imageClient is not null;

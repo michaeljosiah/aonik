@@ -59,6 +59,9 @@ internal class QdrantCollectionInitializer : IHostedService
                 return;
             }
 
+            // Pre-create the user-memory collection with payload indexes for efficient filtering
+            await EnsureUserMemoryCollectionAsync(cancellationToken);
+
             _logger.LogInformation(
                 "Qdrant vector store initialized successfully. " +
                 "Collections will be created on-demand with prefix '{Prefix}'",
@@ -81,5 +84,41 @@ internal class QdrantCollectionInitializer : IHostedService
     {
         _logger.LogInformation("Stopping Qdrant collection initializer");
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Pre-create the user-memory collection with payload field indexes
+    /// for efficient tenant+user+key+superseded_by filtering.
+    /// </summary>
+    private async Task EnsureUserMemoryCollectionAsync(CancellationToken cancellationToken)
+    {
+        var collectionName = _config.GetCollectionName("user-memory");
+
+        try
+        {
+            var exists = await _httpClient.CollectionExistsAsync(collectionName, cancellationToken);
+            if (!exists)
+            {
+                _logger.LogInformation("Creating user-memory collection {Collection}", collectionName);
+                await _httpClient.CreateCollectionAsync(collectionName, cancellationToken);
+            }
+
+            // Create payload indexes for efficient filtered scroll/search
+            await _httpClient.CreatePayloadIndexAsync(collectionName, "tenant_id", "keyword", cancellationToken);
+            await _httpClient.CreatePayloadIndexAsync(collectionName, "user_id", "keyword", cancellationToken);
+            await _httpClient.CreatePayloadIndexAsync(collectionName, "key", "keyword", cancellationToken);
+            await _httpClient.CreatePayloadIndexAsync(collectionName, "superseded_by", "keyword", cancellationToken);
+            await _httpClient.CreatePayloadIndexAsync(collectionName, "entry_type", "keyword", cancellationToken);
+
+            _logger.LogInformation("User-memory collection {Collection} initialized with indexes", collectionName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to initialize user-memory collection {Collection}. " +
+                "It will be created on-demand when first accessed.",
+                collectionName);
+        }
     }
 }

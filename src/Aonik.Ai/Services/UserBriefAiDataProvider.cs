@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Aonik.Ai.Contracts.Services;
 using Aonik.Ai.Entities;
 using Aonik.Ai.Persistence;
-using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,25 +11,23 @@ namespace Aonik.Ai.Services;
 
 /// <summary>
 /// Implements the cross-module contract for the UserBriefProjector.
-/// Reads user memory entries and behavioural insights from the AI module's database.
+/// Reads user memory entries via <see cref="IUserMemoryService"/> (backend-agnostic)
+/// and behavioural insights from the AI module's database.
 /// </summary>
 internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
 {
-    private const decimal ConfidenceFloor = 0.3m;
-    private const decimal DecayRatePerMonth = 0.1m;
-
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    private readonly IUserMemoryService _memoryService;
     private readonly AiDbContext _dbContext;
-    private readonly IClock _clock;
 
-    public UserBriefAiDataProvider(AiDbContext dbContext, IClock clock)
+    public UserBriefAiDataProvider(IUserMemoryService memoryService, AiDbContext dbContext)
     {
+        _memoryService = memoryService;
         _dbContext = dbContext;
-        _clock = clock;
     }
 
     public async Task<IReadOnlyList<UserBriefMemoryEntryData>> GetCurrentMemoryEntriesAsync(
@@ -37,28 +35,17 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var now = _clock.UtcNow;
-
-        var entries = await _dbContext.UserMemoryEntries
-            .Where(e => e.TenantId == tenantId
-                && e.UserId == userId
-                && e.SupersededById == null)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        // Delegate to IUserMemoryService which handles confidence decay and floor filtering
+        // regardless of the active backend (SQL Server or Qdrant).
+        var entries = await _memoryService.GetCurrentEntriesAsync(userId, cancellationToken: cancellationToken);
 
         return entries
-            .Select(e =>
-            {
-                var effective = ComputeEffectiveConfidence(e, now);
-                return new { Entry = e, EffectiveConfidence = effective };
-            })
-            .Where(x => x.EffectiveConfidence >= ConfidenceFloor)
-            .Select(x => new UserBriefMemoryEntryData(
-                x.Entry.EntryType.ToString(),
-                x.Entry.Key,
-                x.Entry.ValueJson,
-                x.EffectiveConfidence,
-                x.Entry.Source.ToString()))
+            .Select(e => new UserBriefMemoryEntryData(
+                e.EntryType.ToString(),
+                e.Key,
+                e.ValueJson,
+                e.EffectiveConfidence,
+                e.Source.ToString()))
             .ToList();
     }
 
@@ -97,15 +84,4 @@ internal sealed class UserBriefAiDataProvider : IUserBriefAiDataProvider
             document.Caveats);
     }
 
-    private static decimal ComputeEffectiveConfidence(UserMemoryEntry entry, DateTime now)
-    {
-        if (entry.Source == UserMemorySource.UserStated)
-            return entry.Confidence;
-
-        var daysSinceConfirmed = (decimal)(now - entry.LastConfirmedAt).TotalDays;
-        var decay = daysSinceConfirmed / 30m * DecayRatePerMonth;
-        var effective = entry.Confidence - decay;
-
-        return Math.Max(effective, 0m);
-    }
 }

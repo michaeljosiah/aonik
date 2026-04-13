@@ -128,6 +128,14 @@ internal sealed class UserMemoryService : IUserMemoryService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public Task<IReadOnlyList<SemanticMemorySearchResult>> SemanticSearchAsync(
+        Guid userId,
+        string query,
+        int limit = 5,
+        float scoreThreshold = 0.6f,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<SemanticMemorySearchResult>>(Array.Empty<SemanticMemorySearchResult>());
+
     private static UserMemoryEntryResponse ToResponse(UserMemoryEntry entry, DateTime now)
     {
         var effectiveConfidence = ComputeEffectiveConfidence(entry, now);

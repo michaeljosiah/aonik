@@ -61,31 +61,35 @@ public sealed class AiModule : IModule
         // Tenant-aware prompt store: DB overrides (tenant → global) → file-based fallback
         services.AddScoped<IPromptStore, TenantAwarePromptStore>();
 
-        // IChatClient — registered directly with AuditMiddleware in the pipeline.
-        // Provider is selected via AI:Provider config key (Stub | OpenAI | AzureOpenAI).
+        // NOTE: IAiProviderSettings is registered in Infrastructure's DependencyInjection.cs
+        // because the implementation (AiProviderSettings) needs Aonik.Platform's ISettingProvider,
+        // which Aonik.Ai does not reference.
+
+        // IChatClient — registered with AuditMiddleware in the pipeline.
+        // Provider is selected via IAiProviderSettings (Settings module → IConfiguration fallback).
         services.AddScoped<IChatClient>(sp =>
         {
-            var provider = configuration["AI:Provider"] ?? "Stub";
+            var aiSettings = sp.GetRequiredService<IAiProviderSettings>();
             var logger = sp.GetRequiredService<ILogger<AiModule>>();
-            logger.LogInformation("Creating IChatClient for provider: {Provider}", provider);
+            logger.LogInformation("Creating IChatClient for provider: {Provider}", aiSettings.Provider);
 
-            IChatClient innerClient = provider.ToLowerInvariant() switch
+            IChatClient innerClient = aiSettings.Provider.ToLowerInvariant() switch
             {
                 "stub" => new StubChatClient(),
 
                 "openai" => new OpenAI.Chat.ChatClient(
-                    configuration["AI:OpenAI:Model"] ?? "gpt-5-mini",
-                    configuration["AI:OpenAI:ApiKey"] ?? throw new InvalidOperationException(
-                        "AI:OpenAI:ApiKey configuration is required when using the OpenAI provider. " +
-                        "Set it via appsettings, environment variable, or user-secrets."))
+                    aiSettings.OpenAiModel,
+                    aiSettings.OpenAiApiKey ?? throw new InvalidOperationException(
+                        "OpenAI API key is required when using the OpenAI provider. " +
+                        "Configure it via the Settings module (Ai.OpenAI.ApiKey) or appsettings (AI:OpenAI:ApiKey)."))
                     .AsIChatClient(),
 
                 "azureopenai" or "azure_openai" or "azure-openai" => throw new NotSupportedException(
                     "Azure OpenAI provider is not yet implemented. " +
-                    "Add the Azure.AI.OpenAI package and configure AI:AzureOpenAI:Endpoint, AI:AzureOpenAI:ApiKey, and AI:AzureOpenAI:DeploymentName."),
+                    "Add the Azure.AI.OpenAI package and configure the Azure OpenAI settings."),
 
                 _ => throw new InvalidOperationException(
-                    $"Unknown AI provider '{provider}'. Supported values: Stub, OpenAI, AzureOpenAI.")
+                    $"Unknown AI provider '{aiSettings.Provider}'. Supported values: Stub, OpenAI, AzureOpenAI.")
             };
 
             // Determine whether to include sensitive data (prompts, responses, tool args)
@@ -107,12 +111,41 @@ public sealed class AiModule : IModule
                 .Build();
         });
 
+        // IEmbeddingGenerator — follows the same provider pattern as IChatClient.
+        // Used by IEmbeddingService (in Infrastructure) for vector embedding generation.
+        services.AddScoped<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
+        {
+            var aiSettings = sp.GetRequiredService<IAiProviderSettings>();
+            var embeddingModel = configuration["Qdrant:EmbeddingModel"] ?? "text-embedding-3-small";
+            var dimensions = configuration.GetValue<int?>("Qdrant:VectorDimensions") ?? 1536;
+
+            IEmbeddingGenerator<string, Embedding<float>> generator = aiSettings.Provider.ToLowerInvariant() switch
+            {
+                "openai" => new OpenAI.Embeddings.EmbeddingClient(
+                    embeddingModel,
+                    aiSettings.OpenAiApiKey ?? throw new InvalidOperationException(
+                        "OpenAI API key is required when using the OpenAI provider."))
+                    .AsIEmbeddingGenerator(defaultModelDimensions: dimensions),
+
+                // Stub and other providers: no-op generator registered; IEmbeddingService
+                // falls back to its built-in mock embedding generation.
+                _ => new StubEmbeddingGenerator(embeddingModel, dimensions)
+            };
+
+            return generator;
+        });
+
         // ── Image Generation ─────────────────────────────────────────
-        var aiProvider = (configuration["AI:Provider"] ?? "Stub").ToLowerInvariant();
-        if (aiProvider == "openai")
-            services.AddScoped<IContentImageGenerator, ContentImageGenerator>();
-        else
-            services.AddSingleton<IContentImageGenerator, StubContentImageGenerator>();
+        // Runtime-switchable: both implementations registered, factory selects based on provider.
+        services.AddScoped<ContentImageGenerator>();
+        services.AddSingleton<StubContentImageGenerator>();
+        services.AddScoped<IContentImageGenerator>(sp =>
+        {
+            var aiSettings = sp.GetRequiredService<IAiProviderSettings>();
+            return aiSettings.Provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase)
+                ? sp.GetRequiredService<ContentImageGenerator>()
+                : sp.GetRequiredService<StubContentImageGenerator>();
+        });
 
         // ── AI Services ──────────────────────────────────────────────
         // Provider & Model catalog CRUD + model resolution.
@@ -149,11 +182,21 @@ public sealed class AiModule : IModule
         RegisterTtsProvider<ElevenLabsTextToSpeechProvider>(services, configuration, opts => opts.ElevenLabsBaseUrl);
         RegisterTtsProvider<MistralTextToSpeechProvider>(services, configuration, opts => opts.MistralBaseUrl);
 
-        // User memory — manages AI-learned facts, preferences, and corrections about users
-        services.AddScoped<Contracts.Services.IUserMemoryService, UserMemoryService>();
+        // User memory — manages AI-learned facts, preferences, and corrections about users.
+        // The SQL-based implementation is always registered as a concrete type.
+        // The IUserMemoryService factory (which selects between SQL and Qdrant backends
+        // based on the Ai.UserMemory.Backend setting) is registered in Infrastructure's
+        // DependencyInjection.cs since it needs access to QdrantUserMemoryService.
+        services.AddScoped<UserMemoryService>();
 
         // Cross-module data provider for the UserBriefProjector (Agents module)
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IUserBriefAiDataProvider, UserBriefAiDataProvider>();
+
+        // Cross-module recall provider for agent tools (semantic user memory search)
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IUserMemoryRecallProvider, UserMemoryRecallProvider>();
+
+        // Cross-module save provider for agent tools and conversation summary extraction
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.IUserMemorySaveProvider, UserMemorySaveProvider>();
 
         // Cross-module provisioning contributor
         services.AddScoped<Aonik.SharedKernel.Abstractions.ITenantProvisioningContributor, Services.AiTenantProvisioningContributor>();

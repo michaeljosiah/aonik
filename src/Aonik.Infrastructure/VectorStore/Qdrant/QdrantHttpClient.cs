@@ -162,13 +162,96 @@ internal class QdrantHttpClient
     }
 
     /// <summary>
+    /// Retrieve points by payload filter (no vector similarity — exact match scroll).
+    /// POST /collections/{name}/points/scroll
+    /// </summary>
+    public async Task<IEnumerable<QdrantScrollPoint>> ScrollAsync(
+        string collectionName,
+        Dictionary<string, object> filter,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new
+        {
+            filter = filter,
+            limit = limit,
+            with_payload = true
+        };
+
+        var response = await _httpClient.PostAsJsonAsync(
+            $"/collections/{collectionName}/points/scroll",
+            request,
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<QdrantScrollResponse>(cancellationToken);
+        return result?.Result?.Points ?? Enumerable.Empty<QdrantScrollPoint>();
+    }
+
+    /// <summary>
+    /// Update payload fields on existing points without re-uploading vectors.
+    /// POST /collections/{name}/points/payload
+    /// </summary>
+    public async Task SetPayloadAsync(
+        string collectionName,
+        IEnumerable<string> pointIds,
+        Dictionary<string, object> payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new
+        {
+            payload = payload,
+            points = pointIds.ToList()
+        };
+
+        var response = await _httpClient.PostAsJsonAsync(
+            $"/collections/{collectionName}/points/payload",
+            request,
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Create payload field indexes for efficient filtering.
+    /// PUT /collections/{name}/index
+    /// </summary>
+    public async Task CreatePayloadIndexAsync(
+        string collectionName,
+        string fieldName,
+        string fieldSchema = "keyword",
+        CancellationToken cancellationToken = default)
+    {
+        var request = new
+        {
+            field_name = fieldName,
+            field_schema = fieldSchema
+        };
+
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync(
+                $"/collections/{collectionName}/index",
+                request,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            // Index might already exist — that's OK
+        }
+    }
+
+    /// <summary>
     /// Check Qdrant health.
     /// </summary>
     public async Task<bool> HealthAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var response = await _httpClient.GetAsync("/health", cancellationToken);
+            var response = await _httpClient.GetAsync("/healthz", cancellationToken);
             return response.IsSuccessStatusCode;
         }
         catch (HttpRequestException)
@@ -189,5 +272,25 @@ internal record QdrantSearchResponse(List<QdrantSearchHit> Result);
 public record QdrantSearchHit(
     string Id,
     float Score,
+    [property: JsonPropertyName("payload")]
+    Dictionary<string, object>? Payload = null);
+
+/// <summary>
+/// Qdrant scroll response model.
+/// </summary>
+internal record QdrantScrollResponse(QdrantScrollResult? Result);
+
+/// <summary>
+/// Qdrant scroll result containing points and optional next page offset.
+/// </summary>
+internal record QdrantScrollResult(
+    List<QdrantScrollPoint>? Points,
+    string? NextPageOffset = null);
+
+/// <summary>
+/// A point returned by scroll (no score — not a similarity search).
+/// </summary>
+public record QdrantScrollPoint(
+    string Id,
     [property: JsonPropertyName("payload")]
     Dictionary<string, object>? Payload = null);

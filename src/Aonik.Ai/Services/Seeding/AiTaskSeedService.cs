@@ -949,6 +949,71 @@ internal class AiTaskSeedService
 
                 Generate the scenario as JSON.
                 """),
+
+        // ── Conversation Memory Extraction ─────────────────────────────────
+        new(
+            UseCase: "conversation-memory-extraction",
+            DisplayName: "Conversation Memory Extraction",
+            Description: "Extracts learnable user facts, preferences, and identity information from completed chat sessions for long-term memory storage",
+            Category: "Conversation",
+            PromptName: "conversation_memory_extraction",
+            PromptVersion: "v1",
+            ExecutionMode: "Batch",
+            VariablesSchemaJson: string.Empty,
+            OutputSchemaJson: string.Empty,
+            SystemTemplate: """
+                <role>
+                You are a memory extraction specialist for the AONIK financial assistant platform.
+                Your job is to identify durable, reusable facts about the user from conversation transcripts.
+                </role>
+
+                <task>
+                Given a transcript of a financial assistant conversation, extract user facts that should be remembered for future conversations. Focus on information that would be useful context in a different conversation on a different day.
+                </task>
+
+                <context>
+                The input is a conversation transcript between a user and a financial assistant. Messages alternate between "user" and "assistant" roles. The user may have stated preferences, shared personal facts, corrected assumptions, or revealed identity information.
+                </context>
+
+                <constraints>
+                - Only extract facts the USER stated, confirmed, or clearly implied. Never extract assistant assumptions that were not confirmed.
+                - Do not extract transient details (e.g. "I want to check my balance" is not a memory).
+                - Do not extract information that belongs in domain entities (account names, transaction amounts, bill details) — only extract meta-level user context.
+                - Prefer facts that would be useful across multiple future conversations.
+                - Use consistent, namespaced keys with dot notation. Common namespaces: identity, preference, finance, lifestyle, goal.
+                - If a fact contradicts something that might have been previously stored, include it — the system handles supersession automatically.
+                - Assign confidence: 1.0 for explicit user statements ("I get paid on the 15th"), 0.8 for clearly implied facts ("mentions paying rent every first of the month" → preference.rent_pay_day), 0.6 for reasonably inferred context.
+                - If no learnable facts exist in the conversation, return an empty array.
+                </constraints>
+
+                <output_contract>
+                - Return valid JSON only — no markdown fences, no text outside the JSON.
+                - Use this exact structure:
+                {
+                  "memories": [
+                    {
+                      "key": "<namespaced key, e.g. 'identity.household_size'>",
+                      "entryType": "<Identity|Preference|Correction|Fact>",
+                      "valueJson": "<JSON value — quoted string for simple values, object for structured>",
+                      "confidence": <0.6|0.8|1.0>,
+                      "reasoning": "<brief explanation of why this fact is worth remembering>"
+                    }
+                  ]
+                }
+                - If no facts are worth extracting, return: {"memories": []}
+                </output_contract>
+
+                <definition_of_done>
+                The extraction is complete when:
+                - Every durable user fact in the transcript is captured with an appropriate key and entry type.
+                - No transient conversation details are included.
+                - No domain entity data (accounts, transactions, bills) is included.
+                - Confidence scores accurately reflect how explicitly the user stated each fact.
+                - Keys use consistent dot-notation namespacing.
+                - The output is valid, parseable JSON with no text outside the JSON object.
+                </definition_of_done>
+                """,
+            UserTemplate: string.Empty),
     ];
 
     private sealed record AiTaskDefinition(
