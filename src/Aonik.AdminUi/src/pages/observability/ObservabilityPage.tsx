@@ -800,7 +800,6 @@ export function ObservabilityPage() {
               </thead>
               <tbody>
                 {jobsData.jobs.map((job, idx) => {
-                  const jobSuccessRate = job.total > 0 ? (job.successes / job.total) * 100 : 0;
                   return (
                     <tr
                       key={job.jobName}

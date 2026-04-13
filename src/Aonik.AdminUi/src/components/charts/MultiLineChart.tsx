@@ -84,9 +84,9 @@ export function MultiLineChart({
             fontSize: 12,
           }}
           labelStyle={{ color: 'var(--color-text-secondary)', fontSize: 11 }}
-          formatter={(value: number, name: string) => {
+          formatter={(value, name) => {
             const s = series.find((x) => x.key === name);
-            return [formatValue ? formatValue(value) : value, s?.label ?? name];
+            return [formatValue ? formatValue(Number(value)) : value, s?.label ?? String(name)];
           }}
         />
         <Legend

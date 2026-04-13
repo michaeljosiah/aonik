@@ -70,7 +70,7 @@ export function TimeSeriesChart({
             borderRadius: 4,
             fontSize: 12,
           }}
-          formatter={(value: number) => [formatValue ? formatValue(value) : value, label ?? 'Value']}
+          formatter={(value) => [formatValue ? formatValue(Number(value)) : value, label ?? 'Value']}
           labelStyle={{ color: 'var(--color-text-secondary)', fontSize: 11 }}
         />
         <Area
