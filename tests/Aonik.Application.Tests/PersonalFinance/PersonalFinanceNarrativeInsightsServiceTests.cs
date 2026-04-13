@@ -364,6 +364,12 @@ public class PersonalFinanceNarrativeInsightsServiceTests
             return Task.CompletedTask;
         }
 
+        public Task MarkRunCompletedWithMetricsAsync(Guid aiRunId, int tokensUsed, int latencyMs, decimal costEstimate, string? outputRef = null, CancellationToken cancellationToken = default)
+        {
+            CompletedRuns.Add((aiRunId, outputRef));
+            return Task.CompletedTask;
+        }
+
         public Task MarkRunFailedAsync(Guid aiRunId, string failureReason, CancellationToken cancellationToken = default)
         {
             FailedRuns.Add((aiRunId, failureReason));
