@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -235,9 +236,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// user restarts the app.
   bool _voiceBusy = false;
 
+  /// The conversation starter question currently displayed on the empty chat
+  /// stage. Stored here so it can be prepended as context when the user sends
+  /// their first message in response to it.
+  late final String _activeStarterQuestion;
+
   @override
   void initState() {
     super.initState();
+    _activeStarterQuestion = _conversationStarters[
+        Random().nextInt(_conversationStarters.length)];
     _chatVoiceService = ref.read(chatVoiceServiceProvider);
     _historyOverlayController = AnimationController(
       vsync: this,
@@ -457,6 +465,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       child: _ChatStage(
                         controller: _scrollController,
                         displayName: _firstName(displayName),
+                        starterQuestion: _activeStarterQuestion,
                         showVoiceStage: _showVoiceStage,
                         voiceStagePhase: _voiceStagePhase,
                         voiceVisualStateListenable: _voiceVisualState,
@@ -615,7 +624,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _controller.clear();
     unawaited(_dismissVoiceStage());
 
-    ref.read(chatControllerProvider.notifier).sendMessage(prompt);
+    // If this is the very first message the user is replying to the
+    // conversation starter question. Seed it as an assistant message so
+    // the thread looks like a natural conversation (Simi asked → user
+    // replied), and the backend has the full context.
+    final ChatState chatState = ref.read(chatControllerProvider);
+    if (!chatState.hasMessages && chatState.streamingText.isEmpty) {
+      ref.read(chatControllerProvider.notifier).sendFirstMessage(
+            starterQuestion: _activeStarterQuestion,
+            userReply: prompt,
+          );
+    } else {
+      ref.read(chatControllerProvider.notifier).sendMessage(prompt);
+    }
+
     _scrollToBottom(force: true);
   }
 
@@ -1418,6 +1440,7 @@ class _ChatStage extends ConsumerWidget {
   const _ChatStage({
     required this.controller,
     required this.displayName,
+    required this.starterQuestion,
     required this.showVoiceStage,
     required this.voiceStagePhase,
     required this.voiceVisualStateListenable,
@@ -1431,6 +1454,7 @@ class _ChatStage extends ConsumerWidget {
 
   final ScrollController controller;
   final String displayName;
+  final String starterQuestion;
   final bool showVoiceStage;
   final _VoiceStagePhase voiceStagePhase;
   final ValueListenable<_VoiceStageVisualState> voiceVisualStateListenable;
@@ -1476,6 +1500,7 @@ class _ChatStage extends ConsumerWidget {
           ? _EmptyChatStage(
               key: const ValueKey<String>('chat-empty'),
               displayName: displayName,
+              starterQuestion: starterQuestion,
             )
           : _ConversationStage(
               key: const ValueKey<String>('chat-thread'),
@@ -1523,126 +1548,84 @@ class _ChatErrorSlot extends ConsumerWidget {
   }
 }
 
+const List<String> _conversationStarters = <String>[
+  "What's one money goal you'd love to tick off this year?",
+  'Anything about your finances keeping you up at night?',
+  "Want me to take a quick look at how your spending's going?",
+  "Got any bills coming up you'd like a reminder for?",
+  'If you had an extra £100 right now, what would you do with it?',
+  'Want to set up a budget together? It only takes a minute.',
+  'Curious how much you spent eating out last month?',
+  'Is there a subscription you keep meaning to cancel?',
+  "What's the one thing you wish was easier about managing money?",
+  'Want me to check if any of your bills have gone up recently?',
+  'Saving for anything fun at the moment?',
+  'Ever wonder where your money actually goes each month?',
+  'Need help splitting a bill with someone?',
+  'What would make tomorrow a great financial day for you?',
+  "Want a quick snapshot of what's left until payday?",
+  "Got a money question you've been too embarrassed to ask?",
+  'Thinking about cutting back on anything this month?',
+  'Want me to find your biggest spending category last month?',
+  'If you could automate one money task, what would it be?',
+  "Anything you'd like to understand better about your finances?",
+];
+
 class _EmptyChatStage extends StatelessWidget {
   const _EmptyChatStage({
     super.key,
     required this.displayName,
+    required this.starterQuestion,
   });
 
   final String displayName;
+  final String starterQuestion;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final TextStyle helloStyle =
-        Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: _chatBodyTextColor(context),
-                  fontSize: 66,
-                  fontWeight: FontWeight.w800,
-                  height: 0.92,
-                  letterSpacing: -1.6,
-                ) ??
-            TextStyle(
-              color: _chatBodyTextColor(context),
-              fontSize: 66,
-              fontWeight: FontWeight.w800,
-              height: 0.92,
-              letterSpacing: -1.6,
-            );
-    final TextStyle nameStyle = helloStyle.copyWith(
-      color: c.primary,
-      fontSize: 70,
-      letterSpacing: -1.9,
-    );
-    final TextStyle simiStyle =
-        Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: _chatBodyTextColor(context),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  height: 1.1,
-                  letterSpacing: 3.8,
-                ) ??
-            TextStyle(
-              color: _chatBodyTextColor(context),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              height: 1.1,
-              letterSpacing: 3.8,
-            );
-
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            PayaboSpacing.xl,
-            PayaboSpacing.x2,
-            PayaboSpacing.xl,
-            PayaboSpacing.xl,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: PayaboSpacing.md,
-                      vertical: PayaboSpacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: _chatBorderColor(context)),
-                    ),
-                    child: Text(
-                      'SIMI',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: _chatBodyTextColor(context),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2.8,
-                          ),
-                    ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        PayaboSpacing.xl,
+        PayaboSpacing.x4,
+        PayaboSpacing.xl,
+        PayaboSpacing.xl,
+      ),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'Hey, you',
+              style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                        color: _chatBodyTextColor(context),
+                        fontSize: 42,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                        letterSpacing: -1.0,
+                      ) ??
+                  TextStyle(
+                    color: _chatBodyTextColor(context),
+                    fontSize: 42,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                    letterSpacing: -1.0,
                   ),
-                  const SizedBox(height: PayaboSpacing.x3),
-                  Text(
-                    'Hello!',
-                    textAlign: TextAlign.center,
-                    style: helloStyle,
-                  ),
-                  if (displayName.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 4),
-                    Text(
-                      displayName,
-                      textAlign: TextAlign.center,
-                      style: nameStyle,
-                    ),
-                  ],
-                  const SizedBox(height: PayaboSpacing.xl),
-                  Text(
-                    'I\'M SIMI',
-                    textAlign: TextAlign.center,
-                    style: simiStyle,
-                  ),
-                  const SizedBox(height: PayaboSpacing.md),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 340),
-                    child: Text(
-                      'I am here to guide you through bills, budgets, and the money moves that matter most.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: _chatMutedTextColor(context),
-                            fontSize: 20,
-                            height: 1.6,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
             ),
-          ),
-        );
-      },
+            const SizedBox(height: PayaboSpacing.lg),
+            Text(
+              starterQuestion,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: _chatMutedTextColor(context),
+                      ) ??
+                  TextStyle(
+                    color: _chatMutedTextColor(context),
+                  ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1789,32 +1772,15 @@ class _CompactChatIntroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: PayaboSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          if (displayName.isNotEmpty)
-            Text(
-              'Hey $displayName',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: _chatBodyTextColor(context),
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
-                    letterSpacing: -1.6,
-                  ),
-            )
-          else
-            Text(
-              'Hey there',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: _chatBodyTextColor(context),
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
-                    letterSpacing: -1.6,
-                  ),
+      child: Text(
+        'Hey, you',
+        style: Theme.of(context).textTheme.displayLarge?.copyWith(
+              color: _chatBodyTextColor(context),
+              fontSize: 42,
+              fontWeight: FontWeight.w800,
+              height: 1.0,
+              letterSpacing: -1.0,
             ),
-        ],
       ),
     );
   }

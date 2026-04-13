@@ -288,12 +288,76 @@ class ChatController extends StateNotifier<ChatState> {
   final ChatRepository _repository;
   StreamSubscription<ChatStreamEvent>? _subscription;
 
+  /// Client-side timing — started when a message is sent, used to measure
+  /// round-trip latency from mobile → server → LLM → mobile.
+  final Stopwatch _clientStopwatch = Stopwatch();
+  int? _clientTimeToFirstTokenMs;
+
+  /// Sends the very first message in a conversation that was initiated by a
+  /// conversation starter question. Seeds the starter as an assistant message
+  /// in the history so the thread looks natural (Simi asked → user replied →
+  /// AI continues), then sends the user's reply to the backend.
+  void sendFirstMessage({
+    required String starterQuestion,
+    required String userReply,
+  }) {
+    final trimmedReply = userReply.trim();
+    if (trimmedReply.isEmpty || state.isProcessing) return;
+
+    _clientStopwatch.reset();
+    _clientStopwatch.start();
+    _clientTimeToFirstTokenMs = null;
+
+    // Seed the starter question as an assistant message.
+    final assistantMessage = ChatMessage(
+      id: 'starter_${DateTime.now().millisecondsSinceEpoch}',
+      sender: ChatSender.assistant,
+      lines: [starterQuestion],
+    );
+
+    // Append the user's reply.
+    final userMessage = ChatMessage(
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      sender: ChatSender.user,
+      lines: [trimmedReply],
+    );
+
+    state = state.copyWith(
+      messages: [assistantMessage, userMessage],
+      activity: ChatActivity.connecting,
+      streamingText: '',
+      streamingMessageId: null,
+      activeToolCalls: const [],
+      pendingApprovals: const [],
+      errorMessage: null,
+    );
+
+    _subscription?.cancel();
+
+    final stream = _repository.sendMessage(
+      threadId: state.threadId,
+      userMessage: trimmedReply,
+      history: state.messages,
+    );
+
+    _subscription = stream.listen(
+      _onEvent,
+      onError: _onStreamError,
+      onDone: _onStreamDone,
+      cancelOnError: false,
+    );
+  }
+
   /// Sends a user message and starts streaming the agent's response.
   ///
   /// If a request is already in progress it is silently ignored.
   void sendMessage(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty || state.isProcessing) return;
+
+    _clientStopwatch.reset();
+    _clientStopwatch.start();
+    _clientTimeToFirstTokenMs = null;
 
     // Append user message to history.
     final userMessage = ChatMessage(
@@ -338,6 +402,7 @@ class ChatController extends StateNotifier<ChatState> {
         );
 
       case ChatStreamTextDelta():
+        _clientTimeToFirstTokenMs ??= _clientStopwatch.elapsedMilliseconds;
         state = state.copyWith(
           activity: ChatActivity.streaming,
           streamingText: state.streamingText + event.delta,
@@ -463,6 +528,18 @@ class ChatController extends StateNotifier<ChatState> {
         );
 
       case ChatStreamFinished():
+        // ── Log performance metrics ─────────────────────────────────
+        _clientStopwatch.stop();
+        final clientTotalMs = _clientStopwatch.elapsedMilliseconds;
+        final clientTtftMs = _clientTimeToFirstTokenMs ?? clientTotalMs;
+        final serverMetrics = event.metrics;
+
+        developer.log(
+          'Run completed — client: total=${clientTotalMs}ms, ttft=${clientTtftMs}ms'
+          '${serverMetrics != null ? ' | server: $serverMetrics' : ''}',
+          name: 'ChatController',
+        );
+
         // Persist any display widgets into the last assistant message
         // so they survive in history after clearing transient state.
         var messages = state.messages;

@@ -45,7 +45,7 @@ class PayaboPrimaryAppShell extends StatelessWidget {
         PayaboBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
         PayaboBottomNavItem(icon: Icons.receipt_long_outlined, label: 'Pay'),
         PayaboBottomNavItem(icon: Icons.show_chart_outlined, label: 'Spending'),
-        PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Chat'),
+        PayaboBottomNavItem(icon: Icons.chat_bubble_outline, label: 'Simi'),
       ],
       currentIndex: _currentIndexFor(destination),
       onTap: (int index) => _handleNavTap(context, index),

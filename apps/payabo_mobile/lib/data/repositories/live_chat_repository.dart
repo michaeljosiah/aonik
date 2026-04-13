@@ -577,7 +577,19 @@ class LiveChatRepository implements ChatRepository {
         );
 
       case RunFinishedEvent():
-        return const ChatStreamFinished();
+        ChatRunMetrics? metrics;
+        if (event.metrics != null) {
+          final m = event.metrics!;
+          metrics = ChatRunMetrics(
+            inputTokens: (m['inputTokens'] as num?)?.toInt() ?? 0,
+            outputTokens: (m['outputTokens'] as num?)?.toInt() ?? 0,
+            totalTokens: (m['totalTokens'] as num?)?.toInt() ?? 0,
+            latencyMs: (m['latencyMs'] as num?)?.toInt() ?? 0,
+            timeToFirstTokenMs:
+                (m['timeToFirstTokenMs'] as num?)?.toInt() ?? 0,
+          );
+        }
+        return ChatStreamFinished(metrics: metrics);
 
       case RunErrorEvent():
         return ChatStreamError(event.message, code: event.code);

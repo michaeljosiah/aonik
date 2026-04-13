@@ -252,6 +252,12 @@ public static class AguiStreamingEndpoint
         // Accumulate streamed assistant text for post-stream persistence
         var assistantTextBuilder = new System.Text.StringBuilder();
 
+        // ── Performance metrics ─────────────────────────────────────────
+        var stopwatch = Stopwatch.StartNew();
+        long inputTokens = 0;
+        long outputTokens = 0;
+        long? timeToFirstTokenMs = null;
+
         try
         {
             // Convert AG-UI messages to M.E.AI ChatMessage list.
@@ -318,6 +324,7 @@ public static class AguiStreamingEndpoint
                         case TextContent textContent when !string.IsNullOrEmpty(textContent.Text):
                             if (!messageStarted)
                             {
+                                timeToFirstTokenMs ??= stopwatch.ElapsedMilliseconds;
                                 await WriteSseEventAsync(context.Response, new
                                 {
                                     type = "TEXT_MESSAGE_START",
@@ -393,6 +400,11 @@ public static class AguiStreamingEndpoint
                                 delta = reasoningContent.Text,
                             }, cancellationToken);
                             break;
+
+                        case UsageContent usageContent:
+                            inputTokens += usageContent.Details.InputTokenCount ?? 0;
+                            outputTokens += usageContent.Details.OutputTokenCount ?? 0;
+                            break;
                     }
                 }
 
@@ -430,12 +442,28 @@ public static class AguiStreamingEndpoint
                 }, cancellationToken);
             }
 
-            // Emit RUN_FINISHED
+            // Emit RUN_FINISHED with performance metrics
+            stopwatch.Stop();
+
+            var metrics = new
+            {
+                inputTokens,
+                outputTokens,
+                totalTokens = inputTokens + outputTokens,
+                latencyMs = stopwatch.ElapsedMilliseconds,
+                timeToFirstTokenMs = timeToFirstTokenMs ?? stopwatch.ElapsedMilliseconds,
+            };
+
+            logger.LogInformation(
+                "AG-UI run {RunId} completed — latency {LatencyMs}ms, TTFT {TimeToFirstTokenMs}ms, tokens {InputTokens}in/{OutputTokens}out",
+                runId, metrics.latencyMs, metrics.timeToFirstTokenMs, inputTokens, outputTokens);
+
             await WriteSseEventAsync(context.Response, new
             {
                 type = "RUN_FINISHED",
                 threadId,
                 runId,
+                metrics,
             }, cancellationToken);
 
             // ── Post-stream thread persistence ──────────────────────────

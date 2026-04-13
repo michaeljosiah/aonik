@@ -155,6 +155,8 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
             }
         }
 
+        var stopwatch = Stopwatch.StartNew();
+
         _logger.LogInformation(
             "Orchestrator processing message for session {SessionId}",
             sessionId);
@@ -214,9 +216,10 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 
         var responseText = response.Text ?? string.Empty;
 
+        stopwatch.Stop();
         _logger.LogInformation(
-            "Orchestrator completed for session {SessionId}. Response length: {Length}",
-            sessionId, responseText.Length);
+            "Orchestrator completed for session {SessionId} — latency {LatencyMs}ms, response length {Length}",
+            sessionId, stopwatch.ElapsedMilliseconds, responseText.Length);
 
         // ── Persist assistant response & generate title ──────────────────
         if (threadId.HasValue)

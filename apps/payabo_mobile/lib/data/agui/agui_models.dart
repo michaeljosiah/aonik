@@ -77,6 +77,9 @@ sealed class AgUiEvent {
         return RunFinishedEvent(
           threadId: json['threadId'] as String?,
           runId: json['runId'] as String?,
+          metrics: json['metrics'] is Map
+              ? Map<String, dynamic>.from(json['metrics'] as Map)
+              : null,
           raw: json,
         );
 
@@ -199,11 +202,15 @@ class RunFinishedEvent extends AgUiEvent {
   const RunFinishedEvent({
     this.threadId,
     this.runId,
+    this.metrics,
     super.raw,
   }) : super(type: AgUiEventType.runFinished);
 
   final String? threadId;
   final String? runId;
+
+  /// Server-side performance metrics (tokens, latency, TTFT).
+  final Map<String, dynamic>? metrics;
 }
 
 class RunErrorEvent extends AgUiEvent {

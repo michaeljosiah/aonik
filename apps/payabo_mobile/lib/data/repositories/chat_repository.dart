@@ -219,7 +219,32 @@ class ChatStreamApprovalRequested extends ChatStreamEvent {
 
 /// The streaming run finished successfully.
 class ChatStreamFinished extends ChatStreamEvent {
-  const ChatStreamFinished();
+  const ChatStreamFinished({this.metrics});
+
+  /// Server-side performance metrics from the RUN_FINISHED event.
+  final ChatRunMetrics? metrics;
+}
+
+/// Server-reported performance metrics for a completed streaming run.
+class ChatRunMetrics {
+  const ChatRunMetrics({
+    this.inputTokens = 0,
+    this.outputTokens = 0,
+    this.totalTokens = 0,
+    this.latencyMs = 0,
+    this.timeToFirstTokenMs = 0,
+  });
+
+  final int inputTokens;
+  final int outputTokens;
+  final int totalTokens;
+  final int latencyMs;
+  final int timeToFirstTokenMs;
+
+  @override
+  String toString() =>
+      'ChatRunMetrics(latency=${latencyMs}ms, ttft=${timeToFirstTokenMs}ms, '
+      'tokens=${inputTokens}in/${outputTokens}out)';
 }
 
 /// An error occurred during the streaming run.
