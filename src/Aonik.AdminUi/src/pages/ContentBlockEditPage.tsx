@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable, type ColumnDef } from '@/components/ui/data-table';
 import { DataTableRowActions } from '@/components/ui/data-table';
-import { ArrowLeft, Save, Plus, Layers, Image } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Layers, Image, Video, FileText, Code, ImageIcon } from 'lucide-react';
 import {
   getContentBlock,
   createContentBlock,
@@ -21,8 +23,37 @@ import {
   type ContentBlockMedia,
 } from '@/services/contentBlockService';
 
-const AREA_OPTIONS = ['General', 'Banner', 'Hero', 'Sidebar', 'Footer', 'MySpaceBanner'];
-const FORMAT_OPTIONS = ['Markdown', 'Html', 'ImageSet', 'Json'];
+const AREA_OPTIONS = [
+  'General', 'Banner', 'Hero', 'Sidebar', 'Footer', 'MySpaceBanner',
+  'CommunityNews', 'CommunityVideo', 'CommunityVideoCategory',
+];
+const FORMAT_OPTIONS = ['Markdown', 'Html', 'ImageSet', 'Json', 'Video'];
+
+const VIDEO_CATEGORIES = [
+  { value: 'getting-started', label: 'Getting Started' },
+  { value: 'budgeting', label: 'Budgeting' },
+  { value: 'bills', label: 'Bills & Payments' },
+  { value: 'tips', label: 'Tips & Tricks' },
+  { value: 'news', label: 'News' },
+];
+
+/** Extract an 11-character YouTube video ID from a URL or bare ID. */
+function extractYouTubeVideoId(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+  // youtube.com/watch?v=ID
+  const longMatch = trimmed.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (longMatch) return longMatch[1];
+  // youtu.be/ID
+  const shortMatch = trimmed.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (shortMatch) return shortMatch[1];
+  // youtube.com/embed/ID or youtube.com/shorts/ID
+  const embedMatch = trimmed.match(/youtube\.com\/(?:embed|shorts)\/([a-zA-Z0-9_-]{11})/);
+  if (embedMatch) return embedMatch[1];
+  // Bare 11-char ID
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  return trimmed;
+}
 
 export function ContentBlockEditPage() {
   const navigate = useNavigate();
@@ -44,6 +75,15 @@ export function ContentBlockEditPage() {
   const [locale, setLocale] = useState('en');
   const [isEnabled, setIsEnabled] = useState(true);
   const [priority, setPriority] = useState(100);
+
+  // Video targeting fields
+  const [youtubeInput, setYoutubeInput] = useState('');
+  const [videoDuration, setVideoDuration] = useState('');
+  const [videoAuthor, setVideoAuthor] = useState('');
+  const [videoCategory, setVideoCategory] = useState('getting-started');
+
+  // Fallback raw targeting JSON for non-Video formats
+  const [rawTargetingJson, setRawTargetingJson] = useState('');
 
   // Media form state
   const [newMediaUrl, setNewMediaUrl] = useState('');
@@ -72,6 +112,23 @@ export function ContentBlockEditPage() {
         setLocale(block.locale);
         setIsEnabled(block.isEnabled);
         setPriority(block.priority);
+
+        // Hydrate targeting fields
+        if (block.targetingJson) {
+          try {
+            const targeting = JSON.parse(block.targetingJson);
+            if (block.format === 'Video') {
+              setYoutubeInput(targeting.youtubeVideoId || '');
+              setVideoDuration(targeting.duration || '');
+              setVideoAuthor(targeting.author || '');
+              setVideoCategory(targeting.category || 'getting-started');
+            } else {
+              setRawTargetingJson(block.targetingJson);
+            }
+          } catch {
+            setRawTargetingJson(block.targetingJson);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load content block:', error);
@@ -81,7 +138,38 @@ export function ContentBlockEditPage() {
     }
   }
 
+  function buildTargetingJson(): string | undefined {
+    if (format === 'Video') {
+      const videoId = extractYouTubeVideoId(youtubeInput);
+      if (!videoId) return undefined;
+      return JSON.stringify({
+        youtubeVideoId: videoId,
+        duration: videoDuration || undefined,
+        author: videoAuthor || undefined,
+        category: videoCategory || undefined,
+      });
+    }
+    return rawTargetingJson.trim() || undefined;
+  }
+
+  function handleFormatChange(newFormat: string) {
+    setFormat(newFormat);
+    // Reset video fields when switching away from Video
+    if (newFormat !== 'Video') {
+      setYoutubeInput('');
+      setVideoDuration('');
+      setVideoAuthor('');
+      setVideoCategory('getting-started');
+    }
+  }
+
   async function handleSave() {
+    // Validation for Video format
+    if (format === 'Video' && !extractYouTubeVideoId(youtubeInput)) {
+      alert('Please enter a valid YouTube URL or video ID.');
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -97,7 +185,7 @@ export function ContentBlockEditPage() {
         startAt: undefined as string | undefined,
         endAt: undefined as string | undefined,
         priority,
-        targetingJson: undefined as string | undefined,
+        targetingJson: buildTargetingJson(),
       };
 
       if (isNew) {
@@ -151,6 +239,9 @@ export function ContentBlockEditPage() {
       alert('Failed to remove media');
     }
   }
+
+  // Derived state for video thumbnail preview
+  const extractedVideoId = extractYouTubeVideoId(youtubeInput);
 
   const mediaColumns: ColumnDef<ContentBlockMedia>[] = [
     {
@@ -245,9 +336,10 @@ export function ContentBlockEditPage() {
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="media" disabled={isNew}>
+          <TabsList className="bg-transparent p-0 h-auto flex flex-wrap gap-0">
+            <TabsTrigger value="general" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]">General</TabsTrigger>
+            <TabsTrigger value="content" className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]">Content</TabsTrigger>
+            <TabsTrigger value="media" disabled={isNew} className="px-4 py-3 text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--color-brand-primary)] data-[state=active]:bg-transparent data-[state=active]:text-[var(--color-brand-primary)]">
               Media ({contentBlock?.media.length || 0})
             </TabsTrigger>
           </TabsList>
@@ -298,81 +390,78 @@ export function ContentBlockEditPage() {
                   />
                 </div>
 
-                {/* Area */}
-                <div className="space-y-2">
-                  <Label htmlFor="area">Area *</Label>
-                  <Select value={area} onValueChange={setArea}>
-                    <SelectTrigger id="area">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {AREA_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    Determines where this content block can be used in the application.
-                  </p>
+                {/* Area & Format side by side */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Area */}
+                  <div className="space-y-2">
+                    <Label htmlFor="area">Area *</Label>
+                    <Select value={area} onValueChange={setArea}>
+                      <SelectTrigger id="area">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AREA_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      Determines where this content block can be used in the application.
+                    </p>
+                  </div>
+
+                  {/* Format */}
+                  <div className="space-y-2">
+                    <Label htmlFor="format">Format *</Label>
+                    <Select value={format} onValueChange={handleFormatChange}>
+                      <SelectTrigger id="format">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FORMAT_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      Determines the content editing experience and how the body is interpreted.
+                    </p>
+                  </div>
                 </div>
 
-                {/* Format */}
-                <div className="space-y-2">
-                  <Label htmlFor="format">Format *</Label>
-                  <Select value={format} onValueChange={setFormat}>
-                    <SelectTrigger id="format">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FORMAT_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Locale & Priority side by side */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Locale */}
+                  <div className="space-y-2">
+                    <Label htmlFor="locale">Locale *</Label>
+                    <Input
+                      id="locale"
+                      value={locale}
+                      onChange={(e) => setLocale(e.target.value)}
+                      placeholder="e.g., en"
+                    />
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      ISO language code (e.g., en, fr, es)
+                    </p>
+                  </div>
 
-                {/* Locale */}
-                <div className="space-y-2">
-                  <Label htmlFor="locale">Locale *</Label>
-                  <Input
-                    id="locale"
-                    value={locale}
-                    onChange={(e) => setLocale(e.target.value)}
-                    placeholder="e.g., en"
-                  />
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    ISO language code (e.g., en, fr, es)
-                  </p>
-                </div>
-
-                {/* Priority */}
-                <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Input
-                    id="priority"
-                    type="number"
-                    value={priority}
-                    onChange={(e) => setPriority(parseInt(e.target.value) || 0)}
-                  />
-                  <p className="text-xs text-[var(--color-text-secondary)]">
-                    Lower numbers display first when multiple blocks are in the same area.
-                  </p>
-                </div>
-
-                {/* Body */}
-                <div className="space-y-2">
-                  <Label htmlFor="body">Body Content</Label>
-                  <Textarea
-                    id="body"
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    placeholder="Markdown, HTML, or JSON content..."
-                    rows={6}
-                  />
+                  {/* Priority */}
+                  <div className="space-y-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Input
+                      id="priority"
+                      type="number"
+                      value={priority}
+                      onChange={(e) => setPriority(parseInt(e.target.value) || 0)}
+                    />
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      Lower numbers display first when multiple blocks are in the same area.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Enabled Switch */}
@@ -391,6 +480,212 @@ export function ContentBlockEditPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ── Content Tab (format-driven) ─────────────────── */}
+          <TabsContent value="content">
+            {format === 'Video' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Video className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    Video Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* YouTube URL */}
+                  <div className="space-y-2">
+                    <Label htmlFor="youtubeInput">YouTube URL or Video ID *</Label>
+                    <Input
+                      id="youtubeInput"
+                      value={youtubeInput}
+                      onChange={(e) => setYoutubeInput(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=... or paste a video ID"
+                    />
+                    {extractedVideoId && /^[a-zA-Z0-9_-]{11}$/.test(extractedVideoId) && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs text-[var(--color-text-secondary)]">
+                          Video ID: <span className="font-mono font-medium text-[var(--color-text-primary)]">{extractedVideoId}</span>
+                        </p>
+                        <img
+                          src={`https://img.youtube.com/vi/${extractedVideoId}/hqdefault.jpg`}
+                          alt="Video thumbnail preview"
+                          className="rounded-lg border border-[var(--color-border-light)] max-w-xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Duration, Author, Category */}
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="videoDuration">Duration</Label>
+                      <Input
+                        id="videoDuration"
+                        value={videoDuration}
+                        onChange={(e) => setVideoDuration(e.target.value)}
+                        placeholder="e.g., 5:32"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="videoAuthor">Author</Label>
+                      <Input
+                        id="videoAuthor"
+                        value={videoAuthor}
+                        onChange={(e) => setVideoAuthor(e.target.value)}
+                        placeholder="e.g., Payabo Team"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="videoCategory">Category</Label>
+                      <Select value={videoCategory} onValueChange={setVideoCategory}>
+                        <SelectTrigger id="videoCategory">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VIDEO_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat.value} value={cat.value}>
+                              {cat.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Description (body) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="videoBody">Description</Label>
+                    <Textarea
+                      id="videoBody"
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      placeholder="A short description of this video..."
+                      rows={4}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : format === 'Markdown' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    Markdown Editor
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="markdownBody">Source</Label>
+                      <Textarea
+                        id="markdownBody"
+                        value={body}
+                        onChange={(e) => setBody(e.target.value)}
+                        placeholder="# Heading&#10;&#10;Write your **markdown** content here..."
+                        rows={16}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Preview</Label>
+                      <div className="rounded-lg border border-[var(--color-border-light)] p-4 min-h-[24rem] overflow-auto prose prose-sm max-w-none text-[var(--color-text-primary)]">
+                        {body ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {body}
+                          </ReactMarkdown>
+                        ) : (
+                          <p className="text-[var(--color-text-secondary)] italic">
+                            Markdown preview will appear here...
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : format === 'Html' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    HTML Editor
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Label htmlFor="htmlBody">HTML Content</Label>
+                  <Textarea
+                    id="htmlBody"
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="<div>Your HTML content here...</div>"
+                    rows={12}
+                    className="font-mono text-sm"
+                  />
+                </CardContent>
+              </Card>
+            ) : format === 'ImageSet' ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    Image Set
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    Use the <span className="font-medium">Media</span> tab to add and manage images for this content block.
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="imageSetBody">Body Content (optional)</Label>
+                    <Textarea
+                      id="imageSetBody"
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      placeholder="Optional caption or description..."
+                      rows={4}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Json or any other format */
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code className="w-5 h-5 text-[var(--color-brand-primary)]" />
+                    JSON / Raw Content
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="jsonBody">Body Content</Label>
+                    <Textarea
+                      id="jsonBody"
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      placeholder='{"key": "value"}'
+                      rows={10}
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="rawTargeting">Targeting JSON (advanced)</Label>
+                    <Textarea
+                      id="rawTargeting"
+                      value={rawTargetingJson}
+                      onChange={(e) => setRawTargetingJson(e.target.value)}
+                      placeholder='Optional targeting metadata...'
+                      rows={4}
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      Additional structured metadata used by the mobile app for content targeting.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="media">

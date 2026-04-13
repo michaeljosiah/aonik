@@ -24,6 +24,7 @@ export interface ContentBlock {
   startAt?: string;
   endAt?: string;
   priority: number;
+  targetingJson?: string;
   aiRunId?: string;
   media: ContentBlockMedia[];
   createdAt: string;
