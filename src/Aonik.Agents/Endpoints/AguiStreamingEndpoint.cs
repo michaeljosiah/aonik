@@ -512,6 +512,33 @@ public static class AguiStreamingEndpoint
                         persistedThreadId.Value);
                 }
             }
+
+            // ── Post-stream AiRun metrics persistence ──────────────────
+            var aiRunWriter = context.RequestServices.GetService<IAiRunWriter>();
+            if (aiRunWriter is not null)
+            {
+                try
+                {
+                    var useCase = input.AgentId ?? "master-orchestrator";
+                    var aiRunId = await aiRunWriter.StartRunAsync(
+                        useCase, $"{{\"threadId\":\"{threadId}\"}}", CancellationToken.None);
+
+                    // Cost is auto-computed inside the writer from the model's CostProfileJson
+                    // when costEstimate is passed as 0 (Agents module cannot reference Ai module).
+                    await aiRunWriter.MarkRunCompletedWithMetricsAsync(
+                        aiRunId,
+                        tokensUsed: (int)(inputTokens + outputTokens),
+                        latencyMs: (int)stopwatch.ElapsedMilliseconds,
+                        costEstimate: 0m,
+                        outputRef: $"tokens:{inputTokens + outputTokens},latency:{stopwatch.ElapsedMilliseconds}ms",
+                        cancellationToken: CancellationToken.None);
+                }
+                catch (Exception aiRunEx)
+                {
+                    logger.LogWarning(aiRunEx,
+                        "AG-UI post-stream AiRun persistence failed for run {RunId}", runId);
+                }
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

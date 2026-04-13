@@ -92,6 +92,46 @@ internal sealed class AiRunWriter : IAiRunWriter
         await UpdateRunOutcomeAsync(aiRunId, "Completed", outputRef, cancellationToken);
     }
 
+    public async Task MarkRunCompletedWithMetricsAsync(
+        Guid aiRunId,
+        int tokensUsed,
+        int latencyMs,
+        decimal costEstimate,
+        string? outputRef = null,
+        CancellationToken cancellationToken = default)
+    {
+        var run = await _dbContext.AiRuns
+            .FirstOrDefaultAsync(item => item.Id == aiRunId, cancellationToken)
+            ?? throw new InvalidOperationException($"AiRun {aiRunId} not found.");
+
+        run.Outcome = "Completed";
+        run.TokensUsed = tokensUsed;
+        run.LatencyMs = latencyMs;
+        run.OutputRef = string.IsNullOrWhiteSpace(outputRef) ? null : outputRef.Trim();
+
+        // Auto-compute cost from the model's CostProfileJson when the caller
+        // passes zero (i.e. the caller didn't have access to model metadata).
+        if (costEstimate != 0m)
+        {
+            run.CostEstimate = costEstimate;
+        }
+        else
+        {
+            var model = await _dbContext.AiModels
+                .FirstOrDefaultAsync(m => m.Id == run.AiModelId, cancellationToken);
+
+            if (model is not null)
+            {
+                // Split tokensUsed evenly as a rough approximation when
+                // separate input/output counts are unavailable.
+                run.CostEstimate = AiCostCalculator.ComputeCost(
+                    tokensUsed / 2, tokensUsed - (tokensUsed / 2), model.CostProfileJson);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task MarkRunFailedAsync(
         Guid aiRunId,
         string failureReason,

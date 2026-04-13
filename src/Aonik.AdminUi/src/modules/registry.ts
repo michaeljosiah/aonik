@@ -7,6 +7,7 @@ import type { ModuleBreadcrumb, ModuleRouteConfig } from './types';
 import { coreModule } from './core';
 import { financeModule } from './finance';
 import { platformModule } from './platform';
+import { agentCommandCenterModule } from './agent-command-center';
 
 // ---------------------------------------------------------------------------
 // Build-time module registry
@@ -17,6 +18,7 @@ const allModules: AdminModule[] = [
   coreModule,
   financeModule,
   platformModule,
+  agentCommandCenterModule,
 ];
 
 /**

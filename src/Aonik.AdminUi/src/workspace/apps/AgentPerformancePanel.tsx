@@ -1,0 +1,268 @@
+import { useState, useEffect, useCallback } from 'react';
+import { RefreshCw } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MetricCard } from '@/components/charts/MetricCard';
+import { MultiLineChart } from '@/components/charts/MultiLineChart';
+import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
+import {
+  observabilityService,
+  type AiPerformanceResponse,
+} from '@/services/observabilityService';
+import type { WorkspacePanelRenderProps } from '../types';
+import { useWorkspaceEvents } from '../useWorkspace';
+
+function fmtMs(ms: number | undefined | null): string {
+  if (ms == null) return '--';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function fmtTokens(n: number | undefined | null): string {
+  if (n == null) return '--';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
+export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderProps) {
+  const { onEvent } = useWorkspaceEvents(panelId);
+  const [data, setData] = useState<AiPerformanceResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [timeRange] = useState('24h');
+
+  const load = useCallback(async () => {
+    try {
+      const result = await observabilityService.getAiPerformance(timeRange);
+      setData(result);
+    } catch {
+      /* swallow */
+    } finally {
+      setLoading(false);
+    }
+  }, [timeRange]);
+
+  useEffect(() => {
+    void load();
+    const interval = setInterval(() => void load(), 30_000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  // Listen for agent selection from fleet panel
+  useEffect(() => {
+    const unsub = onEvent('agent:selected', (event) => {
+      const name = (event.payload?.agentName as string) ?? null;
+      setSelectedAgent(name);
+    });
+    return unsub;
+  }, [onEvent]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading && !data) {
+    return (
+      <div className="h-full overflow-auto p-4">
+        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+          Loading performance data...
+        </p>
+      </div>
+    );
+  }
+
+  if (!data?.configured) {
+    return (
+      <div className="h-full overflow-auto p-4">
+        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+        <p className="text-sm text-[var(--color-text-tertiary)] py-4 text-center">
+          Observability not configured.
+        </p>
+      </div>
+    );
+  }
+
+  // Filter to selected agent if one is active
+  const agentPerf = selectedAgent
+    ? data.byAgent.find((a) => a.agentName === selectedAgent)
+    : null;
+
+  const latency = data.latency;
+  const ttft = data.ttft;
+  const tokens = data.tokenUsage;
+  const clientServer = data.clientServerComparison;
+
+  return (
+    <div className="h-full overflow-auto p-4 space-y-3">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+          <p className="text-xs text-[var(--color-text-secondary)]">
+            {selectedAgent
+              ? `Filtered: ${selectedAgent}`
+              : 'All agents — select one in Fleet to filter.'}
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void handleRefresh()}
+          disabled={refreshing}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      {/* Selected agent stats (if filtered) */}
+      {agentPerf && (
+        <Card>
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-sm font-medium">{agentPerf.agentName}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="text-[var(--color-text-tertiary)]">Runs</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{agentPerf.runs}</p>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-tertiary)]">Avg Latency</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{fmtMs(agentPerf.avgLatencyMs)}</p>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-tertiary)]">P95 Latency</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{fmtMs(agentPerf.p95LatencyMs)}</p>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-tertiary)]">Avg TTFT</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{fmtMs(agentPerf.avgTtftMs)}</p>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-tertiary)]">Input Tokens</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{fmtTokens(agentPerf.totalInputTokens)}</p>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-tertiary)]">Output Tokens</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">{fmtTokens(agentPerf.totalOutputTokens)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Latency percentiles */}
+      {latency && (
+        <div className="grid grid-cols-5 gap-2">
+          <MetricCard label="P50" value={fmtMs(latency.p50Ms)} status="good" />
+          <MetricCard label="P75" value={fmtMs(latency.p75Ms)} />
+          <MetricCard label="P90" value={fmtMs(latency.p90Ms)} />
+          <MetricCard label="P95" value={fmtMs(latency.p95Ms)} status={latency.p95Ms > 10_000 ? 'warning' : undefined} />
+          <MetricCard label="P99" value={fmtMs(latency.p99Ms)} status={latency.p99Ms > 15_000 ? 'critical' : undefined} />
+        </div>
+      )}
+
+      {/* Client vs Server comparison */}
+      {clientServer && (
+        <div className="grid grid-cols-3 gap-2">
+          <MetricCard
+            label="Client Round-Trip"
+            value={fmtMs(clientServer.avgClientRoundTripMs)}
+          />
+          <MetricCard
+            label="Server Latency"
+            value={fmtMs(clientServer.avgServerLatencyMs)}
+          />
+          <MetricCard
+            label="Network Overhead"
+            value={fmtMs(clientServer.avgNetworkOverheadMs)}
+            status={clientServer.avgNetworkOverheadMs > 2_000 ? 'warning' : 'good'}
+          />
+        </div>
+      )}
+
+      {/* Latency & TTFT time series */}
+      {data.latencyTimeSeries.length > 0 && data.ttftTimeSeries.length > 0 && (
+        <MultiLineChart
+          series={[
+            {
+              key: 'latency',
+              label: 'Latency',
+              color: 'var(--color-brand-primary)',
+              data: data.latencyTimeSeries,
+            },
+            {
+              key: 'ttft',
+              label: 'TTFT',
+              color: '#10b981',
+              data: data.ttftTimeSeries,
+            },
+          ]}
+          label="Latency & TTFT Over Time"
+          height={160}
+          formatValue={(v) => fmtMs(v)}
+        />
+      )}
+
+      {/* Token usage */}
+      {tokens && (
+        <div className="grid grid-cols-3 gap-2">
+          <MetricCard label="Input Tokens" value={fmtTokens(tokens.totalInputTokens)} />
+          <MetricCard label="Output Tokens" value={fmtTokens(tokens.totalOutputTokens)} />
+          <MetricCard
+            label="Avg per Run"
+            value={fmtTokens(tokens.avgInputTokensPerRun + tokens.avgOutputTokensPerRun)}
+            subtitle={`${fmtTokens(tokens.avgInputTokensPerRun)} in / ${fmtTokens(tokens.avgOutputTokensPerRun)} out`}
+          />
+        </div>
+      )}
+
+      {/* Token time series */}
+      {data.tokenTimeSeries.length > 0 && (
+        <TimeSeriesChart
+          data={data.tokenTimeSeries}
+          label="Token Usage Over Time"
+          height={140}
+          formatValue={(v) => fmtTokens(v)}
+        />
+      )}
+
+      {/* Per-agent breakdown table */}
+      {data.byAgent.length > 0 && !selectedAgent && (
+        <Card>
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-sm font-medium">Per-Agent Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            <div className="space-y-1">
+              {data.byAgent
+                .sort((a, b) => b.runs - a.runs)
+                .map((agent) => (
+                  <div
+                    key={agent.agentName}
+                    className="grid grid-cols-5 gap-1 text-[11px] text-[var(--color-text-secondary)] py-1 border-b border-[var(--color-border-light)] last:border-0"
+                  >
+                    <span className="font-medium text-[var(--color-text-primary)] truncate col-span-1">
+                      {agent.agentName}
+                    </span>
+                    <span>{agent.runs} runs</span>
+                    <span>{fmtMs(agent.avgLatencyMs)}</span>
+                    <span>{fmtMs(agent.avgTtftMs)} TTFT</span>
+                    <span>{fmtTokens(agent.totalInputTokens + agent.totalOutputTokens)} tok</span>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

@@ -16,6 +16,19 @@ public interface IAiRunWriter
         string? outputRef = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Marks the run as completed and persists token usage, latency, and cost metrics.
+    /// If <paramref name="costEstimate"/> is zero the implementation may auto-compute
+    /// cost from the model's <c>CostProfileJson</c>.
+    /// </summary>
+    Task MarkRunCompletedWithMetricsAsync(
+        Guid aiRunId,
+        int tokensUsed,
+        int latencyMs,
+        decimal costEstimate,
+        string? outputRef = null,
+        CancellationToken cancellationToken = default);
+
     Task MarkRunFailedAsync(
         Guid aiRunId,
         string failureReason,
