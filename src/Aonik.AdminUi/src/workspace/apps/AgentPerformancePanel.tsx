@@ -96,7 +96,6 @@ export function AgentPerformancePanel({ panelId, title }: WorkspacePanelRenderPr
     : null;
 
   const latency = data.latency;
-  const ttft = data.ttft;
   const tokens = data.tokenUsage;
   const clientServer = data.clientServerComparison;
 

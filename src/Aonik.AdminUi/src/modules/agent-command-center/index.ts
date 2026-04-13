@@ -12,7 +12,6 @@ const navigation: NavigationSection[] = [
   {
     id: 'agent-command-center',
     label: 'Command Center',
-    icon: 'Bot',
     items: [],
   },
 ];

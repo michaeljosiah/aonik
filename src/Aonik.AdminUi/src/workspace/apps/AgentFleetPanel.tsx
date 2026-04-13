@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bot, RefreshCw, Activity, AlertTriangle, Zap } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MetricCard } from '@/components/charts/MetricCard';
 import { TimeSeriesChart } from '@/components/charts/TimeSeriesChart';
