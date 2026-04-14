@@ -528,12 +528,16 @@ public class AppInsightsQueryService : IObservabilityService
     private static double ParseDouble(JsonElement[] row, int index)
     {
         if (index >= row.Length) return 0;
-        return row[index].ValueKind switch
+        var raw = row[index].ValueKind switch
         {
             JsonValueKind.Number => row[index].GetDouble(),
             JsonValueKind.String when double.TryParse(row[index].GetString(), out var d) => d,
             _ => 0,
         };
+        // App Insights avg()/percentile() over all-null groups return NaN.
+        // System.Text.Json refuses to serialize NaN/Infinity by default, so
+        // collapse those to 0 at the parse boundary to keep the wire JSON clean.
+        return double.IsFinite(raw) ? raw : 0;
     }
 
     private static string GetString(JsonElement[] row, int index)
