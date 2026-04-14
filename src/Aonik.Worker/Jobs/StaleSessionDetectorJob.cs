@@ -1,6 +1,7 @@
 using Aonik.Agents.Contracts.Services;
 using Aonik.Platform.Entities.Operations;
 using Aonik.Platform.Persistence;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,23 +21,32 @@ internal sealed class StaleSessionDetectorJob : IJob
 
     private readonly IConversationSummaryService _conversationSummaryService;
     private readonly PlatformDbContext _platformDbContext;
+    private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _options;
     private readonly ILogger<StaleSessionDetectorJob> _logger;
 
     public StaleSessionDetectorJob(
         IConversationSummaryService conversationSummaryService,
         PlatformDbContext platformDbContext,
+        ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> options,
         ILogger<StaleSessionDetectorJob> logger)
     {
         _conversationSummaryService = conversationSummaryService;
         _platformDbContext = platformDbContext;
+        _tenantContext = tenantContext;
         _options = options.Value;
         _logger = logger;
     }
 
     public async Task Execute(IJobExecutionContext context)
     {
+        // Seed system-tenant context up-front. ConversationSummaryGenerator
+        // resolves per-thread tenant inside its loop, but the surrounding
+        // stale-thread query plus any cache/audit hooks need a context.
+        _tenantContext.TenantId = Guid.Empty;
+        _tenantContext.ResolutionSource = "system";
+
         var batchSize = _options.StaleSessionDetector.BatchSize;
         var agentNames = await ResolveAgentNamesAsync(context.CancellationToken);
 

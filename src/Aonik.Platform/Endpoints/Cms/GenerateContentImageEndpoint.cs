@@ -54,6 +54,20 @@ internal class GenerateContentImageEndpoint : Endpoint<GenerateContentImageReque
         // Generate image
         var imageBytes = await _imageGenerator.GenerateImageAsync(req.Prompt, req.Width, req.Height, ct);
 
+        // Local-disk storage only works when the BlobStorage provider is "Local".
+        // Hosted environments use a read-only container filesystem, so writing
+        // under App_Data throws UnauthorizedAccessException — degrade with a
+        // clear 422 instead of crashing. (Proper fix: wire IBlobStorage here.)
+        var blobProvider = _configuration["BlobStorage:Provider"] ?? "Local";
+        if (!string.Equals(blobProvider, "Local", StringComparison.OrdinalIgnoreCase))
+        {
+            ThrowError(
+                $"Image generation persistence is not supported for the '{blobProvider}' blob storage provider yet. " +
+                "Switch to local storage in development or wait for the cloud blob writer to be wired in.",
+                422);
+            return;
+        }
+
         // Store to local filesystem
         var localBasePath = _configuration["BlobStorage:LocalBasePath"] ?? "App_Data";
         var contentMediaPath = _configuration["BlobStorage:ContentMedia:Path"] ?? "content-media";

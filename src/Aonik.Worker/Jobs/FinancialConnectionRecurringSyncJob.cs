@@ -1,6 +1,7 @@
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.PersonalFinance;
 using Aonik.Platform.Entities.Operations;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,6 +20,7 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
 
     private readonly FinanceDbContext _financeDbContext;
     private readonly FinancialConnectionTransactionSyncOrchestrator _orchestrator;
+    private readonly ITenantContext _tenantContext;
     private readonly ScheduledJobOptions _jobOptions;
     private readonly FinancialConnectionSyncOptions _syncOptions;
     private readonly ILogger<FinancialConnectionRecurringSyncJob> _logger;
@@ -26,12 +28,14 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
     public FinancialConnectionRecurringSyncJob(
         FinanceDbContext financeDbContext,
         FinancialConnectionTransactionSyncOrchestrator orchestrator,
+        ITenantContext tenantContext,
         IOptions<ScheduledJobOptions> jobOptions,
         IOptions<FinancialConnectionSyncOptions> syncOptions,
         ILogger<FinancialConnectionRecurringSyncJob> logger)
     {
         _financeDbContext = financeDbContext;
         _orchestrator = orchestrator;
+        _tenantContext = tenantContext;
         _jobOptions = jobOptions.Value;
         _syncOptions = syncOptions.Value;
         _logger = logger;
@@ -39,6 +43,13 @@ internal sealed class FinancialConnectionRecurringSyncJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
+        // Seed a system-tenant context up-front so any service we call (or any
+        // EF query filter / cache invalidator on the path) finds a resolved
+        // context instead of throwing "Tenant context not available".
+        // The orchestrator overrides TenantId per-connection inside its loop.
+        _tenantContext.TenantId = Guid.Empty;
+        _tenantContext.ResolutionSource = "system";
+
         if (!_syncOptions.EnableRecurringSync)
         {
             _logger.LogDebug("Linked-account recurring sync is disabled via configuration.");
