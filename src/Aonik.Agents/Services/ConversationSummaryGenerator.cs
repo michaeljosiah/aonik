@@ -47,6 +47,18 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
 
     private static readonly TimeSpan InactivityThreshold = TimeSpan.FromMinutes(15);
 
+    /// <summary>
+    /// Maximum attempts to summarise a single stale session before it is parked.
+    /// Prevents a permanently-failing thread from re-billing OpenAI every 5 minutes.
+    /// </summary>
+    internal const int MaxSummaryAttempts = 3;
+
+    /// <summary>
+    /// Maximum number of memory entries persisted per session. Each memory triggers
+    /// an embedding call, so an unbounded LLM extraction could fan out arbitrarily.
+    /// </summary>
+    internal const int MaxMemoriesPerSession = 20;
+
     /// <inheritdoc />
     public Task GenerateSummaryAsync(Guid chatThreadId, CancellationToken cancellationToken = default)
         => GenerateAsync(chatThreadId, cancellationToken);
@@ -68,7 +80,8 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
                 && t.LastMessageAt < cutoff
                 && t.MessageCount > 0
                 && t.AgentName != null
-                && agentNames.Contains(t.AgentName))
+                && agentNames.Contains(t.AgentName)
+                && t.SummaryAttemptCount < MaxSummaryAttempts)
             .Where(t => !_dbContext.ConversationSummaries.Any(s => s.ChatThreadId == t.Id))
             .Select(t => t.Id)
             .Take(batchSize)
@@ -122,6 +135,23 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
             _logger.LogDebug("ChatThread {ChatThreadId} has no messages, skipping summary.", chatThreadId);
             return;
         }
+
+        if (thread.SummaryAttemptCount >= MaxSummaryAttempts)
+        {
+            _logger.LogWarning(
+                "ChatThread {ChatThreadId} has reached the maximum summary attempt count ({MaxAttempts}); skipping to prevent runaway OpenAI spend.",
+                chatThreadId,
+                MaxSummaryAttempts);
+            return;
+        }
+
+        // Stamp the attempt counter durably BEFORE the LLM calls. If the chat completion
+        // throws (timeout, rate limit, malformed response, etc.) we still incremented the
+        // counter, so the stale-session detector won't re-process this thread next cycle.
+        // Without this, a single broken thread would re-bill OpenAI every 5 minutes forever.
+        thread.SummaryAttemptCount++;
+        thread.SummaryLastAttemptedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Build conversation transcript for the LLM
         var transcript = BuildTranscript(thread.Messages);
@@ -226,6 +256,17 @@ internal sealed class ConversationSummaryGenerator : Contracts.Services.IConvers
             {
                 _logger.LogDebug("No learnable memories extracted from conversation for User {UserId}.", userId);
                 return;
+            }
+
+            // Hard cap to prevent a runaway extraction from triggering an unbounded number of
+            // embedding calls. Each memory persisted via QdrantUserMemoryService.SetEntryAsync
+            // generates an embedding via OpenAI/Azure OpenAI.
+            if (memories.Count > MaxMemoriesPerSession)
+            {
+                _logger.LogWarning(
+                    "Memory extraction returned {Count} entries for User {UserId}, exceeding the per-session cap of {Cap}. Truncating.",
+                    memories.Count, userId, MaxMemoriesPerSession);
+                memories = memories.Take(MaxMemoriesPerSession).ToList();
             }
 
             _logger.LogInformation(

@@ -31,6 +31,15 @@ internal class ChatThreadConfiguration : IEntityTypeConfiguration<ChatThread>
         builder.HasIndex(x => new { x.TenantId, x.UserId, x.LastMessageAt })
             .HasDatabaseName("IX_ChatThreads_TenantId_UserId_LastMessageAt");
 
+        builder.Property(x => x.SummaryAttemptCount)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        // Supports the stale-session detector query which filters by Status,
+        // LastMessageAt, and SummaryAttemptCount.
+        builder.HasIndex(x => new { x.Status, x.LastMessageAt, x.SummaryAttemptCount })
+            .HasDatabaseName("IX_ChatThreads_Status_LastMessageAt_SummaryAttemptCount");
+
         builder.HasMany(x => x.Messages)
             .WithOne(x => x.ChatThread)
             .HasForeignKey(x => x.ChatThreadId)

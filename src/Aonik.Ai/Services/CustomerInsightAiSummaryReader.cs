@@ -47,6 +47,28 @@ internal sealed class CustomerInsightAiSummaryReader : ICustomerInsightAiSummary
         return summary is null ? null : Map(summary);
     }
 
+    public async Task<IReadOnlyCollection<Guid>> GetSnapshotIdsWithExistingSummariesAsync(
+        IReadOnlyCollection<Guid> snapshotIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (snapshotIds.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var ids = await _dbContext.CustomerInsightAiSummaries
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(x => snapshotIds.Contains(x.CustomerInsightSnapshotId)
+                && (x.Status == CustomerInsightAiSummaryContract.StatusCurrent
+                    || x.Status == CustomerInsightAiSummaryContract.StatusFailed))
+            .Select(x => x.CustomerInsightSnapshotId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return ids;
+    }
+
     private static CustomerInsightAiSummaryResponse Map(CustomerInsightAiSummary summary)
     {
         CustomerInsightAiSummaryDocument? document = null;

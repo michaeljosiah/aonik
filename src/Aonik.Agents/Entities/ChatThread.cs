@@ -28,5 +28,18 @@ public class ChatThread : AuditableEntity, ITenantScoped
     /// </summary>
     public string? MetadataJson { get; set; }
 
+    /// <summary>
+    /// Number of times the stale-session detector has attempted to summarise this thread.
+    /// Incremented before each LLM call so that failures (which would otherwise leave no
+    /// <see cref="ConversationSummary"/> row) cannot cause infinite retries every 5 minutes.
+    /// Threads exceeding the retry threshold are excluded from the stale-session query.
+    /// </summary>
+    public int SummaryAttemptCount { get; set; }
+
+    /// <summary>
+    /// Timestamp of the most recent summary-generation attempt (success or failure).
+    /// </summary>
+    public DateTime? SummaryLastAttemptedAt { get; set; }
+
     public List<ChatThreadMessage> Messages { get; set; } = new();
 }

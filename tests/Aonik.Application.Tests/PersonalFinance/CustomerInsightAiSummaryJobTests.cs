@@ -242,7 +242,10 @@ public class CustomerInsightAiSummaryJobTests
     {
         var tenantContext = new TestTenantContext { TenantId = Guid.NewGuid(), ResolutionSource = "test" };
         var tenantProvider = new ContextTenantProvider(tenantContext);
+        var currentUserProvider = new StaticCurrentUserProvider();
+        var clock = new TestClock(new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc));
         using var financeDbContext = CreateFinanceDbContext(tenantProvider);
+        using var aiDbContext = CreateAiDbContext(tenantProvider, currentUserProvider, clock);
 
         var tenantA = Guid.Parse("70000000-0000-0000-0000-000000000001");
         var tenantB = Guid.Parse("70000000-0000-0000-0000-000000000002");
@@ -254,7 +257,8 @@ public class CustomerInsightAiSummaryJobTests
         SeedSnapshot(financeDbContext, tenantA, userB, Guid.Parse("72000000-0000-0000-0000-000000000002"));
         SeedSnapshot(financeDbContext, tenantA, userA, Guid.Parse("72000000-0000-0000-0000-000000000001"));
 
-        var enumerator = new CustomerInsightAiSummaryJobSnapshotEnumerator(financeDbContext);
+        var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
+        var enumerator = new CustomerInsightAiSummaryJobSnapshotEnumerator(financeDbContext, summaryReader);
 
         var firstBatch = await enumerator.GetNextBatchAsync(null, 2);
         var secondBatch = await enumerator.GetNextBatchAsync(
@@ -267,6 +271,68 @@ public class CustomerInsightAiSummaryJobTests
 
         secondBatch.Should().Equal(
             new CustomerInsightAiSummaryJobSnapshotTarget(tenantB, userC, Guid.Parse("72000000-0000-0000-0000-000000000003")));
+    }
+
+    [Fact]
+    public async Task SnapshotEnumerator_ShouldExcludeSnapshots_WithExistingCurrentOrFailedSummary()
+    {
+        // Regression test for the runaway OpenAI spend bug discovered on 2026-04-14.
+        // Without this exclusion, every cron sweep re-bills OpenAI for every active
+        // user's snapshot — even ones already summarised.
+        var tenantContext = new TestTenantContext { TenantId = Guid.NewGuid(), ResolutionSource = "test" };
+        var tenantProvider = new ContextTenantProvider(tenantContext);
+        var currentUserProvider = new StaticCurrentUserProvider();
+        var clock = new TestClock(new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc));
+        using var financeDbContext = CreateFinanceDbContext(tenantProvider);
+        using var aiDbContext = CreateAiDbContext(tenantProvider, currentUserProvider, clock);
+
+        var tenantId = Guid.Parse("76000000-0000-0000-0000-000000000001");
+        var userId = Guid.Parse("76000000-0000-0000-0000-000000000002");
+        var summarisedSnapshotId = Guid.Parse("77000000-0000-0000-0000-000000000001");
+        var failedSnapshotId = Guid.Parse("77000000-0000-0000-0000-000000000002");
+        var pendingSnapshotId = Guid.Parse("77000000-0000-0000-0000-000000000003");
+        var supersededSnapshotId = Guid.Parse("77000000-0000-0000-0000-000000000004");
+
+        SeedSnapshot(financeDbContext, tenantId, userId, summarisedSnapshotId);
+        SeedSnapshot(financeDbContext, tenantId, userId, failedSnapshotId);
+        SeedSnapshot(financeDbContext, tenantId, userId, pendingSnapshotId);
+        SeedSnapshot(financeDbContext, tenantId, userId, supersededSnapshotId);
+
+        SeedSummary(aiDbContext, tenantId, userId, summarisedSnapshotId, CustomerInsightAiSummaryContract.StatusCurrent);
+        SeedSummary(aiDbContext, tenantId, userId, failedSnapshotId, CustomerInsightAiSummaryContract.StatusFailed);
+        SeedSummary(aiDbContext, tenantId, userId, supersededSnapshotId, CustomerInsightAiSummaryContract.StatusSuperseded);
+
+        var summaryReader = new CustomerInsightAiSummaryReader(aiDbContext);
+        var enumerator = new CustomerInsightAiSummaryJobSnapshotEnumerator(financeDbContext, summaryReader);
+
+        var batch = await enumerator.GetNextBatchAsync(null, batchSize: 50);
+
+        // Only the pending snapshot (no summary) and the superseded one (eligible for re-summary)
+        // should be returned. Current and Failed are excluded.
+        batch.Select(x => x.CustomerInsightSnapshotId).Should().BeEquivalentTo(
+            new[] { pendingSnapshotId, supersededSnapshotId });
+    }
+
+    private static void SeedSummary(
+        AiDbContext aiDbContext,
+        Guid tenantId,
+        Guid userId,
+        Guid snapshotId,
+        string status)
+    {
+        aiDbContext.CustomerInsightAiSummaries.Add(new CustomerInsightAiSummary
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            UserId = userId,
+            CustomerInsightSnapshotId = snapshotId,
+            AiRunId = Guid.NewGuid(),
+            Status = status,
+            AsOfUtc = new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Utc),
+            NarrativeVersion = CustomerInsightAiSummaryContract.BuildNarrativeVersion("model-a"),
+            SummaryJson = "{}"
+        });
+        aiDbContext.SaveChanges();
     }
 
     [Fact]
@@ -328,7 +394,7 @@ public class CustomerInsightAiSummaryJobTests
             new AiRunWriter(aiDbContext, tenantProvider, currentUserProvider),
             clock,
             NullLogger<CustomerInsightAiSummaryService>.Instance);
-        var enumerator = new CustomerInsightAiSummaryJobSnapshotEnumerator(financeDbContext);
+        var enumerator = new CustomerInsightAiSummaryJobSnapshotEnumerator(financeDbContext, summaryReader);
         var job = new CustomerInsightAiSummaryJob(
             enumerator,
             summaryService,

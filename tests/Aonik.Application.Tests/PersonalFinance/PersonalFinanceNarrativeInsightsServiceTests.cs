@@ -313,6 +313,11 @@ public class PersonalFinanceNarrativeInsightsServiceTests
 
         public Task<CustomerInsightAiSummaryResponse?> GetSummaryAsync(Guid summaryId, CancellationToken cancellationToken = default)
             => Task.FromResult(_summary?.Id == summaryId ? _summary : null);
+
+        public Task<IReadOnlyCollection<Guid>> GetSnapshotIdsWithExistingSummariesAsync(
+            IReadOnlyCollection<Guid> snapshotIds,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
     }
 
     private sealed class FakeInsightWriter : IInsightWriter
