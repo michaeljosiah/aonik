@@ -1,9 +1,12 @@
 using Aonik.Ai.Contracts.Services;
 using Aonik.Ai.Middleware;
+using Aonik.Ai.Observability;
 using Aonik.Ai.Persistence;
 using Aonik.Ai.Providers;
 using Aonik.Ai.Services;
+using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -96,9 +99,14 @@ public sealed class AiModule : IModule
             // in OpenTelemetry traces. Only enable in development/testing environments.
             var enableSensitiveData = configuration.GetValue<bool>("AI:OpenTelemetry:EnableSensitiveData");
 
-            // Build the middleware pipeline: innerClient -> OpenTelemetry -> AuditMiddleware
-            // OpenTelemetry is outermost to capture the full request lifecycle including
-            // chat spans and tool execution spans per GenAI semantic conventions.
+            // Build the middleware pipeline:
+            //   innerClient -> OpenTelemetry -> AuditMiddleware -> TelemetryChatClient (outermost)
+            //
+            // TelemetryChatClient is intentionally last so it observes every
+            // LLM call regardless of caller (chat endpoint, summariser,
+            // projector, agent tool) and emits one structured `AiCallCompleted`
+            // log + meter measurement per call. This is the source of truth
+            // for the observability dashboard's AI tab.
             return innerClient
                 .AsBuilder()
                 .UseOpenTelemetry(
@@ -108,6 +116,11 @@ public sealed class AiModule : IModule
                     inner,
                     sp.GetRequiredService<IAiRunWriter>(),
                     sp.GetRequiredService<ILogger<AuditMiddleware>>()))
+                .Use((inner, _) => new TelemetryChatClient(
+                    inner,
+                    sp.GetRequiredService<ILogger<TelemetryChatClient>>(),
+                    sp.GetService<ITenantContext>(),
+                    sp.GetService<ICurrentUserProvider>()))
                 .Build();
         });
 

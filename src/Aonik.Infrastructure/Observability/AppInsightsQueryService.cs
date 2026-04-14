@@ -236,32 +236,49 @@ public class AppInsightsQueryService : IObservabilityService
     {
         var (appId, apiKey) = await GetCredentialsAsync(cancellationToken);
         if (appId is null || apiKey is null)
-            return new AiPerformanceResponse(false, null, null, null, [], null, [], [], []);
+            return new AiPerformanceResponse(false, null, null, null, [], null, [], [], [], []);
 
         var range = ParseTimeRange(timeRange);
 
-        // ── Server-side metrics from AguiRunCompleted structured logs ──
-        // ILogger output flows through OTel to App Insights traces table.
-        // Structured properties land in customDimensions.
+        // ── Server-side metrics from AiCallCompleted structured logs ───
+        // Emitted by TelemetryChatClient (Aonik.Ai.Observability) as the
+        // outermost IChatClient decorator, so EVERY LLM call lands here —
+        // chat endpoint, summariser, projector, agent tools. Properties
+        // flow through OTel into customDimensions on the traces table.
+        //
+        // The legacy `AguiRunCompleted` log is still emitted by the AG-UI
+        // streaming endpoint but is now a strict subset of AiCallCompleted.
+        // The per-agent panel groups by `UseCase` instead of `AgentName`
+        // so background callers (e.g. conversation.summary) show up too.
 
         var latencyDistTask = CachedQueryAsync(
             $"observability:aiPerf:latencyDist:{timeRange}", appId, apiKey,
-            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend latencyMs = todouble(customDimensions[\"LatencyMs\"]) | where isnotempty(latencyMs) | summarize p50=percentile(latencyMs, 50), p75=percentile(latencyMs, 75), p90=percentile(latencyMs, 90), p95=percentile(latencyMs, 95), p99=percentile(latencyMs, 99)",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend latencyMs = todouble(customDimensions[\"LatencyMs\"]) | where isnotempty(latencyMs) | summarize p50=percentile(latencyMs, 50), p75=percentile(latencyMs, 75), p90=percentile(latencyMs, 90), p95=percentile(latencyMs, 95), p99=percentile(latencyMs, 99)",
             cancellationToken);
 
         var ttftDistTask = CachedQueryAsync(
             $"observability:aiPerf:ttftDist:{timeRange}", appId, apiKey,
-            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend ttftMs = todouble(customDimensions[\"TtftMs\"]) | where isnotempty(ttftMs) | summarize p50=percentile(ttftMs, 50), p75=percentile(ttftMs, 75), p90=percentile(ttftMs, 90), p95=percentile(ttftMs, 95), p99=percentile(ttftMs, 99)",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend ttftMs = todouble(customDimensions[\"TtftMs\"]) | where isnotempty(ttftMs) | summarize p50=percentile(ttftMs, 50), p75=percentile(ttftMs, 75), p90=percentile(ttftMs, 90), p95=percentile(ttftMs, 95), p99=percentile(ttftMs, 99)",
             cancellationToken);
 
         var tokenUsageTask = CachedQueryAsync(
             $"observability:aiPerf:tokenUsage:{timeRange}", appId, apiKey,
-            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend inputTokens = tolong(customDimensions[\"InputTokens\"]), outputTokens = tolong(customDimensions[\"OutputTokens\"]) | summarize totalInput=sum(inputTokens), totalOutput=sum(outputTokens), avgInput=avg(todouble(inputTokens)), avgOutput=avg(todouble(outputTokens)), runs=count()",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend inputTokens = tolong(customDimensions[\"InputTokens\"]), outputTokens = tolong(customDimensions[\"OutputTokens\"]) | summarize totalInput=sum(inputTokens), totalOutput=sum(outputTokens), avgInput=avg(todouble(inputTokens)), avgOutput=avg(todouble(outputTokens)), runs=count()",
             cancellationToken);
 
+        // ByAgent stays sourced from AguiRunCompleted (chat-only) so the
+        // agent-specific workspace panels keep their per-agent grouping.
         var byAgentTask = CachedQueryAsync(
             $"observability:aiPerf:byAgent:{timeRange}", appId, apiKey,
             $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend agentName = tostring(customDimensions[\"AgentName\"]), latencyMs = todouble(customDimensions[\"LatencyMs\"]), ttftMs = todouble(customDimensions[\"TtftMs\"]), inputTokens = tolong(customDimensions[\"InputTokens\"]), outputTokens = tolong(customDimensions[\"OutputTokens\"]) | summarize runs=count(), avgLatency=avg(latencyMs), p95Latency=percentile(latencyMs, 95), avgTtft=avg(ttftMs), p95Ttft=percentile(ttftMs, 95), totalInput=sum(inputTokens), totalOutput=sum(outputTokens) by agentName | order by runs desc",
+            cancellationToken);
+
+        // ByUseCase covers EVERY LLM call from the new TelemetryChatClient
+        // — including background summariser/projector/tool calls that AG-UI
+        // never sees. Sums EstimatedCostUsd for the AI Spend card.
+        var byUseCaseTask = CachedQueryAsync(
+            $"observability:aiPerf:byUseCase:{timeRange}", appId, apiKey,
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend useCase = tostring(customDimensions[\"UseCase\"]), latencyMs = todouble(customDimensions[\"LatencyMs\"]), ttftMs = todouble(customDimensions[\"TtftMs\"]), inputTokens = tolong(customDimensions[\"InputTokens\"]), outputTokens = tolong(customDimensions[\"OutputTokens\"]), costUsd = todouble(customDimensions[\"EstimatedCostUsd\"]) | summarize calls=count(), avgLatency=avg(latencyMs), p95Latency=percentile(latencyMs, 95), avgTtft=avg(ttftMs), p95Ttft=percentile(ttftMs, 95), totalInput=sum(inputTokens), totalOutput=sum(outputTokens), totalCost=sum(costUsd) by useCase | order by calls desc",
             cancellationToken);
 
         // ── Client-side metrics from ChatClientMetrics structured logs ──
@@ -275,21 +292,21 @@ public class AppInsightsQueryService : IObservabilityService
 
         var latencyTsTask = CachedQueryAsync(
             $"observability:aiPerf:latencyTs:{timeRange}", appId, apiKey,
-            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend latencyMs = todouble(customDimensions[\"LatencyMs\"]) | summarize avg(latencyMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend latencyMs = todouble(customDimensions[\"LatencyMs\"]) | summarize avg(latencyMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
             cancellationToken);
 
         var ttftTsTask = CachedQueryAsync(
             $"observability:aiPerf:ttftTs:{timeRange}", appId, apiKey,
-            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend ttftMs = todouble(customDimensions[\"TtftMs\"]) | summarize avg(ttftMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend ttftMs = todouble(customDimensions[\"TtftMs\"]) | summarize avg(ttftMs) by bin(timestamp, {range.Bin}) | order by timestamp asc",
             cancellationToken);
 
         var tokenTsTask = CachedQueryAsync(
             $"observability:aiPerf:tokenTs:{timeRange}", appId, apiKey,
-            $"traces | where timestamp > {range.Ago} | where message startswith \"AguiRunCompleted\" | extend totalTokens = tolong(customDimensions[\"TotalTokens\"]) | summarize sum(totalTokens) by bin(timestamp, {range.Bin}) | order by timestamp asc",
+            $"traces | where timestamp > {range.Ago} | where message startswith \"AiCallCompleted\" | extend totalTokens = tolong(customDimensions[\"TotalTokens\"]) | summarize sum(totalTokens) by bin(timestamp, {range.Bin}) | order by timestamp asc",
             cancellationToken);
 
         await Task.WhenAll(latencyDistTask, ttftDistTask, tokenUsageTask,
-            byAgentTask, clientServerTask, latencyTsTask, ttftTsTask, tokenTsTask);
+            byAgentTask, byUseCaseTask, clientServerTask, latencyTsTask, ttftTsTask, tokenTsTask);
 
         // ── Parse latency distribution ──────────────────────────────────
 
@@ -346,6 +363,20 @@ public class AppInsightsQueryService : IObservabilityService
             (long)ParseDouble(r, 6),
             (long)ParseDouble(r, 7))).ToList();
 
+        // ── Parse per-use-case breakdown ────────────────────────────────
+
+        var useCaseRows = byUseCaseTask.Result;
+        var byUseCase = useCaseRows.Select(r => new AiUseCasePerformance(
+            GetString(r, 0),
+            (long)ParseDouble(r, 1),
+            Math.Round(ParseDouble(r, 2), 2),
+            Math.Round(ParseDouble(r, 3), 2),
+            Math.Round(ParseDouble(r, 4), 2),
+            Math.Round(ParseDouble(r, 5), 2),
+            (long)ParseDouble(r, 6),
+            (long)ParseDouble(r, 7),
+            Math.Round(ParseDouble(r, 8), 4))).ToList();
+
         // ── Parse client vs server comparison ───────────────────────────
 
         var csRows = clientServerTask.Result;
@@ -373,7 +404,7 @@ public class AppInsightsQueryService : IObservabilityService
             ParseDateTime(r, 0), ParseDouble(r, 1))).ToList();
 
         return new AiPerformanceResponse(true, latency, ttft, tokenUsage,
-            byAgent, clientServer, latencyTs, ttftTs, tokenTs);
+            byAgent, clientServer, latencyTs, ttftTs, tokenTs, byUseCase);
     }
 
     // ── Credentials ──────────────────────────────────────────────────

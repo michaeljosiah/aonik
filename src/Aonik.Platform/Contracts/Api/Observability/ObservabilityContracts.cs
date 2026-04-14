@@ -110,6 +110,20 @@ public record AiAgentPerformance(
     double AvgTtftMs, double P95TtftMs,
     long TotalInputTokens, long TotalOutputTokens);
 
+/// <summary>
+/// Per-use-case slice of AiCallCompleted telemetry — covers every LLM call
+/// (chat, summariser, projector, tools), not just AG-UI agent runs. The
+/// "use case" string is supplied by callers via
+/// <c>ChatOptions.AdditionalProperties["aonik.use_case"]</c> (defaults to
+/// "chat" when unset).
+/// </summary>
+public record AiUseCasePerformance(
+    string UseCase, long Calls,
+    double AvgLatencyMs, double P95LatencyMs,
+    double AvgTtftMs, double P95TtftMs,
+    long TotalInputTokens, long TotalOutputTokens,
+    double EstimatedCostUsd);
+
 public record AiClientServerComparison(
     double AvgClientRoundTripMs, double AvgServerLatencyMs,
     double AvgNetworkOverheadMs,
@@ -124,4 +138,5 @@ public record AiPerformanceResponse(
     AiClientServerComparison? ClientServerComparison,
     IReadOnlyList<TimeSeriesPoint> LatencyTimeSeries,
     IReadOnlyList<TimeSeriesPoint> TtftTimeSeries,
-    IReadOnlyList<TimeSeriesPoint> TokenTimeSeries);
+    IReadOnlyList<TimeSeriesPoint> TokenTimeSeries,
+    IReadOnlyList<AiUseCasePerformance> ByUseCase);

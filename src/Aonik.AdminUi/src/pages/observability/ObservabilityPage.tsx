@@ -409,6 +409,17 @@ export function ObservabilityPage() {
     if (aiError) return <TabError message={aiError} />;
     if (!aiData) return null;
 
+    const totalEstimatedCostUsd = (aiData.byUseCase ?? []).reduce(
+      (sum, uc) => sum + (uc.estimatedCostUsd ?? 0),
+      0,
+    );
+    const totalCallsAcrossUseCases = (aiData.byUseCase ?? []).reduce(
+      (sum, uc) => sum + uc.calls,
+      0,
+    );
+    const formatUsd = (v: number) =>
+      v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(4)}`;
+
     return (
       <div className="space-y-6">
         {!aiData.configured && <NotConfiguredBanner />}
@@ -450,6 +461,46 @@ export function ObservabilityPage() {
             }
           />
         </div>
+
+        {/* AI Spend row — surfaced from TelemetryChatClient cost catalog */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-[var(--color-text-secondary)]">
+                AI Spend (estimated)
+              </h3>
+              <span className="text-xs text-[var(--color-text-tertiary)]">
+                {formatNumber(totalCallsAcrossUseCases)} calls across{' '}
+                {(aiData.byUseCase ?? []).length} use cases
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricCard label="Total" value={formatUsd(totalEstimatedCostUsd)} />
+              <MetricCard
+                label="Top Use Case"
+                value={
+                  (aiData.byUseCase ?? [])[0]?.useCase ?? '—'
+                }
+              />
+              <MetricCard
+                label="Top Use Case Cost"
+                value={
+                  (aiData.byUseCase ?? [])[0]
+                    ? formatUsd((aiData.byUseCase ?? [])[0].estimatedCostUsd)
+                    : '—'
+                }
+              />
+              <MetricCard
+                label="Avg $/Call"
+                value={
+                  totalCallsAcrossUseCases > 0
+                    ? formatUsd(totalEstimatedCostUsd / totalCallsAcrossUseCases)
+                    : '—'
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Charts row — latency + TTFT side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -576,6 +627,92 @@ export function ObservabilityPage() {
                       className="px-4 py-8 text-center text-[var(--color-text-tertiary)]"
                     >
                       No agent data available
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        {/* Per-use-case breakdown — sourced from AiCallCompleted (covers
+            background summariser/projector/tool calls, not just AG-UI). */}
+        <Card>
+          <CardContent className="p-0">
+            <div className="px-4 py-3 border-b border-[var(--color-border-light)]">
+              <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
+                By Use Case
+              </h3>
+              <p className="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+                Every LLM call observed by TelemetryChatClient — chat,
+                summariser, projector, agent tools.
+              </p>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--color-border-light)]">
+                  <th className="px-4 py-3 text-left font-medium text-[var(--color-text-secondary)]">
+                    Use Case
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Calls
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Avg Latency
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    P95 Latency
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Input Tokens
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Output Tokens
+                  </th>
+                  <th className="px-4 py-3 text-right font-medium text-[var(--color-text-secondary)]">
+                    Est. Cost
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(aiData.byUseCase ?? []).map((uc, idx) => (
+                  <tr
+                    key={uc.useCase}
+                    className={`border-b border-[var(--color-border-light)] ${
+                      idx % 2 === 1 ? 'bg-[var(--color-surface-inset)]' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-[var(--color-text-primary)] font-medium">
+                      {uc.useCase || '(unset)'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatNumber(uc.calls)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatMs(uc.avgLatencyMs)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatMs(uc.p95LatencyMs)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatNumber(uc.totalInputTokens)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatNumber(uc.totalOutputTokens)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-[var(--color-text-primary)]">
+                      {formatUsd(uc.estimatedCostUsd)}
+                    </td>
+                  </tr>
+                ))}
+                {(aiData.byUseCase ?? []).length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-[var(--color-text-tertiary)]"
+                    >
+                      No use-case data yet — TelemetryChatClient emits its
+                      first AiCallCompleted log on the next LLM call.
                     </td>
                   </tr>
                 )}

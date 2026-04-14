@@ -65,6 +65,7 @@ public static class Extensions
                     .AddRuntimeInstrumentation()
                     // AI / Agent Framework metrics (GenAI semantic conventions)
                     .AddMeter("Aonik.Ai")
+                    .AddMeter("Aonik.Ai.Calls")
                     .AddMeter("*Microsoft.Agents.AI");
             })
             .WithTracing(tracing =>
