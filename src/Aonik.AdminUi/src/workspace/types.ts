@@ -76,8 +76,9 @@ export interface WorkspaceTemplate {
    *  - `'tabs'` — all panels as tabs in a single group (default)
    *  - `'split-horizontal'` — panels side-by-side (left → right)
    *  - `'split-vertical'` — panels stacked (top → bottom)
+   *  - `'dashboard'` — 2×2 grid (top-left, top-right, bottom-left, bottom-right)
    */
-  layout?: 'tabs' | 'split-horizontal' | 'split-vertical';
+  layout?: 'tabs' | 'split-horizontal' | 'split-vertical' | 'dashboard';
 }
 
 export interface WorkspaceEvent {

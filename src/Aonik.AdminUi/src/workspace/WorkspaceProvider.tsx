@@ -216,18 +216,38 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       isRestoringRef.current = true;
       api.clear();
 
-      const direction = layout === 'split-horizontal' ? 'right' : layout === 'split-vertical' ? 'below' : 'within';
-
-      let basePanel: IDockviewPanel | undefined;
-      panelIds.forEach((panelId, index) => {
-        if (index === 0) {
-          basePanel = addPanelToDock(panelId);
-        } else if (basePanel) {
-          addPanelToDock(panelId, { referencePanel: basePanel, direction });
-        } else {
-          addPanelToDock(panelId);
+      if (layout === 'dashboard' && panelIds.length >= 4) {
+        // Build a 2×2 grid: [topLeft, topRight, bottomLeft, bottomRight]
+        const topLeft = addPanelToDock(panelIds[0]);
+        const topRight = topLeft
+          ? addPanelToDock(panelIds[1], { referencePanel: topLeft, direction: 'right' })
+          : addPanelToDock(panelIds[1]);
+        const bottomLeft = topLeft
+          ? addPanelToDock(panelIds[2], { referencePanel: topLeft, direction: 'below' })
+          : addPanelToDock(panelIds[2]);
+        if (bottomLeft) {
+          addPanelToDock(panelIds[3], { referencePanel: bottomLeft, direction: 'right' });
+        } else if (topRight) {
+          addPanelToDock(panelIds[3], { referencePanel: topRight, direction: 'below' });
         }
-      });
+        // Any remaining panels tab into the last group
+        for (let i = 4; i < panelIds.length; i++) {
+          addPanelToDock(panelIds[i]);
+        }
+      } else {
+        const direction = layout === 'split-horizontal' ? 'right' : layout === 'split-vertical' ? 'below' : 'within';
+
+        let basePanel: IDockviewPanel | undefined;
+        panelIds.forEach((panelId, index) => {
+          if (index === 0) {
+            basePanel = addPanelToDock(panelId);
+          } else if (basePanel) {
+            addPanelToDock(panelId, { referencePanel: basePanel, direction });
+          } else {
+            addPanelToDock(panelId);
+          }
+        });
+      }
 
       setTimeout(() => {
         isRestoringRef.current = false;

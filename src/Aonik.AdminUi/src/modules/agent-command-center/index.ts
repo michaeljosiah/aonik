@@ -27,7 +27,6 @@ const panels: WorkspacePanelConfig[] = [
     category: 'micro-app',
     componentKey: 'agent-fleet',
     appCardId: '30',
-    defaultWidth: 480,
   },
   {
     id: 'agent-performance',
@@ -37,7 +36,6 @@ const panels: WorkspacePanelConfig[] = [
     category: 'micro-app',
     componentKey: 'agent-performance',
     appCardId: '31',
-    defaultWidth: 560,
   },
   {
     id: 'agent-cost',
@@ -47,7 +45,6 @@ const panels: WorkspacePanelConfig[] = [
     category: 'micro-app',
     componentKey: 'agent-cost',
     appCardId: '32',
-    defaultWidth: 480,
   },
   {
     id: 'agent-errors',
@@ -57,7 +54,6 @@ const panels: WorkspacePanelConfig[] = [
     category: 'micro-app',
     componentKey: 'agent-errors',
     appCardId: '33',
-    defaultWidth: 480,
   },
 ];
 
@@ -72,28 +68,14 @@ const panelComponents = {
 
 const workspaceTemplates: WorkspaceTemplate[] = [
   {
-    id: 'agent-command-center-ops',
-    name: 'Agent Operations',
-    description: 'Fleet overview, performance monitoring, and error tracking.',
+    id: 'agent-command-center',
+    name: 'Agent Command Center',
+    description: 'Fleet overview, performance, cost, and error tracking in a single dashboard.',
     icon: 'Bot',
-    panels: ['agent-fleet', 'agent-performance', 'agent-errors'],
-    layout: 'split-horizontal',
-  },
-  {
-    id: 'agent-command-center-cost',
-    name: 'Agent Cost Analysis',
-    description: 'Fleet overview with token and cost breakdown.',
-    icon: 'DollarSign',
-    panels: ['agent-fleet', 'agent-cost'],
-    layout: 'split-horizontal',
-  },
-  {
-    id: 'agent-command-center-full',
-    name: 'Full Command Center',
-    description: 'All agent monitoring panels in a single workspace.',
-    icon: 'LayoutDashboard',
+    // Layout: Fleet (top-left) | Performance (top-right)
+    //         Cost   (bot-left) | Errors     (bot-right)
     panels: ['agent-fleet', 'agent-performance', 'agent-cost', 'agent-errors'],
-    layout: 'split-horizontal',
+    layout: 'dashboard',
   },
 ];
 
